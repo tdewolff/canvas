@@ -395,16 +395,16 @@ func (c *Image) DrawPath(p *Path) {
 	for _, cmd := range p.cmds {
 		switch cmd {
 		case MoveToCmd:
-			c.r.MoveTo(toF32Vec(p.d[i+0]*c.dpm, p.d[i+1]*c.dpm))
+			c.r.MoveTo(ToF32Vec(p.d[i+0]*c.dpm, p.d[i+1]*c.dpm))
 			i += 2
 		case LineToCmd:
-			c.r.LineTo(toF32Vec(p.d[i+0]*c.dpm, p.d[i+1]*c.dpm))
+			c.r.LineTo(ToF32Vec(p.d[i+0]*c.dpm, p.d[i+1]*c.dpm))
 			i += 2
 		case QuadToCmd:
-			c.r.QuadTo(toF32Vec(p.d[i+0]*c.dpm, p.d[i+1]*c.dpm), toF32Vec(p.d[i+2]*c.dpm, p.d[i+3]*c.dpm))
+			c.r.QuadTo(ToF32Vec(p.d[i+0]*c.dpm, p.d[i+1]*c.dpm), ToF32Vec(p.d[i+2]*c.dpm, p.d[i+3]*c.dpm))
 			i += 4
 		case CubeToCmd:
-			c.r.CubeTo(toF32Vec(p.d[i+0]*c.dpm, p.d[i+1]*c.dpm), toF32Vec(p.d[i+2]*c.dpm, p.d[i+3]*c.dpm), toF32Vec(p.d[i+4]*c.dpm, p.d[i+5]*c.dpm))
+			c.r.CubeTo(ToF32Vec(p.d[i+0]*c.dpm, p.d[i+1]*c.dpm), ToF32Vec(p.d[i+2]*c.dpm, p.d[i+3]*c.dpm), ToF32Vec(p.d[i+4]*c.dpm, p.d[i+5]*c.dpm))
 			i += 6
 		case ArcToCmd:
 			x1 := float64(c.r.Pen()[0]) / c.dpm
@@ -436,7 +436,7 @@ func (c *Image) DrawPath(p *Path) {
 				yt2 := cy + ry*math.Sin(a2)
 				ctx := 2*xt1 - xt0/2 - xt2/2
 				cty := 2*yt1 - yt0/2 - yt2/2
-				c.r.QuadTo(toF32Vec(ctx*c.dpm, cty*c.dpm), toF32Vec(xt2*c.dpm, yt2*c.dpm))
+				c.r.QuadTo(ToF32Vec(ctx*c.dpm, cty*c.dpm), ToF32Vec(xt2*c.dpm, yt2*c.dpm))
 			}
 			i += 7
 		case CloseCmd:
@@ -461,6 +461,6 @@ func (c *Image) DrawEllipse(x, y, rx, ry float64) {
 }
 
 func (c *Image) DrawText(x, y float64, s string) {
-	d := font.Drawer{c.img, image.NewUniform(c.color), c.Fonts.fontface, toP26_6(x*c.dpm, y*c.dpm)}
+	d := font.Drawer{c.img, image.NewUniform(c.color), c.Fonts.fontface, ToP26_6(x*c.dpm, y*c.dpm)}
 	d.DrawString(s)
 }

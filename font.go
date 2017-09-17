@@ -56,9 +56,9 @@ func (f *Fonts) SetFont(name string, size float64) {
 }
 
 func (f *Fonts) LineHeight() float64 {
-	return fromI26_6(f.fontface.Metrics().Height) * 0.352778
+	return FromI26_6(f.fontface.Metrics().Height) * 0.352778
 }
 
 func (f *Fonts) TextWidth(s string) float64 {
-	return fromI26_6(font.MeasureString(f.fontface, s)) * 0.352778
+	return FromI26_6(font.MeasureString(f.fontface, s)) * 0.352778
 }
