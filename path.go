@@ -24,14 +24,14 @@ type Path struct {
 	y0   float64
 }
 
-func (p *Path) IsEmpty() bool {
-	return len(p.cmds) == 0
-}
-
-func (p *Path) Append(p2 *Path) {
-	p.cmds = append(p.cmds, p2.cmds...)
-	p.d = append(p.d, p2.d...)
-}
+// func (p *Path) IsEmpty() bool {
+// 	return len(p.cmds) == 0
+// }
+//
+// func (p *Path) Append(p2 *Path) {
+// 	p.cmds = append(p.cmds, p2.cmds...)
+// 	p.d = append(p.d, p2.d...)
+// }
 
 func (p *Path) Pos() (float64, float64) {
 	if len(p.cmds) > 0 && p.cmds[len(p.cmds)-1] == CloseCmd {
@@ -43,35 +43,35 @@ func (p *Path) Pos() (float64, float64) {
 	return 0.0, 0.0
 }
 
-func (p *Path) Translate(x, y float64) {
-	i := 0
-	for _, cmd := range p.cmds {
-		switch cmd {
-		case MoveToCmd, LineToCmd:
-			p.d[i+0] += x
-			p.d[i+1] += y
-			i += 2
-		case QuadToCmd:
-			p.d[i+0] += x
-			p.d[i+1] += y
-			p.d[i+2] += x
-			p.d[i+3] += y
-			i += 4
-		case CubeToCmd:
-			p.d[i+0] += x
-			p.d[i+1] += y
-			p.d[i+2] += x
-			p.d[i+3] += y
-			p.d[i+4] += x
-			p.d[i+5] += y
-			i += 6
-		case ArcToCmd:
-			p.d[i+5] += x
-			p.d[i+6] += y
-			i += 7
-		}
-	}
-}
+// func (p *Path) Translate(x, y float64) {
+// 	i := 0
+// 	for _, cmd := range p.cmds {
+// 		switch cmd {
+// 		case MoveToCmd, LineToCmd:
+// 			p.d[i+0] += x
+// 			p.d[i+1] += y
+// 			i += 2
+// 		case QuadToCmd:
+// 			p.d[i+0] += x
+// 			p.d[i+1] += y
+// 			p.d[i+2] += x
+// 			p.d[i+3] += y
+// 			i += 4
+// 		case CubeToCmd:
+// 			p.d[i+0] += x
+// 			p.d[i+1] += y
+// 			p.d[i+2] += x
+// 			p.d[i+3] += y
+// 			p.d[i+4] += x
+// 			p.d[i+5] += y
+// 			i += 6
+// 		case ArcToCmd:
+// 			p.d[i+5] += x
+// 			p.d[i+6] += y
+// 			i += 7
+// 		}
+// 	}
+// }
 
 ////////////////////////////////////////////////////////////////
 

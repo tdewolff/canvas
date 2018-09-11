@@ -1,7 +1,7 @@
 package canvas
 
 import (
-	"bytes"
+	"encoding/base64"
 	"encoding/hex"
 	"image"
 	"image/color"
@@ -45,41 +45,28 @@ func cssColor(c color.Color) []byte {
 
 type C interface {
 	Open(float64, float64)
-	Close()
-
-	PushLayer(string)
-	PopLayer()
 
 	SetColor(color.Color)
 	SetFont(string, float64)
-
 	LineHeight() float64
 	TextWidth(string) float64
 
 	DrawPath(*Path)
-	DrawRect(float64, float64, float64, float64)
-	DrawEllipse(float64, float64, float64, float64)
 	DrawText(float64, float64, string)
 }
 
 ////////////////////////////////////////////////////////////////
 
 type SVG struct {
-	Fonts
-
 	w io.Writer
-	b bytes.Buffer
 
-	prec int
-	buf  []byte
+	*CanvasFonts
 
 	color color.Color
-
-	webFonts []string
 }
 
-func NewSVG(w io.Writer, prec int) *SVG {
-	return &SVG{*NewFonts(), w, bytes.Buffer{}, prec, make([]byte, 0, 8), color.Black, []string{}}
+func NewSVG(w io.Writer, fonts *Fonts) *SVG {
+	return &SVG{w, NewCanvasFonts(fonts), color.Black}
 }
 
 func (c *SVG) Open(w, h float64) {
@@ -92,12 +79,18 @@ func (c *SVG) Open(w, h float64) {
 	c.w.Write([]byte(" "))
 	c.writeF(h)
 	c.w.Write([]byte("\">"))
-	if len(c.webFonts) > 0 {
+	if len(c.fonts.fonts) > 0 {
 		c.w.Write([]byte("<defs><style>"))
-		for _, url := range c.webFonts {
-			c.w.Write([]byte("@import url('"))
-			c.w.Write([]byte(url))
-			c.w.Write([]byte("');"))
+		for name, font := range c.fonts.fonts {
+			c.w.Write([]byte("@font-face { font-family: '"))
+			c.w.Write([]byte(name))
+			c.w.Write([]byte("'; src: url('data:"))
+			c.w.Write([]byte(font.mimetype))
+			c.w.Write([]byte(";base64,"))
+			b64 := base64.NewEncoder(base64.StdEncoding, c.w)
+			b64.Write(font.raw)
+			b64.Close()
+			c.w.Write([]byte("'); }\n"))
 		}
 		c.w.Write([]byte("</style></defs>"))
 	}
@@ -107,24 +100,13 @@ func (c *SVG) Close() {
 	c.w.Write([]byte("</svg>"))
 }
 
-func (c *SVG) AddWebFont(url string) {
-	c.webFonts = append(c.webFonts, url)
-}
-
-func (c *SVG) PushLayer(name string) {
-	c.w.Write([]byte("<g class=\"" + name + "\">"))
-}
-
-func (c *SVG) PopLayer() {
-	c.w.Write([]byte("</g>"))
-}
-
 func (c *SVG) SetColor(color color.Color) {
 	c.color = color
 }
 
 func (c *SVG) writeF(f float64) {
-	c.w.Write(strconv.AppendFloat(c.buf[:0], f, 'g', c.prec, 64))
+	buf := []byte{}
+	c.w.Write(strconv.AppendFloat(buf, f, 'g', 5, 64))
 }
 
 func (c *SVG) DrawPath(p *Path) {
@@ -144,18 +126,18 @@ func (c *SVG) DrawPath(p *Path) {
 			i += 2
 		case LineToCmd:
 			x, y = p.d[i+0], p.d[i+1]
-			if math.Abs(y) < Epsilon {
-				c.w.Write([]byte("H"))
-				c.writeF(x)
-			} else if math.Abs(x) < Epsilon {
-				c.w.Write([]byte("V"))
-				c.writeF(y)
-			} else {
-				c.w.Write([]byte("L"))
-				c.writeF(x)
-				c.w.Write([]byte(" "))
-				c.writeF(y)
-			}
+			// if math.Abs(y) < Epsilon {
+			// 	c.w.Write([]byte("H"))
+			// 	c.writeF(x)
+			// } else if math.Abs(x) < Epsilon {
+			// 	c.w.Write([]byte("V"))
+			// 	c.writeF(y)
+			// } else {
+			c.w.Write([]byte("L"))
+			c.writeF(x)
+			c.w.Write([]byte(" "))
+			c.writeF(y)
+			// }
 			i += 2
 		case QuadToCmd:
 			x, y = p.d[i+1], p.d[i+2]
@@ -212,18 +194,6 @@ func (c *SVG) DrawPath(p *Path) {
 	c.w.Write([]byte("\"/>"))
 }
 
-func (c *SVG) DrawRect(x, y, w, h float64) {
-	p := &Path{}
-	p.Rect(x, y, w, h)
-	c.DrawPath(p)
-}
-
-func (c *SVG) DrawEllipse(x, y, rx, ry float64) {
-	p := &Path{}
-	p.Ellipse(x, y, rx, ry)
-	c.DrawPath(p)
-}
-
 func (c *SVG) DrawText(x, y float64, s string) {
 	c.w.Write([]byte("<text x=\""))
 	c.writeF(x)
@@ -263,15 +233,6 @@ func (c *PDF) Open(w, h float64) {
 }
 
 func (c *PDF) Close() {
-}
-
-func (c *PDF) PushLayer(name string) {
-	id := c.f.AddLayer(name, true)
-	c.f.BeginLayer(id)
-}
-
-func (c *PDF) PopLayer() {
-	c.f.EndLayer()
 }
 
 func (c *PDF) SetColor(color color.Color) {
@@ -331,18 +292,6 @@ func (c *PDF) DrawPath(p *Path) {
 	c.f.DrawPath("F")
 }
 
-func (c *PDF) DrawRect(x, y, w, h float64) {
-	p := &Path{}
-	p.Rect(x, y, w, h)
-	c.DrawPath(p)
-}
-
-func (c *PDF) DrawEllipse(x, y, rx, ry float64) {
-	p := &Path{}
-	p.Ellipse(x, y, rx, ry)
-	c.DrawPath(p)
-}
-
 func (c *PDF) DrawText(x, y float64, s string) {
 	c.f.Text(x, y, s)
 }
@@ -350,18 +299,16 @@ func (c *PDF) DrawText(x, y float64, s string) {
 ////////////////////////////////////////////////////////////////
 
 type Image struct {
-	Fonts
-
 	img *image.RGBA
 	r   *vector.Rasterizer
+	dpm float64
 
-	dpm      float64
-	color    color.Color
-	fontface font.Face
+	*CanvasFonts
+	color color.Color
 }
 
-func NewImage(dpi float64) *Image {
-	return &Image{*NewFonts(), nil, nil, dpi / 25.4, color.Black, nil}
+func NewImage(dpi float64, fonts *Fonts) *Image {
+	return &Image{nil, nil, dpi / 25.4, NewCanvasFonts(fonts), color.Black}
 }
 
 func (c *Image) Image() *image.RGBA {
@@ -372,18 +319,15 @@ func (c *Image) Open(w, h float64) {
 	c.img = image.NewRGBA(image.Rect(0, 0, int(w*c.dpm), int(h*c.dpm)))
 	c.r = vector.NewRasterizer(int(w*c.dpm), int(h*c.dpm))
 
+	p := &Path{}
+	p.Rect(0, 0, w, h)
 	c.SetColor(color.White)
-	c.DrawRect(0, 0, w, h)
+	c.DrawPath(p)
 	c.SetColor(color.Black)
 }
 
-func (c *Image) Close() {
-}
-
-func (c *Image) PushLayer(name string) {
-}
-
-func (c *Image) PopLayer() {
+func (c *Image) SetFont(name string, size float64) {
+	c.CanvasFonts.SetFont(name, size*1.333333) // CSS ratio px/pt
 }
 
 func (c *Image) SetColor(color color.Color) {
@@ -395,20 +339,21 @@ func (c *Image) DrawPath(p *Path) {
 	for _, cmd := range p.cmds {
 		switch cmd {
 		case MoveToCmd:
-			c.r.MoveTo(ToF32Vec(p.d[i+0]*c.dpm, p.d[i+1]*c.dpm))
+			c.r.MoveTo(float32(p.d[i+0]*c.dpm), float32(p.d[i+1]*c.dpm))
 			i += 2
 		case LineToCmd:
-			c.r.LineTo(ToF32Vec(p.d[i+0]*c.dpm, p.d[i+1]*c.dpm))
+			c.r.LineTo(float32(p.d[i+0]*c.dpm), float32(p.d[i+1]*c.dpm))
 			i += 2
 		case QuadToCmd:
-			c.r.QuadTo(ToF32Vec(p.d[i+0]*c.dpm, p.d[i+1]*c.dpm), ToF32Vec(p.d[i+2]*c.dpm, p.d[i+3]*c.dpm))
+			c.r.QuadTo(float32(p.d[i+0]*c.dpm), float32(p.d[i+1]*c.dpm), float32(p.d[i+2]*c.dpm), float32(p.d[i+3]*c.dpm))
 			i += 4
 		case CubeToCmd:
-			c.r.CubeTo(ToF32Vec(p.d[i+0]*c.dpm, p.d[i+1]*c.dpm), ToF32Vec(p.d[i+2]*c.dpm, p.d[i+3]*c.dpm), ToF32Vec(p.d[i+4]*c.dpm, p.d[i+5]*c.dpm))
+			c.r.CubeTo(float32(p.d[i+0]*c.dpm), float32(p.d[i+1]*c.dpm), float32(p.d[i+2]*c.dpm), float32(p.d[i+3]*c.dpm), float32(p.d[i+4]*c.dpm), float32(p.d[i+5]*c.dpm))
 			i += 6
 		case ArcToCmd:
-			x1 := float64(c.r.Pen()[0]) / c.dpm
-			y1 := float64(c.r.Pen()[1]) / c.dpm
+			xpen, ypen := c.r.Pen()
+			x1 := float64(xpen) / c.dpm
+			y1 := float64(ypen) / c.dpm
 			rx := p.d[i+0]
 			ry := p.d[i+1]
 			rot := p.d[i+2] * math.Pi / 180
@@ -436,7 +381,7 @@ func (c *Image) DrawPath(p *Path) {
 				yt2 := cy + ry*math.Sin(a2)
 				ctx := 2*xt1 - xt0/2 - xt2/2
 				cty := 2*yt1 - yt0/2 - yt2/2
-				c.r.QuadTo(ToF32Vec(ctx*c.dpm, cty*c.dpm), ToF32Vec(xt2*c.dpm, yt2*c.dpm))
+				c.r.QuadTo(float32(ctx*c.dpm), float32(cty*c.dpm), float32(xt2*c.dpm), float32(yt2*c.dpm))
 			}
 			i += 7
 		case CloseCmd:
@@ -448,19 +393,7 @@ func (c *Image) DrawPath(p *Path) {
 	c.r.Reset(size.X, size.Y)
 }
 
-func (c *Image) DrawRect(x, y, w, h float64) {
-	p := &Path{}
-	p.Rect(x, y, w, h)
-	c.DrawPath(p)
-}
-
-func (c *Image) DrawEllipse(x, y, rx, ry float64) {
-	p := &Path{}
-	p.Ellipse(x, y, rx, ry)
-	c.DrawPath(p)
-}
-
 func (c *Image) DrawText(x, y float64, s string) {
-	d := font.Drawer{c.img, image.NewUniform(c.color), c.Fonts.fontface, ToP26_6(x*c.dpm, y*c.dpm)}
+	d := font.Drawer{c.img, image.NewUniform(c.color), c.fontface, ToP26_6(x*c.dpm, y*c.dpm)}
 	d.DrawString(s)
 }

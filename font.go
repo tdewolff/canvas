@@ -10,27 +10,25 @@ import (
 type FontStyle int
 
 const (
-	Regular           = 0
+	Regular FontStyle = 0
 	Bold    FontStyle = 1 << iota
 	Italic
 )
 
 type Font struct {
+	mimetype string
+	raw      []byte
+
 	*truetype.Font
 	style FontStyle
 }
 
 type Fonts struct {
 	fonts map[string]Font
-
-	font      string
-	fontsize  float64
-	fontstyle FontStyle
-	fontface  font.Face
 }
 
 func NewFonts() *Fonts {
-	return &Fonts{map[string]Font{}, "", 0.0, 0, nil}
+	return &Fonts{make(map[string]Font)}
 }
 
 func (f *Fonts) AddFont(name string, style FontStyle, path string) error {
@@ -42,23 +40,36 @@ func (f *Fonts) AddFont(name string, style FontStyle, path string) error {
 	if err != nil {
 		return err
 	}
-	f.fonts[name] = Font{font, style}
+	f.fonts[name] = Font{"font/truetype", fontBytes, font, style}
 	return nil
 }
 
-func (f *Fonts) SetFont(name string, size float64) {
+type CanvasFonts struct {
+	fonts *Fonts
+
+	font      string
+	fontsize  float64
+	fontstyle FontStyle
+	fontface  font.Face
+}
+
+func NewCanvasFonts(fonts *Fonts) *CanvasFonts {
+	return &CanvasFonts{fonts, "", 0.0, Regular, nil}
+}
+
+func (f *CanvasFonts) SetFont(name string, size float64) {
 	f.font = name
 	f.fontsize = size
-	f.fontstyle = f.fonts[name].style
-	f.fontface = truetype.NewFace(f.fonts[name].Font, &truetype.Options{
+	f.fontstyle = f.fonts.fonts[name].style
+	f.fontface = truetype.NewFace(f.fonts.fonts[name].Font, &truetype.Options{
 		Size: size,
 	})
 }
 
-func (f *Fonts) LineHeight() float64 {
+func (f *CanvasFonts) LineHeight() float64 {
 	return FromI26_6(f.fontface.Metrics().Height) * 0.352778
 }
 
-func (f *Fonts) TextWidth(s string) float64 {
+func (f *CanvasFonts) TextWidth(s string) float64 {
 	return FromI26_6(font.MeasureString(f.fontface, s)) * 0.352778
 }
