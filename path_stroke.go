@@ -8,30 +8,30 @@ type Capper interface {
 
 type CapperFunc func(p *Path, halfWidth float64, pivot, normal Point)
 
-func (f CapperFunc) Join(p *Path, halfWidth, pivot, normal Point) {
+func (f CapperFunc) Cap(p *Path, halfWidth float64, pivot, normal Point) {
 	f(p, halfWidth, pivot, normal)
 }
 
 var RoundCapper Capper = CapperFunc(roundCapper)
 
 func roundCapper(p *Path, halfWidth float64, pivot, normal Point) {
-	end := pivot.Add(normal.Rot99CCW())
+	end := pivot.Add(normal.Rot90CCW())
 	p.ArcTo(halfWidth, halfWidth, 0, false, true, end.X, end.Y)
 }
 
 var ButtCapper Capper = CapperFunc(buttCapper)
 
 func buttCapper(p *Path, halfWidth float64, pivot, normal Point) {
-	end := pivot.Add(normal.Rot99CCW())
+	end := pivot.Add(normal.Rot90CCW())
 	p.LineTo(end.X, end.Y)
 }
 
 var SquareCapper Capper = CapperFunc(squareCapper)
 
 func squareCapper(p *Path, halfWidth float64, pivot, normal Point) {
-	corner1 := pivot.Add(normal).Add(normal.Rot99CW())
-	corner2 := pivot.Add(normal).Add(normal.Rot99CCW())
-	end := pivot.Add(normal.Rot99CCW())
+	corner1 := pivot.Add(normal).Add(normal.Rot90CW())
+	corner2 := pivot.Add(normal).Add(normal.Rot90CCW())
+	end := pivot.Add(normal.Rot90CCW())
 	p.LineTo(corner1.X, corner1.Y)
 	p.LineTo(corner2.X, corner2.Y)
 	p.LineTo(end.X, end.Y)
@@ -49,7 +49,7 @@ func (f JoinerFunc) Join(lhs, rhs *Path, halfWidth float64, pivot, normal0, norm
 	f(lhs, rhs, halfWidth, pivot, normal0, normal1)
 }
 
-var RoundJoiner Joiner = JoinerFunc(roundCapper)
+var RoundJoiner Joiner = JoinerFunc(roundJoiner)
 
 func roundJoiner(lhs, rhs *Path, halfWidth float64, pivot, normal0, normal1 Point) {
 	dot := normal0.Rot90CW().Dot(normal1)
@@ -66,4 +66,5 @@ func roundJoiner(lhs, rhs *Path, halfWidth float64, pivot, normal0, normal1 Poin
 ////////////////
 
 func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
+	return p
 }

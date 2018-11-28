@@ -113,74 +113,7 @@ func (c *SVG) writeF(f float64) {
 
 func (c *SVG) DrawPath(p *Path) {
 	c.w.Write([]byte("<path d=\""))
-	i := 0
-	x0, y0 := 0.0, 0.0
-	x, y := 0.0, 0.0
-	for _, cmd := range p.cmds {
-		switch cmd {
-		case MoveToCmd:
-			x, y = p.d[i+0], p.d[i+1]
-			c.w.Write([]byte("M"))
-			c.writeF(p.d[i+0])
-			c.w.Write([]byte(" "))
-			c.writeF(p.d[i+1])
-			x0, y0 = p.d[i+0], p.d[i+1]
-			i += 2
-		case LineToCmd:
-			x, y = p.d[i+0], p.d[i+1]
-			c.w.Write([]byte("L"))
-			c.writeF(x)
-			c.w.Write([]byte(" "))
-			c.writeF(y)
-			i += 2
-		case QuadToCmd:
-			x, y = p.d[i+1], p.d[i+2]
-			c.w.Write([]byte("Q"))
-			c.writeF(p.d[i+0])
-			c.w.Write([]byte(" "))
-			c.writeF(p.d[i+1])
-			c.w.Write([]byte(" "))
-			c.writeF(x)
-			c.w.Write([]byte(" "))
-			c.writeF(y)
-			i += 4
-		case CubeToCmd:
-			x, y = p.d[i+4], p.d[i+5]
-			c.w.Write([]byte("C"))
-			c.writeF(p.d[i+0])
-			c.w.Write([]byte(" "))
-			c.writeF(p.d[i+1])
-			c.w.Write([]byte(" "))
-			c.writeF(p.d[i+2])
-			c.w.Write([]byte(" "))
-			c.writeF(p.d[i+3])
-			c.w.Write([]byte(" "))
-			c.writeF(x)
-			c.w.Write([]byte(" "))
-			c.writeF(y)
-			i += 6
-		case ArcToCmd:
-			x, y = p.d[i+5], p.d[i+6]
-			c.w.Write([]byte("A"))
-			c.writeF(p.d[i+0])
-			c.w.Write([]byte(" "))
-			c.writeF(p.d[i+1])
-			c.w.Write([]byte(" "))
-			c.writeF(p.d[i+2])
-			c.w.Write([]byte(" "))
-			c.writeF(p.d[i+3])
-			c.w.Write([]byte(" "))
-			c.writeF(p.d[i+4])
-			c.w.Write([]byte(" "))
-			c.writeF(x)
-			c.w.Write([]byte(" "))
-			c.writeF(y)
-			i += 7
-		case CloseCmd:
-			c.w.Write([]byte("Z"))
-			x, y = x0, y0
-		}
-	}
+	c.w.Write([]byte(p.ToSVGPath()))
 	if c.color != color.Black {
 		c.w.Write([]byte("\" fill=\""))
 		c.w.Write(cssColor(c.color))
@@ -271,6 +204,7 @@ func (c *PDF) DrawPath(p *Path) {
 			i += 7
 		case CloseCmd:
 			c.f.ClosePath()
+			i += 2
 		}
 	}
 	c.f.DrawPath("F")
@@ -372,6 +306,7 @@ func (c *Image) DrawPath(p *Path) {
 			i += 7
 		case CloseCmd:
 			c.r.ClosePath()
+			i += 2
 		}
 	}
 	size := c.r.Size()
