@@ -20,6 +20,7 @@ The common interface allows to draw either paths or text. All positions and size
 * The handling of fonts should be improved in the future.
 * More functionality will be added to paths, such as generating strokes (ref. https://github.com/golang/freetype/pull/50).
 * Text to path will be implemented.
+* Simplify the ArcTo command (take begin/end angle and center point)
 
 ## Example
 See https://github.com/tdewolff/canvas/tree/master/example for a working example, including fonts. Note that for PDFs you need to pre-compile fonts using `makefont` installed by `go install github.com/jung-kurt/gofpdf/makefont` and then compile them by running `makefont --embed --enc=cp1252.map DejaVuSerif.ttf`.

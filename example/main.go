@@ -37,8 +37,7 @@ func main() {
 	pdfFile.AddFont("DejaVuSerif", "", "DejaVuSerif.json")
 	pdf := canvas.NewPDF(pdfFile, fonts)
 	Draw(pdf)
-	err = pdfFile.OutputFileAndClose("example.pdf")
-	fmt.Println(err)
+	_ = pdfFile.OutputFileAndClose("example.pdf")
 }
 
 func Draw(c canvas.C) {
@@ -46,6 +45,9 @@ func Draw(c canvas.C) {
 
 	p := &canvas.Path{}
 	p.Rect(30, 55, 10, -18)
+	c.DrawPath(p)
+
+	p = canvas.ParseSVGPath("M80,20V50")
 	c.DrawPath(p)
 
 	face, _ := c.SetFont("DejaVuSerif", 12)
