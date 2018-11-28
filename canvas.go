@@ -15,8 +15,6 @@ import (
 	"github.com/jung-kurt/gofpdf"
 )
 
-var Epsilon float64 = 1e-10
-
 func cssColor(c color.Color) []byte {
 	const m = 1<<16 - 1
 	r, g, b, a := c.RGBA()
@@ -47,9 +45,7 @@ type C interface {
 	Open(float64, float64)
 
 	SetColor(color.Color)
-	SetFont(string, float64)
-	LineHeight() float64
-	TextWidth(string) float64
+	SetFont(string, float64) (FontFace, error)
 
 	DrawPath(*Path)
 	DrawText(float64, float64, string)
@@ -58,15 +54,15 @@ type C interface {
 ////////////////////////////////////////////////////////////////
 
 type SVG struct {
-	w io.Writer
+	w     io.Writer
+	fonts *Fonts
 
-	*CanvasFonts
-
-	color color.Color
+	color    color.Color
+	fontFace FontFace
 }
 
 func NewSVG(w io.Writer, fonts *Fonts) *SVG {
-	return &SVG{w, NewCanvasFonts(fonts), color.Black}
+	return &SVG{w, fonts, color.Black, FontFace{}}
 }
 
 func (c *SVG) Open(w, h float64) {
@@ -100,8 +96,14 @@ func (c *SVG) Close() {
 	c.w.Write([]byte("</svg>"))
 }
 
-func (c *SVG) SetColor(color color.Color) {
-	c.color = color
+func (c *SVG) SetColor(col color.Color) {
+	c.color = col
+}
+
+func (c *SVG) SetFont(name string, size float64) (FontFace, error) {
+	var err error
+	c.fontFace, err = c.fonts.Get(name, size)
+	return c.fontFace, err
 }
 
 func (c *SVG) writeF(f float64) {
@@ -126,18 +128,10 @@ func (c *SVG) DrawPath(p *Path) {
 			i += 2
 		case LineToCmd:
 			x, y = p.d[i+0], p.d[i+1]
-			// if math.Abs(y) < Epsilon {
-			// 	c.w.Write([]byte("H"))
-			// 	c.writeF(x)
-			// } else if math.Abs(x) < Epsilon {
-			// 	c.w.Write([]byte("V"))
-			// 	c.writeF(y)
-			// } else {
 			c.w.Write([]byte("L"))
 			c.writeF(x)
 			c.w.Write([]byte(" "))
 			c.writeF(y)
-			// }
 			i += 2
 		case QuadToCmd:
 			x, y = p.d[i+1], p.d[i+2]
@@ -200,13 +194,13 @@ func (c *SVG) DrawText(x, y float64, s string) {
 	c.w.Write([]byte("\" y=\""))
 	c.writeF(y)
 	c.w.Write([]byte("\" font-family=\""))
-	c.w.Write([]byte(c.font))
+	c.w.Write([]byte(c.fontFace.name))
 	c.w.Write([]byte("\" font-size=\""))
-	c.writeF(c.fontsize * 0.352778)
-	if c.fontstyle&Italic != 0 {
+	c.writeF(c.fontFace.size)
+	if c.fontFace.style&Italic != 0 {
 		c.w.Write([]byte("\" font-style=\"italic"))
 	}
-	if c.fontstyle&Bold != 0 {
+	if c.fontFace.style&Bold != 0 {
 		c.w.Write([]byte("\" font-weight=\"bold"))
 	}
 	if c.color != color.Black {
@@ -221,38 +215,28 @@ func (c *SVG) DrawText(x, y float64, s string) {
 ////////////////////////////////////////////////////////////////
 
 type PDF struct {
-	f *gofpdf.Fpdf
+	f     *gofpdf.Fpdf
+	fonts *Fonts
 }
 
-func NewPDF(f *gofpdf.Fpdf) *PDF {
-	return &PDF{f}
+func NewPDF(f *gofpdf.Fpdf, fonts *Fonts) *PDF {
+	return &PDF{f, fonts}
 }
 
 func (c *PDF) Open(w, h float64) {
 	c.f.AddPageFormat("P", gofpdf.SizeType{w, h})
 }
 
-func (c *PDF) Close() {
-}
-
-func (c *PDF) SetColor(color color.Color) {
-	r, g, b, a := color.RGBA()
+func (c *PDF) SetColor(col color.Color) {
+	r, g, b, a := col.RGBA()
 	c.f.SetDrawColor(int(r), int(g), int(b))
 	c.f.SetFillColor(int(r), int(g), int(b))
 	c.f.SetAlpha(float64(a)/0xffff, "Normal")
 }
 
-func (c *PDF) SetFont(name string, size float64) {
-	c.f.SetFont(name, "", size)
-}
-
-func (c *PDF) LineHeight() float64 {
-	pt, _ := c.f.GetFontSize()
-	return pt * 0.352778
-}
-
-func (c *PDF) TextWidth(s string) float64 {
-	return c.f.GetStringWidth(s)
+func (c *PDF) SetFont(name string, size float64) (FontFace, error) {
+	c.f.SetFont(name, "", size/0.352778)
+	return c.fonts.Get(name, size)
 }
 
 func (c *PDF) DrawPath(p *Path) {
@@ -299,16 +283,17 @@ func (c *PDF) DrawText(x, y float64, s string) {
 ////////////////////////////////////////////////////////////////
 
 type Image struct {
-	img *image.RGBA
-	r   *vector.Rasterizer
-	dpm float64
+	img   *image.RGBA
+	r     *vector.Rasterizer
+	dpm   float64
+	fonts *Fonts
 
-	*CanvasFonts
-	color color.Color
+	color    color.Color
+	fontFace FontFace
 }
 
 func NewImage(dpi float64, fonts *Fonts) *Image {
-	return &Image{nil, nil, dpi / 25.4, NewCanvasFonts(fonts), color.Black}
+	return &Image{nil, nil, dpi / 25.4, fonts, color.Black, FontFace{}}
 }
 
 func (c *Image) Image() *image.RGBA {
@@ -326,12 +311,13 @@ func (c *Image) Open(w, h float64) {
 	c.SetColor(color.Black)
 }
 
-func (c *Image) SetFont(name string, size float64) {
-	c.CanvasFonts.SetFont(name, size*1.333333) // CSS ratio px/pt
+func (c *Image) SetColor(col color.Color) {
+	c.color = col
 }
 
-func (c *Image) SetColor(color color.Color) {
-	c.color = color
+func (c *Image) SetFont(name string, size float64) (FontFace, error) {
+	c.fontFace, _ = c.fonts.Get(name, size*c.dpm*25.4/72.0) // size(mm) * (dpi / 72)
+	return c.fonts.Get(name, size)
 }
 
 func (c *Image) DrawPath(p *Path) {
@@ -394,6 +380,6 @@ func (c *Image) DrawPath(p *Path) {
 }
 
 func (c *Image) DrawText(x, y float64, s string) {
-	d := font.Drawer{c.img, image.NewUniform(c.color), c.fontface, ToP26_6(x*c.dpm, y*c.dpm)}
+	d := font.Drawer{c.img, image.NewUniform(c.color), c.fontFace.face, ToP26_6(x*c.dpm, y*c.dpm)}
 	d.DrawString(s)
 }

@@ -1,11 +1,14 @@
 package canvas
 
 import (
+	"fmt"
 	"io/ioutil"
 
 	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/font"
 )
+
+var ErrNotFound = fmt.Errorf("Font name not found")
 
 type FontStyle int
 
@@ -19,19 +22,23 @@ type Font struct {
 	mimetype string
 	raw      []byte
 
-	*truetype.Font
+	font  *truetype.Font
 	style FontStyle
 }
 
 type Fonts struct {
 	fonts map[string]Font
+	cache map[string]map[float64]font.Face
 }
 
 func NewFonts() *Fonts {
-	return &Fonts{make(map[string]Font)}
+	return &Fonts{
+		fonts: make(map[string]Font),
+		cache: make(map[string]map[float64]font.Face),
+	}
 }
 
-func (f *Fonts) AddFont(name string, style FontStyle, path string) error {
+func (f *Fonts) Add(name string, style FontStyle, path string) error {
 	fontBytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		return err
@@ -44,32 +51,45 @@ func (f *Fonts) AddFont(name string, style FontStyle, path string) error {
 	return nil
 }
 
-type CanvasFonts struct {
-	fonts *Fonts
+// Get gets the font face associated with the give font name and font size.
+// Font size is in mm.
+func (f *Fonts) Get(name string, size float64) (FontFace, error) {
+	if _, ok := f.fonts[name]; !ok {
+		return FontFace{}, ErrNotFound
+	}
 
-	font      string
-	fontsize  float64
-	fontstyle FontStyle
-	fontface  font.Face
+	if f.cache[name] == nil {
+		f.cache[name] = make(map[float64]font.Face)
+	}
+	face, ok := f.cache[name][size]
+	if !ok {
+		face = truetype.NewFace(f.fonts[name].font, &truetype.Options{
+			Size: size / 0.352778, // to pt
+		})
+		f.cache[name][size] = face
+	}
+
+	return FontFace{
+		face:  face,
+		name:  name,
+		size:  size,
+		style: f.fonts[name].style,
+	}, nil
 }
 
-func NewCanvasFonts(fonts *Fonts) *CanvasFonts {
-	return &CanvasFonts{fonts, "", 0.0, Regular, nil}
+type FontFace struct {
+	face  font.Face
+	name  string
+	size  float64
+	style FontStyle
 }
 
-func (f *CanvasFonts) SetFont(name string, size float64) {
-	f.font = name
-	f.fontsize = size
-	f.fontstyle = f.fonts.fonts[name].style
-	f.fontface = truetype.NewFace(f.fonts.fonts[name].Font, &truetype.Options{
-		Size: size,
-	})
+// LineHeight returns line height in mm.
+func (f FontFace) LineHeight() float64 {
+	return FromI26_6(f.face.Metrics().Height) * 0.352778
 }
 
-func (f *CanvasFonts) LineHeight() float64 {
-	return FromI26_6(f.fontface.Metrics().Height) * 0.352778
-}
-
-func (f *CanvasFonts) TextWidth(s string) float64 {
-	return FromI26_6(font.MeasureString(f.fontface, s)) * 0.352778
+// TextWidth returns the width of a given string in mm.
+func (f FontFace) TextWidth(s string) float64 {
+	return FromI26_6(font.MeasureString(f.face, s)) * 0.352778
 }
