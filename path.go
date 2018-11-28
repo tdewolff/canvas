@@ -2,7 +2,6 @@ package canvas
 
 import (
 	"math"
-	"fmt"
 	"strings"
 
 	"github.com/tdewolff/parse/strconv"
@@ -179,7 +178,7 @@ func (p *Path) Invert() *Path {
 			}
 		case LineToCmd:
 			i -= 2
-			if closed && icmd > 0 && p.cmds[icmd-1] == MoveToCmd {
+			if closed && (icmd == 0 || p.cmds[icmd-1] == MoveToCmd) {
 				ip.Close()
 				closed = false
 			} else {
@@ -212,8 +211,7 @@ func (p *Path) Invert() *Path {
 		xStart, yStart = xEnd, yEnd
 	}
 	if closed {
-		fmt.Println("not yet closed")
-		// ip.Close() // TODO: used?
+		ip.Close()
 	}
 	return ip
 }
