@@ -15,6 +15,7 @@ import (
 	"github.com/jung-kurt/gofpdf"
 )
 
+// TODO: has bugs
 func cssColor(c color.Color) []byte {
 	const m = 1<<16 - 1
 	r, g, b, a := c.RGBA()

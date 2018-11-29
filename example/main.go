@@ -43,11 +43,7 @@ func main() {
 func Draw(c canvas.C) {
 	c.Open(120, 110)
 
-	p := &canvas.Path{}
-	p.Rect(30, 55, 10, -18)
-	c.DrawPath(p)
-
-	p = canvas.ParseSVGPath("M60,20V50A20,20 0 0 0 80,70")
+	p := canvas.ParseSVGPath("M60,20V50A20,20 0 0 0 80,70L70,60")
 	p = p.Stroke(5.0, canvas.RoundCapper, canvas.RoundJoiner)
 	c.DrawPath(p)
 

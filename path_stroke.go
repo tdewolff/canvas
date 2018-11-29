@@ -96,16 +96,19 @@ func (f JoinerFunc) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point)
 var RoundJoiner Joiner = JoinerFunc(roundJoiner)
 
 func roundJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
+	if Equal(n0.X, n1.X) && Equal(n0.Y, n1.Y) {
+		return
+	}
+
 	rEnd := pivot.Add(n1)
 	lEnd := pivot.Sub(n1)
 
-	right := n0.Rot90CW().Dot(n1) >= 0
-	largeAngle := n0.Dot(n1) < 0
-	if right { // bend to the right
+	cw := n0.Rot90CW().Dot(n1) >= 0
+	if cw { // bend to the right, ie. CW
 		rhs.LineTo(rEnd.X, rEnd.Y)
-		lhs.ArcTo(halfWidth, halfWidth, 0, largeAngle, true, lEnd.X, lEnd.Y) // CW
-	} else { // bend to the left
-		rhs.ArcTo(halfWidth, halfWidth, 0, largeAngle, false, rEnd.X, rEnd.Y) // CCW
+		lhs.ArcTo(halfWidth, halfWidth, 0, false, true, lEnd.X, lEnd.Y)
+	} else { // bend to the left, ie. CCW
+		rhs.ArcTo(halfWidth, halfWidth, 0, false, false, rEnd.X, rEnd.Y)
 		lhs.LineTo(lEnd.X, lEnd.Y)
 	}
 }
@@ -113,6 +116,10 @@ func roundJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 var BevelJoiner Joiner = JoinerFunc(bevelJoiner)
 
 func bevelJoiner(lhs, rhs *Path, halfWidth float64, pivot, n0, n1 Point) {
+	if Equal(n0.X, n1.X) && Equal(n0.Y, n1.Y) {
+		return
+	}
+
 	rEnd := pivot.Add(n1)
 	lEnd := pivot.Sub(n1)
 	rhs.LineTo(rEnd.X, rEnd.Y)
