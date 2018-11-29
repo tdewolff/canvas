@@ -1,7 +1,6 @@
 package canvas
 
 import "math"
-import "fmt"
 
 // NOTE: implementation mostly taken from github.com/golang/freetype/raster/stroke.go
 
@@ -189,7 +188,6 @@ func (pMain *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 					n0 = n0.Neg()
 					n1 = n1.Neg()
 				}
-				fmt.Println(angle0, angle1, sweep, n0, n1)
 
 				if !first {
 					jr.Join(sp, ret, halfWidth, start, n1Prev, n0)

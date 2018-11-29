@@ -15,12 +15,10 @@ import (
 	"github.com/jung-kurt/gofpdf"
 )
 
-// TODO: has bugs
 func cssColor(c color.Color) []byte {
-	const m = 1<<16 - 1
 	r, g, b, a := c.RGBA()
-	rgba := [4]byte{uint8(r / m >> 8), uint8(g / m >> 8), uint8(b / m >> 8), uint8(a / m >> 8)}
-	if a == 0xffff {
+	rgba := [4]byte{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+	if rgba[3] == 0xff {
 		buf := make([]byte, 7)
 		buf[0] = '#'
 		hex.Encode(buf[1:], rgba[:3])
@@ -28,13 +26,13 @@ func cssColor(c color.Color) []byte {
 	} else {
 		buf := make([]byte, 0, 24)
 		buf = append(buf, []byte("rgba(")...)
-		buf = strconv.AppendInt(buf, int64(r), 10)
+		buf = strconv.AppendInt(buf, int64(rgba[0]), 10)
 		buf = append(buf, ',')
-		buf = strconv.AppendInt(buf, int64(g), 10)
+		buf = strconv.AppendInt(buf, int64(rgba[1]), 10)
 		buf = append(buf, ',')
-		buf = strconv.AppendInt(buf, int64(b), 10)
+		buf = strconv.AppendInt(buf, int64(rgba[2]), 10)
 		buf = append(buf, ',')
-		buf = strconv.AppendFloat(buf, float64(a)/0xffff, 'g', 4, 64)
+		buf = strconv.AppendFloat(buf, float64(rgba[3])/0xff, 'g', 4, 64)
 		buf = append(buf, ')')
 		return buf
 	}
