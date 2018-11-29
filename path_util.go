@@ -15,28 +15,6 @@ func ftos(f float64) string {
 
 ////////////////////////////////////////////////////////////////
 
-type Point struct {
-	X, Y float64
-}
-
-func (p Point) Add(a Point) Point {
-	return Point{p.X + a.X, p.Y + a.Y}
-}
-
-func (p Point) Rot90CW() Point {
-	return Point{-p.Y, p.X}
-}
-
-func (p Point) Rot90CCW() Point {
-	return Point{p.Y, -p.X}
-}
-
-func (p Point) Dot(p2 Point) float64 {
-	panic("not implemented")
-}
-
-////////////////////////////////////////////////////////////////
-
 // arcToCenter changes between the SVG arc format to the center and angles format
 // see https://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
 // and http://commons.oreilly.com/wiki/index.php/SVG_Essentials/Paths#Technique:_Converting_from_Other_Arc_Formats

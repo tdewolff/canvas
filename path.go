@@ -28,9 +28,24 @@ func (p *Path) IsEmpty() bool {
 	return len(p.cmds) == 0
 }
 
-func (p *Path) Append(p2 *Path) {
-	p.cmds = append(p.cmds, p2.cmds...)
-	p.d = append(p.d, p2.d...)
+func (p *Path) Append(q *Path) {
+	if len(q.cmds) == 0 {
+		return
+	}
+
+	if len(p.cmds) > 0 && q.cmds[0] == MoveToCmd {
+		x0, y0 := p.d[len(p.d)-2], p.d[len(p.d)-1]
+		x1, y1 := q.d[0], q.d[1]
+		if Equal(x0, x1) && Equal(y0, y1) {
+			q.cmds = q.cmds[1:]
+			q.d = q.d[2:]
+		}
+	}
+
+	p.cmds = append(p.cmds, q.cmds...)
+	p.d = append(p.d, q.d...)
+	p.x0 = q.x0
+	p.y0 = q.y0
 }
 
 func (p *Path) Pos() (float64, float64) {
@@ -105,6 +120,44 @@ func (p *Path) Ellipse(x, y, rx, ry float64) {
 
 ////////////////////////////////////////////////////////////////
 
+// Split splits the path into its independent path segments. The path is split on the MoveTo and/or Close commands.
+func (p *Path) Split() []*Path {
+	ps := []*Path{}
+	closed := false
+	var i, j int
+	var icmd, jcmd int
+	var x0, y0 float64
+	for ; jcmd < len(p.cmds); jcmd++ {
+		cmd := p.cmds[jcmd]
+		if j > i && cmd == MoveToCmd || closed {
+			ps = append(ps, &Path{p.cmds[icmd:jcmd], p.d[i:j], x0, y0})
+			icmd = jcmd
+			i = j
+			closed = false
+		}
+		switch cmd {
+		case MoveToCmd:
+			x0, y0 = p.d[j+0], p.d[j+1]
+			j += 2
+		case LineToCmd:
+			j += 2
+		case QuadToCmd:
+			j += 4
+		case CubeToCmd:
+			j += 6
+		case ArcToCmd:
+			j += 7
+		case CloseCmd:
+			closed = true
+			j += 2
+		}
+	}
+	if j > i {
+		ps = append(ps, &Path{p.cmds[icmd:jcmd], p.d[i:j], x0, y0})
+	}
+	return ps
+}
+
 func (p *Path) Translate(x, y float64) {
 	i := 0
 	for _, cmd := range p.cmds {
@@ -157,8 +210,7 @@ func (p *Path) Invert() *Path {
 
 	i := len(p.d)
 	for icmd := len(p.cmds)-1; icmd >= 0; icmd-- {
-		cmd := p.cmds[icmd]
-		switch cmd {
+		switch p.cmds[icmd] {
 		case CloseCmd:
 			i -= 2
 			xEnd, yEnd = prevEnd(p.d[:i])

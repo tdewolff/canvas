@@ -32,6 +32,7 @@ func TestPathInvert(t *testing.T) {
 		{"C0 5 5 5 5 0z", "H5C5 5 0 5 0 0z"},
 		{"A2.5 5 0 0 0 5 0", "M5 0A2.5 5 0 0 1 0 0"},
 		{"A2.5 5 0 0 0 5 0z", "H5A2.5 5 0 0 1 0 0z"},
+		{"M5 5L10 10zL15 10", "M15 10L5 5L10 10z"},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
