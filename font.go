@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/font"
+	"golang.org/x/image/math/fixed"
 )
 
 var ErrNotFound = fmt.Errorf("Font name not found")
@@ -70,6 +71,7 @@ func (f *Fonts) Get(name string, size float64) (FontFace, error) {
 	}
 
 	return FontFace{
+		font:  f.fonts[name].font,
 		face:  face,
 		name:  name,
 		size:  size,
@@ -78,6 +80,7 @@ func (f *Fonts) Get(name string, size float64) (FontFace, error) {
 }
 
 type FontFace struct {
+	font  *truetype.Font
 	face  font.Face
 	name  string
 	size  float64
@@ -92,4 +95,73 @@ func (f FontFace) LineHeight() float64 {
 // TextWidth returns the width of a given string in mm.
 func (f FontFace) TextWidth(s string) float64 {
 	return FromI26_6(font.MeasureString(f.face, s)) * 0.352778
+}
+
+// mostly takes from github.com/golang/freetype/truetype/face.go
+func (f FontFace) glyphToPath(r rune) (*Path, float64) {
+	glyphBuf := truetype.GlyphBuf{}
+	glyphBuf.Load(f.font, fixed.Int26_6((f.size*64)+0.5), f.font.Index(r), font.HintingNone)
+
+	path := &Path{}
+	e0 := 0
+	for _, e1 := range glyphBuf.Ends {
+		ps := glyphBuf.Points[e0:e1]
+		if len(ps) == 0 {
+			continue
+		}
+
+		var others []truetype.Point
+		start, on := FromTTPoint(ps[0])
+		if on {
+			others = ps[1:]
+		} else {
+			last, on := FromTTPoint(ps[len(ps)-1])
+			if on {
+				start = last
+				others = ps[:len(ps)-1]
+			} else {
+				start = Point{(start.X + last.X) / 2.0, (start.Y + last.Y) / 2.0}
+				others = ps
+			}
+		}
+		path.MoveTo(start.X, start.Y)
+		q0, on0 := start, true
+		for _, p := range others {
+			q, on := FromTTPoint(p)
+			if on {
+				if on0 {
+					path.LineTo(q.X, q.Y)
+				} else {
+					path.QuadTo(q0.X, q0.Y, q.X, q.Y)
+				}
+			} else {
+				if on0 {
+					// No-op
+				} else {
+					mid := Point{(q0.X + q.X) / 2.0, (q0.Y + q.Y) / 2.0}
+					path.QuadTo(q0.X, q0.Y, mid.X, mid.Y)
+				}
+			}
+			q0, on0 = q, on
+		}
+		if !on0 {
+			path.QuadTo(q0.X, q0.Y, start.X, start.Y)
+		}
+		path.Close()
+
+		e0 = e1
+	}
+	return path, FromI26_6(glyphBuf.AdvanceWidth)
+}
+
+func (f FontFace) ToPath(s string) *Path {
+	x := 0.0
+	p := &Path{}
+	for _, r := range s {
+		pRune, advance := f.glyphToPath(r)
+		pRune.Translate(x, 0.0)
+		p.Append(pRune)
+		x += advance
+	}
+	return p
 }

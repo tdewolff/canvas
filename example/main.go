@@ -3,7 +3,6 @@ package main
 import (
 	_ "fmt"
 	"image/png"
-	"image/color"
 	"os"
 
 	"github.com/jung-kurt/gofpdf"
@@ -44,21 +43,20 @@ func main() {
 func Draw(c canvas.C) {
 	c.Open(120, 110)
 
-	p := canvas.ParseSVGPath("M60,20V50A20,20 0 0 0 80,70L70,60")
-	p = p.Stroke(5.0, canvas.RoundCapper, canvas.RoundJoiner)
-	c.DrawPath(p)
-
-	p = canvas.ParseSVGPath("M100 100A50 50 0 0 1 114.64 64.645")
-	p = p.Stroke(5.0, canvas.RoundCapper, canvas.RoundJoiner)
-	c.SetColor(color.RGBA{255, 127, 0, 0})
+	p := canvas.ParseSVGPath("M100 100A50 50 0 0 1 114.64 64.645")
+	p = p.Stroke(1.0, canvas.RoundCapper, canvas.RoundJoiner)
 	c.DrawPath(p)
 
 	// face, _ := c.SetFont("DejaVuSerif", 12)
 	// c.DrawText(50, 55, "Test")
 	// fmt.Println(face.LineHeight())
 
-	// face, _ = c.SetFont("DejaVuSerif", 18)
-	// c.DrawText(40, 55, "Test")
+	face, _ := c.SetFont("DejaVuSerif", 12)
+	c.DrawText(40, 55, "Testestest")
+
+	pText := face.ToPath("Testestest")
+	pText.Translate(40, 58)
+	c.DrawPath(pText)
 	// c.DrawText(40, 55+face.LineHeight(), "Test")
 	// fmt.Println(face.LineHeight())
 }

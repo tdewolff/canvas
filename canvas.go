@@ -3,6 +3,7 @@ package canvas
 import (
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"image"
 	"image/color"
 	"io"
@@ -102,6 +103,7 @@ func (c *SVG) SetColor(col color.Color) {
 func (c *SVG) SetFont(name string, size float64) (FontFace, error) {
 	var err error
 	c.fontFace, err = c.fonts.Get(name, size)
+	fmt.Println(c.fontFace.size)
 	return c.fontFace, err
 }
 
@@ -307,6 +309,9 @@ func (c *Image) DrawPath(p *Path) {
 			c.r.ClosePath()
 			i += 2
 		}
+	}
+	if len(p.cmds) > 0 && p.cmds[len(p.cmds)-1] != CloseCmd {
+		c.r.ClosePath()
 	}
 	size := c.r.Size()
 	c.r.Draw(c.img, image.Rect(0, 0, size.X, size.Y), image.NewUniform(c.color), image.Point{})
