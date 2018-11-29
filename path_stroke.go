@@ -141,15 +141,15 @@ func (pMain *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 				end = Point{p.d[i+0], p.d[i+1]}
 				n = end.Sub(start).Norm(halfWidth).Rot90CW()
 
-				if first {
+				if !first {
+					jr.Join(sp, ret, halfWidth, start, nPrev, n)
+				} else {
 					rStart := start.Add(n)
 					lStart := start.Sub(n)
 					sp.MoveTo(rStart.X, rStart.Y)
 					ret.MoveTo(lStart.X, lStart.Y)
 					nFirst = n
 					first = false
-				} else {
-					jr.Join(sp, ret, halfWidth, start, nPrev, n)
 				}
 
 				rEnd := end.Add(n)
@@ -167,22 +167,40 @@ func (pMain *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 				panic("not implemented")
 				i += 7
 			case CloseCmd:
-				// end = Point{p.d[i+0], p.d[i+1]}
+				end = Point{p.d[i+0], p.d[i+1]}
+				if !Equal(start.X, end.X) || !Equal(start.Y, end.Y) {
+					n = end.Sub(start).Norm(halfWidth).Rot90CW()
+					if !first {
+						jr.Join(sp, ret, halfWidth, start, nPrev, n)
+						rEnd := end.Add(n)
+						lEnd := end.Sub(n)
+						sp.LineTo(rEnd.X, rEnd.Y)
+						ret.LineTo(lEnd.X, lEnd.Y)
+					}
+				}
 				closed = true
 				i += 2
 			}
 			start = end
 			nPrev = n
 		}
+		if first {
+			continue
+		}
+
 		if !closed {
 			cr.Cap(sp, halfWidth, start, nPrev)
 		} else {
-			// handle
+			jr.Join(sp, ret, halfWidth, start, nPrev, nFirst)
+			// butt cap close the stroke to each other
+			invStart := start.Sub(nFirst)
+			sp.LineTo(invStart.X, invStart.Y)
 		}
 		sp.Append(ret.Invert())
 		if !closed {
 			cr.Cap(sp, halfWidth, start0, nFirst.Neg())
 		}
+		sp.Close()
 	}
 	return sp
 }
