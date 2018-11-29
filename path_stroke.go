@@ -1,6 +1,7 @@
 package canvas
 
 import "math"
+import "fmt"
 
 // NOTE: implementation mostly taken from github.com/golang/freetype/raster/stroke.go
 
@@ -58,7 +59,7 @@ var RoundCapper Capper = CapperFunc(roundCapper)
 
 func roundCapper(p *Path, halfWidth float64, pivot, n0 Point) {
 	end := pivot.Sub(n0)
-	p.ArcTo(halfWidth, halfWidth, 0, false, true, end.X, end.Y)
+	p.ArcTo(halfWidth, halfWidth, 0, false, false, end.X, end.Y)
 }
 
 var ButtCapper Capper = CapperFunc(buttCapper)
@@ -102,9 +103,9 @@ func roundJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 	largeAngle := n0.Dot(n1) < 0
 	if right { // bend to the right
 		rhs.LineTo(rEnd.X, rEnd.Y)
-		lhs.ArcTo(halfWidth, halfWidth, 0, largeAngle, false, lEnd.X, lEnd.Y) // CW
+		lhs.ArcTo(halfWidth, halfWidth, 0, largeAngle, true, lEnd.X, lEnd.Y) // CW
 	} else { // bend to the left
-		rhs.ArcTo(halfWidth, halfWidth, 0, largeAngle, true, rEnd.X, rEnd.Y) // CCW
+		rhs.ArcTo(halfWidth, halfWidth, 0, largeAngle, false, rEnd.X, rEnd.Y) // CCW
 		lhs.LineTo(lEnd.X, lEnd.Y)
 	}
 }
@@ -128,32 +129,39 @@ func (pMain *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 		first := true
 		closed := false
 
+		// n0 is the 'normal' at the beginning of a path command
+		// n1 is the 'normal' at the end of a path command
+		// Join and Cap are performed as we process the next path command
+		//   Join joins from n1Prev to n0
+		//   Cap caps from n1Prev
+
 		i := 0
-		var start0, start, end Point
-		var nFirst, nPrev, n Point
+		var startFirst, start, end Point
+		var n0First, n1Prev, n0, n1 Point
 		for _, cmd := range p.cmds {
 			switch cmd {
 			case MoveToCmd:
 				end = Point{p.d[i+0], p.d[i+1]}
-				start0 = end
+				startFirst = end
 				i += 2
 			case LineToCmd:
 				end = Point{p.d[i+0], p.d[i+1]}
-				n = end.Sub(start).Norm(halfWidth).Rot90CW()
+				n0 = end.Sub(start).Norm(halfWidth).Rot90CW()
+				n1 = n0
 
 				if !first {
-					jr.Join(sp, ret, halfWidth, start, nPrev, n)
+					jr.Join(sp, ret, halfWidth, start, n1Prev, n0)
 				} else {
-					rStart := start.Add(n)
-					lStart := start.Sub(n)
+					rStart := start.Add(n0)
+					lStart := start.Sub(n0)
 					sp.MoveTo(rStart.X, rStart.Y)
 					ret.MoveTo(lStart.X, lStart.Y)
-					nFirst = n
+					n0First = n0
 					first = false
 				}
 
-				rEnd := end.Add(n)
-				lEnd := end.Sub(n)
+				rEnd := end.Add(n1)
+				lEnd := end.Sub(n1)
 				sp.LineTo(rEnd.X, rEnd.Y)
 				ret.LineTo(lEnd.X, lEnd.Y)
 				i += 2
@@ -164,16 +172,47 @@ func (pMain *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 				panic("not implemented")
 				i += 6
 			case ArcToCmd:
-				panic("not implemented")
+				rx, ry := p.d[i+0], p.d[i+1]
+				rot, largeAngle, sweep := p.d[i+2], p.d[i+3] == 1.0, p.d[i+4] == 1.0
+				end = Point{p.d[i+5], p.d[i+6]}
+				_, _, angle0, angle1 := arcToCenter(start.X, start.Y, rx, ry, rot, largeAngle, sweep, end.X, end.Y)
+				n0 = angleToNormal(angle0).Norm(halfWidth)
+				n1 = angleToNormal(angle1).Norm(halfWidth)
+				if sweep { // CW
+					n0 = n0.Neg()
+					n1 = n1.Neg()
+				}
+				fmt.Println(angle0, angle1, sweep, n0, n1)
+
+				if !first {
+					jr.Join(sp, ret, halfWidth, start, n1Prev, n0)
+				} else {
+					rStart := start.Add(n0)
+					lStart := start.Sub(n0)
+					sp.MoveTo(rStart.X, rStart.Y)
+					ret.MoveTo(lStart.X, lStart.Y)
+					n0First = n0
+					first = false
+				}
+
+				rEnd := end.Add(n1)
+				lEnd := end.Sub(n1)
+				if sweep { // bend to the right, ie. CW
+					sp.ArcTo(rx-halfWidth, ry-halfWidth, rot, largeAngle, sweep, rEnd.X, rEnd.Y)
+					ret.ArcTo(rx+halfWidth, ry+halfWidth, rot, largeAngle, sweep, lEnd.X, lEnd.Y)
+				} else { // bend to the left, ie. CCW
+					sp.ArcTo(rx+halfWidth, ry+halfWidth, rot, largeAngle, sweep, rEnd.X, rEnd.Y)
+					ret.ArcTo(rx-halfWidth, ry-halfWidth, rot, largeAngle, sweep, lEnd.X, lEnd.Y)
+				}
 				i += 7
 			case CloseCmd:
 				end = Point{p.d[i+0], p.d[i+1]}
 				if !Equal(start.X, end.X) || !Equal(start.Y, end.Y) {
-					n = end.Sub(start).Norm(halfWidth).Rot90CW()
+					n1 = end.Sub(start).Norm(halfWidth).Rot90CW()
 					if !first {
-						jr.Join(sp, ret, halfWidth, start, nPrev, n)
-						rEnd := end.Add(n)
-						lEnd := end.Sub(n)
+						jr.Join(sp, ret, halfWidth, start, n1Prev, n1)
+						rEnd := end.Add(n1)
+						lEnd := end.Sub(n1)
 						sp.LineTo(rEnd.X, rEnd.Y)
 						ret.LineTo(lEnd.X, lEnd.Y)
 					}
@@ -182,23 +221,23 @@ func (pMain *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 				i += 2
 			}
 			start = end
-			nPrev = n
+			n1Prev = n1
 		}
 		if first {
 			continue
 		}
 
 		if !closed {
-			cr.Cap(sp, halfWidth, start, nPrev)
+			cr.Cap(sp, halfWidth, start, n1Prev)
 		} else {
-			jr.Join(sp, ret, halfWidth, start, nPrev, nFirst)
+			jr.Join(sp, ret, halfWidth, start, n1Prev, n0First)
 			// butt cap close the stroke to each other
-			invStart := start.Sub(nFirst)
+			invStart := start.Sub(n0First)
 			sp.LineTo(invStart.X, invStart.Y)
 		}
 		sp.Append(ret.Invert())
 		if !closed {
-			cr.Cap(sp, halfWidth, start0, nFirst.Neg())
+			cr.Cap(sp, halfWidth, startFirst, n0First.Neg())
 		}
 		sp.Close()
 	}
