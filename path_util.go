@@ -78,19 +78,3 @@ func angleToNormal(theta float64) Point {
 	return Point{x, y}
 }
 
-////////////////////////////////////////////////////////////////
-
-func flattenQuadraticBezier(p0, p1, p2 Point) *Path {
-	p := &Path{}
-	p.LineTo(p1.X, p1.Y)
-	p.LineTo(p2.X, p2.Y)
-	return p
-}
-
-func flattenCubicBezier(p0, p1, p2, p3 Point) *Path {
-	p := &Path{}
-	p.LineTo(p1.X, p1.Y)
-	p.LineTo(p2.X, p2.Y)
-	p.LineTo(p3.X, p3.Y)
-	return p
-}

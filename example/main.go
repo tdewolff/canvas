@@ -48,7 +48,7 @@ func Draw(c canvas.C) {
 	//p = p.Stroke(1.0, canvas.RoundCapper, canvas.RoundJoiner)
 	c.DrawPath(0, 0, p)
 
-	p = p.FlattenBezier()
+	p = p.Stroke()
 	c.SetColor(color.RGBA{255, 0, 0, 127})
 	c.DrawPath(0, 0, p)
 

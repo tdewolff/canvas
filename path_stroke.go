@@ -127,6 +127,34 @@ func bevelJoiner(lhs, rhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 
 ////////////////
 
+func interpolate(a, b Point, t float64) Point {
+	return Point{(1-t)*a.X + t*b.X, (1-t)*a.Y + t*b.Y}
+}
+
+// strokeQuad divides the path into two quadratic curves to add more accurate strokes
+// TODO: improve, or transform to cubic and use the paper. C1 = 2/3*C + 1/3*P1; C2 = 2/3*C + 1/3*P2
+func strokeQuad(rhs, lhs *Path, halfWidth float64, p0, p1, p2 Point) {
+	n0 := p2.Sub(p1).Rot90CW().Norm(halfWidth) // factor 2 not necessary
+	n2 := p2.Sub(p1).Rot90CW().Norm(halfWidth)
+
+	mid := interpolate(interpolate(p0, p1, 0.5), interpolate(p1, p2, 0.5))
+	nMid := interpolate(n0, n2, 0.5).Norm(halfWidth)
+	rMid := mid.Add(nMid)
+	lMid := mid.Sub(nMid)
+
+	rEnd := end.Add(n1)
+	lEnd := end.Sub(n1)
+	rhs.LineTo(rEnd.X, rEnd.Y)
+	lhs.LineTo(lEnd.X, lEnd.Y)
+}
+
+// see Flat, precise flattening of cubic Bezier path and offset curves, by T.F. Hain et al., 2005
+// https://www.sciencedirect.com/science/article/pii/S0097849305001287
+// TODO: implement
+func strokeCube(rhs, lhs *Path, halfWidth float64, p0, p1, p2, p3 Point) {
+	panic("not implemented")
+}
+
 func (pMain *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 	sp := &Path{}
 	halfWidth := w / 2.0
@@ -152,7 +180,7 @@ func (pMain *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 				i += 2
 			case LineToCmd:
 				end = Point{p.d[i+0], p.d[i+1]}
-				n0 = end.Sub(start).Norm(halfWidth).Rot90CW()
+				n0 = end.Sub(start).Rot90CW().Norm(halfWidth)
 				n1 = n0
 
 				if !first {
@@ -171,8 +199,48 @@ func (pMain *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 				sp.LineTo(rEnd.X, rEnd.Y)
 				ret.LineTo(lEnd.X, lEnd.Y)
 				i += 2
-			case CubeToCmd, QuadToCmd:
-				panic("path must have flattened bezier curves")
+			case QuadToCmd:
+				end = Point{p.d[i+2], p.d[i+3]}
+				// p0, p1, p2 are the start point, control point, and end point respectively
+				// we then use the derivative to calculate the normals
+				p0, p1, p2 := start, Point{p.d[i+0], p.d[i+1]}, end
+				n0 = p2.Sub(p1).Rot90CW().Norm(halfWidth) // factor 2 not necessary
+				n1 = p1.Sub(p0).Rot90CW().Norm(halfWidth)
+
+				if !first {
+					jr.Join(sp, ret, halfWidth, start, n1Prev, n0)
+				} else {
+					rStart := start.Add(n0)
+					lStart := start.Sub(n0)
+					sp.MoveTo(rStart.X, rStart.Y)
+					ret.MoveTo(lStart.X, lStart.Y)
+					n0First = n0
+					first = false
+				}
+
+				strokeQuad(sp, ret, halfWidth, p0, p1, p2)
+				i += 4
+			case CubeToCmd:
+				end = Point{p.d[i+2], p.d[i+3]}
+				// p0, p1, p2, 3 are the start point, control point one and two, and end point respectively
+				// we then use the derivative to calculate the normals
+				p0, p1, p2, 3 := start, Point{p.d[i+0], p.d[i+1]}, Point{p.d[i+2], p.d[i+3]}, end
+				n0 = p3.Sub(p2).Rot90CW().Norm(halfWidth) // factor 2 not necessary
+				n1 = p1.Sub(p0).Rot90CW().Norm(halfWidth)
+
+				if !first {
+					jr.Join(sp, ret, halfWidth, start, n1Prev, n0)
+				} else {
+					rStart := start.Add(n0)
+					lStart := start.Sub(n0)
+					sp.MoveTo(rStart.X, rStart.Y)
+					ret.MoveTo(lStart.X, lStart.Y)
+					n0First = n0
+					first = false
+				}
+
+				strokeCube(sp, ret, halfWidth, p0, p1, p2, p3)
+				i += 6
 			case ArcToCmd:
 				rx, ry := p.d[i+0], p.d[i+1]
 				rot, largeAngle, sweep := p.d[i+2], p.d[i+3] == 1.0, p.d[i+4] == 1.0
@@ -209,7 +277,7 @@ func (pMain *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 			case CloseCmd:
 				end = Point{p.d[i+0], p.d[i+1]}
 				if !Equal(start.X, end.X) || !Equal(start.Y, end.Y) {
-					n1 = end.Sub(start).Norm(halfWidth).Rot90CW()
+					n1 = end.Sub(start).Rot90CW().Norm(halfWidth)
 					if !first {
 						jr.Join(sp, ret, halfWidth, start, n1Prev, n1)
 						rEnd := end.Add(n1)
