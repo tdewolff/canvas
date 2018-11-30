@@ -171,7 +171,7 @@ func (p *Path) Split() []*Path {
 func (p *Path) Translate(x, y float64) *Path {
 	q := p.Copy()
 	i := 0
-	for _, cmd := range p.cmds {
+	for _, cmd := range q.cmds {
 		switch cmd {
 		case MoveToCmd, LineToCmd, CloseCmd:
 			q.d[i+0] += x
@@ -196,6 +196,40 @@ func (p *Path) Translate(x, y float64) *Path {
 			q.d[i+6] += y
 			i += 7
 		}
+	}
+	return q
+}
+
+func (p *Path) FlattenBezier() *Path {
+	q := p.Copy()
+	i := 0
+	p0 := Point{}
+	for icmd := 0; icmd < len(q.cmds); icmd++ {
+		cmd := q.cmds[icmd]
+		switch cmd {
+		case MoveToCmd, LineToCmd, CloseCmd:
+			i += 2
+		case QuadToCmd:
+			p1 := Point{q.d[i+0], q.d[i+1]}
+			p2 := Point{q.d[i+2], q.d[i+3]}
+			c := flattenQuadraticBezier(p0, p1, p2)
+			q.cmds = append(append(q.cmds[:icmd], c.cmds...), q.cmds[icmd+1:]...)
+			q.d = append(append(q.d[:i], c.d...), q.d[i+4:]...)
+			icmd += len(c.cmds) - 1
+			i += len(c.d)
+		case CubeToCmd:
+			p1 := Point{q.d[i+0], q.d[i+1]}
+			p2 := Point{q.d[i+2], q.d[i+3]}
+			p3 := Point{q.d[i+4], q.d[i+5]}
+			c := flattenCubicBezier(p0, p1, p2, p3)
+			q.cmds = append(append(q.cmds[:icmd], c.cmds...), q.cmds[icmd+1:]...)
+			q.d = append(append(q.d[:i], c.d...), q.d[i+6:]...)
+			icmd += len(c.cmds) - 1
+			i += len(c.d)
+		case ArcToCmd:
+			i += 7
+		}
+		p0 = Point{q.d[i-2], q.d[i-1]}
 	}
 	return q
 }
