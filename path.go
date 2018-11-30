@@ -28,9 +28,18 @@ func (p *Path) IsEmpty() bool {
 	return len(p.cmds) == 0
 }
 
-func (p *Path) Append(q *Path) {
+func (p *Path) Copy() *Path {
+	q := &Path{}
+	q.cmds = append(q.cmds, p.cmds...)
+	q.d = append(q.d, p.d...)
+	q.x0 = p.x0
+	q.y0 = p.y0
+	return q
+}
+
+func (p *Path) Append(q *Path) *Path {
 	if len(q.cmds) == 0 {
-		return
+		return p
 	}
 
 	if len(p.cmds) > 0 && q.cmds[0] == MoveToCmd {
@@ -46,6 +55,7 @@ func (p *Path) Append(q *Path) {
 	p.d = append(p.d, q.d...)
 	p.x0 = q.x0
 	p.y0 = q.y0
+	return p
 }
 
 func (p *Path) Pos() (float64, float64) {
@@ -158,34 +168,36 @@ func (p *Path) Split() []*Path {
 	return ps
 }
 
-func (p *Path) Translate(x, y float64) {
+func (p *Path) Translate(x, y float64) *Path {
+	q := p.Copy()
 	i := 0
 	for _, cmd := range p.cmds {
 		switch cmd {
 		case MoveToCmd, LineToCmd, CloseCmd:
-			p.d[i+0] += x
-			p.d[i+1] += y
+			q.d[i+0] += x
+			q.d[i+1] += y
 			i += 2
 		case QuadToCmd:
-			p.d[i+0] += x
-			p.d[i+1] += y
-			p.d[i+2] += x
-			p.d[i+3] += y
+			q.d[i+0] += x
+			q.d[i+1] += y
+			q.d[i+2] += x
+			q.d[i+3] += y
 			i += 4
 		case CubeToCmd:
-			p.d[i+0] += x
-			p.d[i+1] += y
-			p.d[i+2] += x
-			p.d[i+3] += y
-			p.d[i+4] += x
-			p.d[i+5] += y
+			q.d[i+0] += x
+			q.d[i+1] += y
+			q.d[i+2] += x
+			q.d[i+3] += y
+			q.d[i+4] += x
+			q.d[i+5] += y
 			i += 6
 		case ArcToCmd:
-			p.d[i+5] += x
-			p.d[i+6] += y
+			q.d[i+5] += x
+			q.d[i+6] += y
 			i += 7
 		}
 	}
+	return q
 }
 
 func prevEnd(d []float64) (float64, float64) {

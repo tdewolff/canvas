@@ -47,7 +47,7 @@ type C interface {
 	SetColor(color.Color)
 	SetFont(string, float64) (FontFace, error)
 
-	DrawPath(*Path)
+	DrawPath(float64, float64, *Path)
 	DrawText(float64, float64, string)
 }
 
@@ -112,7 +112,8 @@ func (c *SVG) writeF(f float64) {
 	c.w.Write(strconv.AppendFloat(buf, f, 'g', 5, 64))
 }
 
-func (c *SVG) DrawPath(p *Path) {
+func (c *SVG) DrawPath(x, y float64, p *Path) {
+	p = p.Translate(x, y)
 	c.w.Write([]byte("<path d=\""))
 	c.w.Write([]byte(p.ToSVGPath()))
 	if c.color != color.Black {
@@ -173,7 +174,8 @@ func (c *PDF) SetFont(name string, size float64) (FontFace, error) {
 	return c.fonts.Get(name, size)
 }
 
-func (c *PDF) DrawPath(p *Path) {
+func (c *PDF) DrawPath(x, y float64, p *Path) {
+	p = p.Translate(x, y)
 	i := 0
 	for _, cmd := range p.cmds {
 		switch cmd {
@@ -242,7 +244,7 @@ func (c *Image) Open(w, h float64) {
 	p := &Path{}
 	p.Rect(0, 0, w, h)
 	c.SetColor(color.White)
-	c.DrawPath(p)
+	c.DrawPath(0, 0, p)
 	c.SetColor(color.Black)
 }
 
@@ -255,7 +257,8 @@ func (c *Image) SetFont(name string, size float64) (FontFace, error) {
 	return c.fonts.Get(name, size)
 }
 
-func (c *Image) DrawPath(p *Path) {
+func (c *Image) DrawPath(x, y float64, p *Path) {
+	p = p.Translate(x, y)
 	i := 0
 	for _, cmd := range p.cmds {
 		switch cmd {

@@ -10,7 +10,7 @@ func Equal(a, b float64) bool {
 }
 
 func ftos(f float64) string {
-	return strconv.FormatFloat(f, 'g', 10, 64)
+	return strconv.FormatFloat(f, 'g', 5, 64)
 }
 
 ////////////////////////////////////////////////////////////////

@@ -127,6 +127,16 @@ func bevelJoiner(lhs, rhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 
 ////////////////
 
+func strokeQuad(rhs, lhs *Path, halfWidth float64, p0, p1, p2, n0, n2 Point) {
+	panic("not implemented")
+	return
+}
+
+func strokeCube(rhs, lhs *Path, halfWidth float64, p0, p1, p2, p3, n0, n2 Point) {
+	panic("not implemented")
+	return
+}
+
 func (pMain *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 	sp := &Path{}
 	halfWidth := w / 2.0
@@ -172,10 +182,48 @@ func (pMain *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 				ret.LineTo(lEnd.X, lEnd.Y)
 				i += 2
 			case QuadToCmd:
-				panic("not implemented")
+				end = Point{p.d[i+2], p.d[i+3]}
+				// p0 and p2 are the end points, p1 is the control point
+				// a quadratic bezier curve will follow: B(t) = (1-t)^2*p0 + 2(1-t)t*p1 + t^2*p2
+				// and its derivative: B'(t) = 2(1-t)(p1-p0) + 2t(p2-p1), from which we can derive the normals
+				p0, p1, p2 := start, Point{p.d[i+0], p.d[i+1]}, end
+				n0 = p1.Sub(p0).Rot90CW().Norm(halfWidth) // as we normalize, the factor 2 is irrelevant
+				n1 = p2.Sub(p1).Rot90CW().Norm(halfWidth) // as we normalize, the factor 2 is irrelevant
+
+				if !first {
+					jr.Join(sp, ret, halfWidth, start, n1Prev, n0)
+				} else {
+					rStart := start.Add(n0)
+					lStart := start.Sub(n0)
+					sp.MoveTo(rStart.X, rStart.Y)
+					ret.MoveTo(lStart.X, lStart.Y)
+					n0First = n0
+					first = false
+				}
+
+				strokeQuad(sp, ret, halfWidth, p0, p1, p2, n0, n1)
 				i += 4
 			case CubeToCmd:
-				panic("not implemented")
+				end = Point{p.d[i+2], p.d[i+3]}
+				// p0 and p2 are the end points, p1 is the control point
+				// a quadratic bezier curve will follow: B(t) = (1-t)^2*p0 + 2(1-t)t*p1 + t^2*p2
+				// and its derivative: B'(t) = 2(1-t)(p1-p0) + 2t(p2-p1), from which we can derive the normals
+				p0, p1, p2, p3 := start, Point{p.d[i+0], p.d[i+1]}, Point{p.d[i+2], p.d[i+3]}, end
+				n0 = p1.Sub(p0).Rot90CW().Norm(halfWidth) // as we normalize, the factor 2 is irrelevant
+				n1 = p3.Sub(p2).Rot90CW().Norm(halfWidth) // as we normalize, the factor 2 is irrelevant
+
+				if !first {
+					jr.Join(sp, ret, halfWidth, start, n1Prev, n0)
+				} else {
+					rStart := start.Add(n0)
+					lStart := start.Sub(n0)
+					sp.MoveTo(rStart.X, rStart.Y)
+					ret.MoveTo(lStart.X, lStart.Y)
+					n0First = n0
+					first = false
+				}
+
+				strokeCube(sp, ret, halfWidth, p0, p1, p2, p3, n0, n1)
 				i += 6
 			case ArcToCmd:
 				rx, ry := p.d[i+0], p.d[i+1]

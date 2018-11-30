@@ -24,6 +24,8 @@ The common interface allows to draw either paths or text. All positions and size
 * Merge large-arc-flag and sweep-flag into one float64
 * Optimize/minify paths from and to SVG
 * Optimize glyph positioning/snapping when converting to path?
+* Optimize paths by replacing Quad/Cube/Arc to line if they are linear
+* Optimize paths by removing the last Line if followed by Close
 
 ## Example
 See https://github.com/tdewolff/canvas/tree/master/example for a working example, including fonts. Note that for PDFs you need to pre-compile fonts using `makefont` installed by `go install github.com/jung-kurt/gofpdf/makefont` and then compile them by running `makefont --embed --enc=cp1252.map DejaVuSerif.ttf`.
