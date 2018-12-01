@@ -86,7 +86,7 @@ func bevelJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 }
 
 func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
-	pWhole = pWhole.FlattenBezier()
+	pWhole = pWhole.FlattenBeziers(0.01)
 
 	sp := &Path{}
 	halfWidth := w / 2.0
