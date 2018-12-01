@@ -19,9 +19,9 @@ const (
 )
 
 type Path struct {
-	cmds []PathCmd
-	d    []float64
-	x0, y0   float64 // coords of last MoveTo
+	cmds   []PathCmd
+	d      []float64
+	x0, y0 float64 // coords of last MoveTo
 }
 
 func (p *Path) IsEmpty() bool {
@@ -169,70 +169,76 @@ func (p *Path) Split() []*Path {
 }
 
 func (p *Path) Translate(x, y float64) *Path {
-	q := p.Copy()
+	p = p.Copy()
 	i := 0
-	for _, cmd := range q.cmds {
+	if len(p.cmds) > 0 && p.cmds[0] != MoveToCmd {
+		p.cmds = append([]PathCmd{MoveToCmd}, p.cmds...)
+		p.d = append([]float64{0, 0}, p.d...)
+	}
+	for _, cmd := range p.cmds {
 		switch cmd {
 		case MoveToCmd, LineToCmd, CloseCmd:
-			q.d[i+0] += x
-			q.d[i+1] += y
+			p.d[i+0] += x
+			p.d[i+1] += y
 			i += 2
 		case QuadToCmd:
-			q.d[i+0] += x
-			q.d[i+1] += y
-			q.d[i+2] += x
-			q.d[i+3] += y
+			p.d[i+0] += x
+			p.d[i+1] += y
+			p.d[i+2] += x
+			p.d[i+3] += y
 			i += 4
 		case CubeToCmd:
-			q.d[i+0] += x
-			q.d[i+1] += y
-			q.d[i+2] += x
-			q.d[i+3] += y
-			q.d[i+4] += x
-			q.d[i+5] += y
+			p.d[i+0] += x
+			p.d[i+1] += y
+			p.d[i+2] += x
+			p.d[i+3] += y
+			p.d[i+4] += x
+			p.d[i+5] += y
 			i += 6
 		case ArcToCmd:
-			q.d[i+5] += x
-			q.d[i+6] += y
+			p.d[i+5] += x
+			p.d[i+6] += y
 			i += 7
 		}
 	}
-	return q
+	return p
 }
 
-// func (p *Path) FlattenBezier() *Path {
-// 	q := p.Copy()
-// 	i := 0
-// 	p0 := Point{}
-// 	for icmd := 0; icmd < len(q.cmds); icmd++ {
-// 		cmd := q.cmds[icmd]
-// 		switch cmd {
-// 		case MoveToCmd, LineToCmd, CloseCmd:
-// 			i += 2
-// 		case QuadToCmd:
-// 			p1 := Point{q.d[i+0], q.d[i+1]}
-// 			p2 := Point{q.d[i+2], q.d[i+3]}
-// 			c := flattenQuadraticBezier(p0, p1, p2)
-// 			q.cmds = append(append(q.cmds[:icmd], c.cmds...), q.cmds[icmd+1:]...)
-// 			q.d = append(append(q.d[:i], c.d...), q.d[i+4:]...)
-// 			icmd += len(c.cmds) - 1
-// 			i += len(c.d)
-// 		case CubeToCmd:
-// 			p1 := Point{q.d[i+0], q.d[i+1]}
-// 			p2 := Point{q.d[i+2], q.d[i+3]}
-// 			p3 := Point{q.d[i+4], q.d[i+5]}
-// 			c := flattenCubicBezier(p0, p1, p2, p3)
-// 			q.cmds = append(append(q.cmds[:icmd], c.cmds...), q.cmds[icmd+1:]...)
-// 			q.d = append(append(q.d[:i], c.d...), q.d[i+6:]...)
-// 			icmd += len(c.cmds) - 1
-// 			i += len(c.d)
-// 		case ArcToCmd:
-// 			i += 7
-// 		}
-// 		p0 = Point{q.d[i-2], q.d[i-1]}
-// 	}
-// 	return q
-// }
+func (p *Path) FlattenBezier() *Path {
+	flatness := 0.1
+	p = p.Copy()
+	i := 0
+	start := Point{}
+	for icmd := 0; icmd < len(p.cmds); icmd++ {
+		switch p.cmds[icmd] {
+		case MoveToCmd, LineToCmd, CloseCmd:
+			i += 2
+		case QuadToCmd:
+			c := Point{p.d[i+0], p.d[i+1]}
+			end := Point{p.d[i+2], p.d[i+3]}
+			c1 := start.Interpolate(c, 2.0/3.0)
+			c2 := end.Interpolate(c, 2.0/3.0)
+			q := flattenCubicBezier(start, c1, c2, end, flatness)
+			p.cmds = append(p.cmds[:icmd], append(q.cmds, p.cmds[icmd+1:]...)...)
+			p.d = append(p.d[:i], append(q.d, p.d[i+4:]...)...)
+			icmd += len(q.cmds) - 1
+			i += len(q.d)
+		case CubeToCmd:
+			c1 := Point{p.d[i+0], p.d[i+1]}
+			c2 := Point{p.d[i+2], p.d[i+3]}
+			end := Point{p.d[i+4], p.d[i+5]}
+			q := flattenCubicBezier(start, c1, c2, end, flatness)
+			p.cmds = append(p.cmds[:icmd], append(q.cmds, p.cmds[icmd+1:]...)...)
+			p.d = append(p.d[:i], append(q.d, p.d[i+4:]...)...)
+			icmd += len(q.cmds) - 1
+			i += len(q.d)
+		case ArcToCmd:
+			i += 7
+		}
+		start = Point{p.d[i-2], p.d[i-1]}
+	}
+	return p
+}
 
 func prevEnd(d []float64) (float64, float64) {
 	if len(d) > 1 {
@@ -255,7 +261,7 @@ func (p *Path) Invert() *Path {
 	closed := false
 
 	i := len(p.d)
-	for icmd := len(p.cmds)-1; icmd >= 0; icmd-- {
+	for icmd := len(p.cmds) - 1; icmd >= 0; icmd-- {
 		switch p.cmds[icmd] {
 		case CloseCmd:
 			i -= 2
@@ -491,6 +497,9 @@ func (p *Path) ToSVGPath() string {
 	svg := strings.Builder{}
 	i := 0
 	x, y := 0.0, 0.0
+	if len(p.cmds) > 0 && p.cmds[0] != MoveToCmd {
+		svg.WriteString("M0 0")
+	}
 	for _, cmd := range p.cmds {
 		switch cmd {
 		case MoveToCmd:
