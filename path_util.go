@@ -190,37 +190,33 @@ func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float6
 	}
 
 	_, _, _, _, p0, p1, p2, p3 = splitCubicBezier(p0, p1, p2, p3, t)
-	s3denom := math.Hypot(p1.X-p0.X, p1.Y-p0.Y)
-	if s3denom == 0.0 {
-		// n = x1-x0 = y1-y0 -> 0 if we assume at the same rate, we can rewrite
-		// s3 = ((x3-x0)(y1-y0) - (y3-y0)(x1-x0)) / sqrt((x1-x0)^2 + (y1-y0)^2)
-		// lim (n->0) ((x3-x0)n - (y3-y0)n) / sqrt(2) / n = ((x3-x0)-(y3-y0)) / sqrt(2)
-		// TODO: check if right? q seems big, and is the sqrt2 needed?
-		s3 := math.Abs((p3.X-p0.X)-(p3.Y-p0.Y)) / math.Sqrt2
+	p01 := p1.Sub(p0)
+	p03 := p3.Sub(p0)
+	if p01.X == 0.0 && p01.Y == 0.0 {
+		s3 := math.Abs(p03.X - p03.Y)
 		if s3 == 0.0 {
-			// TODO: happens with simple curve, what is it? Is t,t the right response?
 			return t, t
 		}
-		q := math.Cbrt(flatness / s3)
-		tmin := t - q
-		tmax := t + q
-		return tmin, tmax
+
+		// TODO: check if right? tf seems big, I added the 0.5 without research
+		tf := math.Cbrt(flatness / s3)
+		tf *= 0.5
+		return t - tf, t + tf
 
 	}
-	s3nom := math.Abs((p3.X-p0.X)*(p1.Y-p0.Y) - (p3.Y-p0.Y)*(p1.X-p0.X))
-	if s3nom == 0.0 {
+	s3 := math.Abs(p03.X*p01.Y-p03.Y*p01.X) / math.Hypot(p01.X, p01.Y)
+	if s3 == 0.0 {
 		return 0.0, 1.0 // can approximate whole curve linearly
 	}
 
-	tf := math.Cbrt(flatness * s3denom / s3nom)
-	tmin := t - tf*(1-t)
-	tmax := t + tf*(1-t)
-	return tmin, tmax
+	tf := math.Cbrt(flatness / s3)
+	return t - tf*(1-t), t + tf*(1-t)
 }
 
 // see Flat, precise flattening of cubic Bezier path and offset curves, by T.F. Hain et al., 2005
 // https://www.sciencedirect.com/science/article/pii/S0097849305001287
 // see https://github.com/Manishearth/stylo-flat/blob/master/gfx/2d/Path.cpp for an example implementation
+// or https://docs.rs/crate/lyon_bezier/0.4.1/source/src/flatten_cubic.rs
 func flattenCubicBezier(p0, p1, p2, p3 Point, flatness float64) *Path {
 	p := &Path{}
 	// 0 <= t1 <= 1 if t1 exists
