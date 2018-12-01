@@ -197,6 +197,10 @@ func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float6
 		// lim (n->0) ((x3-x0)n - (y3-y0)n) / sqrt(2) / n = ((x3-x0)-(y3-y0)) / sqrt(2)
 		// TODO: check if right? q seems big, and is the sqrt2 needed?
 		s3 := math.Abs((p3.X-p0.X)-(p3.Y-p0.Y)) / math.Sqrt2
+		if s3 == 0.0 {
+			// TODO: happens with simple curve, what is it? Is t,t the right response?
+			return t, t
+		}
 		q := math.Cbrt(flatness / s3)
 		tmin := t - q
 		tmax := t + q
@@ -222,7 +226,6 @@ func flattenCubicBezier(p0, p1, p2, p3 Point, flatness float64) *Path {
 	// 0 <= t1 <= 1 if t1 exists
 	// 0 <= t2 <= 1 and t1 < t2 if t2 exists
 	t1, t2 := findInflectionPointsCubicBezier(p0, p1, p2, p3)
-	fmt.Println(t1, t2)
 	if math.IsNaN(t1) && math.IsNaN(t2) {
 		// There are no inflection points or cusps, approximate linearly by subdivision.
 		flattenSmoothCubicBezier(p, p0, p1, p2, p3, flatness)
@@ -233,8 +236,6 @@ func flattenCubicBezier(p0, p1, p2, p3 Point, flatness float64) *Path {
 	// t2min <= t2max; with t2min <= 1 and t2max >= 0
 	t1min, t1max := findInflectionPointRange(p0, p1, p2, p3, t1, flatness)
 	t2min, t2max := findInflectionPointRange(p0, p1, p2, p3, t2, flatness)
-	fmt.Println(t1min, t1max)
-	fmt.Println(t2min, t2max)
 
 	if math.IsNaN(t2) && t1min <= 0.0 && 1.0 <= t1max {
 		// There is no second inflection point, and the first inflection point can be entirely approximated linearly.
@@ -243,19 +244,17 @@ func flattenCubicBezier(p0, p1, p2, p3 Point, flatness float64) *Path {
 	}
 
 	if 0.0 < t1min {
-		fmt.Println("a")
 		// Flatten up to t1min
 		q0, q1, q2, q3, _, _, _, _ := splitCubicBezier(p0, p1, p2, p3, t1min)
 		flattenSmoothCubicBezier(p, q0, q1, q2, q3, flatness)
 	}
 
+	fmt.Println(t1max, t2min)
 	if 0.0 < t1max && t1max < 1.0 && t1max < t2min {
 		// t1 and t2 ranges do not overlap, approximate t1 linearly
 		_, _, _, _, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1max)
-		fmt.Println("b", q0)
 		p.LineTo(q0.X, q0.Y)
 		if 1.0 <= t2min {
-			fmt.Println("c", q0, q1, q2, q3)
 			// No t2 present, approximate the rest linearly by subdivision
 			flattenSmoothCubicBezier(p, q0, q1, q2, q3, flatness)
 			return p
