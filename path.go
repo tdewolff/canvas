@@ -229,7 +229,7 @@ func (p *Path) FlattenBezier() *Path {
 			end := Point{p.d[i+4], p.d[i+5]}
 			q := flattenCubicBezier(start, c1, c2, end, flatness)
 			p.cmds = append(p.cmds[:icmd], append(q.cmds, p.cmds[icmd+1:]...)...)
-			p.d = append(p.d[:i], append(q.d, p.d[i+4:]...)...)
+			p.d = append(p.d[:i], append(q.d, p.d[i+6:]...)...)
 			icmd += len(q.cmds) - 1
 			i += len(q.d)
 		case ArcToCmd:
@@ -571,8 +571,8 @@ func (p *Path) ToSVGPath() string {
 			svg.WriteString(ftos(y))
 			i += 7
 		case CloseCmd:
-			svg.WriteString("z")
 			x, y = p.d[i+0], p.d[i+1]
+			svg.WriteString("z")
 			i += 2
 		}
 	}

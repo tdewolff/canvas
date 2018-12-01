@@ -74,7 +74,7 @@ func roundJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 
 var BevelJoiner Joiner = JoinerFunc(bevelJoiner)
 
-func bevelJoiner(lhs, rhs *Path, halfWidth float64, pivot, n0, n1 Point) {
+func bevelJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 	if Equal(n0.X, n1.X) && Equal(n0.Y, n1.Y) {
 		return
 	}
@@ -175,6 +175,11 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 						sp.LineTo(rEnd.X, rEnd.Y)
 						ret.LineTo(lEnd.X, lEnd.Y)
 					}
+
+					rEnd := end.Add(n1)
+					lEnd := end.Sub(n1)
+					sp.LineTo(rEnd.X, rEnd.Y)
+					ret.LineTo(lEnd.X, lEnd.Y)
 				}
 				closed = true
 				i += 2

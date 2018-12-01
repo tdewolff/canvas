@@ -1,7 +1,6 @@
 package canvas
 
 import (
-	"fmt"
 	"math"
 	"strconv"
 )
@@ -245,7 +244,6 @@ func flattenCubicBezier(p0, p1, p2, p3 Point, flatness float64) *Path {
 		flattenSmoothCubicBezier(p, q0, q1, q2, q3, flatness)
 	}
 
-	fmt.Println(t1max, t2min)
 	if 0.0 < t1max && t1max < 1.0 && t1max < t2min {
 		// t1 and t2 ranges do not overlap, approximate t1 linearly
 		_, _, _, _, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1max)
