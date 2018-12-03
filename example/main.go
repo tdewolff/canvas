@@ -44,7 +44,7 @@ func main() {
 func Draw(c canvas.C) {
 	c.Open(100, 150)
 
-	p := canvas.ParseSVGPath("C0 0 0 0 20 0L0 -20z")
+	p := canvas.ParseSVGPath("C0 1 0 0 20 0L0 -20z")
 	//p := canvas.ParseSVGPath("C20 -20 0 -20 20 0z")
 	c.DrawPath(20, 50, p)
 	p = p.FlattenBeziers(0.1)

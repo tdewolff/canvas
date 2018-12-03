@@ -7,6 +7,7 @@ import (
 	"github.com/tdewolff/parse/strconv"
 )
 
+// PathCmd specifies the path command.
 type PathCmd int
 
 const (
@@ -18,16 +19,34 @@ const (
 	CloseCmd
 )
 
+// Len returns the number of numbers the path command contains.
+func (cmd PathCmd) Len() int {
+	switch cmd {
+	case MoveToCmd, LineToCmd, CloseCmd:
+		return 2
+	case QuadToCmd:
+		return 4
+	case CubeToCmd:
+		return 6
+	case ArcToCmd:
+		return 7
+	}
+	panic("unknown path command")
+}
+
+// Path defines a vector path in 2D.
 type Path struct {
 	cmds   []PathCmd
 	d      []float64
 	x0, y0 float64 // coords of last MoveTo
 }
 
+// IsEmpty returns true if p is an empty path.
 func (p *Path) IsEmpty() bool {
 	return len(p.cmds) == 0
 }
 
+// Copy returns a copy of p.
 func (p *Path) Copy() *Path {
 	q := &Path{}
 	q.cmds = append(q.cmds, p.cmds...)
@@ -37,6 +56,7 @@ func (p *Path) Copy() *Path {
 	return q
 }
 
+// Append appends path q to p.
 func (p *Path) Append(q *Path) *Path {
 	if len(q.cmds) == 0 {
 		return p
@@ -58,6 +78,7 @@ func (p *Path) Append(q *Path) *Path {
 	return p
 }
 
+// Pos returns the current position of the path, which is the end point of the last command.
 func (p *Path) Pos() (float64, float64) {
 	if len(p.d) > 1 {
 		return p.d[len(p.d)-2], p.d[len(p.d)-1]
@@ -65,30 +86,41 @@ func (p *Path) Pos() (float64, float64) {
 	return 0.0, 0.0
 }
 
+// Start returns the start point of the current path segment. Ie. it returns the position of the last MoveTo command.
+func (p *Path) Start() (float64, float64) {
+	return p.x0, p.y0
+}
+
 ////////////////////////////////////////////////////////////////
 
+// MoveTo moves the path to x,y without connecting the path. It starts a new independent path segment.
+// Multiple path segments can be useful when negating parts of a previous path by overlapping it
+// with a path in the opposite direction.
 func (p *Path) MoveTo(x, y float64) {
 	p.cmds = append(p.cmds, MoveToCmd)
 	p.d = append(p.d, x, y)
 	p.x0, p.y0 = x, y
 }
 
+// LineTo adds a linear path to x,y.
 func (p *Path) LineTo(x, y float64) {
 	p.cmds = append(p.cmds, LineToCmd)
 	p.d = append(p.d, x, y)
 }
 
+// Quadto adds a quadratic Bezier path with control point x1,y1 and end point x,y.
 func (p *Path) QuadTo(x1, y1, x, y float64) {
 	p.cmds = append(p.cmds, QuadToCmd)
 	p.d = append(p.d, x1, y1, x, y)
 }
 
+// CubeTo adds a cubic Bezier path with control points x1,y1 and x2,y2 and end point x,y.
 func (p *Path) CubeTo(x1, y1, x2, y2, x, y float64) {
 	p.cmds = append(p.cmds, CubeToCmd)
 	p.d = append(p.d, x1, y1, x2, y2, x, y)
 }
 
-// ArcTo defines an arc with radii rx and ry, with rot the rotation with respect to the coordinate system,
+// ArcTo adds an arc with radii rx and ry, with rot the rotation with respect to the coordinate system,
 // large and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
 // and x,y the end position of the pen. The start positions of the pen was given by a previous command.
 func (p *Path) ArcTo(rx, ry, rot float64, large, sweep bool, x, y float64) {
@@ -104,7 +136,7 @@ func (p *Path) ArcTo(rx, ry, rot float64, large, sweep bool, x, y float64) {
 	p.d = append(p.d, rx, ry, rot, flarge, fsweep, x, y)
 }
 
-// Close closes a path to with a LineTo to the start of the path (the most recent MoveTo command).
+// Close closes a path with a LineTo to the start of the path (the most recent MoveTo command).
 // It also signals the path closes, as opposed to being just a LineTo command.
 func (p *Path) Close() {
 	p.cmds = append(p.cmds, CloseCmd)
@@ -113,6 +145,7 @@ func (p *Path) Close() {
 
 ////////////////////////////////////////////////////////////////
 
+// Rect returns a rectangle at x,y with width and height of w and h respectively.
 func (p *Path) Rect(x, y, w, h float64) {
 	p.MoveTo(x, y)
 	p.LineTo(x+w, y)
@@ -121,6 +154,7 @@ func (p *Path) Rect(x, y, w, h float64) {
 	p.Close()
 }
 
+// Ellipse returns an ellipse at x,y with radii rx,ry.
 func (p *Path) Ellipse(x, y, rx, ry float64) {
 	p.MoveTo(x+rx, y)
 	p.ArcTo(rx, ry, 0, false, false, x-rx, y)
@@ -168,6 +202,7 @@ func (p *Path) Split() []*Path {
 	return ps
 }
 
+// Translate returns a copy of p that has the entire path translated by x,y.
 func (p *Path) Translate(x, y float64) *Path {
 	p = p.Copy()
 	i := 0
@@ -204,36 +239,39 @@ func (p *Path) Translate(x, y float64) *Path {
 	return p
 }
 
-func (p *Path) FlattenBeziers(flatness float64) *Path {
-	flatness = math.Abs(flatness)
+// replaceCmd replaces a command at position icmd in p by the path defined in q
+// it returns the amount of elements added to q.d
+func (p *Path) replaceCmd(icmd int, q *Path) int {
+	p.cmds = append(p.cmds[:icmd], append(q.cmds, p.cmds[icmd+1:]...)...)
+	p.d = append(p.d[:i], append(q.d, p.d[i+4:]...)...)
+	icmd += len(q.cmds) - 1
+	return len(q.d)
+}
+
+// FlattenBeziers will return a copy of p with all Bezier curves flattened.
+// It replaces the curves by linear segments, under the constraint that the maximum deviation is up to tolerance.
+func (p *Path) FlattenBeziers(tolerance float64) *Path {
 	p = p.Copy()
 	i := 0
 	start := Point{}
 	for icmd := 0; icmd < len(p.cmds); icmd++ {
-		switch p.cmds[icmd] {
-		case MoveToCmd, LineToCmd, CloseCmd:
-			i += 2
+		cmd := p.cmds[icmd]
+		switch cmd {
 		case QuadToCmd:
 			c := Point{p.d[i+0], p.d[i+1]}
 			end := Point{p.d[i+2], p.d[i+3]}
 			c1 := start.Interpolate(c, 2.0/3.0)
 			c2 := end.Interpolate(c, 2.0/3.0)
-			q := flattenCubicBezier(start, c1, c2, end, flatness)
-			p.cmds = append(p.cmds[:icmd], append(q.cmds, p.cmds[icmd+1:]...)...)
-			p.d = append(p.d[:i], append(q.d, p.d[i+4:]...)...)
-			icmd += len(q.cmds) - 1
-			i += len(q.d)
+			q := flattenCubicBezier(start, c1, c2, end, tolerance)
+			i += p.replaceCmd(icmd, q)
 		case CubeToCmd:
 			c1 := Point{p.d[i+0], p.d[i+1]}
 			c2 := Point{p.d[i+2], p.d[i+3]}
 			end := Point{p.d[i+4], p.d[i+5]}
-			q := flattenCubicBezier(start, c1, c2, end, flatness)
-			p.cmds = append(p.cmds[:icmd], append(q.cmds, p.cmds[icmd+1:]...)...)
-			p.d = append(p.d[:i], append(q.d, p.d[i+6:]...)...)
-			icmd += len(q.cmds) - 1
-			i += len(q.d)
-		case ArcToCmd:
-			i += 7
+			q := flattenCubicBezier(start, c1, c2, end, tolerance)
+			i += p.replaceCmd(icmd, q)
+		default:
+			i += cmd.Len()
 		}
 		start = Point{p.d[i-2], p.d[i-1]}
 	}
@@ -247,7 +285,8 @@ func prevEnd(d []float64) (float64, float64) {
 	return 0.0, 0.0
 }
 
-func (p *Path) Invert() *Path {
+// Reverse returns a copy of p that is the same path but in the reverse direction.
+func (p *Path) Reverse() *Path {
 	ip := &Path{}
 	if len(p.cmds) == 0 {
 		return ip
@@ -336,6 +375,7 @@ func parseNum(path []byte) (float64, int) {
 	return f, i + n
 }
 
+// ParseSVGPath parses an SVG path data string.
 func ParseSVGPath(sPath string) *Path {
 	path := []byte(sPath)
 	p := &Path{}
@@ -493,6 +533,7 @@ func ParseSVGPath(sPath string) *Path {
 	return p
 }
 
+// ToSVGPath returns a string that represents the path in the SVG path data format.
 func (p *Path) ToSVGPath() string {
 	svg := strings.Builder{}
 	i := 0

@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"fmt"
 	"math"
 	"strconv"
 )
@@ -205,15 +206,18 @@ func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float6
 
 	if nr.X == 0.0 && nr.Y == 0.0 {
 		// if rn is still zero, this curve has p0=p1=p2, so it is straight
+		fmt.Println("A")
 		return 0.0, 1.0
 	}
 
 	s3 := math.Abs(ns.X*nr.Y-ns.Y*nr.X) / math.Hypot(nr.X, nr.Y)
 	if s3 == 0.0 {
+		fmt.Println("B")
 		return 0.0, 1.0 // can approximate whole curve linearly
 	}
 
 	tf := math.Cbrt(flatness / s3)
+	fmt.Println("C")
 	return t - tf*(1-t), t + tf*(1-t)
 }
 

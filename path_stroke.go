@@ -1,11 +1,10 @@
 package canvas
 
-import "math"
-
 // NOTE: implementation mostly taken from github.com/golang/freetype/raster/stroke.go
 
-// Capper implements Cap, with rhs the path to append to, pivot the pivot point around which to construct a cap,
-// and n = (start-pivot) with start the start of the cap. The length of n is the half width of the stroke.
+// Capper implements Cap, with rhs the path to append to, halfWidth the half width of the stroke,
+// pivot the pivot point around which to construct a cap, and n0 the normal at the start of the path.
+// The length of n0 is equal to the halfWidth.
 type Capper interface {
 	Cap(*Path, float64, Point, Point)
 }
@@ -16,6 +15,7 @@ func (f CapperFunc) Cap(p *Path, halfWidth float64, pivot, n0 Point) {
 	f(p, halfWidth, pivot, n0)
 }
 
+// RoundCapper caps the start or end of a path by a round cap.
 var RoundCapper Capper = CapperFunc(roundCapper)
 
 func roundCapper(p *Path, halfWidth float64, pivot, n0 Point) {
@@ -23,6 +23,7 @@ func roundCapper(p *Path, halfWidth float64, pivot, n0 Point) {
 	p.ArcTo(halfWidth, halfWidth, 0, false, false, end.X, end.Y)
 }
 
+// ButtCapper caps the start or end of a path by a butt cap.
 var ButtCapper Capper = CapperFunc(buttCapper)
 
 func buttCapper(p *Path, halfWidth float64, pivot, n0 Point) {
@@ -30,6 +31,7 @@ func buttCapper(p *Path, halfWidth float64, pivot, n0 Point) {
 	p.LineTo(end.X, end.Y)
 }
 
+// SquareCapper caps the start or end of a path by a square cap.
 var SquareCapper Capper = CapperFunc(squareCapper)
 
 func squareCapper(p *Path, halfWidth float64, pivot, n0 Point) {
@@ -44,6 +46,9 @@ func squareCapper(p *Path, halfWidth float64, pivot, n0 Point) {
 
 ////////////////
 
+// Joiner implements Join, with rhs the right path and lhs the left path to append to, pivot the intersection of both
+// path elements, n0 and n1 the normals at the start and end of the path respectively.
+// The length of n0 and n1 are equal to the halfWidth.
 type Joiner interface {
 	Join(*Path, *Path, float64, Point, Point, Point)
 }
@@ -54,6 +59,7 @@ func (f JoinerFunc) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point)
 	f(rhs, lhs, halfWidth, pivot, n0, n1)
 }
 
+// RoundJoiner connects two path elements by a round join.
 var RoundJoiner Joiner = JoinerFunc(roundJoiner)
 
 func roundJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
@@ -74,6 +80,7 @@ func roundJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 	}
 }
 
+// BevelJoiner connects two path elements by a linear join.
 var BevelJoiner Joiner = JoinerFunc(bevelJoiner)
 
 func bevelJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
@@ -87,9 +94,11 @@ func bevelJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 	lhs.LineTo(lEnd.X, lEnd.Y)
 }
 
-func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, accuracy float64) *Path {
-	accuracy = math.Abs(accuracy)
-	pWhole = pWhole.FlattenBeziers(accuracy)
+// Stroke will convert a path into a stroke of width w. It uses cr to cap the start and end of the path, and jr to
+// join all path elemtents. If the path closes itself, it will use a join between the start and end instead of capping them.
+// The tolerance is the maximum deviation from the original path when flattening Beziers and optimizing the stroke.
+func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path {
+	pWhole = pWhole.FlattenBeziers(tolerance)
 
 	sp := &Path{}
 	halfWidth := w / 2.0
