@@ -3,7 +3,6 @@ package canvas
 import (
 	"math"
 	"strconv"
-	"fmt"
 )
 
 const epsilon = 1e-10
@@ -192,43 +191,29 @@ func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float6
 	// we state that s(t) = 3*s2*t^2 + (s3 - 3*s2)*t^3 (see paper on the r-s coordinate system)
 	// with s(t) aligned perpendicular to the curve at t = 0
 	// then we impose that s(tf) = flatness and find tf
+	// at inflection points however, s2 = 0, so that s(t) = s3*t^3
 
 	_, _, _, _, p0, p1, p2, p3 = splitCubicBezier(p0, p1, p2, p3, t)
-	fmt.Println(p0, p1, p2, p3)
-	rn := p1.Sub(p0)
-	sn := p3.Sub(p0)
-	if rn.X == 0.0 && rn.Y == 0.0 {
+	nr := p1.Sub(p0)
+	ns := p3.Sub(p0)
+	if nr.X == 0.0 && nr.Y == 0.0 {
 		// if p0=p1, then rn (the velocity at t=0) needs adjustment
-		// rn = lim[t->0](B'(t)) = 3*(p1-p0) + 6*t*((p1-p0)+(p2-p1)) + second order terms of t
+		// nr = lim[t->0](B'(t)) = 3*(p1-p0) + 6*t*((p1-p0)+(p2-p1)) + second order terms of t
 		// if (p1-p0)->0, we use (p2-p1)
-		rn = p2.Sub(p1)
+		nr = p2.Sub(p1)
 	}
 
-	if rn.X == 0.0 && rn.Y == 0.0 {
-		// if rn is still zero, this curve has p0=p1 and p2=p3, so it is straight
-		// TODO: check if this is right
-		s3 := math.Abs(rn.X - rn.Y)
-		if s3 == 0.0 {
-			fmt.Println("A")
-			return t, t
-		}
-
-		tf := math.Cbrt(flatness / s3)
-		fmt.Println("s3", s3, "tf", tf)
-		fmt.Println("B")
-		return t - tf, t + tf
-
+	if nr.X == 0.0 && nr.Y == 0.0 {
+		// if rn is still zero, this curve has p0=p1=p2, so it is straight
+		return 0.0, 1.0
 	}
-	// TODO: still seems to give error larger than flatness
-	s3 := math.Abs(sn.X*rn.Y-sn.Y*rn.X) / math.Hypot(rn.X, rn.Y)
+
+	s3 := math.Abs(ns.X*nr.Y-ns.Y*nr.X) / math.Hypot(nr.X, nr.Y)
 	if s3 == 0.0 {
-		fmt.Println("C")
 		return 0.0, 1.0 // can approximate whole curve linearly
 	}
 
 	tf := math.Cbrt(flatness / s3)
-	fmt.Println("s3", s3, "tf", tf)
-	fmt.Println("D")
 	return t - tf*(1-t), t + tf*(1-t)
 }
 

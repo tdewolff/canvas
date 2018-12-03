@@ -24,7 +24,7 @@ The common interface allows to draw either paths or text. All positions and size
 * Merge large-arc-flag and sweep-flag into one float64
 * Optimize/minify paths from and to SVG
 * Optimize glyph positioning/snapping when converting to path?
-* Optimize paths by replacing Quad/Cube/Arc to line if they are linear
+* Optimize paths by replacing Quad/Cube/Arc to line if they are linear (eg. p0=p1=p2 for cubic Bezier)
 * Optimize paths by removing the last Line if followed by Close
 
 ## Example
