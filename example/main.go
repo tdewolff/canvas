@@ -44,8 +44,8 @@ func main() {
 func Draw(c canvas.C) {
 	c.Open(100, 150)
 
-	p := canvas.ParseSVGPath("C0 -20 20 -20 20 0z")
-	//p := canvas.ParseSVGPath("C20 -20 0 -20 20 0z")
+	//p := canvas.ParseSVGPath("m 24.352,74.57 c -0.286667,-0.254667 -0.690333,-0.382 -1.211,-0.382 -3.43517,2.486883 -2.766525,-0.580521 0.062,-0.594 0.864667,0 1.523667,0.216 1.977,0.648 -2.385124,9.355731 1.183897,2.189771 -0.828,0.328 z")
+	p := canvas.ParseSVGPath("C20 -20 0 -20 20 0z")
 	c.DrawPath(20, 50, p)
 	p = p.Stroke(3, canvas.RoundCapper, canvas.RoundJoiner, 0.01)
 	c.SetColor(color.RGBA{255, 0, 0, 127})
@@ -55,12 +55,12 @@ func Draw(c canvas.C) {
 	// c.DrawText(50, 55, "Test")
 	// fmt.Println(face.LineHeight())
 
-	c.SetColor(color.RGBA{0, 0, 0, 255})
 	face, _ := c.SetFont("DejaVuSerif", 12)
-	// c.DrawText(40, 55, "Testestest")
 
-	pText := face.ToPath("Taco")
-	//pText = pText.Stroke(3, canvas.RoundCapper, canvas.RoundJoiner, 0.1)
+	pText := face.ToPath("a")
+	c.DrawPath(20, 80, pText)
+	pText = pText.Stroke(0.2, canvas.RoundCapper, canvas.RoundJoiner, 0.01)
+	c.SetColor(color.RGBA{255, 0, 0, 127})
 	c.DrawPath(20, 80, pText)
 	// c.DrawText(40, 55+face.LineHeight(), "Test")
 	// fmt.Println(face.LineHeight())

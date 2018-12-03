@@ -16,16 +16,16 @@ import (
 	"github.com/jung-kurt/gofpdf"
 )
 
-const (
-	Black  = color.RGBA{0, 0, 0, 255}
-	White  = color.RGBA{0, 0, 0, 255}
-	Grey   = color.RGBA{128, 128, 128, 255}
-	Red    = color.RGBA{255, 0, 0, 255}
-	Green  = color.RGBA{0, 255, 0, 255}
-	Blue   = color.RGBA{0, 0, 255, 255}
-	Yellow = color.RGBA{255, 255, 0, 255}
-	Purple = color.RGBA{255, 0, 255, 255}
-	Cyan   = color.RGBA{0, 255, 255, 255}
+var (
+	Black   = color.RGBA{0, 0, 0, 255}
+	White   = color.RGBA{0, 0, 0, 255}
+	Grey    = color.RGBA{128, 128, 128, 255}
+	Red     = color.RGBA{255, 0, 0, 255}
+	Lime    = color.RGBA{0, 255, 0, 255}
+	Blue    = color.RGBA{0, 0, 255, 255}
+	Yellow  = color.RGBA{255, 255, 0, 255}
+	Magenta = color.RGBA{255, 0, 255, 255}
+	Cyan    = color.RGBA{0, 255, 255, 255}
 )
 
 func cssColor(c color.Color) []byte {
