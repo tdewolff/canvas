@@ -55,12 +55,13 @@ func Draw(c canvas.C) {
 	// c.DrawText(50, 55, "Test")
 	// fmt.Println(face.LineHeight())
 
-	// face, _ := c.SetFont("DejaVuSerif", 12)
+	c.SetColor(color.RGBA{0, 0, 0, 255})
+	face, _ := c.SetFont("DejaVuSerif", 12)
 	// c.DrawText(40, 55, "Testestest")
 
-	// pText := face.ToPath("Testestest")
-	// pText.Translate(40, 58)
-	// c.DrawPath(pText)
+	pText := face.ToPath("Taco")
+	//pText = pText.Stroke(3, canvas.RoundCapper, canvas.RoundJoiner, 0.1)
+	c.DrawPath(20, 80, pText)
 	// c.DrawText(40, 55+face.LineHeight(), "Test")
 	// fmt.Println(face.LineHeight())
 }

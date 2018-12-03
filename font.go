@@ -159,7 +159,7 @@ func (f FontFace) ToPath(s string) *Path {
 	p := &Path{}
 	for _, r := range s {
 		pRune, advance := f.glyphToPath(r)
-		pRune.Translate(x, 0.0)
+		pRune = pRune.Translate(x, 0.0)
 		p.Append(pRune)
 		x += advance
 	}
