@@ -86,7 +86,7 @@ func bevelJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 }
 
 func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
-	pWhole = pWhole.FlattenBeziers(0.01)
+	pWhole = pWhole.FlattenBeziers(0.1)
 
 	sp := &Path{}
 	halfWidth := w / 2.0
@@ -197,9 +197,10 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 			cr.Cap(sp, halfWidth, start, n1Prev)
 		} else {
 			jr.Join(sp, ret, halfWidth, start, n1Prev, n0First)
-			// butt cap close the stroke to each other
+			// close path and move to inverse path (which runs the other way around to negate the other)
 			invStart := start.Sub(n0First)
-			sp.LineTo(invStart.X, invStart.Y)
+			sp.Close()
+			sp.MoveTo(invStart.X, invStart.Y)
 		}
 		sp.Append(ret.Invert())
 		if !closed {

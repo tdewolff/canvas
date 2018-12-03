@@ -42,23 +42,22 @@ func main() {
 }
 
 func Draw(c canvas.C) {
-	c.Open(120, 110)
+	c.Open(150, 150)
 
-	p := canvas.ParseSVGPath("C20 -20 0 -20 20 0")
-	c.DrawPath(20, 50, p)
+	p := canvas.ParseSVGPath("M40 40 V120 H120 V40z M60 60 H100 V100 H60z")
+	c.DrawPath(0, 0, p)
 
-	//p = p.FlattenBezier()
-	p = p.Stroke(1.0, canvas.RoundCapper, canvas.RoundJoiner)
-	c.SetColor(color.RGBA{255, 0, 0, 255})
-	c.DrawPath(20, 50, p)
 
 	c.SetColor(color.RGBA{0, 0, 0, 255})
 	p = canvas.ParseSVGPath("C20 -20 0 -20 20 0z")
-	c.DrawPath(50, 50, p)
+	c.DrawPath(20, 50, p)
 
-	//p = p.FlattenBezier()
-	p = p.Stroke(1.0, canvas.RoundCapper, canvas.RoundJoiner)
+	p = p.FlattenBeziers(0.1)
 	c.SetColor(color.RGBA{255, 0, 0, 255})
+	c.DrawPath(20, 50, p)
+
+	p = p.Stroke(1.0, canvas.RoundCapper, canvas.RoundJoiner)
+	c.SetColor(color.RGBA{0, 255, 0, 255})
 	c.DrawPath(50, 50, p)
 
 	// face, _ := c.SetFont("DejaVuSerif", 12)
