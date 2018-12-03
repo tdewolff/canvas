@@ -125,6 +125,55 @@ func angleToNormal(theta float64) Point {
 
 ////////////////////////////////////////////////////////////////
 
+func cubicBezierNormal(p0, p1, p2, p3 Point, t float64) Point {
+	if t == 0.0 {
+		n := p1.Sub(p0)
+		if n.X == 0 && n.Y == 0 {
+			n = p2.Sub(p1)
+		}
+		if n.X == 0 && n.Y == 0 {
+			n = p3.Sub(p0)
+		}
+		if n.X == 0 && n.Y == 0 {
+			panic("?")
+		}
+		return n.Rot90CCW()
+	} else if t == 1.0 {
+		n := p3.Sub(p2)
+		if n.X == 0 && n.Y == 0 {
+			n = p2.Sub(p1)
+		}
+		if n.X == 0 && n.Y == 0 {
+			n = p3.Sub(p0)
+		}
+		if n.X == 0 && n.Y == 0 {
+			panic("?")
+		}
+		return n.Rot90CCW()
+	}
+	panic("not implemented")
+}
+
+func addCubicBezierLine(p *Path, p0, p1, p2, p3 Point, t, d float64) {
+	pos := Point{}
+	if t == 0.0 {
+		pos = p0
+		if d != 0.0 {
+			n := cubicBezierNormal(p0, p1, p2, p3, t)
+			pos = p0.Add(n.Norm(d))
+		}
+	} else if t == 1.0 {
+		pos = p3
+		if d != 0.0 {
+			n := cubicBezierNormal(p0, p1, p2, p3, t)
+			pos = p3.Add(n.Norm(d))
+		}
+	} else {
+		panic("not implemented")
+	}
+	p.LineTo(pos.X, pos.Y)
+}
+
 func splitCubicBezier(p0, p1, p2, p3 Point, t float64) (Point, Point, Point, Point, Point, Point, Point, Point) {
 	pm := p1.Interpolate(p2, t)
 
@@ -142,22 +191,26 @@ func splitCubicBezier(p0, p1, p2, p3 Point, t float64) (Point, Point, Point, Poi
 }
 
 // split the curve and replace it by lines as long as maximum deviation = flatness is maintained
-func flattenSmoothCubicBezier(p *Path, p0, p1, p2, p3 Point, flatness float64) {
+func flattenSmoothCubicBezier(p *Path, p0, p1, p2, p3 Point, d, flatness float64) {
 	t := 0.0
 	for t < 1.0 {
 		s2nom := (p2.X-p0.X)*(p1.Y-p0.Y) - (p2.Y-p0.Y)*(p1.X-p0.X)
-		s2denom := math.Hypot(p1.X-p0.X, p1.Y-p0.Y)
-		if s2nom*s2denom == 0.0 {
+		denom := math.Hypot(p1.X-p0.X, p1.Y-p0.Y)
+		if s2nom*denom == 0.0 {
 			break
 		}
-		t = 2.0 * math.Sqrt(flatness/3.0*math.Abs(s2denom/s2nom))
+
+		s2 := s2nom / denom
+		r1 := denom
+		effectiveFlatness := flatness / (1.0 + 2.0*d*s2/3.0/r1/r1)
+		t = 2.0 * math.Sqrt(effectiveFlatness/3.0/math.Abs(s2))
 		if t >= 1.0 {
 			break
 		}
 		_, _, _, _, p0, p1, p2, p3 = splitCubicBezier(p0, p1, p2, p3, t)
-		p.LineTo(p0.X, p0.Y)
+		addCubicBezierLine(p, p0, p1, p2, p3, 0.0, d)
 	}
-	p.LineTo(p3.X, p3.Y)
+	addCubicBezierLine(p, p0, p1, p2, p3, 1.0, d)
 }
 
 func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
@@ -206,18 +259,15 @@ func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float6
 
 	if nr.X == 0.0 && nr.Y == 0.0 {
 		// if rn is still zero, this curve has p0=p1=p2, so it is straight
-		fmt.Println("A")
 		return 0.0, 1.0
 	}
 
 	s3 := math.Abs(ns.X*nr.Y-ns.Y*nr.X) / math.Hypot(nr.X, nr.Y)
 	if s3 == 0.0 {
-		fmt.Println("B")
 		return 0.0, 1.0 // can approximate whole curve linearly
 	}
 
 	tf := math.Cbrt(flatness / s3)
-	fmt.Println("C")
 	return t - tf*(1-t), t + tf*(1-t)
 }
 
@@ -225,14 +275,17 @@ func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float6
 // https://www.sciencedirect.com/science/article/pii/S0097849305001287
 // see https://github.com/Manishearth/stylo-flat/blob/master/gfx/2d/Path.cpp for an example implementation
 // or https://docs.rs/crate/lyon_bezier/0.4.1/source/src/flatten_cubic.rs
-func flattenCubicBezier(p0, p1, p2, p3 Point, flatness float64) *Path {
+// p0, p1, p2, p3 are the start points, two control points and the end points respectively. With flatness defined as
+// the maximum error from the orinal curve, and d the half width of the curve used for stroking (positive is to the right).
+func flattenCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
+	fmt.Println("flatten", d, flatness)
 	p := &Path{}
 	// 0 <= t1 <= 1 if t1 exists
 	// 0 <= t2 <= 1 and t1 < t2 if t2 exists
 	t1, t2 := findInflectionPointsCubicBezier(p0, p1, p2, p3)
 	if math.IsNaN(t1) && math.IsNaN(t2) {
 		// There are no inflection points or cusps, approximate linearly by subdivision.
-		flattenSmoothCubicBezier(p, p0, p1, p2, p3, flatness)
+		flattenSmoothCubicBezier(p, p0, p1, p2, p3, d, flatness)
 		return p
 	}
 
@@ -243,28 +296,28 @@ func flattenCubicBezier(p0, p1, p2, p3 Point, flatness float64) *Path {
 
 	if math.IsNaN(t2) && t1min <= 0.0 && 1.0 <= t1max {
 		// There is no second inflection point, and the first inflection point can be entirely approximated linearly.
-		p.LineTo(p3.X, p3.Y)
+		addCubicBezierLine(p, p0, p1, p2, p3, 1.0, d)
 		return p
 	}
 
 	if 0.0 < t1min {
 		// Flatten up to t1min
 		q0, q1, q2, q3, _, _, _, _ := splitCubicBezier(p0, p1, p2, p3, t1min)
-		flattenSmoothCubicBezier(p, q0, q1, q2, q3, flatness)
+		flattenSmoothCubicBezier(p, q0, q1, q2, q3, d, flatness)
 	}
 
 	if 0.0 < t1max && t1max < 1.0 && t1max < t2min {
 		// t1 and t2 ranges do not overlap, approximate t1 linearly
 		_, _, _, _, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1max)
-		p.LineTo(q0.X, q0.Y)
+		addCubicBezierLine(p, q0, q1, q2, q3, 0.0, d)
 		if 1.0 <= t2min {
 			// No t2 present, approximate the rest linearly by subdivision
-			flattenSmoothCubicBezier(p, q0, q1, q2, q3, flatness)
+			flattenSmoothCubicBezier(p, q0, q1, q2, q3, d, flatness)
 			return p
 		}
 	} else if 1.0 <= t2min {
 		// t1 and t2 overlap but past the curve, approximate linearly
-		p.LineTo(p3.X, p3.Y)
+		addCubicBezierLine(p, p0, p1, p2, p3, 1.0, d)
 		return p
 	}
 
@@ -272,29 +325,29 @@ func flattenCubicBezier(p0, p1, p2, p3 Point, flatness float64) *Path {
 	if 0.0 < t2min {
 		if t2min < t1max {
 			// t2 range starts inside t1 range, approximate t1 range linearly
-			_, _, _, _, q0, _, _, _ := splitCubicBezier(p0, p1, p2, p3, t1max)
-			p.LineTo(q0.X, q0.Y)
+			_, _, _, _, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1max)
+			addCubicBezierLine(p, q0, q1, q2, q3, 0.0, d)
 		} else if 0.0 < t1max {
 			// no overlap
 			_, _, _, _, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1max)
 			t2minq := (t2min - t1max) / (1 - t1max)
 			q0, q1, q2, q3, _, _, _, _ = splitCubicBezier(q0, q1, q2, q3, t2minq)
-			flattenSmoothCubicBezier(p, q0, q1, q2, q3, flatness)
+			flattenSmoothCubicBezier(p, q0, q1, q2, q3, d, flatness)
 		} else {
 			// no t1, approximate up to t2min linearly by subdivision
 			q0, q1, q2, q3, _, _, _, _ := splitCubicBezier(p0, p1, p2, p3, t2min)
-			flattenSmoothCubicBezier(p, q0, q1, q2, q3, flatness)
+			flattenSmoothCubicBezier(p, q0, q1, q2, q3, d, flatness)
 		}
 	}
 
 	// handle (the rest of) t2
 	if t2max < 1.0 {
 		_, _, _, _, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t2max)
-		p.LineTo(q0.X, q0.Y)
-		flattenSmoothCubicBezier(p, q0, q1, q2, q3, flatness)
+		addCubicBezierLine(p, q0, q1, q2, q3, 0.0, d)
+		flattenSmoothCubicBezier(p, q0, q1, q2, q3, d, flatness)
 	} else {
 		// t2max extends beyond 1
-		p.LineTo(p3.X, p3.Y)
+		addCubicBezierLine(p, p0, p1, p2, p3, 1.0, d)
 	}
 	return p
 }

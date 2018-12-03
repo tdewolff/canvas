@@ -34,6 +34,24 @@ func (cmd PathCmd) Len() int {
 	panic("unknown path command")
 }
 
+func (cmd PathCmd) String() string {
+	switch cmd {
+	case MoveToCmd:
+		return "M"
+	case LineToCmd:
+		return "L"
+	case QuadToCmd:
+		return "Q"
+	case CubeToCmd:
+		return "C"
+	case ArcToCmd:
+		return "A"
+	case CloseCmd:
+		return "z"
+	}
+	panic("unknown path command")
+}
+
 // Path defines a vector path in 2D.
 type Path struct {
 	cmds   []PathCmd
@@ -239,13 +257,14 @@ func (p *Path) Translate(x, y float64) *Path {
 	return p
 }
 
-// replaceCmd replaces a command at position icmd in p by the path defined in q
+// replaceCmd replaces a command at position icmd and number position d in p by the path defined in q
 // it returns the amount of elements added to q.d
-func (p *Path) replaceCmd(icmd int, q *Path) int {
-	p.cmds = append(p.cmds[:icmd], append(q.cmds, p.cmds[icmd+1:]...)...)
-	p.d = append(p.d[:i], append(q.d, p.d[i+4:]...)...)
-	icmd += len(q.cmds) - 1
-	return len(q.d)
+func (p *Path) replaceCmd(icmd, i *int, q *Path) {
+	n := p.cmds[*icmd].Len()
+	p.cmds = append(p.cmds[:*icmd], append(q.cmds, p.cmds[*icmd+1:]...)...)
+	p.d = append(p.d[:*i], append(q.d, p.d[*i+n:]...)...)
+	*icmd += len(q.cmds) - 1
+	*i += len(q.d)
 }
 
 // FlattenBeziers will return a copy of p with all Bezier curves flattened.
@@ -262,14 +281,14 @@ func (p *Path) FlattenBeziers(tolerance float64) *Path {
 			end := Point{p.d[i+2], p.d[i+3]}
 			c1 := start.Interpolate(c, 2.0/3.0)
 			c2 := end.Interpolate(c, 2.0/3.0)
-			q := flattenCubicBezier(start, c1, c2, end, tolerance)
-			i += p.replaceCmd(icmd, q)
+			q := flattenCubicBezier(start, c1, c2, end, 0.0, tolerance)
+			p.replaceCmd(&icmd, &i, q)
 		case CubeToCmd:
 			c1 := Point{p.d[i+0], p.d[i+1]}
 			c2 := Point{p.d[i+2], p.d[i+3]}
 			end := Point{p.d[i+4], p.d[i+5]}
-			q := flattenCubicBezier(start, c1, c2, end, tolerance)
-			i += p.replaceCmd(icmd, q)
+			q := flattenCubicBezier(start, c1, c2, end, 0.0, tolerance)
+			p.replaceCmd(&icmd, &i, q)
 		default:
 			i += cmd.Len()
 		}

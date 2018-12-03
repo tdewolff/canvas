@@ -1,5 +1,7 @@
 package canvas
 
+import "fmt"
+
 // NOTE: implementation mostly taken from github.com/golang/freetype/raster/stroke.go
 
 // Capper implements Cap, with rhs the path to append to, halfWidth the half width of the stroke,
@@ -98,8 +100,6 @@ func bevelJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 // join all path elemtents. If the path closes itself, it will use a join between the start and end instead of capping them.
 // The tolerance is the maximum deviation from the original path when flattening Beziers and optimizing the stroke.
 func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path {
-	pWhole = pWhole.FlattenBeziers(tolerance)
-
 	sp := &Path{}
 	halfWidth := w / 2.0
 	for _, p := range pWhole.Split() {
@@ -176,6 +176,52 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 					ret.ArcTo(rx-halfWidth, ry-halfWidth, rot, largeAngle, sweep, lEnd.X, lEnd.Y)
 				}
 				i += 7
+			case QuadToCmd:
+				c := Point{p.d[i+0], p.d[i+1]}
+				end := Point{p.d[i+2], p.d[i+3]}
+				c1 := start.Interpolate(c, 2.0/3.0)
+				c2 := end.Interpolate(c, 2.0/3.0)
+				n0 := cubicBezierNormal(start, c1, c2, end, 0.0).Norm(halfWidth)
+
+				if !first {
+					jr.Join(sp, ret, halfWidth, start, n1Prev, n0)
+				} else {
+					rStart := start.Add(n0)
+					lStart := start.Sub(n0)
+					sp.MoveTo(rStart.X, rStart.Y)
+					ret.MoveTo(lStart.X, lStart.Y)
+					n0First = n0
+					first = false
+				}
+
+				qr := flattenCubicBezier(start, c1, c2, end, halfWidth, tolerance)
+				ql := flattenCubicBezier(start, c1, c2, end, -halfWidth, tolerance)
+				sp.Append(qr)
+				ret.Append(ql)
+				i += 4
+			case CubeToCmd:
+				c1 := Point{p.d[i+0], p.d[i+1]}
+				c2 := Point{p.d[i+2], p.d[i+3]}
+				end := Point{p.d[i+4], p.d[i+5]}
+				n0 := cubicBezierNormal(start, c1, c2, end, 0.0).Norm(halfWidth)
+
+				if !first {
+					jr.Join(sp, ret, halfWidth, start, n1Prev, n0)
+				} else {
+					rStart := start.Add(n0)
+					lStart := start.Sub(n0)
+					sp.MoveTo(rStart.X, rStart.Y)
+					ret.MoveTo(lStart.X, lStart.Y)
+					n0First = n0
+					first = false
+				}
+
+				qr := flattenCubicBezier(start, c1, c2, end, halfWidth, tolerance)
+				ql := flattenCubicBezier(start, c1, c2, end, -halfWidth, tolerance)
+				sp.Append(qr)
+				ret.Append(ql)
+				fmt.Println(qr, ql)
+				i += 6
 			case CloseCmd:
 				end = Point{p.d[i+0], p.d[i+1]}
 				if !Equal(start.X, end.X) || !Equal(start.Y, end.Y) {
@@ -195,8 +241,6 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 				}
 				closed = true
 				i += 2
-			case QuadToCmd, CubeToCmd:
-				panic("path has not been flattened")
 			}
 			start = end
 			n1Prev = n1
@@ -214,7 +258,7 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 			sp.Close()
 			sp.MoveTo(invStart.X, invStart.Y)
 		}
-		sp.Append(ret.Invert())
+		sp.Append(ret.Reverse())
 		if !closed {
 			cr.Cap(sp, halfWidth, startFirst, n0First.Neg())
 		}

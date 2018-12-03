@@ -44,10 +44,10 @@ func main() {
 func Draw(c canvas.C) {
 	c.Open(100, 150)
 
-	p := canvas.ParseSVGPath("C0 1 0 0 20 0L0 -20z")
+	p := canvas.ParseSVGPath("C0 -20 20 -20 20 0z")
 	//p := canvas.ParseSVGPath("C20 -20 0 -20 20 0z")
 	c.DrawPath(20, 50, p)
-	p = p.FlattenBeziers(0.1)
+	p = p.Stroke(3, canvas.RoundCapper, canvas.RoundJoiner, 0.1)
 	c.SetColor(color.RGBA{255, 0, 0, 127})
 	c.DrawPath(20, 50, p)
 
