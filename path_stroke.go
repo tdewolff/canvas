@@ -1,5 +1,7 @@
 package canvas
 
+import "math"
+
 // NOTE: implementation mostly taken from github.com/golang/freetype/raster/stroke.go
 
 // Capper implements Cap, with rhs the path to append to, pivot the pivot point around which to construct a cap,
@@ -86,6 +88,7 @@ func bevelJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 }
 
 func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, accuracy float64) *Path {
+	accuracy = math.Abs(accuracy)
 	pWhole = pWhole.FlattenBeziers(accuracy)
 
 	sp := &Path{}

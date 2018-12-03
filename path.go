@@ -205,6 +205,7 @@ func (p *Path) Translate(x, y float64) *Path {
 }
 
 func (p *Path) FlattenBeziers(flatness float64) *Path {
+	flatness = math.Abs(flatness)
 	p = p.Copy()
 	i := 0
 	start := Point{}
