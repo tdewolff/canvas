@@ -56,7 +56,7 @@ func Draw(c canvas.C) {
 	c.SetColor(color.RGBA{255, 0, 0, 255})
 	c.DrawPath(20, 50, p)
 
-	p = p.Stroke(1.0, canvas.RoundCapper, canvas.RoundJoiner)
+	p = p.Stroke(1.0, canvas.RoundCapper, canvas.RoundJoiner, 0.1)
 	c.SetColor(color.RGBA{0, 255, 0, 255})
 	c.DrawPath(50, 50, p)
 

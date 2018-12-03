@@ -85,8 +85,8 @@ func bevelJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 	lhs.LineTo(lEnd.X, lEnd.Y)
 }
 
-func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
-	pWhole = pWhole.FlattenBeziers(0.1)
+func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, accuracy float64) *Path {
+	pWhole = pWhole.FlattenBeziers(accuracy)
 
 	sp := &Path{}
 	halfWidth := w / 2.0
@@ -184,7 +184,7 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 				closed = true
 				i += 2
 			case QuadToCmd, CubeToCmd:
-				panic("FlattenBezier did not flatten path")
+				panic("path has not been flattened")
 			}
 			start = end
 			n1Prev = n1
