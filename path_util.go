@@ -1,7 +1,6 @@
 package canvas
 
 import (
-	"fmt"
 	"math"
 	"strconv"
 )
@@ -137,7 +136,7 @@ func cubicBezierNormal(p0, p1, p2, p3 Point, t float64) Point {
 		if n.X == 0 && n.Y == 0 {
 			panic("?")
 		}
-		return n.Rot90CCW()
+		return n.Rot90CW()
 	} else if t == 1.0 {
 		n := p3.Sub(p2)
 		if n.X == 0 && n.Y == 0 {
@@ -149,7 +148,7 @@ func cubicBezierNormal(p0, p1, p2, p3 Point, t float64) Point {
 		if n.X == 0 && n.Y == 0 {
 			panic("?")
 		}
-		return n.Rot90CCW()
+		return n.Rot90CW()
 	}
 	panic("not implemented")
 }
@@ -278,7 +277,6 @@ func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float6
 // p0, p1, p2, p3 are the start points, two control points and the end points respectively. With flatness defined as
 // the maximum error from the orinal curve, and d the half width of the curve used for stroking (positive is to the right).
 func flattenCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
-	fmt.Println("flatten", d, flatness)
 	p := &Path{}
 	// 0 <= t1 <= 1 if t1 exists
 	// 0 <= t2 <= 1 and t1 < t2 if t2 exists

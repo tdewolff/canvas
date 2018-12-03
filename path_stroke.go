@@ -1,7 +1,5 @@
 package canvas
 
-import "fmt"
-
 // NOTE: implementation mostly taken from github.com/golang/freetype/raster/stroke.go
 
 // Capper implements Cap, with rhs the path to append to, halfWidth the half width of the stroke,
@@ -178,10 +176,11 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 				i += 7
 			case QuadToCmd:
 				c := Point{p.d[i+0], p.d[i+1]}
-				end := Point{p.d[i+2], p.d[i+3]}
+				end = Point{p.d[i+2], p.d[i+3]}
 				c1 := start.Interpolate(c, 2.0/3.0)
 				c2 := end.Interpolate(c, 2.0/3.0)
-				n0 := cubicBezierNormal(start, c1, c2, end, 0.0).Norm(halfWidth)
+				n0 = cubicBezierNormal(start, c1, c2, end, 0.0).Norm(halfWidth)
+				n1 = cubicBezierNormal(start, c1, c2, end, 1.0).Norm(halfWidth)
 
 				if !first {
 					jr.Join(sp, ret, halfWidth, start, n1Prev, n0)
@@ -194,16 +193,15 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 					first = false
 				}
 
-				qr := flattenCubicBezier(start, c1, c2, end, halfWidth, tolerance)
-				ql := flattenCubicBezier(start, c1, c2, end, -halfWidth, tolerance)
-				sp.Append(qr)
-				ret.Append(ql)
+				sp.Append(flattenCubicBezier(start, c1, c2, end, halfWidth, tolerance))
+				ret.Append(flattenCubicBezier(start, c1, c2, end, -halfWidth, tolerance))
 				i += 4
 			case CubeToCmd:
 				c1 := Point{p.d[i+0], p.d[i+1]}
 				c2 := Point{p.d[i+2], p.d[i+3]}
-				end := Point{p.d[i+4], p.d[i+5]}
-				n0 := cubicBezierNormal(start, c1, c2, end, 0.0).Norm(halfWidth)
+				end = Point{p.d[i+4], p.d[i+5]}
+				n0 = cubicBezierNormal(start, c1, c2, end, 0.0).Norm(halfWidth)
+				n1 = cubicBezierNormal(start, c1, c2, end, 1.0).Norm(halfWidth)
 
 				if !first {
 					jr.Join(sp, ret, halfWidth, start, n1Prev, n0)
@@ -216,11 +214,8 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 					first = false
 				}
 
-				qr := flattenCubicBezier(start, c1, c2, end, halfWidth, tolerance)
-				ql := flattenCubicBezier(start, c1, c2, end, -halfWidth, tolerance)
-				sp.Append(qr)
-				ret.Append(ql)
-				fmt.Println(qr, ql)
+				sp.Append(flattenCubicBezier(start, c1, c2, end, halfWidth, tolerance))
+				ret.Append(flattenCubicBezier(start, c1, c2, end, -halfWidth, tolerance))
 				i += 6
 			case CloseCmd:
 				end = Point{p.d[i+0], p.d[i+1]}
