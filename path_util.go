@@ -155,18 +155,25 @@ func cubicBezierNormal(p0, p1, p2, p3 Point, t float64) Point {
 }
 
 func addCubicBezierLine(p *Path, p0, p1, p2, p3 Point, t, d float64) {
+	if p0.X == p3.X && p0.Y == p3.X && (p0.X == p1.X && p0.Y == p1.Y || p0.X == p2.X && p0.Y == p2.Y) {
+		// Bezier has p0=p1=p3 or p0=p2=p3 and thus has no surface
+		return
+	}
+
 	pos := Point{}
 	if t == 0.0 {
+		// line to beginning of path
 		pos = p0
 		if d != 0.0 {
 			n := cubicBezierNormal(p0, p1, p2, p3, t)
-			pos = p0.Add(n.Norm(d))
+			pos = pos.Add(n.Norm(d))
 		}
 	} else if t == 1.0 {
+		// line to the end of the path
 		pos = p3
 		if d != 0.0 {
 			n := cubicBezierNormal(p0, p1, p2, p3, t)
-			pos = p3.Add(n.Norm(d))
+			pos = pos.Add(n.Norm(d))
 		}
 	} else {
 		panic("not implemented")
@@ -232,7 +239,6 @@ func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
 		if b == 0.0 {
 			if c == 0.0 {
 				// all terms disappear, all x satisfy the solution
-				// TODO: check
 				return 0.0, math.NaN()
 			}
 			// linear term disappears, no solutions
@@ -312,7 +318,7 @@ func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float6
 		// if p0=p1, then rn (the velocity at t=0) needs adjustment
 		// nr = lim[t->0](B'(t)) = 3*(p1-p0) + 6*t*((p1-p0)+(p2-p1)) + second order terms of t
 		// if (p1-p0)->0, we use (p2-p1)=(p2-p0)
-		nr = p2.Sub(p1)
+		nr = p2.Sub(p0)
 	}
 
 	if nr.X == 0.0 && nr.Y == 0.0 {
@@ -350,7 +356,6 @@ func flattenCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 	// t2min <= t2max; with t2min <= 1 and t2max >= 0
 	t1min, t1max := findInflectionPointRange(p0, p1, p2, p3, t1, flatness)
 	t2min, t2max := findInflectionPointRange(p0, p1, p2, p3, t2, flatness)
-	fmt.Println("T", t1min, t1, t1max, t2min, t2, t2max)
 
 	if math.IsNaN(t2) && t1min <= 0.0 && 1.0 <= t1max {
 		// There is no second inflection point, and the first inflection point can be entirely approximated linearly.

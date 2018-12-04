@@ -193,8 +193,10 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 					first = false
 				}
 
-				sp.Append(flattenCubicBezier(start, c1, c2, end, halfWidth, tolerance))
-				ret.Append(flattenCubicBezier(start, c1, c2, end, -halfWidth, tolerance))
+				rhs := flattenCubicBezier(start, c1, c2, end, halfWidth, tolerance)
+				lhs := flattenCubicBezier(start, c1, c2, end, -halfWidth, tolerance)
+				sp.Append(rhs)
+				ret.Append(lhs)
 				i += 4
 			case CubeToCmd:
 				c1 := Point{p.d[i+0], p.d[i+1]}
@@ -214,8 +216,10 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 					first = false
 				}
 
-				sp.Append(flattenCubicBezier(start, c1, c2, end, halfWidth, tolerance))
-				ret.Append(flattenCubicBezier(start, c1, c2, end, -halfWidth, tolerance))
+				rhs := flattenCubicBezier(start, c1, c2, end, halfWidth, tolerance)
+				lhs := flattenCubicBezier(start, c1, c2, end, -halfWidth, tolerance)
+				sp.Append(rhs)
+				ret.Append(lhs)
 				i += 6
 			case CloseCmd:
 				end = Point{p.d[i+0], p.d[i+1]}

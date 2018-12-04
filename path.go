@@ -283,12 +283,18 @@ func (p *Path) FlattenBeziers(tolerance float64) *Path {
 			c2 := end.Interpolate(c, 2.0/3.0)
 			q := flattenCubicBezier(start, c1, c2, end, 0.0, tolerance)
 			p.replaceCmd(&icmd, &i, q)
+			if len(q.d) == 0 {
+				continue
+			}
 		case CubeToCmd:
 			c1 := Point{p.d[i+0], p.d[i+1]}
 			c2 := Point{p.d[i+2], p.d[i+3]}
 			end := Point{p.d[i+4], p.d[i+5]}
 			q := flattenCubicBezier(start, c1, c2, end, 0.0, tolerance)
 			p.replaceCmd(&icmd, &i, q)
+			if len(q.d) == 0 {
+				continue
+			}
 		default:
 			i += cmd.Len()
 		}
@@ -550,6 +556,10 @@ func ParseSVGPath(sPath string) *Path {
 		prevCmd = cmd
 	}
 	return p
+}
+
+func (p *Path) String() string {
+	return p.ToSVGPath()
 }
 
 // ToSVGPath returns a string that represents the path in the SVG path data format.
