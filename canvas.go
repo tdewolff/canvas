@@ -3,7 +3,6 @@ package canvas
 import (
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
 	"image"
 	"image/color"
 	"io"
@@ -115,7 +114,6 @@ func (c *SVG) SetColor(col color.Color) {
 func (c *SVG) SetFont(name string, size float64) (FontFace, error) {
 	var err error
 	c.fontFace, err = c.fonts.Get(name, size)
-	fmt.Println(c.fontFace.size)
 	return c.fontFace, err
 }
 

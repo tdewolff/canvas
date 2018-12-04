@@ -3,6 +3,7 @@ package canvas
 import (
 	"math"
 	"strconv"
+	"fmt"
 )
 
 const epsilon = 1e-10
@@ -220,18 +221,31 @@ func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
 	cx := -3.0*p0.X + 3.0*p1.X
 	cy := -3.0*p0.Y + 3.0*p1.Y
 
-	tcusp := -0.5 * ((ay*cx - ax*cy) / (ay*bx - ax*by))
+	// quadratic formula
+	A := (ay*bx - ax*by) / 3.0
+	B := (ay*cx - ax*cy) / 3.0
+	C := (by*cx - bx*cy) / 9.0
+	D := B*B-4.0*A*C
+
+	fmt.Println("\nABC", A, B, C)
+	fmt.Println("D", D, math.Sqrt(D))
+	fmt.Println(-B, "+-", math.Sqrt(D)/2.0/A)
+
+	tcusp := -0.5 * (B / A)
+	fmt.Println("cusp", tcusp)
 	if !(tcusp >= 0.0 && tcusp <= 1.0) { // handles NaN and Infs too
 		return math.NaN(), math.NaN()
 	}
 
-	discriminant := tcusp*tcusp - ((by*cx-bx*cy)/(ay*bx-ax*by))/3.0
+	discriminant := tcusp*tcusp - (C/A)
+	fmt.Println("d", discriminant)
 	if discriminant < 0.0 {
 		return math.NaN(), math.NaN()
 	} else if discriminant == 0.0 {
 		return tcusp, math.NaN()
 	} else {
 		q := math.Sqrt(discriminant)
+		fmt.Println("q", q)
 		return tcusp - q, tcusp + q
 	}
 }
@@ -239,6 +253,9 @@ func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
 func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float64, float64) {
 	if math.IsNaN(t) {
 		return math.Inf(1), math.Inf(1)
+	}
+	if t < 0.0 || t > 1.0 {
+		fmt.Println("warning: t outside 0.0--1.0:", t)
 	}
 
 	// we state that s(t) = 3*s2*t^2 + (s3 - 3*s2)*t^3 (see paper on the r-s coordinate system)
@@ -267,7 +284,7 @@ func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float6
 	}
 
 	tf := math.Cbrt(flatness / s3)
-	return t - tf*(1-t), t + tf*(1-t)
+	return t - tf*(1.0-t), t + tf*(1.0-t)
 }
 
 // see Flat, precise flattening of cubic Bezier path and offset curves, by T.F. Hain et al., 2005
@@ -291,6 +308,7 @@ func flattenCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 	// t2min <= t2max; with t2min <= 1 and t2max >= 0
 	t1min, t1max := findInflectionPointRange(p0, p1, p2, p3, t1, flatness)
 	t2min, t2max := findInflectionPointRange(p0, p1, p2, p3, t2, flatness)
+	fmt.Println("T", t1min, t1, t1max, t2min, t2, t2max)
 
 	if math.IsNaN(t2) && t1min <= 0.0 && 1.0 <= t1max {
 		// There is no second inflection point, and the first inflection point can be entirely approximated linearly.
