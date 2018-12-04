@@ -129,25 +129,25 @@ func cubicBezierNormal(p0, p1, p2, p3 Point, t float64) Point {
 	if t == 0.0 {
 		n := p1.Sub(p0)
 		if n.X == 0 && n.Y == 0 {
-			n = p2.Sub(p1)
+			n = p2.Sub(p0)
 		}
 		if n.X == 0 && n.Y == 0 {
 			n = p3.Sub(p0)
 		}
 		if n.X == 0 && n.Y == 0 {
-			panic("?")
+			return Point{}
 		}
 		return n.Rot90CW()
 	} else if t == 1.0 {
 		n := p3.Sub(p2)
 		if n.X == 0 && n.Y == 0 {
-			n = p2.Sub(p1)
+			n = p3.Sub(p1)
 		}
 		if n.X == 0 && n.Y == 0 {
 			n = p3.Sub(p0)
 		}
 		if n.X == 0 && n.Y == 0 {
-			panic("?")
+			return Point{}
 		}
 		return n.Rot90CW()
 	}
@@ -240,7 +240,7 @@ func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
 		}
 		// quadratic term disappears, solve linear equation
 		x1 := -c / b
-		if 1.0 < x1 || x1 < 0.0 {
+		if 1.0 <= x1 || x1 < 0.0 {
 			x1 = math.NaN()
 		}
 		return x1, math.NaN()
@@ -249,7 +249,7 @@ func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
 	if c == 0.0 {
 		// no constant term, one solution at zero and one from solving linearly
 		x2 := -b / a
-		if 1.0 < x2 || x2 < 0.0 {
+		if 1.0 <= x2 || x2 < 0.0 {
 			x2 = math.NaN()
 		}
 		return 0.0, x2
@@ -260,7 +260,7 @@ func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
 		return math.NaN(), math.NaN()
 	} else if discriminant == 0.0 {
 		x1 := -b / (2.0 * a)
-		if 1.0 < x1 || x1 < 0.0 {
+		if 1.0 <= x1 || x1 < 0.0 {
 			x1 = math.NaN()
 		}
 		return x1, math.NaN()
@@ -280,10 +280,10 @@ func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
 	if x1 > x2 {
 		x1, x2 = x2, x1
 	}
-	if 1.0 < x1 || x1 < 0.0 {
+	if 1.0 <= x1 || x1 < 0.0 {
 		x1 = math.NaN()
 	}
-	if 1.0 < x2 || x2 < 0.0 {
+	if 1.0 <= x2 || x2 < 0.0 {
 		x2 = math.NaN()
 	}
 	return x1, x2
@@ -294,7 +294,8 @@ func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float6
 		return math.Inf(1), math.Inf(1)
 	}
 	if t < 0.0 || t > 1.0 {
-		fmt.Println("warning: t outside 0.0--1.0:", t)
+		fmt.Println(p0, p1, p2, p3, t)
+		panic("t outside 0.0--1.0 range")
 	}
 
 	// we state that s(t) = 3*s2*t^2 + (s3 - 3*s2)*t^3 (see paper on the r-s coordinate system)
@@ -302,13 +303,15 @@ func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float6
 	// then we impose that s(tf) = flatness and find tf
 	// at inflection points however, s2 = 0, so that s(t) = s3*t^3
 
-	_, _, _, _, p0, p1, p2, p3 = splitCubicBezier(p0, p1, p2, p3, t)
+	if t != 0.0 {
+		_, _, _, _, p0, p1, p2, p3 = splitCubicBezier(p0, p1, p2, p3, t)
+	}
 	nr := p1.Sub(p0)
 	ns := p3.Sub(p0)
 	if nr.X == 0.0 && nr.Y == 0.0 {
 		// if p0=p1, then rn (the velocity at t=0) needs adjustment
 		// nr = lim[t->0](B'(t)) = 3*(p1-p0) + 6*t*((p1-p0)+(p2-p1)) + second order terms of t
-		// if (p1-p0)->0, we use (p2-p1)
+		// if (p1-p0)->0, we use (p2-p1)=(p2-p0)
 		nr = p2.Sub(p1)
 	}
 

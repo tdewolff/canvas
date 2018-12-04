@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	_ "fmt"
 	"image/color"
 	_ "image/png"
@@ -46,17 +47,19 @@ func drawStrokedPath(c canvas.C, x, y float64, path string) {
 	p := canvas.ParseSVGPath(path)
 	c.DrawPath(x, y, p)
 
-	p = p.Stroke(2, canvas.RoundCapper, canvas.RoundJoiner, 0.01)
 	c.SetColor(color.RGBA{255, 0, 0, 127})
-	c.DrawPath(x, y, p)
+
+	q := p.FlattenBeziers(0.01)
+	c.DrawPath(x, y, q)
+
+	fmt.Println("\n", q.ToSVGPath())
+
+	//p = p.Stroke(2, canvas.RoundCapper, canvas.RoundJoiner, 0.01)
+	//c.DrawPath(x, y, p)
 }
 
 func Draw(c canvas.C) {
 	c.Open(100, 150)
-
-	p := canvas.ParseSVGPath("m 39.516,67.031 -0.202511,2.081751 C 37.457,71.443128 35.427421,71.038866 35.922,66.984 v -1.422 c 0,-1.572667 -0.479333,-2.791333 -1.438,-3.656 -2.158,-1.196 -2.223439,-5.660617 2.774,-1.094 1.505333,1.427333 2.521228,3.513106 2.258,6.219 z")
-	p = p.FlattenBeziers(0.01)
-	c.DrawPath(30, 10, p)
 
 	drawStrokedPath(c, 5, 20, "C0 -20 20 -20 20 0z")
 	drawStrokedPath(c, 30, 20, "C10 -20 10 -20 20 0z")
