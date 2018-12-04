@@ -1,9 +1,9 @@
 package canvas
 
 import (
+	"fmt"
 	"math"
 	"strconv"
-	"fmt"
 )
 
 const epsilon = 1e-10
@@ -214,40 +214,79 @@ func flattenSmoothCubicBezier(p *Path, p0, p1, p2, p3 Point, d, flatness float64
 }
 
 func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
+	// We omit multiplying bx,by,cx,cy with 3.0, so there is no need for divisions when calculating a,b,c
 	ax := -p0.X + 3.0*p1.X - 3.0*p2.X + p3.X
 	ay := -p0.Y + 3.0*p1.Y - 3.0*p2.Y + p3.Y
-	bx := 3.0*p0.X - 6.0*p1.X + 3.0*p2.X
-	by := 3.0*p0.Y - 6.0*p1.Y + 3.0*p2.Y
-	cx := -3.0*p0.X + 3.0*p1.X
-	cy := -3.0*p0.Y + 3.0*p1.Y
+	bx := p0.X - 2.0*p1.X + p2.X
+	by := p0.Y - 2.0*p1.Y + p2.Y
+	cx := -p0.X + p1.X
+	cy := -p0.Y + p1.Y
 
-	// quadratic formula
-	A := (ay*bx - ax*by) / 3.0
-	B := (ay*cx - ax*cy) / 3.0
-	C := (by*cx - bx*cy) / 9.0
-	D := B*B-4.0*A*C
+	// Numerically stable quadratic formula
+	// see https://math.stackexchange.com/a/2007723
+	a := (ay*bx - ax*by)
+	b := (ay*cx - ax*cy)
+	c := (by*cx - bx*cy)
 
-	fmt.Println("\nABC", A, B, C)
-	fmt.Println("D", D, math.Sqrt(D))
-	fmt.Println(-B, "+-", math.Sqrt(D)/2.0/A)
-
-	tcusp := -0.5 * (B / A)
-	fmt.Println("cusp", tcusp)
-	if !(tcusp >= 0.0 && tcusp <= 1.0) { // handles NaN and Infs too
-		return math.NaN(), math.NaN()
+	if a == 0.0 {
+		if b == 0.0 {
+			if c == 0.0 {
+				// all terms disappear, all x satisfy the solution
+				// TODO: check
+				return 0.0, math.NaN()
+			}
+			// linear term disappears, no solutions
+			return math.NaN(), math.NaN()
+		}
+		// quadratic term disappears, solve linear equation
+		x1 := -c / b
+		if 1.0 < x1 || x1 < 0.0 {
+			x1 = math.NaN()
+		}
+		return x1, math.NaN()
 	}
 
-	discriminant := tcusp*tcusp - (C/A)
-	fmt.Println("d", discriminant)
+	if c == 0.0 {
+		// no constant term, one solution at zero and one from solving linearly
+		x2 := -b / a
+		if 1.0 < x2 || x2 < 0.0 {
+			x2 = math.NaN()
+		}
+		return 0.0, x2
+	}
+
+	discriminant := b*b - 4.0*a*c
 	if discriminant < 0.0 {
 		return math.NaN(), math.NaN()
 	} else if discriminant == 0.0 {
-		return tcusp, math.NaN()
-	} else {
-		q := math.Sqrt(discriminant)
-		fmt.Println("q", q)
-		return tcusp - q, tcusp + q
+		x1 := -b / (2.0 * a)
+		if 1.0 < x1 || x1 < 0.0 {
+			x1 = math.NaN()
+		}
+		return x1, math.NaN()
 	}
+
+	// Avoid catastrophic cancellation, which occurs when we subtract two nearly equal numbers and causes a large error
+	// this can be the case when 4*a*c is small so that sqrt(discriminant) -> b, and the sign of b and in front of the radical are the same
+	// instead we calculate x where b and the radical have different signs, and then use this result in the analytical equivalent
+	// of the formula, called the Citardauq Formula.
+	q := math.Sqrt(discriminant)
+	if b < 0.0 {
+		// apply sign of b
+		q = -q
+	}
+	x1 := -(b + q) / (2.0 * a)
+	x2 := c / (a * x1)
+	if x1 > x2 {
+		x1, x2 = x2, x1
+	}
+	if 1.0 < x1 || x1 < 0.0 {
+		x1 = math.NaN()
+	}
+	if 1.0 < x2 || x2 < 0.0 {
+		x2 = math.NaN()
+	}
+	return x1, x2
 }
 
 func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float64, float64) {
