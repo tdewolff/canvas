@@ -10,20 +10,19 @@ type C interface {
 	SetColor(color color.Color)
 	SetFont(fontName string, fontSize float64) (canvas.FontFace, error)
 
-	DrawPath(path *canvas.Path)
-	DrawText(x float64, y float64, string)
+	DrawPath(x, y float64, path *canvas.Path)
+	DrawText(x, y float64, text string)
 }
 ```
 
 The common interface allows to draw either paths or text. All positions and sizes are given in millimeters.
 
 * The handling of fonts should be improved in the future.
-* More functionality will be added to paths, such as generating strokes (ref. https://github.com/golang/freetype/pull/50).
-* Text to path will be implemented.
-* Simplify the ArcTo command (take begin/end angle and center point)
-* Merge large-arc-flag and sweep-flag into one float64
+* Add ArcTo in endpoint format (take begin/end angle and center point)
+* Add offsetting of path (expand / contract)
+* Add path IsCW / IsCCW
 * Optimize/minify paths from and to SVG
-* Optimize glyph positioning/snapping when converting to path?
+* Optimize text glyph positioning/snapping when converting to path?
 * Optimize paths by replacing Quad/Cube/Arc to line if they are linear (eg. p0=p1=p2 for cubic Bezier)
 * Optimize paths by removing the last Line if followed by Close
 
