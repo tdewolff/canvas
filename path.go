@@ -1,7 +1,6 @@
 package canvas
 
 import (
-	"math"
 	"strings"
 
 	"github.com/tdewolff/parse/strconv"
@@ -24,12 +23,27 @@ func cmdLen(cmd float64) int {
 		return 3
 	case QuadToCmd:
 		return 5
-	case CubeToCmd:
+	case CubeToCmd, ArcToCmd:
 		return 7
-	case ArcToCmd:
-		return 8
 	}
 	panic("unknown path command")
+}
+
+func fromArcFlags(f float64) (bool, bool) {
+	largeArc := (f == 1.0 || f == 3.0)
+	sweep := (f == 2.0 || f == 3.0)
+	return largeArc, sweep
+}
+
+func toArcFlags(largeArc, sweep bool) float64 {
+	f := 0.0
+	if largeArc {
+		f += 1.0
+	}
+	if sweep {
+		f += 2.0
+	}
+	return f
 }
 
 // Path defines a vector path in 2D.
@@ -118,16 +132,8 @@ func (p *Path) CubeTo(x1, y1, x2, y2, x, y float64) {
 // ArcTo adds an arc with radii rx and ry, with rot the rotation with respect to the coordinate system,
 // large and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
 // and x,y the end position of the pen. The start positions of the pen was given by a previous command.
-func (p *Path) ArcTo(rx, ry, rot float64, large, sweep bool, x, y float64) {
-	flarge := 0.0
-	if large {
-		flarge = 1.0
-	}
-	fsweep := 0.0
-	if sweep {
-		fsweep = 1.0
-	}
-	p.d = append(p.d, ArcToCmd, rx, ry, rot, flarge, fsweep, x, y)
+func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x, y float64) {
+	p.d = append(p.d, ArcToCmd, rx, ry, rot, toArcFlags(largeArc, sweep), x, y)
 }
 
 // Close closes a path with a LineTo to the start of the path (the most recent MoveTo command).
@@ -209,8 +215,8 @@ func (p *Path) Translate(x, y float64) *Path {
 			p.d[i+5] += x
 			p.d[i+6] += y
 		case ArcToCmd:
-			p.d[i+6] += x
-			p.d[i+7] += y
+			p.d[i+5] += x
+			p.d[i+6] += y
 		}
 		i += cmdLen(cmd)
 	}
@@ -314,14 +320,9 @@ func (p *Path) Reverse() *Path {
 			x2, y2 := p.d[i+1], p.d[i+2]
 			ip.CubeTo(x1, y1, x2, y2, end.X, end.Y)
 		case ArcToCmd:
-			rx, ry := p.d[i+1], p.d[i+2]
-			rot, largeArc, sweep := p.d[i+3], p.d[i+4], p.d[i+5]
-			if sweep == 0.0 {
-				sweep = 1.0
-			} else {
-				sweep = 0.0
-			}
-			ip.ArcTo(rx, ry, rot, largeArc == 1.0, sweep == 1.0, end.X, end.Y)
+			rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
+			largeArc, sweep := fromArcFlags(p.d[i+4])
+			ip.ArcTo(rx, ry, rot, largeArc, !sweep, end.X, end.Y)
 		}
 		start = end
 	}
@@ -496,9 +497,7 @@ func ParseSVGPath(sPath string) *Path {
 				f += x
 				g += y
 			}
-			large := math.Abs(d-1.0) < 1e-10
-			sweep := math.Abs(e-1.0) < 1e-10
-			p.ArcTo(a, b, c, large, sweep, f, g)
+			p.ArcTo(a, b, c, d==1.0, e==1.0, f, g)
 		}
 		prevCmd = cmd
 	}
@@ -567,7 +566,7 @@ func (p *Path) ToSVGPath() string {
 			svg.WriteString(" ")
 			svg.WriteString(ftos(y))
 		case ArcToCmd:
-			x, y = p.d[i+6], p.d[i+7]
+			x, y = p.d[i+5], p.d[i+6]
 			svg.WriteString("A")
 			svg.WriteString(ftos(p.d[i+1]))
 			svg.WriteString(" ")
@@ -575,10 +574,17 @@ func (p *Path) ToSVGPath() string {
 			svg.WriteString(" ")
 			svg.WriteString(ftos(p.d[i+3]))
 			svg.WriteString(" ")
-			svg.WriteString(ftos(p.d[i+4]))
-			svg.WriteString(" ")
-			svg.WriteString(ftos(p.d[i+5]))
-			svg.WriteString(" ")
+			largeArc, sweep := fromArcFlags(p.d[i+4])
+			if largeArc {
+				svg.WriteString("1 ")
+			} else {
+				svg.WriteString("0 ")
+			}
+			if sweep {
+				svg.WriteString("1 ")
+			} else {
+				svg.WriteString("0 ")
+			}
 			svg.WriteString(ftos(x))
 			svg.WriteString(" ")
 			svg.WriteString(ftos(y))

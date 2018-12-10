@@ -139,38 +139,6 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 				lEnd := end.Sub(n1)
 				sp.LineTo(rEnd.X, rEnd.Y)
 				ret.LineTo(lEnd.X, lEnd.Y)
-			case ArcToCmd:
-				rx, ry := p.d[i+1], p.d[i+2]
-				rot, largeAngle, sweep := p.d[i+3], p.d[i+4] == 1.0, p.d[i+5] == 1.0
-				end = Point{p.d[i+6], p.d[i+7]}
-				_, _, angle0, angle1 := arcToCenter(start.X, start.Y, rx, ry, rot, largeAngle, sweep, end.X, end.Y)
-				n0 = angleToNormal(angle0).Norm(halfWidth)
-				n1 = angleToNormal(angle1).Norm(halfWidth)
-				if sweep { // CW
-					n0 = n0.Neg()
-					n1 = n1.Neg()
-				}
-
-				if !first {
-					jr.Join(sp, ret, halfWidth, start, n1Prev, n0)
-				} else {
-					rStart := start.Add(n0)
-					lStart := start.Sub(n0)
-					sp.MoveTo(rStart.X, rStart.Y)
-					ret.MoveTo(lStart.X, lStart.Y)
-					n0First = n0
-					first = false
-				}
-
-				rEnd := end.Add(n1)
-				lEnd := end.Sub(n1)
-				if sweep { // bend to the right, ie. CW
-					sp.ArcTo(rx-halfWidth, ry-halfWidth, rot, largeAngle, sweep, rEnd.X, rEnd.Y)
-					ret.ArcTo(rx+halfWidth, ry+halfWidth, rot, largeAngle, sweep, lEnd.X, lEnd.Y)
-				} else { // bend to the left, ie. CCW
-					sp.ArcTo(rx+halfWidth, ry+halfWidth, rot, largeAngle, sweep, rEnd.X, rEnd.Y)
-					ret.ArcTo(rx-halfWidth, ry-halfWidth, rot, largeAngle, sweep, lEnd.X, lEnd.Y)
-				}
 			case QuadToCmd:
 				c := Point{p.d[i+1], p.d[i+2]}
 				end = Point{p.d[i+3], p.d[i+4]}
@@ -216,6 +184,38 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 				lhs := flattenCubicBezier(start, c1, c2, end, -halfWidth, tolerance)
 				sp.Append(rhs)
 				ret.Append(lhs)
+			case ArcToCmd:
+				rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
+				largeAngle, sweep := fromArcFlags(p.d[i+4])
+				end = Point{p.d[i+5], p.d[i+6]}
+				_, _, angle0, angle1 := arcToCenter(start.X, start.Y, rx, ry, rot, largeAngle, sweep, end.X, end.Y)
+				n0 = angleToNormal(angle0).Norm(halfWidth)
+				n1 = angleToNormal(angle1).Norm(halfWidth)
+				if sweep { // CW
+					n0 = n0.Neg()
+					n1 = n1.Neg()
+				}
+
+				if !first {
+					jr.Join(sp, ret, halfWidth, start, n1Prev, n0)
+				} else {
+					rStart := start.Add(n0)
+					lStart := start.Sub(n0)
+					sp.MoveTo(rStart.X, rStart.Y)
+					ret.MoveTo(lStart.X, lStart.Y)
+					n0First = n0
+					first = false
+				}
+
+				rEnd := end.Add(n1)
+				lEnd := end.Sub(n1)
+				if sweep { // bend to the right, ie. CW
+					sp.ArcTo(rx-halfWidth, ry-halfWidth, rot, largeAngle, sweep, rEnd.X, rEnd.Y)
+					ret.ArcTo(rx+halfWidth, ry+halfWidth, rot, largeAngle, sweep, lEnd.X, lEnd.Y)
+				} else { // bend to the left, ie. CCW
+					sp.ArcTo(rx+halfWidth, ry+halfWidth, rot, largeAngle, sweep, rEnd.X, rEnd.Y)
+					ret.ArcTo(rx-halfWidth, ry-halfWidth, rot, largeAngle, sweep, lEnd.X, lEnd.Y)
+				}
 			case CloseCmd:
 				end = Point{p.d[i+1], p.d[i+2]}
 				if !Equal(start.X, end.X) || !Equal(start.Y, end.Y) {

@@ -203,12 +203,11 @@ func (c *PDF) DrawPath(x, y float64, p *Path) {
 			rx := p.d[i+1]
 			ry := p.d[i+2]
 			rot := p.d[i+3] * math.Pi / 180
-			large := p.d[i+4] == 1.0
-			sweep := p.d[i+5] == 1.0
-			x2 := p.d[i+6]
-			y2 := p.d[i+7]
+			largeArc, sweep := fromArcFlags(p.d[i+4])
+			x2 := p.d[i+5]
+			y2 := p.d[i+6]
 
-			cx, cy, angle1, angle2 := arcToCenter(x1, y1, rx, ry, rot, large, sweep, x2, y2)
+			cx, cy, angle1, angle2 := arcToCenter(x1, y1, rx, ry, rot, largeArc, sweep, x2, y2)
 			c.f.ArcTo(cx, cy, rx, ry, rot, -angle1, -angle2)
 		case CloseCmd:
 			c.f.ClosePath()
@@ -282,12 +281,11 @@ func (c *Image) DrawPath(x, y float64, p *Path) {
 			rx := p.d[i+1]
 			ry := p.d[i+2]
 			rot := p.d[i+3] * math.Pi / 180
-			large := p.d[i+4] == 1.0
-			sweep := p.d[i+5] == 1.0
-			x2 := p.d[i+6]
-			y2 := p.d[i+7]
+			largeArc, sweep := fromArcFlags(p.d[i+4])
+			x2 := p.d[i+5]
+			y2 := p.d[i+6]
 
-			cx, cy, angle1, angle2 := arcToCenter(x1, y1, rx, ry, rot, large, sweep, x2, y2)
+			cx, cy, angle1, angle2 := arcToCenter(x1, y1, rx, ry, rot, largeArc, sweep, x2, y2)
 			angle1 *= math.Pi / 180
 			angle2 *= math.Pi / 180
 
