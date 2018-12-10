@@ -68,9 +68,20 @@ func (p Point) Interpolate(q Point, t float64) Point {
 
 ////////////////////////////////////////////////////////////////
 
-// arcToCenter changes between the SVG arc format to the center and angles format
+// arcToEndpoints converts to the endpoint arc format and returns (startX, startY, largeArc, sweep, endX, endY)
 // see https://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
-// and http://commons.oreilly.com/wiki/index.php/SVG_Essentials/Paths#Technique:_Converting_from_Other_Arc_Formats
+func arcToEndpoint(cx, cy, rx, ry, rot, theta1, theta2 float64) (float64, float64, bool, bool, float64, float64) {
+	x1 := math.Cos(rot)*rx*math.Cos(theta1) - math.Sin(rot)*ry*math.Sin(theta1) + cx
+	y1 := math.Sin(rot)*rx*math.Cos(theta1) + math.Cos(rot)*ry*math.Sin(theta1) + cy
+	x2 := math.Cos(rot)*rx*math.Cos(theta2) - math.Sin(rot)*ry*math.Sin(theta2) + cx
+	y2 := math.Sin(rot)*rx*math.Cos(theta2) + math.Cos(rot)*ry*math.Sin(theta2) + cy
+	largeArc := math.Abs(theta2-theta1) > 180.0
+	sweep := (theta2-theta1) > 0.0
+	return x1, y1, largeArc, sweep, x2, y2
+}
+
+// arcToCenter converts to the center arc format and returns (centerX, centerY, angleFrom, angleTo)
+// see https://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
 func arcToCenter(x1, y1, rx, ry, rot float64, large, sweep bool, x2, y2 float64) (float64, float64, float64, float64) {
 	if x1 == x2 && y1 == y2 {
 		return x1, y1, 0.0, 0.0
