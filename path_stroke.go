@@ -111,17 +111,16 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 		//   Join joins from n1Prev to n0
 		//   Cap caps from n1Prev
 
-		i := 0
 		var startFirst, start, end Point
 		var n0First, n1Prev, n0, n1 Point
-		for _, cmd := range p.cmds {
+		for i := 0; i < len(p.d); {
+			cmd := p.d[i]
 			switch cmd {
 			case MoveToCmd:
-				end = Point{p.d[i+0], p.d[i+1]}
+				end = Point{p.d[i+1], p.d[i+2]}
 				startFirst = end
-				i += 2
 			case LineToCmd:
-				end = Point{p.d[i+0], p.d[i+1]}
+				end = Point{p.d[i+1], p.d[i+2]}
 				n0 = end.Sub(start).Rot90CW().Norm(halfWidth)
 				n1 = n0
 
@@ -140,11 +139,10 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 				lEnd := end.Sub(n1)
 				sp.LineTo(rEnd.X, rEnd.Y)
 				ret.LineTo(lEnd.X, lEnd.Y)
-				i += 2
 			case ArcToCmd:
-				rx, ry := p.d[i+0], p.d[i+1]
-				rot, largeAngle, sweep := p.d[i+2], p.d[i+3] == 1.0, p.d[i+4] == 1.0
-				end = Point{p.d[i+5], p.d[i+6]}
+				rx, ry := p.d[i+1], p.d[i+2]
+				rot, largeAngle, sweep := p.d[i+3], p.d[i+4] == 1.0, p.d[i+5] == 1.0
+				end = Point{p.d[i+6], p.d[i+7]}
 				_, _, angle0, angle1 := arcToCenter(start.X, start.Y, rx, ry, rot, largeAngle, sweep, end.X, end.Y)
 				n0 = angleToNormal(angle0).Norm(halfWidth)
 				n1 = angleToNormal(angle1).Norm(halfWidth)
@@ -173,10 +171,9 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 					sp.ArcTo(rx+halfWidth, ry+halfWidth, rot, largeAngle, sweep, rEnd.X, rEnd.Y)
 					ret.ArcTo(rx-halfWidth, ry-halfWidth, rot, largeAngle, sweep, lEnd.X, lEnd.Y)
 				}
-				i += 7
 			case QuadToCmd:
-				c := Point{p.d[i+0], p.d[i+1]}
-				end = Point{p.d[i+2], p.d[i+3]}
+				c := Point{p.d[i+1], p.d[i+2]}
+				end = Point{p.d[i+3], p.d[i+4]}
 				c1 := start.Interpolate(c, 2.0/3.0)
 				c2 := end.Interpolate(c, 2.0/3.0)
 				n0 = cubicBezierNormal(start, c1, c2, end, 0.0).Norm(halfWidth)
@@ -197,11 +194,10 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 				lhs := flattenCubicBezier(start, c1, c2, end, -halfWidth, tolerance)
 				sp.Append(rhs)
 				ret.Append(lhs)
-				i += 4
 			case CubeToCmd:
-				c1 := Point{p.d[i+0], p.d[i+1]}
-				c2 := Point{p.d[i+2], p.d[i+3]}
-				end = Point{p.d[i+4], p.d[i+5]}
+				c1 := Point{p.d[i+1], p.d[i+2]}
+				c2 := Point{p.d[i+3], p.d[i+4]}
+				end = Point{p.d[i+5], p.d[i+6]}
 				n0 = cubicBezierNormal(start, c1, c2, end, 0.0).Norm(halfWidth)
 				n1 = cubicBezierNormal(start, c1, c2, end, 1.0).Norm(halfWidth)
 
@@ -220,9 +216,8 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 				lhs := flattenCubicBezier(start, c1, c2, end, -halfWidth, tolerance)
 				sp.Append(rhs)
 				ret.Append(lhs)
-				i += 6
 			case CloseCmd:
-				end = Point{p.d[i+0], p.d[i+1]}
+				end = Point{p.d[i+1], p.d[i+2]}
 				if !Equal(start.X, end.X) || !Equal(start.Y, end.Y) {
 					n1 = end.Sub(start).Rot90CW().Norm(halfWidth)
 					if !first {
@@ -239,10 +234,10 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 					ret.LineTo(lEnd.X, lEnd.Y)
 				}
 				closed = true
-				i += 2
 			}
 			start = end
 			n1Prev = n1
+			i += cmdLen(cmd)
 		}
 		if first {
 			continue

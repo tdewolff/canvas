@@ -22,6 +22,14 @@ type Point struct {
 	X, Y float64
 }
 
+func (p Point) IsZero() bool {
+	return Equal(p.X, 0.0) && Equal(p.Y, 0.0) // TODO: need Equal, or just compare?
+}
+
+func (p Point) Equals(q Point) bool {
+	return Equal(p.X, q.X) && Equal(p.Y, q.Y)
+}
+
 func (p Point) Neg() Point {
 	return Point{-p.X, -p.Y}
 }

@@ -186,39 +186,34 @@ func (c *PDF) SetFont(name string, size float64) (FontFace, error) {
 
 func (c *PDF) DrawPath(x, y float64, p *Path) {
 	p = p.Translate(x, y)
-	i := 0
-	for _, cmd := range p.cmds {
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
 		switch cmd {
 		case MoveToCmd:
-			c.f.MoveTo(p.d[i+0], p.d[i+1])
-			i += 2
+			c.f.MoveTo(p.d[i+1], p.d[i+2])
 		case LineToCmd:
-			c.f.LineTo(p.d[i+0], p.d[i+1])
-			i += 2
+			c.f.LineTo(p.d[i+1], p.d[i+2])
 		case QuadToCmd:
-			c.f.CurveTo(p.d[i+0], p.d[i+1], p.d[i+2], p.d[i+3])
-			i += 4
+			c.f.CurveTo(p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4])
 		case CubeToCmd:
-			c.f.CurveBezierCubicTo(p.d[i+0], p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4], p.d[i+5])
-			i += 6
+			c.f.CurveBezierCubicTo(p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4], p.d[i+5], p.d[i+6])
 		case ArcToCmd:
 			x1 := c.f.GetX()
 			y1 := c.f.GetY()
-			rx := p.d[i+0]
-			ry := p.d[i+1]
-			rot := p.d[i+2] * math.Pi / 180
-			large := p.d[i+3] == 1.0
-			sweep := p.d[i+4] == 1.0
-			x2 := p.d[i+5]
-			y2 := p.d[i+6]
+			rx := p.d[i+1]
+			ry := p.d[i+2]
+			rot := p.d[i+3] * math.Pi / 180
+			large := p.d[i+4] == 1.0
+			sweep := p.d[i+5] == 1.0
+			x2 := p.d[i+6]
+			y2 := p.d[i+7]
 
 			cx, cy, angle1, angle2 := arcToCenter(x1, y1, rx, ry, rot, large, sweep, x2, y2)
 			c.f.ArcTo(cx, cy, rx, ry, rot, -angle1, -angle2)
-			i += 7
 		case CloseCmd:
 			c.f.ClosePath()
-			i += 2
 		}
+		i += cmdLen(cmd)
 	}
 	c.f.DrawPath("F")
 }
@@ -269,32 +264,28 @@ func (c *Image) SetFont(name string, size float64) (FontFace, error) {
 
 func (c *Image) DrawPath(x, y float64, p *Path) {
 	p = p.Translate(x, y)
-	i := 0
-	for _, cmd := range p.cmds {
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
 		switch cmd {
 		case MoveToCmd:
-			c.r.MoveTo(float32(p.d[i+0]*c.dpm), float32(p.d[i+1]*c.dpm))
-			i += 2
+			c.r.MoveTo(float32(p.d[i+1]*c.dpm), float32(p.d[i+2]*c.dpm))
 		case LineToCmd:
-			c.r.LineTo(float32(p.d[i+0]*c.dpm), float32(p.d[i+1]*c.dpm))
-			i += 2
+			c.r.LineTo(float32(p.d[i+1]*c.dpm), float32(p.d[i+2]*c.dpm))
 		case QuadToCmd:
-			c.r.QuadTo(float32(p.d[i+0]*c.dpm), float32(p.d[i+1]*c.dpm), float32(p.d[i+2]*c.dpm), float32(p.d[i+3]*c.dpm))
-			i += 4
+			c.r.QuadTo(float32(p.d[i+1]*c.dpm), float32(p.d[i+2]*c.dpm), float32(p.d[i+3]*c.dpm), float32(p.d[i+4]*c.dpm))
 		case CubeToCmd:
-			c.r.CubeTo(float32(p.d[i+0]*c.dpm), float32(p.d[i+1]*c.dpm), float32(p.d[i+2]*c.dpm), float32(p.d[i+3]*c.dpm), float32(p.d[i+4]*c.dpm), float32(p.d[i+5]*c.dpm))
-			i += 6
+			c.r.CubeTo(float32(p.d[i+1]*c.dpm), float32(p.d[i+2]*c.dpm), float32(p.d[i+3]*c.dpm), float32(p.d[i+4]*c.dpm), float32(p.d[i+5]*c.dpm), float32(p.d[i+6]*c.dpm))
 		case ArcToCmd:
 			xpen, ypen := c.r.Pen()
 			x1 := float64(xpen) / c.dpm
 			y1 := float64(ypen) / c.dpm
-			rx := p.d[i+0]
-			ry := p.d[i+1]
-			rot := p.d[i+2] * math.Pi / 180
-			large := p.d[i+3] == 1.0
-			sweep := p.d[i+4] == 1.0
-			x2 := p.d[i+5]
-			y2 := p.d[i+6]
+			rx := p.d[i+1]
+			ry := p.d[i+2]
+			rot := p.d[i+3] * math.Pi / 180
+			large := p.d[i+4] == 1.0
+			sweep := p.d[i+5] == 1.0
+			x2 := p.d[i+6]
+			y2 := p.d[i+7]
 
 			cx, cy, angle1, angle2 := arcToCenter(x1, y1, rx, ry, rot, large, sweep, x2, y2)
 			angle1 *= math.Pi / 180
@@ -317,13 +308,13 @@ func (c *Image) DrawPath(x, y float64, p *Path) {
 				cty := 2*yt1 - yt0/2 - yt2/2
 				c.r.QuadTo(float32(ctx*c.dpm), float32(cty*c.dpm), float32(xt2*c.dpm), float32(yt2*c.dpm))
 			}
-			i += 7
 		case CloseCmd:
 			c.r.ClosePath()
-			i += 2
 		}
+		i += cmdLen(cmd)
 	}
-	if len(p.cmds) > 0 && p.cmds[len(p.cmds)-1] != CloseCmd {
+	if len(p.d) > 2 && p.d[len(p.d)-3] != CloseCmd {
+		// implicitly close path
 		c.r.ClosePath()
 	}
 	size := c.r.Size()
