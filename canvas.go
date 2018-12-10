@@ -289,6 +289,7 @@ func (c *Image) DrawPath(x, y float64, p *Path) {
 			angle1 *= math.Pi / 180
 			angle2 *= math.Pi / 180
 
+			// TODO: improve like flattenBezier
 			// from https://github.com/fogleman/gg/blob/master/context.go#L485
 			const n = 16
 			for i := 0; i < n; i++ {

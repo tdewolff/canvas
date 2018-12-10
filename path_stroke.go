@@ -94,6 +94,19 @@ func bevelJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 	lhs.LineTo(lEnd.X, lEnd.Y)
 }
 
+func strokeJoin(rhs, lhs *Path, jr Joiner, halfWidth float64, start, n1Prev, n0 Point, first *bool, n0First *Point) {
+	if !*first {
+		jr.Join(rhs, lhs, halfWidth, start, n1Prev, n0)
+	} else {
+		rStart := start.Add(n0)
+		lStart := start.Sub(n0)
+		rhs.MoveTo(rStart.X, rStart.Y)
+		lhs.MoveTo(lStart.X, lStart.Y)
+		*n0First = n0
+		*first = false
+	}
+}
+
 // Stroke will convert a path into a stroke of width w. It uses cr to cap the start and end of the path, and jr to
 // join all path elemtents. If the path closes itself, it will use a join between the start and end instead of capping them.
 // The tolerance is the maximum deviation from the original path when flattening Beziers and optimizing the stroke.
@@ -124,16 +137,7 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 				n0 = end.Sub(start).Rot90CW().Norm(halfWidth)
 				n1 = n0
 
-				if !first {
-					jr.Join(sp, ret, halfWidth, start, n1Prev, n0)
-				} else {
-					rStart := start.Add(n0)
-					lStart := start.Sub(n0)
-					sp.MoveTo(rStart.X, rStart.Y)
-					ret.MoveTo(lStart.X, lStart.Y)
-					n0First = n0
-					first = false
-				}
+				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, &first, &n0First)
 
 				rEnd := end.Add(n1)
 				lEnd := end.Sub(n1)
@@ -147,16 +151,7 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 				n0 = cubicBezierNormal(start, c1, c2, end, 0.0).Norm(halfWidth)
 				n1 = cubicBezierNormal(start, c1, c2, end, 1.0).Norm(halfWidth)
 
-				if !first {
-					jr.Join(sp, ret, halfWidth, start, n1Prev, n0)
-				} else {
-					rStart := start.Add(n0)
-					lStart := start.Sub(n0)
-					sp.MoveTo(rStart.X, rStart.Y)
-					ret.MoveTo(lStart.X, lStart.Y)
-					n0First = n0
-					first = false
-				}
+				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, &first, &n0First)
 
 				rhs := flattenCubicBezier(start, c1, c2, end, halfWidth, tolerance)
 				lhs := flattenCubicBezier(start, c1, c2, end, -halfWidth, tolerance)
@@ -169,16 +164,7 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 				n0 = cubicBezierNormal(start, c1, c2, end, 0.0).Norm(halfWidth)
 				n1 = cubicBezierNormal(start, c1, c2, end, 1.0).Norm(halfWidth)
 
-				if !first {
-					jr.Join(sp, ret, halfWidth, start, n1Prev, n0)
-				} else {
-					rStart := start.Add(n0)
-					lStart := start.Sub(n0)
-					sp.MoveTo(rStart.X, rStart.Y)
-					ret.MoveTo(lStart.X, lStart.Y)
-					n0First = n0
-					first = false
-				}
+				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, &first, &n0First)
 
 				rhs := flattenCubicBezier(start, c1, c2, end, halfWidth, tolerance)
 				lhs := flattenCubicBezier(start, c1, c2, end, -halfWidth, tolerance)
@@ -196,16 +182,7 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 					n1 = n1.Neg()
 				}
 
-				if !first {
-					jr.Join(sp, ret, halfWidth, start, n1Prev, n0)
-				} else {
-					rStart := start.Add(n0)
-					lStart := start.Sub(n0)
-					sp.MoveTo(rStart.X, rStart.Y)
-					ret.MoveTo(lStart.X, lStart.Y)
-					n0First = n0
-					first = false
-				}
+				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, &first, &n0First)
 
 				rEnd := end.Add(n1)
 				lEnd := end.Sub(n1)
