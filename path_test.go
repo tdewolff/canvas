@@ -1,7 +1,54 @@
 package canvas
 
-import "testing"
-import "github.com/tdewolff/test"
+import (
+	"testing"
+	"github.com/tdewolff/test"
+	"strings"
+)
+
+func TestPathSplit(t *testing.T) {
+	var tts = []struct {
+		orig string
+		split []string
+	}{
+		{"M5 5L6 6z", []string{"M5 5L6 6z"}},
+		{"L5 5M10 10L20 20z", []string{"M0 0L5 5", "M10 10L20 20z"}},
+		{"L5 5zL10 10", []string{"M0 0L5 5z", "M0 0L10 10"}},
+		{"M5 5M10 10z", []string{"M5 5", "M10 10z"}},
+	}
+	for _, tt := range tts {
+		t.Run(tt.orig, func(t *testing.T) {
+			ps := ParseSVGPath(tt.orig).Split()
+			if len(ps) != len(tt.split) {
+				origs := []string{}
+				for _, p := range ps {
+					origs = append(origs, p.ToSVGPath())
+				}
+				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.split, "\n"))
+			} else {
+				for i, p := range ps {
+					test.T(t, p.ToSVGPath(), tt.split[i])
+				}
+			}
+		})
+	}
+}
+
+func TestPathTranslate(t *testing.T) {
+	var tts = []struct {
+		dx, dy float64
+		orig string
+		translated string
+	}{
+		{10.0, 10.0, "M5 5L10 0Q10 10 15 5C15 0 20 0 20 5A5 5 0 0 0 30 5z", "M15 15L20 10Q20 20 25 15C25 10 30 10 30 15A5 5 0 0 0 40 15z"},
+	}
+	for _, tt := range tts {
+		t.Run(tt.orig, func(t *testing.T) {
+			p := ParseSVGPath(tt.orig).Translate(tt.dx, tt.dy)
+			test.T(t, p.ToSVGPath(), tt.translated)
+		})
+	}
+}
 
 func TestPathReverse(t *testing.T) {
 	var tts = []struct {
@@ -25,7 +72,7 @@ func TestPathReverse(t *testing.T) {
 		{"M5 5A5 2.5 90 0 0 10 5", "M10 5A5 2.5 90 0 1 5 5"}, // same shape
 		{"M5 5A2.5 5 0 0 0 10 5z", "M5 5H10A2.5 5 0 0 1 5 5z"},
 		{"L0 5L5 5", "M5 5H0V0"},
-		{"L0 5L5 5z", "M0 0L5 5H0z"},
+		{"L-1 5L5 5z", "M0 0L5 5H-1z"},
 		{"Q0 5 5 5", "M5 5Q0 5 0 0"},
 		{"Q0 5 5 5z", "M0 0L5 5Q0 5 0 0z"},
 		{"C0 5 5 5 5 0", "M5 0C5 5 0 5 0 0"},
@@ -36,9 +83,8 @@ func TestPathReverse(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p := ParseSVGPath(tt.orig)
-			ip := p.Reverse()
-			test.T(t, ip.ToSVGPath(), tt.inv)
+			p := ParseSVGPath(tt.orig).Reverse()
+			test.T(t, p.ToSVGPath(), tt.inv)
 		})
 	}
 }
