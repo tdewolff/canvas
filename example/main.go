@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	_ "fmt"
 	"image/color"
 	_ "image/png"
@@ -11,6 +12,12 @@ import (
 )
 
 func main() {
+	_, err := canvas.ParseLaTeX("TACO")
+	if err != nil {
+		fmt.Println(err)
+	}
+	return
+
 	fonts := canvas.NewFonts()
 	fonts.Add("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
 

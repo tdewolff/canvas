@@ -144,21 +144,25 @@ func (p *Path) Close() {
 
 ////////////////////////////////////////////////////////////////
 
-// Rect returns a rectangle at x,y with width and height of w and h respectively.
-func (p *Path) Rect(x, y, w, h float64) {
+// Rectangle returns a rectangle at x,y with width and height of w and h respectively.
+func Rectangle(x, y, w, h float64) *Path {
+	p := &Path{}
 	p.MoveTo(x, y)
 	p.LineTo(x+w, y)
 	p.LineTo(x+w, y+h)
 	p.LineTo(x, y+h)
 	p.Close()
+	return p
 }
 
 // Ellipse returns an ellipse at x,y with radii rx,ry.
-func (p *Path) Ellipse(x, y, rx, ry float64) {
+func Ellipse(x, y, rx, ry float64) *Path {
+	p := &Path{}
 	p.MoveTo(x+rx, y)
 	p.ArcTo(rx, ry, 0, false, false, x-rx, y)
 	p.ArcTo(rx, ry, 0, false, false, x+rx, y)
 	p.Close()
+	return p
 }
 
 ////////////////////////////////////////////////////////////////
@@ -223,43 +227,22 @@ func (p *Path) Translate(x, y float64) *Path {
 	return p
 }
 
+// Flattenwill return a copy of p with all Bezier and arc curves flattened.
+// It replaces the curves by linear segments, under the constraint that the maximum deviation is up to tolerance.
+func (p *Path) Flatten(tolerance float64) *Path {
+	return p.flatten(true, true, tolerance)
+}
+
+// FlattenBeziers will return a copy of p with all arc curves flattened.
+// It replaces the arcs by linear segments, under the constraint that the maximum deviation is up to tolerance.
+func (p *Path) FlattenArcs(tolerance float64) *Path {
+	return p.flatten(false, true, tolerance)
+}
+
 // FlattenBeziers will return a copy of p with all Bezier curves flattened.
 // It replaces the curves by linear segments, under the constraint that the maximum deviation is up to tolerance.
 func (p *Path) FlattenBeziers(tolerance float64) *Path {
-	p = p.Copy()
-	start := Point{}
-	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
-		switch cmd {
-		case QuadToCmd:
-			c := Point{p.d[i+1], p.d[i+2]}
-			end := Point{p.d[i+3], p.d[i+4]}
-			c1 := start.Interpolate(c, 2.0/3.0)
-			c2 := end.Interpolate(c, 2.0/3.0)
-
-			q := flattenCubicBezier(start, c1, c2, end, 0.0, tolerance)
-			p.d = append(p.d[:i], append(q.d, p.d[i+5:]...)...)
-			i += len(q.d)
-			if len(q.d) == 0 {
-				continue
-			}
-		case CubeToCmd:
-			c1 := Point{p.d[i+1], p.d[i+2]}
-			c2 := Point{p.d[i+3], p.d[i+4]}
-			end := Point{p.d[i+5], p.d[i+6]}
-
-			q := flattenCubicBezier(start, c1, c2, end, 0.0, tolerance)
-			p.d = append(p.d[:i], append(q.d, p.d[i+7:]...)...)
-			i += len(q.d)
-			if len(q.d) == 0 {
-				continue
-			}
-		default:
-			i += cmdLen(cmd)
-		}
-		start = Point{p.d[i-2], p.d[i-1]}
-	}
-	return p
+	return p.flatten(true, false, tolerance)
 }
 
 // Reverse returns a copy of p that is the same path but in the reverse direction.
@@ -497,7 +480,7 @@ func ParseSVGPath(sPath string) *Path {
 				f += x
 				g += y
 			}
-			p.ArcTo(a, b, c, d==1.0, e==1.0, f, g)
+			p.ArcTo(a, b, c, d == 1.0, e == 1.0, f, g)
 		}
 		prevCmd = cmd
 	}

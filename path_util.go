@@ -3,70 +3,7 @@ package canvas
 import (
 	"fmt"
 	"math"
-	"strconv"
 )
-
-const epsilon = 1e-10
-
-func Equal(a, b float64) bool {
-	return math.Abs(a-b) < epsilon
-}
-
-func ftos(f float64) string {
-	return strconv.FormatFloat(f, 'g', 5, 64)
-}
-
-////////////////////////////////////////////////////////////////
-
-type Point struct {
-	X, Y float64
-}
-
-func (p Point) IsZero() bool {
-	return Equal(p.X, 0.0) && Equal(p.Y, 0.0) // TODO: need Equal, or just compare?
-}
-
-func (p Point) Equals(q Point) bool {
-	return Equal(p.X, q.X) && Equal(p.Y, q.Y)
-}
-
-func (p Point) Neg() Point {
-	return Point{-p.X, -p.Y}
-}
-
-func (p Point) Add(a Point) Point {
-	return Point{p.X + a.X, p.Y + a.Y}
-}
-
-func (p Point) Sub(a Point) Point {
-	return Point{p.X - a.X, p.Y - a.Y}
-}
-
-func (p Point) Rot90CW() Point {
-	return Point{-p.Y, p.X}
-}
-
-func (p Point) Rot90CCW() Point {
-	return Point{p.Y, -p.X}
-}
-
-func (p Point) Dot(q Point) float64 {
-	return p.X*q.X + p.Y*q.Y
-}
-
-func (p Point) Norm(length float64) Point {
-	d := math.Sqrt(p.X*p.X + p.Y*p.Y)
-	if Equal(d, 0.0) {
-		return Point{}
-	}
-	return Point{p.X / d * length, p.Y / d * length}
-}
-
-func (p Point) Interpolate(q Point, t float64) Point {
-	return Point{(1-t)*p.X + t*q.X, (1-t)*p.Y + t*q.Y}
-}
-
-////////////////////////////////////////////////////////////////
 
 // arcToEndpoints converts to the endpoint arc format and returns (startX, startY, largeArc, sweep, endX, endY)
 // see https://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
@@ -76,7 +13,7 @@ func arcToEndpoint(cx, cy, rx, ry, rot, theta1, theta2 float64) (float64, float6
 	x2 := math.Cos(rot)*rx*math.Cos(theta2) - math.Sin(rot)*ry*math.Sin(theta2) + cx
 	y2 := math.Sin(rot)*rx*math.Cos(theta2) + math.Cos(rot)*ry*math.Sin(theta2) + cy
 	largeArc := math.Abs(theta2-theta1) > 180.0
-	sweep := (theta2-theta1) > 0.0
+	sweep := (theta2 - theta1) > 0.0
 	return x1, y1, largeArc, sweep, x2, y2
 }
 
@@ -430,6 +367,65 @@ func flattenCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 	} else {
 		// t2max extends beyond 1
 		addCubicBezierLine(p, p0, p1, p2, p3, 1.0, d)
+	}
+	return p
+}
+
+func flattenArc(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point, tolerance float64) *Path {
+	// cx, cy, theta1, theta2 := arcToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
+	panic("not implemented")
+}
+
+func (p *Path) flatten(beziers, arcs bool, tolerance float64) *Path {
+	p = p.Copy()
+	start := Point{}
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		switch cmd {
+		case QuadToCmd:
+			if beziers {
+				c := Point{p.d[i+1], p.d[i+2]}
+				end := Point{p.d[i+3], p.d[i+4]}
+				c1 := start.Interpolate(c, 2.0/3.0)
+				c2 := end.Interpolate(c, 2.0/3.0)
+
+				q := flattenCubicBezier(start, c1, c2, end, 0.0, tolerance)
+				p.d = append(p.d[:i], append(q.d, p.d[i+5:]...)...)
+				i += len(q.d)
+				if len(q.d) == 0 {
+					continue
+				}
+			}
+		case CubeToCmd:
+			if beziers {
+				c1 := Point{p.d[i+1], p.d[i+2]}
+				c2 := Point{p.d[i+3], p.d[i+4]}
+				end := Point{p.d[i+5], p.d[i+6]}
+
+				q := flattenCubicBezier(start, c1, c2, end, 0.0, tolerance)
+				p.d = append(p.d[:i], append(q.d, p.d[i+7:]...)...)
+				i += len(q.d)
+				if len(q.d) == 0 {
+					continue
+				}
+			}
+		case ArcToCmd:
+			if arcs {
+				rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
+				largeArc, sweep := fromArcFlags(p.d[i+4])
+				end := Point{p.d[i+5], p.d[i+6]}
+
+				q := flattenArc(start, rx, ry, rot, largeArc, sweep, end, tolerance)
+				p.d = append(p.d[:i], append(q.d, p.d[i+7:]...)...)
+				i += len(q.d)
+				if len(q.d) == 0 {
+					continue
+				}
+			}
+		default:
+			i += cmdLen(cmd)
+		}
+		start = Point{p.d[i-2], p.d[i-1]}
 	}
 	return p
 }

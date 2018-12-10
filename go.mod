@@ -5,5 +5,6 @@ require (
 	github.com/jung-kurt/gofpdf v1.0.0
 	github.com/tdewolff/parse v2.3.4+incompatible
 	github.com/tdewolff/test v1.0.0
+	github.com/unidoc/unidoc v2.2.0+incompatible
 	golang.org/x/image v0.0.0-20181116024801-cd38e8056d9b
 )

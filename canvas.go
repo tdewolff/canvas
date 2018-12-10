@@ -245,8 +245,7 @@ func (c *Image) Open(w, h float64) {
 	c.img = image.NewRGBA(image.Rect(0, 0, int(w*c.dpm), int(h*c.dpm)))
 	c.r = vector.NewRasterizer(int(w*c.dpm), int(h*c.dpm))
 
-	p := &Path{}
-	p.Rect(0, 0, w, h)
+	p := Rectangle(0, 0, w, h)
 	c.SetColor(color.White)
 	c.DrawPath(0, 0, p)
 	c.SetColor(color.Black)
@@ -322,6 +321,6 @@ func (c *Image) DrawPath(x, y float64, p *Path) {
 }
 
 func (c *Image) DrawText(x, y float64, s string) {
-	d := font.Drawer{c.img, image.NewUniform(c.color), c.fontFace.face, ToP26_6(x*c.dpm, y*c.dpm)}
+	d := font.Drawer{c.img, image.NewUniform(c.color), c.fontFace.face, toP26_6(x*c.dpm, y*c.dpm)}
 	d.DrawString(s)
 }

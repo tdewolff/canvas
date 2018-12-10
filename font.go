@@ -89,12 +89,12 @@ type FontFace struct {
 
 // LineHeight returns line height in mm.
 func (f FontFace) LineHeight() float64 {
-	return FromI26_6(f.face.Metrics().Height) * 0.352778
+	return fromI26_6(f.face.Metrics().Height) * 0.352778
 }
 
 // TextWidth returns the width of a given string in mm.
 func (f FontFace) TextWidth(s string) float64 {
-	return FromI26_6(font.MeasureString(f.face, s)) * 0.352778
+	return fromI26_6(font.MeasureString(f.face, s)) * 0.352778
 }
 
 // mostly takes from github.com/golang/freetype/truetype/face.go
@@ -111,11 +111,11 @@ func (f FontFace) glyphToPath(r rune) (*Path, float64) {
 		}
 
 		var others []truetype.Point
-		start, on := FromTTPoint(ps[0])
+		start, on := fromTTPoint(ps[0])
 		if on {
 			others = ps[1:]
 		} else {
-			last, on := FromTTPoint(ps[len(ps)-1])
+			last, on := fromTTPoint(ps[len(ps)-1])
 			if on {
 				start = last
 				others = ps[:len(ps)-1]
@@ -127,7 +127,7 @@ func (f FontFace) glyphToPath(r rune) (*Path, float64) {
 		path.MoveTo(start.X, start.Y)
 		q0, on0 := start, true
 		for _, p := range others {
-			q, on := FromTTPoint(p)
+			q, on := fromTTPoint(p)
 			if on {
 				if on0 {
 					path.LineTo(q.X, q.Y)
@@ -151,7 +151,7 @@ func (f FontFace) glyphToPath(r rune) (*Path, float64) {
 
 		e0 = e1
 	}
-	return path, FromI26_6(glyphBuf.AdvanceWidth)
+	return path, fromI26_6(glyphBuf.AdvanceWidth)
 }
 
 func (f FontFace) ToPath(s string) *Path {
