@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"math"
 	"strings"
 
 	"github.com/tdewolff/parse/strconv"
@@ -167,6 +168,39 @@ func Ellipse(x, y, rx, ry float64) *Path {
 
 ////////////////////////////////////////////////////////////////
 
+func (p *Path) Length() float64 {
+	d := 0.0
+	var start, end Point
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		switch cmd {
+		case MoveToCmd:
+			end = Point{p.d[i+1], p.d[i+2]}
+		case LineToCmd, CloseCmd:
+			end = Point{p.d[i+1], p.d[i+2]}
+			d += math.Sqrt((end.X - start.X) ^ 2 + (end.Y - start.Y) ^ 2)
+		case QuadToCmd:
+			c = Point{p.d[i+1], p.d[i+2]}
+			end = Point{p.d[i+3], p.d[i+4]}
+			c1, c2 := quadraticToCubicBezier(start, c, end)
+			d += cubicBezierLength(start, c1, c2, end)
+		case CubeToCmd:
+			c1 = Point{p.d[i+1], p.d[i+2]}
+			c2 = Point{p.d[i+3], p.d[i+4]}
+			end = Point{p.d[i+5], p.d[i+6]}
+			d += cubicBezierLength(start, c1, c2, end)
+		case ArcToCmd:
+			rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
+			largeArc, sweep := fromArcFlags(p.d[i+4])
+			end = Point{p.d[i+5], p.d[i+6]}
+			d += arcLength(start, rx, ry, rot, largeArc, sweep, end)
+		}
+		i += cmdLen(cmd)
+		start = end
+	}
+	return d
+}
+
 // Split splits the path into its independent path segments. The path is split on the MoveTo and/or Close commands.
 func (p *Path) Split() []*Path {
 	ps := []*Path{}
@@ -192,6 +226,10 @@ func (p *Path) Split() []*Path {
 		ps = append(ps, &Path{p.d[i:j], x0, y0})
 	}
 	return ps
+}
+
+func (p *Path) SplitAt(ds ...float64) []*Path {
+	panic("not implemented")
 }
 
 // Translate returns a copy of p that has the entire path translated by x,y.

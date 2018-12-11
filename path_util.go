@@ -81,6 +81,22 @@ func angleToNormal(theta float64) Point {
 
 ////////////////////////////////////////////////////////////////
 
+func arcLength(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) float64 {
+	panic("not implemented")
+}
+
+func cubicBezierLength(p0, p1, p2, p3 Point) float64 {
+	panic("not implemented")
+}
+
+////////////////////////////////////////////////////////////////
+
+func quadraticToCubicBezier(start, c, end Point) (Point, Point) {
+	c1 := start.Interpolate(c, 2.0/3.0)
+	c2 := end.Interpolate(c, 2.0/3.0)
+	return c1, c2
+}
+
 func cubicBezierNormal(p0, p1, p2, p3 Point, t float64) Point {
 	if t == 0.0 {
 		n := p1.Sub(p0)
@@ -386,8 +402,7 @@ func (p *Path) flatten(beziers, arcs bool, tolerance float64) *Path {
 			if beziers {
 				c := Point{p.d[i+1], p.d[i+2]}
 				end := Point{p.d[i+3], p.d[i+4]}
-				c1 := start.Interpolate(c, 2.0/3.0)
-				c2 := end.Interpolate(c, 2.0/3.0)
+				c1, c2 := quadraticToCubicBezier(start, c, end)
 
 				q := flattenCubicBezier(start, c1, c2, end, 0.0, tolerance)
 				p.d = append(p.d[:i], append(q.d, p.d[i+5:]...)...)
