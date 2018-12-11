@@ -265,6 +265,36 @@ func (p *Path) Translate(x, y float64) *Path {
 	return p
 }
 
+// Scale returns a copy of p that has the entire path scaled by x,y.
+func (p *Path) Scale(x, y float64) *Path {
+	p = p.Copy()
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		switch cmd {
+		case MoveToCmd, LineToCmd, CloseCmd:
+			p.d[i+1] *= x
+			p.d[i+2] *= y
+		case QuadToCmd:
+			p.d[i+1] *= x
+			p.d[i+2] *= y
+			p.d[i+3] *= x
+			p.d[i+4] *= y
+		case CubeToCmd:
+			p.d[i+1] *= x
+			p.d[i+2] *= y
+			p.d[i+3] *= x
+			p.d[i+4] *= y
+			p.d[i+5] *= x
+			p.d[i+6] *= y
+		case ArcToCmd:
+			p.d[i+5] *= x
+			p.d[i+6] *= y
+		}
+		i += cmdLen(cmd)
+	}
+	return p
+}
+
 // Flattenwill return a copy of p with all Bezier and arc curves flattened.
 // It replaces the curves by linear segments, under the constraint that the maximum deviation is up to tolerance.
 func (p *Path) Flatten(tolerance float64) *Path {
