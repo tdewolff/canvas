@@ -1,6 +1,7 @@
 module github.com/tdewolff/canvas
 
 require (
+	github.com/flopp/go-findfont v0.0.0-20180308170802-e788239e52bc
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/jung-kurt/gofpdf v1.0.0
 	github.com/tdewolff/parse v2.3.4+incompatible

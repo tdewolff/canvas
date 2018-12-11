@@ -79,8 +79,12 @@ func (p Point) Dot(q Point) float64 {
 	return p.X*q.X + p.Y*q.Y
 }
 
+func (p Point) Length() float64 {
+	return math.Sqrt(p.X*p.X + p.Y*p.Y)
+}
+
 func (p Point) Norm(length float64) Point {
-	d := math.Sqrt(p.X*p.X + p.Y*p.Y)
+	d := p.Length()
 	if Equal(d, 0.0) {
 		return Point{}
 	}

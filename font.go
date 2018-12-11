@@ -3,13 +3,15 @@ package canvas
 import (
 	"fmt"
 	"io/ioutil"
+	"math"
 
+	"github.com/flopp/go-findfont"
 	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
 )
 
-var ErrNotFound = fmt.Errorf("Font name not found")
+var ErrNotFound = fmt.Errorf("font not found")
 
 type FontStyle int
 
@@ -19,82 +21,144 @@ const (
 	Italic
 )
 
+type Fonts struct {
+	fonts map[string]Font
+	dpi   float64
+}
+
+func NewFonts(dpi float64) *Fonts {
+	return &Fonts{
+		fonts: map[string]Font{},
+		dpi:   dpi,
+	}
+}
+
+func (f *Fonts) AddLocalFont(name string, style FontStyle) error {
+	fontPath, err := findfont.Find(name)
+	if err != nil {
+		return err
+	}
+	return f.AddFontFile(name, style, fontPath)
+}
+
+func (f *Fonts) AddFontFile(name string, style FontStyle, path string) error {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	return f.AddFont(name, style, b)
+}
+
+func (f *Fonts) AddFont(name string, style FontStyle, b []byte) error {
+	ttf, err := truetype.Parse(b)
+	if err != nil {
+		return err
+	}
+	f.fonts[name] = Font{
+		mimetype: "font/truetype",
+		raw:      b,
+		faces:    map[float64]font.Face{},
+		font:     ttf,
+		name:     name,
+		style:    style,
+		dpi:      f.dpi,
+	}
+	return nil
+}
+
+func (f *Fonts) Font(name string) (Font, error) {
+	if _, ok := f.fonts[name]; !ok {
+		return Font{}, ErrNotFound
+	}
+	return f.fonts[name], nil
+}
+
 type Font struct {
 	mimetype string
 	raw      []byte
+	faces    map[float64]font.Face
 
 	font  *truetype.Font
+	name  string
 	style FontStyle
-}
-
-type Fonts struct {
-	fonts map[string]Font
-	cache map[string]map[float64]font.Face
-}
-
-func NewFonts() *Fonts {
-	return &Fonts{
-		fonts: make(map[string]Font),
-		cache: make(map[string]map[float64]font.Face),
-	}
-}
-
-func (f *Fonts) Add(name string, style FontStyle, path string) error {
-	fontBytes, err := ioutil.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	font, err := truetype.Parse(fontBytes)
-	if err != nil {
-		return err
-	}
-	f.fonts[name] = Font{"font/truetype", fontBytes, font, style}
-	return nil
+	dpi   float64
 }
 
 // Get gets the font face associated with the give font name and font size.
 // Font size is in mm.
-func (f *Fonts) Get(name string, size float64) (FontFace, error) {
-	if _, ok := f.fonts[name]; !ok {
-		return FontFace{}, ErrNotFound
-	}
-
-	if f.cache[name] == nil {
-		f.cache[name] = make(map[float64]font.Face)
-	}
-	face, ok := f.cache[name][size]
+func (f *Font) Face(size float64) FontFace {
+	face, ok := f.faces[size]
 	if !ok {
-		face = truetype.NewFace(f.fonts[name].font, &truetype.Options{
+		face = truetype.NewFace(f.font, &truetype.Options{
 			Size: size / 0.352778, // to pt
+			DPI:  f.dpi,
 		})
-		f.cache[name][size] = face
+		f.faces[size] = face
 	}
 
 	return FontFace{
-		font:  f.fonts[name].font,
-		face:  face,
-		name:  name,
+		font:  f.font,
+		name:  f.name,
 		size:  size,
-		style: f.fonts[name].style,
-	}, nil
+		style: f.style,
+		face:  face,
+	}
 }
 
 type FontFace struct {
 	font  *truetype.Font
-	face  font.Face
 	name  string
 	size  float64
 	style FontStyle
+
+	face font.Face
 }
 
-// LineHeight returns line height in mm.
+// LineHeight returns line height in mm, same as font size.
 func (f FontFace) LineHeight() float64 {
 	return fromI26_6(f.face.Metrics().Height) * 0.352778
+}
+
+func (f FontFace) Ascent() float64 {
+	return fromI26_6(f.face.Metrics().Ascent) * 0.352778
+}
+
+func (f FontFace) Descent() float64 {
+	return fromI26_6(f.face.Metrics().Descent) * 0.352778
 }
 
 // TextWidth returns the width of a given string in mm.
 func (f FontFace) TextWidth(s string) float64 {
 	return fromI26_6(font.MeasureString(f.face, s)) * 0.352778
+}
+
+func (f FontFace) BBox(s string) (float64, float64) {
+	w := 0.0
+	newlines := 1
+
+	i := 0
+	for j := 0; j < len(s); j++ {
+		d := 0
+		c := s[j]
+		if c == '\n' {
+			d = 1
+		} else if c == '\r' && j+1 < len(s) && s[j+1] == '\n' {
+			d = 2
+		} else if c == 0xE2 && j+2 < len(s) && s[j+1] == 0x80 && (s[j+2] == 0xA8 || s[j+2] == 0xA9) {
+			d = 3
+		}
+
+		if d > 0 {
+			w = math.Max(w, f.TextWidth(s[i:j]))
+			newlines++
+			i = j + d
+			j += d - 1
+		}
+	}
+	if i < len(s) {
+		w = math.Max(w, f.TextWidth(s[i:]))
+	}
+	return w, float64(newlines) * f.LineHeight()
 }
 
 // mostly takes from github.com/golang/freetype/truetype/face.go

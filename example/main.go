@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	_ "fmt"
 	"image/color"
 	_ "image/png"
@@ -12,14 +11,11 @@ import (
 )
 
 func main() {
-	_, err := canvas.ParseLaTeX("TACO")
-	if err != nil {
-		fmt.Println(err)
-	}
-	return
-
-	fonts := canvas.NewFonts()
-	fonts.Add("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
+	// _, err := canvas.ParseLaTeX("TACO")
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+	// return
 
 	svgFile, err := os.Create("example.svg")
 	if err != nil {
@@ -27,13 +23,14 @@ func main() {
 	}
 	defer svgFile.Close()
 
-	pngFile, err := os.Create("example.png")
-	if err != nil {
-		panic(err)
-	}
-	defer pngFile.Close()
+	//pngFile, err := os.Create("example.png")
+	//if err != nil {
+	//	panic(err)
+	//}
+	//defer pngFile.Close()
 
-	svg := canvas.NewSVG(svgFile, fonts)
+	svg := canvas.NewSVG(svgFile)
+	svg.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
 	Draw(svg)
 	svg.Close()
 
@@ -55,6 +52,7 @@ func drawStrokedPath(c canvas.C, x, y float64, path string) {
 
 	c.SetColor(color.RGBA{255, 0, 0, 127})
 	p = p.Stroke(2, canvas.RoundCapper, canvas.RoundJoiner, 0.01)
+	//	fmt.Println(p)
 	c.DrawPath(x, y, p)
 }
 
@@ -70,7 +68,13 @@ func Draw(c canvas.C) {
 	drawStrokedPath(c, 80, 50, "C0 0 0 -20 0 0z")
 	drawStrokedPath(c, 80, 50, "C0 0 0 0 0 0z")
 
-	face, _ := c.SetFont("DejaVuSerif", 40)
+	font, err := c.Font("DejaVuSerif")
+	if err != nil {
+		panic(err.Error())
+	}
+	face := font.Face(40.0)
+
+	c.SetFont(face)
 	pText := face.ToPath("a")
 	c.DrawPath(20, 80, pText)
 

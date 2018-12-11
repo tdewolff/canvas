@@ -54,9 +54,10 @@ func cssColor(c color.Color) []byte {
 
 type C interface {
 	Open(float64, float64)
+	Font(string) (Font, error)
 
 	SetColor(color.Color)
-	SetFont(string, float64) (FontFace, error)
+	SetFont(FontFace)
 
 	DrawPath(float64, float64, *Path)
 	DrawText(float64, float64, string)
@@ -65,15 +66,15 @@ type C interface {
 ////////////////////////////////////////////////////////////////
 
 type SVG struct {
-	w     io.Writer
-	fonts *Fonts
+	*Fonts
+	w io.Writer
 
 	color    color.Color
 	fontFace FontFace
 }
 
-func NewSVG(w io.Writer, fonts *Fonts) *SVG {
-	return &SVG{w, fonts, color.Black, FontFace{}}
+func NewSVG(w io.Writer) *SVG {
+	return &SVG{NewFonts(72.0), w, color.Black, FontFace{}}
 }
 
 func (c *SVG) Open(w, h float64) {
@@ -86,9 +87,9 @@ func (c *SVG) Open(w, h float64) {
 	c.w.Write([]byte(" "))
 	c.writeF(h)
 	c.w.Write([]byte("\">"))
-	if len(c.fonts.fonts) > 0 {
+	if len(c.fonts) > 0 {
 		c.w.Write([]byte("<defs><style>"))
-		for name, font := range c.fonts.fonts {
+		for name, font := range c.fonts {
 			c.w.Write([]byte("@font-face { font-family: '"))
 			c.w.Write([]byte(name))
 			c.w.Write([]byte("'; src: url('data:"))
@@ -111,10 +112,8 @@ func (c *SVG) SetColor(col color.Color) {
 	c.color = col
 }
 
-func (c *SVG) SetFont(name string, size float64) (FontFace, error) {
-	var err error
-	c.fontFace, err = c.fonts.Get(name, size)
-	return c.fontFace, err
+func (c *SVG) SetFont(fontFace FontFace) {
+	c.fontFace = fontFace
 }
 
 func (c *SVG) writeF(f float64) {
@@ -160,12 +159,12 @@ func (c *SVG) DrawText(x, y float64, s string) {
 ////////////////////////////////////////////////////////////////
 
 type PDF struct {
-	f     *gofpdf.Fpdf
-	fonts *Fonts
+	*Fonts
+	f *gofpdf.Fpdf
 }
 
-func NewPDF(f *gofpdf.Fpdf, fonts *Fonts) *PDF {
-	return &PDF{f, fonts}
+func NewPDF(f *gofpdf.Fpdf) *PDF {
+	return &PDF{NewFonts(72), f}
 }
 
 func (c *PDF) Open(w, h float64) {
@@ -179,9 +178,15 @@ func (c *PDF) SetColor(col color.Color) {
 	c.f.SetAlpha(float64(a)/0xffff, "Normal")
 }
 
-func (c *PDF) SetFont(name string, size float64) (FontFace, error) {
-	c.f.SetFont(name, "", size/0.352778)
-	return c.fonts.Get(name, size)
+func (c *PDF) SetFont(fontFace FontFace) {
+	style := ""
+	if fontFace.style&Bold != 0 {
+		style += "B"
+	}
+	if fontFace.style&Italic != 0 {
+		style += "I"
+	}
+	c.f.SetFont(fontFace.name, style, fontFace.size/0.352778)
 }
 
 func (c *PDF) DrawPath(x, y float64, p *Path) {
@@ -224,17 +229,17 @@ func (c *PDF) DrawText(x, y float64, s string) {
 ////////////////////////////////////////////////////////////////
 
 type Image struct {
-	img   *image.RGBA
-	r     *vector.Rasterizer
-	dpm   float64
-	fonts *Fonts
+	*Fonts
+	img *image.RGBA
+	r   *vector.Rasterizer
+	dpm float64
 
 	color    color.Color
 	fontFace FontFace
 }
 
-func NewImage(dpi float64, fonts *Fonts) *Image {
-	return &Image{nil, nil, dpi / 25.4, fonts, color.Black, FontFace{}}
+func NewImage(dpi float64) *Image {
+	return &Image{NewFonts(dpi), nil, nil, dpi / 25.4, color.Black, FontFace{}}
 }
 
 func (c *Image) Image() *image.RGBA {
@@ -255,9 +260,8 @@ func (c *Image) SetColor(col color.Color) {
 	c.color = col
 }
 
-func (c *Image) SetFont(name string, size float64) (FontFace, error) {
-	c.fontFace, _ = c.fonts.Get(name, size*c.dpm*25.4/72.0) // size(mm) * (dpi / 72)
-	return c.fonts.Get(name, size)
+func (c *Image) SetFont(fontFace FontFace) {
+	c.fontFace = fontFace
 }
 
 func (c *Image) DrawPath(x, y float64, p *Path) {

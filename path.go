@@ -1,7 +1,6 @@
 package canvas
 
 import (
-	"math"
 	"strings"
 
 	"github.com/tdewolff/parse/strconv"
@@ -80,9 +79,6 @@ func (p *Path) Append(q *Path) *Path {
 			if Equal(x0, x1) && Equal(y0, y1) {
 				q.d = q.d[3:]
 			}
-		} else {
-			// q implicitly starts at 0,0
-			p.d = append(p.d, MoveToCmd, 0.0, 0.0)
 		}
 	}
 
@@ -178,15 +174,15 @@ func (p *Path) Length() float64 {
 			end = Point{p.d[i+1], p.d[i+2]}
 		case LineToCmd, CloseCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
-			d += math.Sqrt((end.X - start.X) ^ 2 + (end.Y - start.Y) ^ 2)
+			d += end.Sub(start).Length()
 		case QuadToCmd:
-			c = Point{p.d[i+1], p.d[i+2]}
+			c := Point{p.d[i+1], p.d[i+2]}
 			end = Point{p.d[i+3], p.d[i+4]}
 			c1, c2 := quadraticToCubicBezier(start, c, end)
 			d += cubicBezierLength(start, c1, c2, end)
 		case CubeToCmd:
-			c1 = Point{p.d[i+1], p.d[i+2]}
-			c2 = Point{p.d[i+3], p.d[i+4]}
+			c1 := Point{p.d[i+1], p.d[i+2]}
+			c2 := Point{p.d[i+3], p.d[i+4]}
 			end = Point{p.d[i+5], p.d[i+6]}
 			d += cubicBezierLength(start, c1, c2, end)
 		case ArcToCmd:
