@@ -12,3 +12,5 @@ github.com/unidoc/unidoc v2.2.0+incompatible h1:AVVdSa11YROyMPxcAsp3j4Wz7zHSrXGj
 github.com/unidoc/unidoc v2.2.0+incompatible/go.mod h1:xz5DRu10sgNndY6/LrqtXytidQ/aXastVtkIVSxIj3Q=
 golang.org/x/image v0.0.0-20181116024801-cd38e8056d9b h1:VHyIDlv3XkfCa5/a81uzaoDkHH4rr81Z62g+xlnO8uM=
 golang.org/x/image v0.0.0-20181116024801-cd38e8056d9b/go.mod h1:ux5Hcp/YLpHSI86hEcLt0YII63i6oz57MZXIpbrjZUs=
+golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
+golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=

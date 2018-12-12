@@ -17,12 +17,17 @@ type C interface {
 
 The common interface allows to draw either paths or text. All positions and sizes are given in millimeters.
 
-* The handling of fonts should be improved in the future.
-* Add ArcTo in endpoint format (take begin/end angle and center point)
-* Add offsetting of path (expand / contract)
+* Get rid of FontFace and pass font size for all function calls?
+* Support WOFF and WOFF2 font formats
+* Support path generation from LaTeX
 * Add path IsCW / IsCCW
+* Add path rotations
+* Add path length calculation
+* Add path splitting at lengths -> support converting path into dashes and spacings
+* Add ArcTo in endpoint format (take begin/end angle and center point)
+* Add offsetting of path (expand / contract), tricky with overlap
+* Add support for easier usage of projections / viewboxes?
 * Optimize/minify paths from and to SVG
-* Optimize text glyph positioning/snapping when converting to path?
 * Optimize paths by replacing Quad/Cube/Arc to line if they are linear (eg. p0=p1=p2 for cubic Bezier)
 * Optimize paths by removing the last Line if followed by Close
 

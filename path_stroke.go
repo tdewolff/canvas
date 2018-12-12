@@ -175,8 +175,8 @@ func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *
 				largeAngle, sweep := fromArcFlags(p.d[i+4])
 				end = Point{p.d[i+5], p.d[i+6]}
 				_, _, angle0, angle1 := arcToCenter(start.X, start.Y, rx, ry, rot, largeAngle, sweep, end.X, end.Y)
-				n0 = angleToNormal(angle0).Norm(halfWidth)
-				n1 = angleToNormal(angle1).Norm(halfWidth)
+				n0 = arcNormal(angle0).Norm(halfWidth)
+				n1 = arcNormal(angle1).Norm(halfWidth)
 				if sweep { // CW
 					n0 = n0.Neg()
 					n1 = n1.Neg()

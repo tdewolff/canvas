@@ -137,11 +137,11 @@ func (ff FontFace) Info() (string, FontStyle, float64) {
 func (ff FontFace) Metrics() Metrics {
 	m, _ := ff.font.Metrics(&sfntBuffer, ff.ppem, ff.hinting)
 	return Metrics{
-		LineHeight: fromI26_6(m.Height),
-		Ascent:     fromI26_6(m.Ascent),
-		Descent:    fromI26_6(m.Descent),
-		XHeight:    fromI26_6(m.XHeight),
-		CapHeight:  fromI26_6(m.CapHeight),
+		LineHeight: math.Abs(fromI26_6(m.Height)),
+		Ascent:     math.Abs(fromI26_6(m.Ascent)),
+		Descent:    math.Abs(fromI26_6(m.Descent)),
+		XHeight:    math.Abs(fromI26_6(m.XHeight)),
+		CapHeight:  math.Abs(fromI26_6(m.CapHeight)),
 	}
 }
 
@@ -193,7 +193,7 @@ func (ff FontFace) BBox(s string) (float64, float64) {
 	for _, s := range ss {
 		w = math.Max(w, ff.textWidth(s))
 	}
-	h := -ff.Metrics().CapHeight + float64(len(ss)-1)*ff.Metrics().LineHeight
+	h := ff.Metrics().CapHeight + float64(len(ss)-1)*ff.Metrics().LineHeight
 	return w, h
 }
 

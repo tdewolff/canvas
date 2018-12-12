@@ -73,7 +73,11 @@ func arcToCenter(x1, y1, rx, ry, rot float64, large, sweep bool, x2, y2 float64)
 	return cx, cy, theta, theta + delta
 }
 
-func angleToNormal(theta float64) Point {
+func splitArc() {
+	panic("not implemented")
+}
+
+func arcNormal(theta float64) Point {
 	theta *= math.Pi / 180.0
 	y, x := math.Sincos(theta)
 	return Point{x, y}
