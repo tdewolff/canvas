@@ -4,12 +4,16 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	"path"
+	"unicode/utf8"
 
-	"github.com/flopp/go-findfont"
-	"github.com/golang/freetype/truetype"
+	findfont "github.com/flopp/go-findfont"
 	"golang.org/x/image/font"
+	"golang.org/x/image/font/sfnt"
 	"golang.org/x/image/math/fixed"
 )
+
+var sfntBuffer sfnt.Buffer
 
 var ErrNotFound = fmt.Errorf("font not found")
 
@@ -33,52 +37,64 @@ func NewFonts(dpi float64) *Fonts {
 	}
 }
 
-func (f *Fonts) AddLocalFont(name string, style FontStyle) error {
+func (fs *Fonts) AddLocalFont(name string, style FontStyle) error {
 	fontPath, err := findfont.Find(name)
 	if err != nil {
 		return err
 	}
-	return f.AddFontFile(name, style, fontPath)
+	return fs.AddFontFile(name, style, fontPath)
 }
 
-func (f *Fonts) AddFontFile(name string, style FontStyle, path string) error {
-	b, err := ioutil.ReadFile(path)
+func (fs *Fonts) AddFontFile(name string, style FontStyle, filename string) error {
+	b, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return err
 	}
-	return f.AddFont(name, style, b)
+
+	mimetype := ""
+	switch path.Ext(filename) {
+	case ".ttf":
+		mimetype = "font/truetype"
+	case ".otf":
+		mimetype = "font/opentyp"
+	case ".woff":
+		mimetype = "font/woff"
+	case ".woff2":
+		mimetype = "font/woff2"
+	}
+
+	return fs.AddFont(name, style, mimetype, b)
 }
 
-func (f *Fonts) AddFont(name string, style FontStyle, b []byte) error {
-	ttf, err := truetype.Parse(b)
+func (fs *Fonts) AddFont(name string, style FontStyle, mimetype string, b []byte) error {
+	f, err := sfnt.Parse(b)
 	if err != nil {
 		return err
 	}
-	f.fonts[name] = Font{
-		mimetype: "font/truetype",
+
+	fs.fonts[name] = Font{
+		mimetype: mimetype,
 		raw:      b,
-		faces:    map[float64]font.Face{},
-		font:     ttf,
+		font:     f,
 		name:     name,
 		style:    style,
-		dpi:      f.dpi,
+		dpi:      fs.dpi,
 	}
 	return nil
 }
 
-func (f *Fonts) Font(name string) (Font, error) {
-	if _, ok := f.fonts[name]; !ok {
+func (fs *Fonts) Font(name string) (Font, error) {
+	if _, ok := fs.fonts[name]; !ok {
 		return Font{}, ErrNotFound
 	}
-	return f.fonts[name], nil
+	return fs.fonts[name], nil
 }
 
 type Font struct {
 	mimetype string
 	raw      []byte
-	faces    map[float64]font.Face
 
-	font  *truetype.Font
+	font  *sfnt.Font
 	name  string
 	style FontStyle
 	dpi   float64
@@ -87,145 +103,152 @@ type Font struct {
 // Get gets the font face associated with the give font name and font size.
 // Font size is in mm.
 func (f *Font) Face(size float64) FontFace {
-	face, ok := f.faces[size]
-	if !ok {
-		face = truetype.NewFace(f.font, &truetype.Options{
-			Size: size / 0.352778, // to pt
-			DPI:  f.dpi,
-		})
-		f.faces[size] = face
-	}
-
 	return FontFace{
-		font:  f.font,
-		name:  f.name,
-		size:  size,
-		style: f.style,
-		face:  face,
+		font:    f.font,
+		name:    f.name,
+		style:   f.style,
+		size:    size,
+		ppem:    toI26_6(size * (f.dpi / 72.0)),
+		hinting: font.HintingNone,
 	}
+}
+
+type Metrics struct {
+	LineHeight float64
+	Ascent     float64
+	Descent    float64
+	XHeight    float64
+	CapHeight  float64
 }
 
 type FontFace struct {
-	font  *truetype.Font
-	name  string
-	size  float64
-	style FontStyle
-
-	face font.Face
+	font    *sfnt.Font
+	name    string
+	style   FontStyle
+	size    float64
+	ppem    fixed.Int26_6
+	hinting font.Hinting
 }
 
-// LineHeight returns line height in mm, same as font size.
-func (f FontFace) LineHeight() float64 {
-	return fromI26_6(f.face.Metrics().Height) * 0.352778
+func (ff FontFace) Info() (string, FontStyle, float64) {
+	return ff.name, ff.style, ff.size
 }
 
-func (f FontFace) Ascent() float64 {
-	return fromI26_6(f.face.Metrics().Ascent) * 0.352778
+func (ff FontFace) Metrics() Metrics {
+	m, _ := ff.font.Metrics(&sfntBuffer, ff.ppem, ff.hinting)
+	return Metrics{
+		LineHeight: fromI26_6(m.Height),
+		Ascent:     fromI26_6(m.Ascent),
+		Descent:    fromI26_6(m.Descent),
+		XHeight:    fromI26_6(m.XHeight),
+		CapHeight:  fromI26_6(m.CapHeight),
+	}
 }
 
-func (f FontFace) Descent() float64 {
-	return fromI26_6(f.face.Metrics().Descent) * 0.352778
+func splitNewlines(s string) []string {
+	ss := []string{}
+	i := 0
+	for j, r := range s {
+		if r == '\n' || r == '\r' || r == '\u2028' || r == '\u2029' {
+			if r == '\n' && j > 0 && s[j-1] == '\r' {
+				i++
+				continue
+			}
+			ss = append(ss, s[i:j])
+			i = j + utf8.RuneLen(r)
+		}
+	}
+	ss = append(ss, s[i:])
+	return ss
 }
 
 // TextWidth returns the width of a given string in mm.
-func (f FontFace) TextWidth(s string) float64 {
-	return fromI26_6(font.MeasureString(f.face, s)) * 0.352778
-}
-
-func (f FontFace) BBox(s string) (float64, float64) {
-	w := 0.0
-	newlines := 1
-
-	i := 0
-	for j := 0; j < len(s); j++ {
-		d := 0
-		c := s[j]
-		if c == '\n' {
-			d = 1
-		} else if c == '\r' && j+1 < len(s) && s[j+1] == '\n' {
-			d = 2
-		} else if c == 0xE2 && j+2 < len(s) && s[j+1] == 0x80 && (s[j+2] == 0xA8 || s[j+2] == 0xA9) {
-			d = 3
-		}
-
-		if d > 0 {
-			w = math.Max(w, f.TextWidth(s[i:j]))
-			newlines++
-			i = j + d
-			j += d - 1
-		}
-	}
-	if i < len(s) {
-		w = math.Max(w, f.TextWidth(s[i:]))
-	}
-	return w, float64(newlines) * f.LineHeight()
-}
-
-// mostly takes from github.com/golang/freetype/truetype/face.go
-func (f FontFace) glyphToPath(r rune) (*Path, float64) {
-	glyphBuf := truetype.GlyphBuf{}
-	glyphBuf.Load(f.font, fixed.Int26_6((f.size*64)+0.5), f.font.Index(r), font.HintingNone)
-
-	path := &Path{}
-	e0 := 0
-	for _, e1 := range glyphBuf.Ends {
-		ps := glyphBuf.Points[e0:e1]
-		if len(ps) == 0 {
+func (ff FontFace) textWidth(s string) float64 {
+	x := 0.0
+	var prevIndex sfnt.GlyphIndex
+	for i, r := range s {
+		index, err := ff.font.GlyphIndex(&sfntBuffer, r)
+		if err != nil {
 			continue
 		}
 
-		var others []truetype.Point
-		start, on := fromTTPoint(ps[0])
-		if on {
-			others = ps[1:]
-		} else {
-			last, on := fromTTPoint(ps[len(ps)-1])
-			if on {
-				start = last
-				others = ps[:len(ps)-1]
-			} else {
-				start = Point{(start.X + last.X) / 2.0, (start.Y + last.Y) / 2.0}
-				others = ps
+		if i != 0 {
+			kern, err := ff.font.Kern(&sfntBuffer, prevIndex, index, ff.ppem, ff.hinting)
+			if err == nil {
+				x += fromI26_6(kern)
 			}
 		}
-		path.MoveTo(start.X, start.Y)
-		q0, on0 := start, true
-		for _, p := range others {
-			q, on := fromTTPoint(p)
-			if on {
-				if on0 {
-					path.LineTo(q.X, q.Y)
-				} else {
-					path.QuadTo(q0.X, q0.Y, q.X, q.Y)
-				}
-			} else {
-				if on0 {
-					// No-op
-				} else {
-					mid := Point{(q0.X + q.X) / 2.0, (q0.Y + q.Y) / 2.0}
-					path.QuadTo(q0.X, q0.Y, mid.X, mid.Y)
-				}
-			}
-			q0, on0 = q, on
+		advance, err := ff.font.GlyphAdvance(&sfntBuffer, index, ff.ppem, ff.hinting)
+		if err == nil {
+			x += fromI26_6(advance)
 		}
-		if !on0 {
-			path.QuadTo(q0.X, q0.Y, start.X, start.Y)
-		}
-		path.Close()
-
-		e0 = e1
+		prevIndex = index
 	}
-	return path, fromI26_6(glyphBuf.AdvanceWidth)
+	return x
 }
 
-func (f FontFace) ToPath(s string) *Path {
-	x := 0.0
+func (ff FontFace) BBox(s string) (float64, float64) {
+	w := 0.0
+	ss := splitNewlines(s)
+	for _, s := range ss {
+		w = math.Max(w, ff.textWidth(s))
+	}
+	h := -ff.Metrics().CapHeight + float64(len(ss)-1)*ff.Metrics().LineHeight
+	return w, h
+}
+
+func (ff FontFace) ToPath(s string) *Path {
 	p := &Path{}
-	for _, r := range s {
-		pRune, advance := f.glyphToPath(r)
-		pRune = pRune.Translate(x, 0.0)
-		p.Append(pRune)
-		x += advance
+	x := 0.0
+	y := 0.0
+	for _, s := range splitNewlines(s) {
+		var prevIndex sfnt.GlyphIndex
+		for i, r := range s {
+			index, err := ff.font.GlyphIndex(&sfntBuffer, r)
+			if err != nil {
+				continue
+			}
+
+			if i > 0 {
+				kern, err := ff.font.Kern(&sfntBuffer, prevIndex, index, ff.ppem, ff.hinting)
+				if err == nil {
+					x += fromI26_6(kern)
+				}
+			}
+
+			segments, err := ff.font.LoadGlyph(&sfntBuffer, index, ff.ppem, nil)
+			if err != nil {
+				continue
+			}
+
+			for _, segment := range segments {
+				switch segment.Op {
+				case sfnt.SegmentOpMoveTo:
+					end := fromP26_6(segment.Args[0])
+					p.MoveTo(x+end.X, y+end.Y)
+				case sfnt.SegmentOpLineTo:
+					end := fromP26_6(segment.Args[0])
+					p.LineTo(x+end.X, y+end.Y)
+				case sfnt.SegmentOpQuadTo:
+					c := fromP26_6(segment.Args[0])
+					end := fromP26_6(segment.Args[1])
+					p.QuadTo(x+c.X, y+c.Y, x+end.X, y+end.Y)
+				case sfnt.SegmentOpCubeTo:
+					c0 := fromP26_6(segment.Args[0])
+					c1 := fromP26_6(segment.Args[1])
+					end := fromP26_6(segment.Args[2])
+					p.CubeTo(x+c0.X, y+c0.Y, x+c1.X, y+c1.Y, x+end.X, y+end.Y)
+				}
+			}
+
+			advance, err := ff.font.GlyphAdvance(&sfntBuffer, index, ff.ppem, ff.hinting)
+			if err == nil {
+				x += fromI26_6(advance)
+			}
+			prevIndex = index
+		}
+		x = 0.0
+		y += ff.Metrics().LineHeight
 	}
 	return p
 }

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	_ "fmt"
 	"image/color"
+	"image/png"
 	_ "image/png"
 	"os"
 
@@ -23,20 +25,21 @@ func main() {
 	}
 	defer svgFile.Close()
 
-	//pngFile, err := os.Create("example.png")
-	//if err != nil {
-	//	panic(err)
-	//}
-	//defer pngFile.Close()
-
 	svg := canvas.NewSVG(svgFile)
 	svg.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
 	Draw(svg)
 	svg.Close()
 
-	// img := canvas.NewImage(72.0, fonts)
-	// Draw(img)
-	// _ = png.Encode(pngFile, img.Image())
+	pngFile, err := os.Create("example.png")
+	if err != nil {
+		panic(err)
+	}
+	defer pngFile.Close()
+
+	img := canvas.NewImage(72.0)
+	img.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
+	Draw(img)
+	_ = png.Encode(pngFile, img.Image())
 
 	// pdfFile := gofpdf.New("P", "mm", "A4", ".")
 	// pdfFile.AddFont("DejaVuSerif", "", "DejaVuSerif.json")
@@ -52,33 +55,48 @@ func drawStrokedPath(c canvas.C, x, y float64, path string) {
 
 	c.SetColor(color.RGBA{255, 0, 0, 127})
 	p = p.Stroke(2, canvas.RoundCapper, canvas.RoundJoiner, 0.01)
-	//	fmt.Println(p)
 	c.DrawPath(x, y, p)
 }
 
-func Draw(c canvas.C) {
-	c.Open(100, 150)
-
-	drawStrokedPath(c, 5, 20, "C0 -20 20 -20 20 0z")
-	drawStrokedPath(c, 30, 20, "C10 -20 10 -20 20 0z")
-	drawStrokedPath(c, 55, 20, "C20 -20 0 -20 20 0z")
-	drawStrokedPath(c, 5, 50, "C0 0 0 -20 20 0z")
-	drawStrokedPath(c, 30, 50, "C0 -20 0 0 20 0z")
-	drawStrokedPath(c, 55, 50, "C0 -20 0 0 0 0z")
-	drawStrokedPath(c, 80, 50, "C0 0 0 -20 0 0z")
-	drawStrokedPath(c, 80, 50, "C0 0 0 0 0 0z")
-
+func drawText(c canvas.C, x, y float64, size float64, text string) {
 	font, err := c.Font("DejaVuSerif")
 	if err != nil {
 		panic(err.Error())
 	}
-	face := font.Face(40.0)
+	face := font.Face(size)
 
+	metrics := face.Metrics()
+	w, h := face.BBox(text)
+	fmt.Println(metrics, w, h)
+
+	c.SetColor(canvas.Red)
+	c.DrawPath(x, y, canvas.Rectangle(0, 0, w, h))
+	c.SetColor(canvas.Lime)
+	c.DrawPath(x, y, canvas.Rectangle(0, 0, -5.0, -12.0))
+	c.SetColor(canvas.Blue)
+	c.DrawPath(x, y, canvas.Rectangle(0, 0, -2.5, metrics.CapHeight))
+	c.SetColor(canvas.Yellow)
+	c.DrawPath(x, y, canvas.Rectangle(-2.5, 0, -2.5, metrics.XHeight))
+
+	c.SetColor(canvas.Black)
 	c.SetFont(face)
-	pText := face.ToPath("a")
-	c.DrawPath(20, 80, pText)
+	c.DrawText(x, y, text)
 
-	//pText = pText.Stroke(0.2, canvas.RoundCapper, canvas.RoundJoiner, 0.01)
-	c.SetColor(color.RGBA{255, 0, 0, 127})
-	c.DrawPath(20, 80, pText)
+	p := face.ToPath(text)
+	c.DrawPath(x, y+size, p)
+}
+
+func Draw(c canvas.C) {
+	c.Open(400, 150)
+
+	//drawStrokedPath(c, 5, 20, "C0 -20 20 -20 20 0z")
+	//drawStrokedPath(c, 30, 20, "C10 -20 10 -20 20 0z")
+	//drawStrokedPath(c, 55, 20, "C20 -20 0 -20 20 0z")
+	//drawStrokedPath(c, 5, 50, "C0 0 0 -20 20 0z")
+	//drawStrokedPath(c, 30, 50, "C0 -20 0 0 20 0z")
+	//drawStrokedPath(c, 55, 50, "C0 -20 0 0 0 0z")
+	//drawStrokedPath(c, 80, 50, "C0 0 0 -20 0 0z")
+	//drawStrokedPath(c, 80, 50, "C0 0 0 0 0 0z")
+
+	drawText(c, 10, 40, 12.0, "10")
 }

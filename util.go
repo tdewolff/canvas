@@ -4,7 +4,6 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/math/f32"
 	"golang.org/x/image/math/fixed"
 )
@@ -29,16 +28,16 @@ func toP26_6(x, y float64) fixed.Point26_6 {
 	return fixed.Point26_6{toI26_6(x), toI26_6(y)}
 }
 
+func fromP26_6(f fixed.Point26_6) Point {
+	return Point{float64(f.X) / 64.0, float64(f.Y) / 64.0}
+}
+
 func toI26_6(f float64) fixed.Int26_6 {
 	return fixed.Int26_6(f * 64.0)
 }
 
 func fromI26_6(f fixed.Int26_6) float64 {
 	return float64(f) / 64.0
-}
-
-func fromTTPoint(p truetype.Point) (Point, bool) {
-	return Point{fromI26_6(p.X), -fromI26_6(p.Y)}, p.Flags&0x01 != 0
 }
 
 ////////////////////////////////////////////////////////////////

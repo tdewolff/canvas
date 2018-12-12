@@ -9,11 +9,15 @@ import (
 	"math"
 	"strconv"
 
-	"golang.org/x/image/font"
 	"golang.org/x/image/vector"
 
 	"github.com/jung-kurt/gofpdf"
 )
+
+const MmPerPt = 0.3527777777777778
+const PtPerMm = 2.8346456692913384
+const MmPerInch = 25.4
+const InchPerMm = 1 / 25.4
 
 var (
 	Black   = color.RGBA{0, 0, 0, 255}
@@ -133,18 +137,20 @@ func (c *SVG) DrawPath(x, y float64, p *Path) {
 }
 
 func (c *SVG) DrawText(x, y float64, s string) {
+	// TODO: use tspan for newlines
+	name, style, size := c.fontFace.Info()
 	c.w.Write([]byte("<text x=\""))
 	c.writeF(x)
 	c.w.Write([]byte("\" y=\""))
 	c.writeF(y)
 	c.w.Write([]byte("\" font-family=\""))
-	c.w.Write([]byte(c.fontFace.name))
+	c.w.Write([]byte(name))
 	c.w.Write([]byte("\" font-size=\""))
-	c.writeF(c.fontFace.size)
-	if c.fontFace.style&Italic != 0 {
+	c.writeF(size)
+	if style&Italic != 0 {
 		c.w.Write([]byte("\" font-style=\"italic"))
 	}
-	if c.fontFace.style&Bold != 0 {
+	if style&Bold != 0 {
 		c.w.Write([]byte("\" font-weight=\"bold"))
 	}
 	if c.color != color.Black {
@@ -179,14 +185,15 @@ func (c *PDF) SetColor(col color.Color) {
 }
 
 func (c *PDF) SetFont(fontFace FontFace) {
-	style := ""
-	if fontFace.style&Bold != 0 {
-		style += "B"
+	name, style, size := fontFace.Info()
+	pdfStyle := ""
+	if style&Bold != 0 {
+		pdfStyle += "B"
 	}
-	if fontFace.style&Italic != 0 {
-		style += "I"
+	if style&Italic != 0 {
+		pdfStyle += "I"
 	}
-	c.f.SetFont(fontFace.name, style, fontFace.size/0.352778)
+	c.f.SetFont(name, pdfStyle, size*PtPerMm)
 }
 
 func (c *PDF) DrawPath(x, y float64, p *Path) {
@@ -239,7 +246,7 @@ type Image struct {
 }
 
 func NewImage(dpi float64) *Image {
-	return &Image{NewFonts(dpi), nil, nil, dpi / 25.4, color.Black, FontFace{}}
+	return &Image{NewFonts(dpi), nil, nil, dpi * InchPerMm, color.Black, FontFace{}}
 }
 
 func (c *Image) Image() *image.RGBA {
@@ -325,6 +332,5 @@ func (c *Image) DrawPath(x, y float64, p *Path) {
 }
 
 func (c *Image) DrawText(x, y float64, s string) {
-	d := font.Drawer{c.img, image.NewUniform(c.color), c.fontFace.face, toP26_6(x*c.dpm, y*c.dpm)}
-	d.DrawString(s)
+	c.DrawPath(x, y, c.fontFace.ToPath(s))
 }
