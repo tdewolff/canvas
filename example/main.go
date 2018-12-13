@@ -13,11 +13,11 @@ import (
 )
 
 func main() {
-	// _, err := canvas.ParseLaTeX("TACO")
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-	// return
+	_, err := canvas.ParseLaTeX("TACO")
+	if err != nil {
+		fmt.Println(err)
+	}
+	return
 
 	svgFile, err := os.Create("example.svg")
 	if err != nil {

@@ -1,7 +1,7 @@
 package canvas
 
 import (
-	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -9,8 +9,48 @@ import (
 	"path"
 	"strings"
 
-	unipdf "github.com/unidoc/unidoc/pdf/model"
+	pdf "rsc.io/pdf"
 )
+
+var ErrBadPDF = errors.New("unexpected PDF content")
+
+func valueKind(vk pdf.ValueKind) string {
+	switch vk {
+	case pdf.Null:
+		return "Null"
+	case pdf.Bool:
+		return "Bool"
+	case pdf.Integer:
+		return "Integer"
+	case pdf.Real:
+		return "Real"
+	case pdf.String:
+		return "String"
+	case pdf.Name:
+		return "Name"
+	case pdf.Dict:
+		return "Dict"
+	case pdf.Array:
+		return "Array"
+	case pdf.Stream:
+		return "Stream"
+	}
+	return "?"
+}
+
+func printValue(indent, key string, v pdf.Value) {
+	fmt.Println(indent, key+": ", valueKind(v.Kind()), v)
+	if v.Kind() == pdf.Dict || v.Kind() == pdf.Stream {
+		for _, key := range v.Keys() {
+			printValue(indent+"  ", key, v.Key(key))
+		}
+	}
+	if v.Kind() == pdf.Stream {
+		s, _ := ioutil.ReadAll(v.Reader())
+		fmt.Println(indent+"  stream", len(s))
+
+	}
+}
 
 func ParseLaTeX(s string) (*Path, error) {
 	document := `\documentclass{article}
@@ -35,24 +75,40 @@ $` + s + `$
 		return nil, err
 	}
 
-	pdf, err := ioutil.ReadFile(path.Join(tmpDir, "canvas.pdf"))
+	r, err := pdf.Open(path.Join(tmpDir, "canvas.pdf"))
+	//b, err := ioutil.ReadFile(path.Join(tmpDir, "canvas.pdf"))
 	if err != nil {
 		return nil, err
 	}
 
-	pdfReader, err := unipdf.NewPdfReader(bytes.NewReader(pdf))
-	if err != nil {
-		return nil, err
+	if r.NumPage() != 1 {
+		return nil, ErrBadPDF
 	}
 
-	fmt.Println(pdfReader.GetNumPages())
-
-	page, err := pdfReader.GetPage(1)
-	if err != nil {
-		return nil, err
+	content := r.Page(1).Content()
+	res := r.Page(1).Resources()
+	if res.Kind() != pdf.Dict {
+		return nil, ErrBadPDF
 	}
 
-	fmt.Println(page.GetContentStreams())
-	panic("not implemented")
+	fmt.Println("Content:", content.Text)
+	fmt.Println(content.Text[0])
+	printValue("", "", res)
+
+	//pdfReader, err := unipdf.NewPdfReader(bytes.NewReader(pdf))
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	//fmt.Println(pdfReader.GetNumPages())
+
+	//page, err := pdfReader.GetPage(1)
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	//fmt.Printf("%+v\n", page)
+	//fmt.Println(page.GetAllContentStreams())
+	//fmt.Println(page.GetContentStreams())
 	return nil, nil
 }
