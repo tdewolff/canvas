@@ -707,11 +707,11 @@ func ParseSVGPath(s string) (*Path, error) {
 }
 
 func (p *Path) String() string {
-	return p.ToSVGPath()
+	return p.ToSVG()
 }
 
-// ToSVGPath returns a string that represents the path in the SVG path data format.
-func (p *Path) ToSVGPath() string {
+// ToSVG returns a string that represents the path in the SVG path data format.
+func (p *Path) ToSVG() string {
 	svg := strings.Builder{}
 	x, y := 0.0, 0.0
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {

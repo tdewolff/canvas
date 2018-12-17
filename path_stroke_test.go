@@ -26,7 +26,7 @@ func TestPathStroke(t *testing.T) {
 		t.Run(fmt.Sprintf("%s_%g", tt.orig, tt.w), func(t *testing.T) {
 			p, _ := ParseSVGPath(tt.orig)
 			sp := p.Stroke(tt.w, tt.cp, tt.jr, 0.0)
-			test.T(t, sp.ToSVGPath(), tt.stroke)
+			test.T(t, sp.ToSVG(), tt.stroke)
 		})
 	}
 }

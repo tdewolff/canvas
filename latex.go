@@ -131,7 +131,7 @@ $` + s + `$
 			if !p.Empty() {
 				p = p.Translate(-x0, -y0)
 			}
-			_ = ioutil.WriteFile(path.Join(tmpDir, hash), []byte(p.ToSVGPath()), 0644)
+			_ = ioutil.WriteFile(path.Join(tmpDir, hash), []byte(p.ToSVG()), 0644)
 			return p, nil
 		case xml.StartTagToken:
 			tag := string(l.Text())
@@ -218,7 +218,7 @@ $` + s + `$
 	return nil, nil
 }
 
-func ParseLaTeX2(s string) (*Path, error) {
+func parseLaTeX2(s string) (*Path, error) {
 	document := `\documentclass{article}
 \begin{document}
 \thispagestyle{empty}

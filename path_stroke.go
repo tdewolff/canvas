@@ -110,10 +110,10 @@ func strokeJoin(rhs, lhs *Path, jr Joiner, halfWidth float64, start, n1Prev, n0 
 // Stroke will convert a path into a stroke of width w. It uses cr to cap the start and end of the path, and jr to
 // join all path elemtents. If the path closes itself, it will use a join between the start and end instead of capping them.
 // The tolerance is the maximum deviation from the original path when flattening Beziers and optimizing the stroke.
-func (pWhole *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path {
+func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path {
 	sp := &Path{}
 	halfWidth := w / 2.0
-	for _, p := range pWhole.Split() {
+	for _, p = range p.Split() {
 		ret := &Path{}
 		first := true
 		closed := false

@@ -49,12 +49,12 @@ func TestPathSplit(t *testing.T) {
 			if len(ps) != len(tt.split) {
 				origs := []string{}
 				for _, p := range ps {
-					origs = append(origs, p.ToSVGPath())
+					origs = append(origs, p.ToSVG())
 				}
 				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.split, "\n"))
 			} else {
 				for i, p := range ps {
-					test.T(t, p.ToSVGPath(), tt.split[i])
+					test.T(t, p.ToSVG(), tt.split[i])
 				}
 			}
 		})
@@ -73,7 +73,7 @@ func TestPathTranslate(t *testing.T) {
 		t.Run(tt.orig, func(t *testing.T) {
 			p, _ := ParseSVGPath(tt.orig)
 			p = p.Translate(tt.dx, tt.dy)
-			test.T(t, p.ToSVGPath(), tt.translated)
+			test.T(t, p.ToSVG(), tt.translated)
 		})
 	}
 }
@@ -113,7 +113,7 @@ func TestPathReverse(t *testing.T) {
 		t.Run(tt.orig, func(t *testing.T) {
 			p, _ := ParseSVGPath(tt.orig)
 			p = p.Reverse()
-			test.T(t, p.ToSVGPath(), tt.inv)
+			test.T(t, p.ToSVG(), tt.inv)
 		})
 	}
 }
