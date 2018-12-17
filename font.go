@@ -56,7 +56,7 @@ func (fs *Fonts) AddFontFile(name string, style FontStyle, filename string) erro
 	case ".ttf":
 		mimetype = "font/truetype"
 	case ".otf":
-		mimetype = "font/opentyp"
+		mimetype = "font/opentype"
 	case ".woff":
 		mimetype = "font/woff"
 	case ".woff2":

@@ -21,14 +21,23 @@ The common interface allows to draw either paths or text. All positions and size
 
 ### TODO
 
+Fonts
+
 * Get rid of FontFace and pass font size for all function calls?
 * Support WOFF and WOFF2 font formats
+* Support ligatures and font hinting
+
+Paths
+
 * Add path IsCW / IsCCW
 * Add ArcTo in endpoint format (take begin/end angle and center point)
 * Add path length calculation
 * Add path splitting at lengths -> support converting path into dashes and spacings
 * Add offsetting of path (expand / contract), tricky with overlap
 * Add support for easier usage of projections / viewboxes?
+
+Optimization
+
 * Support partial fonts with only used characters to optimize SVG/PDF file size
 * Optimize/minify paths from and to SVG
 * Optimize paths by replacing Quad/Cube/Arc to line if they are linear (eg. p0=p1=p2 for cubic Bezier)

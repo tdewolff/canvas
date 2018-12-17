@@ -19,10 +19,11 @@ func main() {
 	defer svgFile.Close()
 
 	svg := canvas.NewSVG(svgFile)
-	//svg.AddFontFile("DejaVuSerif", canvas.Regular, "Cantarell-Regular.otf")
-	svg.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
+	svg.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.woff")
 	Draw(svg)
 	svg.Close()
+
+	////
 
 	pngFile, err := os.Create("example.png")
 	if err != nil {
@@ -31,10 +32,11 @@ func main() {
 	defer pngFile.Close()
 
 	img := canvas.NewImage(72.0)
-	img.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
-	//img.AddFontFile("DejaVuSerif", canvas.Regular, "Cantarell-Regular.otf")
+	img.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.woff")
 	Draw(img)
 	_ = png.Encode(pngFile, img.Image())
+
+	////
 
 	// pdfFile := gofpdf.New("P", "mm", "A4", ".")
 	// pdfFile.AddFont("DejaVuSerif", "", "DejaVuSerif.json")
