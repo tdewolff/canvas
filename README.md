@@ -77,7 +77,7 @@ p.Stroke(width, capper, joiner, tolerance) // create a stroke from a path of cer
 ## Example
 See https://github.com/tdewolff/canvas/tree/master/example for a working example, including fonts. Note that for PDFs you need to pre-compile fonts using `makefont` installed by `go install github.com/jung-kurt/gofpdf/makefont` and then compile them by running `makefont --embed --enc=cp1252.map DejaVuSerif.ttf`.
 
-![Example](https://raw.githubusercontent.com/tdewolff/canvas/master/example/example.png)
+![Example](https://raw.githubusercontent.com/tdewolff/canvas/master/example.png)
 
 ## License
 Released under the [MIT license](LICENSE.md).
