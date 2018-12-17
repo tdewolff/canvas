@@ -20,8 +20,8 @@ func main() {
 	defer svgFile.Close()
 
 	svg := canvas.NewSVG(svgFile)
-	svg.AddFontFile("DejaVuSerif", canvas.Regular, "Cantarell-Regular.otf")
-	//svg.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
+	//svg.AddFontFile("DejaVuSerif", canvas.Regular, "Cantarell-Regular.otf")
+	svg.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
 	Draw(svg)
 	svg.Close()
 
@@ -33,7 +33,7 @@ func main() {
 
 	img := canvas.NewImage(72.0)
 	img.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
-	img.AddFontFile("DejaVuSerif", canvas.Regular, "Cantarell-Regular.otf")
+	//img.AddFontFile("DejaVuSerif", canvas.Regular, "Cantarell-Regular.otf")
 	Draw(img)
 	_ = png.Encode(pngFile, img.Image())
 
@@ -65,7 +65,7 @@ func drawText(c canvas.C, x, y float64, size float64, text string) {
 	face := font.Face(size)
 
 	metrics := face.Metrics()
-	w, h := face.BBox(text)
+	w, h := face.Bounds(text)
 	fmt.Println(metrics, w, h)
 
 	c.SetColor(canvas.Red)
@@ -103,5 +103,6 @@ func Draw(c canvas.C) {
 	if err != nil {
 		panic(err)
 	}
-	c.DrawPath(0, 0, latex)
+	fmt.Println(latex.Bounds())
+	c.DrawPath(50, 50, latex.Rotate(45, 0, 0))
 }

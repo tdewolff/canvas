@@ -1,14 +1,40 @@
 package canvas
 
 import (
-	"testing"
-	"github.com/tdewolff/test"
 	"strings"
+	"testing"
+
+	"github.com/tdewolff/test"
 )
+
+func TestPathBounds(t *testing.T) {
+	var tts = []struct {
+		orig   string
+		bounds Rect
+	}{
+		{"Q50 100 100 0z", Rect{0, 0, 100, 50}},
+		{"Q0 0 100 0z", Rect{0, 0, 100, 0}},
+		{"Q100 0 100 0z", Rect{0, 0, 100, 0}},
+		{"C0 100 100 100 100 0z", Rect{0, 0, 100, 75}},
+		{"C0 0 100 90 100 0z", Rect{0, 0, 100, 40}},
+		{"C0 90 100 0 100 0z", Rect{0, 0, 100, 40}},
+		{"C0 0 100 0 100 0z", Rect{0, 0, 100, 0}},
+	}
+	for _, tt := range tts {
+		t.Run(tt.orig, func(t *testing.T) {
+			p, _ := ParseSVGPath(tt.orig)
+			bounds := p.Bounds()
+			test.Float(t, bounds.X, tt.bounds.X)
+			test.Float(t, bounds.Y, tt.bounds.Y)
+			test.Float(t, bounds.W, tt.bounds.W)
+			test.Float(t, bounds.H, tt.bounds.H)
+		})
+	}
+}
 
 func TestPathSplit(t *testing.T) {
 	var tts = []struct {
-		orig string
+		orig  string
 		split []string
 	}{
 		{"M5 5L6 6z", []string{"M5 5L6 6z"}},
@@ -18,7 +44,8 @@ func TestPathSplit(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			ps := ParseSVGPath(tt.orig).Split()
+			p, _ := ParseSVGPath(tt.orig)
+			ps := p.Split()
 			if len(ps) != len(tt.split) {
 				origs := []string{}
 				for _, p := range ps {
@@ -36,15 +63,16 @@ func TestPathSplit(t *testing.T) {
 
 func TestPathTranslate(t *testing.T) {
 	var tts = []struct {
-		dx, dy float64
-		orig string
+		dx, dy     float64
+		orig       string
 		translated string
 	}{
 		{10.0, 10.0, "M5 5L10 0Q10 10 15 5C15 0 20 0 20 5A5 5 0 0 0 30 5z", "M15 15L20 10Q20 20 25 15C25 10 30 10 30 15A5 5 0 0 0 40 15z"},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p := ParseSVGPath(tt.orig).Translate(tt.dx, tt.dy)
+			p, _ := ParseSVGPath(tt.orig)
+			p = p.Translate(tt.dx, tt.dy)
 			test.T(t, p.ToSVGPath(), tt.translated)
 		})
 	}
@@ -53,7 +81,7 @@ func TestPathTranslate(t *testing.T) {
 func TestPathReverse(t *testing.T) {
 	var tts = []struct {
 		orig string
-		inv string
+		inv  string
 	}{
 		{"M5 5", "M5 5"},
 		{"M5 5z", "M5 5z"},
@@ -83,7 +111,8 @@ func TestPathReverse(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p := ParseSVGPath(tt.orig).Reverse()
+			p, _ := ParseSVGPath(tt.orig)
+			p = p.Reverse()
 			test.T(t, p.ToSVGPath(), tt.inv)
 		})
 	}

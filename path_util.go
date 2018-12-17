@@ -1,7 +1,6 @@
 package canvas
 
 import (
-	"fmt"
 	"math"
 )
 
@@ -157,6 +156,21 @@ func addCubicBezierLine(p *Path, p0, p1, p2, p3 Point, t, d float64) {
 	p.LineTo(pos.X, pos.Y)
 }
 
+func quadraticBezierAt(p0, p1, p2 Point, t float64) Point {
+	p0 = p0.Mul((1 - t) * (1 - t))
+	p1 = p1.Mul(2 * t * (1 - t))
+	p2 = p2.Mul(t * t)
+	return p0.Add(p1).Add(p2)
+}
+
+func cubicBezierAt(p0, p1, p2, p3 Point, t float64) Point {
+	p0 = p0.Mul((1 - t) * (1 - t) * (1 - t))
+	p1 = p1.Mul(3 * t * (1 - t) * (1 - t))
+	p2 = p2.Mul(3 * t * t * (1 - t))
+	p3 = p3.Mul(t * t * t)
+	return p0.Add(p1).Add(p2).Add(p3)
+}
+
 func splitCubicBezier(p0, p1, p2, p3 Point, t float64) (Point, Point, Point, Point, Point, Point, Point, Point) {
 	pm := p1.Interpolate(p2, t)
 
@@ -196,21 +210,9 @@ func flattenSmoothCubicBezier(p *Path, p0, p1, p2, p3 Point, d, flatness float64
 	addCubicBezierLine(p, p0, p1, p2, p3, 1.0, d)
 }
 
-func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
-	// We omit multiplying bx,by,cx,cy with 3.0, so there is no need for divisions when calculating a,b,c
-	ax := -p0.X + 3.0*p1.X - 3.0*p2.X + p3.X
-	ay := -p0.Y + 3.0*p1.Y - 3.0*p2.Y + p3.Y
-	bx := p0.X - 2.0*p1.X + p2.X
-	by := p0.Y - 2.0*p1.Y + p2.Y
-	cx := -p0.X + p1.X
-	cy := -p0.Y + p1.Y
-
+func solveQuadraticFormula(a, b, c float64) (float64, float64) {
 	// Numerically stable quadratic formula
 	// see https://math.stackexchange.com/a/2007723
-	a := (ay*bx - ax*by)
-	b := (ay*cx - ax*cy)
-	c := (by*cx - bx*cy)
-
 	if a == 0.0 {
 		if b == 0.0 {
 			if c == 0.0 {
@@ -271,12 +273,26 @@ func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
 	return x1, x2
 }
 
+func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
+	// We omit multiplying bx,by,cx,cy with 3.0, so there is no need for divisions when calculating a,b,c
+	ax := -p0.X + 3.0*p1.X - 3.0*p2.X + p3.X
+	ay := -p0.Y + 3.0*p1.Y - 3.0*p2.Y + p3.Y
+	bx := p0.X - 2.0*p1.X + p2.X
+	by := p0.Y - 2.0*p1.Y + p2.Y
+	cx := -p0.X + p1.X
+	cy := -p0.Y + p1.Y
+
+	a := (ay*bx - ax*by)
+	b := (ay*cx - ax*cy)
+	c := (by*cx - bx*cy)
+	return solveQuadraticFormula(a, b, c)
+}
+
 func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float64, float64) {
 	if math.IsNaN(t) {
 		return math.Inf(1), math.Inf(1)
 	}
 	if t < 0.0 || t > 1.0 {
-		fmt.Println(p0, p1, p2, p3, t)
 		panic("t outside 0.0--1.0 range")
 	}
 

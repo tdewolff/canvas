@@ -187,7 +187,7 @@ func (ff FontFace) textWidth(s string) float64 {
 	return x
 }
 
-func (ff FontFace) BBox(s string) (float64, float64) {
+func (ff FontFace) Bounds(s string) (float64, float64) {
 	w := 0.0
 	ss := splitNewlines(s)
 	for _, s := range ss {

@@ -6,10 +6,10 @@ import "github.com/tdewolff/test"
 
 func TestPathStroke(t *testing.T) {
 	var tts = []struct {
-		orig string
-		w float64
-		cp Capper
-		jr Joiner
+		orig   string
+		w      float64
+		cp     Capper
+		jr     Joiner
 		stroke string
 	}{
 		{"M10 10", 2.0, RoundCapper, RoundJoiner, ""},
@@ -24,7 +24,7 @@ func TestPathStroke(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprintf("%s_%g", tt.orig, tt.w), func(t *testing.T) {
-			p := ParseSVGPath(tt.orig)
+			p, _ := ParseSVGPath(tt.orig)
 			sp := p.Stroke(tt.w, tt.cp, tt.jr, 0.0)
 			test.T(t, sp.ToSVGPath(), tt.stroke)
 		})
