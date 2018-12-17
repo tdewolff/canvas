@@ -108,37 +108,43 @@ func (p *Path) StartPos() (float64, float64) {
 // MoveTo moves the path to x,y without connecting the path. It starts a new independent path segment.
 // Multiple path segments can be useful when negating parts of a previous path by overlapping it
 // with a path in the opposite direction.
-func (p *Path) MoveTo(x, y float64) {
+func (p *Path) MoveTo(x, y float64) *Path {
 	p.d = append(p.d, MoveToCmd, x, y)
 	p.x0, p.y0 = x, y
+	return p
 }
 
 // LineTo adds a linear path to x,y.
-func (p *Path) LineTo(x, y float64) {
+func (p *Path) LineTo(x, y float64) *Path {
 	p.d = append(p.d, LineToCmd, x, y)
+	return p
 }
 
 // Quadto adds a quadratic Bezier path with control point x1,y1 and end point x,y.
-func (p *Path) QuadTo(x1, y1, x, y float64) {
+func (p *Path) QuadTo(x1, y1, x, y float64) *Path {
 	p.d = append(p.d, QuadToCmd, x1, y1, x, y)
+	return p
 }
 
 // CubeTo adds a cubic Bezier path with control points x1,y1 and x2,y2 and end point x,y.
-func (p *Path) CubeTo(x1, y1, x2, y2, x, y float64) {
+func (p *Path) CubeTo(x1, y1, x2, y2, x, y float64) *Path {
 	p.d = append(p.d, CubeToCmd, x1, y1, x2, y2, x, y)
+	return p
 }
 
 // ArcTo adds an arc with radii rx and ry, with rot the rotation with respect to the coordinate system,
 // large and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
 // and x,y the end position of the pen. The start positions of the pen was given by a previous command.
-func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x, y float64) {
+func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x, y float64) *Path {
 	p.d = append(p.d, ArcToCmd, rx, ry, rot, toArcFlags(largeArc, sweep), x, y)
+	return p
 }
 
 // Close closes a path with a LineTo to the start of the path (the most recent MoveTo command).
 // It also signals the path closes, as opposed to being just a LineTo command.
-func (p *Path) Close() {
+func (p *Path) Close() *Path {
 	p.d = append(p.d, CloseCmd, p.x0, p.y0)
+	return p
 }
 
 ////////////////////////////////////////////////////////////////
@@ -334,7 +340,6 @@ func (p *Path) SplitAt(ds ...float64) []*Path {
 
 // Translate returns a copy of p that has the entire path translated by x,y.
 func (p *Path) Translate(x, y float64) *Path {
-	p = p.Copy()
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
 		p.d = append([]float64{MoveToCmd, 0.0, 0.0}, p.d...)
 	}
@@ -367,7 +372,6 @@ func (p *Path) Translate(x, y float64) *Path {
 
 // Scale returns a copy of p that has the entire path scaled by x,y.
 func (p *Path) Scale(x, y float64) *Path {
-	p = p.Copy()
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
@@ -398,7 +402,6 @@ func (p *Path) Scale(x, y float64) *Path {
 // Rotate returns a copy of that has been rotated rot degree around x,y.
 func (p *Path) Rotate(rot, x, y float64) *Path {
 	mid := Point{x, y}
-	p = p.Copy()
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {

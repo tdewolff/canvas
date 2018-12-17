@@ -413,7 +413,6 @@ func flattenArc(start Point, rx, ry, rot float64, largeArc, sweep bool, end Poin
 }
 
 func (p *Path) flatten(beziers, arcs bool, tolerance float64) *Path {
-	p = p.Copy()
 	start := Point{}
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
