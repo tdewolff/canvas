@@ -13,12 +13,6 @@ import (
 )
 
 func main() {
-	_, err := canvas.ParseLaTeX("TACO")
-	if err != nil {
-		fmt.Println(err)
-	}
-	return
-
 	svgFile, err := os.Create("example.svg")
 	if err != nil {
 		panic(err)
@@ -52,7 +46,10 @@ func main() {
 
 func drawStrokedPath(c canvas.C, x, y float64, path string) {
 	c.SetColor(canvas.Black)
-	p := canvas.ParseSVGPath(path)
+	p, err := canvas.ParseSVGPath(path)
+	if err != nil {
+		panic(err)
+	}
 	c.DrawPath(x, y, p)
 
 	c.SetColor(color.RGBA{255, 0, 0, 127})
@@ -101,4 +98,10 @@ func Draw(c canvas.C) {
 	//drawStrokedPath(c, 80, 50, "C0 0 0 0 0 0z")
 
 	drawText(c, 10, 40, 12.0, "10")
+
+	latex, err := canvas.ParseLaTeX(`$y = \left(\frac{5}{x}\right)$`)
+	if err != nil {
+		panic(err)
+	}
+	c.DrawPath(0, 0, latex)
 }

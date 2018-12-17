@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/tdewolff/parse/strconv"
@@ -53,7 +54,7 @@ type Path struct {
 }
 
 // IsEmpty returns true if p is an empty path.
-func (p *Path) IsEmpty() bool {
+func (p *Path) Empty() bool {
 	return len(p.d) == 0
 }
 
@@ -396,14 +397,22 @@ func parseNum(path []byte) (float64, int) {
 }
 
 // ParseSVGPath parses an SVG path data string.
-func ParseSVGPath(sPath string) *Path {
-	path := []byte(sPath)
-	p := &Path{}
+// TODO: add error handling
+func ParseSVGPath(s string) (*Path, error) {
+	if len(s) == 0 {
+		return &Path{}, nil
+	}
+
+	path := []byte(s)
+	if path[0] < 'A' {
+		return nil, fmt.Errorf("bad path: does not start with command")
+	}
 
 	var prevCmd byte
 	cpx, cpy := 0.0, 0.0 // control points
 
 	i := 0
+	p := &Path{}
 	for i < len(path) {
 		i += skipCommaWhitespace(path[i:])
 		cmd := prevCmd
@@ -545,10 +554,12 @@ func ParseSVGPath(sPath string) *Path {
 				g += y
 			}
 			p.ArcTo(a, b, c, d == 1.0, e == 1.0, f, g)
+		default:
+			return nil, fmt.Errorf("unknown command in SVG path: %s", cmd)
 		}
 		prevCmd = cmd
 	}
-	return p
+	return p, nil
 }
 
 func (p *Path) String() string {
