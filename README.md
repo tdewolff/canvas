@@ -10,7 +10,7 @@ type C interface {
 	Open(width float64, height float64)
 
 	SetColor(color color.Color)
-	SetFont(fontName string, fontSize float64) (canvas.FontFace, error)
+	SetFont(fontFace FontFace)
 
 	DrawPath(x, y float64, path *canvas.Path)
 	DrawText(x, y float64, text string)
