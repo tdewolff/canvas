@@ -17,6 +17,8 @@ type C interface {
 
 The common interface allows to draw either paths or text. All positions and sizes are given in millimeters.
 
+### TODO
+
 * Get rid of FontFace and pass font size for all function calls?
 * Support WOFF and WOFF2 font formats
 * Add path IsCW / IsCCW
@@ -31,7 +33,7 @@ The common interface allows to draw either paths or text. All positions and size
 * Optimize paths by removing the last Line if followed by Close
 
 ## Paths
-A large deal of this library implements functionality for building paths. Any path can be constructed from a few basic operations, see below. The successive commands start from the current pen position (from the previous command's end point) and are draw towards a new end point. A path can consists of multiple path segments (multiple MoveTos), but be aware that overlapping paths will cancel each other.
+A large deal of this library implements functionality for building paths. Any path can be constructed from a few basic operations, see below. The successive commands start from the current pen position (from the previous command's end point) and are draw towards a new end point. A path can consist of multiple path segments (multiple MoveTos), but be aware that overlapping paths will cancel each other.
 
 ``` go
 p := &Path{}
@@ -46,16 +48,15 @@ p.Close() // close the path, essentially a LineTo to the last MoveTo location
 We can extract information from these paths using:
 
 ``` go
-p.Empty() // returns boolean
-p.Pos() // current pen position
-p.StartPos() // position of last MoveTo
-p.String() // to SVG path
-p.Bounds() // bounding box of path
-p.Length() // length of path in millimeters
-
+p.Empty() bool // returns boolean
+p.Pos() (x float64, y float64) // current pen position
+p.StartPos() (x0 float64, y0 float64) // position of last MoveTo
+p.String() string // to SVG path
+p.Bounds() Rect // bounding box of path
+p.Length() float64 // length of path in millimeters
 ```
 
-These paths can be manipulated and transformed with the following commands:
+These paths can be manipulated and transformed with the following commands. Each will return a pointer to the path.
 
 ``` go
 p.Copy()
@@ -75,6 +76,8 @@ p.Stroke(width, capper, joiner, tolerance) // create a stroke from a path of cer
 
 ## Example
 See https://github.com/tdewolff/canvas/tree/master/example for a working example, including fonts. Note that for PDFs you need to pre-compile fonts using `makefont` installed by `go install github.com/jung-kurt/gofpdf/makefont` and then compile them by running `makefont --embed --enc=cp1252.map DejaVuSerif.ttf`.
+
+![Example][https://raw.githubusercontent.com/tdewolff/canvas/master/example/example.png]
 
 ## License
 Released under the [MIT license](LICENSE.md).
