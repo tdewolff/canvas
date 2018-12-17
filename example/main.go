@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	_ "fmt"
 	"image/color"
 	"image/png"
@@ -66,7 +65,6 @@ func drawText(c canvas.C, x, y float64, size float64, text string) {
 
 	metrics := face.Metrics()
 	w, h := face.Bounds(text)
-	fmt.Println(metrics, w, h)
 
 	c.SetColor(canvas.Red)
 	c.DrawPath(x, y, canvas.Rectangle(0, 0, w, h))
@@ -103,6 +101,9 @@ func Draw(c canvas.C) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(latex.Bounds())
-	c.DrawPath(50, 50, latex.Rotate(45, 0, 0))
+	bounds := latex.Bounds()
+	c.SetColor(canvas.Red)
+	c.DrawPath(50, 50, canvas.Rectangle(bounds.X, bounds.Y, bounds.W, bounds.H))
+	c.SetColor(canvas.Black)
+	c.DrawPath(50, 50, latex)
 }
