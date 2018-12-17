@@ -78,7 +78,7 @@ func drawText(c canvas.C, x, y float64, size float64, text string) {
 }
 
 func Draw(c canvas.C) {
-	c.Open(400, 160)
+	c.Open(180, 70)
 
 	//drawStrokedPath(c, 5, 20, "C0 -20 20 -20 20 0z")
 	//drawStrokedPath(c, 30, 20, "C10 -20 10 -20 20 0z")
