@@ -1,6 +1,8 @@
 package canvas
 
 import (
+	"fmt"
+	"math"
 	"strings"
 
 	"github.com/tdewolff/parse/strconv"
@@ -53,7 +55,7 @@ type Path struct {
 }
 
 // IsEmpty returns true if p is an empty path.
-func (p *Path) IsEmpty() bool {
+func (p *Path) Empty() bool {
 	return len(p.d) == 0
 }
 
@@ -106,37 +108,43 @@ func (p *Path) StartPos() (float64, float64) {
 // MoveTo moves the path to x,y without connecting the path. It starts a new independent path segment.
 // Multiple path segments can be useful when negating parts of a previous path by overlapping it
 // with a path in the opposite direction.
-func (p *Path) MoveTo(x, y float64) {
+func (p *Path) MoveTo(x, y float64) *Path {
 	p.d = append(p.d, MoveToCmd, x, y)
 	p.x0, p.y0 = x, y
+	return p
 }
 
 // LineTo adds a linear path to x,y.
-func (p *Path) LineTo(x, y float64) {
+func (p *Path) LineTo(x, y float64) *Path {
 	p.d = append(p.d, LineToCmd, x, y)
+	return p
 }
 
 // Quadto adds a quadratic Bezier path with control point x1,y1 and end point x,y.
-func (p *Path) QuadTo(x1, y1, x, y float64) {
+func (p *Path) QuadTo(x1, y1, x, y float64) *Path {
 	p.d = append(p.d, QuadToCmd, x1, y1, x, y)
+	return p
 }
 
 // CubeTo adds a cubic Bezier path with control points x1,y1 and x2,y2 and end point x,y.
-func (p *Path) CubeTo(x1, y1, x2, y2, x, y float64) {
+func (p *Path) CubeTo(x1, y1, x2, y2, x, y float64) *Path {
 	p.d = append(p.d, CubeToCmd, x1, y1, x2, y2, x, y)
+	return p
 }
 
 // ArcTo adds an arc with radii rx and ry, with rot the rotation with respect to the coordinate system,
 // large and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
 // and x,y the end position of the pen. The start positions of the pen was given by a previous command.
-func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x, y float64) {
+func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x, y float64) *Path {
 	p.d = append(p.d, ArcToCmd, rx, ry, rot, toArcFlags(largeArc, sweep), x, y)
+	return p
 }
 
 // Close closes a path with a LineTo to the start of the path (the most recent MoveTo command).
 // It also signals the path closes, as opposed to being just a LineTo command.
-func (p *Path) Close() {
+func (p *Path) Close() *Path {
 	p.d = append(p.d, CloseCmd, p.x0, p.y0)
+	return p
 }
 
 ////////////////////////////////////////////////////////////////
@@ -163,6 +171,108 @@ func Ellipse(x, y, rx, ry float64) *Path {
 }
 
 ////////////////////////////////////////////////////////////////
+
+func (p *Path) Bounds() Rect {
+	xmin, xmax := math.Inf(1), math.Inf(-1)
+	ymin, ymax := math.Inf(1), math.Inf(-1)
+
+	if len(p.d) > 0 && p.d[0] != MoveToCmd {
+		xmin = 0.0
+		xmax = 0.0
+		ymin = 0.0
+		ymax = 0.0
+	}
+
+	var start, end Point
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		switch cmd {
+		case MoveToCmd:
+			end = Point{p.d[i+1], p.d[i+2]}
+			xmin = math.Min(xmin, end.X)
+			xmax = math.Max(xmax, end.X)
+			ymin = math.Min(ymin, end.Y)
+			ymax = math.Max(ymax, end.Y)
+		case LineToCmd, CloseCmd:
+			end = Point{p.d[i+1], p.d[i+2]}
+			xmin = math.Min(xmin, end.X)
+			xmax = math.Max(xmax, end.X)
+			ymin = math.Min(ymin, end.Y)
+			ymax = math.Max(ymax, end.Y)
+		case QuadToCmd:
+			c := Point{p.d[i+1], p.d[i+2]}
+			end = Point{p.d[i+3], p.d[i+4]}
+
+			xmin = math.Min(xmin, end.X)
+			xmax = math.Max(xmax, end.X)
+			tdenom := (start.X - 2*c.X + end.X)
+			if tdenom != 0.0 {
+				t := (start.X - c.X) / tdenom
+				x := quadraticBezierAt(start, c, end, t)
+				xmin = math.Min(xmin, x.X)
+				xmax = math.Max(xmax, x.X)
+			}
+
+			ymin = math.Min(ymin, end.Y)
+			ymax = math.Max(ymax, end.Y)
+			tdenom = (start.Y - 2*c.Y + end.Y)
+			if tdenom != 0.0 {
+				t := (start.Y - c.Y) / tdenom
+				y := quadraticBezierAt(start, c, end, t)
+				ymin = math.Min(ymin, y.Y)
+				ymax = math.Max(ymax, y.Y)
+			}
+		case CubeToCmd:
+			c1 := Point{p.d[i+1], p.d[i+2]}
+			c2 := Point{p.d[i+3], p.d[i+4]}
+			end = Point{p.d[i+5], p.d[i+6]}
+
+			a := -start.X + 3*c1.X - 3*c2.X + end.X
+			b := 2*start.X - 4*c1.X + 2*c2.X
+			c := -start.X + c1.X
+			t1, t2 := solveQuadraticFormula(a, b, c)
+
+			xmin = math.Min(xmin, end.X)
+			xmax = math.Max(xmax, end.X)
+			if !math.IsNaN(t1) {
+				x1 := cubicBezierAt(start, c1, c2, end, t1)
+				xmin = math.Min(xmin, x1.X)
+				xmax = math.Max(xmax, x1.X)
+			}
+			if !math.IsNaN(t2) {
+				x2 := cubicBezierAt(start, c1, c2, end, t2)
+				xmin = math.Min(xmin, x2.X)
+				xmax = math.Max(xmax, x2.X)
+			}
+
+			a = -start.Y + 3*c1.Y - 3*c2.Y + end.Y
+			b = 2*start.Y - 4*c1.Y + 2*c2.Y
+			c = -start.Y + c1.Y
+			t1, t2 = solveQuadraticFormula(a, b, c)
+
+			ymin = math.Min(ymin, end.Y)
+			ymax = math.Max(ymax, end.Y)
+			if !math.IsNaN(t1) {
+				y1 := cubicBezierAt(start, c1, c2, end, t1)
+				ymin = math.Min(ymin, y1.Y)
+				ymax = math.Max(ymax, y1.Y)
+			}
+			if !math.IsNaN(t2) {
+				y2 := cubicBezierAt(start, c1, c2, end, t2)
+				ymin = math.Min(ymin, y2.Y)
+				ymax = math.Max(ymax, y2.Y)
+			}
+		case ArcToCmd:
+			// rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
+			// largeArc, sweep := fromArcFlags(p.d[i+4])
+			end = Point{p.d[i+5], p.d[i+6]}
+			panic("not implemented")
+		}
+		i += cmdLen(cmd)
+		start = end
+	}
+	return Rect{xmin, ymin, xmax - xmin, ymax - ymin}
+}
 
 func (p *Path) Length() float64 {
 	d := 0.0
@@ -230,7 +340,6 @@ func (p *Path) SplitAt(ds ...float64) []*Path {
 
 // Translate returns a copy of p that has the entire path translated by x,y.
 func (p *Path) Translate(x, y float64) *Path {
-	p = p.Copy()
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
 		p.d = append([]float64{MoveToCmd, 0.0, 0.0}, p.d...)
 	}
@@ -263,7 +372,6 @@ func (p *Path) Translate(x, y float64) *Path {
 
 // Scale returns a copy of p that has the entire path scaled by x,y.
 func (p *Path) Scale(x, y float64) *Path {
-	p = p.Copy()
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
@@ -285,6 +393,43 @@ func (p *Path) Scale(x, y float64) *Path {
 		case ArcToCmd:
 			p.d[i+5] *= x
 			p.d[i+6] *= y
+		}
+		i += cmdLen(cmd)
+	}
+	return p
+}
+
+// Rotate returns a copy of that has been rotated rot degree around x,y.
+func (p *Path) Rotate(rot, x, y float64) *Path {
+	mid := Point{x, y}
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		switch cmd {
+		case MoveToCmd, LineToCmd, CloseCmd:
+			end := Point{p.d[i+1], p.d[i+2]}.Rot(rot, mid)
+			p.d[i+1] = end.X
+			p.d[i+2] = end.Y
+		case QuadToCmd:
+			c := Point{p.d[i+1], p.d[i+2]}.Rot(rot, mid)
+			end := Point{p.d[i+3], p.d[i+4]}.Rot(rot, mid)
+			p.d[i+1] = c.X
+			p.d[i+2] = c.Y
+			p.d[i+3] = end.X
+			p.d[i+4] = end.Y
+		case CubeToCmd:
+			c1 := Point{p.d[i+1], p.d[i+2]}.Rot(rot, mid)
+			c2 := Point{p.d[i+3], p.d[i+4]}.Rot(rot, mid)
+			end := Point{p.d[i+5], p.d[i+6]}.Rot(rot, mid)
+			p.d[i+1] = c1.X
+			p.d[i+2] = c1.Y
+			p.d[i+3] = c2.X
+			p.d[i+4] = c2.Y
+			p.d[i+5] = end.X
+			p.d[i+6] = end.Y
+		case ArcToCmd:
+			end := Point{p.d[i+5], p.d[i+6]}.Rot(rot, mid)
+			p.d[i+5] = end.X
+			p.d[i+6] = end.Y
 		}
 		i += cmdLen(cmd)
 	}
@@ -396,14 +541,22 @@ func parseNum(path []byte) (float64, int) {
 }
 
 // ParseSVGPath parses an SVG path data string.
-func ParseSVGPath(sPath string) *Path {
-	path := []byte(sPath)
-	p := &Path{}
+// TODO: add error handling
+func ParseSVGPath(s string) (*Path, error) {
+	if len(s) == 0 {
+		return &Path{}, nil
+	}
+
+	path := []byte(s)
+	if path[0] < 'A' {
+		return nil, fmt.Errorf("bad path: does not start with command")
+	}
 
 	var prevCmd byte
 	cpx, cpy := 0.0, 0.0 // control points
 
 	i := 0
+	p := &Path{}
 	for i < len(path) {
 		i += skipCommaWhitespace(path[i:])
 		cmd := prevCmd
@@ -545,18 +698,20 @@ func ParseSVGPath(sPath string) *Path {
 				g += y
 			}
 			p.ArcTo(a, b, c, d == 1.0, e == 1.0, f, g)
+		default:
+			return nil, fmt.Errorf("unknown command in SVG path: %c", cmd)
 		}
 		prevCmd = cmd
 	}
-	return p
+	return p, nil
 }
 
 func (p *Path) String() string {
-	return p.ToSVGPath()
+	return p.ToSVG()
 }
 
-// ToSVGPath returns a string that represents the path in the SVG path data format.
-func (p *Path) ToSVGPath() string {
+// ToSVG returns a string that represents the path in the SVG path data format.
+func (p *Path) ToSVG() string {
 	svg := strings.Builder{}
 	x, y := 0.0, 0.0
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {

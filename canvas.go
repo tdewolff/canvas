@@ -128,7 +128,7 @@ func (c *SVG) writeF(f float64) {
 func (c *SVG) DrawPath(x, y float64, p *Path) {
 	p = p.Translate(x, y)
 	c.w.Write([]byte("<path d=\""))
-	c.w.Write([]byte(p.ToSVGPath()))
+	c.w.Write([]byte(p.ToSVG()))
 	if c.color != color.Black {
 		c.w.Write([]byte("\" fill=\""))
 		c.w.Write(cssColor(c.color))
