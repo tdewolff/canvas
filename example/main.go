@@ -66,25 +66,19 @@ func drawText(c canvas.C, x, y float64, size float64, text string) {
 	metrics := face.Metrics()
 	w, h := face.Bounds(text)
 
-	c.SetColor(canvas.Red)
-	c.DrawPath(x, y, canvas.Rectangle(0, 0, w, h))
-	c.SetColor(canvas.Lime)
-	c.DrawPath(x, y, canvas.Rectangle(0, 0, -5.0, -12.0))
-	c.SetColor(canvas.Blue)
-	c.DrawPath(x, y, canvas.Rectangle(0, 0, -2.5, metrics.CapHeight))
-	c.SetColor(canvas.Yellow)
-	c.DrawPath(x, y, canvas.Rectangle(-2.5, 0, -2.5, metrics.XHeight))
+	c.SetColor(color.RGBA{0, 0, 0, 20})
+	c.DrawPath(x, y, canvas.Rectangle(0, 0, w, -h))
+	c.SetColor(color.RGBA{0, 0, 0, 100})
+	c.DrawPath(x, y, canvas.Rectangle(0, -metrics.CapHeight, -2.5, 12.0))
+	c.DrawPath(x, y, canvas.Rectangle(0, 0, -2.5, -metrics.XHeight))
 
 	c.SetColor(canvas.Black)
 	c.SetFont(face)
 	c.DrawText(x, y, text)
-
-	p := face.ToPath(text)
-	c.DrawPath(x, y+size, p)
 }
 
 func Draw(c canvas.C) {
-	c.Open(400, 150)
+	c.Open(400, 160)
 
 	//drawStrokedPath(c, 5, 20, "C0 -20 20 -20 20 0z")
 	//drawStrokedPath(c, 30, 20, "C10 -20 10 -20 20 0z")
@@ -95,15 +89,22 @@ func Draw(c canvas.C) {
 	//drawStrokedPath(c, 80, 50, "C0 0 0 -20 0 0z")
 	//drawStrokedPath(c, 80, 50, "C0 0 0 0 0 0z")
 
-	drawText(c, 10, 40, 12.0, "10")
+	drawText(c, 10, 20, 12.0, "Aap noot mies")
 
-	latex, err := canvas.ParseLaTeX(`$y = \left(\frac{5}{x}\right)$`)
+	font, err := c.Font("DejaVuSerif")
+	if err != nil {
+		panic(err.Error())
+	}
+	face := font.Face(30)
+	c.SetFont(face)
+	p := face.ToPath("Stroke")
+	c.DrawPath(5, 60, p.Stroke(1, canvas.RoundCapper, canvas.RoundJoiner, 0.01))
+
+	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
 	if err != nil {
 		panic(err)
 	}
-	bounds := latex.Bounds()
-	c.SetColor(canvas.Red)
-	c.DrawPath(50, 50, canvas.Rectangle(bounds.X, bounds.Y, bounds.W, bounds.H))
+	latex.Rotate(-30, 0, 0)
 	c.SetColor(canvas.Black)
-	c.DrawPath(50, 50, latex)
+	c.DrawPath(120, 15, latex)
 }
