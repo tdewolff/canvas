@@ -67,19 +67,11 @@ func (fs *Fonts) AddFontFile(name string, style FontStyle, filename string) erro
 }
 
 func (fs *Fonts) AddFont(name string, style FontStyle, mimetype string, b []byte) error {
-	f, err := sfnt.Parse(b)
+	f, err := NewFont(name, style, fs.dpi, mimetype, b)
 	if err != nil {
 		return err
 	}
-
-	fs.fonts[name] = Font{
-		mimetype: mimetype,
-		raw:      b,
-		font:     f,
-		name:     name,
-		style:    style,
-		dpi:      fs.dpi,
-	}
+	fs.fonts[name] = f
 	return nil
 }
 
@@ -98,6 +90,23 @@ type Font struct {
 	name  string
 	style FontStyle
 	dpi   float64
+}
+
+func NewFont(name string, style FontStyle, dpi float64, mimetype string, b []byte) (Font, error) {
+	// TODO: get mimetype from header
+	f, err := sfnt.Parse(b)
+	if err != nil {
+		return Font{}, err
+	}
+
+	return Font{
+		mimetype: mimetype,
+		raw:      b,
+		font:     f,
+		name:     name,
+		style:    style,
+		dpi:      dpi,
+	}, nil
 }
 
 // Get gets the font face associated with the give font name and font size.
