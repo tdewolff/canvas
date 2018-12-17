@@ -142,10 +142,12 @@ type FontFace struct {
 	hinting font.Hinting
 }
 
-func (ff FontFace) Info() (string, FontStyle, float64) {
+// Info returns the font name, style and size.
+func (ff FontFace) Info() (name string, style FontStyle, size float64) {
 	return ff.name, ff.style, ff.size
 }
 
+// Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explaination of the different metrics.
 func (ff FontFace) Metrics() Metrics {
 	m, _ := ff.font.Metrics(&sfntBuffer, ff.ppem, ff.hinting)
 	return Metrics{
@@ -200,13 +202,12 @@ func (ff FontFace) textWidth(s string) float64 {
 }
 
 // Bounds returns the bounding box (width and height) of a string.
-func (ff FontFace) Bounds(s string) (float64, float64) {
-	w := 0.0
+func (ff FontFace) Bounds(s string) (w float64, h float64) {
 	ss := splitNewlines(s)
 	for _, s := range ss {
 		w = math.Max(w, ff.textWidth(s))
 	}
-	h := ff.Metrics().CapHeight + float64(len(ss)-1)*ff.Metrics().LineHeight
+	h = ff.Metrics().CapHeight + float64(len(ss)-1)*ff.Metrics().LineHeight
 	return w, h
 }
 
