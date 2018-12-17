@@ -236,24 +236,32 @@ func (ff FontFace) ToPath(s string) *Path {
 				continue
 			}
 
-			for _, segment := range segments {
+			var start0, end Point
+			for i, segment := range segments {
 				switch segment.Op {
 				case sfnt.SegmentOpMoveTo:
-					end := fromP26_6(segment.Args[0])
+					if i != 0 && start0.Equals(end) {
+						p.Close()
+					}
+					end = fromP26_6(segment.Args[0])
 					p.MoveTo(x+end.X, y+end.Y)
+					start0 = end
 				case sfnt.SegmentOpLineTo:
-					end := fromP26_6(segment.Args[0])
+					end = fromP26_6(segment.Args[0])
 					p.LineTo(x+end.X, y+end.Y)
 				case sfnt.SegmentOpQuadTo:
 					c := fromP26_6(segment.Args[0])
-					end := fromP26_6(segment.Args[1])
+					end = fromP26_6(segment.Args[1])
 					p.QuadTo(x+c.X, y+c.Y, x+end.X, y+end.Y)
 				case sfnt.SegmentOpCubeTo:
 					c0 := fromP26_6(segment.Args[0])
 					c1 := fromP26_6(segment.Args[1])
-					end := fromP26_6(segment.Args[2])
+					end = fromP26_6(segment.Args[2])
 					p.CubeTo(x+c0.X, y+c0.Y, x+c1.X, y+c1.Y, x+end.X, y+end.Y)
 				}
+			}
+			if !p.Empty() && start0.Equals(end) {
+				p.Close()
 			}
 
 			advance, err := ff.font.GlyphAdvance(&sfntBuffer, index, ff.ppem, ff.hinting)

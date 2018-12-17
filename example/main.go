@@ -19,7 +19,7 @@ func main() {
 	defer svgFile.Close()
 
 	svg := canvas.NewSVG(svgFile)
-	svg.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.woff")
+	svg.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
 	Draw(svg)
 	svg.Close()
 
@@ -32,7 +32,7 @@ func main() {
 	defer pngFile.Close()
 
 	img := canvas.NewImage(72.0)
-	img.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.woff")
+	img.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
 	Draw(img)
 	_ = png.Encode(pngFile, img.Image())
 
