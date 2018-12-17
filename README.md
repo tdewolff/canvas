@@ -2,7 +2,7 @@
 
 Canvas is a vector drawing target that exposes a common interface for multiple drawing back-ends. It outputs SVG, PDF or raster images (which can be saved as PNG, JPG, ...).
 
-![Example](https://raw.githubusercontent.com/tdewolff/canvas/master/example.png)
+![Example](https://raw.githubusercontent.com/tdewolff/canvas/master/canvas.png)
 
 ## Interface
 ``` go
