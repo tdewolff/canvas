@@ -37,6 +37,7 @@ func NewFonts(dpi float64) *Fonts {
 	}
 }
 
+// AddLocalFont adds a font from the system fonts location.
 func (fs *Fonts) AddLocalFont(name string, style FontStyle) error {
 	fontPath, err := findfont.Find(name)
 	if err != nil {
@@ -45,6 +46,7 @@ func (fs *Fonts) AddLocalFont(name string, style FontStyle) error {
 	return fs.AddFontFile(name, style, fontPath)
 }
 
+// AddFontFile adds a font file given by a file path.
 func (fs *Fonts) AddFontFile(name string, style FontStyle, filename string) error {
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -66,6 +68,7 @@ func (fs *Fonts) AddFontFile(name string, style FontStyle, filename string) erro
 	return fs.AddFont(name, style, mimetype, b)
 }
 
+// AddFont adds a font from its raw bytes.
 func (fs *Fonts) AddFont(name string, style FontStyle, mimetype string, b []byte) error {
 	f, err := NewFont(name, style, fs.dpi, mimetype, b)
 	if err != nil {
@@ -75,6 +78,7 @@ func (fs *Fonts) AddFont(name string, style FontStyle, mimetype string, b []byte
 	return nil
 }
 
+// Font returns a previously added font.
 func (fs *Fonts) Font(name string) (Font, error) {
 	if _, ok := fs.fonts[name]; !ok {
 		return Font{}, ErrNotFound
@@ -109,8 +113,7 @@ func NewFont(name string, style FontStyle, dpi float64, mimetype string, b []byt
 	}, nil
 }
 
-// Get gets the font face associated with the give font name and font size.
-// Font size is in mm.
+// Face gets the font face associated with the give font name and font size (in mm).
 func (f *Font) Face(size float64) FontFace {
 	return FontFace{
 		font:    f.font,
@@ -171,7 +174,7 @@ func splitNewlines(s string) []string {
 	return ss
 }
 
-// TextWidth returns the width of a given string in mm.
+// textWidth returns the width of a given string in mm.
 func (ff FontFace) textWidth(s string) float64 {
 	x := 0.0
 	var prevIndex sfnt.GlyphIndex
@@ -196,6 +199,7 @@ func (ff FontFace) textWidth(s string) float64 {
 	return x
 }
 
+// Bounds returns the bounding box (width and height) of a string.
 func (ff FontFace) Bounds(s string) (float64, float64) {
 	w := 0.0
 	ss := splitNewlines(s)
@@ -206,6 +210,7 @@ func (ff FontFace) Bounds(s string) (float64, float64) {
 	return w, h
 }
 
+// ToPath converts a string to a path.
 func (ff FontFace) ToPath(s string) *Path {
 	p := &Path{}
 	x := 0.0

@@ -74,15 +74,14 @@ p.Copy()
 p.Append(q) // append path q to p
 p.Split() // split the path segments, ie. at Close/MoveTo
 p.Reverse() // reverse the direction of the path
-p.Flatten(tolerance) // flatten Bézier and arc commands to straight lines, with a maximum deviation of tolarance
-p.FlattenArcs(tolerance)
-p.FlattenBeziers(tolerance)
 
 p.Translate(x, y)
 p.Scale(x, y)
 p.Rotate(rot, x, y) // with the rotation rot in degrees, around point (x,y)
 
+p.Flatten(tolerance) // flatten Bézier and arc commands to straight lines, with a maximum deviation of tolarance
 p.Stroke(width, capper, joiner, tolerance) // create a stroke from a path of certain width, using capper and joiner for caps and joins
+p.Dash(d...) // create dashed path with lengths d which are alternating the dash and the space
 ```
 
 ## Example

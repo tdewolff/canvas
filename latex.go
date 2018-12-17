@@ -19,46 +19,13 @@ import (
 	pdf "rsc.io/pdf"
 )
 
-var ErrBadPDF = errors.New("unexpected PDF content")
-
-func valueKind(vk pdf.ValueKind) string {
-	switch vk {
-	case pdf.Null:
-		return "Null"
-	case pdf.Bool:
-		return "Bool"
-	case pdf.Integer:
-		return "Integer"
-	case pdf.Real:
-		return "Real"
-	case pdf.String:
-		return "String"
-	case pdf.Name:
-		return "Name"
-	case pdf.Dict:
-		return "Dict"
-	case pdf.Array:
-		return "Array"
-	case pdf.Stream:
-		return "Stream"
-	}
-	return "?"
-}
-
-func printValue(indent, key string, v pdf.Value) {
-	fmt.Println(indent, key+": ", valueKind(v.Kind()), v)
-	if v.Kind() == pdf.Dict || v.Kind() == pdf.Stream {
-		for _, key := range v.Keys() {
-			printValue(indent+"  ", key, v.Key(key))
-		}
-	}
-	if v.Kind() == pdf.Stream {
-		s, _ := ioutil.ReadAll(v.Reader())
-		fmt.Println(indent+"  stream", len(s))
-
-	}
-}
-
+// ParseLaTeX parses a LaTeX formatted string into a path. It requires latex and dvisvgm to be installed on the machine.
+// The content is surrounded by
+//   \documentclass{article}
+//    \begin{document}
+//    \thispagestyle{empty}
+//    {{input}}
+//    \end{document}`
 func ParseLaTeX(s string) (*Path, error) {
 	tmpDir, err := ioutil.TempDir("", "tdewolff-")
 	if err != nil {
@@ -80,7 +47,7 @@ func ParseLaTeX(s string) (*Path, error) {
 	document := `\documentclass{article}
 \begin{document}
 \thispagestyle{empty}
-$` + s + `$
+` + s + `
 \end{document}`
 
 	cmd := exec.Command("latex", "-jobname=canvas", "-halt-on-error")
@@ -131,7 +98,7 @@ $` + s + `$
 			if !p.Empty() {
 				p = p.Translate(-x0, -y0)
 			}
-			_ = ioutil.WriteFile(path.Join(tmpDir, hash), []byte(p.ToSVG()), 0644)
+			_ = ioutil.WriteFile(path.Join(tmpDir, hash), []byte(p.String()), 0644)
 			return p, nil
 		case xml.StartTagToken:
 			tag := string(l.Text())
@@ -214,8 +181,47 @@ $` + s + `$
 			}
 		}
 	}
-
 	return nil, nil
+}
+
+var ErrBadPDF = errors.New("unexpected PDF content")
+
+func valueKind(vk pdf.ValueKind) string {
+	switch vk {
+	case pdf.Null:
+		return "Null"
+	case pdf.Bool:
+		return "Bool"
+	case pdf.Integer:
+		return "Integer"
+	case pdf.Real:
+		return "Real"
+	case pdf.String:
+		return "String"
+	case pdf.Name:
+		return "Name"
+	case pdf.Dict:
+		return "Dict"
+	case pdf.Array:
+		return "Array"
+	case pdf.Stream:
+		return "Stream"
+	}
+	return "?"
+}
+
+func printValue(indent, key string, v pdf.Value) {
+	fmt.Println(indent, key+": ", valueKind(v.Kind()), v)
+	if v.Kind() == pdf.Dict || v.Kind() == pdf.Stream {
+		for _, key := range v.Keys() {
+			printValue(indent+"  ", key, v.Key(key))
+		}
+	}
+	if v.Kind() == pdf.Stream {
+		s, _ := ioutil.ReadAll(v.Reader())
+		fmt.Println(indent+"  stream", len(s))
+
+	}
 }
 
 func parseLaTeX2(s string) (*Path, error) {

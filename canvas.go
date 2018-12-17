@@ -56,6 +56,7 @@ func cssColor(c color.Color) []byte {
 
 ////////////////////////////////////////////////////////////////
 
+// C is a target independent interface for drawing paths and text.
 type C interface {
 	Open(float64, float64)
 	Font(string) (Font, error)
@@ -128,7 +129,7 @@ func (c *SVG) writeF(f float64) {
 func (c *SVG) DrawPath(x, y float64, p *Path) {
 	p = p.Translate(x, y)
 	c.w.Write([]byte("<path d=\""))
-	c.w.Write([]byte(p.ToSVG()))
+	c.w.Write([]byte(p.String()))
 	if c.color != color.Black {
 		c.w.Write([]byte("\" fill=\""))
 		c.w.Write(cssColor(c.color))

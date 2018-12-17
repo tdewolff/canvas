@@ -54,7 +54,7 @@ type Path struct {
 	x0, y0 float64 // coords of last MoveTo
 }
 
-// IsEmpty returns true if p is an empty path.
+// Empty returns true if p is an empty path.
 func (p *Path) Empty() bool {
 	return len(p.d) == 0
 }
@@ -78,7 +78,7 @@ func (p *Path) Append(q *Path) *Path {
 		if q.d[0] == MoveToCmd {
 			x0, y0 := p.d[len(p.d)-2], p.d[len(p.d)-1]
 			x1, y1 := q.d[1], q.d[2]
-			if Equal(x0, x1) && Equal(y0, y1) {
+			if equal(x0, x1) && equal(y0, y1) {
 				q.d = q.d[3:]
 			}
 		}
@@ -98,7 +98,7 @@ func (p *Path) Pos() (float64, float64) {
 	return 0.0, 0.0
 }
 
-// Start returns the start point of the current path segment, ie. it returns the position of the last MoveTo command.
+// StartPos returns the start point of the current path segment, ie. it returns the position of the last MoveTo command.
 func (p *Path) StartPos() (float64, float64) {
 	return p.x0, p.y0
 }
@@ -172,6 +172,7 @@ func Ellipse(x, y, rx, ry float64) *Path {
 
 ////////////////////////////////////////////////////////////////
 
+// Bounds returns the bounding box rectangle of the path.
 func (p *Path) Bounds() Rect {
 	xmin, xmax := math.Inf(1), math.Inf(-1)
 	ymin, ymax := math.Inf(1), math.Inf(-1)
@@ -274,6 +275,7 @@ func (p *Path) Bounds() Rect {
 	return Rect{xmin, ymin, xmax - xmin, ymax - ymin}
 }
 
+// Length returns the length of the path in millimeters. The length is approximated for cubic Béziers.
 func (p *Path) Length() float64 {
 	d := 0.0
 	var start, end Point
@@ -334,11 +336,7 @@ func (p *Path) Split() []*Path {
 	return ps
 }
 
-func (p *Path) SplitAt(ds ...float64) []*Path {
-	panic("not implemented")
-}
-
-// Translate returns a copy of p that has the entire path translated by x,y.
+// Translate translates the path by (x,y).
 func (p *Path) Translate(x, y float64) *Path {
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
 		p.d = append([]float64{MoveToCmd, 0.0, 0.0}, p.d...)
@@ -370,7 +368,7 @@ func (p *Path) Translate(x, y float64) *Path {
 	return p
 }
 
-// Scale returns a copy of p that has the entire path scaled by x,y.
+// Scale scales the path by (x,y).
 func (p *Path) Scale(x, y float64) *Path {
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
@@ -399,7 +397,7 @@ func (p *Path) Scale(x, y float64) *Path {
 	return p
 }
 
-// Rotate returns a copy of that has been rotated rot degree around x,y.
+// Rotate rotates the path by rot in degrees around point (x,y).
 func (p *Path) Rotate(rot, x, y float64) *Path {
 	mid := Point{x, y}
 	for i := 0; i < len(p.d); {
@@ -436,25 +434,12 @@ func (p *Path) Rotate(rot, x, y float64) *Path {
 	return p
 }
 
-// Flattenwill return a copy of p with all Bezier and arc curves flattened.
-// It replaces the curves by linear segments, under the constraint that the maximum deviation is up to tolerance.
+// Flatten flattens all Bézier and arc curves. It replaces the curves by linear segments, under the constraint that the maximum deviation is up to tolerance.
 func (p *Path) Flatten(tolerance float64) *Path {
 	return p.flatten(true, true, tolerance)
 }
 
-// FlattenBeziers will return a copy of p with all arc curves flattened.
-// It replaces the arcs by linear segments, under the constraint that the maximum deviation is up to tolerance.
-func (p *Path) FlattenArcs(tolerance float64) *Path {
-	return p.flatten(false, true, tolerance)
-}
-
-// FlattenBeziers will return a copy of p with all Bezier curves flattened.
-// It replaces the curves by linear segments, under the constraint that the maximum deviation is up to tolerance.
-func (p *Path) FlattenBeziers(tolerance float64) *Path {
-	return p.flatten(true, false, tolerance)
-}
-
-// Reverse returns a copy of p that is the same path but in the reverse direction.
+// Reverse returns a new path that is the same path as p but in the reverse direction.
 func (p *Path) Reverse() *Path {
 	ip := &Path{}
 	if len(p.d) == 0 {
@@ -541,8 +526,8 @@ func parseNum(path []byte) (float64, int) {
 }
 
 // ParseSVGPath parses an SVG path data string.
-// TODO: add error handling
 func ParseSVGPath(s string) (*Path, error) {
+	// TODO: add error handling
 	if len(s) == 0 {
 		return &Path{}, nil
 	}
@@ -706,12 +691,8 @@ func ParseSVGPath(s string) (*Path, error) {
 	return p, nil
 }
 
+// String returns a string that represents the path in the SVG path data format.
 func (p *Path) String() string {
-	return p.ToSVG()
-}
-
-// ToSVG returns a string that represents the path in the SVG path data format.
-func (p *Path) ToSVG() string {
 	svg := strings.Builder{}
 	x, y := 0.0, 0.0
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
@@ -729,12 +710,12 @@ func (p *Path) ToSVG() string {
 		case LineToCmd:
 			xStart, yStart := x, y
 			x, y = p.d[i+1], p.d[i+2]
-			if Equal(x, xStart) && Equal(y, yStart) {
+			if equal(x, xStart) && equal(y, yStart) {
 				// nothing
-			} else if Equal(x, xStart) {
+			} else if equal(x, xStart) {
 				svg.WriteString("V")
 				svg.WriteString(ftos(y))
-			} else if Equal(y, yStart) {
+			} else if equal(y, yStart) {
 				svg.WriteString("H")
 				svg.WriteString(ftos(x))
 			} else {

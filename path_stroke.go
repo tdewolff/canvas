@@ -63,7 +63,7 @@ func (f JoinerFunc) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point)
 var RoundJoiner Joiner = JoinerFunc(roundJoiner)
 
 func roundJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
-	if Equal(n0.X, n1.X) && Equal(n0.Y, n1.Y) {
+	if equal(n0.X, n1.X) && equal(n0.Y, n1.Y) {
 		return
 	}
 
@@ -84,7 +84,7 @@ func roundJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 var BevelJoiner Joiner = JoinerFunc(bevelJoiner)
 
 func bevelJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
-	if Equal(n0.X, n1.X) && Equal(n0.Y, n1.Y) {
+	if equal(n0.X, n1.X) && equal(n0.Y, n1.Y) {
 		return
 	}
 
@@ -107,7 +107,7 @@ func strokeJoin(rhs, lhs *Path, jr Joiner, halfWidth float64, start, n1Prev, n0 
 	}
 }
 
-// Stroke will convert a path into a stroke of width w. It uses cr to cap the start and end of the path, and jr to
+// Stroke converts a path into a stroke of width w. It uses cr to cap the start and end of the path, and jr to
 // join all path elemtents. If the path closes itself, it will use a join between the start and end instead of capping them.
 // The tolerance is the maximum deviation from the original path when flattening Beziers and optimizing the stroke.
 func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path {
@@ -195,7 +195,7 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path 
 				}
 			case CloseCmd:
 				end = Point{p.d[i+1], p.d[i+2]}
-				if !Equal(start.X, end.X) || !Equal(start.Y, end.Y) {
+				if !equal(start.X, end.X) || !equal(start.Y, end.Y) {
 					n1 = end.Sub(start).Rot90CW().Norm(halfWidth)
 					if !first {
 						jr.Join(sp, ret, halfWidth, start, n1Prev, n1)

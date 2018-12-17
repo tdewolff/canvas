@@ -10,7 +10,7 @@ import (
 
 const epsilon = 1e-10
 
-func Equal(a, b float64) bool {
+func equal(a, b float64) bool {
 	return math.Abs(a-b) < epsilon
 }
 
@@ -47,11 +47,11 @@ type Point struct {
 }
 
 func (p Point) IsZero() bool {
-	return Equal(p.X, 0.0) && Equal(p.Y, 0.0) // TODO: need Equal, or just compare?
+	return equal(p.X, 0.0) && equal(p.Y, 0.0) // TODO: need Equal, or just compare?
 }
 
 func (p Point) Equals(q Point) bool {
-	return Equal(p.X, q.X) && Equal(p.Y, q.Y)
+	return equal(p.X, q.X) && equal(p.Y, q.Y)
 }
 
 func (p Point) Neg() Point {
@@ -96,7 +96,7 @@ func (p Point) Length() float64 {
 
 func (p Point) Norm(length float64) Point {
 	d := p.Length()
-	if Equal(d, 0.0) {
+	if equal(d, 0.0) {
 		return Point{}
 	}
 	return Point{p.X / d * length, p.Y / d * length}
