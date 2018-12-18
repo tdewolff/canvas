@@ -84,11 +84,53 @@ func arcNormal(theta float64) Point {
 
 ////////////////////////////////////////////////////////////////
 
-func arcLength(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) float64 {
-	panic("not implemented")
+func cubicBezierDerivAt(p0, p1, p2, p3 Point, t float64) float64 {
+	p0 = p0.Mul(-3.0 + 6.0*t - 3.0*t*t)
+	p1 = p1.Mul(3.0 - 12.0*t + 9.0*t*t)
+	p2 = p2.Mul(6.0*t - 9.0*t*t)
+	p3 = p3.Mul(3.0 * t * t)
+	return p0.Add(p1).Add(p2).Add(p3).Length()
 }
 
-func cubicBezierLength(p0, p1, p2, p3 Point) float64 {
+func cubicBezierGaussLegendre(p0, p1, p2, p3 Point, b float64) float64 {
+	// Gauss-Legendre quadrature integration from 0 to b with n=3
+	Qd1 := cubicBezierDerivAt(p0, p1, p2, p3, b*1.774597/2.0)
+	Qd2 := cubicBezierDerivAt(p0, p1, p2, p3, b/2.0)
+	Qd3 := cubicBezierDerivAt(p0, p1, p2, p3, b*0.225403/2.0)
+	return (b / 2.0) * ((5.0/9.0)*(Qd1+Qd3) + (8.0/9.0)*Qd2)
+}
+
+// cubicBezierLength returns a function that maps t=[0,1] to its lengths L(t)
+// implemented using M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI, p. 143--150, 1996
+// see https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf
+func cubicBezierLength(p0, p1, p2, p3 Point) func(float64) float64 {
+	// TODO: split at inflection points
+	s1 := cubicBezierGaussLegendre(p0, p1, p2, p3, 1.0/3.0)
+	s2 := cubicBezierGaussLegendre(p0, p1, p2, p3, 2.0/3.0)
+	s3 := cubicBezierGaussLegendre(p0, p1, p2, p3, 1.0)
+
+	// We have three points on the s(t) curve at t=0, t=1/3, t=2/3 and t=1
+	// now obtain a polynomial that goes through these four points by solving the system of linear equations
+	// s(t) = a*t^3 + b*t^2 + c*t + d
+	// [s0; s1; s2; s3] = [   0,   0,   0, 0;
+	//                     1/27, 1/9, 1/3, 0;
+	//                     8/27, 4/9, 2/3, 0;
+	//                        1,   1,   1, 0] = [a; b; c; d]
+	//
+	// After inverting (note that d=0):
+	// [a; b; c] = 0.5 * [ 27, -27,  9;
+	//                    -45,  18, -9;
+	//                      9,  -9,  1] = [s1; s2; s3]
+
+	a := 13.5*s1 - 13.5*s2 + 4.5*s3
+	b := -22.5*s1 + 18.0*s2 - 4.5*s3
+	c := 9.0*s1 - 4.5*s2 + s3
+	return func(t float64) float64 {
+		return a*t*t*t + b*t*t + c*t
+	}
+}
+
+func arcLength(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) float64 {
 	panic("not implemented")
 }
 

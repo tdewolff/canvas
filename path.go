@@ -291,12 +291,12 @@ func (p *Path) Length() float64 {
 			c := Point{p.d[i+1], p.d[i+2]}
 			end = Point{p.d[i+3], p.d[i+4]}
 			c1, c2 := quadraticToCubicBezier(start, c, end)
-			d += cubicBezierLength(start, c1, c2, end)
+			d += cubicBezierLength(start, c1, c2, end)(1.0)
 		case CubeToCmd:
 			c1 := Point{p.d[i+1], p.d[i+2]}
 			c2 := Point{p.d[i+3], p.d[i+4]}
 			end = Point{p.d[i+5], p.d[i+6]}
-			d += cubicBezierLength(start, c1, c2, end)
+			d += cubicBezierLength(start, c1, c2, end)(1.0)
 		case ArcToCmd:
 			rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
 			largeArc, sweep := fromArcFlags(p.d[i+4])

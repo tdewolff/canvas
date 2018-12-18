@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"math"
 	"strings"
 	"testing"
 
@@ -28,6 +29,24 @@ func TestPathBounds(t *testing.T) {
 			test.Float(t, bounds.Y, tt.bounds.Y)
 			test.Float(t, bounds.W, tt.bounds.W)
 			test.Float(t, bounds.H, tt.bounds.H)
+		})
+	}
+}
+
+func TestPathLength(t *testing.T) {
+	var tts = []struct {
+		orig   string
+		length float64
+	}{
+		{"C0 66.67 100 66.67 100 0z", 259.0}, // TODO: is value correct?
+	}
+	for _, tt := range tts {
+		t.Run(tt.orig, func(t *testing.T) {
+			p, _ := ParseSVGPath(tt.orig)
+			length := p.Length()
+			if math.Abs(length-tt.length) > 0.1 {
+				test.Fail(t, length, "!=", tt.length)
+			}
 		})
 	}
 }
