@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -48,6 +49,18 @@ func TestPathLength(t *testing.T) {
 				test.Fail(t, length, "!=", tt.length)
 			}
 		})
+	}
+}
+
+func TestCubicBezierLengths(t *testing.T) {
+	p0 := Point{0.0, 0.0}
+	p1 := Point{0.0, 66.67}
+	p2 := Point{100.0, 66.67}
+	p3 := Point{100.0, 0.0}
+	S := cubicBezierT2S(p0, p1, p2, p3)
+	T := cubicBezierS2T(p0, p1, p2, p3)
+	for _, t := range []float64{0.0, 0.5, 1.0} {
+		fmt.Println("t=", t, "; s=", S(t), "; t=", T(S(t)))
 	}
 }
 

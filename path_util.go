@@ -1,7 +1,10 @@
 package canvas
 
 import (
+	"fmt"
 	"math"
+
+	"github.com/gonum/matrix/mat64"
 )
 
 // arcToEndpoints converts to the endpoint arc format and returns (startX, startY, largeArc, sweep, endX, endY)
@@ -92,8 +95,8 @@ func cubicBezierDerivAt(p0, p1, p2, p3 Point, t float64) float64 {
 	return p0.Add(p1).Add(p2).Add(p3).Length()
 }
 
-func cubicBezierGaussLegendre(p0, p1, p2, p3 Point, b float64) float64 {
-	// Gauss-Legendre quadrature integration from 0 to b with n=3
+// Gauss-Legendre quadrature integration from 0 to b with n=3
+func cubicBezierGaussLegendre3(p0, p1, p2, p3 Point, b float64) float64 {
 	Qd1 := cubicBezierDerivAt(p0, p1, p2, p3, b*1.774597/2.0)
 	Qd2 := cubicBezierDerivAt(p0, p1, p2, p3, b/2.0)
 	Qd3 := cubicBezierDerivAt(p0, p1, p2, p3, b*0.225403/2.0)
@@ -103,11 +106,11 @@ func cubicBezierGaussLegendre(p0, p1, p2, p3 Point, b float64) float64 {
 // cubicBezierLength returns a function that maps t=[0,1] to its lengths L(t)
 // implemented using M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI, p. 143--150, 1996
 // see https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf
-func cubicBezierLength(p0, p1, p2, p3 Point) func(float64) float64 {
+func cubicBezierT2S(p0, p1, p2, p3 Point) func(float64) float64 {
 	// TODO: split at inflection points
-	s1 := cubicBezierGaussLegendre(p0, p1, p2, p3, 1.0/3.0)
-	s2 := cubicBezierGaussLegendre(p0, p1, p2, p3, 2.0/3.0)
-	s3 := cubicBezierGaussLegendre(p0, p1, p2, p3, 1.0)
+	s1 := cubicBezierGaussLegendre3(p0, p1, p2, p3, 1.0/3.0)
+	s2 := cubicBezierGaussLegendre3(p0, p1, p2, p3, 2.0/3.0)
+	s3 := cubicBezierGaussLegendre3(p0, p1, p2, p3, 1.0)
 
 	// We have three points on the s(t) curve at t=0, t=1/3, t=2/3 and t=1
 	// now obtain a polynomial that goes through these four points by solving the system of linear equations
@@ -127,6 +130,38 @@ func cubicBezierLength(p0, p1, p2, p3 Point) func(float64) float64 {
 	c := 9.0*s1 - 4.5*s2 + s3
 	return func(t float64) float64 {
 		return a*t*t*t + b*t*t + c*t
+	}
+}
+
+func cubicBezierS2T(p0, p1, p2, p3 Point) func(float64) float64 {
+	// TODO: split at inflection points
+	s1 := cubicBezierGaussLegendre3(p0, p1, p2, p3, 1.0/3.0)
+	s2 := cubicBezierGaussLegendre3(p0, p1, p2, p3, 2.0/3.0)
+	s3 := cubicBezierGaussLegendre3(p0, p1, p2, p3, 1.0)
+	s1_2 := s1 * s1
+	s2_2 := s2 * s2
+	s3_2 := s3 * s3
+	s1_3 := s1_2 * s1
+	s2_3 := s2_2 * s2
+	s3_3 := s3_2 * s3
+	detS := s1_3*s2_2*s3 + s1_2*s2*s3_3 + s1*s2_3*s3_2 - s1*s2_2*s3_3 - s1_2*s2_3*s3 - s1_3*s2*s3_2
+	m := mat64.NewDense(3, 3, []float64{s1_3, s1_2, s1, s2_3, s2_2, s2, s3_3, s3_2, s3})
+	det := mat64.Det(m)
+	fmt.Println("det", detS, det)
+	fmt.Println(s1, s2, s3)
+	if equal(detS, 0.0) {
+		panic("S matrix not invertible")
+	}
+
+	a := ((1.0/3.0)*s1_3 + (2.0/3.0)*s2_3 + s3_3) / detS
+	b := ((1.0/3.0)*s1_2 + (2.0/3.0)*s2_2 + s3_2) / detS
+	c := ((1.0/3.0)*s1 + (2.0/3.0)*s2 + s3) / detS
+	fmt.Println(a, b, c)
+	fmt.Println("t1", a*s1_3+b*s1_2+c*s1)
+	fmt.Println("t2", a*s2_3+b*s2_2+c*s2)
+	fmt.Println("t3", a*s3_3+b*s3_2+c*s3)
+	return func(s float64) float64 {
+		return a*s*s*s + b*s*s + c*s
 	}
 }
 
