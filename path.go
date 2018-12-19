@@ -291,17 +291,17 @@ func (p *Path) Length() float64 {
 			c := Point{p.d[i+1], p.d[i+2]}
 			end = Point{p.d[i+3], p.d[i+4]}
 			c1, c2 := quadraticToCubicBezier(start, c, end)
-			d += cubicBezierGaussLegendre3(start, c1, c2, end, 1.0)
+			d += cubicBezierLength(start, c1, c2, end)
 		case CubeToCmd:
 			c1 := Point{p.d[i+1], p.d[i+2]}
 			c2 := Point{p.d[i+3], p.d[i+4]}
 			end = Point{p.d[i+5], p.d[i+6]}
-			d += cubicBezierGaussLegendre3(start, c1, c2, end, 1.0)
+			d += cubicBezierLength(start, c1, c2, end)
 		case ArcToCmd:
 			rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
-			d += arcLength(start, rx, ry, rot, largeArc, sweep, end)
+			d += ellipseLength(start, rx, ry, rot, largeArc, sweep, end)
 		}
 		i += cmdLen(cmd)
 		start = end
@@ -437,6 +437,58 @@ func (p *Path) Rotate(rot, x, y float64) *Path {
 // Flatten flattens all Bézier and arc curves. It replaces the curves by linear segments, under the constraint that the maximum deviation is up to tolerance.
 func (p *Path) Flatten(tolerance float64) *Path {
 	return p.flatten(true, true, tolerance)
+}
+
+func (p *Path) flatten(beziers, arcs bool, tolerance float64) *Path {
+	start := Point{}
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		switch cmd {
+		case QuadToCmd:
+			if beziers {
+				c := Point{p.d[i+1], p.d[i+2]}
+				end := Point{p.d[i+3], p.d[i+4]}
+				c1, c2 := quadraticToCubicBezier(start, c, end)
+
+				q := flattenCubicBezier(start, c1, c2, end, 0.0, tolerance)
+				p.d = append(p.d[:i], append(q.d, p.d[i+5:]...)...)
+				i += len(q.d)
+				if len(q.d) == 0 {
+					continue
+				}
+			}
+		case CubeToCmd:
+			if beziers {
+				c1 := Point{p.d[i+1], p.d[i+2]}
+				c2 := Point{p.d[i+3], p.d[i+4]}
+				end := Point{p.d[i+5], p.d[i+6]}
+
+				q := flattenCubicBezier(start, c1, c2, end, 0.0, tolerance)
+				p.d = append(p.d[:i], append(q.d, p.d[i+7:]...)...)
+				i += len(q.d)
+				if len(q.d) == 0 {
+					continue
+				}
+			}
+		case ArcToCmd:
+			if arcs {
+				rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
+				largeArc, sweep := fromArcFlags(p.d[i+4])
+				end := Point{p.d[i+5], p.d[i+6]}
+
+				q := flattenEllipse(start, rx, ry, rot, largeArc, sweep, end, tolerance)
+				p.d = append(p.d[:i], append(q.d, p.d[i+7:]...)...)
+				i += len(q.d)
+				if len(q.d) == 0 {
+					continue
+				}
+			}
+		default:
+			i += cmdLen(cmd)
+		}
+		start = Point{p.d[i-2], p.d[i-1]}
+	}
+	return p
 }
 
 // Reverse returns a new path that is the same path as p but in the reverse direction.

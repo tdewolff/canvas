@@ -1,10 +1,7 @@
 package canvas
 
 import (
-	"fmt"
 	"math"
-
-	"github.com/gonum/matrix/mat64"
 )
 
 // arcToEndpoints converts to the endpoint arc format and returns (startX, startY, largeArc, sweep, endX, endY)
@@ -87,7 +84,45 @@ func arcNormal(theta float64) Point {
 
 ////////////////////////////////////////////////////////////////
 
-func cubicBezierDerivAt(p0, p1, p2, p3 Point, t float64) float64 {
+// Gauss-Legendre quadrature integration from a to b with n=3
+func gaussLegendre3(f func(float64) float64, a, b float64) float64 {
+	c := (b - a) / 2.0
+	d := (a + b) / 2.0
+	Qd1 := f(-0.774596669*c + d)
+	Qd2 := f(d)
+	Qd3 := f(0.774596669*c + d)
+	return c * ((5.0/9.0)*(Qd1+Qd3) + (8.0/9.0)*Qd2)
+}
+
+// Gauss-Legendre quadrature integration from a to b with n=5
+func gaussLegendre5(f func(float64) float64, a, b float64) float64 {
+	c := (b - a) / 2.0
+	d := (a + b) / 2.0
+	Qd1 := f(-0.90618*c + d)
+	Qd2 := f(-0.538469*c + d)
+	Qd3 := f(d)
+	Qd4 := f(0.538469*c + d)
+	Qd5 := f(0.90618*c + d)
+	return c * (0.236927*(Qd1+Qd5) + 0.478629*(Qd2+Qd4) + 0.568889*Qd3)
+}
+
+// find parametric value t at a given length s on the curve using the bisection method
+func bisectionMethod(f func(float64) float64, s float64) float64 {
+	tmin, tmax := 0.0, 1.0
+	for {
+		t := (tmin + tmax) / 2.0
+		ds := f(t) - s
+		if math.Abs(ds) < 0.1 || (tmax-tmin)/2.0 < 0.1 {
+			return t
+		} else if ds > 0.0 {
+			tmax = t
+		} else {
+			tmin = t
+		}
+	}
+}
+
+func cubicBezierSpeedAt(p0, p1, p2, p3 Point, t float64) float64 {
 	p0 = p0.Mul(-3.0 + 6.0*t - 3.0*t*t)
 	p1 = p1.Mul(3.0 - 12.0*t + 9.0*t*t)
 	p2 = p2.Mul(6.0*t - 9.0*t*t)
@@ -95,35 +130,33 @@ func cubicBezierDerivAt(p0, p1, p2, p3 Point, t float64) float64 {
 	return p0.Add(p1).Add(p2).Add(p3).Length()
 }
 
-// Gauss-Legendre quadrature integration from 0 to b with n=3
-func cubicBezierGaussLegendre3(p0, p1, p2, p3 Point, b float64) float64 {
-	Qd1 := cubicBezierDerivAt(p0, p1, p2, p3, b*1.774597/2.0)
-	Qd2 := cubicBezierDerivAt(p0, p1, p2, p3, b/2.0)
-	Qd3 := cubicBezierDerivAt(p0, p1, p2, p3, b*0.225403/2.0)
-	return (b / 2.0) * ((5.0/9.0)*(Qd1+Qd3) + (8.0/9.0)*Qd2)
+func cubicBezierLength(p0, p1, p2, p3 Point) float64 {
+	// TODO: split at inflection points
+	deriv := func(t float64) float64 { return cubicBezierSpeedAt(p0, p1, p2, p3, t) }
+	return gaussLegendre3(deriv, 0.0, 1.0)
 }
 
 // cubicBezierLength returns a function that maps t=[0,1] to its lengths L(t)
 // implemented using M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI, p. 143--150, 1996
 // see https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf
-func cubicBezierT2S(p0, p1, p2, p3 Point) func(float64) float64 {
+func cubicBezierLengthFunc(p0, p1, p2, p3 Point) func(float64) float64 {
 	// TODO: split at inflection points
-	s1 := cubicBezierGaussLegendre3(p0, p1, p2, p3, 1.0/3.0)
-	s2 := cubicBezierGaussLegendre3(p0, p1, p2, p3, 2.0/3.0)
-	s3 := cubicBezierGaussLegendre3(p0, p1, p2, p3, 1.0)
+	speed := func(t float64) float64 { return cubicBezierSpeedAt(p0, p1, p2, p3, t) }
+	s1 := gaussLegendre3(speed, 0.0, 1.0/3.0)
+	s2 := gaussLegendre3(speed, 0.0, 2.0/3.0)
+	s3 := gaussLegendre3(speed, 0.0, 1.0)
 
-	// We have three points on the s(t) curve at t=0, t=1/3, t=2/3 and t=1
+	// We have three points on the s(t) curve at t0=0, t1=1/3, t2=2/3 and t3=1
 	// now obtain a polynomial that goes through these four points by solving the system of linear equations
-	// s(t) = a*t^3 + b*t^2 + c*t + d
-	// [s0; s1; s2; s3] = [   0,   0,   0, 0;
-	//                     1/27, 1/9, 1/3, 0;
-	//                     8/27, 4/9, 2/3, 0;
-	//                        1,   1,   1, 0] = [a; b; c; d]
+	// s(t) = a*t^3 + b*t^2 + c*t + d  (s0=0; d=0)
+	// [s1; s2; s3] = [1/27, 1/9, 1/3;
+	//                 8/27, 4/9, 2/3;
+	//                    1,   1,   1] * [a; b; c]
 	//
 	// After inverting (note that d=0):
 	// [a; b; c] = 0.5 * [ 27, -27,  9;
-	//                    -45,  18, -9;
-	//                      9,  -9,  1] = [s1; s2; s3]
+	//                    -45,  36, -9;
+	//                     18,  -9,  2] * [s1; s2; s3]
 
 	a := 13.5*s1 - 13.5*s2 + 4.5*s3
 	b := -22.5*s1 + 18.0*s2 - 4.5*s3
@@ -133,40 +166,40 @@ func cubicBezierT2S(p0, p1, p2, p3 Point) func(float64) float64 {
 	}
 }
 
-func cubicBezierS2T(p0, p1, p2, p3 Point) func(float64) float64 {
+func cubicBezierInverseLengthFunc(p0, p1, p2, p3 Point) func(float64) float64 {
 	// TODO: split at inflection points
-	s1 := cubicBezierGaussLegendre3(p0, p1, p2, p3, 1.0/3.0)
-	s2 := cubicBezierGaussLegendre3(p0, p1, p2, p3, 2.0/3.0)
-	s3 := cubicBezierGaussLegendre3(p0, p1, p2, p3, 1.0)
-	s1_2 := s1 * s1
-	s2_2 := s2 * s2
-	s3_2 := s3 * s3
-	s1_3 := s1_2 * s1
-	s2_3 := s2_2 * s2
-	s3_3 := s3_2 * s3
-	detS := s1_3*s2_2*s3 + s1_2*s2*s3_3 + s1*s2_3*s3_2 - s1*s2_2*s3_3 - s1_2*s2_3*s3 - s1_3*s2*s3_2
-	m := mat64.NewDense(3, 3, []float64{s1_3, s1_2, s1, s2_3, s2_2, s2, s3_3, s3_2, s3})
-	det := mat64.Det(m)
-	fmt.Println("det", detS, det)
-	fmt.Println(s1, s2, s3)
-	if equal(detS, 0.0) {
-		panic("S matrix not invertible")
-	}
+	speed := func(t float64) float64 { return cubicBezierSpeedAt(p0, p1, p2, p3, t) }
+	gaussLegendre := func(s float64) float64 { return gaussLegendre3(speed, 0.0, s) }
+	s3 := gaussLegendre(1.0)
+	t1 := bisectionMethod(gaussLegendre, (1.0/3.0)*s3)
+	t2 := bisectionMethod(gaussLegendre, (2.0/3.0)*s3)
 
-	a := ((1.0/3.0)*s1_3 + (2.0/3.0)*s2_3 + s3_3) / detS
-	b := ((1.0/3.0)*s1_2 + (2.0/3.0)*s2_2 + s3_2) / detS
-	c := ((1.0/3.0)*s1 + (2.0/3.0)*s2 + s3) / detS
-	fmt.Println(a, b, c)
-	fmt.Println("t1", a*s1_3+b*s1_2+c*s1)
-	fmt.Println("t2", a*s2_3+b*s2_2+c*s2)
-	fmt.Println("t3", a*s3_3+b*s3_2+c*s3)
+	div := 1.0 / (s3 * s3 * s3)
+	a := div * (13.5*t1 - 13.5*t2 + 4.5)
+	b := div * (-22.5*t1*s3 + 18.0*t2*s3 - 4.5*s3)
+	c := div * (9.0*t1*s3*s3 - 4.5*t2*s3*s3 + 1.0*s3*s3)
+
 	return func(s float64) float64 {
 		return a*s*s*s + b*s*s + c*s
 	}
 }
 
-func arcLength(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) float64 {
-	panic("not implemented")
+func ellipseSpeedAt(rx, ry, phi float64) float64 {
+	dx := rx * math.Cos(phi)
+	dy := -ry * math.Sin(phi)
+	return math.Sqrt(dx*dx + dy*dy)
+}
+
+func ellipseLength(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) float64 {
+	_, _, angle0, angle1 := arcToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
+	phi0 := angle0 * math.Pi / 180.0
+	phi1 := angle1 * math.Pi / 180.0
+	if phi1 < phi0 {
+		phi0, phi1 = phi1, phi0
+	}
+
+	speed := func(phi float64) float64 { return ellipseSpeedAt(rx, ry, phi) }
+	return gaussLegendre5(speed, phi0, phi1)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -484,59 +517,7 @@ func flattenCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 	return p
 }
 
-func flattenArc(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point, tolerance float64) *Path {
+func flattenEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point, tolerance float64) *Path {
 	// cx, cy, theta1, theta2 := arcToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
 	panic("not implemented")
-}
-
-func (p *Path) flatten(beziers, arcs bool, tolerance float64) *Path {
-	start := Point{}
-	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
-		switch cmd {
-		case QuadToCmd:
-			if beziers {
-				c := Point{p.d[i+1], p.d[i+2]}
-				end := Point{p.d[i+3], p.d[i+4]}
-				c1, c2 := quadraticToCubicBezier(start, c, end)
-
-				q := flattenCubicBezier(start, c1, c2, end, 0.0, tolerance)
-				p.d = append(p.d[:i], append(q.d, p.d[i+5:]...)...)
-				i += len(q.d)
-				if len(q.d) == 0 {
-					continue
-				}
-			}
-		case CubeToCmd:
-			if beziers {
-				c1 := Point{p.d[i+1], p.d[i+2]}
-				c2 := Point{p.d[i+3], p.d[i+4]}
-				end := Point{p.d[i+5], p.d[i+6]}
-
-				q := flattenCubicBezier(start, c1, c2, end, 0.0, tolerance)
-				p.d = append(p.d[:i], append(q.d, p.d[i+7:]...)...)
-				i += len(q.d)
-				if len(q.d) == 0 {
-					continue
-				}
-			}
-		case ArcToCmd:
-			if arcs {
-				rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
-				largeArc, sweep := fromArcFlags(p.d[i+4])
-				end := Point{p.d[i+5], p.d[i+6]}
-
-				q := flattenArc(start, rx, ry, rot, largeArc, sweep, end, tolerance)
-				p.d = append(p.d[:i], append(q.d, p.d[i+7:]...)...)
-				i += len(q.d)
-				if len(q.d) == 0 {
-					continue
-				}
-			}
-		default:
-			i += cmdLen(cmd)
-		}
-		start = Point{p.d[i-2], p.d[i-1]}
-	}
-	return p
 }
