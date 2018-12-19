@@ -220,7 +220,7 @@ func (c *PDF) DrawPath(x, y float64, p *Path) {
 			x2 := p.d[i+5]
 			y2 := p.d[i+6]
 
-			cx, cy, angle1, angle2 := arcToCenter(x1, y1, rx, ry, rot, largeArc, sweep, x2, y2)
+			cx, cy, angle1, angle2 := ellipseToCenter(x1, y1, rx, ry, rot, largeArc, sweep, x2, y2)
 			c.f.ArcTo(cx, cy, rx, ry, rot, -angle1, -angle2)
 		case CloseCmd:
 			c.f.ClosePath()
@@ -296,11 +296,11 @@ func (c *Image) DrawPath(x, y float64, p *Path) {
 			x2 := p.d[i+5]
 			y2 := p.d[i+6]
 
-			cx, cy, angle1, angle2 := arcToCenter(x1, y1, rx, ry, rot, largeArc, sweep, x2, y2)
+			cx, cy, angle1, angle2 := ellipseToCenter(x1, y1, rx, ry, rot, largeArc, sweep, x2, y2)
 			angle1 *= math.Pi / 180
 			angle2 *= math.Pi / 180
 
-			// TODO: improve like flattenBezier
+			// TODO: use dynamic step size
 			// from https://github.com/fogleman/gg/blob/master/context.go#L485
 			const n = 16
 			for i := 0; i < n; i++ {

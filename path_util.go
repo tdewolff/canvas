@@ -4,9 +4,9 @@ import (
 	"math"
 )
 
-// arcToEndpoints converts to the endpoint arc format and returns (startX, startY, largeArc, sweep, endX, endY)
+// ellipseToEndpoints converts to the endpoint arc format and returns (startX, startY, largeArc, sweep, endX, endY)
 // see https://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
-func arcToEndpoint(cx, cy, rx, ry, rot, theta1, theta2 float64) (float64, float64, bool, bool, float64, float64) {
+func ellipseToEndpoint(cx, cy, rx, ry, rot, theta1, theta2 float64) (float64, float64, bool, bool, float64, float64) {
 	x1 := math.Cos(rot)*rx*math.Cos(theta1) - math.Sin(rot)*ry*math.Sin(theta1) + cx
 	y1 := math.Sin(rot)*rx*math.Cos(theta1) + math.Cos(rot)*ry*math.Sin(theta1) + cy
 	x2 := math.Cos(rot)*rx*math.Cos(theta2) - math.Sin(rot)*ry*math.Sin(theta2) + cx
@@ -16,9 +16,10 @@ func arcToEndpoint(cx, cy, rx, ry, rot, theta1, theta2 float64) (float64, float6
 	return x1, y1, largeArc, sweep, x2, y2
 }
 
-// arcToCenter converts to the center arc format and returns (centerX, centerY, angleFrom, angleTo)
+// ellipseToCenter converts to the center arc format and returns (centerX, centerY, angleFrom, angleTo)
 // see https://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
-func arcToCenter(x1, y1, rx, ry, rot float64, large, sweep bool, x2, y2 float64) (float64, float64, float64, float64) {
+// TODO: return in radians?
+func ellipseToCenter(x1, y1, rx, ry, rot float64, large, sweep bool, x2, y2 float64) (float64, float64, float64, float64) {
 	if x1 == x2 && y1 == y2 {
 		return x1, y1, 0.0, 0.0
 	}
@@ -72,11 +73,11 @@ func arcToCenter(x1, y1, rx, ry, rot float64, large, sweep bool, x2, y2 float64)
 	return cx, cy, theta, theta + delta
 }
 
-func splitArc() {
+func splitEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) (Point, bool, bool, bool, bool) {
 	panic("not implemented")
 }
 
-func arcNormal(theta float64) Point {
+func ellipseNormal(theta float64) Point {
 	theta *= math.Pi / 180.0
 	y, x := math.Sincos(theta)
 	return Point{x, y}
@@ -191,7 +192,7 @@ func ellipseSpeedAt(rx, ry, phi float64) float64 {
 }
 
 func ellipseLength(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) float64 {
-	_, _, angle0, angle1 := arcToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
+	_, _, angle0, angle1 := ellipseToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
 	phi0 := angle0 * math.Pi / 180.0
 	phi1 := angle1 * math.Pi / 180.0
 	if phi1 < phi0 {
@@ -443,6 +444,7 @@ func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float6
 // or https://docs.rs/crate/lyon_bezier/0.4.1/source/src/flatten_cubic.rs
 // p0, p1, p2, p3 are the start points, two control points and the end points respectively. With flatness defined as
 // the maximum error from the orinal curve, and d the half width of the curve used for stroking (positive is to the right).
+// TODO: use ellipse arcs for better results
 func flattenCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 	p := &Path{}
 	// 0 <= t1 <= 1 if t1 exists
@@ -518,6 +520,5 @@ func flattenCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 }
 
 func flattenEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point, tolerance float64) *Path {
-	// cx, cy, theta1, theta2 := arcToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
 	panic("not implemented")
 }
