@@ -21,6 +21,11 @@ The common interface allows to draw either paths or text. All positions and size
 
 ### TODO
 
+General
+
+* Add PostScript / EPS as a target
+* Improve PDF support
+
 Fonts
 
 * Get rid of FontFace and pass font size for all function calls?
@@ -35,6 +40,7 @@ Paths
 * Add path splitting at lengths -> support converting path into dashes and spacings
 * Add offsetting of path (expand / contract), tricky with overlap
 * Add support for easier usage of projections / viewboxes?
+* Convert lines to cubic Beziérs to smooth out the path
 
 Optimization
 
@@ -42,6 +48,8 @@ Optimization
 * Optimize/minify paths from and to SVG
 * Optimize paths by replacing Quad/Cube/Arc to line if they are linear (eg. p0=p1=p2 for cubic Bezier)
 * Optimize paths by removing the last Line if followed by Close
+* Approximate Beziérs by arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (check)
+* Approximate arcs by Beziérs given a tolerance for use in the rasterizer
 
 ## Paths
 A large deal of this library implements functionality for building paths. Any path can be constructed from a few basic operations, see below. The successive commands start from the current pen position (from the previous command's end point) and are draw towards a new end point. A path can consist of multiple path segments (multiple MoveTos), but be aware that overlapping paths will cancel each other.
@@ -63,8 +71,8 @@ p.Empty() bool // returns boolean
 p.Pos() (x float64, y float64) // current pen position
 p.StartPos() (x0 float64, y0 float64) // position of last MoveTo
 p.String() string // to SVG path
-p.Bounds() Rect // bounding box of path
-p.Length() float64 // length of path in millimeters
+p.Bounds() Rect // PLANNED: bounding box of path
+p.Length() float64 // PLANNED: length of path in millimeters
 ```
 
 These paths can be manipulated and transformed with the following commands. Each will return a pointer to the path.
@@ -81,7 +89,7 @@ p.Rotate(rot, x, y) // with the rotation rot in degrees, around point (x,y)
 
 p.Flatten(tolerance) // flatten Bézier and arc commands to straight lines, with a maximum deviation of tolarance
 p.Stroke(width, capper, joiner, tolerance) // create a stroke from a path of certain width, using capper and joiner for caps and joins
-p.Dash(d...) // create dashed path with lengths d which are alternating the dash and the space
+p.Dash(d...) // PLANNED: create dashed path with lengths d which are alternating the dash and the space
 ```
 
 ## Example
