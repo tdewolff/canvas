@@ -127,7 +127,7 @@ func (c *SVG) writeF(f float64) {
 }
 
 func (c *SVG) DrawPath(x, y float64, p *Path) {
-	p = p.Translate(x, y)
+	p = p.Copy().Translate(x, y)
 	c.w.Write([]byte("<path d=\""))
 	c.w.Write([]byte(p.String()))
 	if c.color != color.Black {
@@ -198,7 +198,7 @@ func (c *PDF) SetFont(fontFace FontFace) {
 }
 
 func (c *PDF) DrawPath(x, y float64, p *Path) {
-	p = p.Translate(x, y)
+	p = p.Copy().Translate(x, y)
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
@@ -273,7 +273,7 @@ func (c *Image) SetFont(fontFace FontFace) {
 }
 
 func (c *Image) DrawPath(x, y float64, p *Path) {
-	p = p.Translate(x, y)
+	p = p.Copy().Translate(x, y)
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
