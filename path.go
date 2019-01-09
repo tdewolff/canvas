@@ -701,89 +701,229 @@ func ParseSVGPath(s string) (*Path, error) {
 
 // String returns a string that represents the path in the SVG path data format.
 func (p *Path) String() string {
-	svg := strings.Builder{}
+	return p.ToSVG()
+}
+
+// ToSVG returns a string that represents the path in the SVG path data format.
+func (p *Path) ToSVG() string {
+	sb := strings.Builder{}
 	x, y := 0.0, 0.0
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
-		svg.WriteString("M0 0")
+		sb.WriteString("M0 0")
 	}
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
 		case MoveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
-			svg.WriteString("M")
-			svg.WriteString(ftos(x))
-			svg.WriteString(" ")
-			svg.WriteString(ftos(y))
+			sb.WriteString("M")
+			sb.WriteString(ftos(x))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(y))
 		case LineToCmd:
 			xStart, yStart := x, y
 			x, y = p.d[i+1], p.d[i+2]
 			if equal(x, xStart) && equal(y, yStart) {
 				// nothing
 			} else if equal(x, xStart) {
-				svg.WriteString("V")
-				svg.WriteString(ftos(y))
+				sb.WriteString("V")
+				sb.WriteString(ftos(y))
 			} else if equal(y, yStart) {
-				svg.WriteString("H")
-				svg.WriteString(ftos(x))
+				sb.WriteString("H")
+				sb.WriteString(ftos(x))
 			} else {
-				svg.WriteString("L")
-				svg.WriteString(ftos(x))
-				svg.WriteString(" ")
-				svg.WriteString(ftos(y))
+				sb.WriteString("L")
+				sb.WriteString(ftos(x))
+				sb.WriteString(" ")
+				sb.WriteString(ftos(y))
 			}
 		case QuadToCmd:
 			x, y = p.d[i+3], p.d[i+4]
-			svg.WriteString("Q")
-			svg.WriteString(ftos(p.d[i+1]))
-			svg.WriteString(" ")
-			svg.WriteString(ftos(p.d[i+2]))
-			svg.WriteString(" ")
-			svg.WriteString(ftos(x))
-			svg.WriteString(" ")
-			svg.WriteString(ftos(y))
+			sb.WriteString("Q")
+			sb.WriteString(ftos(p.d[i+1]))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(p.d[i+2]))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(x))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(y))
 		case CubeToCmd:
 			x, y = p.d[i+5], p.d[i+6]
-			svg.WriteString("C")
-			svg.WriteString(ftos(p.d[i+1]))
-			svg.WriteString(" ")
-			svg.WriteString(ftos(p.d[i+2]))
-			svg.WriteString(" ")
-			svg.WriteString(ftos(p.d[i+3]))
-			svg.WriteString(" ")
-			svg.WriteString(ftos(p.d[i+4]))
-			svg.WriteString(" ")
-			svg.WriteString(ftos(x))
-			svg.WriteString(" ")
-			svg.WriteString(ftos(y))
+			sb.WriteString("C")
+			sb.WriteString(ftos(p.d[i+1]))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(p.d[i+2]))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(p.d[i+3]))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(p.d[i+4]))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(x))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(y))
 		case ArcToCmd:
 			x, y = p.d[i+5], p.d[i+6]
-			svg.WriteString("A")
-			svg.WriteString(ftos(p.d[i+1]))
-			svg.WriteString(" ")
-			svg.WriteString(ftos(p.d[i+2]))
-			svg.WriteString(" ")
-			svg.WriteString(ftos(p.d[i+3]))
-			svg.WriteString(" ")
+			sb.WriteString("A")
+			sb.WriteString(ftos(p.d[i+1]))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(p.d[i+2]))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(p.d[i+3]))
+			sb.WriteString(" ")
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			if largeArc {
-				svg.WriteString("1 ")
+				sb.WriteString("1 ")
 			} else {
-				svg.WriteString("0 ")
+				sb.WriteString("0 ")
 			}
 			if sweep {
-				svg.WriteString("1 ")
+				sb.WriteString("1 ")
 			} else {
-				svg.WriteString("0 ")
+				sb.WriteString("0 ")
 			}
-			svg.WriteString(ftos(x))
-			svg.WriteString(" ")
-			svg.WriteString(ftos(y))
+			sb.WriteString(ftos(x))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(y))
 		case CloseCmd:
 			x, y = p.d[i+1], p.d[i+2]
-			svg.WriteString("z")
+			sb.WriteString("z")
 		}
 		i += cmdLen(cmd)
 	}
-	return svg.String()
+	return sb.String()
+}
+
+// ToPS returns a string that represents the path in the PostScript data format.
+func (p *Path) ToPS() string {
+	sb := strings.Builder{}
+	ellipsesDefined := false
+	x, y := 0.0, 0.0
+	if len(p.d) > 0 && p.d[0] != MoveToCmd {
+		sb.WriteString(" 0 0 moveto")
+	}
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		switch cmd {
+		case MoveToCmd:
+			x, y = p.d[i+1], p.d[i+2]
+			sb.WriteString(" ")
+			sb.WriteString(ftos(x))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(y))
+			sb.WriteString(" moveto")
+		case LineToCmd:
+			x, y = p.d[i+1], p.d[i+2]
+			sb.WriteString(" ")
+			sb.WriteString(ftos(x))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(y))
+			sb.WriteString(" lineto")
+		case QuadToCmd, CubeToCmd:
+			var start, c1, c2 Point
+			start = Point{x, y}
+			if cmd == QuadToCmd {
+				x, y = p.d[i+3], p.d[i+4]
+				c1, c2 = quadraticToCubicBezier(start, Point{p.d[i+1], p.d[i+2]}, Point{x, y})
+			} else {
+				c1 = Point{p.d[i+1], p.d[i+2]}
+				c2 = Point{p.d[i+3], p.d[i+4]}
+				x, y = p.d[i+5], p.d[i+6]
+			}
+			sb.WriteString(" ")
+			sb.WriteString(ftos(c1.X))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(c1.Y))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(c2.X))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(c2.Y))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(x))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(y))
+			sb.WriteString(" curveto")
+		case ArcToCmd:
+			x0, y0 := x, y
+			rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
+			largeArc, sweep := fromArcFlags(p.d[i+4])
+			x, y = p.d[i+5], p.d[i+6]
+
+			isEllipse := !equal(rx, ry)
+			if isEllipse && !ellipsesDefined {
+				sb.WriteString(` /ellipse {
+/endangle exch def
+/startangle exch def
+/yrad exch def
+/xrad exch def
+/y exch def
+/x exch def
+/savematrix matrix currentmatrix def
+x y translate
+xrad yrad scale
+0 0 1 startangle endangle arc
+savematrix setmatrix
+} def /ellipsen {
+/endangle exch def
+/startangle exch def
+/yrad exch def
+/xrad exch def
+/y exch def
+/x exch def
+/savematrix matrix currentmatrix def
+x y translate
+xrad yrad scale
+0 0 1 startangle endangle arcn
+savematrix setmatrix
+} def`)
+				ellipsesDefined = true
+			}
+
+			cx, cy, theta0, theta1 := arcToCenter(x0, y0, rx, ry, rot, largeArc, sweep, x, y)
+			fmt.Println(theta0, theta1)
+			sb.WriteString(" ")
+
+			if !equal(rot, 0.0) {
+				sb.WriteString(ftos(cx))
+				sb.WriteString(" ")
+				sb.WriteString(ftos(cy))
+				sb.WriteString(" translate ")
+				sb.WriteString(ftos(rot))
+				sb.WriteString(" rotate ")
+				sb.WriteString(ftos(-cx))
+				sb.WriteString(" ")
+				sb.WriteString(ftos(-cy))
+				sb.WriteString(" translate ")
+			}
+
+			sb.WriteString(ftos(cx))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(cy))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(rx))
+			if isEllipse {
+				sb.WriteString(" ")
+				sb.WriteString(ftos(ry))
+			}
+			sb.WriteString(" ")
+			sb.WriteString(ftos(theta0))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(theta1))
+			if isEllipse {
+				sb.WriteString(" ellipse")
+			} else {
+				sb.WriteString(" arc")
+			}
+			if !sweep {
+				sb.WriteString("n")
+			}
+			if !equal(rot, 0.0) {
+				sb.WriteString(" initmatrix")
+			}
+		case CloseCmd:
+			x, y = p.d[i+1], p.d[i+2]
+			sb.WriteString(" closepath")
+		}
+		i += cmdLen(cmd)
+	}
+	return sb.String()[1:] // remove the first space
 }
