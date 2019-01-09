@@ -389,6 +389,14 @@ func (p *Path) Scale(x, y float64) *Path {
 			p.d[i+5] *= x
 			p.d[i+6] *= y
 		case ArcToCmd:
+			p.d[i+1] *= math.Abs(x)
+			p.d[i+2] *= math.Abs(y)
+			largeArc, sweep := fromArcFlags(p.d[i+4])
+			if x*y < 0.0 {
+				p.d[i+3] *= -1.0
+				sweep = !sweep
+			}
+			p.d[i+4] = toArcFlags(largeArc, sweep)
 			p.d[i+5] *= x
 			p.d[i+6] *= y
 		}
