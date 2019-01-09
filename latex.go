@@ -20,10 +20,10 @@ import (
 // ParseLaTeX parses a LaTeX formatted string into a path. It requires latex and dvisvgm to be installed on the machine.
 // The content is surrounded by
 //   \documentclass{article}
-//    \begin{document}
-//    \thispagestyle{empty}
-//    {{input}}
-//    \end{document}`
+//   \begin{document}
+//   \thispagestyle{empty}
+//   {{input}}
+//   \end{document}
 func ParseLaTeX(s string) (*Path, error) {
 	tmpDir, err := ioutil.TempDir("", "tdewolff-")
 	if err != nil {
