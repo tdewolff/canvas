@@ -1,13 +1,10 @@
 package main
 
 import (
-	_ "fmt"
 	"image/color"
 	"image/png"
-	_ "image/png"
 	"os"
 
-	_ "github.com/jung-kurt/gofpdf"
 	"github.com/tdewolff/canvas"
 )
 
@@ -81,15 +78,6 @@ func drawText(c canvas.C, x, y float64, size float64, text string) {
 
 func Draw(c canvas.C) {
 	c.Open(180, 70)
-
-	//drawStrokedPath(c, 5, 20, "C0 -20 20 -20 20 0z")
-	//drawStrokedPath(c, 30, 20, "C10 -20 10 -20 20 0z")
-	//drawStrokedPath(c, 55, 20, "C20 -20 0 -20 20 0z")
-	//drawStrokedPath(c, 5, 50, "C0 0 0 -20 20 0z")
-	//drawStrokedPath(c, 30, 50, "C0 -20 0 0 20 0z")
-	//drawStrokedPath(c, 55, 50, "C0 -20 0 0 0 0z")
-	//drawStrokedPath(c, 80, 50, "C0 0 0 -20 0 0z")
-	//drawStrokedPath(c, 80, 50, "C0 0 0 0 0 0z")
 
 	drawText(c, 10, 20, 12.0, "Aap noot mies")
 

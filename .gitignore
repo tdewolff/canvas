@@ -1,4 +1,7 @@
 example/example.*
+!example/example.go
+example/test.*
+!example/test.go
 *.ttf
 *.otf
 *.woff
