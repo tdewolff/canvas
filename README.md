@@ -24,13 +24,14 @@ The common interface allows to draw either paths or text. All positions and size
 General
 
 * Add PostScript / EPS as a target
-* Improve PDF support
 
 Fonts
 
-* Get rid of FontFace and pass font size for all function calls?
 * Support WOFF and WOFF2 font formats
 * Support ligatures and font hinting
+* Support embedding only used characters
+* Support Type1 font format?
+* Improve PDF font embedding (don't require pre-compiled .json file)
 
 Paths
 
