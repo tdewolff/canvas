@@ -113,7 +113,7 @@ func (c *C) DrawPath(x, y float64, p *Path) {
 
 func (c *C) DrawText(x, y float64, s string) {
 	c.layers = append(c.layers, layer{textLayer, x, y, c.color, c.fontFace, nil, s})
-	c.fonts = append(c.fonts, c.fontFace.font)
+	c.fonts = append(c.fonts, c.fontFace.f)
 }
 
 func (c *C) WriteSVG(w io.Writer) {

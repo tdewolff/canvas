@@ -26,7 +26,7 @@ type Font struct {
 	mimetype string
 	raw      []byte
 
-	font  *sfnt.Font
+	sfnt  *sfnt.Font
 	name  string
 	style FontStyle
 }
@@ -71,7 +71,7 @@ func LoadFont(name string, style FontStyle, b []byte) (Font, error) {
 		return Font{}, fmt.Errorf("unrecognized font file format")
 	}
 
-	f, err := sfnt.Parse(b)
+	sfnt, err := sfnt.Parse(b)
 	if err != nil {
 		return Font{}, err
 	}
@@ -79,7 +79,7 @@ func LoadFont(name string, style FontStyle, b []byte) (Font, error) {
 	return Font{
 		mimetype: mimetype,
 		raw:      b,
-		font:     f,
+		sfnt:     sfnt,
 		name:     name,
 		style:    style,
 	}, nil
@@ -89,9 +89,7 @@ func LoadFont(name string, style FontStyle, b []byte) (Font, error) {
 func (f *Font) Face(size, dpi float64) FontFace {
 	// TODO: add hinting
 	return FontFace{
-		font:    f.font,
-		name:    f.name,
-		style:   f.style,
+		f:       f,
 		size:    size,
 		ppem:    toI26_6(size * (dpi / 72.0)),
 		hinting: font.HintingNone,
@@ -107,9 +105,7 @@ type Metrics struct {
 }
 
 type FontFace struct {
-	font    *sfnt.Font
-	name    string
-	style   FontStyle
+	f       *Font
 	size    float64
 	ppem    fixed.Int26_6
 	hinting font.Hinting
@@ -117,12 +113,12 @@ type FontFace struct {
 
 // Info returns the font name, style and size.
 func (ff FontFace) Info() (name string, style FontStyle, size float64) {
-	return ff.name, ff.style, ff.size
+	return ff.f.name, ff.f.style, ff.size
 }
 
 // Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explaination of the different metrics.
 func (ff FontFace) Metrics() Metrics {
-	m, _ := ff.font.Metrics(&sfntBuffer, ff.ppem, ff.hinting)
+	m, _ := ff.f.sfnt.Metrics(&sfntBuffer, ff.ppem, ff.hinting)
 	return Metrics{
 		LineHeight: math.Abs(fromI26_6(m.Height)),
 		Ascent:     math.Abs(fromI26_6(m.Ascent)),
@@ -154,18 +150,18 @@ func (ff FontFace) textWidth(s string) float64 {
 	x := 0.0
 	var prevIndex sfnt.GlyphIndex
 	for i, r := range s {
-		index, err := ff.font.GlyphIndex(&sfntBuffer, r)
+		index, err := ff.f.sfnt.GlyphIndex(&sfntBuffer, r)
 		if err != nil {
 			continue
 		}
 
 		if i != 0 {
-			kern, err := ff.font.Kern(&sfntBuffer, prevIndex, index, ff.ppem, ff.hinting)
+			kern, err := ff.f.sfnt.Kern(&sfntBuffer, prevIndex, index, ff.ppem, ff.hinting)
 			if err == nil {
 				x += fromI26_6(kern)
 			}
 		}
-		advance, err := ff.font.GlyphAdvance(&sfntBuffer, index, ff.ppem, ff.hinting)
+		advance, err := ff.f.sfnt.GlyphAdvance(&sfntBuffer, index, ff.ppem, ff.hinting)
 		if err == nil {
 			x += fromI26_6(advance)
 		}
@@ -192,19 +188,19 @@ func (ff FontFace) ToPath(s string) *Path {
 	for _, s := range splitNewlines(s) {
 		var prevIndex sfnt.GlyphIndex
 		for i, r := range s {
-			index, err := ff.font.GlyphIndex(&sfntBuffer, r)
+			index, err := ff.f.sfnt.GlyphIndex(&sfntBuffer, r)
 			if err != nil {
 				continue
 			}
 
 			if i > 0 {
-				kern, err := ff.font.Kern(&sfntBuffer, prevIndex, index, ff.ppem, ff.hinting)
+				kern, err := ff.f.sfnt.Kern(&sfntBuffer, prevIndex, index, ff.ppem, ff.hinting)
 				if err == nil {
 					x += fromI26_6(kern)
 				}
 			}
 
-			segments, err := ff.font.LoadGlyph(&sfntBuffer, index, ff.ppem, nil)
+			segments, err := ff.f.sfnt.LoadGlyph(&sfntBuffer, index, ff.ppem, nil)
 			if err != nil {
 				continue
 			}
@@ -237,7 +233,7 @@ func (ff FontFace) ToPath(s string) *Path {
 				p.Close()
 			}
 
-			advance, err := ff.font.GlyphAdvance(&sfntBuffer, index, ff.ppem, ff.hinting)
+			advance, err := ff.f.sfnt.GlyphAdvance(&sfntBuffer, index, ff.ppem, ff.hinting)
 			if err == nil {
 				x += fromI26_6(advance)
 			}
