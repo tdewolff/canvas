@@ -47,6 +47,15 @@ func main() {
 	pdfFile.AddFont("DejaVuSerif", "", "DejaVuSerif.json")
 	c.WritePDF(pdfFile)
 	_ = pdfFile.OutputFileAndClose("example.pdf")
+
+	////////////////
+
+	epsFile, err := os.Create("example.eps")
+	if err != nil {
+		panic(err)
+	}
+	defer epsFile.Close()
+	c.WriteEPS(epsFile)
 }
 
 func drawStrokedPath(c *canvas.C, x, y float64, path string) {

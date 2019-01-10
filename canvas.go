@@ -54,6 +54,18 @@ func writeCSSColor(w io.Writer, c color.Color) {
 	}
 }
 
+func writePSColor(w io.Writer, c color.Color) {
+	r, g, b, _ := c.RGBA()
+	rf, gf, bf := float64(r)/65535.0, float64(g)/65535.0, float64(b)/65535.0
+
+	writeFloat64(w, rf)
+	w.Write([]byte(" "))
+	writeFloat64(w, gf)
+	w.Write([]byte(" "))
+	writeFloat64(w, bf)
+	w.Write([]byte(" setrgbcolor"))
+}
+
 func writeFloat64(w io.Writer, f float64) {
 	buf := []byte{}
 	w.Write(strconv.AppendFloat(buf, f, 'g', 5, 64))
@@ -236,9 +248,9 @@ func (c *C) WriteImage() *image.RGBA {
 	ras := vector.NewRasterizer(int(c.w*dpm), int(c.h*dpm))
 
 	bg := Rectangle(0.0, 0.0, c.w, c.h)
-	c.layers = append([]layer{{pathLayer, 0.0, 0.0, color.White, FontFace{}, bg, ""}}, c.layers...)
+	layers := append([]layer{{pathLayer, 0.0, 0.0, color.White, FontFace{}, bg, ""}}, c.layers...)
 
-	for _, l := range c.layers {
+	for _, l := range layers {
 		if l.t == textLayer {
 			l.path = l.fontFace.ToPath(l.text)
 			l.t = pathLayer
@@ -301,4 +313,30 @@ func (c *C) WriteImage() *image.RGBA {
 		}
 	}
 	return img
+}
+
+func (c *C) WriteEPS(w io.Writer) {
+	w.Write([]byte("%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 "))
+	writeFloat64(w, c.w)
+	w.Write([]byte(" "))
+	writeFloat64(w, c.h)
+	w.Write([]byte("\n"))
+
+	// TODO: generate preview
+	// TODO: embed fonts (convert TTF to Type 42)
+
+	bg := Rectangle(0.0, 0.0, c.w, c.h)
+	layers := append([]layer{{pathLayer, 0.0, 0.0, color.White, FontFace{}, bg, ""}}, c.layers...)
+
+	for _, l := range layers {
+		writePSColor(w, l.color)
+		w.Write([]byte("\n"))
+
+		if l.t == pathLayer {
+			p := l.path.Copy().Translate(l.x, l.y).Scale(1.0, -1.0).Translate(0.0, c.h)
+			w.Write([]byte(p.ToPS()))
+			w.Write([]byte(" fill\n"))
+		}
+		// TODO: print text
+	}
 }

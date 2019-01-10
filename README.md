@@ -1,15 +1,11 @@
 # Canvas <a name="canvas"></a> [![GoDoc](http://godoc.org/github.com/tdewolff/canvas?status.svg)](http://godoc.org/github.com/tdewolff/canvas)
 
-Canvas is a common vector drawing target that can output SVG, PDF and raster images (which can be saved as PNG, JPG, ...).
+Canvas is a common vector drawing target that can output SVG, PDF, EPS and raster images (which can be saved as PNG, JPG, ...).
 
 ![Example](https://raw.githubusercontent.com/tdewolff/canvas/master/canvas.png)
 
 
 ## Planning
-
-General
-
-* Add PostScript / EPS as a target
 
 Fonts
 
@@ -47,14 +43,18 @@ c.SetColor(color)
 c.SetFont(fontFace)
 c.DrawPath(x, y, path)
 c.DrawText(x, y, text)
+
+c.WriteSVG(w)
+c.WritePDF(pdf)             // will accept io.Writer soon
+c.WriteImage() *image.RGBA
+c.WriteEPS(w)               // WIP
 ```
 
 Canvas allows to draw either paths or text. All positions and sizes are given in millimeters.
 
 ## Fonts
 ``` go
-// support TTF or OTF
-dejaVuSerif, err := canvas.LoadFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
+dejaVuSerif, err := canvas.LoadFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")  // TTF, OTF
 
 ff := dejaVuSerif.Face(12.0, 72.0)      // size and DPI
 ff.Info() (string, FontStyle, float64)  // name, style, size
