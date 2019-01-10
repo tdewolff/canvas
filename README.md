@@ -53,7 +53,9 @@ Canvas allows to draw either paths or text. All positions and sizes are given in
 
 ## Fonts
 ``` go
+// support TTF or OTF
 dejaVuSerif, err := canvas.LoadFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
+
 ff := dejaVuSerif.Face(12.0, 72.0)      // size and DPI
 ff.Info() (string, FontStyle, float64)  // name, style, size
 ff.Metrics() Metrics                    // font metrics such as line height
@@ -67,24 +69,24 @@ A large deal of this library implements functionality for building paths. Any pa
 
 ``` go
 p := &Path{}
-p.MoveTo(x, y)  // new path segment starting at (x,y)
-p.LineTo(x, y)  // straight line to (x,y)
+p.MoveTo(x, y)                               // new path segment starting at (x,y)
+p.LineTo(x, y)                               // straight line to (x,y)
 p.QuadTo(cpx, cpy, x, y)                     // a quadratic Bézier with control point (cpx,cpy) and end point (x,y)
 p.CubeTo(cp1x, cp1y, cp2x, cp2y, x, y)       // a cubic Bézier with control points (cp1x,cp1y), (cp2x,cp2y) and end point (x,y)
 p.ArcTo(rx, ry, rot, largeArc, sweep, x, y)  // an arc of an ellipse with radii (rx,ry), rotated by rot (in degrees), with flags largeArc and sweep (booleans, see https://www.w3.org/TR/SVG/paths.html#PathDataEllipticalArcCommands)
-p.Close()  // close the path, essentially a LineTo to the last MoveTo location
+p.Close()                                    // close the path, essentially a LineTo to the last MoveTo location
 ```
 
 We can extract information from these paths using:
 
 ``` go
-p.Empty() bool                         // returns boolean
-p.Pos() (x float64, y float64)         // current pen position
-p.StartPos() (x0 float64, y0 float64)  // position of last MoveTo
-p.Bounds() Rect                        // WIP: bounding box of path
-p.Length() float64                     // WIP: length of path in millimeters
-p.ToSVG() string                       // to SVG path
-p.ToPS() string                        // to PostScript
+p.Empty() bool                   // returns boolean
+p.Pos() (float64, float64)       // current pen position
+p.StartPos() (float64, float64)  // position of last MoveTo
+p.Bounds() Rect                  // WIP: bounding box of path
+p.Length() float64               // WIP: length of path in millimeters
+p.ToSVG() string                 // to SVG path
+p.ToPS() string                  // to PostScript
 ```
 
 These paths can be manipulated and transformed with the following commands. Each will return a pointer to the path.
