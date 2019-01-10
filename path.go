@@ -444,54 +444,57 @@ func (p *Path) Rotate(rot, x, y float64) *Path {
 
 // Flatten flattens all Bézier and arc curves. It replaces the curves by linear segments, under the constraint that the maximum deviation is up to tolerance.
 func (p *Path) Flatten(tolerance float64) *Path {
-	return p.flatten(true, true, tolerance)
+	return p.Replace(nil, flattenCubicBezier, flattenEllipse, tolerance)
 }
 
-func (p *Path) flatten(beziers, arcs bool, tolerance float64) *Path {
+type LineReplacer func(Point, Point, float64) *Path
+type BezierReplacer func(Point, Point, Point, Point, float64) *Path
+type ArcReplacer func(Point, float64, float64, float64, bool, bool, Point, float64) *Path
+
+func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer, tolerance float64) *Path {
 	start := Point{}
 	for i := 0; i < len(p.d); {
+		var q *Path
 		cmd := p.d[i]
 		switch cmd {
+		case LineToCmd, CloseCmd:
+			if line != nil {
+				end := Point{p.d[i+1], p.d[i+2]}
+				q = line(start, end, tolerance)
+				if cmd == CloseCmd {
+					q.Close()
+				}
+			}
 		case QuadToCmd:
-			if beziers {
+			if bezier != nil {
 				c := Point{p.d[i+1], p.d[i+2]}
 				end := Point{p.d[i+3], p.d[i+4]}
 				c1, c2 := quadraticToCubicBezier(start, c, end)
-
-				q := flattenCubicBezier(start, c1, c2, end, 0.0, tolerance)
-				p.d = append(p.d[:i], append(q.d, p.d[i+5:]...)...)
-				i += len(q.d)
-				if len(q.d) == 0 {
-					continue
-				}
+				q = bezier(start, c1, c2, end, tolerance)
 			}
 		case CubeToCmd:
-			if beziers {
+			if bezier != nil {
 				c1 := Point{p.d[i+1], p.d[i+2]}
 				c2 := Point{p.d[i+3], p.d[i+4]}
 				end := Point{p.d[i+5], p.d[i+6]}
-
-				q := flattenCubicBezier(start, c1, c2, end, 0.0, tolerance)
-				p.d = append(p.d[:i], append(q.d, p.d[i+7:]...)...)
-				i += len(q.d)
-				if len(q.d) == 0 {
-					continue
-				}
+				q = bezier(start, c1, c2, end, tolerance)
 			}
 		case ArcToCmd:
-			if arcs {
+			if arc != nil {
 				rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
 				largeArc, sweep := fromArcFlags(p.d[i+4])
 				end := Point{p.d[i+5], p.d[i+6]}
-
-				q := flattenEllipse(start, rx, ry, rot, largeArc, sweep, end, tolerance)
-				p.d = append(p.d[:i], append(q.d, p.d[i+7:]...)...)
-				i += len(q.d)
-				if len(q.d) == 0 {
-					continue
-				}
+				q = arc(start, rx, ry, rot, largeArc, sweep, end, tolerance)
 			}
-		default:
+		}
+
+		if q != nil {
+			p.d = append(p.d[:i], append(q.d, p.d[i+cmdLen(cmd):]...)...)
+			i += len(q.d)
+			if q.Empty() {
+				continue
+			}
+		} else {
 			i += cmdLen(cmd)
 		}
 		start = Point{p.d[i-2], p.d[i-1]}
@@ -758,6 +761,8 @@ func (p *Path) String() string {
 
 // ToSVG returns a string that represents the path in the SVG path data format.
 func (p *Path) ToSVG() string {
+	p = p.Copy().Replace(nil, nil, ellipseToBeziers, 0.1)
+
 	sb := strings.Builder{}
 	x, y := 0.0, 0.0
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
@@ -973,6 +978,67 @@ savematrix setmatrix
 		case CloseCmd:
 			x, y = p.d[i+1], p.d[i+2]
 			sb.WriteString(" closepath")
+		}
+		i += cmdLen(cmd)
+	}
+	return sb.String()[1:] // remove the first space
+}
+
+// ToPDF returns a string that represents the path in the PDF data format.
+func (p *Path) ToPDF() string {
+	p = p.Copy().Replace(nil, nil, ellipseToBeziers, 0.1)
+
+	sb := strings.Builder{}
+	x, y := 0.0, 0.0
+	if len(p.d) > 0 && p.d[0] != MoveToCmd {
+		sb.WriteString(" 0 0 m")
+	}
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		switch cmd {
+		case MoveToCmd:
+			x, y = p.d[i+1], p.d[i+2]
+			sb.WriteString(" ")
+			sb.WriteString(ftos(x))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(y))
+			sb.WriteString(" m")
+		case LineToCmd:
+			x, y = p.d[i+1], p.d[i+2]
+			sb.WriteString(" ")
+			sb.WriteString(ftos(x))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(y))
+			sb.WriteString(" l")
+		case QuadToCmd, CubeToCmd:
+			var start, c1, c2 Point
+			start = Point{x, y}
+			if cmd == QuadToCmd {
+				x, y = p.d[i+3], p.d[i+4]
+				c1, c2 = quadraticToCubicBezier(start, Point{p.d[i+1], p.d[i+2]}, Point{x, y})
+			} else {
+				c1 = Point{p.d[i+1], p.d[i+2]}
+				c2 = Point{p.d[i+3], p.d[i+4]}
+				x, y = p.d[i+5], p.d[i+6]
+			}
+			sb.WriteString(" ")
+			sb.WriteString(ftos(c1.X))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(c1.Y))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(c2.X))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(c2.Y))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(x))
+			sb.WriteString(" ")
+			sb.WriteString(ftos(y))
+			sb.WriteString(" c")
+		case ArcToCmd:
+			panic("arcs should have been replaced")
+		case CloseCmd:
+			x, y = p.d[i+1], p.d[i+2]
+			sb.WriteString(" h")
 		}
 		i += cmdLen(cmd)
 	}

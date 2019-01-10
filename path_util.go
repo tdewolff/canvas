@@ -83,6 +83,42 @@ func ellipseNormal(theta float64) Point {
 	return Point{x, y}
 }
 
+func ellipseToBeziers(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point, tolerance float64) *Path {
+	p := &Path{}
+	cx, cy, angle1, angle2 := ellipseToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
+	angle1 *= math.Pi / 180
+	angle2 *= math.Pi / 180
+
+	if !equal(rot, 0.0) {
+		// TODO: implement for rotations
+		panic("not implemented")
+	}
+
+	// TODO: use dynamic step size, tolerance and maybe cubic Beziers
+	// from https://github.com/fogleman/gg/blob/master/context.go#L485
+	const n = 16
+	for i := 0; i < n; i++ {
+		p1 := float64(i+0) / n
+		p2 := float64(i+1) / n
+		a1 := angle1 + (angle2-angle1)*p1
+		a2 := angle1 + (angle2-angle1)*p2
+		xt0 := cx + rx*math.Cos(a1)
+		yt0 := cy + ry*math.Sin(a1)
+		xt1 := cx + rx*math.Cos(a1+(a2-a1)/2)
+		yt1 := cy + ry*math.Sin(a1+(a2-a1)/2)
+		xt2 := cx + rx*math.Cos(a2)
+		yt2 := cy + ry*math.Sin(a2)
+		ctx := 2*xt1 - xt0/2 - xt2/2
+		cty := 2*yt1 - yt0/2 - yt2/2
+		p.QuadTo(ctx, cty, xt2, yt2)
+	}
+	return p
+}
+
+func flattenEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point, tolerance float64) *Path {
+	panic("not implemented")
+}
+
 ////////////////////////////////////////////////////////////////
 
 // Gauss-Legendre quadrature integration from a to b with n=3
@@ -438,6 +474,10 @@ func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float6
 	return t - tf*(1.0-t), t + tf*(1.0-t)
 }
 
+func flattenCubicBezier(p0, p1, p2, p3 Point, flatness float64) *Path {
+	return strokeCubicBezier(p0, p1, p2, p3, 0.0, flatness)
+}
+
 // see Flat, precise flattening of cubic Bezier path and offset curves, by T.F. Hain et al., 2005
 // https://www.sciencedirect.com/science/article/pii/S0097849305001287
 // see https://github.com/Manishearth/stylo-flat/blob/master/gfx/2d/Path.cpp for an example implementation
@@ -445,7 +485,7 @@ func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float6
 // p0, p1, p2, p3 are the start points, two control points and the end points respectively. With flatness defined as
 // the maximum error from the orinal curve, and d the half width of the curve used for stroking (positive is to the right).
 // TODO: use ellipse arcs for better results
-func flattenCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
+func strokeCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 	p := &Path{}
 	// 0 <= t1 <= 1 if t1 exists
 	// 0 <= t2 <= 1 and t1 < t2 if t2 exists
@@ -517,8 +557,4 @@ func flattenCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 		addCubicBezierLine(p, p0, p1, p2, p3, 1.0, d)
 	}
 	return p
-}
-
-func flattenEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point, tolerance float64) *Path {
-	panic("not implemented")
 }

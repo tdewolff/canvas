@@ -153,8 +153,8 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path 
 
 				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, &first, &n0First)
 
-				rhs := flattenCubicBezier(start, c1, c2, end, halfWidth, tolerance)
-				lhs := flattenCubicBezier(start, c1, c2, end, -halfWidth, tolerance)
+				rhs := strokeCubicBezier(start, c1, c2, end, halfWidth, tolerance)
+				lhs := strokeCubicBezier(start, c1, c2, end, -halfWidth, tolerance)
 				sp.Append(rhs)
 				ret.Append(lhs)
 			case CubeToCmd:
@@ -166,8 +166,8 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path 
 
 				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, &first, &n0First)
 
-				rhs := flattenCubicBezier(start, c1, c2, end, halfWidth, tolerance)
-				lhs := flattenCubicBezier(start, c1, c2, end, -halfWidth, tolerance)
+				rhs := strokeCubicBezier(start, c1, c2, end, halfWidth, tolerance)
+				lhs := strokeCubicBezier(start, c1, c2, end, -halfWidth, tolerance)
 				sp.Append(rhs)
 				ret.Append(lhs)
 			case ArcToCmd:
