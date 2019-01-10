@@ -18,6 +18,9 @@ func main() {
 		panic(err)
 	}
 
+	c := canvas.New(72.0)
+	Draw(c)
+
 	////////////////
 
 	svgFile, err := os.Create("example.svg")
@@ -25,11 +28,7 @@ func main() {
 		panic(err)
 	}
 	defer svgFile.Close()
-
-	svg := canvas.NewSVG(svgFile)
-	Draw(svg)
-	svg.EmbedFont(dejaVuSerif)
-	svg.Close()
+	c.WriteSVG(svgFile)
 
 	////////////////
 
@@ -39,20 +38,18 @@ func main() {
 	}
 	defer pngFile.Close()
 
-	img := canvas.NewImage(72.0)
-	Draw(img)
-	_ = png.Encode(pngFile, img.Image())
+	img := c.WriteImage()
+	_ = png.Encode(pngFile, img)
 
 	////////////////
 
 	pdfFile := gofpdf.New("P", "mm", "A4", ".")
 	pdfFile.AddFont("DejaVuSerif", "", "DejaVuSerif.json")
-	pdf := canvas.NewPDF(pdfFile)
-	Draw(pdf)
+	c.WritePDF(pdfFile)
 	_ = pdfFile.OutputFileAndClose("example.pdf")
 }
 
-func drawStrokedPath(c canvas.C, x, y float64, path string) {
+func drawStrokedPath(c *canvas.C, x, y float64, path string) {
 	c.SetColor(canvas.Black)
 	p, err := canvas.ParseSVGPath(path)
 	if err != nil {
@@ -65,7 +62,7 @@ func drawStrokedPath(c canvas.C, x, y float64, path string) {
 	c.DrawPath(x, y, p)
 }
 
-func drawText(c canvas.C, x, y float64, size float64, text string) {
+func drawText(c *canvas.C, x, y float64, size float64, text string) {
 	face := dejaVuSerif.Face(size, c.DPI())
 
 	metrics := face.Metrics()
@@ -82,7 +79,7 @@ func drawText(c canvas.C, x, y float64, size float64, text string) {
 	c.DrawText(x, y, text)
 }
 
-func Draw(c canvas.C) {
+func Draw(c *canvas.C) {
 	c.Open(180, 70)
 
 	drawText(c, 10, 20, 12.0, "Aap noot mies")

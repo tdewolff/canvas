@@ -14,12 +14,12 @@ func main() {
 	}
 	defer svgFile.Close()
 
-	svg := canvas.NewSVG(svgFile)
-	Draw(svg)
-	svg.Close()
+	c := canvas.New(72.0)
+	Draw(c)
+	c.WriteSVG(svgFile)
 }
 
-func Draw(c canvas.C) {
+func Draw(c *canvas.C) {
 	c.Open(300, 300)
 
 	path, err := canvas.ParseSVGPath("M10 -10L10 -50C10 -70 50 -70 50 -50A20 10 45 1 0 50 -30z")
