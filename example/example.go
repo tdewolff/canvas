@@ -39,14 +39,20 @@ func main() {
 	defer pngFile.Close()
 
 	img := c.WriteImage()
-	_ = png.Encode(pngFile, img)
+	err = png.Encode(pngFile, img)
+	if err != nil {
+		panic(err)
+	}
 
 	////////////////
 
 	pdfFile := gofpdf.New("P", "mm", "A4", ".")
 	pdfFile.AddFont("DejaVuSerif", "", "DejaVuSerif.json")
 	c.WritePDF(pdfFile)
-	_ = pdfFile.OutputFileAndClose("example.pdf")
+	err = pdfFile.OutputFileAndClose("example.pdf")
+	if err != nil {
+		panic(err)
+	}
 
 	////////////////
 
@@ -106,7 +112,7 @@ func Draw(c *canvas.C) {
 	c.SetColor(canvas.Black)
 	c.DrawPath(120, 15, latex)
 
-	ellipse, err := canvas.ParseSVGPath("A5 10 0 1 1 10 0")
+	ellipse, err := canvas.ParseSVGPath("A5 10 30 1 1 10 0")
 	if err != nil {
 		panic(err)
 	}

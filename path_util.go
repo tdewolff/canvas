@@ -86,30 +86,28 @@ func ellipseNormal(theta float64) Point {
 func ellipseToBeziers(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point, tolerance float64) *Path {
 	p := &Path{}
 	cx, cy, angle1, angle2 := ellipseToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
-	angle1 *= math.Pi / 180
-	angle2 *= math.Pi / 180
-
-	if !equal(rot, 0.0) {
-		// TODO: implement for rotations
-		panic("not implemented")
-	}
+	angle1 *= math.Pi / 180.0
+	angle2 *= math.Pi / 180.0
 
 	// TODO: use dynamic step size, tolerance and maybe cubic Beziers
 	// from https://github.com/fogleman/gg/blob/master/context.go#L485
 	const n = 16
+	rot *= math.Pi / 180.0
+	cosrot := math.Cos(rot)
+	sinrot := math.Sin(rot)
 	for i := 0; i < n; i++ {
 		p1 := float64(i+0) / n
 		p2 := float64(i+1) / n
 		a1 := angle1 + (angle2-angle1)*p1
 		a2 := angle1 + (angle2-angle1)*p2
-		xt0 := cx + rx*math.Cos(a1)
-		yt0 := cy + ry*math.Sin(a1)
-		xt1 := cx + rx*math.Cos(a1+(a2-a1)/2)
-		yt1 := cy + ry*math.Sin(a1+(a2-a1)/2)
-		xt2 := cx + rx*math.Cos(a2)
-		yt2 := cy + ry*math.Sin(a2)
-		ctx := 2*xt1 - xt0/2 - xt2/2
-		cty := 2*yt1 - yt0/2 - yt2/2
+		xt0 := cx + rx*math.Cos(a1)*cosrot - ry*math.Sin(a1)*sinrot
+		yt0 := cy + rx*math.Cos(a1)*sinrot + ry*math.Sin(a1)*cosrot
+		xt1 := cx + rx*math.Cos(a1+(a2-a1)/2.0)*cosrot - ry*math.Sin(a1+(a2-a1)/2.0)*sinrot
+		yt1 := cy + rx*math.Cos(a1+(a2-a1)/2.0)*sinrot + ry*math.Sin(a1+(a2-a1)/2.0)*cosrot
+		xt2 := cx + rx*math.Cos(a2)*cosrot - ry*math.Sin(a2)*sinrot
+		yt2 := cy + rx*math.Cos(a2)*sinrot + ry*math.Sin(a2)*cosrot
+		ctx := 2.0*xt1 - xt0/2.0 - xt2/2.0
+		cty := 2.0*yt1 - yt0/2.0 - yt2/2.0
 		p.QuadTo(ctx, cty, xt2, yt2)
 	}
 	return p

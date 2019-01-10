@@ -761,8 +761,6 @@ func (p *Path) String() string {
 
 // ToSVG returns a string that represents the path in the SVG path data format.
 func (p *Path) ToSVG() string {
-	p = p.Copy().Replace(nil, nil, ellipseToBeziers, 0.1)
-
 	sb := strings.Builder{}
 	x, y := 0.0, 0.0
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {

@@ -6,7 +6,6 @@ import (
 	"image"
 	"image/color"
 	"io"
-	"math"
 	"strconv"
 
 	"golang.org/x/image/vector"
@@ -202,6 +201,7 @@ func (c *C) WritePDF(pdf *gofpdf.Fpdf) {
 
 		if l.t == pathLayer {
 			p := l.path.Copy().Translate(l.x, l.y)
+			p.Replace(nil, nil, ellipseToBeziers, 0.1) // arcs with rotation are broken in gofpdf
 			for i := 0; i < len(p.d); {
 				cmd := p.d[i]
 				switch cmd {
@@ -214,13 +214,7 @@ func (c *C) WritePDF(pdf *gofpdf.Fpdf) {
 				case CubeToCmd:
 					pdf.CurveBezierCubicTo(p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4], p.d[i+5], p.d[i+6])
 				case ArcToCmd:
-					x1, y1 := pdf.GetX(), pdf.GetY()
-					rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]*math.Pi/180
-					largeArc, sweep := fromArcFlags(p.d[i+4])
-					x2, y2 := p.d[i+5], p.d[i+6]
-
-					cx, cy, angle1, angle2 := ellipseToCenter(x1, y1, rx, ry, rot, largeArc, sweep, x2, y2)
-					pdf.ArcTo(cx, cy, rx, ry, rot, -angle1, -angle2)
+					panic("arcs should have been replaced")
 				case CloseCmd:
 					pdf.ClosePath()
 				}
@@ -243,7 +237,6 @@ func (c *C) WritePDF(pdf *gofpdf.Fpdf) {
 }
 
 func (c *C) WriteImage() *image.RGBA {
-
 	dpm := c.dpi * InchPerMm
 	img := image.NewRGBA(image.Rect(0.0, 0.0, int(c.w*dpm), int(c.h*dpm)))
 	ras := vector.NewRasterizer(int(c.w*dpm), int(c.h*dpm))
