@@ -171,7 +171,7 @@ type PDF struct {
 }
 
 func NewPDF(f *gofpdf.Fpdf) *PDF {
-	return &PDF{NewFonts(72), f}
+	return &PDF{NewFonts(72.0), f}
 }
 
 func (c *PDF) Open(w, h float64) {

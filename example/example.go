@@ -5,6 +5,7 @@ import (
 	"image/png"
 	"os"
 
+	"github.com/jung-kurt/gofpdf"
 	"github.com/tdewolff/canvas"
 )
 
@@ -35,11 +36,12 @@ func main() {
 
 	////
 
-	// pdfFile := gofpdf.New("P", "mm", "A4", ".")
-	// pdfFile.AddFont("DejaVuSerif", "", "DejaVuSerif.json")
-	// pdf := canvas.NewPDF(pdfFile, fonts)
-	// Draw(pdf)
-	// _ = pdfFile.OutputFileAndClose("example.pdf")
+	pdfFile := gofpdf.New("P", "mm", "A4", ".")
+	pdfFile.AddFont("DejaVuSerif", "", "DejaVuSerif.json")
+	pdf := canvas.NewPDF(pdfFile)
+	pdf.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
+	Draw(pdf)
+	_ = pdfFile.OutputFileAndClose("example.pdf")
 }
 
 func drawStrokedPath(c canvas.C, x, y float64, path string) {

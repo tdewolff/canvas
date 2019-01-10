@@ -930,7 +930,7 @@ savematrix setmatrix
 				ellipsesDefined = true
 			}
 
-			cx, cy, theta0, theta1 := arcToCenter(x0, y0, rx, ry, rot, largeArc, sweep, x, y)
+			cx, cy, theta0, theta1 := ellipseToCenter(x0, y0, rx, ry, rot, largeArc, sweep, x, y)
 			fmt.Println(theta0, theta1)
 			sb.WriteString(" ")
 
