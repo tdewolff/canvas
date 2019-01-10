@@ -9,7 +9,17 @@ import (
 	"github.com/tdewolff/canvas"
 )
 
+var dejaVuSerif canvas.Font
+
 func main() {
+	var err error
+	dejaVuSerif, err = canvas.LoadFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
+	if err != nil {
+		panic(err)
+	}
+
+	////////////////
+
 	svgFile, err := os.Create("example.svg")
 	if err != nil {
 		panic(err)
@@ -17,11 +27,11 @@ func main() {
 	defer svgFile.Close()
 
 	svg := canvas.NewSVG(svgFile)
-	svg.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
 	Draw(svg)
+	svg.EmbedFont(dejaVuSerif)
 	svg.Close()
 
-	////
+	////////////////
 
 	pngFile, err := os.Create("example.png")
 	if err != nil {
@@ -30,16 +40,14 @@ func main() {
 	defer pngFile.Close()
 
 	img := canvas.NewImage(72.0)
-	img.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
 	Draw(img)
 	_ = png.Encode(pngFile, img.Image())
 
-	////
+	////////////////
 
 	pdfFile := gofpdf.New("P", "mm", "A4", ".")
 	pdfFile.AddFont("DejaVuSerif", "", "DejaVuSerif.json")
 	pdf := canvas.NewPDF(pdfFile)
-	pdf.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
 	Draw(pdf)
 	_ = pdfFile.OutputFileAndClose("example.pdf")
 }
@@ -58,11 +66,7 @@ func drawStrokedPath(c canvas.C, x, y float64, path string) {
 }
 
 func drawText(c canvas.C, x, y float64, size float64, text string) {
-	font, err := c.Font("DejaVuSerif")
-	if err != nil {
-		panic(err.Error())
-	}
-	face := font.Face(size)
+	face := dejaVuSerif.Face(size, c.DPI())
 
 	metrics := face.Metrics()
 	w, h := face.Bounds(text)
@@ -83,11 +87,7 @@ func Draw(c canvas.C) {
 
 	drawText(c, 10, 20, 12.0, "Aap noot mies")
 
-	font, err := c.Font("DejaVuSerif")
-	if err != nil {
-		panic(err.Error())
-	}
-	face := font.Face(30)
+	face := dejaVuSerif.Face(30, c.DPI())
 	c.SetFont(face)
 	p := face.ToPath("Stroke")
 	c.DrawPath(5, 60, p.Stroke(1, canvas.RoundCapper, canvas.RoundJoiner, 0.01))

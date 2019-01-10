@@ -15,7 +15,6 @@ func main() {
 	defer svgFile.Close()
 
 	svg := canvas.NewSVG(svgFile)
-	svg.AddFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
 	Draw(svg)
 	svg.Close()
 }

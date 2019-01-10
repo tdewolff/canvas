@@ -59,7 +59,7 @@ func cssColor(c color.Color) []byte {
 // C is a target independent interface for drawing paths and text.
 type C interface {
 	Open(float64, float64)
-	Font(string) (Font, error)
+	DPI() float64
 
 	SetColor(color.Color)
 	SetFont(FontFace)
@@ -71,7 +71,6 @@ type C interface {
 ////////////////////////////////////////////////////////////////
 
 type SVG struct {
-	*Fonts
 	w io.Writer
 
 	color    color.Color
@@ -79,7 +78,7 @@ type SVG struct {
 }
 
 func NewSVG(w io.Writer) *SVG {
-	return &SVG{NewFonts(72.0), w, color.Black, FontFace{}}
+	return &SVG{w, color.Black, FontFace{}}
 }
 
 func (c *SVG) Open(w, h float64) {
@@ -92,21 +91,24 @@ func (c *SVG) Open(w, h float64) {
 	c.w.Write([]byte(" "))
 	c.writeF(h)
 	c.w.Write([]byte("\">"))
-	if len(c.fonts) > 0 {
-		c.w.Write([]byte("<defs><style>"))
-		for name, font := range c.fonts {
-			c.w.Write([]byte("@font-face { font-family: '"))
-			c.w.Write([]byte(name))
-			c.w.Write([]byte("'; src: url('data:"))
-			c.w.Write([]byte(font.mimetype))
-			c.w.Write([]byte(";base64,"))
-			b64 := base64.NewEncoder(base64.StdEncoding, c.w)
-			b64.Write(font.raw)
-			b64.Close()
-			c.w.Write([]byte("'); }\n"))
-		}
-		c.w.Write([]byte("</style></defs>"))
-	}
+}
+
+func (c *SVG) EmbedFont(font Font) {
+	c.w.Write([]byte("<defs><style>"))
+	c.w.Write([]byte("@font-face { font-family: '"))
+	c.w.Write([]byte(font.name))
+	c.w.Write([]byte("'; src: url('data:"))
+	c.w.Write([]byte(font.mimetype))
+	c.w.Write([]byte(";base64,"))
+	b64 := base64.NewEncoder(base64.StdEncoding, c.w)
+	b64.Write(font.raw)
+	b64.Close()
+	c.w.Write([]byte("'); }\n"))
+	c.w.Write([]byte("</style></defs>"))
+}
+
+func (c *SVG) DPI() float64 {
+	return 72.0
 }
 
 func (c *SVG) Close() {
@@ -166,16 +168,19 @@ func (c *SVG) DrawText(x, y float64, s string) {
 ////////////////////////////////////////////////////////////////
 
 type PDF struct {
-	*Fonts
 	f *gofpdf.Fpdf
 }
 
 func NewPDF(f *gofpdf.Fpdf) *PDF {
-	return &PDF{NewFonts(72.0), f}
+	return &PDF{f}
 }
 
 func (c *PDF) Open(w, h float64) {
 	c.f.AddPageFormat("P", gofpdf.SizeType{w, h})
+}
+
+func (c *PDF) DPI() float64 {
+	return 72.0
 }
 
 func (c *PDF) SetColor(col color.Color) {
@@ -237,7 +242,6 @@ func (c *PDF) DrawText(x, y float64, s string) {
 ////////////////////////////////////////////////////////////////
 
 type Image struct {
-	*Fonts
 	img *image.RGBA
 	r   *vector.Rasterizer
 	dpm float64
@@ -247,7 +251,7 @@ type Image struct {
 }
 
 func NewImage(dpi float64) *Image {
-	return &Image{NewFonts(dpi), nil, nil, dpi * InchPerMm, color.Black, FontFace{}}
+	return &Image{nil, nil, dpi * InchPerMm, color.Black, FontFace{}}
 }
 
 func (c *Image) Image() *image.RGBA {
@@ -262,6 +266,10 @@ func (c *Image) Open(w, h float64) {
 	c.SetColor(color.White)
 	c.DrawPath(0, 0, p)
 	c.SetColor(color.Black)
+}
+
+func (c *Image) DPI() float64 {
+	return c.dpm * MmPerInch
 }
 
 func (c *Image) SetColor(col color.Color) {

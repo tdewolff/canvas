@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
-	"path"
 	"unicode/utf8"
 
 	findfont "github.com/flopp/go-findfont"
@@ -15,8 +14,6 @@ import (
 
 var sfntBuffer sfnt.Buffer
 
-var ErrNotFound = fmt.Errorf("font not found")
-
 type FontStyle int
 
 const (
@@ -25,67 +22,6 @@ const (
 	Italic
 )
 
-type Fonts struct {
-	fonts map[string]Font
-	dpi   float64
-}
-
-func NewFonts(dpi float64) *Fonts {
-	return &Fonts{
-		fonts: map[string]Font{},
-		dpi:   dpi,
-	}
-}
-
-// AddLocalFont adds a font from the system fonts location.
-func (fs *Fonts) AddLocalFont(name string, style FontStyle) error {
-	fontPath, err := findfont.Find(name)
-	if err != nil {
-		return err
-	}
-	return fs.AddFontFile(name, style, fontPath)
-}
-
-// AddFontFile adds a font file given by a file path.
-func (fs *Fonts) AddFontFile(name string, style FontStyle, filename string) error {
-	b, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return err
-	}
-
-	mimetype := ""
-	switch path.Ext(filename) {
-	case ".ttf":
-		mimetype = "font/truetype"
-	case ".otf":
-		mimetype = "font/opentype"
-	case ".woff":
-		mimetype = "font/woff"
-	case ".woff2":
-		mimetype = "font/woff2"
-	}
-
-	return fs.AddFont(name, style, mimetype, b)
-}
-
-// AddFont adds a font from its raw bytes.
-func (fs *Fonts) AddFont(name string, style FontStyle, mimetype string, b []byte) error {
-	f, err := NewFont(name, style, fs.dpi, mimetype, b)
-	if err != nil {
-		return err
-	}
-	fs.fonts[name] = f
-	return nil
-}
-
-// Font returns a previously added font.
-func (fs *Fonts) Font(name string) (Font, error) {
-	if _, ok := fs.fonts[name]; !ok {
-		return Font{}, ErrNotFound
-	}
-	return fs.fonts[name], nil
-}
-
 type Font struct {
 	mimetype string
 	raw      []byte
@@ -93,11 +29,48 @@ type Font struct {
 	font  *sfnt.Font
 	name  string
 	style FontStyle
-	dpi   float64
 }
 
-func NewFont(name string, style FontStyle, dpi float64, mimetype string, b []byte) (Font, error) {
-	// TODO: get mimetype from header
+// LoadLocalFont loads a font from the system fonts location.
+func LoadLocalFont(name string, style FontStyle) (Font, error) {
+	fontPath, err := findfont.Find(name)
+	if err != nil {
+		return Font{}, err
+	}
+	return LoadFontFile(name, style, fontPath)
+}
+
+// LoadFontFile loads a font from a file.
+func LoadFontFile(name string, style FontStyle, filename string) (Font, error) {
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return Font{}, err
+	}
+	return LoadFont(name, style, b)
+}
+
+// LoadFont loads a font from memory.
+func LoadFont(name string, style FontStyle, b []byte) (Font, error) {
+	if len(b) < 4 {
+		return Font{}, fmt.Errorf("invalid font file")
+	}
+	tag := toTag(string(b[:4]))
+
+	mimetype := ""
+	if tag == toTag("wOFF") {
+		mimetype = "font/woff"
+		return Font{}, fmt.Errorf("WOFF font files not yet supported")
+	} else if tag == toTag("wOF2") {
+		mimetype = "font/woff2"
+		return Font{}, fmt.Errorf("WOFF2 font files not yet supported")
+	} else if tag == toTag("true") || tag == 0x00010000 {
+		mimetype = "font/truetype"
+	} else if tag == toTag("OTTO") {
+		mimetype = "font/opentype"
+	} else {
+		return Font{}, fmt.Errorf("unrecognized font file format")
+	}
+
 	f, err := sfnt.Parse(b)
 	if err != nil {
 		return Font{}, err
@@ -109,18 +82,18 @@ func NewFont(name string, style FontStyle, dpi float64, mimetype string, b []byt
 		font:     f,
 		name:     name,
 		style:    style,
-		dpi:      dpi,
 	}, nil
 }
 
 // Face gets the font face associated with the give font name and font size (in mm).
-func (f *Font) Face(size float64) FontFace {
+func (f *Font) Face(size, dpi float64) FontFace {
+	// TODO: add hinting
 	return FontFace{
 		font:    f.font,
 		name:    f.name,
 		style:   f.style,
 		size:    size,
-		ppem:    toI26_6(size * (f.dpi / 72.0)),
+		ppem:    toI26_6(size * (dpi / 72.0)),
 		hinting: font.HintingNone,
 	}
 }
