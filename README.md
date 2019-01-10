@@ -1,25 +1,11 @@
 # Canvas <a name="canvas"></a> [![GoDoc](http://godoc.org/github.com/tdewolff/canvas?status.svg)](http://godoc.org/github.com/tdewolff/canvas)
 
-Canvas is a vector drawing target that exposes a common interface for multiple drawing back-ends. It outputs SVG, PDF or raster images (which can be saved as PNG, JPG, ...).
+Canvas is a common vector drawing target that can output SVG, PDF and raster images (which can be saved as PNG, JPG, ...).
 
 ![Example](https://raw.githubusercontent.com/tdewolff/canvas/master/canvas.png)
 
-## Interface
-``` go
-type C interface {
-	Open(width float64, height float64)
 
-	SetColor(color color.Color)
-	SetFont(fontFace FontFace)
-
-	DrawPath(x, y float64, path *canvas.Path)
-	DrawText(x, y float64, text string)
-}
-```
-
-The common interface allows to draw either paths or text. All positions and sizes are given in millimeters.
-
-### TODO
+## Planning
 
 General
 
@@ -52,48 +38,71 @@ Optimization
 * Approximate Beziérs by arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (check)
 * Approximate arcs by Beziérs given a tolerance for use in the rasterizer
 
+
+## Canvas
+``` go
+c := canvas.New(72.0)  // DPI
+c.Open(width, height)
+c.SetColor(color)
+c.SetFont(fontFace)
+c.DrawPath(x, y, path)
+c.DrawText(x, y, text)
+```
+
+Canvas allows to draw either paths or text. All positions and sizes are given in millimeters.
+
+## Fonts
+``` go
+dejaVuSerif, err := canvas.LoadFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
+ff := dejaVuSerif.Face(12.0, 72.0)  // size and DPI
+ff.Info()        // name, style, size
+ff.Metrics()     // font metrics such as line height
+ff.Bounds(text)  // bounding box of the text in mm, processes new lines
+ff.ToPath(text)  // convert text to path
+```
+
+
 ## Paths
 A large deal of this library implements functionality for building paths. Any path can be constructed from a few basic operations, see below. The successive commands start from the current pen position (from the previous command's end point) and are drawn towards a new end point. A path can consist of multiple path segments (multiple MoveTos), but be aware that overlapping paths will cancel each other.
 
 ``` go
 p := &Path{}
-p.MoveTo(x, y) // new path segment starting at (x,y)
-p.LineTo(x, y) // straight line to (x,y)
-p.QuadTo(cpx, cpy, x, y) // a quadratic Bézier with control point (cpx,cpy) and end point (x,y)
-p.CubeTo(cp1x, cp1y, cp2x, cp2y, x, y) // a cubic Bézier with control points (cp1x,cp1y), (cp2x,cp2y) and end point (x,y)
-p.ArcTo(rx, ry, rot, largeArc, sweep, x, y) // an arc of an ellipse with radii (rx,ry), rotated by rot (in degrees), with flags largeArc and sweep (booleans, see https://www.w3.org/TR/SVG/paths.html#PathDataEllipticalArcCommands)
-p.Close() // close the path, essentially a LineTo to the last MoveTo location
+p.MoveTo(x, y)  // new path segment starting at (x,y)
+p.LineTo(x, y)  // straight line to (x,y)
+p.QuadTo(cpx, cpy, x, y)                     // a quadratic Bézier with control point (cpx,cpy) and end point (x,y)
+p.CubeTo(cp1x, cp1y, cp2x, cp2y, x, y)       // a cubic Bézier with control points (cp1x,cp1y), (cp2x,cp2y) and end point (x,y)
+p.ArcTo(rx, ry, rot, largeArc, sweep, x, y)  // an arc of an ellipse with radii (rx,ry), rotated by rot (in degrees), with flags largeArc and sweep (booleans, see https://www.w3.org/TR/SVG/paths.html#PathDataEllipticalArcCommands)
+p.Close()  // close the path, essentially a LineTo to the last MoveTo location
 ```
 
 We can extract information from these paths using:
 
 ``` go
-p.Empty() bool // returns boolean
-p.Pos() (x float64, y float64) // current pen position
-p.StartPos() (x0 float64, y0 float64) // position of last MoveTo
-p.String() string // to SVG path
-p.Bounds() Rect // PLANNED: bounding box of path
-p.Length() float64 // PLANNED: length of path in millimeters
+p.Empty() bool                         // returns boolean
+p.Pos() (x float64, y float64)         // current pen position
+p.StartPos() (x0 float64, y0 float64)  // position of last MoveTo
+p.String() string                      // to SVG path
+p.Bounds() Rect                        // WIP: bounding box of path
+p.Length() float64                     // WIP: length of path in millimeters
 ```
 
 These paths can be manipulated and transformed with the following commands. Each will return a pointer to the path.
 
 ``` go
 p.Copy()
-p.Append(q) // append path q to p
-p.Split() // split the path segments, ie. at Close/MoveTo
-p.Reverse() // reverse the direction of the path
+p.Append(q)  // append path q to p
+p.Split()    // split the path segments, ie. at Close/MoveTo
+p.Reverse()  // reverse the direction of the path
 
 p.Translate(x, y)
 p.Scale(x, y)
-p.Rotate(rot, x, y) // with the rotation rot in degrees, around point (x,y)
+p.Rotate(rot, x, y)  // with the rotation rot in degrees, around point (x,y)
 
-p.Flatten(tolerance) // flatten Bézier and arc commands to straight lines, with a maximum deviation of tolarance
-p.Stroke(width, capper, joiner, tolerance) // create a stroke from a path of certain width, using capper and joiner for caps and joins
-p.Dash(d...) // PLANNED: create dashed path with lengths d which are alternating the dash and the space
+p.Flatten(tolerance)                        // flatten Bézier and arc commands to straight lines, with a maximum deviation of tolarance
+p.Stroke(width, capper, joiner, tolerance)  // create a stroke from a path of certain width, using capper and joiner for caps and joins
+p.Dash(d...)                                // WIP: create dashed path with lengths d which are alternating the dash and the space
 ```
 
-## Fonts
 
 ## LaTeX
 To generate outlines generated by LaTeX, you need `latex` and `dvisvgm` installed on your system.
@@ -115,8 +124,10 @@ Where the provided string gets inserted into the following document template:
 \end{document}
 ```
 
+
 ## Example
 See https://github.com/tdewolff/canvas/tree/master/example for a working example, including fonts. Note that for PDFs you need to pre-compile fonts using `makefont` installed by `go install github.com/jung-kurt/gofpdf/makefont` and then compile them by running `makefont --embed --enc=cp1252.map DejaVuSerif.ttf`.
+
 
 ## License
 Released under the [MIT license](LICENSE.md).
