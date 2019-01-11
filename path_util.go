@@ -114,7 +114,24 @@ func ellipseToBeziers(start Point, rx, ry, rot float64, largeArc, sweep bool, en
 }
 
 func flattenEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point, tolerance float64) *Path {
-	panic("not implemented")
+	p := &Path{}
+	cx, cy, angle1, angle2 := ellipseToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
+	angle1 *= math.Pi / 180.0
+	angle2 *= math.Pi / 180.0
+
+	// TODO: use dynamic step size and tolerance
+	const n = 16
+	rot *= math.Pi / 180.0
+	cosrot := math.Cos(rot)
+	sinrot := math.Sin(rot)
+	for i := 0; i < n; i++ {
+		t := float64(i+1) / n
+		a := angle1 + (angle2-angle1)*t
+		xt := cx + rx*math.Cos(a)*cosrot - ry*math.Sin(a)*sinrot
+		yt := cy + rx*math.Cos(a)*sinrot + ry*math.Sin(a)*cosrot
+		p.LineTo(xt, yt)
+	}
+	return p
 }
 
 ////////////////////////////////////////////////////////////////

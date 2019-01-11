@@ -116,5 +116,6 @@ func Draw(c *canvas.C) {
 	if err != nil {
 		panic(err)
 	}
+	ellipse.Flatten(0.1)
 	c.DrawPath(120, 60, ellipse)
 }
