@@ -37,30 +37,30 @@ Optimization
 
 ## Canvas
 ``` go
-c := canvas.New(72.0)  // DPI
-c.Open(width, height)
-c.SetColor(color)
-c.SetFont(fontFace)
-c.DrawPath(x, y, path)
-c.DrawText(x, y, text)
+c := canvas.New()
+c.Open(width, height float64)
+c.SetColor(color color.Color)
+c.SetFont(fontFace Face)
+c.DrawPath(x, y float64, path *Path)
+c.DrawText(x, y float64, text string)
 
-c.WriteSVG(w)
-c.WritePDF(pdf)             // will accept io.Writer soon
-c.WriteImage() *image.RGBA
-c.WriteEPS(w)               // WIP
+c.WriteSVG(w io.Writer)
+c.WriteEPS(w io.Writer)                // WIP
+c.WritePDF(pdf *gofpdf.Fpdf)           // will accept io.Writer soon, uses jung-kurt/gofpdf now
+c.WriteImage(dpi float64) *image.RGBA
 ```
 
 Canvas allows to draw either paths or text. All positions and sizes are given in millimeters.
 
 ## Fonts
 ``` go
-dejaVuSerif, err := canvas.LoadFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")  // TTF, OTF
+dejaVuSerif, err := canvas.LoadFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")  // TTF or OTF
 
-ff := dejaVuSerif.Face(12.0, 72.0)      // size and DPI
-ff.Info() (string, FontStyle, float64)  // name, style, size
-ff.Metrics() Metrics                    // font metrics such as line height
-ff.Bounds(text) (float64, float64)      // bounding box of the text in mm, processes new lines
-ff.ToPath(text) *Path                   // convert text to path
+ff := dejaVuSerif.Face(size float64)
+ff.Info() (name string, style FontStyle, size float64)
+ff.Metrics() Metrics                           // font metrics such as line height
+ff.Bounds(text string) (width, height float64) // bounding box of the text in mm, processes new lines
+ff.ToPath(text string) *Path                   // convert text to path
 ```
 
 
@@ -80,30 +80,30 @@ p.Close()                                    // close the path, essentially a Li
 We can extract information from these paths using:
 
 ``` go
-p.Empty() bool                   // returns boolean
-p.Pos() (float64, float64)       // current pen position
-p.StartPos() (float64, float64)  // position of last MoveTo
-p.Bounds() Rect                  // WIP: bounding box of path
-p.Length() float64               // WIP: length of path in millimeters
-p.ToSVG() string                 // to SVG path
-p.ToPS() string                  // to PostScript
+p.Empty() bool               // returns boolean
+p.Pos() (x, y float64)       // current pen position
+p.StartPos() (x, y float64)  // position of last MoveTo
+p.Bounds() Rect              // WIP: bounding box of path
+p.Length() float64           // WIP: length of path in millimeters
+p.ToSVG() string             // to SVG
+p.ToPS() string              // to PostScript
 ```
 
 These paths can be manipulated and transformed with the following commands. Each will return a pointer to the path.
 
 ``` go
 p.Copy()
-p.Append(q)  // append path q to p
-p.Split()    // split the path segments, ie. at Close/MoveTo
-p.Reverse()  // reverse the direction of the path
+p.Append(q *Path)  // append path q to p
+p.Split()          // split the path segments, ie. at Close/MoveTo
+p.Reverse()        // reverse the direction of the path
 
-p.Translate(x, y)
-p.Scale(x, y)
-p.Rotate(rot, x, y)  // with the rotation rot in degrees, around point (x,y)
+p.Translate(x, y float64)
+p.Scale(x, y float64)
+p.Rotate(rot, x, y float64)  // with the rotation rot in degrees, around point (x,y)
 
-p.Flatten(tolerance)                        // flatten Bézier and arc commands to straight lines, with a maximum deviation of tolarance
-p.Stroke(width, capper, joiner, tolerance)  // create a stroke from a path of certain width, using capper and joiner for caps and joins
-p.Dash(d...)                                // WIP: create dashed path with lengths d which are alternating the dash and the space
+p.Flatten(tolerance float64)                                              // flatten Bézier and arc commands to straight lines, with a maximum deviation of tolarance
+p.Stroke(width float64, capper Capper, joiner Joiner, tolerance float64)  // create a stroke from a path of certain width, using capper and joiner for caps and joins
+p.Dash(d... float64)                                                      // WIP: create dashed path with lengths d which are alternating the dash and the space
 ```
 
 

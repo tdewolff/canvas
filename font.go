@@ -86,12 +86,12 @@ func LoadFont(name string, style FontStyle, b []byte) (Font, error) {
 }
 
 // Face gets the font face associated with the give font name and font size (in mm).
-func (f *Font) Face(size, dpi float64) FontFace {
+func (f *Font) Face(size float64) FontFace {
 	// TODO: add hinting
 	return FontFace{
 		f:       f,
 		size:    size,
-		ppem:    toI26_6(size * (dpi / 72.0)),
+		ppem:    toI26_6(size),
 		hinting: font.HintingNone,
 	}
 }

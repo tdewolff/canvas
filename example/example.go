@@ -18,7 +18,7 @@ func main() {
 		panic(err)
 	}
 
-	c := canvas.New(72.0)
+	c := canvas.New()
 	Draw(c)
 
 	////////////////
@@ -38,7 +38,7 @@ func main() {
 	}
 	defer pngFile.Close()
 
-	img := c.WriteImage()
+	img := c.WriteImage(144.0)
 	err = png.Encode(pngFile, img)
 	if err != nil {
 		panic(err)
@@ -78,7 +78,7 @@ func drawStrokedPath(c *canvas.C, x, y float64, path string) {
 }
 
 func drawText(c *canvas.C, x, y float64, size float64, text string) {
-	face := dejaVuSerif.Face(size, c.DPI())
+	face := dejaVuSerif.Face(size)
 
 	metrics := face.Metrics()
 	w, h := face.Bounds(text)
@@ -99,7 +99,7 @@ func Draw(c *canvas.C) {
 
 	drawText(c, 10, 20, 12.0, "Aap noot mies")
 
-	face := dejaVuSerif.Face(30, c.DPI())
+	face := dejaVuSerif.Face(30)
 	c.SetFont(face)
 	p := face.ToPath("Stroke")
 	c.DrawPath(5, 60, p.Stroke(1, canvas.RoundCapper, canvas.RoundJoiner, 0.01))
