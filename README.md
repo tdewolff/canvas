@@ -93,9 +93,10 @@ These paths can be manipulated and transformed with the following commands. Each
 
 ``` go
 p.Copy()
-p.Append(q *Path)  // append path q to p
-p.Split()          // split the path segments, ie. at Close/MoveTo
-p.Reverse()        // reverse the direction of the path
+p.Append(q *Path)        // append path q to p
+p.Split()                // split the path segments, ie. at Close/MoveTo
+p.SplitAt(d ...float64)  // split the path at certain lengths d
+p.Reverse()              // reverse the direction of the path
 
 p.Translate(x, y float64)
 p.Scale(x, y float64)
@@ -103,7 +104,7 @@ p.Rotate(rot, x, y float64)  // with the rotation rot in degrees, around point (
 
 p.Flatten(tolerance float64)                                              // flatten Bézier and arc commands to straight lines, with a maximum deviation of tolarance
 p.Stroke(width float64, capper Capper, joiner Joiner, tolerance float64)  // create a stroke from a path of certain width, using capper and joiner for caps and joins
-p.Dash(d... float64)                                                      // WIP: create dashed path with lengths d which are alternating the dash and the space
+p.Dash(d ...float64)                                                      // create dashed path with lengths d which are alternating the dash and the space
 ```
 
 

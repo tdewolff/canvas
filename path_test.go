@@ -52,24 +52,24 @@ func TestPathLength(t *testing.T) {
 	}
 }
 
-func TestCubicBezierLength(t *testing.T) {
-	p0 := Point{0.0, 0.0}
-	p1 := Point{0.0, 66.67}
-	p2 := Point{100.0, 66.67}
-	p3 := Point{100.0, 0.0}
-	S := cubicBezierLengthFunc(p0, p1, p2, p3)
-	T := cubicBezierInverseLengthFunc(p0, p1, p2, p3)
-	for _, x := range []float64{0.0, 0.5, 1.0} {
-		s := S(x)
-		xx := T(s)
-		if math.Abs(x-xx) > 0.1 {
-			test.Fail(t, x, "!=", xx)
-		}
-	}
-}
-
-func TestEllipseLength(t *testing.T) {
-}
+//func TestCubicBezierLength(t *testing.T) {
+//	p0 := Point{0.0, 0.0}
+//	p1 := Point{0.0, 66.67}
+//	p2 := Point{100.0, 66.67}
+//	p3 := Point{100.0, 0.0}
+//	S := cubicBezierLengthFunc(p0, p1, p2, p3)
+//	T := cubicBezierInverseLengthFunc(p0, p1, p2, p3)
+//	for _, x := range []float64{0.0, 0.5, 1.0} {
+//		s := S(x)
+//		xx := T(s)
+//		if math.Abs(x-xx) > 0.1 {
+//			test.Fail(t, x, "!=", xx)
+//		}
+//	}
+//}
+//
+//func TestEllipseLength(t *testing.T) {
+//}
 
 func TestPathSplit(t *testing.T) {
 	var tts = []struct {
