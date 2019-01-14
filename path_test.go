@@ -100,6 +100,36 @@ func TestPathSplit(t *testing.T) {
 	}
 }
 
+func TestPathSplitAt(t *testing.T) {
+	var tts = []struct {
+		orig  string
+		d     []float64
+		split []string
+	}{
+		{"L4 3L8 0z", []float64{0.0, 5.0, 10.0, 18.0}, []string{"M0 0L4 3", "M4 3L8 0", "M8 0H0"}},
+		{"L4 3L8 0z", []float64{5.0, 20.0}, []string{"M0 0L4 3", "M4 3L8 0H0"}},
+		{"L4 3L8 0z", []float64{2.5, 7.5, 14.0}, []string{"M0 0L2 1.5", "M2 1.5L4 3L6 1.5", "M6 1.5L8 0H4", "M4 0H0"}},
+		{"C0 0 10 0 10 0", []float64{5.0}, []string{"M0 0C0 0 2.5 0 5 0", "M5 0C7.5 0 10 0 10 0"}},
+	}
+	for _, tt := range tts {
+		t.Run(tt.orig, func(t *testing.T) {
+			p, _ := ParseSVGPath(tt.orig)
+			ps := p.SplitAt(tt.d...)
+			if len(ps) != len(tt.split) {
+				origs := []string{}
+				for _, p := range ps {
+					origs = append(origs, p.String())
+				}
+				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.split, "\n"))
+			} else {
+				for i, p := range ps {
+					test.T(t, p.String(), tt.split[i])
+				}
+			}
+		})
+	}
+}
+
 func TestPathTranslate(t *testing.T) {
 	var tts = []struct {
 		dx, dy     float64

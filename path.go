@@ -3,6 +3,7 @@ package canvas
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 
 	"github.com/tdewolff/parse/strconv"
@@ -309,33 +310,6 @@ func (p *Path) Length() float64 {
 	return d
 }
 
-// Split splits the path into its independent path segments. The path is split on the MoveTo and/or Close commands.
-func (p *Path) Split() []*Path {
-	ps := []*Path{}
-	closed := false
-	var i, j int
-	var x0, y0 float64
-	for j < len(p.d) {
-		cmd := p.d[j]
-		if j > i && cmd == MoveToCmd || closed {
-			ps = append(ps, &Path{p.d[i:j], x0, y0})
-			i = j
-			closed = false
-		}
-		switch cmd {
-		case MoveToCmd:
-			x0, y0 = p.d[j+1], p.d[j+2]
-		case CloseCmd:
-			closed = true
-		}
-		j += cmdLen(cmd)
-	}
-	if j > i {
-		ps = append(ps, &Path{p.d[i:j], x0, y0})
-	}
-	return ps
-}
-
 // Translate translates the path by (x,y).
 func (p *Path) Translate(x, y float64) *Path {
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
@@ -500,6 +474,167 @@ func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer
 		start = Point{p.d[i-2], p.d[i-1]}
 	}
 	return p
+}
+
+// Split splits the path into its independent path segments. The path is split on the MoveTo and/or Close commands.
+func (p *Path) Split() []*Path {
+	ps := []*Path{}
+	closed := false
+	var i, j int
+	var x0, y0 float64
+	for j < len(p.d) {
+		cmd := p.d[j]
+		if j > i && cmd == MoveToCmd || closed {
+			ps = append(ps, &Path{p.d[i:j], x0, y0})
+			i = j
+			closed = false
+		}
+		switch cmd {
+		case MoveToCmd:
+			x0, y0 = p.d[j+1], p.d[j+2]
+		case CloseCmd:
+			closed = true
+		}
+		j += cmdLen(cmd)
+	}
+	if j > i {
+		ps = append(ps, &Path{p.d[i:j], x0, y0})
+	}
+	return ps
+}
+
+// SplitAt splits the path into seperate paths at the specified intervals (given in millimeters) along the path.
+func (p *Path) SplitAt(ts ...float64) []*Path {
+	if len(ts) == 0 {
+		return []*Path{}
+	}
+
+	sort.Float64s(ts)
+	if ts[0] == 0.0 {
+		ts = ts[1:]
+	}
+
+	j := 0   // index into T
+	T := 0.0 // current position along curve
+
+	p = p.Replace(nil, nil, flattenEllipse, 0.1)
+
+	qs := []*Path{}
+	q := &Path{}
+	push := func() {
+		qs = append(qs, q)
+		q = &Path{}
+	}
+
+	if len(p.d) > 0 && p.d[0] == MoveToCmd {
+		q.MoveTo(p.d[1], p.d[2])
+	}
+	for _, ps := range p.Split() {
+		var start, end Point
+		for i := 0; i < len(ps.d); {
+			cmd := ps.d[i]
+			switch cmd {
+			case MoveToCmd:
+				end = Point{p.d[i+1], p.d[i+2]}
+			case LineToCmd, CloseCmd:
+				end = Point{p.d[i+1], p.d[i+2]}
+
+				if j == len(ts) {
+					q.LineTo(end.X, end.Y)
+				} else {
+					dT := end.Sub(start).Length()
+
+					Tcurve := T
+					for j < len(ts) && T < ts[j] && ts[j] <= T+dT {
+						tpos := (ts[j] - T) / dT
+						pos := start.Interpolate(end, tpos)
+						Tcurve = ts[j]
+
+						q.LineTo(pos.X, pos.Y)
+						push()
+						q.MoveTo(pos.X, pos.Y)
+						j++
+					}
+					if Tcurve < T+dT {
+						q.LineTo(end.X, end.Y)
+					}
+					T += dT
+				}
+			case QuadToCmd, CubeToCmd:
+				var c1, c2 Point
+				if cmd == QuadToCmd {
+					c := Point{p.d[i+1], p.d[i+2]}
+					c1, c2 = quadraticToCubicBezier(start, c, end)
+					end = Point{p.d[i+3], p.d[i+4]}
+				} else {
+					c1 = Point{p.d[i+1], p.d[i+2]}
+					c2 = Point{p.d[i+3], p.d[i+4]}
+					end = Point{p.d[i+5], p.d[i+6]}
+				}
+
+				if j == len(ts) {
+					q.CubeTo(c1.X, c1.Y, c2.X, c2.Y, end.X, end.Y)
+				} else {
+					dT := cubicBezierLength(start, c1, c2, end)
+
+					Tcurve, dTcurve := T, dT
+					r0, r1, r2, r3 := start, c1, c2, end
+					for j < len(ts) && T < ts[j] && ts[j] <= T+dT {
+						tpos := (ts[j] - Tcurve) / dTcurve
+						_, c1, c2, _, r0, r1, r2, r3 = splitCubicBezier(r0, r1, r2, r3, tpos)
+						dTcurve = dT - (ts[j] - T)
+						Tcurve = ts[j]
+
+						q.CubeTo(c1.X, c1.Y, c2.X, c2.Y, r0.X, r0.Y)
+						push()
+						q.MoveTo(r0.X, r0.Y)
+						j++
+					}
+					if Tcurve < T+dT {
+						q.CubeTo(r1.X, r1.Y, r2.X, r2.Y, r3.X, r3.Y)
+					}
+					T += dT
+				}
+			case ArcToCmd:
+				panic("arcs should have been replaced")
+			}
+			i += cmdLen(cmd)
+			start = end
+		}
+	}
+	if len(q.d) > 3 {
+		qs = append(qs, q)
+	}
+	return qs
+}
+
+// Dash returns a new path that consists of dashes. Each parameter represents a length in millimeters along the original path, and will be either a dash or a space alternatingly.
+func (p *Path) Dash(d ...float64) *Path {
+	p = p.Replace(nil, nil, flattenEllipse, 0.1)
+
+	length := p.Length()
+	if len(d) == 0 || length <= d[0] {
+		return p
+	}
+
+	i := 0 // index in d
+	pos := 0.0
+	t := []float64{}
+	for pos < length {
+		if len(d) <= i {
+			i = 0
+		}
+		pos += d[i]
+		t = append(t, pos)
+		i++
+	}
+
+	ps := p.SplitAt(t...)
+	q := &Path{}
+	for j := 0; j < len(ps); j += 2 {
+		q.Append(ps[j])
+	}
+	return q
 }
 
 // Reverse returns a new path that is the same path as p but in the reverse direction.

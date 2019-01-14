@@ -2,7 +2,7 @@
 
 Canvas is a common vector drawing target that can output SVG, PDF, EPS and raster images (which can be saved as PNG, JPG, ...).
 
-![Example](https://raw.githubusercontent.com/tdewolff/canvas/master/canvas.png)
+![Example](https://raw.githubusercontent.com/tdewolff/canvas/master/example/example.png)
 
 
 ## Planning
@@ -19,11 +19,11 @@ Paths
 
 * Add path IsCW / IsCCW
 * Add ArcTo in endpoint format (take begin/end angle and center point)
-* Add path length calculation
-* Add path splitting at lengths -> support converting path into dashes and spacings
 * Add offsetting of path (expand / contract), tricky with overlap
 * Add support for easier usage of projections / viewboxes?
 * Convert lines to cubic Beziérs to smooth out the path
+* Make `tolerance` a global setting
+* Improve ellipse flattening and introduce splitting up ellipses into partial arcs
 
 Optimization
 

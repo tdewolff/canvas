@@ -110,12 +110,12 @@ func Draw(c *canvas.C) {
 	}
 	latex.Rotate(-30, 0, 0)
 	c.SetColor(canvas.Black)
-	c.DrawPath(120, 15, latex)
+	c.DrawPath(120, 5, latex)
 
-	ellipse, err := canvas.ParseSVGPath("A5 10 30 1 1 10 0")
+	ellipse, err := canvas.ParseSVGPath("A10 20 30 1 1 20 0z")
 	if err != nil {
 		panic(err)
 	}
-	ellipse.Flatten(0.1)
-	c.DrawPath(120, 60, ellipse)
+	ellipse = ellipse.Dash(0.8, 1.2, 0.8).Stroke(0.3, canvas.RoundCapper, canvas.RoundJoiner, 0.1)
+	c.DrawPath(115, 65, ellipse)
 }

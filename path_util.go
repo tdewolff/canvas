@@ -120,7 +120,7 @@ func flattenEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end 
 	angle2 *= math.Pi / 180.0
 
 	// TODO: use dynamic step size and tolerance
-	const n = 16
+	const n = 32
 	rot *= math.Pi / 180.0
 	cosrot := math.Cos(rot)
 	sinrot := math.Sin(rot)
