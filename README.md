@@ -22,7 +22,6 @@ Paths
 * Add offsetting of path (expand / contract), tricky with overlap
 * Add support for easier usage of projections / viewboxes?
 * Convert lines to cubic Beziérs to smooth out the path
-* Make `tolerance` a global setting
 * Improve ellipse flattening and introduce splitting up ellipses into partial arcs
 
 Optimization
@@ -102,9 +101,9 @@ p.Translate(x, y float64)
 p.Scale(x, y float64)
 p.Rotate(rot, x, y float64)  // with the rotation rot in degrees, around point (x,y)
 
-p.Flatten(tolerance float64)                                              // flatten Bézier and arc commands to straight lines, with a maximum deviation of tolarance
-p.Stroke(width float64, capper Capper, joiner Joiner, tolerance float64)  // create a stroke from a path of certain width, using capper and joiner for caps and joins
-p.Dash(d ...float64)                                                      // create dashed path with lengths d which are alternating the dash and the space
+p.Flatten()                                            // flatten Bézier and arc commands to straight lines
+p.Stroke(width float64, capper Capper, joiner Joiner)  // create a stroke from a path of certain width, using capper and joiner for caps and joins
+p.Dash(d ...float64)                                   // create dashed path with lengths d which are alternating the dash and the space
 ```
 
 

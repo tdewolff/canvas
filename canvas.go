@@ -198,7 +198,7 @@ func (c *C) WritePDF(pdf *gofpdf.Fpdf) {
 
 		if l.t == pathLayer {
 			p := l.path.Copy().Translate(l.x, l.y)
-			p.Replace(nil, nil, ellipseToBeziers, 0.1) // arcs with rotation are broken in gofpdf
+			p.Replace(nil, nil, ellipseToBeziers) // arcs with rotation are broken in gofpdf
 			for i := 0; i < len(p.d); {
 				cmd := p.d[i]
 				switch cmd {
@@ -249,7 +249,7 @@ func (c *C) WriteImage(dpi float64) *image.RGBA {
 
 		if l.t == pathLayer {
 			p := l.path.Copy().Translate(l.x, l.y)
-			p.Replace(nil, nil, ellipseToBeziers, 0.1)
+			p.Replace(nil, nil, ellipseToBeziers)
 
 			for i := 0; i < len(p.d); {
 				cmd := p.d[i]

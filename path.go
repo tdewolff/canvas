@@ -9,6 +9,9 @@ import (
 	"github.com/tdewolff/parse/strconv"
 )
 
+// Tolerance is the maximum deviation from the original path in millimeters when e.g. flatting
+var Tolerance = 0.1
+
 // PathCmd specifies the path command.
 const (
 	MoveToCmd float64 = 1.0 << iota
@@ -416,16 +419,16 @@ func (p *Path) Rotate(rot, x, y float64) *Path {
 	return p
 }
 
-// Flatten flattens all Bézier and arc curves. It replaces the curves by linear segments, under the constraint that the maximum deviation is up to tolerance.
-func (p *Path) Flatten(tolerance float64) *Path {
-	return p.Replace(nil, flattenCubicBezier, flattenEllipse, tolerance)
+// Flatten flattens all Bézier and arc curves into linear segments. It uses Tolerance as the maximum deviation.
+func (p *Path) Flatten() *Path {
+	return p.Replace(nil, flattenCubicBezier, flattenEllipse)
 }
 
-type LineReplacer func(Point, Point, float64) *Path
-type BezierReplacer func(Point, Point, Point, Point, float64) *Path
-type ArcReplacer func(Point, float64, float64, float64, bool, bool, Point, float64) *Path
+type LineReplacer func(Point, Point) *Path
+type BezierReplacer func(Point, Point, Point, Point) *Path
+type ArcReplacer func(Point, float64, float64, float64, bool, bool, Point) *Path
 
-func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer, tolerance float64) *Path {
+func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer) *Path {
 	start := Point{}
 	for i := 0; i < len(p.d); {
 		var q *Path
@@ -434,7 +437,7 @@ func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer
 		case LineToCmd, CloseCmd:
 			if line != nil {
 				end := Point{p.d[i+1], p.d[i+2]}
-				q = line(start, end, tolerance)
+				q = line(start, end)
 				if cmd == CloseCmd {
 					q.Close()
 				}
@@ -444,21 +447,21 @@ func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer
 				c := Point{p.d[i+1], p.d[i+2]}
 				end := Point{p.d[i+3], p.d[i+4]}
 				c1, c2 := quadraticToCubicBezier(start, c, end)
-				q = bezier(start, c1, c2, end, tolerance)
+				q = bezier(start, c1, c2, end)
 			}
 		case CubeToCmd:
 			if bezier != nil {
 				c1 := Point{p.d[i+1], p.d[i+2]}
 				c2 := Point{p.d[i+3], p.d[i+4]}
 				end := Point{p.d[i+5], p.d[i+6]}
-				q = bezier(start, c1, c2, end, tolerance)
+				q = bezier(start, c1, c2, end)
 			}
 		case ArcToCmd:
 			if arc != nil {
 				rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
 				largeArc, sweep := fromArcFlags(p.d[i+4])
 				end := Point{p.d[i+5], p.d[i+6]}
-				q = arc(start, rx, ry, rot, largeArc, sweep, end, tolerance)
+				q = arc(start, rx, ry, rot, largeArc, sweep, end)
 			}
 		}
 
@@ -517,7 +520,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 	j := 0   // index into T
 	T := 0.0 // current position along curve
 
-	p = p.Replace(nil, nil, flattenEllipse, 0.1)
+	p = p.Replace(nil, nil, flattenEllipse)
 
 	qs := []*Path{}
 	q := &Path{}
@@ -610,7 +613,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 
 // Dash returns a new path that consists of dashes. Each parameter represents a length in millimeters along the original path, and will be either a dash or a space alternatingly.
 func (p *Path) Dash(d ...float64) *Path {
-	p = p.Replace(nil, nil, flattenEllipse, 0.1)
+	p = p.Replace(nil, nil, flattenEllipse) // TODO: replaces ellipses twice, also in SplitAt, bad?
 
 	length := p.Length()
 	if len(d) == 0 || length <= d[0] {
@@ -1119,7 +1122,7 @@ savematrix setmatrix
 
 // ToPDF returns a string that represents the path in the PDF data format.
 func (p *Path) ToPDF() string {
-	p = p.Copy().Replace(nil, nil, ellipseToBeziers, 0.1)
+	p = p.Copy().Replace(nil, nil, ellipseToBeziers)
 
 	sb := strings.Builder{}
 	x, y := 0.0, 0.0

@@ -83,7 +83,7 @@ func ellipseNormal(theta float64) Point {
 	return Point{x, y}
 }
 
-func ellipseToBeziers(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point, tolerance float64) *Path {
+func ellipseToBeziers(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) *Path {
 	p := &Path{}
 	cx, cy, angle1, angle2 := ellipseToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
 	angle1 *= math.Pi / 180.0
@@ -113,7 +113,7 @@ func ellipseToBeziers(start Point, rx, ry, rot float64, largeArc, sweep bool, en
 	return p
 }
 
-func flattenEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point, tolerance float64) *Path {
+func flattenEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) *Path {
 	p := &Path{}
 	cx, cy, angle1, angle2 := ellipseToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
 	angle1 *= math.Pi / 180.0
@@ -490,8 +490,8 @@ func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float6
 	return t - tf*(1.0-t), t + tf*(1.0-t)
 }
 
-func flattenCubicBezier(p0, p1, p2, p3 Point, flatness float64) *Path {
-	return strokeCubicBezier(p0, p1, p2, p3, 0.0, flatness)
+func flattenCubicBezier(p0, p1, p2, p3 Point) *Path {
+	return strokeCubicBezier(p0, p1, p2, p3, 0.0, Tolerance)
 }
 
 // see Flat, precise flattening of cubic Bezier path and offset curves, by T.F. Hain et al., 2005
