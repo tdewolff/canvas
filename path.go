@@ -279,10 +279,55 @@ func (p *Path) Bounds() Rect {
 				ymax = math.Max(ymax, y2.Y)
 			}
 		case ArcToCmd:
-			// rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
-			// largeArc, sweep := fromArcFlags(p.d[i+4])
+			rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
+			largeArc, sweep := fromArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
-			panic("not implemented")
+			cx, cy, angle0, angle1 := ellipseToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
+			_ = angle0
+			_ = angle1
+
+			xmin = math.Min(xmin, end.X)
+			xmax = math.Max(xmax, end.X)
+			ymin = math.Min(ymin, end.Y)
+			ymax = math.Max(ymax, end.Y)
+
+			rot *= math.Pi / 180.0
+			cos := math.Cos(rot)
+			sin := math.Sin(rot)
+
+			tx := -math.Atan(ry / rx * math.Tan(rot))
+			ty := math.Atan(ry / rx / math.Tan(rot))
+
+			dx := math.Abs(rx*math.Cos(tx)*cos - ry*math.Sin(tx)*sin)
+			dy := math.Abs(rx*math.Cos(ty)*sin + ry*math.Sin(ty)*cos)
+
+			tx *= 180.0 / math.Pi
+			ty *= 180.0 / math.Pi
+
+			//tleft := tx * 180.0 / math.Pi
+			//tright := math.Mod(tx+180.0, 360.0)
+			//ttop := ty * 180.0 / math.Pi
+			//tbottom := math.Mod(ty+180.0, 360.0)
+
+			if angle1 < angle0 {
+				angle0, angle1 = angle1, angle0
+			}
+
+			fmt.Println(angle0, angle1, tx, ty, tx+180.0, ty+180.0)
+
+			if angle0 < tx && tx < angle1 {
+				xmin = math.Min(xmin, cx-dx)
+			}
+			if angle0 < tx+180.0 && tx+180.0 < angle1 {
+				xmax = math.Max(xmax, cx+dx)
+			}
+			// y is inverted
+			if angle0 < ty && ty < angle1 {
+				ymax = math.Max(ymax, cy+dy)
+			}
+			if angle0 < ty+180.0 && ty+180.0 < angle1 {
+				ymin = math.Min(ymin, cy-dy)
+			}
 		}
 		i += cmdLen(cmd)
 		start = end

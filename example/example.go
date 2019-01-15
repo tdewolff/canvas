@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"image/png"
 	"os"
@@ -73,7 +74,7 @@ func drawStrokedPath(c *canvas.C, x, y float64, path string) {
 	c.DrawPath(x, y, p)
 
 	c.SetColor(color.RGBA{255, 0, 0, 127})
-	p = p.Stroke(2, canvas.RoundCapper, canvas.RoundJoiner, 0.01)
+	p = p.Stroke(2, canvas.RoundCapper, canvas.RoundJoiner)
 	c.DrawPath(x, y, p)
 }
 
@@ -102,7 +103,7 @@ func Draw(c *canvas.C) {
 	face := dejaVuSerif.Face(30)
 	c.SetFont(face)
 	p := face.ToPath("Stroke")
-	c.DrawPath(5, 60, p.Stroke(1, canvas.RoundCapper, canvas.RoundJoiner, 0.01))
+	c.DrawPath(5, 60, p.Stroke(1, canvas.RoundCapper, canvas.RoundJoiner))
 
 	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
 	if err != nil {
@@ -112,10 +113,15 @@ func Draw(c *canvas.C) {
 	c.SetColor(canvas.Black)
 	c.DrawPath(120, 5, latex)
 
-	ellipse, err := canvas.ParseSVGPath("A10 20 30 1 1 20 0z")
+	rot := 45.0
+	w := 20.0
+	ellipse, err := canvas.ParseSVGPath(fmt.Sprintf("A10 20 %f 1 0 %f 0z", rot, w))
 	if err != nil {
 		panic(err)
 	}
-	ellipse = ellipse.Dash(0.8, 1.2, 0.8).Stroke(0.3, canvas.RoundCapper, canvas.RoundJoiner, 0.1)
-	c.DrawPath(115, 65, ellipse)
+	c.SetColor(canvas.Red)
+	c.DrawPath(115, 45, ellipse.Bounds().ToPath())
+	ellipse = ellipse. /*Dash(0.8, 1.2, 0.8).*/ Stroke(0.3, canvas.RoundCapper, canvas.BevelJoiner)
+	c.SetColor(canvas.Black)
+	c.DrawPath(115, 45, ellipse)
 }

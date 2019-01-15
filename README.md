@@ -10,6 +10,8 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS and raste
 General
 
 * Implement https://www.w3.org/TR/SVG/paths.html#ArcOutOfRangeParameters
+* Switch to coordinate system with (0,0) in the bottom-left corner?
+* Switch to radians instead of degrees for ellipse internal calculations?
 
 Fonts
 
