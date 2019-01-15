@@ -68,12 +68,12 @@ A large deal of this library implements functionality for building paths. Any pa
 
 ``` go
 p := &Path{}
-p.MoveTo(x, y float64)                          // new path segment starting at (x,y)
-p.LineTo(x, y float64)                          // straight line to (x,y)
-p.QuadTo(cpx, cpy, x, y float64)                // a quadratic Bézier with control point (cpx,cpy) and end point (x,y)
-p.CubeTo(cp1x, cp1y, cp2x, cp2y, x, y float64)  // a cubic Bézier with control points (cp1x,cp1y), (cp2x,cp2y) and end point (x,y)
+p.MoveTo(x, y float64)                                            // new path segment starting at (x,y)
+p.LineTo(x, y float64)                                            // straight line to (x,y)
+p.QuadTo(cpx, cpy, x, y float64)                                  // a quadratic Bézier with control point (cpx,cpy) and end point (x,y)
+p.CubeTo(cp1x, cp1y, cp2x, cp2y, x, y float64)                    // a cubic Bézier with control points (cp1x,cp1y), (cp2x,cp2y) and end point (x,y)
 p.ArcTo(rx, ry, rot float64, largeArc, sweep bool, x, y float64)  // an arc of an ellipse with radii (rx,ry), rotated by rot (in degrees), with flags largeArc and sweep (booleans, see https://www.w3.org/TR/SVG/paths.html#PathDataEllipticalArcCommands)
-p.Close()                                       // close the path, essentially a LineTo to the last MoveTo location
+p.Close()                                                         // close the path, essentially a LineTo to the last MoveTo location
 ```
 
 We can extract information from these paths using:
