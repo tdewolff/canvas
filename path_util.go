@@ -59,6 +59,10 @@ func ellipseToCenter(x1, y1, rx, ry, rot float64, large, sweep bool, x2, y2 floa
 		theta = -theta
 	}
 	theta *= 180.0 / math.Pi
+	theta = math.Mod(theta, 360.0)
+	if theta < 0.0 {
+		theta += 360.0
+	}
 
 	deltaAcos := (ux*vx + uy*vy) / math.Sqrt((ux*ux+uy*uy)*(vx*vx+vy*vy))
 	deltaAcos = math.Min(1.0, math.Max(-1.0, deltaAcos))

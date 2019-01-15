@@ -321,6 +321,7 @@ func (p *Path) Bounds() Rect {
 			if angle0 < tx+180.0 && tx+180.0 < angle1 {
 				xmax = math.Max(xmax, cx+dx)
 			}
+			fmt.Println(angle0, ty, ty+180.0, angle1, dy)
 			// y is inverted
 			if angle0 < ty && ty < angle1 {
 				ymax = math.Max(ymax, cy+dy)

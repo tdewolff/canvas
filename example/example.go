@@ -113,9 +113,9 @@ func Draw(c *canvas.C) {
 	c.SetColor(canvas.Black)
 	c.DrawPath(120, 5, latex)
 
-	rot := 45.0
+	rot := 30.0
 	w := 20.0
-	ellipse, err := canvas.ParseSVGPath(fmt.Sprintf("A10 20 %f 1 0 %f 0z", rot, w))
+	ellipse, err := canvas.ParseSVGPath(fmt.Sprintf("A10 20 %f 0 0 %f 0z", rot, w))
 	if err != nil {
 		panic(err)
 	}
