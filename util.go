@@ -111,3 +111,7 @@ func (p Point) Interpolate(q Point, t float64) Point {
 type Rect struct {
 	X, Y, W, H float64
 }
+
+func (rect Rect) ToPath() *Path {
+	return Rectangle(rect.X, rect.Y, rect.W, rect.H)
+}

@@ -7,6 +7,10 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS and raste
 
 ## Planning
 
+General
+
+* Implement https://www.w3.org/TR/SVG/paths.html#ArcOutOfRangeParameters
+
 Fonts
 
 * Support WOFF and WOFF2 font formats

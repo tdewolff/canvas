@@ -10,7 +10,7 @@ import (
 )
 
 // Tolerance is the maximum deviation from the original path in millimeters when e.g. flatting
-var Tolerance = 0.1
+var Tolerance = 0.01
 
 // PathCmd specifies the path command.
 const (
@@ -140,6 +140,17 @@ func (p *Path) CubeTo(x1, y1, x2, y2, x, y float64) *Path {
 // large and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
 // and x,y the end position of the pen. The start positions of the pen was given by a previous command.
 func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x, y float64) *Path {
+	rot = math.Mod(rot, 360.0)
+	if rot < 0.0 {
+		rot += 360.0
+	}
+	rx = math.Abs(rx)
+	ry = math.Abs(ry)
+	if equal(rx, 0.0) || equal(ry, 0.0) {
+		p.LineTo(x, y)
+		return p
+	}
+	// TODO: scale if rx and ry are too small
 	p.d = append(p.d, ArcToCmd, rx, ry, rot, toArcFlags(largeArc, sweep), x, y)
 	return p
 }
@@ -600,6 +611,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 				}
 			case ArcToCmd:
 				panic("arcs should have been replaced")
+				// TODO: implement
 			}
 			i += cmdLen(cmd)
 			start = end
