@@ -79,7 +79,8 @@ func splitEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end Po
 	panic("not implemented")
 }
 
-func ellipseNormal(theta float64) Point {
+func ellipseNormal(theta, rot float64) Point {
+	theta += rot
 	theta *= math.Pi / 180.0
 	y, x := math.Sincos(theta)
 	return Point{x, y}
