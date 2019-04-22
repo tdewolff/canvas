@@ -90,7 +90,7 @@ func (w *PDFWriter) writeVal(i interface{}) {
 			w.writeVal(PDFName(key))
 			w.write(" ")
 			w.writeVal(val)
-			w.write("\n")
+			w.write(" ")
 		}
 		w.write(">>")
 	case PDFStream:
@@ -116,7 +116,11 @@ func (w *PDFWriter) writeVal(i interface{}) {
 		}
 
 		dict := PDFDict{}
-		dict["Filters"] = filters
+		if len(filters) == 1 {
+			dict["Filter"] = filters[0]
+		} else {
+			dict["Filter"] = filters
+		}
 		dict["Length"] = len(b)
 		w.writeVal(dict)
 		w.write("\nstream\n")
