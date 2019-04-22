@@ -6,7 +6,6 @@ import (
 	"image/png"
 	"os"
 
-	"github.com/jung-kurt/gofpdf"
 	"github.com/tdewolff/canvas"
 )
 
@@ -47,10 +46,13 @@ func main() {
 
 	////////////////
 
-	pdfFile := gofpdf.New("P", "mm", "A4", ".")
-	pdfFile.AddFont("DejaVuSerif", "", "DejaVuSerif.json")
-	c.WritePDF(pdfFile)
-	err = pdfFile.OutputFileAndClose("example.pdf")
+	pdfFile, err := os.Create("example.pdf")
+	if err != nil {
+		panic(err)
+	}
+	defer pdfFile.Close()
+
+	err = c.WritePDF(pdfFile)
 	if err != nil {
 		panic(err)
 	}

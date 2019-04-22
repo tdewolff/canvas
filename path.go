@@ -283,8 +283,6 @@ func (p *Path) Bounds() Rect {
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
 			cx, cy, angle0, angle1 := ellipseToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
-			_ = angle0
-			_ = angle1
 
 			xmin = math.Min(xmin, end.X)
 			xmax = math.Max(xmax, end.X)
@@ -304,16 +302,9 @@ func (p *Path) Bounds() Rect {
 			tx *= 180.0 / math.Pi
 			ty *= 180.0 / math.Pi
 
-			//tleft := tx * 180.0 / math.Pi
-			//tright := math.Mod(tx+180.0, 360.0)
-			//ttop := ty * 180.0 / math.Pi
-			//tbottom := math.Mod(ty+180.0, 360.0)
-
 			if angle1 < angle0 {
 				angle0, angle1 = angle1, angle0
 			}
-
-			fmt.Println(angle0, angle1, tx, ty, tx+180.0, ty+180.0)
 
 			if angle0 < tx && tx < angle1 {
 				xmin = math.Min(xmin, cx-dx)
@@ -321,7 +312,6 @@ func (p *Path) Bounds() Rect {
 			if angle0 < tx+180.0 && tx+180.0 < angle1 {
 				xmax = math.Max(xmax, cx+dx)
 			}
-			fmt.Println(angle0, ty, ty+180.0, angle1, dy)
 			// y is inverted
 			if angle0 < ty && ty < angle1 {
 				ymax = math.Max(ymax, cy+dy)
@@ -1052,8 +1042,10 @@ func (p *Path) ToPS() string {
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
 		sb.WriteString(" 0 0 moveto")
 	}
+
+	var cmd float64
 	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
+		cmd = p.d[i]
 		switch cmd {
 		case MoveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
@@ -1175,6 +1167,10 @@ savematrix setmatrix
 		}
 		i += cmdLen(cmd)
 	}
+	if cmd != CloseCmd {
+		sb.WriteString(" closepath")
+	}
+	sb.WriteString(" fill")
 	return sb.String()[1:] // remove the first space
 }
 
@@ -1187,8 +1183,10 @@ func (p *Path) ToPDF() string {
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
 		sb.WriteString(" 0 0 m")
 	}
+
+	var cmd float64
 	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
+		cmd = p.d[i]
 		switch cmd {
 		case MoveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
@@ -1236,5 +1234,9 @@ func (p *Path) ToPDF() string {
 		}
 		i += cmdLen(cmd)
 	}
+	if cmd != CloseCmd {
+		sb.WriteString(" h")
+	}
+	sb.WriteString(" f")
 	return sb.String()[1:] // remove the first space
 }

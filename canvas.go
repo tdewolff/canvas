@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/hex"
 	"image"
@@ -9,8 +10,6 @@ import (
 	"strconv"
 
 	"golang.org/x/image/vector"
-
-	"github.com/jung-kurt/gofpdf"
 )
 
 const MmPerPt = 0.3527777777777778
@@ -62,7 +61,6 @@ func writePSColor(w io.Writer, c color.Color) {
 	writeFloat64(w, gf)
 	w.Write([]byte(" "))
 	writeFloat64(w, bf)
-	w.Write([]byte(" setrgbcolor"))
 }
 
 func writeFloat64(w io.Writer, f float64) {
@@ -189,49 +187,31 @@ func (c *C) WriteSVG(w io.Writer) {
 	w.Write([]byte("</svg>"))
 }
 
-func (c *C) WritePDF(pdf *gofpdf.Fpdf) {
-	pdf.AddPageFormat("P", gofpdf.SizeType{c.w, c.h})
+func (c *C) WritePDF(writer io.Writer) error {
+	w := NewPDFWriter(writer, 300, 300)
+
+	b := &bytes.Buffer{}
 	for _, l := range c.layers {
-		r, g, b, a := l.color.RGBA()
-		pdf.SetDrawColor(int(r), int(g), int(b))
-		pdf.SetFillColor(int(r), int(g), int(b))
-		pdf.SetAlpha(float64(a)/0xffff, "Normal")
+		if l.t == textLayer {
+			// TODO: embed fonts and draw text
+			l.path = l.fontFace.ToPath(l.text)
+			l.t = pathLayer
+		}
 
 		if l.t == pathLayer {
-			p := l.path.Copy().Translate(l.x, l.y)
-			p.Replace(nil, nil, ellipseToBeziers) // arcs with rotation are broken in gofpdf
-			for i := 0; i < len(p.d); {
-				cmd := p.d[i]
-				switch cmd {
-				case MoveToCmd:
-					pdf.MoveTo(p.d[i+1], p.d[i+2])
-				case LineToCmd:
-					pdf.LineTo(p.d[i+1], p.d[i+2])
-				case QuadToCmd:
-					pdf.CurveTo(p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4])
-				case CubeToCmd:
-					pdf.CurveBezierCubicTo(p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4], p.d[i+5], p.d[i+6])
-				case ArcToCmd:
-					panic("arcs should have been replaced")
-				case CloseCmd:
-					pdf.ClosePath()
-				}
-				i += cmdLen(cmd)
-			}
-			pdf.DrawPath("F")
-		} else if l.t == textLayer {
-			name, style, size := l.fontFace.Info()
-			pdfStyle := ""
-			if style&Bold != 0 {
-				pdfStyle += "B"
-			}
-			if style&Italic != 0 {
-				pdfStyle += "I"
-			}
-			pdf.SetFont(name, pdfStyle, size*PtPerMm)
-			pdf.Text(l.x, l.y, l.text)
+			l.path.Translate(150.0, 150.0)
+			b.WriteString(" ")
+			writePSColor(b, l.color)
+			b.WriteString(" rg ")
+			b.WriteString(l.path.ToPDF())
 		}
 	}
+
+	w.WriteObject(PDFStream{
+		filters: []PDFFilter{PDFFilterFlate},
+		b:       b.Bytes(),
+	})
+	return w.Close()
 }
 
 func (c *C) WriteImage(dpi float64) *image.RGBA {
@@ -290,20 +270,24 @@ func (c *C) WriteEPS(w io.Writer) {
 	w.Write([]byte("\n"))
 
 	// TODO: generate preview
-	// TODO: embed fonts (convert TTF to Type 42)
 
 	bg := Rectangle(0.0, 0.0, c.w, c.h)
 	layers := append([]layer{{pathLayer, 0.0, 0.0, color.White, FontFace{}, bg, ""}}, c.layers...)
 
 	for _, l := range layers {
 		writePSColor(w, l.color)
-		w.Write([]byte("\n"))
+		w.Write([]byte(" setrgbcolor\n"))
+
+		if l.t == textLayer {
+			// TODO: embed fonts (convert TTF to Type 42) and draw text
+			l.path = l.fontFace.ToPath(l.text)
+			l.t = pathLayer
+		}
 
 		if l.t == pathLayer {
 			p := l.path.Copy().Translate(l.x, l.y).Scale(1.0, -1.0).Translate(0.0, c.h)
 			w.Write([]byte(p.ToPS()))
 			w.Write([]byte(" fill\n"))
 		}
-		// TODO: print text
 	}
 }

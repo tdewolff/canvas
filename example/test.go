@@ -1,22 +1,21 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/tdewolff/canvas"
 )
 
 func main() {
-	svgFile, err := os.Create("test.svg")
+	pdfFile, err := os.Create("test.pdf")
 	if err != nil {
 		panic(err)
 	}
-	defer svgFile.Close()
+	defer pdfFile.Close()
 
-	c := canvas.New(72.0)
+	c := canvas.New()
 	Draw(c)
-	c.WriteSVG(svgFile)
+	c.WritePDF(pdfFile)
 }
 
 func Draw(c *canvas.C) {
@@ -30,7 +29,6 @@ func Draw(c *canvas.C) {
 	psPath := path.Copy()
 	psPath.Scale(2.0, -2.0)
 	psPath.Translate(0, 200)
-	fmt.Println(psPath.ToPS(), "fill")
 
 	c.DrawPath(0, 80, path)
 	path.Scale(-1.0, 1.0)
