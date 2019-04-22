@@ -79,6 +79,7 @@ const (
 	textLayer
 )
 
+// layer is either a path or text, in which case only the respective field is set
 type layer struct {
 	t        layerType
 	x, y     float64
