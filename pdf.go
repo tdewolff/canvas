@@ -13,16 +13,18 @@ type PDFWriter struct {
 	w   io.Writer
 	err error
 
-	width, height float64
-	pos           int
-	objOffsets    []int
+	width, height  float64
+	graphicsStates PDFDict
+	pos            int
+	objOffsets     []int
 }
 
 func NewPDFWriter(writer io.Writer, width, height float64) *PDFWriter {
 	w := &PDFWriter{
-		w:      writer,
-		width:  width,
-		height: height,
+		w:              writer,
+		width:          width,
+		height:         height,
+		graphicsStates: PDFDict{},
 	}
 
 	w.write("%%PDF-1.7\n")
@@ -118,7 +120,7 @@ func (w *PDFWriter) writeVal(i interface{}) {
 		dict := PDFDict{}
 		if len(filters) == 1 {
 			dict["Filter"] = filters[0]
-		} else {
+		} else if len(filters) > 1 {
 			dict["Filter"] = filters
 		}
 		dict["Length"] = len(b)
@@ -127,6 +129,14 @@ func (w *PDFWriter) writeVal(i interface{}) {
 		w.writeBytes(b)
 		w.write("\nendstream")
 	}
+}
+
+func (w *PDFWriter) GetOpacityGS(a float64) PDFName {
+	name := fmt.Sprintf("GS%d", len(w.graphicsStates))
+	w.graphicsStates[name] = PDFDict{
+		"ca": a,
+	}
+	return PDFName(name)
 }
 
 func (w *PDFWriter) WriteObject(val interface{}) PDFRef {
@@ -144,11 +154,13 @@ func (w *PDFWriter) Close() error {
 	}
 
 	refPage := w.WriteObject(PDFDict{
-		"Type":      PDFName("Page"),
-		"Parent":    PDFRef(len(w.objOffsets) + 2),
-		"MediaBox":  PDFArray{0.0, 0.0, w.width, w.height},
-		"Resources": PDFDict{},
-		"Contents":  contents,
+		"Type":     PDFName("Page"),
+		"Parent":   PDFRef(len(w.objOffsets) + 2),
+		"MediaBox": PDFArray{0.0, 0.0, w.width, w.height},
+		"Resources": PDFDict{
+			"ExtGState": w.graphicsStates,
+		},
+		"Contents": contents,
 	})
 
 	refPages := w.WriteObject(PDFDict{

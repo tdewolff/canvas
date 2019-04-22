@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"image"
 	"image/color"
 	"io"
@@ -188,15 +189,23 @@ func (c *C) WriteSVG(w io.Writer) {
 }
 
 func (c *C) WritePDF(writer io.Writer) error {
-	w := NewPDFWriter(writer, 300, 300)
+	pdf := NewPDFWriter(writer, c.w, c.h)
 
 	color := Black
-	b := &bytes.Buffer{}
+	buf := &bytes.Buffer{}
 	for _, l := range c.layers {
+		R, G, B, _ := color.RGBA()
+		r, g, b, a := l.color.RGBA()
+		if a != 65535.0 {
+			gs := pdf.GetOpacityGS(float64(a) / 65535.0)
+			buf.WriteString(fmt.Sprintf(" q /%v gs", gs))
+		}
+		if r != R || g != G || b != B {
+			buf.WriteString(" ")
+			writePSColor(buf, l.color)
+			buf.WriteString(" rg")
+		}
 		if l.color != color {
-			b.WriteString(" ")
-			writePSColor(b, l.color)
-			b.WriteString(" rg")
 			color = l.color
 		}
 
@@ -207,18 +216,21 @@ func (c *C) WritePDF(writer io.Writer) error {
 		}
 
 		if l.t == pathLayer {
-			l.path.Translate(150.0, 150.0)
-			b.WriteString(" ")
-			b.WriteString(l.path.ToPDF())
+			p := l.path.Copy().Translate(l.x, l.y).Scale(1.0, -1.0).Translate(0.0, c.h)
+			buf.WriteString(" ")
+			buf.WriteString(p.ToPDF())
+		}
+		if a != 65535.0 {
+			buf.WriteString(" Q")
 		}
 	}
 
-	_, _ = b.ReadByte() // discard first space
-	w.WriteObject(PDFStream{
-		filters: []PDFFilter{PDFFilterFlate},
-		b:       b.Bytes(),
+	_, _ = buf.ReadByte() // discard first space
+	pdf.WriteObject(PDFStream{
+		filters: []PDFFilter{},
+		b:       buf.Bytes(),
 	})
-	return w.Close()
+	return pdf.Close()
 }
 
 func (c *C) WriteImage(dpi float64) *image.RGBA {
