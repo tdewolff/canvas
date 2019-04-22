@@ -9,34 +9,33 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS and raste
 
 General
 
-* *Write own PDF writer that also does font embedding*
 * Implement https://www.w3.org/TR/SVG/paths.html#ArcOutOfRangeParameters
-* Switch to coordinate system with (0,0) in the bottom-left corner?
 * Switch to radians instead of degrees for ellipse internal calculations?
+* Add support for easier usage of projections / viewboxes?
 
 Fonts
 
-* Support WOFF and WOFF2 font formats
+* **Support WOFF and WOFF2 font formats**
+* Embedding only used characters
+* Font embedding for PDFs
 * Support ligatures and font hinting
-* Support embedding only used characters
 * Support Type1 font format?
 
 Paths
 
 * Add path IsCW / IsCCW
 * Add ArcTo in endpoint format (take begin/end angle and center point)
+* Improve ellipse flattening and introduce splitting up ellipses into partial arcs
 * Add offsetting of path (expand / contract), tricky with overlap
-* Add support for easier usage of projections / viewboxes?
 * Convert lines to cubic Beziérs to smooth out the path
-* *Improve ellipse flattening and introduce splitting up ellipses into partial arcs*
 
 Optimization
 
 * Optimize/minify paths from and to SVG
 * Optimize paths by replacing Quad/Cube/Arc to line if they are linear (eg. p0=p1=p2 for cubic Bezier)
 * Optimize paths by removing the last Line if followed by Close
-* Approximate Beziérs by arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (check)
 * Approximate arcs by Beziérs given a tolerance for use in the rasterizer
+* Approximate Beziérs by arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (check)
 
 
 ## Canvas
@@ -49,8 +48,8 @@ c.DrawPath(x, y float64, path *Path)
 c.DrawText(x, y float64, text string)
 
 c.WriteSVG(w io.Writer)
-c.WriteEPS(w io.Writer)                // WIP
-c.WritePDF(pdf *gofpdf.Fpdf)           // will accept io.Writer soon, uses jung-kurt/gofpdf now
+c.WriteEPS(w io.Writer)               // WIP
+c.WritePDF(w io.Writer)        
 c.WriteImage(dpi float64) *image.RGBA
 ```
 

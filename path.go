@@ -941,11 +941,13 @@ func ParseSVGPath(s string) (*Path, error) {
 }
 
 // String returns a string that represents the path in the SVG path data format.
+// Be aware that Canvas uses the Cartesian coordinate system and SVGs do not. To convert, you'll need to use p.Scale(1.0, -1.0).Translate(0.0, height), where height is the image height.
 func (p *Path) String() string {
 	return p.ToSVG()
 }
 
 // ToSVG returns a string that represents the path in the SVG path data format.
+// Be aware that Canvas uses the Cartesian coordinate system and SVGs do not. To convert, you'll need to use p.Scale(1.0, -1.0).Translate(0.0, height), where height is the image height.
 func (p *Path) ToSVG() string {
 	sb := strings.Builder{}
 	x, y := 0.0, 0.0

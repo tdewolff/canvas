@@ -282,6 +282,8 @@ func (c *C) WriteImage(dpi float64) *image.RGBA {
 	return img
 }
 
+// WriteEPS writes out the image in the EPS file format.
+// Be aware that EPS does not support transparency of colors.
 func (c *C) WriteEPS(w io.Writer) {
 	w.Write([]byte("%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 "))
 	writeFloat64(w, c.w)
@@ -297,8 +299,9 @@ func (c *C) WriteEPS(w io.Writer) {
 	color := Black
 	for _, l := range layers {
 		if l.color != color {
+			w.Write([]byte(" "))
 			writePSColor(w, l.color)
-			w.Write([]byte(" setrgbcolor\n"))
+			w.Write([]byte(" setrgbcolor"))
 			color = l.color
 		}
 
@@ -310,6 +313,7 @@ func (c *C) WriteEPS(w io.Writer) {
 
 		if l.t == pathLayer {
 			p := l.path.Copy().Translate(l.x, l.y)
+			w.Write([]byte(" "))
 			w.Write([]byte(p.ToPS()))
 		}
 	}
