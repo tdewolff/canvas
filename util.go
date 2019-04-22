@@ -71,18 +71,18 @@ func (p Point) Mul(f float64) Point {
 }
 
 func (p Point) Rot90CW() Point {
-	return Point{-p.Y, p.X}
+	return Point{p.Y, -p.X}
 }
 
 func (p Point) Rot90CCW() Point {
-	return Point{p.Y, -p.X}
+	return Point{-p.Y, p.X}
 }
 
 func (p Point) Rot(rot float64, p0 Point) Point {
 	a := rot * math.Pi / 180.0
 	return Point{
-		p0.X + math.Cos(a)*(p.X-p0.X) + math.Sin(a)*(p.Y-p0.Y),
-		p0.Y + math.Cos(a)*(p.Y-p0.Y) - math.Sin(a)*(p.X-p0.X),
+		p0.X + math.Cos(a)*(p.X-p0.X) - math.Sin(a)*(p.Y-p0.Y),
+		p0.Y + math.Cos(a)*(p.Y-p0.Y) + math.Sin(a)*(p.X-p0.X),
 	}
 }
 

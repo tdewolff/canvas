@@ -213,20 +213,20 @@ func (ff FontFace) ToPath(s string) *Path {
 						p.Close()
 					}
 					end = fromP26_6(segment.Args[0])
-					p.MoveTo(x+end.X, y+end.Y)
+					p.MoveTo(x+end.X, -y-end.Y)
 					start0 = end
 				case sfnt.SegmentOpLineTo:
 					end = fromP26_6(segment.Args[0])
-					p.LineTo(x+end.X, y+end.Y)
+					p.LineTo(x+end.X, -y-end.Y)
 				case sfnt.SegmentOpQuadTo:
 					c := fromP26_6(segment.Args[0])
 					end = fromP26_6(segment.Args[1])
-					p.QuadTo(x+c.X, y+c.Y, x+end.X, y+end.Y)
+					p.QuadTo(x+c.X, -y-c.Y, x+end.X, -y-end.Y)
 				case sfnt.SegmentOpCubeTo:
 					c0 := fromP26_6(segment.Args[0])
 					c1 := fromP26_6(segment.Args[1])
 					end = fromP26_6(segment.Args[2])
-					p.CubeTo(x+c0.X, y+c0.Y, x+c1.X, y+c1.Y, x+end.X, y+end.Y)
+					p.CubeTo(x+c0.X, -y-c0.Y, x+c1.X, -y-c1.Y, x+end.X, -y-end.Y)
 				}
 			}
 			if !p.Empty() && start0.Equals(end) {
@@ -240,7 +240,7 @@ func (ff FontFace) ToPath(s string) *Path {
 			prevIndex = index
 		}
 		x = 0.0
-		y += ff.Metrics().LineHeight
+		y -= ff.Metrics().LineHeight
 	}
 	return p
 }
