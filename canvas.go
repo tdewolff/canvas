@@ -90,25 +90,21 @@ type layer struct {
 }
 
 type C struct {
-	w, h, dpi float64
-	color     color.Color
-	fontFace  FontFace
+	w, h     float64
+	color    color.Color
+	fontFace FontFace
 
 	layers []layer
 	fonts  []*Font
 }
 
-func New(dpi float64) *C {
-	return &C{0.0, 0.0, dpi, color.Black, FontFace{}, []layer{}, []*Font{}}
+func New() *C {
+	return &C{0.0, 0.0, color.Black, FontFace{}, []layer{}, []*Font{}}
 }
 
 func (c *C) Open(w, h float64) {
 	c.w = w
 	c.h = h
-}
-
-func (c *C) DPI() float64 {
-	return c.dpi
 }
 
 func (c *C) SetColor(col color.Color) {
@@ -120,7 +116,8 @@ func (c *C) SetFont(fontFace FontFace) {
 }
 
 func (c *C) DrawPath(x, y float64, p *Path) {
-	c.layers = append(c.layers, layer{pathLayer, x, y, c.color, c.fontFace, p.Copy(), ""})
+	p = p.Copy()
+	c.layers = append(c.layers, layer{pathLayer, x, y, c.color, c.fontFace, p, ""})
 }
 
 func (c *C) DrawText(x, y float64, s string) {
@@ -202,7 +199,7 @@ func (c *C) WritePDF(pdf *gofpdf.Fpdf) {
 
 		if l.t == pathLayer {
 			p := l.path.Copy().Translate(l.x, l.y)
-			p.Replace(nil, nil, ellipseToBeziers, 0.1) // arcs with rotation are broken in gofpdf
+			p.Replace(nil, nil, ellipseToBeziers) // arcs with rotation are broken in gofpdf
 			for i := 0; i < len(p.d); {
 				cmd := p.d[i]
 				switch cmd {
@@ -237,8 +234,8 @@ func (c *C) WritePDF(pdf *gofpdf.Fpdf) {
 	}
 }
 
-func (c *C) WriteImage() *image.RGBA {
-	dpm := c.dpi * InchPerMm
+func (c *C) WriteImage(dpi float64) *image.RGBA {
+	dpm := dpi * InchPerMm
 	img := image.NewRGBA(image.Rect(0.0, 0.0, int(c.w*dpm), int(c.h*dpm)))
 	ras := vector.NewRasterizer(int(c.w*dpm), int(c.h*dpm))
 
@@ -253,7 +250,7 @@ func (c *C) WriteImage() *image.RGBA {
 
 		if l.t == pathLayer {
 			p := l.path.Copy().Translate(l.x, l.y)
-			p.Replace(nil, nil, ellipseToBeziers, 0.1)
+			p.Replace(nil, nil, ellipseToBeziers)
 
 			for i := 0; i < len(p.d); {
 				cmd := p.d[i]

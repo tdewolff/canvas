@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"image/png"
 	"os"
@@ -18,7 +19,7 @@ func main() {
 		panic(err)
 	}
 
-	c := canvas.New(72.0)
+	c := canvas.New()
 	Draw(c)
 
 	////////////////
@@ -38,7 +39,7 @@ func main() {
 	}
 	defer pngFile.Close()
 
-	img := c.WriteImage()
+	img := c.WriteImage(144.0)
 	err = png.Encode(pngFile, img)
 	if err != nil {
 		panic(err)
@@ -73,12 +74,12 @@ func drawStrokedPath(c *canvas.C, x, y float64, path string) {
 	c.DrawPath(x, y, p)
 
 	c.SetColor(color.RGBA{255, 0, 0, 127})
-	p = p.Stroke(2, canvas.RoundCapper, canvas.RoundJoiner, 0.01)
+	p = p.Stroke(2, canvas.RoundCapper, canvas.RoundJoiner)
 	c.DrawPath(x, y, p)
 }
 
 func drawText(c *canvas.C, x, y float64, size float64, text string) {
-	face := dejaVuSerif.Face(size, c.DPI())
+	face := dejaVuSerif.Face(size)
 
 	metrics := face.Metrics()
 	w, h := face.Bounds(text)
@@ -99,10 +100,10 @@ func Draw(c *canvas.C) {
 
 	drawText(c, 10, 20, 12.0, "Aap noot mies")
 
-	face := dejaVuSerif.Face(30, c.DPI())
+	face := dejaVuSerif.Face(30)
 	c.SetFont(face)
 	p := face.ToPath("Stroke")
-	c.DrawPath(5, 60, p.Stroke(1, canvas.RoundCapper, canvas.RoundJoiner, 0.01))
+	c.DrawPath(5, 60, p.Stroke(1, canvas.RoundCapper, canvas.RoundJoiner))
 
 	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
 	if err != nil {
@@ -110,11 +111,17 @@ func Draw(c *canvas.C) {
 	}
 	latex.Rotate(-30, 0, 0)
 	c.SetColor(canvas.Black)
-	c.DrawPath(120, 15, latex)
+	c.DrawPath(120, 5, latex)
 
-	ellipse, err := canvas.ParseSVGPath("A5 10 30 1 1 10 0")
+	rot := 30.0
+	w := 20.0
+	ellipse, err := canvas.ParseSVGPath(fmt.Sprintf("A10 20 %f 0 0 %f 0z", rot, w))
 	if err != nil {
 		panic(err)
 	}
-	c.DrawPath(120, 60, ellipse)
+	c.SetColor(canvas.Red)
+	c.DrawPath(115, 45, ellipse.Bounds().ToPath())
+	ellipse = ellipse. /*Dash(0.8, 1.2, 0.8).*/ Stroke(0.3, canvas.RoundCapper, canvas.BevelJoiner)
+	c.SetColor(canvas.Black)
+	c.DrawPath(115, 45, ellipse)
 }

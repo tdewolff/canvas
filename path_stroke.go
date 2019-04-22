@@ -110,7 +110,7 @@ func strokeJoin(rhs, lhs *Path, jr Joiner, halfWidth float64, start, n1Prev, n0 
 // Stroke converts a path into a stroke of width w. It uses cr to cap the start and end of the path, and jr to
 // join all path elemtents. If the path closes itself, it will use a join between the start and end instead of capping them.
 // The tolerance is the maximum deviation from the original path when flattening Beziers and optimizing the stroke.
-func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path {
+func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 	sp := &Path{}
 	halfWidth := w / 2.0
 	for _, p = range p.Split() {
@@ -153,8 +153,8 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path 
 
 				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, &first, &n0First)
 
-				rhs := strokeCubicBezier(start, c1, c2, end, halfWidth, tolerance)
-				lhs := strokeCubicBezier(start, c1, c2, end, -halfWidth, tolerance)
+				rhs := strokeCubicBezier(start, c1, c2, end, halfWidth, Tolerance)
+				lhs := strokeCubicBezier(start, c1, c2, end, -halfWidth, Tolerance)
 				sp.Append(rhs)
 				ret.Append(lhs)
 			case CubeToCmd:
@@ -166,8 +166,8 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path 
 
 				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, &first, &n0First)
 
-				rhs := strokeCubicBezier(start, c1, c2, end, halfWidth, tolerance)
-				lhs := strokeCubicBezier(start, c1, c2, end, -halfWidth, tolerance)
+				rhs := strokeCubicBezier(start, c1, c2, end, halfWidth, Tolerance)
+				lhs := strokeCubicBezier(start, c1, c2, end, -halfWidth, Tolerance)
 				sp.Append(rhs)
 				ret.Append(lhs)
 			case ArcToCmd:
@@ -175,8 +175,8 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path 
 				largeAngle, sweep := fromArcFlags(p.d[i+4])
 				end = Point{p.d[i+5], p.d[i+6]}
 				_, _, angle0, angle1 := ellipseToCenter(start.X, start.Y, rx, ry, rot, largeAngle, sweep, end.X, end.Y)
-				n0 = ellipseNormal(angle0).Norm(halfWidth)
-				n1 = ellipseNormal(angle1).Norm(halfWidth)
+				n0 = ellipseNormal(angle0, rot).Norm(halfWidth)
+				n1 = ellipseNormal(angle1, rot).Norm(halfWidth)
 				if sweep { // CW
 					n0 = n0.Neg()
 					n1 = n1.Neg()
