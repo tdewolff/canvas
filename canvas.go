@@ -18,15 +18,15 @@ const MmPerInch = 25.4
 const InchPerMm = 1 / 25.4
 
 var (
-	Black   = color.RGBA{0, 0, 0, 255}
-	White   = color.RGBA{0, 0, 0, 255}
-	Grey    = color.RGBA{128, 128, 128, 255}
-	Red     = color.RGBA{255, 0, 0, 255}
-	Lime    = color.RGBA{0, 255, 0, 255}
-	Blue    = color.RGBA{0, 0, 255, 255}
-	Yellow  = color.RGBA{255, 255, 0, 255}
-	Magenta = color.RGBA{255, 0, 255, 255}
-	Cyan    = color.RGBA{0, 255, 255, 255}
+	Black   color.Color = color.RGBA{0, 0, 0, 255}
+	White   color.Color = color.RGBA{0, 0, 0, 255}
+	Grey    color.Color = color.RGBA{128, 128, 128, 255}
+	Red     color.Color = color.RGBA{255, 0, 0, 255}
+	Lime    color.Color = color.RGBA{0, 255, 0, 255}
+	Blue    color.Color = color.RGBA{0, 0, 255, 255}
+	Yellow  color.Color = color.RGBA{255, 255, 0, 255}
+	Magenta color.Color = color.RGBA{255, 0, 255, 255}
+	Cyan    color.Color = color.RGBA{0, 255, 255, 255}
 )
 
 func writeCSSColor(w io.Writer, c color.Color) {
@@ -190,8 +190,16 @@ func (c *C) WriteSVG(w io.Writer) {
 func (c *C) WritePDF(writer io.Writer) error {
 	w := NewPDFWriter(writer, 300, 300)
 
+	color := Black
 	b := &bytes.Buffer{}
 	for _, l := range c.layers {
+		if l.color != color {
+			b.WriteString(" ")
+			writePSColor(b, l.color)
+			b.WriteString(" rg")
+			color = l.color
+		}
+
 		if l.t == textLayer {
 			// TODO: embed fonts and draw text
 			l.path = l.fontFace.ToPath(l.text)
@@ -201,12 +209,11 @@ func (c *C) WritePDF(writer io.Writer) error {
 		if l.t == pathLayer {
 			l.path.Translate(150.0, 150.0)
 			b.WriteString(" ")
-			writePSColor(b, l.color)
-			b.WriteString(" rg ")
 			b.WriteString(l.path.ToPDF())
 		}
 	}
 
+	_, _ = b.ReadByte() // discard first space
 	w.WriteObject(PDFStream{
 		filters: []PDFFilter{PDFFilterFlate},
 		b:       b.Bytes(),
@@ -274,9 +281,13 @@ func (c *C) WriteEPS(w io.Writer) {
 	bg := Rectangle(0.0, 0.0, c.w, c.h)
 	layers := append([]layer{{pathLayer, 0.0, 0.0, color.White, FontFace{}, bg, ""}}, c.layers...)
 
+	color := Black
 	for _, l := range layers {
-		writePSColor(w, l.color)
-		w.Write([]byte(" setrgbcolor\n"))
+		if l.color != color {
+			writePSColor(w, l.color)
+			w.Write([]byte(" setrgbcolor\n"))
+			color = l.color
+		}
 
 		if l.t == textLayer {
 			// TODO: embed fonts (convert TTF to Type 42) and draw text
@@ -287,7 +298,6 @@ func (c *C) WriteEPS(w io.Writer) {
 		if l.t == pathLayer {
 			p := l.path.Copy().Translate(l.x, l.y).Scale(1.0, -1.0).Translate(0.0, c.h)
 			w.Write([]byte(p.ToPS()))
-			w.Write([]byte(" fill\n"))
 		}
 	}
 }
