@@ -23,10 +23,12 @@ Fonts
 
 Paths
 
-* Add path IsCW / IsCCW
+* **Fix bounds calculation of ellipses**
+* **Fix edge-cases for length calculation of Beziérs and ellipses**
 * **Approximate elliptic arcs by lines given a tolerance for use in `Flatten`**
 * **Approximate elliptic arcs by Beziérs given a tolerance for use in `WriteImage`, `ToPDF`, `SplitAt` and `Dash`**
 * **Introduce splitting up ellipses into partial arcs for `SplitAt` and `Dash` and remove approximating them by Beziérs**
+* Add path IsCW / IsCCW
 * Introduce elliptic arc function for PDFs much like for PostScript?
 * Add ArcTo in endpoint format (take begin/end angle and center point)
 * Add function to convert lines to cubic Beziérs to smooth out a path
@@ -50,8 +52,8 @@ c.DrawPath(x, y float64, path *Path)
 c.DrawText(x, y float64, text string)
 
 c.WriteSVG(w io.Writer)
-c.WriteEPS(w io.Writer)               // WIP
-c.WritePDF(w io.Writer)        
+c.WriteEPS(w io.Writer)
+c.WritePDF(w io.Writer)
 c.WriteImage(dpi float64) *image.RGBA
 ```
 
@@ -59,7 +61,7 @@ Canvas allows to draw either paths or text. All positions and sizes are given in
 
 ## Fonts
 ``` go
-dejaVuSerif, err := canvas.LoadFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")  // TTF or OTF
+dejaVuSerif, err := canvas.LoadFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")  // TTF, OTF or WOFF
 
 ff := dejaVuSerif.Face(size float64)
 ff.Info() (name string, style FontStyle, size float64)

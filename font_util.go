@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/dsnet/compress/brotli"
 	"golang.org/x/image/font/sfnt"
@@ -116,15 +115,12 @@ func parseFont(b []byte) (string, *sfnt.Font, error) {
 		if err != nil {
 			return "", nil, err
 		}
-
-		f, _ := os.Create("tmp.ttf")
-		f.Write(b)
-		f.Close()
 	} else if tag == "true" || binary.BigEndian.Uint32(b[:4]) == 0x00010000 {
 		mimetype = "font/truetype"
 	} else if tag == "OTTO" {
 		mimetype = "font/opentype"
 	} else {
+		// TODO: support EOT?
 		return "", nil, fmt.Errorf("unrecognized font file format")
 	}
 
@@ -372,8 +368,9 @@ func parseWOFF2(b []byte) ([]byte, error) {
 		if table.transformLength != 0 {
 			n = table.transformLength
 		}
-
 		tableData := data[offset : offset+n]
+		offset += n
+
 		switch uint32ToString(table.tag) {
 		case "glyf":
 			if table.transformVersion == 0 {
@@ -410,9 +407,6 @@ func parseWOFF2(b []byte) ([]byte, error) {
 		for i := 0; i < nPadding; i++ {
 			out.push([]byte{0x00})
 		}
-
-		offset += n
 	}
-
 	return out.b, nil
 }
