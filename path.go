@@ -931,7 +931,7 @@ func ParseSVGPath(s string) (*Path, error) {
 				f += x
 				g += y
 			}
-			p.ArcTo(a, b, c, d == 1.0, e == 0.0, f, g)
+			p.ArcTo(a, b, c, d == 1.0, e == 1.0, f, g)
 		default:
 			return nil, fmt.Errorf("unknown command in SVG path: %c", cmd)
 		}

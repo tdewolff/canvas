@@ -87,10 +87,10 @@ func drawText(c *canvas.C, x, y float64, size float64, text string) {
 	w, h := face.Bounds(text)
 
 	c.SetColor(color.RGBA{0, 0, 0, 20})
-	c.DrawPath(x, y, canvas.Rectangle(0, 0, w, h))
+	c.DrawPath(x, y, canvas.Rectangle(0, 0, w, -h))
 	c.SetColor(color.RGBA{0, 0, 0, 100})
-	c.DrawPath(x, y, canvas.Rectangle(0, metrics.CapHeight, -2.5, -12.0))
-	c.DrawPath(x, y, canvas.Rectangle(0, 0, -2.5, metrics.XHeight))
+	c.DrawPath(x, y, canvas.Rectangle(0, -metrics.CapHeight, -2.5, 12.0))
+	c.DrawPath(x, y, canvas.Rectangle(0, 0, -2.5, -metrics.XHeight))
 
 	c.SetColor(canvas.Black)
 	c.SetFont(face)
@@ -100,12 +100,12 @@ func drawText(c *canvas.C, x, y float64, size float64, text string) {
 func Draw(c *canvas.C) {
 	c.Open(180, 70)
 
-	drawText(c, 10, 50, 12.0, "Aap noot mies")
+	drawText(c, 10, 20, 12.0, "Aap noot mies")
 
 	face := dejaVuSerif.Face(30)
 	c.SetFont(face)
 	p := face.ToPath("Stroke")
-	c.DrawPath(5, 10, p.Stroke(1, canvas.RoundCapper, canvas.RoundJoiner))
+	c.DrawPath(5, 60, p.Stroke(1, canvas.RoundCapper, canvas.RoundJoiner))
 
 	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
 	if err != nil {
@@ -113,7 +113,7 @@ func Draw(c *canvas.C) {
 	}
 	latex.Rotate(-30, 0, 0)
 	c.SetColor(canvas.Black)
-	c.DrawPath(120, 65, latex)
+	c.DrawPath(120, 5, latex)
 
 	rot := 30.0
 	w := 20.0
@@ -122,8 +122,8 @@ func Draw(c *canvas.C) {
 		panic(err)
 	}
 	c.SetColor(canvas.Red)
-	c.DrawPath(115, 25, ellipse.Bounds().ToPath())
+	c.DrawPath(115, 45, ellipse.Bounds().ToPath())
 	ellipse = ellipse. /*Dash(0.8, 1.2, 0.8).*/ Stroke(0.3, canvas.RoundCapper, canvas.BevelJoiner)
 	c.SetColor(canvas.Black)
-	c.DrawPath(115, 25, ellipse)
+	c.DrawPath(115, 45, ellipse)
 }

@@ -151,7 +151,7 @@ func (c *C) WriteSVG(w io.Writer) {
 	}
 	for _, l := range c.layers {
 		if l.t == pathLayer {
-			p := l.path.Copy().Translate(l.x, l.y).Scale(1.0, -1.0).Translate(0.0, c.h)
+			p := l.path.Copy().Translate(l.x, l.y)
 			w.Write([]byte("<path d=\""))
 			w.Write([]byte(p.String()))
 			if l.color != color.Black {
@@ -165,7 +165,7 @@ func (c *C) WriteSVG(w io.Writer) {
 			w.Write([]byte("<text x=\""))
 			writeFloat64(w, l.x)
 			w.Write([]byte("\" y=\""))
-			writeFloat64(w, c.h-l.y)
+			writeFloat64(w, l.y)
 			w.Write([]byte("\" font-family=\""))
 			w.Write([]byte(name))
 			w.Write([]byte("\" font-size=\""))
@@ -216,7 +216,7 @@ func (c *C) WritePDF(writer io.Writer) error {
 		}
 
 		if l.t == pathLayer {
-			p := l.path.Copy().Translate(l.x, l.y)
+			p := l.path.Copy().Translate(l.x, l.y).Scale(1.0, -1.0).Translate(0.0, c.h)
 			buf.WriteString(" ")
 			buf.WriteString(p.ToPDF())
 		}
@@ -241,7 +241,6 @@ func (c *C) WriteImage(dpi float64) *image.RGBA {
 	bg := Rectangle(0.0, 0.0, c.w, c.h)
 	layers := append([]layer{{pathLayer, 0.0, 0.0, color.White, FontFace{}, bg, ""}}, c.layers...)
 
-	dy := float32(c.h * dpm)
 	for _, l := range layers {
 		if l.t == textLayer {
 			l.path = l.fontFace.ToPath(l.text)
@@ -256,13 +255,13 @@ func (c *C) WriteImage(dpi float64) *image.RGBA {
 				cmd := p.d[i]
 				switch cmd {
 				case MoveToCmd:
-					ras.MoveTo(float32(p.d[i+1]*dpm), dy-float32(p.d[i+2]*dpm))
+					ras.MoveTo(float32(p.d[i+1]*dpm), float32(p.d[i+2]*dpm))
 				case LineToCmd:
-					ras.LineTo(float32(p.d[i+1]*dpm), dy-float32(p.d[i+2]*dpm))
+					ras.LineTo(float32(p.d[i+1]*dpm), float32(p.d[i+2]*dpm))
 				case QuadToCmd:
-					ras.QuadTo(float32(p.d[i+1]*dpm), dy-float32(p.d[i+2]*dpm), float32(p.d[i+3]*dpm), dy-float32(p.d[i+4]*dpm))
+					ras.QuadTo(float32(p.d[i+1]*dpm), float32(p.d[i+2]*dpm), float32(p.d[i+3]*dpm), float32(p.d[i+4]*dpm))
 				case CubeToCmd:
-					ras.CubeTo(float32(p.d[i+1]*dpm), dy-float32(p.d[i+2]*dpm), float32(p.d[i+3]*dpm), dy-float32(p.d[i+4]*dpm), float32(p.d[i+5]*dpm), dy-float32(p.d[i+6]*dpm))
+					ras.CubeTo(float32(p.d[i+1]*dpm), float32(p.d[i+2]*dpm), float32(p.d[i+3]*dpm), float32(p.d[i+4]*dpm), float32(p.d[i+5]*dpm), float32(p.d[i+6]*dpm))
 				case ArcToCmd:
 					panic("arcs should have been replaced")
 				case CloseCmd:
@@ -312,7 +311,7 @@ func (c *C) WriteEPS(w io.Writer) {
 		}
 
 		if l.t == pathLayer {
-			p := l.path.Copy().Translate(l.x, l.y)
+			p := l.path.Copy().Translate(l.x, l.y).Scale(1.0, -1.0).Translate(0.0, c.h)
 			w.Write([]byte(" "))
 			w.Write([]byte(p.ToPS()))
 		}
