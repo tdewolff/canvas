@@ -1,7 +1,6 @@
 package canvas
 
 import (
-	"fmt"
 	"io/ioutil"
 	"math"
 	"unicode/utf8"
@@ -51,31 +50,10 @@ func LoadFontFile(name string, style FontStyle, filename string) (Font, error) {
 
 // LoadFont loads a font from memory.
 func LoadFont(name string, style FontStyle, b []byte) (Font, error) {
-	if len(b) < 4 {
-		return Font{}, fmt.Errorf("invalid font file")
-	}
-	tag := toTag(string(b[:4]))
-
-	mimetype := ""
-	if tag == toTag("wOFF") {
-		mimetype = "font/woff"
-		return Font{}, fmt.Errorf("WOFF font files not yet supported")
-	} else if tag == toTag("wOF2") {
-		mimetype = "font/woff2"
-		return Font{}, fmt.Errorf("WOFF2 font files not yet supported")
-	} else if tag == toTag("true") || tag == 0x00010000 {
-		mimetype = "font/truetype"
-	} else if tag == toTag("OTTO") {
-		mimetype = "font/opentype"
-	} else {
-		return Font{}, fmt.Errorf("unrecognized font file format")
-	}
-
-	sfnt, err := sfnt.Parse(b)
+	mimetype, sfnt, err := parseFont(b)
 	if err != nil {
 		return Font{}, err
 	}
-
 	return Font{
 		mimetype: mimetype,
 		raw:      b,

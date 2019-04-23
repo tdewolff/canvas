@@ -96,7 +96,8 @@ func ellipseToBeziers(start Point, rx, ry, rot float64, largeArc, sweep bool, en
 	angle1 *= math.Pi / 180.0
 	angle2 *= math.Pi / 180.0
 
-	// TODO: use dynamic step size, tolerance and maybe cubic Beziers
+	// TODO: improve: use dynamic step size, tolerance and maybe cubic Beziers
+	// use https://blogs.datalogics.com/2018/09/24/svg-to-pdf-part-2-drawing-arcs/ ?
 	// from https://github.com/fogleman/gg/blob/master/context.go#L485
 	const n = 16
 	rot *= math.Pi / 180.0
@@ -126,7 +127,7 @@ func flattenEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end 
 	angle1 *= math.Pi / 180.0
 	angle2 *= math.Pi / 180.0
 
-	// TODO: use dynamic step size and tolerance
+	// TODO: improve: use dynamic step size and tolerance
 	const n = 32
 	rot *= math.Pi / 180.0
 	cosrot := math.Cos(rot)

@@ -3,6 +3,7 @@ module github.com/tdewolff/canvas
 replace github.com/tdewolff/test => ../test
 
 require (
+	github.com/dsnet/compress v0.0.1
 	github.com/flopp/go-findfont v0.0.0-20180308170802-e788239e52bc
 	github.com/jung-kurt/gofpdf v1.0.0
 	github.com/tdewolff/parse v2.3.4+incompatible

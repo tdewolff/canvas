@@ -15,27 +15,29 @@ General
 
 Fonts
 
-* **Support WOFF and WOFF2 font formats**
 * Embedding only used characters
 * Font embedding for PDFs
 * Support ligatures and font hinting
+* Support WOFF2 font format
 * Support Type1 font format?
 
 Paths
 
 * Add path IsCW / IsCCW
+* **Approximate elliptic arcs by lines given a tolerance for use in `Flatten`**
+* **Approximate elliptic arcs by Beziérs given a tolerance for use in `WriteImage`, `ToPDF`, `SplitAt` and `Dash`**
+* **Introduce splitting up ellipses into partial arcs for `SplitAt` and `Dash` and remove approximating them by Beziérs**
+* Introduce elliptic arc function for PDFs much like for PostScript?
 * Add ArcTo in endpoint format (take begin/end angle and center point)
-* Improve ellipse flattening and introduce splitting up ellipses into partial arcs
+* Add function to convert lines to cubic Beziérs to smooth out a path
 * Add offsetting of path (expand / contract), tricky with overlap
-* Convert lines to cubic Beziérs to smooth out the path
 
 Optimization
 
+* Approximate Beziérs by elliptic arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (check)
 * Optimize/minify paths from and to SVG
 * Optimize paths by replacing Quad/Cube/Arc to line if they are linear (eg. p0=p1=p2 for cubic Bezier)
 * Optimize paths by removing the last Line if followed by Close
-* Approximate arcs by Beziérs given a tolerance for use in the rasterizer
-* Approximate Beziérs by arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (check)
 
 
 ## Canvas

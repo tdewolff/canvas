@@ -13,7 +13,7 @@ var dejaVuSerif canvas.Font
 
 func main() {
 	var err error
-	dejaVuSerif, err = canvas.LoadFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")
+	dejaVuSerif, err = canvas.LoadFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.woff")
 	if err != nil {
 		panic(err)
 	}
