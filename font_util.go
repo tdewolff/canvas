@@ -170,7 +170,6 @@ func parseWOFF(b []byte) ([]byte, error) {
 		compLength := p.pop32()
 		origLength := p.pop32()
 		origChecksum := p.pop32()
-		fmt.Println(uint32ToString(tag), origLength)
 		tables = append(tables, woffTable{
 			tag:          tag,
 			offset:       offset,
