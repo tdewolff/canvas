@@ -187,6 +187,47 @@ func Ellipse(x, y, rx, ry float64) *Path {
 
 ////////////////////////////////////////////////////////////////
 
+// direction returns the angle the last path segment makes (ie. positive or negative) to determine its direction.
+// Approaches all commands to be linear, so does not incorporate the angle a path command makes.
+func (p *Path) direction() float64 {
+	theta := 0.0
+	first := true
+	var a0, a, b Point
+	var start, end Point
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		i += cmdLen(cmd)
+
+		end = Point{p.d[i-2], p.d[i-1]}
+		b = end.Sub(start)
+		if cmd == MoveToCmd {
+			theta = 0.0
+			first = true
+		} else if first {
+			a0 = b
+			first = false
+		} else {
+			theta += a.Angle(b)
+		}
+		start = end
+		a = b
+	}
+	if !first {
+		theta += b.Angle(a0)
+	}
+	return theta
+}
+
+// CW returns true when the last path segment has a clockwise direction.
+func (p *Path) CW() bool {
+	return p.direction() < 0.0
+}
+
+// CCW returns true when the last path segment has a counter clockwise direction.
+func (p *Path) CCW() bool {
+	return p.direction() > 0.0
+}
+
 // Bounds returns the bounding box rectangle of the path.
 func (p *Path) Bounds() Rect {
 	xmin, xmax := math.Inf(1), math.Inf(-1)

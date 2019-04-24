@@ -90,8 +90,16 @@ func (p Point) Dot(q Point) float64 {
 	return p.X*q.X + p.Y*q.Y
 }
 
+func (p Point) PerpDot(q Point) float64 {
+	return p.X*q.Y - p.Y*q.X
+}
+
 func (p Point) Length() float64 {
 	return math.Sqrt(p.X*p.X + p.Y*p.Y)
+}
+
+func (p Point) Angle(q Point) float64 {
+	return math.Atan2(p.PerpDot(q), p.Dot(q))
 }
 
 func (p Point) Norm(length float64) Point {

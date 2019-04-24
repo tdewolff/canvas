@@ -8,6 +8,26 @@ import (
 	"github.com/tdewolff/test"
 )
 
+func TestPathDirection(t *testing.T) {
+	var tts = []struct {
+		orig      string
+		direction float64
+	}{
+		{"M0 0L10 0L10 10z", 2 * math.Pi},
+		{"M0 0L10 0L10 -10z", -2 * math.Pi},
+		{"M0 0L10 0z", 0.0},
+		{"M0 0z", 0.0},
+		{"M0 0L10 0L20 0z", 0.0},
+		{"M0 0L10 0L20 0L10 1z", 2 * math.Pi},
+	}
+	for _, tt := range tts {
+		t.Run(tt.orig, func(t *testing.T) {
+			p, _ := ParseSVGPath(tt.orig)
+			test.Float(t, p.direction(), tt.direction)
+		})
+	}
+}
+
 func TestPathBounds(t *testing.T) {
 	var tts = []struct {
 		orig   string

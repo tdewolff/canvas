@@ -28,7 +28,6 @@ Paths
 * **Approximate elliptic arcs by lines given a tolerance for use in `Flatten`**
 * **Approximate elliptic arcs by Beziérs given a tolerance for use in `WriteImage`, `ToPDF`, `SplitAt` and `Dash`**
 * **Introduce splitting up ellipses into partial arcs for `SplitAt` and `Dash` and remove approximating them by Beziérs**
-* Add path IsCW / IsCCW
 * Introduce elliptic arc function for PDFs much like for PostScript?
 * Add ArcTo in endpoint format (take begin/end angle and center point)
 * Add function to convert lines to cubic Beziérs to smooth out a path
@@ -40,6 +39,8 @@ Optimization
 * Optimize/minify paths from and to SVG
 * Optimize paths by replacing Quad/Cube/Arc to line if they are linear (eg. p0=p1=p2 for cubic Bezier)
 * Optimize paths by removing the last Line if followed by Close
+* Avoid overlapping paths when stroking, we need to know the ending and starting angle of the previous and next command respectively
+* Store location of last `MoveToCmd` to optimize `direction()` and others?
 
 
 ## Canvas
@@ -87,9 +88,11 @@ p.Close()                                                         // close the p
 We can extract information from these paths using:
 
 ``` go
-p.Empty() bool               // returns boolean
+p.Empty() bool
 p.Pos() (x, y float64)       // current pen position
 p.StartPos() (x, y float64)  // position of last MoveTo
+p.CW() bool                  // true if the last path segment has a clockwise direction
+p.CCW() bool                 // true if the last path segment has a counter clockwise direction
 p.Bounds() Rect              // WIP: bounding box of path
 p.Length() float64           // WIP: length of path in millimeters
 p.ToSVG() string             // to SVG
