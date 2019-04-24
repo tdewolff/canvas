@@ -4,6 +4,109 @@ import (
 	"math"
 )
 
+// Numerically stable quadratic formula
+// see https://math.stackexchange.com/a/2007723
+func solveQuadraticFormula(a, b, c float64) (float64, float64) {
+	if a == 0.0 {
+		if b == 0.0 {
+			if c == 0.0 {
+				// all terms disappear, all x satisfy the solution
+				return 0.0, math.NaN()
+			}
+			// linear term disappears, no solutions
+			return math.NaN(), math.NaN()
+		}
+		// quadratic term disappears, solve linear equation
+		x1 := -c / b
+		if 1.0 <= x1 || x1 < 0.0 {
+			x1 = math.NaN()
+		}
+		return x1, math.NaN()
+	}
+
+	if c == 0.0 {
+		// no constant term, one solution at zero and one from solving linearly
+		x2 := -b / a
+		if 1.0 <= x2 || x2 < 0.0 {
+			x2 = math.NaN()
+		}
+		return 0.0, x2
+	}
+
+	discriminant := b*b - 4.0*a*c
+	if discriminant < 0.0 {
+		return math.NaN(), math.NaN()
+	} else if discriminant == 0.0 {
+		x1 := -b / (2.0 * a)
+		if 1.0 <= x1 || x1 < 0.0 {
+			x1 = math.NaN()
+		}
+		return x1, math.NaN()
+	}
+
+	// Avoid catastrophic cancellation, which occurs when we subtract two nearly equal numbers and causes a large error
+	// this can be the case when 4*a*c is small so that sqrt(discriminant) -> b, and the sign of b and in front of the radical are the same
+	// instead we calculate x where b and the radical have different signs, and then use this result in the analytical equivalent
+	// of the formula, called the Citardauq Formula.
+	q := math.Sqrt(discriminant)
+	if b < 0.0 {
+		// apply sign of b
+		q = -q
+	}
+	x1 := -(b + q) / (2.0 * a)
+	x2 := c / (a * x1)
+	if x1 > x2 {
+		x1, x2 = x2, x1
+	}
+	if 1.0 <= x1 || x1 < 0.0 {
+		x1 = math.NaN()
+	}
+	if 1.0 <= x2 || x2 < 0.0 {
+		x2 = math.NaN()
+	}
+	return x1, x2
+}
+
+// Gauss-Legendre quadrature integration from a to b with n=3
+func gaussLegendre3(f func(float64) float64, a, b float64) float64 {
+	c := (b - a) / 2.0
+	d := (a + b) / 2.0
+	Qd1 := f(-0.774596669*c + d)
+	Qd2 := f(d)
+	Qd3 := f(0.774596669*c + d)
+	return c * ((5.0/9.0)*(Qd1+Qd3) + (8.0/9.0)*Qd2)
+}
+
+// Gauss-Legendre quadrature integration from a to b with n=5
+func gaussLegendre5(f func(float64) float64, a, b float64) float64 {
+	c := (b - a) / 2.0
+	d := (a + b) / 2.0
+	Qd1 := f(-0.90618*c + d)
+	Qd2 := f(-0.538469*c + d)
+	Qd3 := f(d)
+	Qd4 := f(0.538469*c + d)
+	Qd5 := f(0.90618*c + d)
+	return c * (0.236927*(Qd1+Qd5) + 0.478629*(Qd2+Qd4) + 0.568889*Qd3)
+}
+
+// find parametric value t at a given length s on the curve using the bisection method
+//func bisectionMethod(f func(float64) float64, s float64) float64 {
+//	tmin, tmax := 0.0, 1.0
+//	for {
+//		t := (tmin + tmax) / 2.0
+//		ds := f(t) - s
+//		if math.Abs(ds) < 0.1 || (tmax-tmin)/2.0 < 0.1 {
+//			return t
+//		} else if ds > 0.0 {
+//			tmax = t
+//		} else {
+//			tmin = t
+//		}
+//	}
+//}
+
+////////////////////////////////////////////////////////////////
+
 // ellipseToEndpoints converts to the endpoint arc format and returns (startX, startY, largeArc, sweep, endX, endY)
 // see https://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
 func ellipseToEndpoint(cx, cy, rx, ry, rot, theta1, theta2 float64) (float64, float64, bool, bool, float64, float64) {
@@ -79,15 +182,38 @@ func ellipseToCenter(x1, y1, rx, ry, rot float64, large, sweep bool, x2, y2 floa
 	return cx, cy, theta, theta + delta
 }
 
-func splitEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) (Point, bool, bool, bool, bool) {
-	panic("not implemented")
+func ellipseSpeedAt(rx, ry, phi float64) float64 {
+	dx := rx * math.Cos(phi)
+	dy := -ry * math.Sin(phi)
+	return math.Sqrt(dx*dx + dy*dy)
 }
 
+// TODO: buggy
+func ellipseLength(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) float64 {
+	_, _, angle0, angle1 := ellipseToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
+	phi0 := angle0 * math.Pi / 180.0
+	phi1 := angle1 * math.Pi / 180.0
+	if phi1 < phi0 {
+		phi0, phi1 = phi1, phi0
+	}
+
+	speed := func(phi float64) float64 { return ellipseSpeedAt(rx, ry, phi) }
+	return gaussLegendre5(speed, phi0, phi1)
+}
+
+// ellipseNormal returns the normal at angle theta of the ellipse, given rotation rot.
+// TODO: is this useful?
 func ellipseNormal(theta, rot float64) Point {
 	theta += rot
 	theta *= math.Pi / 180.0
 	y, x := math.Sincos(theta)
 	return Point{x, y}
+}
+
+// TODO: ellipseAt?
+
+func splitEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) (Point, bool, bool, bool, bool) {
+	panic("not implemented") // TODO
 }
 
 func ellipseToBeziers(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) *Path {
@@ -143,44 +269,14 @@ func flattenEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end 
 }
 
 ////////////////////////////////////////////////////////////////
+// Beziérs /////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
 
-// Gauss-Legendre quadrature integration from a to b with n=3
-func gaussLegendre3(f func(float64) float64, a, b float64) float64 {
-	c := (b - a) / 2.0
-	d := (a + b) / 2.0
-	Qd1 := f(-0.774596669*c + d)
-	Qd2 := f(d)
-	Qd3 := f(0.774596669*c + d)
-	return c * ((5.0/9.0)*(Qd1+Qd3) + (8.0/9.0)*Qd2)
+func quadraticToCubicBezier(start, c, end Point) (Point, Point) {
+	c1 := start.Interpolate(c, 2.0/3.0)
+	c2 := end.Interpolate(c, 2.0/3.0)
+	return c1, c2
 }
-
-// Gauss-Legendre quadrature integration from a to b with n=5
-func gaussLegendre5(f func(float64) float64, a, b float64) float64 {
-	c := (b - a) / 2.0
-	d := (a + b) / 2.0
-	Qd1 := f(-0.90618*c + d)
-	Qd2 := f(-0.538469*c + d)
-	Qd3 := f(d)
-	Qd4 := f(0.538469*c + d)
-	Qd5 := f(0.90618*c + d)
-	return c * (0.236927*(Qd1+Qd5) + 0.478629*(Qd2+Qd4) + 0.568889*Qd3)
-}
-
-// find parametric value t at a given length s on the curve using the bisection method
-//func bisectionMethod(f func(float64) float64, s float64) float64 {
-//	tmin, tmax := 0.0, 1.0
-//	for {
-//		t := (tmin + tmax) / 2.0
-//		ds := f(t) - s
-//		if math.Abs(ds) < 0.1 || (tmax-tmin)/2.0 < 0.1 {
-//			return t
-//		} else if ds > 0.0 {
-//			tmax = t
-//		} else {
-//			tmin = t
-//		}
-//	}
-//}
 
 func cubicBezierSpeedAt(p0, p1, p2, p3 Point, t float64) float64 {
 	p0 = p0.Mul(-3.0 + 6.0*t - 3.0*t*t)
@@ -244,33 +340,6 @@ func cubicBezierLength(p0, p1, p2, p3 Point) float64 {
 //	}
 //}
 
-func ellipseSpeedAt(rx, ry, phi float64) float64 {
-	dx := rx * math.Cos(phi)
-	dy := -ry * math.Sin(phi)
-	return math.Sqrt(dx*dx + dy*dy)
-}
-
-// TODO: buggy
-func ellipseLength(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) float64 {
-	_, _, angle0, angle1 := ellipseToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
-	phi0 := angle0 * math.Pi / 180.0
-	phi1 := angle1 * math.Pi / 180.0
-	if phi1 < phi0 {
-		phi0, phi1 = phi1, phi0
-	}
-
-	speed := func(phi float64) float64 { return ellipseSpeedAt(rx, ry, phi) }
-	return gaussLegendre5(speed, phi0, phi1)
-}
-
-////////////////////////////////////////////////////////////////
-
-func quadraticToCubicBezier(start, c, end Point) (Point, Point) {
-	c1 := start.Interpolate(c, 2.0/3.0)
-	c2 := end.Interpolate(c, 2.0/3.0)
-	return c1, c2
-}
-
 func cubicBezierNormal(p0, p1, p2, p3 Point, t float64) Point {
 	if t == 0.0 {
 		n := p1.Sub(p0)
@@ -297,34 +366,7 @@ func cubicBezierNormal(p0, p1, p2, p3 Point, t float64) Point {
 		}
 		return n.Rot90CW()
 	}
-	panic("not implemented")
-}
-
-func addCubicBezierLine(p *Path, p0, p1, p2, p3 Point, t, d float64) {
-	if p0.X == p3.X && p0.Y == p3.X && (p0.X == p1.X && p0.Y == p1.Y || p0.X == p2.X && p0.Y == p2.Y) {
-		// Bezier has p0=p1=p3 or p0=p2=p3 and thus has no surface
-		return
-	}
-
-	pos := Point{}
-	if t == 0.0 {
-		// line to beginning of path
-		pos = p0
-		if d != 0.0 {
-			n := cubicBezierNormal(p0, p1, p2, p3, t)
-			pos = pos.Add(n.Norm(d))
-		}
-	} else if t == 1.0 {
-		// line to the end of the path
-		pos = p3
-		if d != 0.0 {
-			n := cubicBezierNormal(p0, p1, p2, p3, t)
-			pos = pos.Add(n.Norm(d))
-		}
-	} else {
-		panic("not implemented")
-	}
-	p.LineTo(pos.X, pos.Y)
+	panic("not implemented") // TODO
 }
 
 func quadraticBezierAt(p0, p1, p2 Point, t float64) Point {
@@ -358,6 +400,33 @@ func splitCubicBezier(p0, p1, p2, p3 Point, t float64) (Point, Point, Point, Poi
 	return q0, q1, q2, q3, r0, r1, r2, r3
 }
 
+func addCubicBezierLine(p *Path, p0, p1, p2, p3 Point, t, d float64) {
+	if p0.X == p3.X && p0.Y == p3.X && (p0.X == p1.X && p0.Y == p1.Y || p0.X == p2.X && p0.Y == p2.Y) {
+		// Bezier has p0=p1=p3 or p0=p2=p3 and thus has no surface
+		return
+	}
+
+	pos := Point{}
+	if t == 0.0 {
+		// line to beginning of path
+		pos = p0
+		if d != 0.0 {
+			n := cubicBezierNormal(p0, p1, p2, p3, t)
+			pos = pos.Add(n.Norm(d))
+		}
+	} else if t == 1.0 {
+		// line to the end of the path
+		pos = p3
+		if d != 0.0 {
+			n := cubicBezierNormal(p0, p1, p2, p3, t)
+			pos = pos.Add(n.Norm(d))
+		}
+	} else {
+		panic("not implemented") // TODO
+	}
+	p.LineTo(pos.X, pos.Y)
+}
+
 // split the curve and replace it by lines as long as maximum deviation = flatness is maintained
 func flattenSmoothCubicBezier(p *Path, p0, p1, p2, p3 Point, d, flatness float64) {
 	t := 0.0
@@ -379,69 +448,6 @@ func flattenSmoothCubicBezier(p *Path, p0, p1, p2, p3 Point, d, flatness float64
 		addCubicBezierLine(p, p0, p1, p2, p3, 0.0, d)
 	}
 	addCubicBezierLine(p, p0, p1, p2, p3, 1.0, d)
-}
-
-func solveQuadraticFormula(a, b, c float64) (float64, float64) {
-	// Numerically stable quadratic formula
-	// see https://math.stackexchange.com/a/2007723
-	if a == 0.0 {
-		if b == 0.0 {
-			if c == 0.0 {
-				// all terms disappear, all x satisfy the solution
-				return 0.0, math.NaN()
-			}
-			// linear term disappears, no solutions
-			return math.NaN(), math.NaN()
-		}
-		// quadratic term disappears, solve linear equation
-		x1 := -c / b
-		if 1.0 <= x1 || x1 < 0.0 {
-			x1 = math.NaN()
-		}
-		return x1, math.NaN()
-	}
-
-	if c == 0.0 {
-		// no constant term, one solution at zero and one from solving linearly
-		x2 := -b / a
-		if 1.0 <= x2 || x2 < 0.0 {
-			x2 = math.NaN()
-		}
-		return 0.0, x2
-	}
-
-	discriminant := b*b - 4.0*a*c
-	if discriminant < 0.0 {
-		return math.NaN(), math.NaN()
-	} else if discriminant == 0.0 {
-		x1 := -b / (2.0 * a)
-		if 1.0 <= x1 || x1 < 0.0 {
-			x1 = math.NaN()
-		}
-		return x1, math.NaN()
-	}
-
-	// Avoid catastrophic cancellation, which occurs when we subtract two nearly equal numbers and causes a large error
-	// this can be the case when 4*a*c is small so that sqrt(discriminant) -> b, and the sign of b and in front of the radical are the same
-	// instead we calculate x where b and the radical have different signs, and then use this result in the analytical equivalent
-	// of the formula, called the Citardauq Formula.
-	q := math.Sqrt(discriminant)
-	if b < 0.0 {
-		// apply sign of b
-		q = -q
-	}
-	x1 := -(b + q) / (2.0 * a)
-	x2 := c / (a * x1)
-	if x1 > x2 {
-		x1, x2 = x2, x1
-	}
-	if 1.0 <= x1 || x1 < 0.0 {
-		x1 = math.NaN()
-	}
-	if 1.0 <= x2 || x2 < 0.0 {
-		x2 = math.NaN()
-	}
-	return x1, x2
 }
 
 func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
