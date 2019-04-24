@@ -94,7 +94,7 @@ func drawText(c *canvas.C, x, y float64, size float64, text string) {
 
 	c.SetColor(canvas.Black)
 	c.SetFont(face)
-	c.DrawText(x, y, text)
+	c.DrawText(x, y, 0.0, text)
 }
 
 func Draw(c *canvas.C) {

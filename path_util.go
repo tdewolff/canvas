@@ -201,16 +201,16 @@ func ellipseLength(start Point, rx, ry, rot float64, largeArc, sweep bool, end P
 	return gaussLegendre5(speed, phi0, phi1)
 }
 
-// ellipseNormal returns the normal at angle theta of the ellipse, given rotation rot.
+// TODO: ellipseAt?
+
+// ellipseNormal returns the normal at angle phi of the ellipse, given rotation rot.
 // TODO: is this useful?
-func ellipseNormal(theta, rot float64) Point {
-	theta += rot
-	theta *= math.Pi / 180.0
-	y, x := math.Sincos(theta)
+func ellipseNormal(phi, rot float64) Point {
+	phi += rot
+	phi *= math.Pi / 180.0
+	y, x := math.Sincos(phi)
 	return Point{x, y}
 }
-
-// TODO: ellipseAt?
 
 func splitEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) (Point, bool, bool, bool, bool) {
 	panic("not implemented") // TODO
@@ -340,6 +340,21 @@ func cubicBezierLength(p0, p1, p2, p3 Point) float64 {
 //	}
 //}
 
+func quadraticBezierAt(p0, p1, p2 Point, t float64) Point {
+	p0 = p0.Mul((1 - t) * (1 - t))
+	p1 = p1.Mul(2 * t * (1 - t))
+	p2 = p2.Mul(t * t)
+	return p0.Add(p1).Add(p2)
+}
+
+func cubicBezierAt(p0, p1, p2, p3 Point, t float64) Point {
+	p0 = p0.Mul((1 - t) * (1 - t) * (1 - t))
+	p1 = p1.Mul(3 * t * (1 - t) * (1 - t))
+	p2 = p2.Mul(3 * t * t * (1 - t))
+	p3 = p3.Mul(t * t * t)
+	return p0.Add(p1).Add(p2).Add(p3)
+}
+
 func cubicBezierNormal(p0, p1, p2, p3 Point, t float64) Point {
 	if t == 0.0 {
 		n := p1.Sub(p0)
@@ -367,21 +382,6 @@ func cubicBezierNormal(p0, p1, p2, p3 Point, t float64) Point {
 		return n.Rot90CW()
 	}
 	panic("not implemented") // TODO
-}
-
-func quadraticBezierAt(p0, p1, p2 Point, t float64) Point {
-	p0 = p0.Mul((1 - t) * (1 - t))
-	p1 = p1.Mul(2 * t * (1 - t))
-	p2 = p2.Mul(t * t)
-	return p0.Add(p1).Add(p2)
-}
-
-func cubicBezierAt(p0, p1, p2, p3 Point, t float64) Point {
-	p0 = p0.Mul((1 - t) * (1 - t) * (1 - t))
-	p1 = p1.Mul(3 * t * (1 - t) * (1 - t))
-	p2 = p2.Mul(3 * t * t * (1 - t))
-	p3 = p3.Mul(t * t * t)
-	return p0.Add(p1).Add(p2).Add(p3)
 }
 
 func splitCubicBezier(p0, p1, p2, p3 Point, t float64) (Point, Point, Point, Point, Point, Point, Point, Point) {

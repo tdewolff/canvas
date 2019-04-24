@@ -32,13 +32,14 @@ Paths
 * Add ArcTo in endpoint format (take begin/end angle and center point)
 * Add function to convert lines to cubic Beziérs to smooth out a path
 * Add offsetting of path (expand / contract), tricky with overlap
+* Implement miter and arcs line join types for stroking
 
 Optimization
 
 * Approximate Beziérs by elliptic arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (check)
 * Optimize/minify paths from and to SVG
 * Optimize paths by replacing Quad/Cube/Arc to line if they are linear (eg. p0=p1=p2 for cubic Bezier)
-* Optimize paths by removing the last Line if followed by Close
+* Optimize paths by removing zero-length commands (incl. the last Line if followed by Close)
 * Avoid overlapping paths when stroking, we need to know the ending and starting angle of the previous and next command respectively
 * Store location of last `MoveToCmd` to optimize `direction()` and others?
 

@@ -119,7 +119,10 @@ func (c *C) DrawPath(x, y float64, p *Path) {
 	c.layers = append(c.layers, layer{pathLayer, x, y, c.color, c.fontFace, p, ""})
 }
 
-func (c *C) DrawText(x, y float64, s string) {
+func (c *C) DrawText(x, y, rot float64, s string) {
+	if rot != 0.0 {
+		panic("text rotation not implemented") // TODO
+	}
 	c.layers = append(c.layers, layer{textLayer, x, y, c.color, c.fontFace, nil, s})
 	c.fonts = append(c.fonts, c.fontFace.f)
 }
