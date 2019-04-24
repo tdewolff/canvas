@@ -14,7 +14,8 @@ var Tolerance = 0.01
 
 // PathCmd specifies the path command.
 const (
-	MoveToCmd float64 = 1.0 << iota
+	NullCmd   = 0.0
+	MoveToCmd = 1.0 << iota
 	LineToCmd
 	QuadToCmd
 	CubeToCmd
@@ -31,6 +32,8 @@ func cmdLen(cmd float64) int {
 		return 5
 	case CubeToCmd, ArcToCmd:
 		return 7
+	case NullCmd:
+		return 0
 	}
 	panic("unknown path command")
 }
@@ -797,6 +800,67 @@ func (p *Path) Reverse() *Path {
 		ip.Close()
 	}
 	return ip
+}
+
+func (p *Path) Optimize() *Path {
+	var start, end Point
+	var prevCmd float64
+	// TODO: run reverse
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		switch cmd {
+		case MoveToCmd:
+			end = Point{p.d[i+1], p.d[i+2]}
+			if len(p.d) > i+3 && p.d[i+3] == MoveToCmd || i == 0 && end.X == 0.0 && end.Y == 0.0 {
+				p.d = append(p.d[:i], p.d[i+3:]...)
+				cmd = NullCmd
+			}
+			// TODO: remove MoveTo + Close combination
+		case LineToCmd:
+			end = Point{p.d[i+1], p.d[i+2]}
+			if start == end {
+				p.d = append(p.d[:i], p.d[i+3:]...)
+				cmd = NullCmd
+			}
+			// TODO: remove if followed by Close with the same end point
+		case CloseCmd:
+			end = Point{p.d[i+1], p.d[i+2]}
+			if prevCmd == NullCmd || prevCmd == CloseCmd {
+				p.d = append(p.d[:i], p.d[i+3:]...)
+				cmd = NullCmd
+			}
+		case QuadToCmd:
+			c := Point{p.d[i+1], p.d[i+2]}
+			end = Point{p.d[i+3], p.d[i+4]}
+			if c == start || c == end {
+				p.d = append(p.d[:i+1], p.d[i+3:]...)
+				p.d[i] = LineToCmd
+				cmd = LineToCmd
+			}
+		case CubeToCmd:
+			c1 := Point{p.d[i+1], p.d[i+2]}
+			c2 := Point{p.d[i+3], p.d[i+4]}
+			end := Point{p.d[i+5], p.d[i+6]}
+			if (c1 == start || c1 == end) && (c2 == start || c2 == end) {
+				p.d = append(p.d[:i+1], p.d[i+5:]...)
+				p.d[i] = LineToCmd
+				cmd = LineToCmd
+			}
+		case ArcToCmd:
+			end = Point{p.d[i+5], p.d[i+6]}
+			if start == end {
+				p.d = append(p.d[:i], p.d[i+7:]...)
+				cmd = NullCmd
+			}
+		}
+		if cmd == LineToCmd {
+			// TODO: combine line elements that have the same direction
+		}
+		i += cmdLen(cmd)
+		start = end
+		prevCmd = cmd
+	}
+	return p
 }
 
 ////////////////////////////////////////////////////////////////

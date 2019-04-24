@@ -206,3 +206,34 @@ func TestPathReverse(t *testing.T) {
 		})
 	}
 }
+
+func TestPathOptimize(t *testing.T) {
+	var tts = []struct {
+		orig string
+		opt  string
+	}{
+		{"M0 0", ""},
+		//{"M10 10z", ""}, // TODO
+		{"M10 10M20 20", "M20 20"},
+		{"M10 10L20 20zz", "M10 10L20 20z"},
+		{"M10 10L20 20L20 20", "M10 10L20 20"},
+		//{"M10 10L20 20L30 30", "M10 10L30 30"}, // TODO
+		{"L10 10A5 5 0 0 0 10 10", "L10 10"},
+		{"Q0 0 10 10", "L10 10"},
+		{"Q10 10 10 10", "L10 10"},
+		{"C0 0 0 0 10 10", "L10 10"},
+		{"C0 0 10 10 10 10", "L10 10"},
+		{"C10 10 0 0 10 10", "L10 10"},
+		{"C10 10 10 10 10 10", "L10 10"},
+	}
+	for _, tt := range tts {
+		t.Run(tt.orig, func(t *testing.T) {
+			p, _ := ParseSVGPath(tt.orig)
+			opt := p.Optimize().String()
+			if strings.HasPrefix(opt, "M0 0") {
+				opt = opt[4:]
+			}
+			test.T(t, opt, tt.opt)
+		})
+	}
+}
