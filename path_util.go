@@ -120,17 +120,17 @@ func gaussLegendre5(f func(float64) float64, a, b float64) float64 {
 //	return x1, y1, largeArc, sweep, x2, y2
 //}
 
-// ellipseToCenter converts to the center arc format and returns (centerX, centerY, angleFrom, angleTo)
-// see https://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
-// TODO: return in radians?
-func ellipseToCenter(x1, y1, rx, ry, rot float64, large, sweep bool, x2, y2 float64) (float64, float64, float64, float64) {
+// ellipseToCenter converts to the center arc format and returns (centerX, centerY, angleFrom, angleTo) with angles in radians.
+// angleFrom could be bigger than angleTo, in which case the ellipse runs clockwise.
+// See https://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
+func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 float64) (float64, float64, float64, float64) {
 	if x1 == x2 && y1 == y2 {
 		return x1, y1, 0.0, 0.0
 	}
+	sinphi, cosphi := math.Sincos(phi)
 
-	rot *= math.Pi / 180.0
-	x1p := math.Cos(rot)*(x1-x2)/2.0 + math.Sin(rot)*(y1-y2)/2.0
-	y1p := -math.Sin(rot)*(x1-x2)/2.0 + math.Cos(rot)*(y1-y2)/2.0
+	x1p := cosphi*(x1-x2)/2.0 + sinphi*(y1-y2)/2.0
+	y1p := -sinphi*(x1-x2)/2.0 + cosphi*(y1-y2)/2.0
 
 	// reduce rouding errors
 	raddiCheck := x1p*x1p/rx/rx + y1p*y1p/ry/ry
@@ -149,8 +149,8 @@ func ellipseToCenter(x1, y1, rx, ry, rot float64, large, sweep bool, x2, y2 floa
 	}
 	cxp := coef * rx * y1p / ry
 	cyp := coef * -ry * x1p / rx
-	cx := math.Cos(rot)*cxp - math.Sin(rot)*cyp + (x1+x2)/2.0
-	cy := math.Sin(rot)*cxp + math.Cos(rot)*cyp + (y1+y2)/2.0
+	cx := cosphi*cxp - sinphi*cyp + (x1+x2)/2.0
+	cy := sinphi*cxp + cosphi*cyp + (y1+y2)/2.0
 
 	// specify U and V vectors; theta = arccos(U*V / sqrt(U*U + V*V))
 	ux := (x1p - cxp) / rx
@@ -162,10 +162,9 @@ func ellipseToCenter(x1, y1, rx, ry, rot float64, large, sweep bool, x2, y2 floa
 	if uy < 0.0 {
 		theta = -theta
 	}
-	theta *= 180.0 / math.Pi
-	theta = math.Mod(theta, 360.0)
+	theta = math.Mod(theta, 2.0*math.Pi)
 	if theta < 0.0 {
-		theta += 360.0
+		theta += 2.0 * math.Pi
 	}
 
 	deltaAcos := (ux*vx + uy*vy) / math.Sqrt((ux*ux+uy*uy)*(vx*vx+vy*vy))
@@ -174,42 +173,39 @@ func ellipseToCenter(x1, y1, rx, ry, rot float64, large, sweep bool, x2, y2 floa
 	if ux*vy-uy*vx < 0.0 {
 		delta = -delta
 	}
-	delta *= 180.0 / math.Pi
 	if !sweep && delta > 0.0 {
-		delta -= 360.0
+		delta -= 2.0 * math.Pi
 	} else if sweep && delta < 0.0 {
-		delta += 360.0
+		delta += 2.0 * math.Pi
 	}
 	return cx, cy, theta, theta + delta
 }
 
 func ellipseSpeedAt(rx, ry, phi float64) float64 {
-	dx := rx * math.Cos(phi)
-	dy := -ry * math.Sin(phi)
+	sinphi, cosphi := math.Sincos(phi)
+	dx := rx * cosphi
+	dy := -ry * sinphi
 	return math.Sqrt(dx*dx + dy*dy)
 }
 
 // TODO: buggy
-func ellipseLength(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) float64 {
-	_, _, angle0, angle1 := ellipseToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
-	phi0 := angle0 * math.Pi / 180.0
-	phi1 := angle1 * math.Pi / 180.0
-	if phi1 < phi0 {
-		phi0, phi1 = phi1, phi0
+func ellipseLength(start Point, rx, ry, phi float64, largeArc, sweep bool, end Point) float64 {
+	_, _, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
+	if theta2 < theta1 {
+		theta1, theta2 = theta2, theta1
 	}
 
-	speed := func(phi float64) float64 { return ellipseSpeedAt(rx, ry, phi) }
-	return gaussLegendre5(speed, phi0, phi1)
+	speed := func(theta float64) float64 { return ellipseSpeedAt(rx, ry, theta) }
+	return gaussLegendre5(speed, theta1, theta2)
 }
 
 // TODO: ellipseAt?
 
-// ellipseNormal returns the normal at angle phi of the ellipse, given rotation rot.
+// ellipseNormal returns the normal at angle theta of the ellipse, given rotation phi.
 // TODO: is this useful?
-func ellipseNormal(phi, rot float64) Point {
-	phi += rot
-	phi *= math.Pi / 180.0
-	y, x := math.Sincos(phi)
+func ellipseNormal(theta, phi float64) Point {
+	theta += phi
+	y, x := math.Sincos(theta)
 	return Point{x, y}
 }
 
@@ -217,30 +213,26 @@ func splitEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end Po
 	panic("not implemented") // TODO
 }
 
-func ellipseToBeziers(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) *Path {
+func ellipseToBeziers(start Point, rx, ry, phi float64, largeArc, sweep bool, end Point) *Path {
 	p := &Path{}
-	cx, cy, angle1, angle2 := ellipseToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
-	angle1 *= math.Pi / 180.0
-	angle2 *= math.Pi / 180.0
+	cx, cy, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
 
 	// TODO: improve: use dynamic step size, tolerance and maybe cubic Beziers
 	// use https://blogs.datalogics.com/2018/09/24/svg-to-pdf-part-2-drawing-arcs/ ?
 	// from https://github.com/fogleman/gg/blob/master/context.go#L485
 	const n = 16
-	rot *= math.Pi / 180.0
-	cosrot := math.Cos(rot)
-	sinrot := math.Sin(rot)
+	sinphi, cosphi := math.Sincos(phi)
 	for i := 0; i < n; i++ {
 		p1 := float64(i+0) / n
 		p2 := float64(i+1) / n
-		a1 := angle1 + (angle2-angle1)*p1
-		a2 := angle1 + (angle2-angle1)*p2
-		xt0 := cx + rx*math.Cos(a1)*cosrot - ry*math.Sin(a1)*sinrot
-		yt0 := cy + rx*math.Cos(a1)*sinrot + ry*math.Sin(a1)*cosrot
-		xt1 := cx + rx*math.Cos(a1+(a2-a1)/2.0)*cosrot - ry*math.Sin(a1+(a2-a1)/2.0)*sinrot
-		yt1 := cy + rx*math.Cos(a1+(a2-a1)/2.0)*sinrot + ry*math.Sin(a1+(a2-a1)/2.0)*cosrot
-		xt2 := cx + rx*math.Cos(a2)*cosrot - ry*math.Sin(a2)*sinrot
-		yt2 := cy + rx*math.Cos(a2)*sinrot + ry*math.Sin(a2)*cosrot
+		a1 := theta1 + (theta2-theta1)*p1
+		a2 := theta1 + (theta2-theta1)*p2
+		xt0 := cx + rx*math.Cos(a1)*cosphi - ry*math.Sin(a1)*sinphi
+		yt0 := cy + rx*math.Cos(a1)*sinphi + ry*math.Sin(a1)*cosphi
+		xt1 := cx + rx*math.Cos(a1+(a2-a1)/2.0)*cosphi - ry*math.Sin(a1+(a2-a1)/2.0)*sinphi
+		yt1 := cy + rx*math.Cos(a1+(a2-a1)/2.0)*sinphi + ry*math.Sin(a1+(a2-a1)/2.0)*cosphi
+		xt2 := cx + rx*math.Cos(a2)*cosphi - ry*math.Sin(a2)*sinphi
+		yt2 := cy + rx*math.Cos(a2)*sinphi + ry*math.Sin(a2)*cosphi
 		ctx := 2.0*xt1 - xt0/2.0 - xt2/2.0
 		cty := 2.0*yt1 - yt0/2.0 - yt2/2.0
 		p.QuadTo(ctx, cty, xt2, yt2)
@@ -248,22 +240,18 @@ func ellipseToBeziers(start Point, rx, ry, rot float64, largeArc, sweep bool, en
 	return p
 }
 
-func flattenEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) *Path {
+func flattenEllipse(start Point, rx, ry, phi float64, largeArc, sweep bool, end Point) *Path {
 	p := &Path{}
-	cx, cy, angle1, angle2 := ellipseToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
-	angle1 *= math.Pi / 180.0
-	angle2 *= math.Pi / 180.0
+	cx, cy, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
 
 	// TODO: improve: use dynamic step size and tolerance
 	const n = 32
-	rot *= math.Pi / 180.0
-	cosrot := math.Cos(rot)
-	sinrot := math.Sin(rot)
+	sinphi, cosphi := math.Sincos(phi)
 	for i := 0; i < n; i++ {
 		t := float64(i+1) / n
-		a := angle1 + (angle2-angle1)*t
-		xt := cx + rx*math.Cos(a)*cosrot - ry*math.Sin(a)*sinrot
-		yt := cy + rx*math.Cos(a)*sinrot + ry*math.Sin(a)*cosrot
+		sina, cosa := math.Sincos(theta1 + (theta2-theta1)*t)
+		xt := cx + rx*cosa*cosphi - ry*sina*sinphi
+		yt := cy + rx*cosa*sinphi + ry*sina*cosphi
 		p.LineTo(xt, yt)
 	}
 	return p

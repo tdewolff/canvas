@@ -1,5 +1,7 @@
 package canvas
 
+import "math"
+
 // NOTE: implementation mostly taken from github.com/golang/freetype/raster/stroke.go
 
 // Capper implements Cap, with rhs the path to append to, halfWidth the half width of the stroke,
@@ -171,12 +173,12 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 				sp.Join(rhs)
 				ret.Join(lhs)
 			case ArcToCmd:
-				rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
+				rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 				largeAngle, sweep := fromArcFlags(p.d[i+4])
 				end = Point{p.d[i+5], p.d[i+6]}
-				_, _, angle0, angle1 := ellipseToCenter(start.X, start.Y, rx, ry, rot, largeAngle, sweep, end.X, end.Y)
-				n0 = ellipseNormal(angle0, rot).Norm(halfWidth)
-				n1 = ellipseNormal(angle1, rot).Norm(halfWidth)
+				_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeAngle, sweep, end.X, end.Y)
+				n0 = ellipseNormal(theta0, phi).Norm(halfWidth)
+				n1 = ellipseNormal(theta1, phi).Norm(halfWidth)
 				if sweep { // CW
 					n0 = n0.Neg()
 					n1 = n1.Neg()
@@ -187,11 +189,11 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 				rEnd := end.Add(n1)
 				lEnd := end.Sub(n1)
 				if sweep { // bend to the right, ie. CW
-					sp.ArcTo(rx-halfWidth, ry-halfWidth, rot, largeAngle, sweep, rEnd.X, rEnd.Y)
-					ret.ArcTo(rx+halfWidth, ry+halfWidth, rot, largeAngle, sweep, lEnd.X, lEnd.Y)
+					sp.ArcTo(rx-halfWidth, ry-halfWidth, phi*180.0/math.Pi, largeAngle, sweep, rEnd.X, rEnd.Y)
+					ret.ArcTo(rx+halfWidth, ry+halfWidth, phi*180.0/math.Pi, largeAngle, sweep, lEnd.X, lEnd.Y)
 				} else { // bend to the left, ie. CCW
-					sp.ArcTo(rx+halfWidth, ry+halfWidth, rot, largeAngle, sweep, rEnd.X, rEnd.Y)
-					ret.ArcTo(rx-halfWidth, ry-halfWidth, rot, largeAngle, sweep, lEnd.X, lEnd.Y)
+					sp.ArcTo(rx+halfWidth, ry+halfWidth, phi*180.0/math.Pi, largeAngle, sweep, rEnd.X, rEnd.Y)
+					ret.ArcTo(rx-halfWidth, ry-halfWidth, phi*180.0/math.Pi, largeAngle, sweep, lEnd.X, lEnd.Y)
 				}
 			case CloseCmd:
 				end = Point{p.d[i+1], p.d[i+2]}

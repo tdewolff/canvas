@@ -74,10 +74,10 @@ func (p Point) Rot90CCW() Point {
 }
 
 func (p Point) Rot(rot float64, p0 Point) Point {
-	a := rot * math.Pi / 180.0
+	sinphi, cosphi := math.Sincos(rot * math.Pi / 180.0)
 	return Point{
-		p0.X + math.Cos(a)*(p.X-p0.X) + math.Sin(a)*(p.Y-p0.Y),
-		p0.Y + math.Cos(a)*(p.Y-p0.Y) - math.Sin(a)*(p.X-p0.X),
+		p0.X + cosphi*(p.X-p0.X) + sinphi*(p.Y-p0.Y),
+		p0.Y + cosphi*(p.Y-p0.Y) - sinphi*(p.X-p0.X),
 	}
 }
 

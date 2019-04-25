@@ -191,7 +191,7 @@ func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x2, y2 float64) 
 		ry = math.Sqrt(lambda) * ry
 	}
 
-	p.d = append(p.d, ArcToCmd, rx, ry, rot, toArcFlags(largeArc, sweep), x2, y2)
+	p.d = append(p.d, ArcToCmd, rx, ry, phi, toArcFlags(largeArc, sweep), x2, y2)
 	return p
 }
 
@@ -358,44 +358,41 @@ func (p *Path) Bounds() Rect {
 				ymax = math.Max(ymax, y2.Y)
 			}
 		case ArcToCmd:
-			rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
+			// TODO
+			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
-			cx, cy, angle0, angle1 := ellipseToCenter(start.X, start.Y, rx, ry, rot, largeArc, sweep, end.X, end.Y)
+			cx, cy, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
 
 			xmin = math.Min(xmin, end.X)
 			xmax = math.Max(xmax, end.X)
 			ymin = math.Min(ymin, end.Y)
 			ymax = math.Max(ymax, end.Y)
 
-			rot *= math.Pi / 180.0
-			cos := math.Cos(rot)
-			sin := math.Sin(rot)
+			cosphi := math.Cos(phi)
+			sinphi := math.Sin(phi)
 
-			tx := -math.Atan(ry / rx * math.Tan(rot))
-			ty := math.Atan(ry / rx / math.Tan(rot))
+			tx := -math.Atan(ry / rx * math.Tan(phi))
+			ty := math.Atan(ry / rx / math.Tan(phi))
 
-			dx := math.Abs(rx*math.Cos(tx)*cos - ry*math.Sin(tx)*sin)
-			dy := math.Abs(rx*math.Cos(ty)*sin + ry*math.Sin(ty)*cos)
+			dx := math.Abs(rx*math.Cos(tx)*cosphi - ry*math.Sin(tx)*sinphi)
+			dy := math.Abs(rx*math.Cos(ty)*sinphi + ry*math.Sin(ty)*cosphi)
 
-			tx *= 180.0 / math.Pi
-			ty *= 180.0 / math.Pi
-
-			if angle1 < angle0 {
-				angle0, angle1 = angle1, angle0
+			if theta2 < theta1 {
+				theta1, theta2 = theta2, theta1
 			}
 
-			if angle0 < tx && tx < angle1 {
+			if theta1 < tx && tx < theta2 {
 				xmin = math.Min(xmin, cx-dx)
 			}
-			if angle0 < tx+180.0 && tx+180.0 < angle1 {
+			if theta1 < tx+math.Pi && tx+math.Pi < theta2 {
 				xmax = math.Max(xmax, cx+dx)
 			}
 			// y is inverted
-			if angle0 < ty && ty < angle1 {
+			if theta1 < ty && ty < theta2 {
 				ymax = math.Max(ymax, cy+dy)
 			}
-			if angle0 < ty+180.0 && ty+180.0 < angle1 {
+			if theta1 < ty+math.Pi && ty+math.Pi < theta2 {
 				ymin = math.Min(ymin, cy-dy)
 			}
 		}
@@ -428,10 +425,10 @@ func (p *Path) Length() float64 {
 			end = Point{p.d[i+5], p.d[i+6]}
 			d += cubicBezierLength(start, c1, c2, end)
 		case ArcToCmd:
-			rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
+			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
-			d += ellipseLength(start, rx, ry, rot, largeArc, sweep, end)
+			d += ellipseLength(start, rx, ry, phi, largeArc, sweep, end)
 		}
 		i += cmdLen(cmd)
 		start = end
@@ -536,6 +533,7 @@ func (p *Path) Rotate(rot, x, y float64) *Path {
 			p.d[i+5] = end.X
 			p.d[i+6] = end.Y
 		case ArcToCmd:
+			// TODO: rotate phi too?
 			end := Point{p.d[i+5], p.d[i+6]}.Rot(rot, mid)
 			p.d[i+5] = end.X
 			p.d[i+6] = end.Y
@@ -584,10 +582,10 @@ func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer
 			}
 		case ArcToCmd:
 			if arc != nil {
-				rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
+				rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 				largeArc, sweep := fromArcFlags(p.d[i+4])
 				end := Point{p.d[i+5], p.d[i+6]}
-				q = arc(start, rx, ry, rot, largeArc, sweep, end)
+				q = arc(start, rx, ry, phi, largeArc, sweep, end)
 			}
 		}
 
@@ -824,9 +822,9 @@ func (p *Path) Reverse() *Path {
 			x2, y2 := p.d[i+1], p.d[i+2]
 			ip.CubeTo(x1, y1, x2, y2, end.X, end.Y)
 		case ArcToCmd:
-			rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
+			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			largeArc, sweep := fromArcFlags(p.d[i+4])
-			ip.ArcTo(rx, ry, rot, largeArc, !sweep, end.X, end.Y)
+			ip.ArcTo(rx, ry, phi*180.0/math.Pi, largeArc, !sweep, end.X, end.Y)
 		}
 		start = end
 	}
@@ -926,7 +924,7 @@ func ParseSVGPath(s string) (*Path, error) {
 	}
 
 	var prevCmd byte
-	cpx, cpy := 0.0, 0.0 // control points
+	qx, qy, cx, cy := 0.0, 0.0, 0.0, 0.0 // control points
 
 	i := 0
 	p := &Path{}
@@ -937,140 +935,140 @@ func ParseSVGPath(s string) (*Path, error) {
 			cmd = path[i]
 			i++
 		}
-		x, y := p.Pos()
+		x1, y1 := p.Pos()
 		switch cmd {
 		case 'M', 'm':
-			a, n := parseNum(path[i:])
+			x2, n := parseNum(path[i:])
 			i += n
-			b, n := parseNum(path[i:])
+			y2, n := parseNum(path[i:])
 			i += n
 			if cmd == 'm' {
-				a += x
-				b += y
+				x2 += x1
+				y2 += y1
 			}
-			p.MoveTo(a, b)
+			p.MoveTo(x2, y2)
 		case 'Z', 'z':
 			p.Close()
 		case 'L', 'l':
-			a, n := parseNum(path[i:])
+			x2, n := parseNum(path[i:])
 			i += n
-			b, n := parseNum(path[i:])
+			y2, n := parseNum(path[i:])
 			i += n
 			if cmd == 'l' {
-				a += x
-				b += y
+				x2 += x1
+				y2 += y1
 			}
-			p.LineTo(a, b)
+			p.LineTo(x2, y2)
 		case 'H', 'h':
-			a, n := parseNum(path[i:])
+			x2, n := parseNum(path[i:])
 			i += n
 			if cmd == 'h' {
-				a += x
+				x2 += x1
 			}
-			p.LineTo(a, y)
+			p.LineTo(x2, y1)
 		case 'V', 'v':
-			b, n := parseNum(path[i:])
+			y2, n := parseNum(path[i:])
 			i += n
 			if cmd == 'v' {
-				b += y
+				y2 += y1
 			}
-			p.LineTo(x, b)
+			p.LineTo(x1, y2)
 		case 'C', 'c':
-			a, n := parseNum(path[i:])
+			cpx1, n := parseNum(path[i:])
 			i += n
-			b, n := parseNum(path[i:])
+			cpy1, n := parseNum(path[i:])
 			i += n
-			c, n := parseNum(path[i:])
+			cpx2, n := parseNum(path[i:])
 			i += n
-			d, n := parseNum(path[i:])
+			cpy2, n := parseNum(path[i:])
 			i += n
-			e, n := parseNum(path[i:])
+			x2, n := parseNum(path[i:])
 			i += n
-			f, n := parseNum(path[i:])
+			y2, n := parseNum(path[i:])
 			i += n
 			if cmd == 'c' {
-				a += x
-				b += y
-				c += x
-				d += y
-				e += x
-				f += y
+				cpx1 += x1
+				cpy1 += y1
+				cpx2 += x1
+				cpy2 += y1
+				x2 += x1
+				y2 += y1
 			}
-			p.CubeTo(a, b, c, d, e, f)
-			cpx, cpy = c, d
+			p.CubeTo(cpx1, cpy1, cpx2, cpy2, x2, y2)
+			cx, cy = cpx2, cpy2
 		case 'S', 's':
-			c, n := parseNum(path[i:])
+			cpx2, n := parseNum(path[i:])
 			i += n
-			d, n := parseNum(path[i:])
+			cpy2, n := parseNum(path[i:])
 			i += n
-			e, n := parseNum(path[i:])
+			x2, n := parseNum(path[i:])
 			i += n
-			f, n := parseNum(path[i:])
+			y2, n := parseNum(path[i:])
 			i += n
 			if cmd == 's' {
-				c += x
-				d += y
-				e += x
-				f += y
+				cpx2 += x1
+				cpy2 += y1
+				x2 += x1
+				y2 += y1
 			}
-			a, b := x, y
+			cpx1, cpy1 := x1, y1
 			if prevCmd == 'C' || prevCmd == 'c' || prevCmd == 'S' || prevCmd == 's' {
-				a, b = 2*x-cpx, 2*y-cpy
+				cpx1, cpy1 = 2*x1-cx, 2*y1-cy
 			}
-			p.CubeTo(a, b, c, d, e, f)
-			cpx, cpy = c, d
+			p.CubeTo(cpx1, cpy1, cpx2, cpy2, x2, y2)
+			cx, cy = cpx2, cpy2
 		case 'Q', 'q':
-			a, n := parseNum(path[i:])
+			cpx, n := parseNum(path[i:])
 			i += n
-			b, n := parseNum(path[i:])
+			cpy, n := parseNum(path[i:])
 			i += n
-			c, n := parseNum(path[i:])
+			x2, n := parseNum(path[i:])
 			i += n
-			d, n := parseNum(path[i:])
+			y2, n := parseNum(path[i:])
 			i += n
 			if cmd == 'q' {
-				a += x
-				b += y
-				c += x
-				d += y
+				cpx += x1
+				cpy += y1
+				x2 += x1
+				y2 += y1
 			}
-			p.QuadTo(a, b, c, d)
-			cpx, cpy = a, b
+			p.QuadTo(cpx, cpy, x2, y2)
+			qx, qy = cpx, cpy
 		case 'T', 't':
-			c, n := parseNum(path[i:])
+			x2, n := parseNum(path[i:])
 			i += n
-			d, n := parseNum(path[i:])
+			y2, n := parseNum(path[i:])
 			i += n
 			if cmd == 't' {
-				c += x
-				d += y
+				x2 += x1
+				y2 += y1
 			}
-			a, b := x, y
+			cpx, cpy := x1, y1
 			if prevCmd == 'Q' || prevCmd == 'q' || prevCmd == 'T' || prevCmd == 't' {
-				a, b = 2*x-cpx, 2*y-cpy
+				cpx, cpy = 2*x1-qx, 2*y1-qy
 			}
-			p.QuadTo(a, b, c, d)
-			cpx, cpy = a, b
+			p.QuadTo(cpx, cpy, x2, y2)
+			qx, qy = cpx, cpy
 		case 'A', 'a':
-			a, n := parseNum(path[i:])
+			rx, n := parseNum(path[i:])
 			i += n
-			b, n := parseNum(path[i:])
+			ry, n := parseNum(path[i:])
 			i += n
-			c, n := parseNum(path[i:])
+			rot, n := parseNum(path[i:])
 			i += n
-			d, n := parseNum(path[i:])
+			largeArc, n := parseNum(path[i:])
 			i += n
-			e, n := parseNum(path[i:])
+			sweep, n := parseNum(path[i:])
 			i += n
-			f, n := parseNum(path[i:])
+			x2, n := parseNum(path[i:])
 			i += n
-			g, n := parseNum(path[i:])
+			y2, n := parseNum(path[i:])
 			i += n
 			if cmd == 'a' {
-				f += x
-				g += y
+				x2 += x1
+				y2 += y1
 			}
-			p.ArcTo(a, b, c, d == 1.0, e == 1.0, f, g)
+			p.ArcTo(rx, ry, rot, largeArc == 1.0, sweep == 1.0, x2, y2)
 		default:
 			return nil, fmt.Errorf("unknown command in SVG path: %c", cmd)
 		}
@@ -1094,6 +1092,7 @@ func (p *Path) String() string {
 		case CubeToCmd:
 			fmt.Fprintf(&sb, "C%.5g %.5g %.5g %.5g %.5g %.5g", p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4], p.d[i+5], p.d[i+6])
 		case ArcToCmd:
+			rot := p.d[i+3] * 180.0 / math.Pi
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			sLargeArc := "0"
 			if largeArc {
@@ -1103,7 +1102,7 @@ func (p *Path) String() string {
 			if sweep {
 				sSweep = "1"
 			}
-			fmt.Fprintf(&sb, "A%.5g %.5g %.5g %s %s %.5g %.5g", p.d[i+1], p.d[i+2], p.d[i+3], sLargeArc, sSweep, p.d[i+5], p.d[i+6])
+			fmt.Fprintf(&sb, "A%.5g %.5g %.5g %s %s %.5g %.5g", p.d[i+1], p.d[i+2], rot, sLargeArc, sSweep, p.d[i+5], p.d[i+6])
 		case CloseCmd:
 			fmt.Fprintf(&sb, "z")
 		}
@@ -1144,8 +1143,9 @@ func (p *Path) ToSVG() string {
 			x, y = p.d[i+5], p.d[i+6]
 			fmt.Fprintf(&sb, "C%.5g %.5g %.5g %.5g %.5g %.5g", p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4], x, y)
 		case ArcToCmd:
-			x, y = p.d[i+5], p.d[i+6]
+			rot := p.d[i+3] * 180.0 / math.Pi
 			largeArc, sweep := fromArcFlags(p.d[i+4])
+			x, y = p.d[i+5], p.d[i+6]
 			sLargeArc := "0"
 			if largeArc {
 				sLargeArc = "1"
@@ -1154,7 +1154,7 @@ func (p *Path) ToSVG() string {
 			if sweep {
 				sSweep = "1"
 			}
-			fmt.Fprintf(&sb, "A%.5g %.5g %.5g %s %s %.5g %.5g", p.d[i+1], p.d[i+2], p.d[i+3], sLargeArc, sSweep, p.d[i+5], p.d[i+6])
+			fmt.Fprintf(&sb, "A%.5g %.5g %.5g %s %s %.5g %.5g", p.d[i+1], p.d[i+2], rot, sLargeArc, sSweep, p.d[i+5], p.d[i+6])
 		case CloseCmd:
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, "z")
@@ -1223,7 +1223,7 @@ func (p *Path) ToPS() string {
 			fmt.Fprintf(&sb, " %.5g %.5g %.5g %.5g %.5g %.5g curveto", c1.X, c1.Y, c2.X, c2.Y, x, y)
 		case ArcToCmd:
 			x0, y0 := x, y
-			rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
+			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			x, y = p.d[i+5], p.d[i+6]
 
@@ -1233,7 +1233,8 @@ func (p *Path) ToPS() string {
 				ellipsesDefined = true
 			}
 
-			cx, cy, theta0, theta1 := ellipseToCenter(x0, y0, rx, ry, rot, largeArc, sweep, x, y)
+			cx, cy, theta0, theta1 := ellipseToCenter(x0, y0, rx, ry, phi, largeArc, sweep, x, y)
+			rot := phi * 180.0 / math.Pi
 			if !equal(rot, 0.0) {
 				fmt.Fprintf(&sb, " %.5g %.5g translate %.5g rotate %.5g %.5g translate", cx, cy, rot, -cx, -cy)
 			}
