@@ -2,7 +2,6 @@ package canvas
 
 import (
 	"math"
-	"strconv"
 
 	"golang.org/x/image/math/f32"
 	"golang.org/x/image/math/fixed"
@@ -12,10 +11,6 @@ const epsilon = 1e-10
 
 func equal(a, b float64) bool {
 	return math.Abs(a-b) < epsilon
-}
-
-func ftos(f float64) string {
-	return strconv.FormatFloat(f, 'g', 5, 64)
 }
 
 ////////////////////////////////////////////////////////////////

@@ -1117,150 +1117,54 @@ func (p *Path) ToSVG() string {
 	sb := strings.Builder{}
 	x, y := 0.0, 0.0
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
-		sb.WriteString("M0 0")
+		fmt.Fprintf(&sb, "M0 0")
 	}
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
 		case MoveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
-			sb.WriteString("M")
-			sb.WriteString(ftos(x))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(y))
+			fmt.Fprintf(&sb, "M%.5g %.5g", x, y)
 		case LineToCmd:
 			xStart, yStart := x, y
 			x, y = p.d[i+1], p.d[i+2]
 			if equal(x, xStart) && equal(y, yStart) {
 				// nothing
 			} else if equal(x, xStart) {
-				sb.WriteString("V")
-				sb.WriteString(ftos(y))
+				fmt.Fprintf(&sb, "V%.5g", y)
 			} else if equal(y, yStart) {
-				sb.WriteString("H")
-				sb.WriteString(ftos(x))
+				fmt.Fprintf(&sb, "H%.5g", x)
 			} else {
-				sb.WriteString("L")
-				sb.WriteString(ftos(x))
-				sb.WriteString(" ")
-				sb.WriteString(ftos(y))
+				fmt.Fprintf(&sb, "L%.5g %.5g", x, y)
 			}
 		case QuadToCmd:
 			x, y = p.d[i+3], p.d[i+4]
-			sb.WriteString("Q")
-			sb.WriteString(ftos(p.d[i+1]))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(p.d[i+2]))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(x))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(y))
+			fmt.Fprintf(&sb, "Q%.5g %.5g %.5g %.5g", p.d[i+1], p.d[i+2], x, y)
 		case CubeToCmd:
 			x, y = p.d[i+5], p.d[i+6]
-			sb.WriteString("C")
-			sb.WriteString(ftos(p.d[i+1]))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(p.d[i+2]))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(p.d[i+3]))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(p.d[i+4]))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(x))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(y))
+			fmt.Fprintf(&sb, "C%.5g %.5g %.5g %.5g %.5g %.5g", p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4], x, y)
 		case ArcToCmd:
 			x, y = p.d[i+5], p.d[i+6]
-			sb.WriteString("A")
-			sb.WriteString(ftos(p.d[i+1]))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(p.d[i+2]))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(p.d[i+3]))
-			sb.WriteString(" ")
 			largeArc, sweep := fromArcFlags(p.d[i+4])
+			sLargeArc := "0"
 			if largeArc {
-				sb.WriteString("1 ")
-			} else {
-				sb.WriteString("0 ")
+				sLargeArc = "1"
 			}
+			sSweep := "0"
 			if sweep {
-				sb.WriteString("1 ")
-			} else {
-				sb.WriteString("0 ")
+				sSweep = "1"
 			}
-			sb.WriteString(ftos(x))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(y))
+			fmt.Fprintf(&sb, "A%.5g %.5g %.5g %s %s %.5g %.5g", p.d[i+1], p.d[i+2], p.d[i+3], sLargeArc, sSweep, p.d[i+5], p.d[i+6])
 		case CloseCmd:
 			x, y = p.d[i+1], p.d[i+2]
-			sb.WriteString("z")
+			fmt.Fprintf(&sb, "z")
 		}
 		i += cmdLen(cmd)
 	}
 	return sb.String()
 }
 
-// ToPS returns a string that represents the path in the PostScript data format.
-func (p *Path) ToPS() string {
-	sb := strings.Builder{}
-	ellipsesDefined := false
-	x, y := 0.0, 0.0
-	if len(p.d) > 0 && p.d[0] != MoveToCmd {
-		sb.WriteString(" 0 0 moveto")
-	}
-
-	var cmd float64
-	for i := 0; i < len(p.d); {
-		cmd = p.d[i]
-		switch cmd {
-		case MoveToCmd:
-			x, y = p.d[i+1], p.d[i+2]
-			sb.WriteString(" ")
-			sb.WriteString(ftos(x))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(y))
-			sb.WriteString(" moveto")
-		case LineToCmd:
-			x, y = p.d[i+1], p.d[i+2]
-			sb.WriteString(" ")
-			sb.WriteString(ftos(x))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(y))
-			sb.WriteString(" lineto")
-		case QuadToCmd, CubeToCmd:
-			var start, c1, c2 Point
-			start = Point{x, y}
-			if cmd == QuadToCmd {
-				x, y = p.d[i+3], p.d[i+4]
-				c1, c2 = quadraticToCubicBezier(start, Point{p.d[i+1], p.d[i+2]}, Point{x, y})
-			} else {
-				c1 = Point{p.d[i+1], p.d[i+2]}
-				c2 = Point{p.d[i+3], p.d[i+4]}
-				x, y = p.d[i+5], p.d[i+6]
-			}
-			sb.WriteString(" ")
-			sb.WriteString(ftos(c1.X))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(c1.Y))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(c2.X))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(c2.Y))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(x))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(y))
-			sb.WriteString(" curveto")
-		case ArcToCmd:
-			x0, y0 := x, y
-			rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
-			largeArc, sweep := fromArcFlags(p.d[i+4])
-			x, y = p.d[i+5], p.d[i+6]
-
-			isEllipse := !equal(rx, ry)
-			if isEllipse && !ellipsesDefined {
-				sb.WriteString(` /ellipse {
+var psEllipseDef = `/ellipse {
 /endangle exch def
 /startangle exch def
 /yrad exch def
@@ -1284,91 +1188,27 @@ x y translate
 xrad yrad scale
 0 0 1 startangle endangle arcn
 savematrix setmatrix
-} def`)
-				ellipsesDefined = true
-			}
+} def`
 
-			cx, cy, theta0, theta1 := ellipseToCenter(x0, y0, rx, ry, rot, largeArc, sweep, x, y)
-			sb.WriteString(" ")
-
-			if !equal(rot, 0.0) {
-				sb.WriteString(ftos(cx))
-				sb.WriteString(" ")
-				sb.WriteString(ftos(cy))
-				sb.WriteString(" translate ")
-				sb.WriteString(ftos(rot))
-				sb.WriteString(" rotate ")
-				sb.WriteString(ftos(-cx))
-				sb.WriteString(" ")
-				sb.WriteString(ftos(-cy))
-				sb.WriteString(" translate ")
-			}
-
-			sb.WriteString(ftos(cx))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(cy))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(rx))
-			if isEllipse {
-				sb.WriteString(" ")
-				sb.WriteString(ftos(ry))
-			}
-			sb.WriteString(" ")
-			sb.WriteString(ftos(theta0))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(theta1))
-			if isEllipse {
-				sb.WriteString(" ellipse")
-			} else {
-				sb.WriteString(" arc")
-			}
-			if !sweep {
-				sb.WriteString("n")
-			}
-			if !equal(rot, 0.0) {
-				sb.WriteString(" initmatrix")
-			}
-		case CloseCmd:
-			x, y = p.d[i+1], p.d[i+2]
-			sb.WriteString(" closepath")
-		}
-		i += cmdLen(cmd)
-	}
-	if cmd != CloseCmd {
-		sb.WriteString(" closepath")
-	}
-	sb.WriteString(" fill")
-	return sb.String()[1:] // remove the first space
-}
-
-// ToPDF returns a string that represents the path in the PDF data format.
-func (p *Path) ToPDF() string {
-	p = p.Copy().Replace(nil, nil, ellipseToBeziers)
-
+// ToPS returns a string that represents the path in the PostScript data format.
+func (p *Path) ToPS() string {
 	sb := strings.Builder{}
-	x, y := 0.0, 0.0
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
-		sb.WriteString(" 0 0 m")
+		fmt.Fprintf(&sb, " 0 0 moveto")
 	}
 
 	var cmd float64
+	x, y := 0.0, 0.0
+	ellipsesDefined := false
 	for i := 0; i < len(p.d); {
 		cmd = p.d[i]
 		switch cmd {
 		case MoveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
-			sb.WriteString(" ")
-			sb.WriteString(ftos(x))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(y))
-			sb.WriteString(" m")
+			fmt.Fprintf(&sb, " %.5g %.5g moveto", x, y)
 		case LineToCmd:
 			x, y = p.d[i+1], p.d[i+2]
-			sb.WriteString(" ")
-			sb.WriteString(ftos(x))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(y))
-			sb.WriteString(" l")
+			fmt.Fprintf(&sb, " %.5g %.5g lineto", x, y)
 		case QuadToCmd, CubeToCmd:
 			var start, c1, c2 Point
 			start = Point{x, y}
@@ -1380,30 +1220,90 @@ func (p *Path) ToPDF() string {
 				c2 = Point{p.d[i+3], p.d[i+4]}
 				x, y = p.d[i+5], p.d[i+6]
 			}
-			sb.WriteString(" ")
-			sb.WriteString(ftos(c1.X))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(c1.Y))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(c2.X))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(c2.Y))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(x))
-			sb.WriteString(" ")
-			sb.WriteString(ftos(y))
-			sb.WriteString(" c")
+			fmt.Fprintf(&sb, " %.5g %.5g %.5g %.5g %.5g %.5g curveto", c1.X, c1.Y, c2.X, c2.Y, x, y)
 		case ArcToCmd:
-			panic("arcs should have been replaced")
+			x0, y0 := x, y
+			rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
+			largeArc, sweep := fromArcFlags(p.d[i+4])
+			x, y = p.d[i+5], p.d[i+6]
+
+			isEllipse := !equal(rx, ry)
+			if isEllipse && !ellipsesDefined {
+				fmt.Fprintf(&sb, " %s", psEllipseDef)
+				ellipsesDefined = true
+			}
+
+			cx, cy, theta0, theta1 := ellipseToCenter(x0, y0, rx, ry, rot, largeArc, sweep, x, y)
+			if !equal(rot, 0.0) {
+				fmt.Fprintf(&sb, " %.5g %.5g translate %.5g rotate %.5g %.5g translate", cx, cy, rot, -cx, -cy)
+			}
+			if isEllipse {
+				fmt.Fprintf(&sb, " %.5g %.5g %.5g %.5g %.5g %.5g ellipse", cx, cy, rx, ry, theta0, theta1)
+			} else {
+				fmt.Fprintf(&sb, " %.5g %.5g %.5g %.5g %.5g arc", cx, cy, rx, theta0, theta1)
+			}
+			if !sweep {
+				fmt.Fprintf(&sb, "n")
+			}
+			if !equal(rot, 0.0) {
+				fmt.Fprintf(&sb, " initmatrix")
+			}
 		case CloseCmd:
 			x, y = p.d[i+1], p.d[i+2]
-			sb.WriteString(" h")
+			fmt.Fprintf(&sb, " closepath")
 		}
 		i += cmdLen(cmd)
 	}
 	if cmd != CloseCmd {
-		sb.WriteString(" h")
+		fmt.Fprintf(&sb, " closepath")
 	}
-	sb.WriteString(" f")
+	fmt.Fprintf(&sb, " fill")
+	return sb.String()[1:] // remove the first space
+}
+
+// ToPDF returns a string that represents the path in the PDF data format.
+func (p *Path) ToPDF() string {
+	p = p.Copy().Replace(nil, nil, ellipseToBeziers)
+
+	sb := strings.Builder{}
+	if len(p.d) > 0 && p.d[0] != MoveToCmd {
+		fmt.Fprintf(&sb, " 0 0 m")
+	}
+
+	var cmd float64
+	x, y := 0.0, 0.0
+	for i := 0; i < len(p.d); {
+		cmd = p.d[i]
+		switch cmd {
+		case MoveToCmd:
+			x, y = p.d[i+1], p.d[i+2]
+			fmt.Fprintf(&sb, " %.5g %.5g m", x, y)
+		case LineToCmd:
+			x, y = p.d[i+1], p.d[i+2]
+			fmt.Fprintf(&sb, " %.5g %.5g l", x, y)
+		case QuadToCmd, CubeToCmd:
+			var start, c1, c2 Point
+			start = Point{x, y}
+			if cmd == QuadToCmd {
+				x, y = p.d[i+3], p.d[i+4]
+				c1, c2 = quadraticToCubicBezier(start, Point{p.d[i+1], p.d[i+2]}, Point{x, y})
+			} else {
+				c1 = Point{p.d[i+1], p.d[i+2]}
+				c2 = Point{p.d[i+3], p.d[i+4]}
+				x, y = p.d[i+5], p.d[i+6]
+			}
+			fmt.Fprintf(&sb, " %.5g %.5g %.5g %.5g %.5g %.5g c", c1.X, c1.Y, c2.X, c2.Y, x, y)
+		case ArcToCmd:
+			panic("arcs should have been replaced")
+		case CloseCmd:
+			x, y = p.d[i+1], p.d[i+2]
+			fmt.Fprintf(&sb, " h")
+		}
+		i += cmdLen(cmd)
+	}
+	if cmd != CloseCmd {
+		fmt.Fprintf(&sb, " h")
+	}
+	fmt.Fprintf(&sb, " f")
 	return sb.String()[1:] // remove the first space
 }
