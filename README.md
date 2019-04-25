@@ -103,6 +103,7 @@ These paths can be manipulated and transformed with the following commands. Each
 ``` go
 p.Copy()
 p.Append(q *Path)        // append path q to p
+p.Join(q *Path)          // join path q to p
 p.Split()                // split the path segments, ie. at Close/MoveTo
 p.SplitAt(d ...float64)  // split the path at certain lengths d
 p.Reverse()              // reverse the direction of the path

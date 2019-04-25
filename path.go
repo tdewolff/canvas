@@ -59,8 +59,8 @@ func toArcFlags(largeArc, sweep bool) float64 {
 // Each command consists of a number of float64 values (depending on the command) that fully define the action. The first value is the command itself (as a float64). The last two values are the end point position of the pen after the action (x,y). QuadTo defined one control point (x,y) in between, CubeTo defines two control points, and ArcTo defines (rx,ry,phi,largeArc+sweep) i.e. the radius in x and y, its rotation (in radians) and the largeArc and sweep booleans in one float64.
 // Only valid commands are appended, so that LineTo has a non-zero length, QuadTo's and CubeTo's control point(s) don't (both) overlap with the start and end point, and ArcTo has non-zero radii and has non-zero length. For ArcTo we also make sure the angle is is in the range [0, 2*PI) and we scale the radii up if they appear too small to fit the arc.
 type Path struct {
-	d      []float64
-	x0, y0 float64 // coords of last MoveTo
+	d  []float64
+	i0 int // index of last MoveTo
 }
 
 // Empty returns true if p is an empty path.
@@ -72,8 +72,7 @@ func (p *Path) Empty() bool {
 func (p *Path) Copy() *Path {
 	q := &Path{}
 	q.d = append(q.d, p.d...)
-	q.x0 = p.x0
-	q.y0 = p.y0
+	q.i0 = p.i0
 	return q
 }
 
@@ -81,27 +80,33 @@ func (p *Path) Copy() *Path {
 func (p *Path) Append(q *Path) *Path {
 	if len(q.d) == 0 {
 		return p
+	} else if len(p.d) > 0 && q.d[0] != MoveToCmd {
+		p.MoveTo(0.0, 0.0)
 	}
+	p.d = append(p.d, q.d...)
+	p.i0 = q.i0
+	return p
+}
 
-	if len(p.d) > 0 {
-		if q.d[0] == MoveToCmd {
-			x0, y0 := p.d[len(p.d)-2], p.d[len(p.d)-1]
-			x1, y1 := q.d[1], q.d[2]
-			if equal(x0, x1) && equal(y0, y1) {
-				q.d = q.d[3:]
-			}
+// Join joins path q to p.
+func (p *Path) Join(q *Path) *Path {
+	if len(q.d) == 0 {
+		return p
+	} else if len(p.d) > 0 && q.d[0] == MoveToCmd {
+		x0, y0 := p.d[len(p.d)-2], p.d[len(p.d)-1]
+		x1, y1 := q.d[1], q.d[2]
+		if equal(x0, x1) && equal(y0, y1) {
+			q.d = q.d[3:]
 		}
 	}
-
 	p.d = append(p.d, q.d...)
-	p.x0 = q.x0
-	p.y0 = q.y0
+	p.i0 = q.i0
 	return p
 }
 
 // Pos returns the current position of the path, which is the end point of the last command.
 func (p *Path) Pos() (float64, float64) {
-	if len(p.d) > 1 {
+	if len(p.d) > 0 {
 		return p.d[len(p.d)-2], p.d[len(p.d)-1]
 	}
 	return 0.0, 0.0
@@ -109,7 +114,10 @@ func (p *Path) Pos() (float64, float64) {
 
 // StartPos returns the start point of the current path segment, ie. it returns the position of the last MoveTo command.
 func (p *Path) StartPos() (float64, float64) {
-	return p.x0, p.y0
+	if len(p.d) > 0 && p.d[p.i0] == MoveToCmd {
+		return p.d[p.i0+1], p.d[p.i0+2]
+	}
+	return 0.0, 0.0
 }
 
 ////////////////////////////////////////////////////////////////
@@ -118,8 +126,8 @@ func (p *Path) StartPos() (float64, float64) {
 // Multiple path segments can be useful when negating parts of a previous path by overlapping it
 // with a path in the opposite direction.
 func (p *Path) MoveTo(x, y float64) *Path {
+	p.i0 = len(p.d)
 	p.d = append(p.d, MoveToCmd, x, y)
-	p.x0, p.y0 = x, y
 	return p
 }
 
@@ -190,7 +198,8 @@ func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x2, y2 float64) 
 // Close closes a path with a LineTo to the start of the path (the most recent MoveTo command).
 // It also signals the path closes, as opposed to being just a LineTo command.
 func (p *Path) Close() *Path {
-	p.d = append(p.d, CloseCmd, p.x0, p.y0)
+	x0, y0 := p.StartPos()
+	p.d = append(p.d, CloseCmd, x0, y0)
 	return p
 }
 
@@ -226,16 +235,13 @@ func (p *Path) direction() float64 {
 	first := true
 	var a0, a, b Point
 	var start, end Point
-	for i := 0; i < len(p.d); {
+	for i := p.i0; i < len(p.d); {
 		cmd := p.d[i]
 		i += cmdLen(cmd)
 
 		end = Point{p.d[i-2], p.d[i-1]}
 		b = end.Sub(start)
-		if cmd == MoveToCmd {
-			theta = 0.0
-			first = true
-		} else if first {
+		if first {
 			a0 = b
 			first = false
 		} else {
@@ -603,25 +609,24 @@ func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer
 func (p *Path) Split() []*Path {
 	ps := []*Path{}
 	closed := false
-	var i, j int
-	var x0, y0 float64
+	var i, j, i0 int
 	for j < len(p.d) {
 		cmd := p.d[j]
 		if j > i && cmd == MoveToCmd || closed {
-			ps = append(ps, &Path{p.d[i:j], x0, y0})
+			ps = append(ps, &Path{p.d[i:j], i0})
 			i = j
 			closed = false
 		}
 		switch cmd {
 		case MoveToCmd:
-			x0, y0 = p.d[j+1], p.d[j+2]
+			i0 = j
 		case CloseCmd:
 			closed = true
 		}
 		j += cmdLen(cmd)
 	}
 	if j > i {
-		ps = append(ps, &Path{p.d[i:j], x0, y0})
+		ps = append(ps, &Path{p.d[i:j], i0})
 	}
 	return ps
 }

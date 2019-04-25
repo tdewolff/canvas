@@ -13,8 +13,8 @@ func TestPath(t *testing.T) {
 		orig string
 		res  string
 	}{
-		{"M0 0A10 10 0 0 0 40 0", "M0 0A20 20 0 0 0 40 0"},  // scale ellipse
-		{"M0 0A10 5 90 0 0 40 0", "M0 0A40 20 90 0 0 40 0"}, // scale ellipse
+		{"A10 10 0 0 0 40 0", "A20 20 0 0 0 40 0"},  // scale ellipse
+		{"A10 5 90 0 0 40 0", "A40 20 90 0 0 40 0"}, // scale ellipse
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
@@ -29,12 +29,12 @@ func TestPathDirection(t *testing.T) {
 		orig      string
 		direction float64
 	}{
-		{"M0 0L10 0L10 10z", 2 * math.Pi},
-		{"M0 0L10 0L10 -10z", -2 * math.Pi},
-		{"M0 0L10 0z", 0.0},
+		{"L10 0L10 10z", 2 * math.Pi},
+		{"L10 0L10 -10z", -2 * math.Pi},
+		{"L10 0z", 0.0},
 		{"M0 0z", 0.0},
-		{"M0 0L10 0L20 0z", 0.0},
-		{"M0 0L10 0L20 0L10 1z", 2 * math.Pi},
+		{"L10 0L20 0z", 0.0},
+		{"L10 0L20 0L10 1z", 2 * math.Pi},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {

@@ -155,8 +155,8 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 
 				rhs := strokeCubicBezier(start, c1, c2, end, halfWidth, Tolerance)
 				lhs := strokeCubicBezier(start, c1, c2, end, -halfWidth, Tolerance)
-				sp.Append(rhs)
-				ret.Append(lhs)
+				sp.Join(rhs)
+				ret.Join(lhs)
 			case CubeToCmd:
 				c1 := Point{p.d[i+1], p.d[i+2]}
 				c2 := Point{p.d[i+3], p.d[i+4]}
@@ -168,8 +168,8 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 
 				rhs := strokeCubicBezier(start, c1, c2, end, halfWidth, Tolerance)
 				lhs := strokeCubicBezier(start, c1, c2, end, -halfWidth, Tolerance)
-				sp.Append(rhs)
-				ret.Append(lhs)
+				sp.Join(rhs)
+				ret.Join(lhs)
 			case ArcToCmd:
 				rx, ry, rot := p.d[i+1], p.d[i+2], p.d[i+3]
 				largeAngle, sweep := fromArcFlags(p.d[i+4])
@@ -229,7 +229,7 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 			sp.Close()
 			sp.MoveTo(invStart.X, invStart.Y)
 		}
-		sp.Append(ret.Reverse())
+		sp.Join(ret.Reverse())
 		if !closed {
 			cr.Cap(sp, halfWidth, startFirst, n0First.Neg())
 		}
