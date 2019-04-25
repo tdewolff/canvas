@@ -8,6 +8,22 @@ import (
 	"github.com/tdewolff/test"
 )
 
+func TestPath(t *testing.T) {
+	var tts = []struct {
+		orig string
+		res  string
+	}{
+		{"M0 0A10 10 0 0 0 40 0", "M0 0A20 20 0 0 0 40 0"},  // scale ellipse
+		{"M0 0A5 10 90 0 0 40 0", "M0 0A20 40 90 0 0 40 0"}, // scale ellipse
+	}
+	for _, tt := range tts {
+		t.Run(tt.orig, func(t *testing.T) {
+			p, _ := ParseSVGPath(tt.orig)
+			test.T(t, p.String(), tt.res)
+		})
+	}
+}
+
 func TestPathDirection(t *testing.T) {
 	var tts = []struct {
 		orig      string

@@ -9,14 +9,14 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS and raste
 
 General
 
-* Implement https://www.w3.org/TR/SVG/paths.html#ArcOutOfRangeParameters
-* Switch to radians instead of degrees for ellipse internal calculations?
-* Add support for easier usage of projections / viewboxes?
+* **Switch to radians instead of degrees for ellipse internal calculations?**
+* **Add support for easier usage of projections / viewboxes?**
 
 Fonts
 
-* Embedding only used characters
-* Font embedding for PDFs
+* **Embedding only used characters**
+* **Font embedding for PDFs**
+* **Add text rotation support**
 * Support ligatures and font hinting
 * Support WOFF2 font format
 * Support Type1 font format?
@@ -37,9 +37,7 @@ Paths
 Optimization
 
 * Approximate Beziérs by elliptic arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (check)
-* Optimize/minify paths from and to SVG
-* Optimize paths by replacing Quad/Cube/Arc to line if they are linear (eg. p0=p1=p2 for cubic Bezier)
-* Optimize paths by removing zero-length commands (incl. the last Line if followed by Close)
+* Optimize/minify paths from and to SVG in `Optimize()` (incl. the last Line if followed by Close)
 * Avoid overlapping paths when stroking, we need to know the ending and starting angle of the previous and next command respectively
 * Store location of last `MoveToCmd` to optimize `direction()` and others?
 

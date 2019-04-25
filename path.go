@@ -121,40 +121,66 @@ func (p *Path) MoveTo(x, y float64) *Path {
 	return p
 }
 
-// LineTo adds a linear path to x,y.
-func (p *Path) LineTo(x, y float64) *Path {
-	p.d = append(p.d, LineToCmd, x, y)
+// LineTo adds a linear path to x2,y2.
+func (p *Path) LineTo(x2, y2 float64) *Path {
+	x1, y1 := p.Pos()
+	if equal(x1, x2) && equal(y1, y2) {
+		return p
+	}
+	p.d = append(p.d, LineToCmd, x2, y2)
 	return p
 }
 
-// Quadto adds a quadratic Bezier path with control point x1,y1 and end point x,y.
-func (p *Path) QuadTo(x1, y1, x, y float64) *Path {
-	p.d = append(p.d, QuadToCmd, x1, y1, x, y)
+// Quadto adds a quadratic Bezier path with control point cpx,cpy and end point x2,y2.
+func (p *Path) QuadTo(cpx, cpy, x2, y2 float64) *Path {
+	x1, y1 := p.Pos()
+	if (equal(cpx, x1) || equal(cpx, x2)) && (equal(cpy, y1) || equal(cpy, y2)) {
+		return p.LineTo(x2, y2)
+	}
+	p.d = append(p.d, QuadToCmd, cpx, cpy, x2, y2)
 	return p
 }
 
-// CubeTo adds a cubic Bezier path with control points x1,y1 and x2,y2 and end point x,y.
-func (p *Path) CubeTo(x1, y1, x2, y2, x, y float64) *Path {
-	p.d = append(p.d, CubeToCmd, x1, y1, x2, y2, x, y)
+// CubeTo adds a cubic Bezier path with control points cpx1,cpy1 and cpx2,cpy2 and end point x2,y2.
+func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x2, y2 float64) *Path {
+	x1, y1 := p.Pos()
+	if (equal(cpx1, x1) || equal(cpx1, x2)) && (equal(cpy1, y1) || equal(cpy1, y2)) &&
+		(equal(cpx2, x1) || equal(cpx2, x2)) && (equal(cpy2, y1) || equal(cpy2, y2)) {
+		return p.LineTo(x2, y2)
+	}
+	p.d = append(p.d, CubeToCmd, cpx1, cpy1, cpx2, cpy2, x2, y2)
 	return p
 }
 
-// ArcTo adds an arc with radii rx and ry, with rot the rotation with respect to the coordinate system,
+// ArcTo adds an arc with radii rx and ry, with phi the rotation with respect to the coordinate system in degrees,
 // large and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
-// and x,y the end position of the pen. The start positions of the pen was given by a previous command.
-func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x, y float64) *Path {
-	rot = math.Mod(rot, 360.0)
-	if rot < 0.0 {
-		rot += 360.0
+// and x2,y2 the end position of the pen. The start positions of the pen was given by a previous command.
+func (p *Path) ArcTo(rx, ry, phi float64, largeArc, sweep bool, x2, y2 float64) *Path {
+	x1, y1 := p.Pos()
+	if equal(x1, x2) && equal(y1, y2) {
+		return p
+	}
+
+	phi = math.Mod(phi, 360.0)
+	if phi < 0.0 {
+		phi += 360.0
+	}
+	if equal(rx, 0.0) || equal(ry, 0.0) {
+		return p.LineTo(x2, y2)
 	}
 	rx = math.Abs(rx)
 	ry = math.Abs(ry)
-	if equal(rx, 0.0) || equal(ry, 0.0) {
-		p.LineTo(x, y)
-		return p
+
+	// scale ellipse if rx and ry are too small, see https://www.w3.org/TR/SVG/implnote.html#ArcCorrectionOutOfRangeRadii
+	x1p := (math.Cos(phi)*(x1-x2) + math.Sin(phi)*(y1-y2)) / 2.0
+	y1p := (math.Cos(phi)*(y1-y2) - math.Sin(phi)*(x1-x2)) / 2.0
+	lambda := x1p*x1p/rx/rx + y1p*y1p/ry/ry
+	if lambda > 1.0 {
+		rx = math.Sqrt(lambda) * rx
+		ry = math.Sqrt(lambda) * ry
 	}
-	// TODO: scale if rx and ry are too small
-	p.d = append(p.d, ArcToCmd, rx, ry, rot, toArcFlags(largeArc, sweep), x, y)
+
+	p.d = append(p.d, ArcToCmd, rx, ry, phi, toArcFlags(largeArc, sweep), x2, y2)
 	return p
 }
 
