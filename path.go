@@ -55,7 +55,9 @@ func toArcFlags(largeArc, sweep bool) float64 {
 	return f
 }
 
-// Path defines a vector path in 2D.
+// Path defines a vector path in 2D using a series of connected commands (MoveTo, LineTo, QuadTo, CubeTo, ArcTo and Close).
+// Each command consists of a number of float64 values (depending on the command) that fully define the action. The first value is the command itself (as a float64). The last two values are the end point position of the pen after the action (x,y). QuadTo defined one control point (x,y) in between, CubeTo defines two control points, and ArcTo defines (rx,ry,phi,largeArc+sweep) i.e. the radius in x and y, its rotation (in radians) and the largeArc and sweep booleans in one float64.
+// Only valid commands are appended, so that LineTo has a non-zero length, QuadTo's and CubeTo's control point(s) don't (both) overlap with the start and end point, and ArcTo has non-zero radii and has non-zero length. For ArcTo we also make sure the angle is is in the range [0, 2*PI) and we scale the radii up if they appear too small to fit the arc.
 type Path struct {
 	d      []float64
 	x0, y0 float64 // coords of last MoveTo
@@ -134,7 +136,7 @@ func (p *Path) LineTo(x2, y2 float64) *Path {
 // Quadto adds a quadratic Bezier path with control point cpx,cpy and end point x2,y2.
 func (p *Path) QuadTo(cpx, cpy, x2, y2 float64) *Path {
 	x1, y1 := p.Pos()
-	if (equal(cpx, x1) || equal(cpx, x2)) && (equal(cpy, y1) || equal(cpy, y2)) {
+	if equal(cpx, x1) && equal(cpy, y1) || equal(cpx, x2) && equal(cpy, y2) {
 		return p.LineTo(x2, y2)
 	}
 	p.d = append(p.d, QuadToCmd, cpx, cpy, x2, y2)
@@ -144,26 +146,26 @@ func (p *Path) QuadTo(cpx, cpy, x2, y2 float64) *Path {
 // CubeTo adds a cubic Bezier path with control points cpx1,cpy1 and cpx2,cpy2 and end point x2,y2.
 func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x2, y2 float64) *Path {
 	x1, y1 := p.Pos()
-	if (equal(cpx1, x1) || equal(cpx1, x2)) && (equal(cpy1, y1) || equal(cpy1, y2)) &&
-		(equal(cpx2, x1) || equal(cpx2, x2)) && (equal(cpy2, y1) || equal(cpy2, y2)) {
+	if (equal(cpx1, x1) && equal(cpy1, y1) || equal(cpx1, x2) && equal(cpy1, y2)) &&
+		(equal(cpx2, x1) && equal(cpy2, y1) || equal(cpx2, x2) && equal(cpy2, y2)) {
 		return p.LineTo(x2, y2)
 	}
 	p.d = append(p.d, CubeToCmd, cpx1, cpy1, cpx2, cpy2, x2, y2)
 	return p
 }
 
-// ArcTo adds an arc with radii rx and ry, with phi the rotation with respect to the coordinate system in degrees,
+// ArcTo adds an arc with radii rx and ry, with rot the rotation with respect to the coordinate system in degrees,
 // large and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
 // and x2,y2 the end position of the pen. The start positions of the pen was given by a previous command.
-func (p *Path) ArcTo(rx, ry, phi float64, largeArc, sweep bool, x2, y2 float64) *Path {
+func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x2, y2 float64) *Path {
 	x1, y1 := p.Pos()
 	if equal(x1, x2) && equal(y1, y2) {
 		return p
 	}
 
-	phi = math.Mod(phi, 360.0)
-	if phi < 0.0 {
-		phi += 360.0
+	rot = math.Mod(rot, 360.0)
+	if rot < 0.0 {
+		rot += 360.0
 	}
 	if equal(rx, 0.0) || equal(ry, 0.0) {
 		return p.LineTo(x2, y2)
@@ -172,6 +174,7 @@ func (p *Path) ArcTo(rx, ry, phi float64, largeArc, sweep bool, x2, y2 float64) 
 	ry = math.Abs(ry)
 
 	// scale ellipse if rx and ry are too small, see https://www.w3.org/TR/SVG/implnote.html#ArcCorrectionOutOfRangeRadii
+	phi := rot * math.Pi / 180.0
 	x1p := (math.Cos(phi)*(x1-x2) + math.Sin(phi)*(y1-y2)) / 2.0
 	y1p := (math.Cos(phi)*(y1-y2) - math.Sin(phi)*(x1-x2)) / 2.0
 	lambda := x1p*x1p/rx/rx + y1p*y1p/ry/ry
@@ -180,7 +183,7 @@ func (p *Path) ArcTo(rx, ry, phi float64, largeArc, sweep bool, x2, y2 float64) 
 		ry = math.Sqrt(lambda) * ry
 	}
 
-	p.d = append(p.d, ArcToCmd, rx, ry, phi, toArcFlags(largeArc, sweep), x2, y2)
+	p.d = append(p.d, ArcToCmd, rx, ry, rot, toArcFlags(largeArc, sweep), x2, y2)
 	return p
 }
 
@@ -1071,14 +1074,40 @@ func ParseSVGPath(s string) (*Path, error) {
 	return p, nil
 }
 
-// String returns a string that represents the path in the SVG path data format.
-// Be aware that Canvas uses the Cartesian coordinate system and SVGs do not. To convert, you'll need to use p.Scale(1.0, -1.0).Translate(0.0, height), where height is the image height.
+// String returns a string that represents the path similar to the SVG path data format (but not necessarily valid SVG).
 func (p *Path) String() string {
-	return p.ToSVG()
+	sb := strings.Builder{}
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		switch cmd {
+		case MoveToCmd:
+			fmt.Fprintf(&sb, "M%.5g %.5g", p.d[i+1], p.d[i+2])
+		case LineToCmd:
+			fmt.Fprintf(&sb, "L%.5g %.5g", p.d[i+1], p.d[i+2])
+		case QuadToCmd:
+			fmt.Fprintf(&sb, "Q%.5g %.5g %.5g %.5g", p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4])
+		case CubeToCmd:
+			fmt.Fprintf(&sb, "C%.5g %.5g %.5g %.5g %.5g %.5g", p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4], p.d[i+5], p.d[i+6])
+		case ArcToCmd:
+			largeArc, sweep := fromArcFlags(p.d[i+4])
+			sLargeArc := "0"
+			if largeArc {
+				sLargeArc = "1"
+			}
+			sSweep := "0"
+			if sweep {
+				sSweep = "1"
+			}
+			fmt.Fprintf(&sb, "A%.5g %.5g %.5g %s %s %.5g %.5g", p.d[i+1], p.d[i+2], p.d[i+3], sLargeArc, sSweep, p.d[i+5], p.d[i+6])
+		case CloseCmd:
+			fmt.Fprintf(&sb, "z")
+		}
+		i += cmdLen(cmd)
+	}
+	return sb.String()
 }
 
-// ToSVG returns a string that represents the path in the SVG path data format.
-// Be aware that Canvas uses the Cartesian coordinate system and SVGs do not. To convert, you'll need to use p.Scale(1.0, -1.0).Translate(0.0, height), where height is the image height.
+// ToSVG returns a string that represents the path in the SVG path data format with minifications.
 func (p *Path) ToSVG() string {
 	sb := strings.Builder{}
 	x, y := 0.0, 0.0
