@@ -176,12 +176,8 @@ func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x2, y2 float64) 
 	rx = math.Abs(rx)
 	ry = math.Abs(ry)
 
-	phi := math.Mod(rot*math.Pi/180.0, 2.0*math.Pi)
-	if phi < 0.0 {
-		phi += 2.0 * math.Pi
-	}
-
 	// scale ellipse if rx and ry are too small, see https://www.w3.org/TR/SVG/implnote.html#ArcCorrectionOutOfRangeRadii
+	phi := angleNorm(rot * math.Pi / 180.0)
 	sinphi, cosphi := math.Sincos(phi)
 	x1p := (cosphi*(x1-x2) + sinphi*(y1-y2)) / 2.0
 	y1p := (cosphi*(y1-y2) - sinphi*(x1-x2)) / 2.0
@@ -358,43 +354,47 @@ func (p *Path) Bounds() Rect {
 				ymax = math.Max(ymax, y2.Y)
 			}
 		case ArcToCmd:
-			// TODO
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
 			cx, cy, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
 
+			// find the four extremes (top, bottom, left, right) and apply those who are between theta1 and theta2
+			// x(theta) = cx + rx*cos(theta)*cos(phi) - ry*sin(theta)*sin(phi)
+			// y(theta) = cy + rx*cos(theta)*sin(phi) + ry*sin(theta)*cos(phi)
+			// be aware that positive rotation appears clockwise in SVGs (non-Cartesian coordinate system)
+			// we can now find the angles of the extremes
+
+			thetaRight := angleNorm(math.Atan(-ry * math.Tan(phi) / rx))
+			thetaTop := angleNorm(math.Atan(rx / ry / math.Tan(phi)))
+			thetaLeft := angleNorm(thetaRight + math.Pi)
+			thetaBottom := angleNorm(thetaTop + math.Pi)
+			if ellipseAt(thetaRight, rx, ry, phi).X < ellipseAt(thetaLeft, rx, ry, phi).X {
+				thetaRight, thetaLeft = thetaLeft, thetaRight
+			}
+			if ellipseAt(thetaTop, rx, ry, phi).Y < ellipseAt(thetaBottom, rx, ry, phi).Y {
+				thetaTop, thetaBottom = thetaBottom, thetaTop
+			}
+
+			sinphi, cosphi := math.Sincos(phi)
+			dx := math.Sqrt(rx*rx*cosphi*cosphi + ry*ry*sinphi*sinphi)
+			dy := math.Sqrt(rx*rx*sinphi*sinphi + ry*ry*cosphi*cosphi)
+			if angleBetween(thetaLeft, theta1, theta2) {
+				xmin = math.Min(xmin, cx-dx)
+			}
+			if angleBetween(thetaRight, theta1, theta2) {
+				xmax = math.Max(xmax, cx+dx)
+			}
+			if angleBetween(thetaBottom, theta1, theta2) {
+				ymin = math.Min(ymin, cy-dy)
+			}
+			if angleBetween(thetaTop, theta1, theta2) {
+				ymax = math.Max(ymax, cy+dy)
+			}
 			xmin = math.Min(xmin, end.X)
 			xmax = math.Max(xmax, end.X)
 			ymin = math.Min(ymin, end.Y)
 			ymax = math.Max(ymax, end.Y)
-
-			cosphi := math.Cos(phi)
-			sinphi := math.Sin(phi)
-
-			tx := -math.Atan(ry / rx * math.Tan(phi))
-			ty := math.Atan(ry / rx / math.Tan(phi))
-
-			dx := math.Abs(rx*math.Cos(tx)*cosphi - ry*math.Sin(tx)*sinphi)
-			dy := math.Abs(rx*math.Cos(ty)*sinphi + ry*math.Sin(ty)*cosphi)
-
-			if theta2 < theta1 {
-				theta1, theta2 = theta2, theta1
-			}
-
-			if theta1 < tx && tx < theta2 {
-				xmin = math.Min(xmin, cx-dx)
-			}
-			if theta1 < tx+math.Pi && tx+math.Pi < theta2 {
-				xmax = math.Max(xmax, cx+dx)
-			}
-			// y is inverted
-			if theta1 < ty && ty < theta2 {
-				ymax = math.Max(ymax, cy+dy)
-			}
-			if theta1 < ty+math.Pi && ty+math.Pi < theta2 {
-				ymin = math.Min(ymin, cy-dy)
-			}
 		}
 		i += cmdLen(cmd)
 		start = end
@@ -533,11 +533,7 @@ func (p *Path) Rotate(rot, x, y float64) *Path {
 			p.d[i+5] = end.X
 			p.d[i+6] = end.Y
 		case ArcToCmd:
-			phi := p.d[i+3] - rot*math.Pi/180.0
-			phi = math.Mod(phi, 2.0*math.Pi)
-			if phi < 0.0 {
-				phi += 2.0 * math.Pi
-			}
+			phi := angleNorm(p.d[i+3] - rot*math.Pi/180.0)
 			end := Point{p.d[i+5], p.d[i+6]}.Rot(rot, mid)
 			p.d[i+3] = phi
 			p.d[i+5] = end.X
@@ -918,7 +914,7 @@ func parseNum(path []byte) (float64, int) {
 
 // ParseSVGPath parses an SVG path data string.
 func ParseSVGPath(s string) (*Path, error) {
-	// TODO: add error handling
+	// TODO: add error handling, such as when parseNum fails
 	if len(s) == 0 {
 		return &Path{}, nil
 	}
@@ -1239,6 +1235,7 @@ func (p *Path) ToPS() string {
 			}
 
 			cx, cy, theta0, theta1 := ellipseToCenter(x0, y0, rx, ry, phi, largeArc, sweep, x, y)
+			// TODO: test theta1
 			rot := phi * 180.0 / math.Pi
 			if !equal(rot, 0.0) {
 				fmt.Fprintf(&sb, " %.5g %.5g translate %.5g rotate %.5g %.5g translate", cx, cy, rot, -cx, -cy)

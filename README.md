@@ -10,6 +10,7 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS and raste
 General
 
 * **Add support for easier usage of projections / viewboxes?**
+* Save rotation angle for ellipses CCW? But then change the coordinate system?
 
 Fonts
 
@@ -22,7 +23,6 @@ Fonts
 
 Paths
 
-* **Fix bounds calculation of ellipses**
 * **Easier support for building paths from strings, like AppendSVG for example**
 * **Fix edge-cases for length calculation of Beziérs and ellipses**
 * **Approximate elliptic arcs by lines given a tolerance for use in `Flatten`**

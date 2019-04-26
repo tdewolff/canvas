@@ -13,6 +13,28 @@ func equal(a, b float64) bool {
 	return math.Abs(a-b) < epsilon
 }
 
+func angleNorm(theta float64) float64 {
+	theta = math.Mod(theta, 2.0*math.Pi)
+	if theta < 0.0 {
+		theta += 2.0 * math.Pi
+	}
+	return theta
+}
+
+func angleBetween(theta, lower, upper float64) bool {
+	theta = angleNorm(theta)
+	if lower > upper {
+		lower, upper = upper, lower
+	}
+	// TODO: optimze
+	if lower < theta && theta < upper ||
+		lower < theta-2.0*math.Pi && theta-2.0*math.Pi < upper ||
+		lower < theta+2.0*math.Pi && theta+2.0*math.Pi < upper {
+		return true
+	}
+	return false
+}
+
 ////////////////////////////////////////////////////////////////
 
 func toF32Vec(x, y float64) f32.Vec2 {

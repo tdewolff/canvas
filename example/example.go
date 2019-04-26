@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"image/color"
 	"image/png"
 	"os"
@@ -115,15 +114,13 @@ func Draw(c *canvas.C) {
 	c.SetColor(canvas.Black)
 	c.DrawPath(120, 5, latex)
 
-	rot := 30.0
-	w := 20.0
-	ellipse, err := canvas.ParseSVGPath(fmt.Sprintf("A10 20 %f 0 0 %f 0z", rot, w))
+	ellipse, err := canvas.ParseSVGPath("A10 20 30 0 0 20 0z")
 	if err != nil {
 		panic(err)
 	}
 	c.SetColor(canvas.Red)
 	c.DrawPath(115, 45, ellipse.Bounds().ToPath())
-	ellipse = ellipse. /*Dash(0.8, 1.2, 0.8).*/ Stroke(0.3, canvas.RoundCapper, canvas.BevelJoiner)
-	c.SetColor(canvas.Black)
+	//ellipse = ellipse. /*Dash(0.8, 1.2, 0.8).*/ Stroke(0.3, canvas.RoundCapper, canvas.BevelJoiner)
+	c.SetColor(canvas.BlackTransparent)
 	c.DrawPath(115, 45, ellipse)
 }

@@ -121,7 +121,7 @@ func gaussLegendre5(f func(float64) float64, a, b float64) float64 {
 //}
 
 // ellipseToCenter converts to the center arc format and returns (centerX, centerY, angleFrom, angleTo) with angles in radians.
-// angleFrom could be bigger than angleTo, in which case the ellipse runs clockwise.
+// when angleFrom with range [0, 2*PI) is bigger than angleTo with range (-2*PI, 4*PI), the ellipse runs clockwise. The angles are from before the ellipse has been stretched and rotated.
 // See https://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
 func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 float64) (float64, float64, float64, float64) {
 	if x1 == x2 && y1 == y2 {
@@ -162,10 +162,7 @@ func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 floa
 	if uy < 0.0 {
 		theta = -theta
 	}
-	theta = math.Mod(theta, 2.0*math.Pi)
-	if theta < 0.0 {
-		theta += 2.0 * math.Pi
-	}
+	theta = angleNorm(theta)
 
 	deltaAcos := (ux*vx + uy*vy) / math.Sqrt((ux*ux+uy*uy)*(vx*vx+vy*vy))
 	deltaAcos = math.Min(1.0, math.Max(-1.0, deltaAcos))
@@ -173,19 +170,12 @@ func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 floa
 	if ux*vy-uy*vx < 0.0 {
 		delta = -delta
 	}
-	if !sweep && delta > 0.0 {
+	if !sweep && delta > 0.0 { // clockwise in Cartesian
 		delta -= 2.0 * math.Pi
-	} else if sweep && delta < 0.0 {
+	} else if sweep && delta < 0.0 { // counter clockwise in Cartesian
 		delta += 2.0 * math.Pi
 	}
 	return cx, cy, theta, theta + delta
-}
-
-func ellipseSpeedAt(rx, ry, phi float64) float64 {
-	sinphi, cosphi := math.Sincos(phi)
-	dx := rx * cosphi
-	dy := -ry * sinphi
-	return math.Sqrt(dx*dx + dy*dy)
 }
 
 // TODO: buggy
@@ -199,14 +189,26 @@ func ellipseLength(start Point, rx, ry, phi float64, largeArc, sweep bool, end P
 	return gaussLegendre5(speed, theta1, theta2)
 }
 
-// TODO: ellipseAt?
+func ellipseAt(theta, rx, ry, phi float64) Point {
+	sintheta, costheta := math.Sincos(theta)
+	sinphi, cosphi := math.Sincos(phi)
+	x := rx*costheta*cosphi - ry*sintheta*sinphi
+	y := rx*costheta*sinphi + ry*sintheta*cosphi
+	return Point{x, y}
+}
 
 // ellipseNormal returns the normal at angle theta of the ellipse, given rotation phi.
-// TODO: is this useful?
 func ellipseNormal(theta, phi float64) Point {
 	theta += phi
 	y, x := math.Sincos(theta)
 	return Point{x, y}
+}
+
+func ellipseSpeedAt(rx, ry, phi float64) float64 {
+	sinphi, cosphi := math.Sincos(phi)
+	dx := rx * cosphi
+	dy := -ry * sinphi
+	return math.Sqrt(dx*dx + dy*dy)
 }
 
 func splitEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) (Point, bool, bool, bool, bool) {
