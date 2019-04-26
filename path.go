@@ -914,14 +914,13 @@ func parseNum(path []byte) (float64, int) {
 
 // ParseSVGPath parses an SVG path data string.
 func ParseSVGPath(s string) (*Path, error) {
-	// TODO: add error handling, such as when parseNum fails
 	if len(s) == 0 {
 		return &Path{}, nil
 	}
 
 	path := []byte(s)
 	if path[0] < 'A' {
-		return nil, fmt.Errorf("bad path: does not start with command")
+		return nil, fmt.Errorf("bad path: path should start with command")
 	}
 
 	var prevCmd byte
@@ -943,6 +942,9 @@ func ParseSVGPath(s string) (*Path, error) {
 			i += n
 			y2, n := parseNum(path[i:])
 			i += n
+			if n == 0 {
+				return nil, fmt.Errorf("bad path: number should follow command '%c'", cmd)
+			}
 			if cmd == 'm' {
 				x2 += x1
 				y2 += y1
@@ -955,6 +957,9 @@ func ParseSVGPath(s string) (*Path, error) {
 			i += n
 			y2, n := parseNum(path[i:])
 			i += n
+			if n == 0 {
+				return nil, fmt.Errorf("bad path: number should follow command '%c'", cmd)
+			}
 			if cmd == 'l' {
 				x2 += x1
 				y2 += y1
@@ -963,6 +968,9 @@ func ParseSVGPath(s string) (*Path, error) {
 		case 'H', 'h':
 			x2, n := parseNum(path[i:])
 			i += n
+			if n == 0 {
+				return nil, fmt.Errorf("bad path: number should follow command '%c'", cmd)
+			}
 			if cmd == 'h' {
 				x2 += x1
 			}
@@ -970,6 +978,9 @@ func ParseSVGPath(s string) (*Path, error) {
 		case 'V', 'v':
 			y2, n := parseNum(path[i:])
 			i += n
+			if n == 0 {
+				return nil, fmt.Errorf("bad path: number should follow command '%c'", cmd)
+			}
 			if cmd == 'v' {
 				y2 += y1
 			}
@@ -987,6 +998,9 @@ func ParseSVGPath(s string) (*Path, error) {
 			i += n
 			y2, n := parseNum(path[i:])
 			i += n
+			if n == 0 {
+				return nil, fmt.Errorf("bad path: number should follow command '%c'", cmd)
+			}
 			if cmd == 'c' {
 				cpx1 += x1
 				cpy1 += y1
@@ -1006,6 +1020,9 @@ func ParseSVGPath(s string) (*Path, error) {
 			i += n
 			y2, n := parseNum(path[i:])
 			i += n
+			if n == 0 {
+				return nil, fmt.Errorf("bad path: number should follow command '%c'", cmd)
+			}
 			if cmd == 's' {
 				cpx2 += x1
 				cpy2 += y1
@@ -1027,6 +1044,9 @@ func ParseSVGPath(s string) (*Path, error) {
 			i += n
 			y2, n := parseNum(path[i:])
 			i += n
+			if n == 0 {
+				return nil, fmt.Errorf("bad path: number should follow command '%c'", cmd)
+			}
 			if cmd == 'q' {
 				cpx += x1
 				cpy += y1
@@ -1040,6 +1060,9 @@ func ParseSVGPath(s string) (*Path, error) {
 			i += n
 			y2, n := parseNum(path[i:])
 			i += n
+			if n == 0 {
+				return nil, fmt.Errorf("bad path: number should follow command '%c'", cmd)
+			}
 			if cmd == 't' {
 				x2 += x1
 				y2 += y1
@@ -1065,13 +1088,16 @@ func ParseSVGPath(s string) (*Path, error) {
 			i += n
 			y2, n := parseNum(path[i:])
 			i += n
+			if n == 0 {
+				return nil, fmt.Errorf("bad path: number should follow command '%c'", cmd)
+			}
 			if cmd == 'a' {
 				x2 += x1
 				y2 += y1
 			}
 			p.ArcTo(rx, ry, rot, largeArc == 1.0, sweep == 1.0, x2, y2)
 		default:
-			return nil, fmt.Errorf("unknown command in SVG path: %c", cmd)
+			return nil, fmt.Errorf("bad path: unknown command '%c'", cmd)
 		}
 		prevCmd = cmd
 	}

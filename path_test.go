@@ -8,6 +8,22 @@ import (
 	"github.com/tdewolff/test"
 )
 
+func TestParseSVGPath(t *testing.T) {
+	var tts = []struct {
+		orig string
+		err  string
+	}{
+		{"5", "bad path: path should start with command"},
+		{"MM", "bad path: number should follow command 'M'"},
+	}
+	for _, tt := range tts {
+		t.Run(tt.orig, func(t *testing.T) {
+			_, err := ParseSVGPath(tt.orig)
+			test.T(t, err.Error(), tt.err)
+		})
+	}
+}
+
 func TestPath(t *testing.T) {
 	var tts = []struct {
 		orig string
@@ -18,7 +34,8 @@ func TestPath(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, _ := ParseSVGPath(tt.orig)
+			p, err := ParseSVGPath(tt.orig)
+			test.Error(t, err)
 			test.T(t, p.String(), tt.res)
 		})
 	}
@@ -38,7 +55,8 @@ func TestPathDirection(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, _ := ParseSVGPath(tt.orig)
+			p, err := ParseSVGPath(tt.orig)
+			test.Error(t, err)
 			test.Float(t, p.direction(), tt.direction)
 		})
 	}
@@ -59,7 +77,9 @@ func TestPathBounds(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, _ := ParseSVGPath(tt.orig)
+			p, err := ParseSVGPath(tt.orig)
+			test.Error(t, err)
+
 			bounds := p.Bounds()
 			test.Float(t, bounds.X, tt.bounds.X)
 			test.Float(t, bounds.Y, tt.bounds.Y)
@@ -79,7 +99,9 @@ func TestPathLength(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, _ := ParseSVGPath(tt.orig)
+			p, err := ParseSVGPath(tt.orig)
+			test.Error(t, err)
+
 			length := p.Length()
 			if math.Abs(length-tt.length) > 0.1 {
 				test.Fail(t, length, "!=", tt.length)
@@ -119,7 +141,9 @@ func TestPathSplit(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, _ := ParseSVGPath(tt.orig)
+			p, err := ParseSVGPath(tt.orig)
+			test.Error(t, err)
+
 			ps := p.Split()
 			if len(ps) != len(tt.split) {
 				origs := []string{}
@@ -149,7 +173,9 @@ func TestPathSplitAt(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, _ := ParseSVGPath(tt.orig)
+			p, err := ParseSVGPath(tt.orig)
+			test.Error(t, err)
+
 			ps := p.SplitAt(tt.d...)
 			if len(ps) != len(tt.split) {
 				origs := []string{}
@@ -176,7 +202,9 @@ func TestPathTranslate(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, _ := ParseSVGPath(tt.orig)
+			p, err := ParseSVGPath(tt.orig)
+			test.Error(t, err)
+
 			p = p.Translate(tt.dx, tt.dy)
 			test.T(t, p.String(), tt.translated)
 		})
@@ -216,7 +244,9 @@ func TestPathReverse(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, _ := ParseSVGPath(tt.orig)
+			p, err := ParseSVGPath(tt.orig)
+			test.Error(t, err)
+
 			p = p.Reverse()
 			test.T(t, p.String(), tt.inv)
 		})
@@ -244,7 +274,9 @@ func TestPathOptimize(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, _ := ParseSVGPath(tt.orig)
+			p, err := ParseSVGPath(tt.orig)
+			test.Error(t, err)
+
 			opt := p.Optimize().String()
 			if strings.HasPrefix(opt, "M0 0") {
 				opt = opt[4:]
