@@ -9,7 +9,6 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS and raste
 
 General
 
-* **Switch to radians instead of degrees for ellipse internal calculations?**
 * **Add support for easier usage of projections / viewboxes?**
 
 Fonts
@@ -24,6 +23,7 @@ Fonts
 Paths
 
 * **Fix bounds calculation of ellipses**
+* **Easier support for building paths from strings, like AppendSVG for example**
 * **Fix edge-cases for length calculation of Beziérs and ellipses**
 * **Approximate elliptic arcs by lines given a tolerance for use in `Flatten`**
 * **Approximate elliptic arcs by Beziérs given a tolerance for use in `WriteImage`, `ToPDF`, `SplitAt` and `Dash`**

@@ -162,7 +162,7 @@ func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x2, y2 float64) *Path {
 	return p
 }
 
-// ArcTo adds an arc with radii rx and ry, with rot the rotation with respect to the coordinate system in degrees,
+// ArcTo adds an arc with radii rx and ry, with rot the clockwise rotation with respect to the coordinate system in degrees,
 // large and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
 // and x2,y2 the end position of the pen. The start positions of the pen was given by a previous command.
 func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x2, y2 float64) *Path {
@@ -170,21 +170,21 @@ func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x2, y2 float64) 
 	if equal(x1, x2) && equal(y1, y2) {
 		return p
 	}
-
-	rot = math.Mod(rot, 360.0)
-	if rot < 0.0 {
-		rot += 360.0
-	}
 	if equal(rx, 0.0) || equal(ry, 0.0) {
 		return p.LineTo(x2, y2)
 	}
 	rx = math.Abs(rx)
 	ry = math.Abs(ry)
 
+	phi := math.Mod(rot*math.Pi/180.0, 2.0*math.Pi)
+	if phi < 0.0 {
+		phi += 2.0 * math.Pi
+	}
+
 	// scale ellipse if rx and ry are too small, see https://www.w3.org/TR/SVG/implnote.html#ArcCorrectionOutOfRangeRadii
-	phi := rot * math.Pi / 180.0
-	x1p := (math.Cos(phi)*(x1-x2) + math.Sin(phi)*(y1-y2)) / 2.0
-	y1p := (math.Cos(phi)*(y1-y2) - math.Sin(phi)*(x1-x2)) / 2.0
+	sinphi, cosphi := math.Sincos(phi)
+	x1p := (cosphi*(x1-x2) + sinphi*(y1-y2)) / 2.0
+	y1p := (cosphi*(y1-y2) - sinphi*(x1-x2)) / 2.0
 	lambda := x1p*x1p/rx/rx + y1p*y1p/ry/ry
 	if lambda > 1.0 {
 		rx = math.Sqrt(lambda) * rx
@@ -533,8 +533,13 @@ func (p *Path) Rotate(rot, x, y float64) *Path {
 			p.d[i+5] = end.X
 			p.d[i+6] = end.Y
 		case ArcToCmd:
-			// TODO: rotate phi too?
+			phi := p.d[i+3] - rot*math.Pi/180.0
+			phi = math.Mod(phi, 2.0*math.Pi)
+			if phi < 0.0 {
+				phi += 2.0 * math.Pi
+			}
 			end := Point{p.d[i+5], p.d[i+6]}.Rot(rot, mid)
+			p.d[i+3] = phi
 			p.d[i+5] = end.X
 			p.d[i+6] = end.Y
 		}

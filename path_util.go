@@ -225,14 +225,15 @@ func ellipseToBeziers(start Point, rx, ry, phi float64, largeArc, sweep bool, en
 	for i := 0; i < n; i++ {
 		p1 := float64(i+0) / n
 		p2 := float64(i+1) / n
-		a1 := theta1 + (theta2-theta1)*p1
-		a2 := theta1 + (theta2-theta1)*p2
-		xt0 := cx + rx*math.Cos(a1)*cosphi - ry*math.Sin(a1)*sinphi
-		yt0 := cy + rx*math.Cos(a1)*sinphi + ry*math.Sin(a1)*cosphi
-		xt1 := cx + rx*math.Cos(a1+(a2-a1)/2.0)*cosphi - ry*math.Sin(a1+(a2-a1)/2.0)*sinphi
-		yt1 := cy + rx*math.Cos(a1+(a2-a1)/2.0)*sinphi + ry*math.Sin(a1+(a2-a1)/2.0)*cosphi
-		xt2 := cx + rx*math.Cos(a2)*cosphi - ry*math.Sin(a2)*sinphi
-		yt2 := cy + rx*math.Cos(a2)*sinphi + ry*math.Sin(a2)*cosphi
+		sina0, cosa0 := math.Sincos(theta1 + (theta2-theta1)*p1)
+		sina1, cosa1 := math.Sincos(theta1 + (theta2-theta1)*(p1+p2)/2.0)
+		sina2, cosa2 := math.Sincos(theta1 + (theta2-theta1)*p2)
+		xt0 := cx + rx*cosa0*cosphi - ry*sina0*sinphi
+		yt0 := cy + rx*cosa0*sinphi + ry*sina0*cosphi
+		xt1 := cx + rx*cosa1*cosphi - ry*sina1*sinphi
+		yt1 := cy + rx*cosa1*sinphi + ry*sina1*cosphi
+		xt2 := cx + rx*cosa2*cosphi - ry*sina2*sinphi
+		yt2 := cy + rx*cosa2*sinphi + ry*sina2*cosphi
 		ctx := 2.0*xt1 - xt0/2.0 - xt2/2.0
 		cty := 2.0*yt1 - yt0/2.0 - yt2/2.0
 		p.QuadTo(ctx, cty, xt2, yt2)
