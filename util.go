@@ -60,7 +60,7 @@ type Point struct {
 }
 
 func (p Point) IsZero() bool {
-	return equal(p.X, 0.0) && equal(p.Y, 0.0) // TODO: need Equal, or just compare?, and rename to Zero()
+	return p.X == 0.0 && p.Y == 0.0
 }
 
 func (p Point) Equals(q Point) bool {
