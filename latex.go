@@ -11,10 +11,10 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"strconv"
 	"strings"
 
 	"github.com/tdewolff/parse/xml"
+	"github.com/tdewolff/strconv"
 )
 
 // ParseLaTeX parses a LaTeX formatted string into a path. It requires latex and dvisvgm to be installed on the machine.
@@ -83,6 +83,7 @@ func ParseLaTeX(s string) (*Path, error) {
 
 	svgPaths := map[string]*Path{}
 	x0, y0 := math.Inf(1), math.Inf(1)
+	width, height := 0.0, 0.0
 
 	p := &Path{}
 	l := xml.NewLexer(r)
@@ -94,26 +95,38 @@ func ParseLaTeX(s string) (*Path, error) {
 				return nil, l.Err()
 			}
 			if !p.Empty() {
-				p = p.Translate(-x0, -y0).Scale(1.0, -1.0)
+				_ = width
+				p = p.Scale(1.0, -1.0).Translate(-x0, y0+height)
 			}
 			_ = ioutil.WriteFile(path.Join(tmpDir, hash), []byte(p.String()), 0644)
 			return p, nil
 		case xml.StartTagToken:
 			tag := string(l.Text())
-			attrs := map[string]string{}
+			attrs := map[string][]byte{}
 			for {
 				ttAttr, _ := l.Next()
 				if ttAttr != xml.AttributeToken {
 					break
 				}
-				val := string(l.AttrVal())
+				val := l.AttrVal()
 				if len(val) > 1 && (val[0] == '\'' || val[0] == '"') && val[0] == val[len(val)-1] {
 					val = val[1 : len(val)-1]
 				}
 				attrs[string(l.Text())] = val
 			}
 
-			if tag == "path" {
+			if tag == "svg" {
+				var n int
+				width, n = strconv.ParseFloat(attrs["width"])
+				if n == 0 {
+					return nil, errors.New("unexpected SVG format: expected valid width attribute on svg tag")
+				}
+
+				height, n = strconv.ParseFloat(attrs["height"])
+				if n == 0 {
+					return nil, errors.New("unexpected SVG format: expected valid height attribute on svg tag")
+				}
+			} else if tag == "path" {
 				id, ok := attrs["id"]
 				if !ok {
 					return nil, errors.New("unexpected SVG format: expected id attribute on path tag")
@@ -124,19 +137,19 @@ func ParseLaTeX(s string) (*Path, error) {
 					return nil, errors.New("unexpected SVG format: expected d attribute on path tag")
 				}
 
-				svgPath, err := Parse(d)
+				svgPath, err := Parse(string(d))
 				if err != nil {
 					return nil, err
 				}
-				svgPaths[id] = svgPath
+				svgPaths[string(id)] = svgPath
 			} else if tag == "use" {
-				x, err := strconv.ParseFloat(attrs["x"], 64)
-				if err != nil {
+				x, n := strconv.ParseFloat(attrs["x"])
+				if n == 0 {
 					return nil, errors.New("unexpected SVG format: expected valid x attribute on use tag")
 				}
 
-				y, err := strconv.ParseFloat(attrs["y"], 64)
-				if err != nil {
+				y, n := strconv.ParseFloat(attrs["y"])
+				if n == 0 {
 					return nil, errors.New("unexpected SVG format: expected valid y attribute on use tag")
 				}
 
@@ -145,7 +158,7 @@ func ParseLaTeX(s string) (*Path, error) {
 					return nil, errors.New("unexpected SVG format: expected valid xlink:href attribute on use tag")
 				}
 
-				svgPath, ok := svgPaths[id[1:]]
+				svgPath, ok := svgPaths[string(id[1:])]
 				if !ok {
 					return nil, errors.New("unexpected SVG format: xlink:href does not point to existing path")
 				}
@@ -154,23 +167,23 @@ func ParseLaTeX(s string) (*Path, error) {
 				x0 = math.Min(x0, x)
 				y0 = math.Min(y0, y)
 			} else if tag == "rect" {
-				x, err := strconv.ParseFloat(attrs["x"], 64)
-				if err != nil {
+				x, n := strconv.ParseFloat(attrs["x"])
+				if n == 0 {
 					return nil, errors.New("unexpected SVG format: expected valid x attribute on rect tag")
 				}
 
-				y, err := strconv.ParseFloat(attrs["y"], 64)
-				if err != nil {
+				y, n := strconv.ParseFloat(attrs["y"])
+				if n == 0 {
 					return nil, errors.New("unexpected SVG format: expected valid y attribute on rect tag")
 				}
 
-				w, err := strconv.ParseFloat(attrs["width"], 64)
-				if err != nil {
+				w, n := strconv.ParseFloat(attrs["width"])
+				if n == 0 {
 					return nil, errors.New("unexpected SVG format: expected valid width attribute on rect tag")
 				}
 
-				h, err := strconv.ParseFloat(attrs["height"], 64)
-				if err != nil {
+				h, n := strconv.ParseFloat(attrs["height"])
+				if n == 0 {
 					return nil, errors.New("unexpected SVG format: expected valid height attribute on rect tag")
 				}
 				p.Append(Rectangle(x, y, w, h))

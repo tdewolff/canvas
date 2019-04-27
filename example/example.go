@@ -113,7 +113,7 @@ func Draw(c *canvas.C) {
 	}
 	latex.Rotate(-30, 0, 0)
 	c.SetColor(canvas.Black)
-	c.DrawPath(120, 190, latex)
+	c.DrawPath(120, 180, latex)
 
 	drawEllipses(c, 10, 125, 0, 0)
 	//drawEllipses(c, 130, 70, 1, 0)
