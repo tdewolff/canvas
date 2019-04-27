@@ -98,14 +98,14 @@ func drawText(c *canvas.C, x, y float64, size float64, text string) {
 }
 
 func Draw(c *canvas.C) {
-	c.Open(200, 100)
+	c.Open(200, 80)
 
-	drawText(c, 10, 80, 12.0, "Aap noot mies")
+	drawText(c, 10, 60, 12.0, "Aap noot mies")
 
 	face := dejaVuSerif.Face(30)
 	c.SetFont(face)
 	p := face.ToPath("Stroke")
-	c.DrawPath(5, 50, p.Stroke(1, canvas.RoundCapper, canvas.RoundJoiner))
+	c.DrawPath(5, 20, p.Stroke(1, canvas.RoundCapper, canvas.RoundJoiner))
 
 	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
 	if err != nil {
@@ -113,16 +113,15 @@ func Draw(c *canvas.C) {
 	}
 	latex.Rotate(-30, 0, 0)
 	c.SetColor(canvas.Black)
-	c.DrawPath(120, 80, latex)
+	c.DrawPath(140, 60, latex)
 
 	ellipse, err := canvas.ParseSVG(fmt.Sprintf("A10 20 30 1 0 20 0z"))
-	//ellipse.Scale(1.0, -1.0)
 	if err != nil {
 		panic(err)
 	}
-	c.SetColor(canvas.Red)
-	c.DrawPath(120, 30, ellipse.Bounds().ToPath().Rotate(30, 0, 0))
-	//ellipse = ellipse. /*Dash(0.8, 1.2, 0.8).*/ Stroke(0.3, canvas.RoundCapper, canvas.BevelJoiner)
-	c.SetColor(canvas.BlackTransparent)
-	c.DrawPath(120, 30, ellipse.Rotate(30, 0, 0))
+	c.SetColor(canvas.LightGrey)
+	c.DrawPath(130, 20, ellipse)
+	ellipse = ellipse.Dash(2.0, 4.0, 2.0).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner)
+	c.SetColor(canvas.Black)
+	c.DrawPath(130, 20, ellipse)
 }

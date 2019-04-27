@@ -248,10 +248,11 @@ func flattenEllipse(start Point, rx, ry, phi float64, largeArc, sweep bool, end 
 	cx, cy, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
 
 	// TODO: improve: use dynamic step size and tolerance
-	const n = 32
+	const nFull = 64 // points per full ellipse
+	n := int(math.Abs(theta2-theta1) / 2.0 / math.Pi * nFull)
 	sinphi, cosphi := math.Sincos(phi)
 	for i := 0; i < n; i++ {
-		t := float64(i+1) / n
+		t := float64(i+1) / float64(n)
 		sina, cosa := math.Sincos(theta1 + (theta2-theta1)*t)
 		xt := cx + rx*cosa*cosphi - ry*sina*sinphi
 		yt := cy + rx*cosa*sinphi + ry*sina*cosphi
@@ -268,6 +269,22 @@ func quadraticToCubicBezier(start, c, end Point) (Point, Point) {
 	c1 := start.Interpolate(c, 2.0/3.0)
 	c2 := end.Interpolate(c, 2.0/3.0)
 	return c1, c2
+}
+
+// see https://malczak.linuxpl.com/blog/quadratic-bezier-curve-length/
+func quadraticBezierLength(p0, p1, p2 Point) float64 {
+	a := p0.Sub(p1.Mul(2.0)).Add(p2)
+	b := p1.Mul(2.0).Sub(p0.Mul(2.0))
+	A := 4.0 * a.Dot(a)
+	B := 4.0 * a.Dot(b)
+	C := b.Dot(b)
+
+	Sabc := 2.0 * math.Sqrt(A+B+C)
+	A_2 := math.Sqrt(A)
+	A_32 := 2.0 * A * A_2
+	C_2 := 2.0 * math.Sqrt(C)
+	BA := B / A_2
+	return (A_32*Sabc + A_2*B*(Sabc-C_2) + (4.0*C*A-B*B)*math.Log((2.0*A_2+BA+Sabc)/(BA+C_2))) / (4.0 * A_32)
 }
 
 func cubicBezierSpeedAt(p0, p1, p2, p3 Point, t float64) float64 {

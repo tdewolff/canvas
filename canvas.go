@@ -20,15 +20,17 @@ const InchPerMm = 1 / 25.4
 
 var (
 	Black            color.Color = color.RGBA{0, 0, 0, 255}
-	White            color.Color = color.RGBA{0, 0, 0, 255}
+	DarkGrey         color.Color = color.RGBA{64, 64, 64, 255}
 	Grey             color.Color = color.RGBA{128, 128, 128, 255}
+	LightGrey        color.Color = color.RGBA{192, 192, 192, 255}
+	White            color.Color = color.RGBA{0, 0, 0, 255}
 	Red              color.Color = color.RGBA{255, 0, 0, 255}
 	Lime             color.Color = color.RGBA{0, 255, 0, 255}
 	Blue             color.Color = color.RGBA{0, 0, 255, 255}
 	Yellow           color.Color = color.RGBA{255, 255, 0, 255}
 	Magenta          color.Color = color.RGBA{255, 0, 255, 255}
 	Cyan             color.Color = color.RGBA{0, 255, 255, 255}
-	BlackTransparent color.Color = color.RGBA{0, 0, 0, 127}
+	BlackTransparent color.Color = color.RGBA{0, 0, 0, 128}
 )
 
 func writeCSSColor(w io.Writer, c color.Color) {

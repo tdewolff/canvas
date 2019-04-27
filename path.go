@@ -411,8 +411,7 @@ func (p *Path) Length() float64 {
 		case QuadToCmd:
 			c := Point{p.d[i+1], p.d[i+2]}
 			end = Point{p.d[i+3], p.d[i+4]}
-			c1, c2 := quadraticToCubicBezier(start, c, end)
-			d += cubicBezierLength(start, c1, c2, end)
+			d += quadraticBezierLength(start, c, end)
 		case CubeToCmd:
 			c1 := Point{p.d[i+1], p.d[i+2]}
 			c2 := Point{p.d[i+3], p.d[i+4]}
