@@ -830,31 +830,35 @@ func (p *Path) Reverse() *Path {
 }
 
 func (p *Path) Optimize() *Path {
-	var start, end Point
-	var prevCmd float64
-	// TODO: run reverse
+	cmds := []float64{}
 	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
+		cmds = append(cmds, p.d[i])
+		i += cmdLen(p.d[i])
+	}
+
+	var start, end Point
+	i := len(p.d)
+	for icmd := len(cmds) - 1; icmd >= 0; icmd-- {
+		cmd := cmds[icmd]
+		i -= cmdLen(cmd)
 		switch cmd {
 		case MoveToCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
 			if len(p.d) > i+3 && p.d[i+3] == MoveToCmd || i == 0 && end.X == 0.0 && end.Y == 0.0 {
 				p.d = append(p.d[:i], p.d[i+3:]...)
-				cmd = NullCmd
+			} else if len(p.d) > i+3 && p.d[i+3] == CloseCmd {
+				p.d = append(p.d[:i], p.d[i+6:]...)
 			}
-			// TODO: remove MoveTo + Close combination
 		case LineToCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
 			if start == end {
 				p.d = append(p.d[:i], p.d[i+3:]...)
 				cmd = NullCmd
 			}
-			// TODO: remove if followed by Close with the same end point
 		case CloseCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
-			if prevCmd == NullCmd || prevCmd == CloseCmd {
-				p.d = append(p.d[:i], p.d[i+3:]...)
-				cmd = NullCmd
+			if len(p.d) > i+3 && p.d[i+3] == CloseCmd {
+				p.d = append(p.d[:i+3], p.d[i+6:]...) // remove last CloseCmd to ensure x,y values are valid
 			}
 		case QuadToCmd:
 			c := Point{p.d[i+1], p.d[i+2]}
@@ -877,15 +881,17 @@ func (p *Path) Optimize() *Path {
 			end = Point{p.d[i+5], p.d[i+6]}
 			if start == end {
 				p.d = append(p.d[:i], p.d[i+7:]...)
-				cmd = NullCmd
 			}
 		}
-		if cmd == LineToCmd {
-			// TODO: combine line elements that have the same direction
+		if cmd == LineToCmd && len(p.d) > i+3 {
+			nextEnd := Point{p.d[i+4], p.d[i+5]}
+			if p.d[i+3] == CloseCmd && end == nextEnd {
+				p.d = append(p.d[:i], p.d[i+3:]...)
+			} else if p.d[i+3] == LineToCmd && end.Angle(nextEnd) == 0.0 {
+				p.d = append(p.d[:i], p.d[i+3:]...)
+			}
 		}
-		i += cmdLen(cmd)
 		start = end
-		prevCmd = cmd
 	}
 	return p
 }

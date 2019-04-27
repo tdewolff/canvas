@@ -10,7 +10,6 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS and raste
 General
 
 * **Add support for easier usage of projections / viewboxes?**
-* Save rotation angle for ellipses CCW? But then change the coordinate system?
 
 Fonts
 
@@ -37,9 +36,7 @@ Paths
 Optimization
 
 * Approximate Beziérs by elliptic arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (check)
-* Optimize/minify paths from and to SVG in `Optimize()` (incl. the last Line if followed by Close)
 * Avoid overlapping paths when stroking, we need to know the ending and starting angle of the previous and next command respectively
-* Store location of last `MoveToCmd` to optimize `direction()` and others?
 
 
 ## Canvas
@@ -80,7 +77,7 @@ p.MoveTo(x, y float64)                                            // new path se
 p.LineTo(x, y float64)                                            // straight line to (x,y)
 p.QuadTo(cpx, cpy, x, y float64)                                  // a quadratic Bézier with control point (cpx,cpy) and end point (x,y)
 p.CubeTo(cp1x, cp1y, cp2x, cp2y, x, y float64)                    // a cubic Bézier with control points (cp1x,cp1y), (cp2x,cp2y) and end point (x,y)
-p.ArcTo(rx, ry, rot float64, largeArc, sweep bool, x, y float64)  // an arc of an ellipse with radii (rx,ry), rotated by rot (in degrees), with flags largeArc and sweep (booleans, see https://www.w3.org/TR/SVG/paths.html#PathDataEllipticalArcCommands)
+p.ArcTo(rx, ry, rot float64, largeArc, sweep bool, x, y float64)  // an arc of an ellipse with radii (rx,ry), rotated by rot (in degrees CCW), with flags largeArc and sweep (booleans, see https://www.w3.org/TR/SVG/paths.html#PathDataEllipticalArcCommands)
 p.Close()                                                         // close the path, essentially a LineTo to the last MoveTo location
 ```
 
@@ -92,7 +89,7 @@ p.Pos() (x, y float64)       // current pen position
 p.StartPos() (x, y float64)  // position of last MoveTo
 p.CW() bool                  // true if the last path segment has a clockwise direction
 p.CCW() bool                 // true if the last path segment has a counter clockwise direction
-p.Bounds() Rect              // WIP: bounding box of path
+p.Bounds() Rect              // bounding box of path
 p.Length() float64           // WIP: length of path in millimeters
 p.ToSVG() string             // to SVG
 p.ToPS() string              // to PostScript
@@ -115,6 +112,8 @@ p.Rotate(rot, x, y float64)  // with the rotation rot in degrees, around point (
 p.Flatten()                                            // flatten Bézier and arc commands to straight lines
 p.Stroke(width float64, capper Capper, joiner Joiner)  // create a stroke from a path of certain width, using capper and joiner for caps and joins
 p.Dash(d ...float64)                                   // create dashed path with lengths d which are alternating the dash and the space
+
+p.Optimize()  // optimize and shorten path
 ```
 
 

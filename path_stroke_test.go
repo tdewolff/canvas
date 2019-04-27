@@ -24,7 +24,7 @@ func TestPathStroke(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprintf("%s_%g", tt.orig, tt.w), func(t *testing.T) {
-			p, err := ParseSVGPath(tt.orig)
+			p, err := Parse(tt.orig)
 			test.Error(t, err)
 
 			sp := p.Stroke(tt.w, tt.cp, tt.jr)
