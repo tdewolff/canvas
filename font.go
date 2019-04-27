@@ -75,6 +75,7 @@ func (f *Font) Face(size float64) FontFace {
 }
 
 type Metrics struct {
+	Height     float64
 	LineHeight float64
 	Ascent     float64
 	Descent    float64
@@ -98,6 +99,7 @@ func (ff FontFace) Info() (name string, style FontStyle, size float64) {
 func (ff FontFace) Metrics() Metrics {
 	m, _ := ff.f.sfnt.Metrics(&sfntBuffer, ff.ppem, ff.hinting)
 	return Metrics{
+		Height:     ff.size,
 		LineHeight: math.Abs(fromI26_6(m.Height)),
 		Ascent:     math.Abs(fromI26_6(m.Ascent)),
 		Descent:    math.Abs(fromI26_6(m.Descent)),

@@ -127,8 +127,8 @@ func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 floa
 	if x1 == x2 && y1 == y2 {
 		return x1, y1, 0.0, 0.0
 	}
-	sinphi, cosphi := math.Sincos(phi)
 
+	sinphi, cosphi := math.Sincos(phi)
 	x1p := cosphi*(x1-x2)/2.0 + sinphi*(y1-y2)/2.0
 	y1p := -sinphi*(x1-x2)/2.0 + cosphi*(y1-y2)/2.0
 

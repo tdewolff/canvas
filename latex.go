@@ -35,7 +35,7 @@ func ParseLaTeX(s string) (*Path, error) {
 	hash := string(fnv.New32a().Sum([]byte(s)))
 	b, err := ioutil.ReadFile(path.Join(tmpDir, hash))
 	if err == nil {
-		p, err := ParseSVGPath(string(b))
+		p, err := Parse(string(b))
 		if err == nil {
 			return p, nil
 		}
@@ -124,7 +124,7 @@ func ParseLaTeX(s string) (*Path, error) {
 					return nil, errors.New("unexpected SVG format: expected d attribute on path tag")
 				}
 
-				svgPath, err := ParseSVGPath(d)
+				svgPath, err := Parse(d)
 				if err != nil {
 					return nil, err
 				}

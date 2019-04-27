@@ -162,8 +162,8 @@ func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x2, y2 float64) *Path {
 	return p
 }
 
-// ArcTo adds an arc with radii rx and ry, with rot the clockwise rotation with respect to the coordinate system in degrees,
-// large and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
+// ArcTo adds an arc with radii rx and ry, with rot the counter clockwise rotation with respect to the coordinate system in degrees,
+// largeArc and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
 // and x2,y2 the end position of the pen. The start positions of the pen was given by a previous command.
 func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x2, y2 float64) *Path {
 	x1, y1 := p.Pos()
@@ -179,8 +179,8 @@ func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x2, y2 float64) 
 	// scale ellipse if rx and ry are too small, see https://www.w3.org/TR/SVG/implnote.html#ArcCorrectionOutOfRangeRadii
 	phi := angleNorm(rot * math.Pi / 180.0)
 	sinphi, cosphi := math.Sincos(phi)
-	x1p := (cosphi*(x1-x2) + sinphi*(y1-y2)) / 2.0
-	y1p := (cosphi*(y1-y2) - sinphi*(x1-x2)) / 2.0
+	x1p := (cosphi*(x1-x2) - sinphi*(y1-y2)) / 2.0
+	y1p := (sinphi*(x1-x2) + cosphi*(y1-y2)) / 2.0
 	lambda := x1p*x1p/rx/rx + y1p*y1p/ry/ry
 	if lambda > 1.0 {
 		rx = math.Sqrt(lambda) * rx
@@ -364,6 +364,8 @@ func (p *Path) Bounds() Rect {
 			// y(theta) = cy + rx*cos(theta)*sin(phi) + ry*sin(theta)*cos(phi)
 			// be aware that positive rotation appears clockwise in SVGs (non-Cartesian coordinate system)
 			// we can now find the angles of the extremes
+
+			fmt.Println("cx", cx, "cy", cy, "theta1", theta1*180/math.Pi, "theta2", theta2*180/math.Pi)
 
 			thetaRight := angleNorm(math.Atan(-ry * math.Tan(phi) / rx))
 			thetaTop := angleNorm(math.Atan(rx / ry / math.Tan(phi)))
@@ -912,8 +914,8 @@ func parseNum(path []byte) (float64, int) {
 	return f, i + n
 }
 
-// ParseSVGPath parses an SVG path data string.
-func ParseSVGPath(s string) (*Path, error) {
+// Parse parses an SVG path data string.
+func Parse(s string) (*Path, error) {
 	if len(s) == 0 {
 		return &Path{}, nil
 	}
