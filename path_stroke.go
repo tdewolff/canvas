@@ -22,7 +22,7 @@ var RoundCapper Capper = CapperFunc(roundCapper)
 
 func roundCapper(p *Path, halfWidth float64, pivot, n0 Point) {
 	end := pivot.Sub(n0)
-	p.ArcTo(halfWidth, halfWidth, 0, false, false, end.X, end.Y)
+	p.ArcTo(halfWidth, halfWidth, 0, false, true, end.X, end.Y)
 }
 
 // ButtCapper caps the start or end of a path by a butt cap.
@@ -75,9 +75,9 @@ func roundJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 	cw := n0.Rot90CW().Dot(n1) >= 0
 	if cw { // bend to the right, ie. CW
 		rhs.LineTo(rEnd.X, rEnd.Y)
-		lhs.ArcTo(halfWidth, halfWidth, 0, false, true, lEnd.X, lEnd.Y)
+		lhs.ArcTo(halfWidth, halfWidth, 0, false, false, lEnd.X, lEnd.Y)
 	} else { // bend to the left, ie. CCW
-		rhs.ArcTo(halfWidth, halfWidth, 0, false, false, rEnd.X, rEnd.Y)
+		rhs.ArcTo(halfWidth, halfWidth, 0, false, true, rEnd.X, rEnd.Y)
 		lhs.LineTo(lEnd.X, lEnd.Y)
 	}
 }
