@@ -22,11 +22,11 @@ Fonts
 
 Paths
 
-* **Easier support for building paths from strings, like AppendSVG for example**
 * **Fix edge-cases for length calculation of Beziérs and ellipses**
 * **Approximate elliptic arcs by lines given a tolerance for use in `Flatten`**
 * **Approximate elliptic arcs by Beziérs given a tolerance for use in `WriteImage`, `ToPDF`, `SplitAt` and `Dash`**
 * **Introduce splitting up ellipses into partial arcs for `SplitAt` and `Dash` and remove approximating them by Beziérs**
+* Easier support for building paths from strings, like AppendSVG for example?
 * Introduce elliptic arc function for PDFs much like for PostScript?
 * Add ArcTo in endpoint format (take begin/end angle and center point)
 * Add function to convert lines to cubic Beziérs to smooth out a path

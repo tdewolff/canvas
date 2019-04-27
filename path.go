@@ -912,8 +912,8 @@ func parseNum(path []byte) (float64, int) {
 	return f, i + n
 }
 
-// Parse parses an SVG path data string.
-func Parse(s string) (*Path, error) {
+// ParseSVG parses an SVG path data string.
+func ParseSVG(s string) (*Path, error) {
 	if len(s) == 0 {
 		return &Path{}, nil
 	}

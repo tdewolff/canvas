@@ -18,7 +18,7 @@ func TestParse(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			_, err := Parse(tt.orig)
+			_, err := ParseSVG(tt.orig)
 			test.T(t, err.Error(), tt.err)
 		})
 	}
@@ -34,7 +34,7 @@ func TestPath(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, err := Parse(tt.orig)
+			p, err := ParseSVG(tt.orig)
 			test.Error(t, err)
 			test.T(t, p.String(), tt.res)
 		})
@@ -55,7 +55,7 @@ func TestPathDirection(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, err := Parse(tt.orig)
+			p, err := ParseSVG(tt.orig)
 			test.Error(t, err)
 			test.Float(t, p.direction(), tt.direction)
 		})
@@ -77,7 +77,7 @@ func TestPathBounds(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, err := Parse(tt.orig)
+			p, err := ParseSVG(tt.orig)
 			test.Error(t, err)
 
 			bounds := p.Bounds()
@@ -99,7 +99,7 @@ func TestPathLength(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, err := Parse(tt.orig)
+			p, err := ParseSVG(tt.orig)
 			test.Error(t, err)
 
 			length := p.Length()
@@ -141,7 +141,7 @@ func TestPathSplit(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, err := Parse(tt.orig)
+			p, err := ParseSVG(tt.orig)
 			test.Error(t, err)
 
 			ps := p.Split()
@@ -173,7 +173,7 @@ func TestPathSplitAt(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, err := Parse(tt.orig)
+			p, err := ParseSVG(tt.orig)
 			test.Error(t, err)
 
 			ps := p.SplitAt(tt.d...)
@@ -202,7 +202,7 @@ func TestPathTranslate(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, err := Parse(tt.orig)
+			p, err := ParseSVG(tt.orig)
 			test.Error(t, err)
 
 			p = p.Translate(tt.dx, tt.dy)
@@ -244,7 +244,7 @@ func TestPathReverse(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, err := Parse(tt.orig)
+			p, err := ParseSVG(tt.orig)
 			test.Error(t, err)
 
 			p = p.Reverse()
@@ -275,7 +275,7 @@ func TestPathOptimize(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, err := Parse(tt.orig)
+			p, err := ParseSVG(tt.orig)
 			test.Error(t, err)
 
 			opt := p.Optimize().String()

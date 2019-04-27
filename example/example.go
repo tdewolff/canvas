@@ -69,7 +69,7 @@ func main() {
 
 func drawStrokedPath(c *canvas.C, x, y float64, path string) {
 	c.SetColor(canvas.Black)
-	p, err := canvas.Parse(path)
+	p, err := canvas.ParseSVG(path)
 	if err != nil {
 		panic(err)
 	}
@@ -115,7 +115,7 @@ func Draw(c *canvas.C) {
 	c.SetColor(canvas.Black)
 	c.DrawPath(120, 80, latex)
 
-	ellipse, err := canvas.Parse(fmt.Sprintf("A10 20 30 1 0 20 0z"))
+	ellipse, err := canvas.ParseSVG(fmt.Sprintf("A10 20 30 1 0 20 0z"))
 	//ellipse.Scale(1.0, -1.0)
 	if err != nil {
 		panic(err)
