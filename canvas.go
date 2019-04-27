@@ -81,12 +81,12 @@ const (
 
 // layer is either a path or text, in which case only the respective field is set
 type layer struct {
-	t        layerType
-	x, y     float64
-	color    color.Color
-	fontFace FontFace
-	path     *Path
-	text     string
+	t         layerType
+	x, y, rot float64
+	color     color.Color
+	fontFace  FontFace
+	path      *Path
+	text      string
 }
 
 type C struct {
@@ -117,14 +117,11 @@ func (c *C) SetFont(fontFace FontFace) {
 
 func (c *C) DrawPath(x, y float64, p *Path) {
 	p = p.Copy()
-	c.layers = append(c.layers, layer{pathLayer, x, y, c.color, c.fontFace, p, ""})
+	c.layers = append(c.layers, layer{pathLayer, x, y, 0.0, c.color, c.fontFace, p, ""})
 }
 
 func (c *C) DrawText(x, y, rot float64, s string) {
-	if rot != 0.0 {
-		panic("text rotation not implemented") // TODO
-	}
-	c.layers = append(c.layers, layer{textLayer, x, y, c.color, c.fontFace, nil, s})
+	c.layers = append(c.layers, layer{textLayer, x, y, rot, c.color, c.fontFace, nil, s})
 	c.fonts = append(c.fonts, c.fontFace.f)
 }
 
@@ -170,6 +167,15 @@ func (c *C) WriteSVG(w io.Writer) {
 			writeFloat64(w, l.x)
 			w.Write([]byte("\" y=\""))
 			writeFloat64(w, c.h-l.y)
+			if l.rot != 0.0 {
+				w.Write([]byte("\" transform=\"rotate("))
+				writeFloat64(w, -l.rot)
+				w.Write([]byte(","))
+				writeFloat64(w, l.x)
+				w.Write([]byte(","))
+				writeFloat64(w, c.h-l.y)
+				w.Write([]byte(")"))
+			}
 			w.Write([]byte("\" font-family=\""))
 			w.Write([]byte(name))
 			w.Write([]byte("\" font-size=\""))
@@ -216,6 +222,7 @@ func (c *C) WritePDF(writer io.Writer) error {
 		if l.t == textLayer {
 			// TODO: embed fonts and draw text
 			l.path = l.fontFace.ToPath(l.text)
+			l.path.Rotate(l.rot, 0.0, 0.0)
 			l.t = pathLayer
 		}
 
@@ -243,12 +250,13 @@ func (c *C) WriteImage(dpi float64) *image.RGBA {
 	ras := vector.NewRasterizer(int(c.w*dpm), int(c.h*dpm))
 
 	bg := Rectangle(0.0, 0.0, c.w, c.h)
-	layers := append([]layer{{pathLayer, 0.0, 0.0, color.White, FontFace{}, bg, ""}}, c.layers...)
+	layers := append([]layer{{pathLayer, 0.0, 0.0, 0.0, color.White, FontFace{}, bg, ""}}, c.layers...)
 
 	dy := float32(c.h * dpm)
 	for _, l := range layers {
 		if l.t == textLayer {
 			l.path = l.fontFace.ToPath(l.text)
+			l.path.Rotate(l.rot, 0.0, 0.0)
 			l.t = pathLayer
 		}
 
@@ -288,6 +296,7 @@ func (c *C) WriteImage(dpi float64) *image.RGBA {
 
 // WriteEPS writes out the image in the EPS file format.
 // Be aware that EPS does not support transparency of colors.
+// TODO: test ellipse, rotations etc
 func (c *C) WriteEPS(w io.Writer) {
 	w.Write([]byte("%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 "))
 	writeFloat64(w, c.w)
@@ -298,7 +307,7 @@ func (c *C) WriteEPS(w io.Writer) {
 	// TODO: generate preview
 
 	bg := Rectangle(0.0, 0.0, c.w, c.h)
-	layers := append([]layer{{pathLayer, 0.0, 0.0, color.White, FontFace{}, bg, ""}}, c.layers...)
+	layers := append([]layer{{pathLayer, 0.0, 0.0, 0.0, color.White, FontFace{}, bg, ""}}, c.layers...)
 
 	color := Black
 	for _, l := range layers {
@@ -312,6 +321,7 @@ func (c *C) WriteEPS(w io.Writer) {
 		if l.t == textLayer {
 			// TODO: embed fonts (convert TTF to Type 42) and draw text
 			l.path = l.fontFace.ToPath(l.text)
+			l.path.Rotate(l.rot, 0.0, 0.0)
 			l.t = pathLayer
 		}
 

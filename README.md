@@ -15,7 +15,6 @@ Fonts
 
 * **Embedding only used characters**
 * **Font embedding for PDFs**
-* **Add text rotation support**
 * Support ligatures and font hinting
 * Support WOFF2 font format
 * Support Type1 font format?

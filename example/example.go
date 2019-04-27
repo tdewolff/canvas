@@ -121,8 +121,8 @@ func Draw(c *canvas.C) {
 		panic(err)
 	}
 	c.SetColor(canvas.Red)
-	c.DrawPath(120, 30, ellipse.Bounds().ToPath())
+	c.DrawPath(120, 30, ellipse.Bounds().ToPath().Rotate(30, 0, 0))
 	//ellipse = ellipse. /*Dash(0.8, 1.2, 0.8).*/ Stroke(0.3, canvas.RoundCapper, canvas.BevelJoiner)
 	c.SetColor(canvas.BlackTransparent)
-	c.DrawPath(120, 30, ellipse)
+	c.DrawPath(120, 30, ellipse.Rotate(30, 0, 0))
 }

@@ -499,7 +499,7 @@ func (p *Path) Scale(x, y float64) *Path {
 	return p
 }
 
-// Rotate rotates the path by rot in degrees around point (x,y).
+// Rotate rotates the path by rot in degrees around point (x,y) counter clockwise.
 func (p *Path) Rotate(rot, x, y float64) *Path {
 	mid := Point{x, y}
 	for i := 0; i < len(p.d); {
@@ -527,7 +527,7 @@ func (p *Path) Rotate(rot, x, y float64) *Path {
 			p.d[i+5] = end.X
 			p.d[i+6] = end.Y
 		case ArcToCmd:
-			phi := angleNorm(p.d[i+3] - rot*math.Pi/180.0)
+			phi := angleNorm(p.d[i+3] + rot*math.Pi/180.0)
 			end := Point{p.d[i+5], p.d[i+6]}.Rot(rot, mid)
 			p.d[i+3] = phi
 			p.d[i+5] = end.X
