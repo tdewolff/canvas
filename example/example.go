@@ -1,8 +1,8 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
-	"image/png"
 	"os"
 
 	"github.com/tdewolff/canvas"
@@ -31,17 +31,18 @@ func main() {
 
 	////////////////
 
-	pngFile, err := os.Create("example.png")
-	if err != nil {
-		panic(err)
-	}
-	defer pngFile.Close()
+	// SLOW
+	//pngFile, err := os.Create("example.png")
+	//if err != nil {
+	//	panic(err)
+	//}
+	//defer pngFile.Close()
 
-	img := c.WriteImage(144.0)
-	err = png.Encode(pngFile, img)
-	if err != nil {
-		panic(err)
-	}
+	//img := c.WriteImage(144.0)
+	//err = png.Encode(pngFile, img)
+	//if err != nil {
+	//	panic(err)
+	//}
 
 	////////////////
 
@@ -97,7 +98,7 @@ func drawText(c *canvas.C, x, y float64, size float64, text string) {
 }
 
 func Draw(c *canvas.C) {
-	c.Open(180, 70)
+	c.Open(200, 200)
 
 	drawText(c, 10, 20, 12.0, "Aap noot mies")
 
@@ -114,13 +115,26 @@ func Draw(c *canvas.C) {
 	c.SetColor(canvas.Black)
 	c.DrawPath(120, 5, latex)
 
-	ellipse, err := canvas.ParseSVGPath("A10 20 30 0 0 20 0z")
-	if err != nil {
-		panic(err)
+	drawEllipses(c, 10, 70, 0, 0)
+	//drawEllipses(c, 130, 70, 1, 0)
+	//drawEllipses(c, 10, 230, 0, 1)
+	//drawEllipses(c, 130, 230, 1, 1)
+}
+
+func drawEllipses(c *canvas.C, x0, y0 float64, largeArc, sweep int) {
+	rot := 0.0
+	for _, y := range []float64{0, 40, 80, 120} {
+		for _, x := range []float64{0, 40, 80} {
+			ellipse, err := canvas.ParseSVGPath(fmt.Sprintf("A10 20 %g %d %d 20 0z", rot, largeArc, sweep))
+			if err != nil {
+				panic(err)
+			}
+			c.SetColor(canvas.Red)
+			c.DrawPath(x0+x, y0+y, ellipse.Bounds().ToPath())
+			//ellipse = ellipse. /*Dash(0.8, 1.2, 0.8).*/ Stroke(0.3, canvas.RoundCapper, canvas.BevelJoiner)
+			c.SetColor(canvas.BlackTransparent)
+			c.DrawPath(x0+x, y0+y, ellipse)
+			rot += 30.0
+		}
 	}
-	c.SetColor(canvas.Red)
-	c.DrawPath(115, 45, ellipse.Bounds().ToPath())
-	//ellipse = ellipse. /*Dash(0.8, 1.2, 0.8).*/ Stroke(0.3, canvas.RoundCapper, canvas.BevelJoiner)
-	c.SetColor(canvas.BlackTransparent)
-	c.DrawPath(115, 45, ellipse)
 }
