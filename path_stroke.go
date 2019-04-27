@@ -179,7 +179,7 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 				_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeAngle, sweep, end.X, end.Y)
 				n0 = ellipseNormal(theta0, phi).Norm(halfWidth)
 				n1 = ellipseNormal(theta1, phi).Norm(halfWidth)
-				if sweep { // CW
+				if !sweep { // CW
 					n0 = n0.Neg()
 					n1 = n1.Neg()
 				}
@@ -188,7 +188,7 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 
 				rEnd := end.Add(n1)
 				lEnd := end.Sub(n1)
-				if sweep { // bend to the right, ie. CW
+				if !sweep { // bend to the right, ie. CW
 					sp.ArcTo(rx-halfWidth, ry-halfWidth, phi*180.0/math.Pi, largeAngle, sweep, rEnd.X, rEnd.Y)
 					ret.ArcTo(rx+halfWidth, ry+halfWidth, phi*180.0/math.Pi, largeAngle, sweep, lEnd.X, lEnd.Y)
 				} else { // bend to the left, ie. CCW
