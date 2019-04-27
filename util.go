@@ -22,14 +22,10 @@ func angleNorm(theta float64) float64 {
 }
 
 func angleBetween(theta, lower, upper float64) bool {
-	theta = angleNorm(theta)
-	if lower > upper {
-		lower, upper = upper, lower
-	}
-	// TODO: optimze
-	if lower < theta && theta < upper ||
-		lower < theta-2.0*math.Pi && theta-2.0*math.Pi < upper ||
-		lower < theta+2.0*math.Pi && theta+2.0*math.Pi < upper {
+	sweep := lower <= upper // true for CCW, ie along a positive angle
+	theta = angleNorm(theta - lower)
+	upper = angleNorm(upper - lower)
+	if sweep && theta < upper || !sweep && theta > upper {
 		return true
 	}
 	return false

@@ -366,10 +366,10 @@ func (p *Path) Bounds() Rect {
 			// we can now find the angles of the extremes
 
 			sinphi, cosphi := math.Sincos(phi)
-			thetaRight := angleNorm(math.Atan2(-ry*sinphi, rx*cosphi))
-			thetaTop := angleNorm(math.Atan2(rx*cosphi, ry*sinphi))
-			thetaLeft := angleNorm(thetaRight + math.Pi)
-			thetaBottom := angleNorm(thetaTop + math.Pi)
+			thetaRight := math.Atan2(-ry*sinphi, rx*cosphi)
+			thetaTop := math.Atan2(rx*cosphi, ry*sinphi)
+			thetaLeft := thetaRight + math.Pi
+			thetaBottom := thetaTop + math.Pi
 
 			dx := math.Sqrt(rx*rx*cosphi*cosphi + ry*ry*sinphi*sinphi)
 			dy := math.Sqrt(rx*rx*sinphi*sinphi + ry*ry*cosphi*cosphi)
