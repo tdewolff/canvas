@@ -365,20 +365,12 @@ func (p *Path) Bounds() Rect {
 			// be aware that positive rotation appears clockwise in SVGs (non-Cartesian coordinate system)
 			// we can now find the angles of the extremes
 
-			fmt.Println("cx", cx, "cy", cy, "theta1", theta1*180/math.Pi, "theta2", theta2*180/math.Pi)
-
-			thetaRight := angleNorm(math.Atan(-ry * math.Tan(phi) / rx))
-			thetaTop := angleNorm(math.Atan(rx / ry / math.Tan(phi)))
+			sinphi, cosphi := math.Sincos(phi)
+			thetaRight := angleNorm(math.Atan2(-ry*sinphi, rx*cosphi))
+			thetaTop := angleNorm(math.Atan2(rx*cosphi, ry*sinphi))
 			thetaLeft := angleNorm(thetaRight + math.Pi)
 			thetaBottom := angleNorm(thetaTop + math.Pi)
-			if ellipseAt(thetaRight, rx, ry, phi).X < ellipseAt(thetaLeft, rx, ry, phi).X {
-				thetaRight, thetaLeft = thetaLeft, thetaRight
-			}
-			if ellipseAt(thetaTop, rx, ry, phi).Y < ellipseAt(thetaBottom, rx, ry, phi).Y {
-				thetaTop, thetaBottom = thetaBottom, thetaTop
-			}
 
-			sinphi, cosphi := math.Sincos(phi)
 			dx := math.Sqrt(rx*rx*cosphi*cosphi + ry*ry*sinphi*sinphi)
 			dy := math.Sqrt(rx*rx*sinphi*sinphi + ry*ry*cosphi*cosphi)
 			if angleBetween(thetaLeft, theta1, theta2) {
