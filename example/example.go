@@ -98,14 +98,14 @@ func drawText(c *canvas.C, x, y float64, size float64, text string) {
 }
 
 func Draw(c *canvas.C) {
-	c.Open(200, 200)
+	c.Open(200, 100)
 
-	drawText(c, 10, 180, 12.0, "Aap noot mies")
+	drawText(c, 10, 80, 12.0, "Aap noot mies")
 
 	face := dejaVuSerif.Face(30)
 	c.SetFont(face)
 	p := face.ToPath("Stroke")
-	c.DrawPath(5, 150, p.Stroke(1, canvas.RoundCapper, canvas.RoundJoiner))
+	c.DrawPath(5, 50, p.Stroke(1, canvas.RoundCapper, canvas.RoundJoiner))
 
 	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
 	if err != nil {
@@ -113,30 +113,16 @@ func Draw(c *canvas.C) {
 	}
 	latex.Rotate(-30, 0, 0)
 	c.SetColor(canvas.Black)
-	c.DrawPath(120, 180, latex)
+	c.DrawPath(120, 80, latex)
 
-	drawEllipses(c, 10, 125, 0, 0)
-	//drawEllipses(c, 130, 70, 1, 0)
-	//drawEllipses(c, 10, 230, 0, 1)
-	//drawEllipses(c, 130, 230, 1, 1)
-}
-
-func drawEllipses(c *canvas.C, x0, y0 float64, largeArc, sweep int) {
-	rot := 0.0
-	for _, y := range []float64{0, 40, 80, 120} {
-		for _, x := range []float64{0, 40, 80} {
-			fmt.Println("\nROT", rot)
-			ellipse, err := canvas.Parse(fmt.Sprintf("A10 20 %g %d %d 20 0z", rot, largeArc, sweep))
-			//ellipse.Scale(1.0, -1.0)
-			if err != nil {
-				panic(err)
-			}
-			c.SetColor(canvas.Red)
-			c.DrawPath(x0+x, y0-y, ellipse.Bounds().ToPath())
-			//ellipse = ellipse. /*Dash(0.8, 1.2, 0.8).*/ Stroke(0.3, canvas.RoundCapper, canvas.BevelJoiner)
-			c.SetColor(canvas.BlackTransparent)
-			c.DrawPath(x0+x, y0-y, ellipse)
-			rot += 30.0
-		}
+	ellipse, err := canvas.Parse(fmt.Sprintf("A10 20 30 1 0 20 0z"))
+	//ellipse.Scale(1.0, -1.0)
+	if err != nil {
+		panic(err)
 	}
+	c.SetColor(canvas.Red)
+	c.DrawPath(120, 30, ellipse.Bounds().ToPath())
+	//ellipse = ellipse. /*Dash(0.8, 1.2, 0.8).*/ Stroke(0.3, canvas.RoundCapper, canvas.BevelJoiner)
+	c.SetColor(canvas.BlackTransparent)
+	c.DrawPath(120, 30, ellipse)
 }
