@@ -96,6 +96,9 @@ func bevelJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 	lhs.LineTo(lEnd.X, lEnd.Y)
 }
 
+var MiterJoiner Joiner = JoinerFunc(bevelJoiner) // TODO
+var ArcsJoiner Joiner = JoinerFunc(bevelJoiner)  // TODO
+
 func strokeJoin(rhs, lhs *Path, jr Joiner, halfWidth float64, start, n1Prev, n0 Point, first *bool, n0First *Point) {
 	if !*first {
 		jr.Join(rhs, lhs, halfWidth, start, n1Prev, n0)
