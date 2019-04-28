@@ -1,6 +1,8 @@
 package canvas
 
-import "math"
+import (
+	"math"
+)
 
 // NOTE: implementation mostly taken from github.com/golang/freetype/raster/stroke.go
 
@@ -52,26 +54,25 @@ func squareCapper(p *Path, halfWidth float64, pivot, n0 Point) {
 // path elements, n0 and n1 the normals at the start and end of the path respectively.
 // The length of n0 and n1 are equal to the halfWidth.
 type Joiner interface {
-	Join(*Path, *Path, float64, Point, Point, Point)
+	Join(*Path, *Path, float64, Point, Point, Point, float64, float64)
 }
 
-type JoinerFunc func(*Path, *Path, float64, Point, Point, Point)
+type JoinerFunc func(*Path, *Path, float64, Point, Point, Point, float64, float64)
 
-func (f JoinerFunc) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
-	f(rhs, lhs, halfWidth, pivot, n0, n1)
+func (f JoinerFunc) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, radius0, radius1 float64) {
+	f(rhs, lhs, halfWidth, pivot, n0, n1, radius0, radius1)
 }
 
 // RoundJoiner connects two path elements by a round join.
 var RoundJoiner Joiner = JoinerFunc(roundJoiner)
 
-func roundJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
-	if equal(n0.X, n1.X) && equal(n0.Y, n1.Y) {
+func roundJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, radius0, radius1 float64) {
+	if n0.Equals(n1) {
 		return
 	}
 
 	rEnd := pivot.Add(n1)
 	lEnd := pivot.Sub(n1)
-
 	cw := n0.Rot90CW().Dot(n1) >= 0
 	if cw { // bend to the right, ie. CW
 		rhs.LineTo(rEnd.X, rEnd.Y)
@@ -85,8 +86,8 @@ func roundJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 // BevelJoiner connects two path elements by a linear join.
 var BevelJoiner Joiner = JoinerFunc(bevelJoiner)
 
-func bevelJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
-	if equal(n0.X, n1.X) && equal(n0.Y, n1.Y) {
+func bevelJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, radius0, radius1 float64) {
+	if n0.Equals(n1) {
 		return
 	}
 
@@ -96,18 +97,64 @@ func bevelJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point) {
 	lhs.LineTo(lEnd.X, lEnd.Y)
 }
 
-var MiterJoiner Joiner = JoinerFunc(bevelJoiner) // TODO
-var ArcsJoiner Joiner = JoinerFunc(bevelJoiner)  // TODO
+var MiterJoiner Joiner = JoinerFunc(miterJoiner)
 
-func strokeJoin(rhs, lhs *Path, jr Joiner, halfWidth float64, start, n1Prev, n0 Point, first *bool, n0First *Point) {
+func miterJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, radius0, radius1 float64) {
+	if n0.Equals(n1) || n0.Equals(n1.Neg()) {
+		return
+	}
+
+	theta := n0.Angle(n1) / 2.0
+	d := halfWidth / math.Cos(theta)
+	mid := pivot.Add(n0.Add(n1).Norm(d))
+
+	rEnd := pivot.Add(n1)
+	lEnd := pivot.Sub(n1)
+	cw := n0.Rot90CW().Dot(n1) >= 0
+	if cw { // bend to the right, ie. CW
+		mid = mid.Neg()
+		lhs.LineTo(mid.X, mid.Y)
+	} else {
+		rhs.LineTo(mid.X, mid.Y)
+	}
+	rhs.LineTo(rEnd.X, rEnd.Y)
+	lhs.LineTo(lEnd.X, lEnd.Y)
+}
+
+var ArcsJoiner Joiner = JoinerFunc(bevelJoiner)
+
+// TODO: arcs joiner
+//func arcsJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, radius0, radius1 float64) {
+//	if n0.Equals(n1) && radius0*radius1 > 0.0 && math.Abs(radius0) < math.Abs(radius1) {
+//		return
+//	}
+//
+//	fmt.Println(radius0, radius1)
+//
+//	rEnd := pivot.Add(n1)
+//	lEnd := pivot.Sub(n1)
+//	cw := n0.Rot90CW().Dot(n1) >= 0
+//	if cw { // bend to the right, ie. CW
+//		rhs.LineTo(rEnd.X, rEnd.Y)
+//		lhs.ArcTo(radius0, radius0, 0, false, true, mid.X, mid.Y)
+//		lhs.ArcTo(radius1, radius1, 0, false, true, rEnd.X, rEnd.Y)
+//	} else { // bend to the left, ie. CCW
+//		rhs.ArcTo(radius0, radius0, 0, false, true, mid.X, mid.Y)
+//		rhs.ArcTo(radius1, radius1, 0, false, true, rEnd.X, rEnd.Y)
+//		lhs.LineTo(lEnd.X, lEnd.Y)
+//	}
+//}
+
+func strokeJoin(rhs, lhs *Path, jr Joiner, halfWidth float64, start, n1Prev, n0 Point, radius1Prev, radius0 float64, first *bool, n0First *Point, radius0First *float64) {
 	if !*first {
-		jr.Join(rhs, lhs, halfWidth, start, n1Prev, n0)
+		jr.Join(rhs, lhs, halfWidth, start, n1Prev, n0, radius1Prev, radius0)
 	} else {
 		rStart := start.Add(n0)
 		lStart := start.Sub(n0)
 		rhs.MoveTo(rStart.X, rStart.Y)
 		lhs.MoveTo(lStart.X, lStart.Y)
 		*n0First = n0
+		*radius0First = radius0
 		*first = false
 	}
 }
@@ -115,6 +162,7 @@ func strokeJoin(rhs, lhs *Path, jr Joiner, halfWidth float64, start, n1Prev, n0 
 // Stroke converts a path into a stroke of width w. It uses cr to cap the start and end of the path, and jr to
 // join all path elemtents. If the path closes itself, it will use a join between the start and end instead of capping them.
 // The tolerance is the maximum deviation from the original path when flattening Beziers and optimizing the stroke.
+// TODO: refactor
 func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 	sp := &Path{}
 	halfWidth := w / 2.0
@@ -131,6 +179,7 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 
 		var startFirst, start, end Point
 		var n0First, n1Prev, n0, n1 Point
+		var radius0First, radius1Prev, radius0, radius1 float64
 		for i := 0; i < len(p.d); {
 			cmd := p.d[i]
 			switch cmd {
@@ -141,8 +190,10 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 				end = Point{p.d[i+1], p.d[i+2]}
 				n0 = end.Sub(start).Rot90CW().Norm(halfWidth)
 				n1 = n0
+				radius0 = math.Inf(1)
+				radius1 = math.Inf(1)
 
-				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, &first, &n0First)
+				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, radius1Prev, radius0, &first, &n0First, &radius0First)
 
 				rEnd := end.Add(n1)
 				lEnd := end.Sub(n1)
@@ -155,8 +206,10 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 				c2 := end.Interpolate(c, 2.0/3.0)
 				n0 = cubicBezierNormal(start, c1, c2, end, 0.0).Norm(halfWidth)
 				n1 = cubicBezierNormal(start, c1, c2, end, 1.0).Norm(halfWidth)
+				radius0 = cubicBezierRadiusAt(start, c1, c2, end, 0.0)
+				radius1 = cubicBezierRadiusAt(start, c1, c2, end, 1.0)
 
-				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, &first, &n0First)
+				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, radius1Prev, radius0, &first, &n0First, &radius0First)
 
 				rhs := strokeCubicBezier(start, c1, c2, end, halfWidth, Tolerance)
 				lhs := strokeCubicBezier(start, c1, c2, end, -halfWidth, Tolerance)
@@ -168,8 +221,10 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 				end = Point{p.d[i+5], p.d[i+6]}
 				n0 = cubicBezierNormal(start, c1, c2, end, 0.0).Norm(halfWidth)
 				n1 = cubicBezierNormal(start, c1, c2, end, 1.0).Norm(halfWidth)
+				radius0 = cubicBezierRadiusAt(start, c1, c2, end, 0.0)
+				radius1 = cubicBezierRadiusAt(start, c1, c2, end, 1.0)
 
-				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, &first, &n0First)
+				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, radius1Prev, radius0, &first, &n0First, &radius0First)
 
 				rhs := strokeCubicBezier(start, c1, c2, end, halfWidth, Tolerance)
 				lhs := strokeCubicBezier(start, c1, c2, end, -halfWidth, Tolerance)
@@ -186,8 +241,10 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 					n0 = n0.Neg()
 					n1 = n1.Neg()
 				}
+				radius0 = ellipseRadiusAt(theta0, rx, ry, phi)
+				radius1 = ellipseRadiusAt(theta1, rx, ry, phi)
 
-				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, &first, &n0First)
+				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, radius1Prev, radius0, &first, &n0First, &radius0First)
 
 				rEnd := end.Add(n1)
 				lEnd := end.Sub(n1)
@@ -202,8 +259,9 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 				end = Point{p.d[i+1], p.d[i+2]}
 				if !equal(start.X, end.X) || !equal(start.Y, end.Y) {
 					n1 = end.Sub(start).Rot90CW().Norm(halfWidth)
+					radius1 = math.Inf(1)
 					if !first {
-						jr.Join(sp, ret, halfWidth, start, n1Prev, n1)
+						jr.Join(sp, ret, halfWidth, start, n1Prev, n1, radius1Prev, radius1)
 						rEnd := end.Add(n1)
 						lEnd := end.Sub(n1)
 						sp.LineTo(rEnd.X, rEnd.Y)
@@ -219,6 +277,7 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 			}
 			start = end
 			n1Prev = n1
+			radius1Prev = radius1
 			i += cmdLen(cmd)
 		}
 		if first {
@@ -228,7 +287,7 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 		if !closed {
 			cr.Cap(sp, halfWidth, start, n1Prev)
 		} else {
-			jr.Join(sp, ret, halfWidth, start, n1Prev, n0First)
+			jr.Join(sp, ret, halfWidth, start, n1Prev, n0First, radius1Prev, radius0First)
 			// close path and move to inverse path (which runs the other way around to negate the other)
 			invStart := start.Sub(n0First)
 			sp.Close()

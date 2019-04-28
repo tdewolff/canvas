@@ -107,6 +107,25 @@ func gaussLegendre5(f func(float64) float64, a, b float64) float64 {
 
 ////////////////////////////////////////////////////////////////
 
+type Shape interface {
+	Pos(float64) Point
+	Deriv(float64) Point
+	Deriv2(float64) Point
+	Speed(float64) Point
+	Radius(float64) Point
+	Normal(float64) Point
+	Length() float64
+}
+
+func NewShape(d []float64) {
+
+}
+
+type ellipseShape struct {
+	rx, ry, phi            float64
+	cx, cy, theta0, theta1 float64
+}
+
 // ellipseToEndpoints converts to the endpoint arc format and returns (startX, startY, largeArc, sweep, endX, endY)
 // see https://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
 //func ellipseToEndpoint(cx, cy, rx, ry, rot, theta1, theta2 float64) (float64, float64, bool, bool, float64, float64) {
@@ -198,13 +217,37 @@ func ellipseAt(theta, rx, ry, phi float64) Point {
 	return Point{x, y}
 }
 
+func ellipseDerivAt(theta, rx, ry, phi float64) Point {
+	sintheta, costheta := math.Sincos(theta)
+	sinphi, cosphi := math.Sincos(phi)
+	dx := -rx*sintheta*cosphi - ry*costheta*sinphi
+	dy := -rx*sintheta*sinphi + ry*costheta*cosphi
+	return Point{dx, dy}
+}
+
+func ellipseDerivDerivAt(theta, rx, ry, phi float64) Point {
+	sintheta, costheta := math.Sincos(theta)
+	sinphi, cosphi := math.Sincos(phi)
+	ddx := -rx*costheta*cosphi + ry*sintheta*sinphi
+	ddy := -rx*costheta*sinphi - ry*sintheta*cosphi
+	return Point{ddx, ddy}
+}
+
+func ellipseRadiusAt(theta, rx, ry, phi float64) float64 {
+	dp := ellipseDerivAt(theta, rx, ry, phi)
+	ddp := ellipseDerivDerivAt(theta, rx, ry, phi)
+	return math.Pow(dp.X*dp.X+dp.Y*dp.Y, 1.5) / math.Abs(dp.X*ddp.Y-dp.Y*ddp.X)
+}
+
 // ellipseNormal returns the normal at angle theta of the ellipse, given rotation phi.
+// TODO: use DerivDerivAt?
 func ellipseNormal(theta, phi float64) Point {
 	theta += phi
 	y, x := math.Sincos(theta)
 	return Point{x, y}
 }
 
+// TODO: use DerivAt?
 func ellipseSpeedAt(theta, rx, ry float64) float64 {
 	sintheta, costheta := math.Sincos(theta)
 	dx := rx * costheta
@@ -288,6 +331,7 @@ func quadraticBezierLength(p0, p1, p2 Point) float64 {
 	return (A_32*Sabc + A_2*B*(Sabc-C_2) + (4.0*C*A-B*B)*math.Log((2.0*A_2+BA+Sabc)/(BA+C_2))) / (4.0 * A_32)
 }
 
+// TODO: remove and use DerivAt?
 func cubicBezierSpeedAt(p0, p1, p2, p3 Point, t float64) float64 {
 	p0 = p0.Mul(-3.0 + 6.0*t - 3.0*t*t)
 	p1 = p1.Mul(3.0 - 12.0*t + 9.0*t*t)
@@ -385,6 +429,28 @@ func cubicBezierAt(p0, p1, p2, p3 Point, t float64) Point {
 	p2 = p2.Mul(3 * t * t * (1 - t))
 	p3 = p3.Mul(t * t * t)
 	return p0.Add(p1).Add(p2).Add(p3)
+}
+
+func cubicBezierDerivAt(p0, p1, p2, p3 Point, t float64) Point {
+	p0 = p0.Mul(-3.0 + 6.0*t - 3.0*t*t)
+	p1 = p1.Mul(3.0 - 12.0*t + 9.0*t*t)
+	p2 = p2.Mul(6.0*t - 9.0*t*t)
+	p3 = p3.Mul(3.0 * t * t)
+	return p0.Add(p1).Add(p2).Add(p3)
+}
+
+func cubicBezierDerivDerivAt(p0, p1, p2, p3 Point, t float64) Point {
+	p0 = p0.Mul(6.0 - 6.0*t)
+	p1 = p1.Mul(18.0*t - 12.0)
+	p2 = p2.Mul(6.0 - 18.0*t)
+	p3 = p3.Mul(6.0 * t)
+	return p0.Add(p1).Add(p2).Add(p3)
+}
+
+func cubicBezierRadiusAt(p0, p1, p2, p3 Point, t float64) float64 {
+	dp := cubicBezierDerivAt(p0, p1, p2, p3, t)
+	ddp := cubicBezierDerivDerivAt(p0, p1, p2, p3, t)
+	return math.Pow(dp.X*dp.X+dp.Y*dp.Y, 1.5) / math.Abs(dp.X*ddp.Y-dp.Y*ddp.X)
 }
 
 func cubicBezierNormal(p0, p1, p2, p3 Point, t float64) Point {
