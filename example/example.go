@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"image/color"
+	"image/png"
 	"os"
 
 	"github.com/tdewolff/canvas"
@@ -32,17 +33,17 @@ func main() {
 	////////////////
 
 	// SLOW
-	//pngFile, err := os.Create("example.png")
-	//if err != nil {
-	//	panic(err)
-	//}
-	//defer pngFile.Close()
+	pngFile, err := os.Create("example.png")
+	if err != nil {
+		panic(err)
+	}
+	defer pngFile.Close()
 
-	//img := c.WriteImage(144.0)
-	//err = png.Encode(pngFile, img)
-	//if err != nil {
-	//	panic(err)
-	//}
+	img := c.WriteImage(144.0)
+	err = png.Encode(pngFile, img)
+	if err != nil {
+		panic(err)
+	}
 
 	////////////////
 
@@ -86,8 +87,8 @@ func drawText(c *canvas.C, x, y float64, size float64, text string) {
 	metrics := face.Metrics()
 	w, h := face.Bounds(text)
 
-	c.SetColor(color.RGBA{0, 0, 0, 20})
-	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, 0, w, h))
+	c.SetColor(canvas.Gainsboro)
+	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.CapHeight, w, -h))
 	c.SetColor(color.RGBA{0, 0, 0, 100})
 	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.CapHeight, -2.5, -metrics.Height))
 	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, 0, -2.5, metrics.XHeight))
@@ -98,12 +99,12 @@ func drawText(c *canvas.C, x, y float64, size float64, text string) {
 }
 
 func Draw(c *canvas.C) {
-	drawText(c, 10, 60, 12.0, "Aap noot mies")
+	drawText(c, 10, 60, 12.0, "Aap noot mies\nwim zus teun")
 
 	face := dejaVuSerif.Face(30)
 	c.SetFont(face)
 	p := face.ToPath("Stroke")
-	c.DrawPath(5, 20, 0.0, p.Stroke(1, canvas.RoundCapper, canvas.RoundJoiner))
+	c.DrawPath(5, 10, 0.0, p.Stroke(1, canvas.RoundCapper, canvas.RoundJoiner))
 
 	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
 	if err != nil {
@@ -117,7 +118,7 @@ func Draw(c *canvas.C) {
 	if err != nil {
 		panic(err)
 	}
-	c.SetColor(canvas.LightGrey)
+	c.SetColor(canvas.LightSteelBlue)
 	c.DrawPath(130, 20, 0.0, ellipse)
 	ellipse = ellipse.Dash(2.0, 4.0, 2.0).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner)
 	c.SetColor(canvas.Black)

@@ -9,6 +9,7 @@ import (
 	"image/color"
 	"io"
 	"strconv"
+	"strings"
 
 	"golang.org/x/image/vector"
 )
@@ -20,9 +21,7 @@ const InchPerMm = 1 / 25.4
 
 var (
 	Black            color.Color = color.RGBA{0, 0, 0, 255}
-	DarkGrey         color.Color = color.RGBA{64, 64, 64, 255}
 	Grey             color.Color = color.RGBA{128, 128, 128, 255}
-	LightGrey        color.Color = color.RGBA{192, 192, 192, 255}
 	White            color.Color = color.RGBA{0, 0, 0, 255}
 	Red              color.Color = color.RGBA{255, 0, 0, 255}
 	Lime             color.Color = color.RGBA{0, 255, 0, 255}
@@ -31,6 +30,19 @@ var (
 	Magenta          color.Color = color.RGBA{255, 0, 255, 255}
 	Cyan             color.Color = color.RGBA{0, 255, 255, 255}
 	BlackTransparent color.Color = color.RGBA{0, 0, 0, 128}
+	DimGrey          color.Color = color.RGBA{105, 105, 105, 255}
+	DarkGrey         color.Color = color.RGBA{169, 169, 169, 255}
+	Silver           color.Color = color.RGBA{192, 192, 192, 255}
+	LightGrey        color.Color = color.RGBA{211, 211, 211, 255}
+	Gainsboro        color.Color = color.RGBA{220, 220, 220, 255}
+	WhiteSmoke       color.Color = color.RGBA{245, 245, 245, 255}
+	SteelBlue        color.Color = color.RGBA{70, 130, 180, 128}
+	SlateGrey        color.Color = color.RGBA{112, 128, 144, 128}
+	LightSteelBlue   color.Color = color.RGBA{176, 196, 222, 128}
+	LightSlateGrey   color.Color = color.RGBA{119, 136, 153, 128}
+	DarkSlateBlue    color.Color = color.RGBA{72, 61, 139, 128}
+	DarkSlateGrey    color.Color = color.RGBA{47, 79, 79, 128}
+	OrangeRed        color.Color = color.RGBA{255, 69, 0, 128}
 )
 
 func writeCSSColor(w io.Writer, c color.Color) {
@@ -160,6 +172,7 @@ func (c *C) WriteSVG(w io.Writer) {
 		} else if l.t == textLayer {
 			// TODO: use tspan for newlines
 			name, style, size := l.fontFace.Info()
+			lineHeight := l.fontFace.Metrics().LineHeight
 			w.Write([]byte("<text x=\""))
 			writeFloat64(w, l.x)
 			w.Write([]byte("\" y=\""))
@@ -187,9 +200,10 @@ func (c *C) WriteSVG(w io.Writer) {
 				w.Write([]byte("\" fill=\""))
 				writeCSSColor(w, l.color)
 			}
-			w.Write([]byte("\">"))
-			w.Write([]byte(l.text))
-			w.Write([]byte("</text>"))
+			w.Write([]byte("\"><tspan>"))
+			text := strings.Replace(l.text, "\n", fmt.Sprintf(`</tspan><tspan x="%.5g" dy="%.5g">`, l.x, lineHeight), -1)
+			w.Write([]byte(text))
+			w.Write([]byte("</tspan></text>"))
 		}
 	}
 	w.Write([]byte("</svg>"))
@@ -203,14 +217,14 @@ func (c *C) WritePDF(writer io.Writer) error {
 	for _, l := range c.layers {
 		R, G, B, _ := color.RGBA()
 		r, g, b, a := l.color.RGBA()
-		if a != 65535.0 {
-			gs := pdf.GetOpacityGS(float64(a) / 65535.0)
-			buf.WriteString(fmt.Sprintf(" q /%v gs", gs))
-		}
 		if r != R || g != G || b != B {
 			buf.WriteString(" ")
 			writePSColor(buf, l.color)
 			buf.WriteString(" rg")
+		}
+		if a != 65535.0 {
+			gs := pdf.GetOpacityGS(float64(a) / 65535.0)
+			buf.WriteString(fmt.Sprintf(" q /%v gs", gs))
 		}
 		if l.color != color {
 			color = l.color
