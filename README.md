@@ -10,6 +10,8 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS and raste
 General
 
 * **Add support for easier usage of projections / viewboxes?**
+* Fix slowness, transparency and colors in the rasterizer
+* Fix transparency for EPS
 
 Fonts
 

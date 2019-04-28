@@ -118,7 +118,7 @@ func Draw(c *canvas.C) {
 	if err != nil {
 		panic(err)
 	}
-	c.SetColor(canvas.LightSteelBlue)
+	c.SetColor(canvas.WhiteSmoke)
 	c.DrawPath(130, 20, 0.0, ellipse)
 	ellipse = ellipse.Dash(2.0, 4.0, 2.0).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner)
 	c.SetColor(canvas.Black)
