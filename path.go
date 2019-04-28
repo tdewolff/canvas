@@ -717,7 +717,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 				}
 			case ArcToCmd:
 				panic("arcs should have been replaced")
-				// TODO: implement
+				// TODO: implement splitting ellipses
 			}
 			i += cmdLen(cmd)
 			start = end
@@ -731,7 +731,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 
 // Dash returns a new path that consists of dashes. Each parameter represents a length in millimeters along the original path, and will be either a dash or a space alternatingly.
 func (p *Path) Dash(d ...float64) *Path {
-	p = p.Replace(nil, nil, flattenEllipse) // TODO: replaces ellipses twice, also in SplitAt, bad?
+	p = p.Replace(nil, nil, flattenEllipse) // TODO: remove once we can split ellipses
 
 	length := p.Length()
 	if len(d) == 0 || length <= d[0] {
