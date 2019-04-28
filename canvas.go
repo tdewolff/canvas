@@ -100,13 +100,8 @@ type C struct {
 	fonts  []*Font
 }
 
-func New() *C {
-	return &C{0.0, 0.0, color.Black, FontFace{}, []layer{}, []*Font{}}
-}
-
-func (c *C) Open(w, h float64) {
-	c.w = w
-	c.h = h
+func New(w, h float64) *C {
+	return &C{w, h, color.Black, FontFace{}, []layer{}, []*Font{}}
 }
 
 func (c *C) SetColor(col color.Color) {
@@ -117,9 +112,9 @@ func (c *C) SetFont(fontFace FontFace) {
 	c.fontFace = fontFace
 }
 
-func (c *C) DrawPath(x, y float64, p *Path) {
+func (c *C) DrawPath(x, y, rot float64, p *Path) {
 	p = p.Copy()
-	c.layers = append(c.layers, layer{pathLayer, x, y, 0.0, c.color, c.fontFace, p, ""})
+	c.layers = append(c.layers, layer{pathLayer, x, y, rot, c.color, c.fontFace, p, ""})
 }
 
 func (c *C) DrawText(x, y, rot float64, s string) {
@@ -154,7 +149,7 @@ func (c *C) WriteSVG(w io.Writer) {
 	}
 	for _, l := range c.layers {
 		if l.t == pathLayer {
-			p := l.path.Copy().Translate(l.x, l.y).Scale(1.0, -1.0).Translate(0.0, c.h)
+			p := l.path.Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y).Scale(1.0, -1.0).Translate(0.0, c.h)
 			w.Write([]byte("<path d=\""))
 			w.Write([]byte(p.String()))
 			if l.color != color.Black {
@@ -224,12 +219,11 @@ func (c *C) WritePDF(writer io.Writer) error {
 		if l.t == textLayer {
 			// TODO: embed fonts and draw text
 			l.path = l.fontFace.ToPath(l.text)
-			l.path.Rotate(l.rot, 0.0, 0.0)
 			l.t = pathLayer
 		}
 
 		if l.t == pathLayer {
-			p := l.path.Copy().Translate(l.x, l.y)
+			p := l.path.Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
 			buf.WriteString(" ")
 			buf.WriteString(p.ToPDF())
 		}
@@ -258,12 +252,11 @@ func (c *C) WriteImage(dpi float64) *image.RGBA {
 	for _, l := range layers {
 		if l.t == textLayer {
 			l.path = l.fontFace.ToPath(l.text)
-			l.path.Rotate(l.rot, 0.0, 0.0)
 			l.t = pathLayer
 		}
 
 		if l.t == pathLayer {
-			p := l.path.Copy().Translate(l.x, l.y)
+			p := l.path.Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
 			p.Replace(nil, nil, ellipseToBeziers)
 
 			for i := 0; i < len(p.d); {
@@ -323,14 +316,40 @@ func (c *C) WriteEPS(w io.Writer) {
 		if l.t == textLayer {
 			// TODO: embed fonts (convert TTF to Type 42) and draw text
 			l.path = l.fontFace.ToPath(l.text)
-			l.path.Rotate(l.rot, 0.0, 0.0)
 			l.t = pathLayer
 		}
 
 		if l.t == pathLayer {
-			p := l.path.Copy().Translate(l.x, l.y)
+			p := l.path.Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
 			w.Write([]byte(" "))
 			w.Write([]byte(p.ToPS()))
 		}
 	}
+}
+
+// TODO: check use cases and improve and test functionality. Shortcut for Cartesian / upper-left origin systems?
+type View struct {
+	C
+	x0, y0         float64
+	xScale, yScale float64
+}
+
+func NewView(c *C, x, y, w, h float64) *View {
+	return &View{
+		C:      *c,
+		x0:     x,
+		y0:     y,
+		xScale: c.w / w,
+		yScale: c.h / h,
+	}
+}
+
+func (v *View) DrawPath(x, y, rot float64, p *Path) {
+	p = p.Copy()
+	p.Scale(v.xScale, v.yScale)
+	v.C.DrawPath(v.x0+v.xScale*x, v.y0+v.yScale*y, rot, p)
+}
+
+func (v *View) DrawText(x, y, rot float64, s string) {
+	v.C.DrawText(v.x0+v.xScale*x, v.y0+v.yScale*y, rot, s)
 }

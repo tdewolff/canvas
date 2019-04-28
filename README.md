@@ -39,12 +39,11 @@ Optimization
 
 ## Canvas
 ``` go
-c := canvas.New()
-c.Open(width, height float64)
+c := canvas.New(width, height float64)
 c.SetColor(color color.Color)
 c.SetFont(fontFace Face)
-c.DrawPath(x, y float64, path *Path)
-c.DrawText(x, y float64, text string)
+c.DrawPath(x, y, rot float64, path *Path)
+c.DrawText(x, y, rot float64, text string)
 
 c.WriteSVG(w io.Writer)
 c.WriteEPS(w io.Writer)
