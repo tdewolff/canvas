@@ -21,7 +21,6 @@ Fonts
 
 Paths
 
-* **Fix edge-cases for length calculation of Beziérs and ellipses**
 * **Approximate elliptic arcs by lines given a tolerance for use in `Flatten`**
 * **Approximate elliptic arcs by Beziérs given a tolerance for use in `WriteImage`, `ToPDF`, `SplitAt` and `Dash`**
 * **Introduce splitting up ellipses into partial arcs for `SplitAt` and `Dash` and remove approximating them by Beziérs**
@@ -89,7 +88,7 @@ p.StartPos() (x, y float64)  // position of last MoveTo
 p.CW() bool                  // true if the last path segment has a clockwise direction
 p.CCW() bool                 // true if the last path segment has a counter clockwise direction
 p.Bounds() Rect              // bounding box of path
-p.Length() float64           // WIP: length of path in millimeters
+p.Length() float64           // length of path in millimeters
 p.ToSVG() string             // to SVG
 p.ToPS() string              // to PostScript
 ```

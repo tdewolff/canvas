@@ -89,13 +89,25 @@ func TestPathBounds(t *testing.T) {
 	}
 }
 
+// for quadratic Beziér use https://www.wolframalpha.com/input/?i=length+of+the+curve+%7Bx%3D2*(1-t)*t*50.00+%2B+t%5E2*100.00,+y%3D2*(1-t)*t*66.67+%2B+t%5E2*0.00%7D+from+0+to+1
+// for cubic Beziér use https://www.wolframalpha.com/input/?i=length+of+the+curve+%7Bx%3D3*(1-t)%5E2*t*0.00+%2B+3*(1-t)*t%5E2*100.00+%2B+t%5E3*100.00,+y%3D3*(1-t)%5E2*t*66.67+%2B+3*(1-t)*t%5E2*66.67+%2B+t%5E3*0.00%7D+from+0+to+1
+// for ellipse use https://www.wolframalpha.com/input/?i=length+of+the+curve+%7Bx%3D10.00*cos(t),+y%3D20.0*sin(t)%7D+from+0+to+pi
 func TestPathLength(t *testing.T) {
 	var tts = []struct {
 		orig   string
 		length float64
 	}{
-		{"C0 66.67 100 66.67 100 0", 159.00}, // TODO: is value correct?
-		{"A30 60 0 0 0 60 0", 145.33},
+		{"Q50 66.67 100 0", 124.533},
+		{"Q100 0 100 0", 100.0000},
+		{"C0 66.67 100 66.67 100 0", 158.5864},
+		{"C0 0 100 66.67 100 0", 125.746},
+		{"C0 0 100 0 100 0", 100.0000},
+		{"C100 66.67 0 66.67 100 0", 143.9746},
+		{"A10 20 0 0 0 20 0", 48.4422},
+		{"A10 20 0 0 1 20 0", 48.4422},
+		{"A10 20 0 1 0 20 0", 48.4422},
+		{"A10 20 0 1 1 20 0", 48.4422},
+		{"A10 20 30 0 0 20 0", 37.9733},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
@@ -103,8 +115,8 @@ func TestPathLength(t *testing.T) {
 			test.Error(t, err)
 
 			length := p.Length()
-			if math.Abs(length-tt.length) > 0.1 {
-				test.Fail(t, length, "!=", tt.length)
+			if math.Abs(tt.length-length)/length > 0.01 {
+				test.Fail(t, length, "!=", tt.length, "±1%")
 			}
 		})
 	}

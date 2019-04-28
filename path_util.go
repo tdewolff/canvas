@@ -178,15 +178,16 @@ func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 floa
 	return cx, cy, theta, theta + delta
 }
 
-// TODO: buggy
+// ellipseLength calculates the length of the elliptical arc
+// it uses Gauss-Legendre (n=5) and has an error of ~1% or less (empirical)
 func ellipseLength(start Point, rx, ry, phi float64, largeArc, sweep bool, end Point) float64 {
 	_, _, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
 	if theta2 < theta1 {
 		theta1, theta2 = theta2, theta1
 	}
-
-	speed := func(theta float64) float64 { return ellipseSpeedAt(rx, ry, theta) }
-	return gaussLegendre5(speed, theta1, theta2)
+	speed := func(theta float64) float64 { return ellipseSpeedAt(theta, rx, ry) }
+	length := gaussLegendre5(speed, theta1, theta2)
+	return length
 }
 
 func ellipseAt(theta, rx, ry, phi float64) Point {
@@ -204,10 +205,10 @@ func ellipseNormal(theta, phi float64) Point {
 	return Point{x, y}
 }
 
-func ellipseSpeedAt(rx, ry, phi float64) float64 {
-	sinphi, cosphi := math.Sincos(phi)
-	dx := rx * cosphi
-	dy := -ry * sinphi
+func ellipseSpeedAt(theta, rx, ry float64) float64 {
+	sintheta, costheta := math.Sincos(theta)
+	dx := rx * costheta
+	dy := ry * sintheta
 	return math.Sqrt(dx*dx + dy*dy)
 }
 
@@ -295,10 +296,32 @@ func cubicBezierSpeedAt(p0, p1, p2, p3 Point, t float64) float64 {
 	return p0.Add(p1).Add(p2).Add(p3).Length()
 }
 
+// cubicBezierLength calculates the length of the Beziér, taking care of inflection points
+// it uses Gauss-Legendre (n=5) and has an error of ~1% or less (emperical)
 func cubicBezierLength(p0, p1, p2, p3 Point) float64 {
-	// TODO: split at inflection points
-	deriv := func(t float64) float64 { return cubicBezierSpeedAt(p0, p1, p2, p3, t) }
-	return gaussLegendre3(deriv, 0.0, 1.0)
+	t1, t2 := findInflectionPointsCubicBezier(p0, p1, p2, p3)
+	var beziers [][4]Point
+	if (math.IsNaN(t1) || t1 == 0.0 || t1 == 1.0) && (math.IsNaN(t2) || t2 == 0.0 || t2 == 1.0) {
+		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
+	} else if math.IsNaN(t2) || t2 == 0.0 || t2 == 1.0 {
+		p0, p1, p2, p3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1)
+		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
+		beziers = append(beziers, [4]Point{q0, q1, q2, q3})
+	} else {
+		p0, p1, p2, p3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1)
+		t2 = (t2 - t1) / (1.0 - t1)
+		q0, q1, q2, q3, r0, r1, r2, r3 := splitCubicBezier(q0, q1, q2, q3, t2)
+		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
+		beziers = append(beziers, [4]Point{q0, q1, q2, q3})
+		beziers = append(beziers, [4]Point{r0, r1, r2, r3})
+	}
+
+	length := 0.0
+	for _, bezier := range beziers {
+		deriv := func(t float64) float64 { return cubicBezierSpeedAt(bezier[0], bezier[1], bezier[2], bezier[3], t) }
+		length += gaussLegendre5(deriv, 0.0, 1.0)
+	}
+	return length
 }
 
 // cubicBezierLength returns a function that maps t=[0,1] to its lengths L(t)
@@ -390,7 +413,7 @@ func cubicBezierNormal(p0, p1, p2, p3 Point, t float64) Point {
 		}
 		return n.Rot90CW()
 	}
-	panic("not implemented") // TODO
+	panic("not implemented")
 }
 
 func splitCubicBezier(p0, p1, p2, p3 Point, t float64) (Point, Point, Point, Point, Point, Point, Point, Point) {
@@ -431,7 +454,7 @@ func addCubicBezierLine(p *Path, p0, p1, p2, p3 Point, t, d float64) {
 			pos = pos.Add(n.Norm(d))
 		}
 	} else {
-		panic("not implemented") // TODO
+		panic("not implemented")
 	}
 	p.LineTo(pos.X, pos.Y)
 }
@@ -460,7 +483,7 @@ func flattenSmoothCubicBezier(p *Path, p0, p1, p2, p3 Point, d, flatness float64
 }
 
 func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
-	// We omit multiplying bx,by,cx,cy with 3.0, so there is no need for divisions when calculating a,b,c
+	// we omit multiplying bx,by,cx,cy with 3.0, so there is no need for divisions when calculating a,b,c
 	ax := -p0.X + 3.0*p1.X - 3.0*p2.X + p3.X
 	ay := -p0.Y + 3.0*p1.Y - 3.0*p2.Y + p3.Y
 	bx := p0.X - 2.0*p1.X + p2.X
