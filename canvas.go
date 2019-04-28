@@ -149,7 +149,7 @@ func (c *C) WriteSVG(w io.Writer) {
 	}
 	for _, l := range c.layers {
 		if l.t == pathLayer {
-			p := l.path.Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y).Scale(1.0, -1.0).Translate(0.0, c.h)
+			p := l.path.Copy().Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y).Scale(1.0, -1.0).Translate(0.0, c.h)
 			w.Write([]byte("<path d=\""))
 			w.Write([]byte(p.String()))
 			if l.color != color.Black {
@@ -223,7 +223,7 @@ func (c *C) WritePDF(writer io.Writer) error {
 		}
 
 		if l.t == pathLayer {
-			p := l.path.Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
+			p := l.path.Copy().Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
 			buf.WriteString(" ")
 			buf.WriteString(p.ToPDF())
 		}
@@ -256,7 +256,7 @@ func (c *C) WriteImage(dpi float64) *image.RGBA {
 		}
 
 		if l.t == pathLayer {
-			p := l.path.Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
+			p := l.path.Copy().Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
 			p.Replace(nil, nil, ellipseToBeziers)
 
 			for i := 0; i < len(p.d); {
@@ -320,7 +320,7 @@ func (c *C) WriteEPS(w io.Writer) {
 		}
 
 		if l.t == pathLayer {
-			p := l.path.Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
+			p := l.path.Copy().Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
 			w.Write([]byte(" "))
 			w.Write([]byte(p.ToPS()))
 		}
