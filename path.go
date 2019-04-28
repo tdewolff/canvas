@@ -1260,8 +1260,10 @@ func (p *Path) ToPS() string {
 			}
 
 			cx, cy, theta0, theta1 := ellipseToCenter(x0, y0, rx, ry, phi, largeArc, sweep, x, y)
-			// TODO: test theta1
+			theta0 = theta0 * 180.0 / math.Pi
+			theta1 = theta1 * 180.0 / math.Pi
 			rot := phi * 180.0 / math.Pi
+
 			if !equal(rot, 0.0) {
 				fmt.Fprintf(&sb, " %.5g %.5g translate %.5g rotate %.5g %.5g translate", cx, cy, rot, -cx, -cy)
 			}
