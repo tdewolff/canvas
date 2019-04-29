@@ -53,7 +53,7 @@ func drawText(c *canvas.C, x, y float64, text string) {
 
 func Draw(c *canvas.C) {
 	pathCapper := "M-20 0L0 0"
-	pathJoiner := "M-20 -4A15 15 0 0 0 0 0A25 25 0 0 1 -5 -20"
+	pathJoiner := "M-20 -10A25 25 0 0 0 0 0A20 20 0 0 1 -5 -15"
 
 	drawText(c, 20.0, 70.0, "ButtCapper")
 	drawStrokedPath(c, 30.0, 60.0, pathCapper, canvas.ButtCapper, canvas.RoundJoiner)

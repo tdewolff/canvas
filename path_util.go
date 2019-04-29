@@ -233,10 +233,17 @@ func ellipseDerivDerivAt(theta, rx, ry, phi float64) Point {
 	return Point{ddx, ddy}
 }
 
-func ellipseRadiusAt(theta, rx, ry, phi float64) float64 {
+func ellipseRadiusAt(theta, rx, ry, phi float64, sweep bool) float64 {
 	dp := ellipseDerivAt(theta, rx, ry, phi)
 	ddp := ellipseDerivDerivAt(theta, rx, ry, phi)
-	return math.Pow(dp.X*dp.X+dp.Y*dp.Y, 1.5) / math.Abs(dp.X*ddp.Y-dp.Y*ddp.X)
+	if equal(dp.X*ddp.Y-dp.Y*ddp.X, 0.0) {
+		return math.NaN()
+	}
+	sign := 1.0
+	if !sweep {
+		sign = -1.0
+	}
+	return sign * math.Pow(dp.X*dp.X+dp.Y*dp.Y, 1.5) / math.Abs(dp.X*ddp.Y-dp.Y*ddp.X)
 }
 
 // ellipseNormal returns the normal at angle theta of the ellipse, given rotation phi.
@@ -447,10 +454,15 @@ func cubicBezierDerivDerivAt(p0, p1, p2, p3 Point, t float64) Point {
 	return p0.Add(p1).Add(p2).Add(p3)
 }
 
+// negative when curve bends CW while following t
 func cubicBezierRadiusAt(p0, p1, p2, p3 Point, t float64) float64 {
+	// TODO: use DerivAt length? https://stackoverflow.com/questions/46762955/computing-the-radius-of-curvature-of-a-bezier-curve-given-control-points
 	dp := cubicBezierDerivAt(p0, p1, p2, p3, t)
 	ddp := cubicBezierDerivDerivAt(p0, p1, p2, p3, t)
-	return math.Pow(dp.X*dp.X+dp.Y*dp.Y, 1.5) / math.Abs(dp.X*ddp.Y-dp.Y*ddp.X)
+	if equal(dp.X*ddp.Y-dp.Y*ddp.X, 0.0) {
+		return math.NaN()
+	}
+	return math.Pow(dp.X*dp.X+dp.Y*dp.Y, 1.5) / (dp.X*ddp.Y - dp.Y*ddp.X) // TODO: test negative for CW, seems to work?
 }
 
 func cubicBezierNormal(p0, p1, p2, p3 Point, t float64) Point {

@@ -111,7 +111,7 @@ func (p Point) Length() float64 {
 	return math.Sqrt(p.X*p.X + p.Y*p.Y)
 }
 
-func (p Point) Orientation() float64 {
+func (p Point) Radial() float64 {
 	return math.Atan2(p.Y, p.X)
 }
 

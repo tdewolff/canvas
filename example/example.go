@@ -68,19 +68,6 @@ func main() {
 	c.WriteEPS(epsFile)
 }
 
-func drawStrokedPath(c *canvas.C, x, y float64, path string) {
-	c.SetColor(canvas.Black)
-	p, err := canvas.ParseSVG(path)
-	if err != nil {
-		panic(err)
-	}
-	c.DrawPath(x, y, 0.0, p)
-
-	c.SetColor(color.RGBA{255, 0, 0, 127})
-	p = p.Stroke(2, canvas.RoundCapper, canvas.RoundJoiner)
-	c.DrawPath(x, y, 0.0, p)
-}
-
 func drawText(c *canvas.C, x, y float64, size float64, text string) {
 	face := dejaVuSerif.Face(size)
 
