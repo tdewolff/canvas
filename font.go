@@ -161,6 +161,7 @@ func (ff FontFace) Bounds(s string) (w float64, h float64) {
 }
 
 // ToPath converts a string to a path.
+// TODO: accept character not string, let line processing be done by Text
 func (ff FontFace) ToPath(s string) *Path {
 	p := &Path{}
 	x := 0.0
