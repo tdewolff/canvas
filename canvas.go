@@ -2,14 +2,12 @@ package canvas
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"image"
 	"image/color"
 	"io"
 	"strconv"
-	"strings"
 
 	"golang.org/x/image/vector"
 )
@@ -100,7 +98,7 @@ type layer struct {
 	color     color.Color
 	fontFace  FontFace
 	path      *Path
-	text      string
+	text      *Text
 }
 
 type C struct {
@@ -126,11 +124,11 @@ func (c *C) SetFont(fontFace FontFace) {
 
 func (c *C) DrawPath(x, y, rot float64, p *Path) {
 	p = p.Copy()
-	c.layers = append(c.layers, layer{pathLayer, x, y, rot, c.color, c.fontFace, p, ""})
+	c.layers = append(c.layers, layer{pathLayer, x, y, rot, c.color, c.fontFace, p, nil})
 }
 
-func (c *C) DrawText(x, y, rot float64, s string) {
-	c.layers = append(c.layers, layer{textLayer, x, y, rot, c.color, c.fontFace, nil, s})
+func (c *C) DrawText(x, y, rot float64, text *Text) {
+	c.layers = append(c.layers, layer{textLayer, x, y, rot, c.color, c.fontFace, nil, text})
 	c.fonts = append(c.fonts, c.fontFace.f)
 }
 
@@ -149,15 +147,11 @@ func (c *C) WriteSVG(w io.Writer) {
 		for _, f := range c.fonts {
 			w.Write([]byte("@font-face { font-family: '"))
 			w.Write([]byte(f.name))
-			w.Write([]byte("'; src: url('data:"))
-			w.Write([]byte(f.mimetype))
-			w.Write([]byte(";base64,"))
-			b64 := base64.NewEncoder(base64.StdEncoding, w)
-			b64.Write(f.raw)
-			b64.Close()
+			w.Write([]byte("'; src: url('"))
+			w.Write([]byte(f.ToDataURI()))
 			w.Write([]byte("'); }\n"))
-			w.Write([]byte("</style></defs>"))
 		}
+		w.Write([]byte("</style></defs>"))
 	}
 	for _, l := range c.layers {
 		if l.t == pathLayer {
@@ -170,9 +164,7 @@ func (c *C) WriteSVG(w io.Writer) {
 			}
 			w.Write([]byte("\"/>"))
 		} else if l.t == textLayer {
-			// TODO: use tspan for newlines
 			name, style, size := l.fontFace.Info()
-			lineHeight := l.fontFace.Metrics().LineHeight
 			w.Write([]byte("<text x=\""))
 			writeFloat64(w, l.x)
 			w.Write([]byte("\" y=\""))
@@ -200,10 +192,9 @@ func (c *C) WriteSVG(w io.Writer) {
 				w.Write([]byte("\" fill=\""))
 				writeCSSColor(w, l.color)
 			}
-			w.Write([]byte("\"><tspan>"))
-			text := strings.Replace(l.text, "\n", fmt.Sprintf(`</tspan><tspan x="%.5g" dy="%.5g">`, l.x, lineHeight), -1)
-			w.Write([]byte(text))
-			w.Write([]byte("</tspan></text>"))
+			w.Write([]byte("\">"))
+			w.Write([]byte(l.text.ToSVG(l.x, c.h-l.y)))
+			w.Write([]byte("</text>"))
 		}
 	}
 	w.Write([]byte("</svg>"))
@@ -232,7 +223,7 @@ func (c *C) WritePDF(writer io.Writer) error {
 
 		if l.t == textLayer {
 			// TODO: embed fonts and draw text
-			l.path = l.fontFace.ToPath(l.text)
+			l.path = l.text.ToPath(0.0, 0.0)
 			l.t = pathLayer
 		}
 
@@ -260,12 +251,12 @@ func (c *C) WriteImage(dpi float64) *image.RGBA {
 	ras := vector.NewRasterizer(int(c.w*dpm), int(c.h*dpm))
 
 	bg := Rectangle(0.0, 0.0, c.w, c.h)
-	layers := append([]layer{{pathLayer, 0.0, 0.0, 0.0, color.White, FontFace{}, bg, ""}}, c.layers...)
+	layers := append([]layer{{pathLayer, 0.0, 0.0, 0.0, color.White, FontFace{}, bg, nil}}, c.layers...)
 
 	dy := float32(c.h * dpm)
 	for _, l := range layers {
 		if l.t == textLayer {
-			l.path = l.fontFace.ToPath(l.text)
+			l.path = l.text.ToPath(0.0, 0.0)
 			l.t = pathLayer
 		}
 
@@ -316,7 +307,7 @@ func (c *C) WriteEPS(w io.Writer) {
 	// TODO: generate preview
 
 	bg := Rectangle(0.0, 0.0, c.w, c.h)
-	layers := append([]layer{{pathLayer, 0.0, 0.0, 0.0, color.White, FontFace{}, bg, ""}}, c.layers...)
+	layers := append([]layer{{pathLayer, 0.0, 0.0, 0.0, color.White, FontFace{}, bg, nil}}, c.layers...)
 
 	color := Black
 	for _, l := range layers {
@@ -329,7 +320,7 @@ func (c *C) WriteEPS(w io.Writer) {
 
 		if l.t == textLayer {
 			// TODO: embed fonts (convert TTF to Type 42) and draw text
-			l.path = l.fontFace.ToPath(l.text)
+			l.path = l.text.ToPath(0.0, 0.0)
 			l.t = pathLayer
 		}
 
@@ -364,6 +355,6 @@ func (v *View) DrawPath(x, y, rot float64, p *Path) {
 	v.C.DrawPath(v.x0+v.xScale*x, v.y0+v.yScale*y, rot, p)
 }
 
-func (v *View) DrawText(x, y, rot float64, s string) {
-	v.C.DrawText(v.x0+v.xScale*x, v.y0+v.yScale*y, rot, s)
+func (v *View) DrawText(x, y, rot float64, t *Text) {
+	v.C.DrawText(v.x0+v.xScale*x, v.y0+v.yScale*y, rot, t)
 }

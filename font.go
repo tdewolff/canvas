@@ -1,9 +1,11 @@
 package canvas
 
 import (
+	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"math"
-	"unicode/utf8"
+	"strings"
 
 	findfont "github.com/flopp/go-findfont"
 	"golang.org/x/image/font"
@@ -28,6 +30,8 @@ type Font struct {
 	sfnt  *sfnt.Font
 	name  string
 	style FontStyle
+
+	usedGlyphs map[rune]bool
 }
 
 // LoadLocalFont loads a font from the system fonts location.
@@ -55,11 +59,12 @@ func LoadFont(name string, style FontStyle, b []byte) (Font, error) {
 		return Font{}, err
 	}
 	return Font{
-		mimetype: mimetype,
-		raw:      b,
-		sfnt:     sfnt,
-		name:     name,
-		style:    style,
+		mimetype:   mimetype,
+		raw:        b,
+		sfnt:       sfnt,
+		name:       name,
+		style:      style,
+		usedGlyphs: map[rune]bool{},
 	}, nil
 }
 
@@ -68,14 +73,71 @@ func (f *Font) Face(size float64) FontFace {
 	// TODO: add hinting
 	return FontFace{
 		f:       f,
-		size:    size,
 		ppem:    toI26_6(size),
 		hinting: font.HintingNone,
 	}
 }
 
+func (f *Font) MarkUsed(s string) {
+	for _, r := range s {
+		f.usedGlyphs[r] = true
+	}
+}
+
+func (f *Font) ToDataURI() string {
+	sb := strings.Builder{}
+	sb.WriteString("data:")
+	sb.WriteString(f.mimetype)
+	sb.WriteString(";base64,")
+	encoder := base64.NewEncoder(base64.StdEncoding, &sb)
+	encoder.Write(f.raw)
+	encoder.Close()
+	return sb.String()
+}
+
+func (f *Font) ToSVG() string {
+	sb := strings.Builder{}
+	sb.WriteString("<font>")
+	sb.WriteString("<font-face font-family=\"")
+	sb.WriteString(f.name)
+	if f.style&Italic != 0 {
+		sb.WriteString("\" font-style=\"italic")
+	}
+	if f.style&Bold != 0 {
+		sb.WriteString("\" font-weight=\"bold")
+	}
+	sb.WriteString("\" units-per-em=\"1000\">")
+
+	ff := f.Face(1000.0)
+	for r, _ := range f.usedGlyphs {
+		glyph, advance := ff.ToPath(r)
+		sb.WriteString("<glyph unicode=\"")
+		sb.WriteRune(r) // TODO: use XML character ref for non-ASCII
+		sb.WriteString("\" horiz-adv-x=\"")
+		fmt.Fprintf(&sb, "%.0g", advance)
+		sb.WriteString("\" d=\"")
+		sb.WriteString(glyph.ToSVG())
+		sb.WriteString("\">")
+	}
+
+	for r0, _ := range f.usedGlyphs {
+		for r1, _ := range f.usedGlyphs {
+			sb.WriteString("<hkern g1=\"")
+			sb.WriteRune(r0) // TODO: use XML character ref for non-ASCII
+			sb.WriteString("\" g2=\"")
+			sb.WriteRune(r1) // TODO: use XML character ref for non-ASCII
+			sb.WriteString("\" k=\"")
+			fmt.Fprintf(&sb, "%.0g", ff.Kerning(r0, r1))
+			sb.WriteString("\">")
+		}
+	}
+
+	sb.WriteString("</font>")
+	return sb.String()
+}
+
 type Metrics struct {
-	Height     float64
+	Size       float64
 	LineHeight float64
 	Ascent     float64
 	Descent    float64
@@ -85,21 +147,20 @@ type Metrics struct {
 
 type FontFace struct {
 	f       *Font
-	size    float64
 	ppem    fixed.Int26_6
 	hinting font.Hinting
 }
 
 // Info returns the font name, style and size.
 func (ff FontFace) Info() (name string, style FontStyle, size float64) {
-	return ff.f.name, ff.f.style, ff.size
+	return ff.f.name, ff.f.style, fromI26_6(ff.ppem)
 }
 
 // Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explaination of the different metrics.
 func (ff FontFace) Metrics() Metrics {
 	m, _ := ff.f.sfnt.Metrics(&sfntBuffer, ff.ppem, ff.hinting)
 	return Metrics{
-		Height:     ff.size,
+		Size:       fromI26_6(ff.ppem),
 		LineHeight: math.Abs(fromI26_6(m.Height)),
 		Ascent:     math.Abs(fromI26_6(m.Ascent)),
 		Descent:    math.Abs(fromI26_6(m.Descent)),
@@ -108,26 +169,9 @@ func (ff FontFace) Metrics() Metrics {
 	}
 }
 
-func splitNewlines(s string) []string {
-	ss := []string{}
-	i := 0
-	for j, r := range s {
-		if r == '\n' || r == '\r' || r == '\u2028' || r == '\u2029' {
-			if r == '\n' && j > 0 && s[j-1] == '\r' {
-				i++
-				continue
-			}
-			ss = append(ss, s[i:j])
-			i = j + utf8.RuneLen(r)
-		}
-	}
-	ss = append(ss, s[i:])
-	return ss
-}
-
 // textWidth returns the width of a given string in mm.
-func (ff FontFace) textWidth(s string) float64 {
-	x := 0.0
+func (ff FontFace) TextWidth(s string) float64 {
+	w := 0.0
 	var prevIndex sfnt.GlyphIndex
 	for i, r := range s {
 		index, err := ff.f.sfnt.GlyphIndex(&sfntBuffer, r)
@@ -138,90 +182,81 @@ func (ff FontFace) textWidth(s string) float64 {
 		if i != 0 {
 			kern, err := ff.f.sfnt.Kern(&sfntBuffer, prevIndex, index, ff.ppem, ff.hinting)
 			if err == nil {
-				x += fromI26_6(kern)
+				w += fromI26_6(kern)
 			}
 		}
 		advance, err := ff.f.sfnt.GlyphAdvance(&sfntBuffer, index, ff.ppem, ff.hinting)
 		if err == nil {
-			x += fromI26_6(advance)
+			w += fromI26_6(advance)
 		}
 		prevIndex = index
 	}
-	return x
+	return w
 }
 
-// Bounds returns the bounding box (width and height) of a string.
-func (ff FontFace) Bounds(s string) (w float64, h float64) {
-	ss := splitNewlines(s)
-	for _, s := range ss {
-		w = math.Max(w, ff.textWidth(s))
-	}
-	h = ff.Metrics().CapHeight + float64(len(ss)-1)*ff.Metrics().LineHeight
-	return w, h
-}
-
-// ToPath converts a string to a path.
-// TODO: accept character not string, let line processing be done by Text
-func (ff FontFace) ToPath(s string) *Path {
+// ToPath converts a rune to a path and its advance.
+func (ff FontFace) ToPath(r rune) (*Path, float64) {
 	p := &Path{}
-	x := 0.0
-	y := 0.0
-	for _, s := range splitNewlines(s) {
-		var prevIndex sfnt.GlyphIndex
-		for i, r := range s {
-			index, err := ff.f.sfnt.GlyphIndex(&sfntBuffer, r)
-			if err != nil {
-				continue
-			}
+	index, err := ff.f.sfnt.GlyphIndex(&sfntBuffer, r)
+	if err != nil {
+		return p, 0.0
+	}
 
-			if i > 0 {
-				kern, err := ff.f.sfnt.Kern(&sfntBuffer, prevIndex, index, ff.ppem, ff.hinting)
-				if err == nil {
-					x += fromI26_6(kern)
-				}
-			}
+	segments, err := ff.f.sfnt.LoadGlyph(&sfntBuffer, index, ff.ppem, nil)
+	if err != nil {
+		return p, 0.0
+	}
 
-			segments, err := ff.f.sfnt.LoadGlyph(&sfntBuffer, index, ff.ppem, nil)
-			if err != nil {
-				continue
-			}
-
-			var start0, end Point
-			for i, segment := range segments {
-				switch segment.Op {
-				case sfnt.SegmentOpMoveTo:
-					if i != 0 && start0.Equals(end) {
-						p.Close()
-					}
-					end = fromP26_6(segment.Args[0])
-					p.MoveTo(x+end.X, y-end.Y)
-					start0 = end
-				case sfnt.SegmentOpLineTo:
-					end = fromP26_6(segment.Args[0])
-					p.LineTo(x+end.X, y-end.Y)
-				case sfnt.SegmentOpQuadTo:
-					c := fromP26_6(segment.Args[0])
-					end = fromP26_6(segment.Args[1])
-					p.QuadTo(x+c.X, y-c.Y, x+end.X, y-end.Y)
-				case sfnt.SegmentOpCubeTo:
-					c0 := fromP26_6(segment.Args[0])
-					c1 := fromP26_6(segment.Args[1])
-					end = fromP26_6(segment.Args[2])
-					p.CubeTo(x+c0.X, y-c0.Y, x+c1.X, y-c1.Y, x+end.X, y-end.Y)
-				}
-			}
-			if !p.Empty() && start0.Equals(end) {
+	var start0, end Point
+	for i, segment := range segments {
+		switch segment.Op {
+		case sfnt.SegmentOpMoveTo:
+			if i != 0 && start0.Equals(end) {
 				p.Close()
 			}
-
-			advance, err := ff.f.sfnt.GlyphAdvance(&sfntBuffer, index, ff.ppem, ff.hinting)
-			if err == nil {
-				x += fromI26_6(advance)
-			}
-			prevIndex = index
+			end = fromP26_6(segment.Args[0])
+			p.MoveTo(end.X, -end.Y)
+			start0 = end
+		case sfnt.SegmentOpLineTo:
+			end = fromP26_6(segment.Args[0])
+			p.LineTo(end.X, -end.Y)
+		case sfnt.SegmentOpQuadTo:
+			c := fromP26_6(segment.Args[0])
+			end = fromP26_6(segment.Args[1])
+			p.QuadTo(c.X, -c.Y, end.X, -end.Y)
+		case sfnt.SegmentOpCubeTo:
+			c0 := fromP26_6(segment.Args[0])
+			c1 := fromP26_6(segment.Args[1])
+			end = fromP26_6(segment.Args[2])
+			p.CubeTo(c0.X, -c0.Y, c1.X, -c1.Y, end.X, -end.Y)
 		}
-		x = 0.0
-		y -= ff.Metrics().LineHeight
 	}
-	return p
+	if !p.Empty() && start0.Equals(end) {
+		p.Close()
+	}
+
+	dx := 0.0
+	advance, err := ff.f.sfnt.GlyphAdvance(&sfntBuffer, index, ff.ppem, ff.hinting)
+	if err == nil {
+		dx = fromI26_6(advance)
+	}
+	return p, dx
+}
+
+func (ff FontFace) Kerning(rPrev, rNext rune) float64 {
+	prevIndex, err := ff.f.sfnt.GlyphIndex(&sfntBuffer, rPrev)
+	if err != nil {
+		return 0.0
+	}
+
+	nextIndex, err := ff.f.sfnt.GlyphIndex(&sfntBuffer, rNext)
+	if err != nil {
+		return 0.0
+	}
+
+	kern, err := ff.f.sfnt.Kern(&sfntBuffer, prevIndex, nextIndex, ff.ppem, ff.hinting)
+	if err == nil {
+		return fromI26_6(kern)
+	}
+	return 0.0
 }
