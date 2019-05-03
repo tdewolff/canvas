@@ -76,6 +76,6 @@ func Draw(c *canvas.C) {
 
 	ff := dejaVuSerif.Face(8.0)
 	c.SetFont(ff)
-	text := canvas.NewTextBox(ff, "Lorem ipsum dolor sid amet, con fiscus non patria est gravus repara sid ipsum. Apare tu garage.", 160.0, 40.0, canvas.Justify, canvas.Justify)
+	text := canvas.NewTextBox(ff, "Lorem ipsum dolor sid amet, confiscusar patria est gravus repara sid ipsum. Apare tu garage.", 160.0, 40.0, canvas.Left, canvas.Top)
 	c.DrawText(20, 60, 0.0, text)
 }

@@ -153,11 +153,47 @@ func (t *Text) ToPath(x, y float64) *Path {
 	return p
 }
 
+func (t *Text) splitAtBoundaries(x, y float64, f func(float64, float64, float64, string)) {
+	spaceWidth := t.ff.TextWidth(" ")
+	for _, line := range t.lines {
+		for _, span := range line {
+			if span.sentenceSpacing > 0.0 || span.wordSpacing > 0.0 {
+				_, _, _, boundaries := calcTextSpanSpacings(span.s)
+				boundaries = append(boundaries, TextBoundary{true, len(span.s)})
+
+				prevLoc := 0
+				dx := span.dx
+				for _, boundary := range boundaries {
+					s := span.s[prevLoc:boundary.loc]
+					width := 0.0
+					if span.glyphSpacing > 0.0 {
+						width = t.ff.TextWidth(s) + float64(utf8.RuneCountInString(s)-1)*span.glyphSpacing
+					}
+					f(x+dx, y, width, s)
+					prevLoc = boundary.loc + 1
+					dx += t.ff.TextWidth(s) + spaceWidth + float64(utf8.RuneCountInString(s))*span.glyphSpacing
+					if boundary.isWord {
+						dx += span.wordSpacing
+					} else {
+						dx += span.sentenceSpacing
+					}
+				}
+			} else {
+				width := 0.0
+				if span.glyphSpacing > 0.0 {
+					width = span.width
+				}
+				f(x+span.dx, y, width, span.s)
+			}
+		}
+		y += t.ff.Metrics().LineHeight + t.lineSpacing
+	}
+}
+
 func (t *Text) ToSVG(x, y float64) string {
-	// TODO: implement with indent, spacing between characters and lines etc.
 	y += t.dy + t.ff.Metrics().Ascent
 	sb := strings.Builder{}
-	writeTSpan := func(x, y, width float64, s string) {
+	t.splitAtBoundaries(x, y, func(x, y, width float64, s string) {
 		sb.WriteString("<tspan x=\"")
 		writeFloat64(&sb, x)
 		sb.WriteString("\" y=\"")
@@ -169,22 +205,7 @@ func (t *Text) ToSVG(x, y float64) string {
 		sb.WriteString("\">")
 		sb.WriteString(s)
 		sb.WriteString("</tspan>")
-	}
-	for _, line := range t.lines {
-		for _, span := range line {
-			//if span.sentenceSpacing > 0.0 || span.wordSpacing > 0.0 {
-			//_, _, _, spacingLocs := calcTextSpanSpacings(span.s)
-			// TODO: split up into tspans
-			//} else {
-			width := 0.0
-			if span.glyphSpacing > 0.0 {
-				width = span.width
-			}
-			writeTSpan(x+span.dx, y, width, span.s)
-			//}
-		}
-		y += t.ff.Metrics().LineHeight + t.lineSpacing
-	}
+	})
 	return sb.String()
 }
 
@@ -201,32 +222,31 @@ type textSpan struct {
 	glyphSpacing    float64
 }
 
-type TextBoundary int
+type TextBoundary struct {
+	isWord bool
+	loc    int
+}
 
-const (
-	SentenceBoundary TextBoundary = iota
-	WordBoundary
-)
-
-func calcTextSpanSpacings(s string) (int, int, int, map[int]TextBoundary) {
+func calcTextSpanSpacings(s string) (int, int, int, []TextBoundary) {
 	sentenceSpacings, wordSpacings, glyphSpacings := 0, 0, 0
-	locs := map[int]TextBoundary{}
+	locs := []TextBoundary{}
 	var rPrev, rPrevPrev rune
 	for i, r := range s {
 		glyphSpacings++
 		if r == ' ' {
 			if (rPrev == '.' && !unicode.IsUpper(rPrevPrev)) || rPrev == '!' || rPrev == '?' {
-				locs[i] = SentenceBoundary
+				locs = append(locs, TextBoundary{false, i})
 				sentenceSpacings++
 			} else if rPrev != ' ' {
-				locs[i] = WordBoundary
+				locs = append(locs, TextBoundary{true, i})
 				wordSpacings++
 			}
 		}
 		rPrevPrev = rPrev
 		rPrev = r
 	}
-	return sentenceSpacings, wordSpacings, glyphSpacings - 1, locs
+	glyphSpacings -= wordSpacings + sentenceSpacings + 1
+	return sentenceSpacings, wordSpacings, glyphSpacings, locs
 }
 
 func newTextSpan(ff FontFace, s string, width float64, halign TextAlign) textSpan {
@@ -272,7 +292,10 @@ func newTextSpan(ff FontFace, s string, width float64, halign TextAlign) textSpa
 func (ts textSpan) ToPath(x, y float64) *Path {
 	p := &Path{}
 	x += ts.dx
-	_, _, _, spacingLocs := calcTextSpanSpacings(ts.s)
+
+	iBoundary := 0
+	_, _, _, boundaries := calcTextSpanSpacings(ts.s)
+
 	var rPrev rune
 	for i, r := range ts.s {
 		if i > 0 {
@@ -285,12 +308,13 @@ func (ts textSpan) ToPath(x, y float64) *Path {
 		x += advance
 
 		spacing := ts.glyphSpacing
-		if boundary, ok := spacingLocs[i]; ok {
-			if boundary == SentenceBoundary {
-				spacing = ts.sentenceSpacing
-			} else {
+		if iBoundary < len(boundaries) && boundaries[iBoundary].loc == i {
+			if boundaries[iBoundary].isWord {
 				spacing = ts.wordSpacing
+			} else {
+				spacing = ts.sentenceSpacing
 			}
+			iBoundary++
 		}
 		x += spacing
 		rPrev = r
