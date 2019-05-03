@@ -71,7 +71,7 @@ func main() {
 func drawText(c *canvas.C, x, y float64, size float64, s string) {
 	face := dejaVuSerif.Face(size)
 	metrics := face.Metrics()
-	text := canvas.NewText(face, s)
+	text := canvas.NewTextBox(face, s, 100.0, 40.0, canvas.Justify, canvas.Top, 0.0)
 	w, h := text.Bounds()
 
 	c.SetColor(canvas.Gainsboro)
@@ -86,7 +86,7 @@ func drawText(c *canvas.C, x, y float64, size float64, s string) {
 }
 
 func Draw(c *canvas.C) {
-	drawText(c, 10, 60, 12.0, "Aap noot mies\nwim zus teun")
+	drawText(c, 10, 60, 12.0, "Aap noot mies wim zus teun vuur")
 
 	face := dejaVuSerif.Face(30)
 	p := canvas.NewText(face, "Stroke").ToPath(0.0, 0.0)

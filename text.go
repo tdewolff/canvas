@@ -51,7 +51,7 @@ func NewText(ff FontFace, s string) *Text {
 	ss := splitNewlines(s)
 	lines := [][]textSpan{}
 	for _, s := range ss {
-		span := newTextSpan(ff, s, 0.0, Left)
+		span := newTextSpan(ff, s, 0.0, Left, 0.0)
 		lines = append(lines, []textSpan{span})
 	}
 	return &Text{
@@ -62,7 +62,7 @@ func NewText(ff FontFace, s string) *Text {
 	}
 }
 
-func NewTextBox(ff FontFace, s string, width, height float64, halign, valign TextAlign) *Text {
+func NewTextBox(ff FontFace, s string, width, height float64, halign, valign TextAlign, indent float64) *Text {
 	// TODO: do inner-word boundaries
 	lines := [][]textSpan{}
 	var iPrev, iSpace int
@@ -70,31 +70,34 @@ func NewTextBox(ff FontFace, s string, width, height float64, halign, valign Tex
 		r, size := utf8.DecodeRuneInString(s[i:])
 		if r == ' ' {
 			iSpace = i
+		} else if r == '\r' && i+1 < len(s) && s[i+1] == '\n' {
+			size++
 		}
+
 		isNewline := r == '\n' || r == '\r' || r == '\u2028' || r == '\u2029'
-		if isNewline || ff.TextWidth(s[iPrev:i+size]) > width {
+		if isNewline || width != 0.0 && ff.TextWidth(s[iPrev:i+size])+indent > width {
 			iBreak := i
-			if i == 0 && !isNewline {
-				break // nothing fits
-			} else if !isNewline && iPrev < iSpace {
-				iBreak = iSpace
+			if !isNewline && iPrev < iSpace {
+				iBreak = iSpace // break line at last space
 			}
+
 			var span textSpan
 			if isNewline {
-				span = newTextSpan(ff, s[iPrev:iBreak], 0.0, Left)
+				span = newTextSpan(ff, s[iPrev:iBreak], 0.0, Left, indent)
 			} else {
-				span = newTextSpan(ff, s[iPrev:iBreak], width, halign)
+				span = newTextSpan(ff, s[iPrev:iBreak], width, halign, indent)
 			}
 			lines = append(lines, []textSpan{span})
+			indent = 0.0
 			if height != 0.0 && calcTextHeight(ff, len(lines)+1) > height {
 				break
 			}
-			if r == '\r' && i+size < len(s) && s[i+size] == '\n' {
-				i++
+			if i == 0 {
+				continue
 			}
 			iPrev = iBreak
-			if iPrev == iSpace {
-				iPrev++
+			if isNewline || iPrev == iSpace {
+				iPrev += size // skip space or newline
 			}
 		}
 		i += size
@@ -102,9 +105,9 @@ func NewTextBox(ff FontFace, s string, width, height float64, halign, valign Tex
 	if height == 0.0 || calcTextHeight(ff, len(lines)+1) <= height {
 		var span textSpan
 		if halign == Right || halign == Center {
-			span = newTextSpan(ff, s[iPrev:], width, halign)
+			span = newTextSpan(ff, s[iPrev:], width, halign, indent)
 		} else {
-			span = newTextSpan(ff, s[iPrev:], 0.0, Left)
+			span = newTextSpan(ff, s[iPrev:], 0.0, Left, indent)
 		}
 		lines = append(lines, []textSpan{span})
 	}
@@ -135,7 +138,7 @@ func (t *Text) Bounds() (w, h float64) {
 			w = math.Max(w, span.dx+span.width)
 		}
 	}
-	h = calcTextHeight(t.ff, len(t.lines))
+	h = calcTextHeight(t.ff, len(t.lines)) + t.lineSpacing*float64(len(t.lines)-1)
 	return w, h
 
 }
@@ -280,20 +283,20 @@ func calcTextSpanSpacings(s string) (int, int, int, []TextBoundary) {
 	return sentenceSpacings, wordSpacings, glyphSpacings, locs
 }
 
-func newTextSpan(ff FontFace, s string, width float64, halign TextAlign) textSpan {
-	dx := 0.0
+func newTextSpan(ff FontFace, s string, width float64, halign TextAlign, indent float64) textSpan {
+	dx := indent
 	sentenceSpacing := 0.0
 	wordSpacing := 0.0
 	glyphSpacing := 0.0
 	textWidth := ff.TextWidth(s)
 	if halign == Right || halign == Center || halign == Justify {
 		if halign == Right {
-			dx = width - textWidth
+			dx = width - textWidth - indent
 		} else if halign == Center {
 			dx = (width - textWidth) / 2.0
-		} else if textWidth < width {
+		} else if textWidth+indent < width {
 			sentenceSpacings, wordSpacings, glyphSpacings, _ := calcTextSpanSpacings(s)
-			widthLeft := width - textWidth
+			widthLeft := width - textWidth - indent
 			if sentenceSpacings > 0 {
 				sentenceSpacing = math.Min(widthLeft/float64(sentenceSpacings), ff.Metrics().XHeight*MaxSentenceSpacing)
 				widthLeft -= float64(sentenceSpacings) * sentenceSpacing
@@ -308,13 +311,13 @@ func newTextSpan(ff FontFace, s string, width float64, halign TextAlign) textSpa
 		}
 	}
 	if width == 0.0 {
-		width = textWidth
+		width = textWidth + indent
 	}
 	return textSpan{
 		ff:              ff,
 		s:               s,
 		dx:              dx,
-		width:           width,
+		width:           width - dx,
 		sentenceSpacing: sentenceSpacing,
 		wordSpacing:     wordSpacing,
 		glyphSpacing:    glyphSpacing,

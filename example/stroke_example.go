@@ -46,7 +46,7 @@ func drawStrokedPath(c *canvas.C, x, y float64, path string, cr canvas.Capper, j
 func drawText(c *canvas.C, x, y float64, text string) {
 	face := dejaVuSerif.Face(6.0)
 	c.SetColor(canvas.Black)
-	c.DrawText(x, y, 0.0, canvas.NewTextBox(face, text, 0.0, 0.0, canvas.Center, canvas.Top))
+	c.DrawText(x, y, 0.0, canvas.NewTextBox(face, text, 0.0, 0.0, canvas.Center, canvas.Top, 0.0))
 }
 
 func Draw(c *canvas.C) {
