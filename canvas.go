@@ -96,40 +96,43 @@ type layer struct {
 	t         layerType
 	x, y, rot float64
 	color     color.Color
-	fontFace  FontFace
 	path      *Path
 	text      *Text
 }
 
 type C struct {
-	w, h     float64
-	color    color.Color
-	fontFace FontFace
+	w, h  float64
+	color color.Color
 
 	layers []layer
 	fonts  []*Font
 }
 
 func New(w, h float64) *C {
-	return &C{w, h, color.Black, FontFace{}, []layer{}, []*Font{}}
+	return &C{w, h, color.Black, []layer{}, []*Font{}}
 }
 
 func (c *C) SetColor(col color.Color) {
 	c.color = col
 }
 
-func (c *C) SetFont(fontFace FontFace) {
-	c.fontFace = fontFace
-}
-
 func (c *C) DrawPath(x, y, rot float64, p *Path) {
 	p = p.Copy()
-	c.layers = append(c.layers, layer{pathLayer, x, y, rot, c.color, c.fontFace, p, nil})
+	c.layers = append(c.layers, layer{pathLayer, x, y, rot, c.color, p, nil})
 }
 
 func (c *C) DrawText(x, y, rot float64, text *Text) {
-	c.layers = append(c.layers, layer{textLayer, x, y, rot, c.color, c.fontFace, nil, text})
-	c.fonts = append(c.fonts, c.fontFace.f)
+	found := false
+	for _, f := range c.fonts {
+		if f == text.ff.f {
+			found = true
+			break
+		}
+	}
+	if !found {
+		c.fonts = append(c.fonts, text.ff.f)
+	}
+	c.layers = append(c.layers, layer{textLayer, x, y, rot, c.color, nil, text})
 }
 
 func (c *C) WriteSVG(w io.Writer) {
@@ -164,37 +167,7 @@ func (c *C) WriteSVG(w io.Writer) {
 			}
 			w.Write([]byte("\"/>"))
 		} else if l.t == textLayer {
-			name, style, size := l.fontFace.Info()
-			w.Write([]byte("<text x=\""))
-			writeFloat64(w, l.x)
-			w.Write([]byte("\" y=\""))
-			writeFloat64(w, c.h-l.y)
-			if l.rot != 0.0 {
-				w.Write([]byte("\" transform=\"rotate("))
-				writeFloat64(w, -l.rot)
-				w.Write([]byte(","))
-				writeFloat64(w, l.x)
-				w.Write([]byte(","))
-				writeFloat64(w, c.h-l.y)
-				w.Write([]byte(")"))
-			}
-			w.Write([]byte("\" font-family=\""))
-			w.Write([]byte(name))
-			w.Write([]byte("\" font-size=\""))
-			writeFloat64(w, size)
-			if style&Italic != 0 {
-				w.Write([]byte("\" font-style=\"italic"))
-			}
-			if style&Bold != 0 {
-				w.Write([]byte("\" font-weight=\"bold"))
-			}
-			if c.color != color.Black {
-				w.Write([]byte("\" fill=\""))
-				writeCSSColor(w, l.color)
-			}
-			w.Write([]byte("\">"))
-			w.Write([]byte(l.text.ToSVG(l.x, c.h-l.y)))
-			w.Write([]byte("</text>"))
+			w.Write([]byte(l.text.ToSVG(l.x, c.h-l.y, l.rot, l.color)))
 		}
 	}
 	w.Write([]byte("</svg>"))
@@ -251,7 +224,7 @@ func (c *C) WriteImage(dpi float64) *image.RGBA {
 	ras := vector.NewRasterizer(int(c.w*dpm), int(c.h*dpm))
 
 	bg := Rectangle(0.0, 0.0, c.w, c.h)
-	layers := append([]layer{{pathLayer, 0.0, 0.0, 0.0, color.White, FontFace{}, bg, nil}}, c.layers...)
+	layers := append([]layer{{pathLayer, 0.0, 0.0, 0.0, color.White, bg, nil}}, c.layers...)
 
 	dy := float32(c.h * dpm)
 	for _, l := range layers {
@@ -307,7 +280,7 @@ func (c *C) WriteEPS(w io.Writer) {
 	// TODO: generate preview
 
 	bg := Rectangle(0.0, 0.0, c.w, c.h)
-	layers := append([]layer{{pathLayer, 0.0, 0.0, 0.0, color.White, FontFace{}, bg, nil}}, c.layers...)
+	layers := append([]layer{{pathLayer, 0.0, 0.0, 0.0, color.White, bg, nil}}, c.layers...)
 
 	color := Black
 	for _, l := range layers {

@@ -45,10 +45,8 @@ func drawStrokedPath(c *canvas.C, x, y float64, path string, cr canvas.Capper, j
 
 func drawText(c *canvas.C, x, y float64, text string) {
 	face := dejaVuSerif.Face(6.0)
-	w, _ := face.Bounds(text)
-	c.SetFont(face)
 	c.SetColor(canvas.Black)
-	c.DrawText(x-w/2.0, y, 0.0, text)
+	c.DrawText(x, y, 0.0, canvas.NewTextBox(face, text, 0.0, 0.0, canvas.Center, canvas.Top))
 }
 
 func Draw(c *canvas.C) {
@@ -64,15 +62,15 @@ func Draw(c *canvas.C) {
 	drawText(c, 120.0, 70.0, "RoundCapper")
 	drawStrokedPath(c, 130.0, 60.0, pathCapper, canvas.RoundCapper, canvas.RoundJoiner)
 
-	drawText(c, 20.0, 37.0, "RoundJoiner")
+	drawText(c, 23.0, 37.0, "RoundJoiner")
 	drawStrokedPath(c, 30.0, 25.0, pathJoiner, canvas.ButtCapper, canvas.RoundJoiner)
 
-	drawText(c, 70.0, 37.0, "BevelJoiner")
+	drawText(c, 73.0, 37.0, "BevelJoiner")
 	drawStrokedPath(c, 80.0, 25.0, pathJoiner, canvas.ButtCapper, canvas.BevelJoiner)
 
-	drawText(c, 120.0, 37.0, "MiterJoiner")
+	drawText(c, 123.0, 37.0, "MiterJoiner")
 	drawStrokedPath(c, 130.0, 25.0, pathJoiner, canvas.ButtCapper, canvas.MiterJoiner)
 
-	drawText(c, 170.0, 37.0, "ArcsJoiner")
+	drawText(c, 173.0, 37.0, "ArcsJoiner")
 	drawStrokedPath(c, 180.0, 25.0, pathJoiner, canvas.ButtCapper, canvas.ArcsJoiner)
 }

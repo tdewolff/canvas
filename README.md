@@ -9,17 +9,16 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS and raste
 
 General
 
-* **Add support for easier usage of projections / viewboxes?**
 * Fix slowness, transparency and colors in the rasterizer
 * Fix transparency for EPS
 
 Fonts
 
-* **Embedding only used characters**
-* **Font embedding for PDFs**
+* **Font embedding for PDFs and EPSs**
 * Support ligatures and font hinting
 * Support WOFF2 font format
 * Support Type1 font format?
+* Compressing fonts and embedding only used characters
 
 Paths
 
@@ -31,7 +30,6 @@ Paths
 * Add ArcTo in endpoint format (take begin/end angle and center point)
 * Add function to convert lines to cubic Beziérs to smooth out a path
 * Add offsetting of path (expand / contract), tricky with overlap
-* Implement miter and arcs line join types for stroking
 
 Optimization
 
@@ -43,9 +41,8 @@ Optimization
 ``` go
 c := canvas.New(width, height float64)
 c.SetColor(color color.Color)
-c.SetFont(fontFace Face)
 c.DrawPath(x, y, rot float64, path *Path)
-c.DrawText(x, y, rot float64, text string)
+c.DrawText(x, y, rot float64, text *Text)
 
 c.WriteSVG(w io.Writer)
 c.WriteEPS(w io.Writer)
@@ -55,15 +52,21 @@ c.WriteImage(dpi float64) *image.RGBA
 
 Canvas allows to draw either paths or text. All positions and sizes are given in millimeters.
 
-## Fonts
+## Text
 ``` go
 dejaVuSerif, err := canvas.LoadFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")  // TTF, OTF or WOFF
 
 ff := dejaVuSerif.Face(size float64)
 ff.Info() (name string, style FontStyle, size float64)
-ff.Metrics() Metrics                           // font metrics such as line height
-ff.Bounds(text string) (width, height float64) // bounding box of the text in mm, processes new lines
-ff.ToPath(text string) *Path                   // convert text to path
+ff.Metrics() Metrics                          // font metrics such as line height
+ff.ToPath(r rune) (p *Path, advance float64)  // convert rune to path and return advance
+ff.Kerning(r0, r1 rune) float64               // return kerning between runes
+
+text := NewText(ff, "string")                                    // simple text with newlines
+text := NewTextBox(ff, "string", width, height, halign, valign)  // split on word boundaries and specify text alignment
+text.Bounds() (width, height float64)
+text.ToPath() *Path
+text.ToSVG() string  // convert to series of <tspan>
 ```
 
 

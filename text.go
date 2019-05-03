@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"image/color"
 	"math"
 	"strings"
 	"unicode"
@@ -85,7 +86,7 @@ func NewTextBox(ff FontFace, s string, width, height float64, halign, valign Tex
 				span = newTextSpan(ff, s[iPrev:iBreak], width, halign)
 			}
 			lines = append(lines, []textSpan{span})
-			if calcTextHeight(ff, len(lines)+1) > height {
+			if height != 0.0 && calcTextHeight(ff, len(lines)+1) > height {
 				break
 			}
 			if r == '\r' && i+size < len(s) && s[i+size] == '\n' {
@@ -98,7 +99,7 @@ func NewTextBox(ff FontFace, s string, width, height float64, halign, valign Tex
 		}
 		i += size
 	}
-	if calcTextHeight(ff, len(lines)+1) <= height {
+	if height == 0.0 || calcTextHeight(ff, len(lines)+1) <= height {
 		var span textSpan
 		if halign == Right || halign == Center {
 			span = newTextSpan(ff, s[iPrev:], width, halign)
@@ -110,7 +111,7 @@ func NewTextBox(ff FontFace, s string, width, height float64, halign, valign Tex
 
 	dy := 0.0
 	lineSpacing := 0.0
-	if valign == Bottom || valign == Center || valign == Justify {
+	if height != 0.0 && (valign == Bottom || valign == Center || valign == Justify) {
 		h := calcTextHeight(ff, len(lines))
 		if valign == Bottom {
 			dy = height - h
@@ -130,8 +131,8 @@ func NewTextBox(ff FontFace, s string, width, height float64, halign, valign Tex
 
 func (t *Text) Bounds() (w, h float64) {
 	for _, line := range t.lines {
-		for _, ts := range line {
-			w = math.Max(w, ts.dx+ts.width)
+		for _, span := range line {
+			w = math.Max(w, span.dx+span.width)
 		}
 	}
 	h = calcTextHeight(t.ff, len(t.lines))
@@ -143,7 +144,6 @@ func (t *Text) Bounds() (w, h float64) {
 func (t *Text) ToPath(x, y float64) *Path {
 	p := &Path{}
 	y -= t.dy
-	y -= t.ff.Metrics().Ascent
 	for _, line := range t.lines {
 		for _, span := range line {
 			p.Append(span.ToPath(x, y))
@@ -190,9 +190,39 @@ func (t *Text) splitAtBoundaries(x, y float64, f func(float64, float64, float64,
 	}
 }
 
-func (t *Text) ToSVG(x, y float64) string {
-	y += t.dy + t.ff.Metrics().Ascent
+func (t *Text) ToSVG(x, y, rot float64, c color.Color) string {
+	y += t.dy
+	name, style, size := t.ff.Info()
+
 	sb := strings.Builder{}
+	sb.WriteString("<text x=\"")
+	writeFloat64(&sb, x)
+	sb.WriteString("\" y=\"")
+	writeFloat64(&sb, y)
+	if rot != 0.0 {
+		sb.WriteString("\" transform=\"rotate(")
+		writeFloat64(&sb, -rot)
+		sb.WriteString(",")
+		writeFloat64(&sb, x)
+		sb.WriteString(",")
+		writeFloat64(&sb, y)
+		sb.WriteString(")")
+	}
+	sb.WriteString("\" font-family=\"")
+	sb.WriteString(name)
+	sb.WriteString("\" font-size=\"")
+	writeFloat64(&sb, size)
+	if style&Italic != 0 {
+		sb.WriteString("\" font-style=\"italic")
+	}
+	if style&Bold != 0 {
+		sb.WriteString("\" font-weight=\"bold")
+	}
+	if c != color.Black {
+		sb.WriteString("\" fill=\"")
+		writeCSSColor(&sb, c)
+	}
+	sb.WriteString("\">")
 	t.splitAtBoundaries(x, y, func(x, y, width float64, s string) {
 		sb.WriteString("<tspan x=\"")
 		writeFloat64(&sb, x)
@@ -206,6 +236,7 @@ func (t *Text) ToSVG(x, y float64) string {
 		sb.WriteString(s)
 		sb.WriteString("</tspan>")
 	})
+	sb.WriteString("</text>")
 	return sb.String()
 }
 
@@ -255,9 +286,7 @@ func newTextSpan(ff FontFace, s string, width float64, halign TextAlign) textSpa
 	wordSpacing := 0.0
 	glyphSpacing := 0.0
 	textWidth := ff.TextWidth(s)
-	if width == 0.0 {
-		width = textWidth
-	} else if halign == Right || halign == Center || halign == Justify {
+	if halign == Right || halign == Center || halign == Justify {
 		if halign == Right {
 			dx = width - textWidth
 		} else if halign == Center {
@@ -277,6 +306,9 @@ func newTextSpan(ff FontFace, s string, width float64, halign TextAlign) textSpa
 				glyphSpacing = math.Min(widthLeft/float64(glyphSpacings), ff.Metrics().XHeight*MaxGlyphSpacing)
 			}
 		}
+	}
+	if width == 0.0 {
+		width = textWidth
 	}
 	return textSpan{
 		ff:              ff,

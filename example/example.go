@@ -68,20 +68,20 @@ func main() {
 	c.WriteEPS(epsFile)
 }
 
-func drawText(c *canvas.C, x, y float64, size float64, text string) {
+func drawText(c *canvas.C, x, y float64, size float64, s string) {
 	face := dejaVuSerif.Face(size)
-
 	metrics := face.Metrics()
-	w, h := face.Bounds(text)
+	text := canvas.NewText(face, s)
+	w, h := text.Bounds()
 
 	c.SetColor(canvas.Gainsboro)
-	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.CapHeight, w, -h))
-	c.SetColor(color.RGBA{0, 0, 0, 100})
-	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.CapHeight, -2.5, -metrics.Height))
-	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, 0, -2.5, metrics.XHeight))
+	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.Ascent, w, -h))
+	c.SetColor(color.RGBA{0, 0, 0, 50})
+	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.Ascent, w, -metrics.LineHeight))
+	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.CapHeight, w, -metrics.CapHeight-metrics.Descent))
+	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.XHeight, w, -metrics.XHeight))
 
 	c.SetColor(canvas.Black)
-	c.SetFont(face)
 	c.DrawText(x, y, 0.0, text)
 }
 
@@ -89,8 +89,7 @@ func Draw(c *canvas.C) {
 	drawText(c, 10, 60, 12.0, "Aap noot mies\nwim zus teun")
 
 	face := dejaVuSerif.Face(30)
-	c.SetFont(face)
-	p := face.ToPath("Stroke")
+	p := canvas.NewText(face, "Stroke").ToPath(0.0, 0.0)
 	c.DrawPath(5, 10, 0.0, p.Stroke(1, canvas.RoundCapper, canvas.RoundJoiner))
 
 	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)

@@ -2,7 +2,6 @@ package canvas
 
 import (
 	"encoding/base64"
-	"fmt"
 	"io/ioutil"
 	"math"
 	"strings"
@@ -30,8 +29,6 @@ type Font struct {
 	sfnt  *sfnt.Font
 	name  string
 	style FontStyle
-
-	usedGlyphs map[rune]bool
 }
 
 // LoadLocalFont loads a font from the system fonts location.
@@ -59,12 +56,11 @@ func LoadFont(name string, style FontStyle, b []byte) (Font, error) {
 		return Font{}, err
 	}
 	return Font{
-		mimetype:   mimetype,
-		raw:        b,
-		sfnt:       sfnt,
-		name:       name,
-		style:      style,
-		usedGlyphs: map[rune]bool{},
+		mimetype: mimetype,
+		raw:      b,
+		sfnt:     sfnt,
+		name:     name,
+		style:    style,
 	}, nil
 }
 
@@ -78,12 +74,6 @@ func (f *Font) Face(size float64) FontFace {
 	}
 }
 
-func (f *Font) MarkUsed(s string) {
-	for _, r := range s {
-		f.usedGlyphs[r] = true
-	}
-}
-
 func (f *Font) ToDataURI() string {
 	sb := strings.Builder{}
 	sb.WriteString("data:")
@@ -92,47 +82,6 @@ func (f *Font) ToDataURI() string {
 	encoder := base64.NewEncoder(base64.StdEncoding, &sb)
 	encoder.Write(f.raw)
 	encoder.Close()
-	return sb.String()
-}
-
-func (f *Font) ToSVG() string {
-	sb := strings.Builder{}
-	sb.WriteString("<font>")
-	sb.WriteString("<font-face font-family=\"")
-	sb.WriteString(f.name)
-	if f.style&Italic != 0 {
-		sb.WriteString("\" font-style=\"italic")
-	}
-	if f.style&Bold != 0 {
-		sb.WriteString("\" font-weight=\"bold")
-	}
-	sb.WriteString("\" units-per-em=\"1000\">")
-
-	ff := f.Face(1000.0)
-	for r, _ := range f.usedGlyphs {
-		glyph, advance := ff.ToPath(r)
-		sb.WriteString("<glyph unicode=\"")
-		sb.WriteRune(r) // TODO: use XML character ref for non-ASCII
-		sb.WriteString("\" horiz-adv-x=\"")
-		fmt.Fprintf(&sb, "%.0g", advance)
-		sb.WriteString("\" d=\"")
-		sb.WriteString(glyph.ToSVG())
-		sb.WriteString("\">")
-	}
-
-	for r0, _ := range f.usedGlyphs {
-		for r1, _ := range f.usedGlyphs {
-			sb.WriteString("<hkern g1=\"")
-			sb.WriteRune(r0) // TODO: use XML character ref for non-ASCII
-			sb.WriteString("\" g2=\"")
-			sb.WriteRune(r1) // TODO: use XML character ref for non-ASCII
-			sb.WriteString("\" k=\"")
-			fmt.Fprintf(&sb, "%.0g", ff.Kerning(r0, r1))
-			sb.WriteString("\">")
-		}
-	}
-
-	sb.WriteString("</font>")
 	return sb.String()
 }
 
