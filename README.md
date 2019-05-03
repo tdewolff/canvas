@@ -1,6 +1,6 @@
 # Canvas <a name="canvas"></a> [![GoDoc](http://godoc.org/github.com/tdewolff/canvas?status.svg)](http://godoc.org/github.com/tdewolff/canvas)
 
-Canvas is a common vector drawing target that can output SVG, PDF, EPS and raster images (which can be saved as PNG, JPG, ...).
+Canvas is a common vector drawing target that can output SVG, PDF, EPS and raster images (which can be saved as PNG, JPG, ...). It can parse SVG path data or LaTeX into paths, with many path manipulation functionality (such as flattening, stroking and dashing). Text can be displayed using embedded fonts (TTF, OTF or WOFF) or by converting them to outlines. There is also functionality to align and indent text into a rectangle.
 
 ![Example](https://raw.githubusercontent.com/tdewolff/canvas/master/example/example.png)
 
@@ -62,8 +62,8 @@ ff.Metrics() Metrics                          // font metrics such as line heigh
 ff.ToPath(r rune) (p *Path, advance float64)  // convert rune to path and return advance
 ff.Kerning(r0, r1 rune) float64               // return kerning between runes
 
-text := NewText(ff, "string")                                    // simple text with newlines
-text := NewTextBox(ff, "string", width, height, halign, valign)  // split on word boundaries and specify text alignment
+text := NewText(ff, "string")                                            // simple text with newlines
+text := NewTextBox(ff, "string", width, height, halign, valign, indent)  // split on word boundaries and specify text alignment
 text.Bounds() (width, height float64)
 text.ToPath() *Path
 text.ToSVG() string  // convert to series of <tspan>
