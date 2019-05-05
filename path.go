@@ -690,17 +690,37 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 					}
 					T += dT
 				}
-			case QuadToCmd, CubeToCmd:
-				var c1, c2 Point
-				if cmd == QuadToCmd {
-					c := Point{p.d[i+1], p.d[i+2]}
-					c1, c2 = quadraticToCubicBezier(start, c, end)
-					end = Point{p.d[i+3], p.d[i+4]}
+			case QuadToCmd:
+				c := Point{p.d[i+1], p.d[i+2]}
+				end = Point{p.d[i+3], p.d[i+4]}
+
+				if j == len(ts) {
+					q.QuadTo(c.X, c.Y, end.X, end.Y)
 				} else {
-					c1 = Point{p.d[i+1], p.d[i+2]}
-					c2 = Point{p.d[i+3], p.d[i+4]}
-					end = Point{p.d[i+5], p.d[i+6]}
+					dT := quadraticBezierLength(start, c, end)
+
+					Tcurve, dTcurve := T, dT
+					r0, r1, r2 := start, c, end
+					for j < len(ts) && T < ts[j] && ts[j] <= T+dT {
+						tpos := (ts[j] - Tcurve) / dTcurve
+						_, c, _, r0, r1, r2 = splitQuadraticBezier(r0, r1, r2, tpos)
+						dTcurve = dT - (ts[j] - T)
+						Tcurve = ts[j]
+
+						q.QuadTo(c.X, c.Y, r0.X, r0.Y)
+						push()
+						q.MoveTo(r0.X, r0.Y)
+						j++
+					}
+					if Tcurve < T+dT {
+						q.QuadTo(r1.X, r1.Y, r2.X, r2.Y)
+					}
+					T += dT
 				}
+			case CubeToCmd:
+				c1 := Point{p.d[i+1], p.d[i+2]}
+				c2 := Point{p.d[i+3], p.d[i+4]}
+				end = Point{p.d[i+5], p.d[i+6]}
 
 				if j == len(ts) {
 					q.CubeTo(c1.X, c1.Y, c2.X, c2.Y, end.X, end.Y)
@@ -1317,10 +1337,10 @@ func (p *Path) ToPDF() string {
 		switch cmd {
 		case MoveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
-			fmt.Fprintf(&sb, " %.5g %.5g m", x, y)
+			fmt.Fprintf(&sb, " %.5f %.5f m", x, y)
 		case LineToCmd:
 			x, y = p.d[i+1], p.d[i+2]
-			fmt.Fprintf(&sb, " %.5g %.5g l", x, y)
+			fmt.Fprintf(&sb, " %.5f %.5f l", x, y)
 		case QuadToCmd, CubeToCmd:
 			var start, c1, c2 Point
 			start = Point{x, y}
@@ -1332,7 +1352,7 @@ func (p *Path) ToPDF() string {
 				c2 = Point{p.d[i+3], p.d[i+4]}
 				x, y = p.d[i+5], p.d[i+6]
 			}
-			fmt.Fprintf(&sb, " %.5g %.5g %.5g %.5g %.5g %.5g c", c1.X, c1.Y, c2.X, c2.Y, x, y)
+			fmt.Fprintf(&sb, " %.5f %.5f %.5f %.5f %.5f %.5f c", c1.X, c1.Y, c2.X, c2.Y, x, y)
 		case ArcToCmd:
 			panic("arcs should have been replaced")
 		case CloseCmd:

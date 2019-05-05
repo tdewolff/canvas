@@ -60,17 +60,17 @@ func drawStrokedPath(c *canvas.C, x, y, d float64, path string) {
 }
 
 func Draw(c *canvas.C) {
-	drawStrokedPath(c, 30, 50, 2.0, "M0 0L50 0")
-	drawStrokedPath(c, 30, 40, 2.0, "M0 0L50 0L50 -5")
-	drawStrokedPath(c, 30, 30, 2.0, "M-25 -25A25 25 0 0 1 0 0A25 25 0 0 1 25 -25z")
-	drawStrokedPath(c, 80, 30, 2.0, "M-35.35 -14.65A50 50 0 0 0 0 0A50 50 0 0 0 35.35 -14.65L-35.35 -14.65z")
-	drawStrokedPath(c, 140, 35, 2.0, "M-25 -30A50 50 0 0 1 0 0A50 50 0 0 1 25 -30L-25 -30z")
-	drawStrokedPath(c, 30, 70, 2.0, "M0 -25A25 25 0 0 1 0 0A25 25 0 0 1 0 -25z") // CCW
-	drawStrokedPath(c, 60, 70, 2.0, "M0 -25A25 25 0 0 0 0 0A25 25 0 0 0 0 -25z") // CW
-	drawStrokedPath(c, 90, 65, 2.0, "M0 -25A25 25 0 0 0 0 0A25 25 0 0 1 20 -25z")
-	drawStrokedPath(c, 140, 50, 4.0, "M0 0A20 20 0 0 0 40 0A10 10 0 0 1 20 0z")
-	drawStrokedPath(c, 170, 20, 2.0, "C10 -13.33 10 -13.33 20 0z")
-	drawStrokedPath(c, 170, 30, 2.0, "C10 13.33 10 13.33 20 0z")
+	//drawStrokedPath(c, 30, 50, 2.0, "M0 0L50 0")
+	//drawStrokedPath(c, 30, 40, 2.0, "M0 0L50 0L50 -5")
+	//drawStrokedPath(c, 30, 30, 2.0, "M-25 -25A25 25 0 0 1 0 0A25 25 0 0 1 25 -25z")
+	//drawStrokedPath(c, 80, 30, 2.0, "M-35.35 -14.65A50 50 0 0 0 0 0A50 50 0 0 0 35.35 -14.65L-35.35 -14.65z")
+	//drawStrokedPath(c, 140, 35, 2.0, "M-25 -30A50 50 0 0 1 0 0A50 50 0 0 1 25 -30L-25 -30z")
+	//drawStrokedPath(c, 30, 70, 2.0, "M0 -25A25 25 0 0 1 0 0A25 25 0 0 1 0 -25z") // CCW
+	//drawStrokedPath(c, 60, 70, 2.0, "M0 -25A25 25 0 0 0 0 0A25 25 0 0 0 0 -25z") // CW
+	//drawStrokedPath(c, 90, 65, 2.0, "M0 -25A25 25 0 0 0 0 0A25 25 0 0 1 20 -25z")
+	//drawStrokedPath(c, 140, 50, 4.0, "M0 0A20 20 0 0 0 40 0A10 10 0 0 1 20 0z")
+	//drawStrokedPath(c, 170, 20, 2.0, "C10 -13.33 10 -13.33 20 0z")
+	//drawStrokedPath(c, 170, 30, 2.0, "C10 13.33 10 13.33 20 0z")
 
 	// c.SetColor(canvas.LightGrey)
 	// c.DrawPath(20.0, 20.0, 0.0, canvas.Rectangle(0.0, 0.0, 160.0, 40.0))
@@ -79,4 +79,18 @@ func Draw(c *canvas.C) {
 	// ff := dejaVuSerif.Face(8.0)
 	// text := canvas.NewTextBox(ff, "Lorem ipsum dolor sid amet, confiscusar patria est gravus repara sid ipsum. Apare tu garage.", 160.0, 40.0, canvas.Justify, canvas.Justify, 140.0)
 	// c.DrawText(20, 60-ff.Metrics().Ascent, 0.0, text)
+
+	p, _ := canvas.ParseSVG("Q50 50 100 0")
+	fmt.Println(p.Length())
+
+	ps := p.SplitAt(57.4)
+
+	ps[0].Close()
+	c.DrawPath(0, 50, 0, ps[0])
+
+	ps[1].Close()
+	c.DrawPath(100, 50, 0, ps[1])
+
+	p.Close()
+	c.DrawPath(0, 0, 0, p)
 }

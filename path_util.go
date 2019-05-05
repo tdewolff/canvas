@@ -336,6 +336,18 @@ func quadraticBezierLength(p0, p1, p2 Point) float64 {
 	return (A_32*Sabc + A_2*B*(Sabc-C_2) + (4.0*C*A-B*B)*math.Log((2.0*A_2+BA+Sabc)/(BA+C_2))) / (4.0 * A_32)
 }
 
+func splitQuadraticBezier(p0, p1, p2 Point, t float64) (Point, Point, Point, Point, Point, Point) {
+	q0 := p0
+	q1 := p0.Interpolate(p1, t)
+
+	r2 := p2
+	r1 := p1.Interpolate(p2, t)
+
+	r0 := q1.Interpolate(r1, t)
+	q2 := r0
+	return q0, q1, q2, r0, r1, r2
+}
+
 func cubicBezierPos(p0, p1, p2, p3 Point, t float64) Point {
 	p0 = p0.Mul((1 - t) * (1 - t) * (1 - t))
 	p1 = p1.Mul(3 * t * (1 - t) * (1 - t))
