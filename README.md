@@ -4,6 +4,25 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS and raste
 
 ![Example](https://raw.githubusercontent.com/tdewolff/canvas/master/example/example.png)
 
+Terminology: a path is a sequence of drawing commands (MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close) that completely describe a path. QuadTo and CubeTo are quadratic and cubic Beziérs respectively, ArcTo is an elliptical arc, and Close is a LineTo to the last MoveTo command and closes the path (sometimes this has a special meaning such as when stroking). A path can consist of several path segments by having multiple MoveTos, Closes, or the pair of Close and MoveTo. Flattening is the action of converting the QuadTo, CubeTo and ArcTo commands into LineTos.
+
+
+## Status
+### Path
+| Command | Flatten | Stroke | Length | SplitAt |
+| ------- | ------- | ------ | ------ | ------- |
+| LineTo  | yes     | yes    | yes    | yes     |
+| QuadTo  | yes (cubic) | yes (cubic) | yes | yes (cubic) |
+| CubeTo  | yes     | yes    | yes (Gauss-Legendre n=5) | yes |
+| ArcTo   | yes (imprecise) | yes | yes (Gauss-Legendre n=5) | no (is flattened) |
+
+* Ellipse => Cubic Beziér: used by rasterizer and PDF targets (imprecise)
+* Cubic Beziér => Ellipse: could be used by Stroke to increase precision and reduce the number of commands, but this is much work with little gain
+
+NB: Length and SplitAt are needed for Dash
+NB: QuadTo can easily be converted into CubeTo, but there may be some properties in the quadratic Beziérs that could speed up calculations
+NB: Gauss-Legendre is an numerical approximation as there is no analytical solution
+
 
 ## Planning
 Features that are planned to be implemented in the future. Also see the TODOs in the code.
@@ -148,8 +167,7 @@ Where the provided string gets inserted into the following document template:
 
 
 ## Example
-See https://github.com/tdewolff/canvas/tree/master/example for a working example, including fonts. Note that for PDFs you need to pre-compile fonts using `makefont` installed by `go install github.com/jung-kurt/gofpdf/makefont` and then compile them by running `makefont --embed --enc=cp1252.map DejaVuSerif.ttf`.
-
+See https://github.com/tdewolff/canvas/tree/master/example for a working example, including fonts.
 
 ## License
 Released under the [MIT license](LICENSE.md).

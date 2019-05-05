@@ -261,161 +261,209 @@ func arcsJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 f
 	}
 }
 
-func strokeJoin(rhs, lhs *Path, jr Joiner, halfWidth float64, start, n1Prev, n0 Point, radius1Prev, radius0 float64, first *bool, n0First *Point, radius0First *float64) {
-	if !*first {
-		jr.Join(rhs, lhs, halfWidth, start, n1Prev, n0, radius1Prev, radius0)
-	} else {
-		rStart := start.Add(n0)
-		lStart := start.Sub(n0)
-		rhs.MoveTo(rStart.X, rStart.Y)
-		lhs.MoveTo(lStart.X, lStart.Y)
-		*n0First = n0
-		*radius0First = radius0
-		*first = false
+type pathState struct {
+	cmd    float64
+	p0, p1 Point   // position of start and end
+	n0, n1 Point   // normal of start and end
+	r0, r1 float64 // radius of start and end
+
+	cp1, cp2                    Point   // Beziérs
+	rx, ry, rot, theta0, theta1 float64 // arcs
+	largeArc, sweep             bool    // arcs
+}
+
+// offsetSegment returns the rhs and lhs paths from offsetting a path segment
+// it closes rhs and lhs when p is closed as well
+func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Path) {
+	closed := false
+	states := []pathState{}
+	var start, end Point
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		switch cmd {
+		case MoveToCmd:
+			end = Point{p.d[i+1], p.d[i+2]}
+		case LineToCmd:
+			end = Point{p.d[i+1], p.d[i+2]}
+			n := end.Sub(start).Rot90CW().Norm(halfWidth)
+			states = append(states, pathState{
+				cmd: LineToCmd,
+				p0:  start,
+				p1:  end,
+				n0:  n,
+				n1:  n,
+				r0:  math.NaN(),
+				r1:  math.NaN(),
+			})
+		case QuadToCmd, CubeToCmd:
+			var cp1, cp2 Point
+			if cmd == QuadToCmd {
+				c := Point{p.d[i+1], p.d[i+2]}
+				end = Point{p.d[i+3], p.d[i+4]}
+				cp1, cp2 = quadraticToCubicBezier(start, c, end)
+			} else {
+				cp1 = Point{p.d[i+1], p.d[i+2]}
+				cp2 = Point{p.d[i+3], p.d[i+4]}
+				end = Point{p.d[i+5], p.d[i+6]}
+			}
+			n0 := cubicBezierNormal(start, cp1, cp2, end, 0.0, halfWidth)
+			n1 := cubicBezierNormal(start, cp1, cp2, end, 1.0, halfWidth)
+			r0 := cubicBezierRadius(start, cp1, cp2, end, 0.0)
+			r1 := cubicBezierRadius(start, cp1, cp2, end, 1.0)
+			states = append(states, pathState{
+				cmd: CubeToCmd,
+				p0:  start,
+				p1:  end,
+				n0:  n0,
+				n1:  n1,
+				r0:  r0,
+				r1:  r1,
+				cp1: cp1,
+				cp2: cp2,
+			})
+		case ArcToCmd:
+			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
+			largeArc, sweep := fromArcFlags(p.d[i+4])
+			end = Point{p.d[i+5], p.d[i+6]}
+			_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
+			n0 := ellipseNormal(theta0, phi, sweep, halfWidth)
+			n1 := ellipseNormal(theta1, phi, sweep, halfWidth)
+			r0 := ellipseRadius(theta0, rx, ry, phi, sweep)
+			r1 := ellipseRadius(theta1, rx, ry, phi, sweep)
+			states = append(states, pathState{
+				cmd:      ArcToCmd,
+				p0:       start,
+				p1:       end,
+				n0:       n0,
+				n1:       n1,
+				r0:       r0,
+				r1:       r1,
+				rx:       rx,
+				ry:       ry,
+				rot:      phi * 180.0 / math.Pi,
+				theta0:   theta0,
+				theta1:   theta1,
+				largeArc: largeArc,
+				sweep:    sweep,
+			})
+		case CloseCmd:
+			end = Point{p.d[i+1], p.d[i+2]}
+			if !equal(start.X, end.X) || !equal(start.Y, end.Y) {
+				n := end.Sub(start).Rot90CW().Norm(halfWidth)
+				states = append(states, pathState{
+					cmd: CloseCmd,
+					p0:  start,
+					p1:  end,
+					n0:  n,
+					n1:  n,
+					r0:  math.NaN(),
+					r1:  math.NaN(),
+				})
+			}
+			closed = true
+		}
+		start = end
+		i += cmdLen(cmd)
 	}
+	if len(states) == 0 || len(states) == 1 && states[0].cmd == CloseCmd {
+		return nil, nil
+	}
+
+	rhs, lhs := &Path{}, &Path{}
+	rStart := states[0].p0.Add(states[0].n0)
+	lStart := states[0].p0.Sub(states[0].n0)
+	rhs.MoveTo(rStart.X, rStart.Y)
+	lhs.MoveTo(lStart.X, lStart.Y)
+
+	// TODO: fix if there is no space for Joiner when stroke is too thick
+	for i, cur := range states {
+		switch cur.cmd {
+		case LineToCmd:
+			rEnd := cur.p1.Add(cur.n1)
+			lEnd := cur.p1.Sub(cur.n1)
+			rhs.LineTo(rEnd.X, rEnd.Y)
+			lhs.LineTo(lEnd.X, lEnd.Y)
+		case CubeToCmd:
+			rhs.Join(strokeCubicBezier(cur.p0, cur.cp1, cur.cp2, cur.p1, halfWidth, Tolerance))
+			lhs.Join(strokeCubicBezier(cur.p0, cur.cp1, cur.cp2, cur.p1, -halfWidth, Tolerance))
+		case ArcToCmd:
+			rEnd := cur.p1.Add(cur.n1)
+			lEnd := cur.p1.Sub(cur.n1)
+			if !cur.sweep { // bend to the right, ie. CW
+				rhs.ArcTo(cur.rx-halfWidth, cur.ry-halfWidth, cur.rot, cur.largeArc, cur.sweep, rEnd.X, rEnd.Y)
+				lhs.ArcTo(cur.rx+halfWidth, cur.ry+halfWidth, cur.rot, cur.largeArc, cur.sweep, lEnd.X, lEnd.Y)
+			} else { // bend to the left, ie. CCW
+				rhs.ArcTo(cur.rx+halfWidth, cur.ry+halfWidth, cur.rot, cur.largeArc, cur.sweep, rEnd.X, rEnd.Y)
+				lhs.ArcTo(cur.rx-halfWidth, cur.ry-halfWidth, cur.rot, cur.largeArc, cur.sweep, lEnd.X, lEnd.Y)
+			}
+		case CloseCmd:
+			rEnd := cur.p1.Add(cur.n1)
+			lEnd := cur.p1.Sub(cur.n1)
+			rhs.LineTo(rEnd.X, rEnd.Y)
+			lhs.LineTo(lEnd.X, lEnd.Y)
+		}
+
+		if i+1 < len(states) || closed {
+			var next pathState
+			if i+1 < len(states) {
+				next = states[i+1]
+			} else {
+				next = states[0]
+			}
+			jr.Join(rhs, lhs, halfWidth, cur.p1, cur.n1, next.n0, cur.r1, next.r0)
+		}
+	}
+	lhs = lhs.Reverse()
+	if closed {
+		rhs.Close()
+		lhs.Close()
+		return rhs, lhs
+	}
+	cr.Cap(rhs, halfWidth, states[len(states)-1].p1, states[len(states)-1].n1)
+	rhs.Join(lhs)
+	cr.Cap(rhs, halfWidth, states[0].p0, states[0].n0.Neg())
+	rhs.Close()
+	return rhs, nil
+}
+
+// Offset offsets the path to expand by w. If w is negative it will contract (buggy).
+func (p *Path) Offset(w float64) *Path {
+	if w == 0.0 {
+		return p
+	}
+
+	q := &Path{}
+	expand := w > 0.0
+	for _, ps := range p.Split() {
+		if !ps.Closed() {
+			continue
+		}
+		rhs, lhs := offsetSegment(p, w, ButtCapper, RoundJoiner)
+		if rhs != nil { // lhs is also nil, as path is closed
+			if expand == ps.CCW() {
+				q.Append(rhs)
+			} else {
+				q.Append(lhs)
+			}
+		}
+	}
+	return q
 }
 
 // Stroke converts a path into a stroke of width w. It uses cr to cap the start and end of the path, and jr to
 // join all path elemtents. If the path closes itself, it will use a join between the start and end instead of capping them.
 // The tolerance is the maximum deviation from the original path when flattening Beziers and optimizing the stroke.
-// TODO: refactor
-// TODO: fix if there is no space for Joiner when stroke is too thick
 func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 	sp := &Path{}
 	halfWidth := w / 2.0
-	for _, p = range p.Split() {
-		ret := &Path{}
-		first := true
-		closed := false
-
-		// n0 is the 'normal' at the beginning of a path command
-		// n1 is the 'normal' at the end of a path command
-		// Join and Cap are performed as we process the next path command
-		//   Join joins from n1Prev to n0
-		//   Cap caps from n1Prev
-
-		var startFirst, start, end Point
-		var n0First, n1Prev, n0, n1 Point
-		var radius0First, radius1Prev, radius0, radius1 float64
-		for i := 0; i < len(p.d); {
-			cmd := p.d[i]
-			switch cmd {
-			case MoveToCmd:
-				end = Point{p.d[i+1], p.d[i+2]}
-				startFirst = end
-			case LineToCmd:
-				end = Point{p.d[i+1], p.d[i+2]}
-				n0 = end.Sub(start).Rot90CW().Norm(halfWidth)
-				n1 = n0
-				radius0 = math.NaN()
-				radius1 = math.NaN()
-
-				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, radius1Prev, radius0, &first, &n0First, &radius0First)
-
-				rEnd := end.Add(n1)
-				lEnd := end.Sub(n1)
-				sp.LineTo(rEnd.X, rEnd.Y)
-				ret.LineTo(lEnd.X, lEnd.Y)
-			case QuadToCmd:
-				c := Point{p.d[i+1], p.d[i+2]}
-				end = Point{p.d[i+3], p.d[i+4]}
-				// TODO: is using quad functions faster?
-				c1 := start.Interpolate(c, 2.0/3.0)
-				c2 := end.Interpolate(c, 2.0/3.0)
-				n0 = cubicBezierNormal(start, c1, c2, end, 0.0).Norm(halfWidth)
-				n1 = cubicBezierNormal(start, c1, c2, end, 1.0).Norm(halfWidth)
-				radius0 = cubicBezierRadiusAt(start, c1, c2, end, 0.0)
-				radius1 = cubicBezierRadiusAt(start, c1, c2, end, 1.0)
-
-				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, radius1Prev, radius0, &first, &n0First, &radius0First)
-
-				rhs := strokeCubicBezier(start, c1, c2, end, halfWidth, Tolerance)
-				lhs := strokeCubicBezier(start, c1, c2, end, -halfWidth, Tolerance)
-				sp.Join(rhs)
-				ret.Join(lhs)
-			case CubeToCmd:
-				c1 := Point{p.d[i+1], p.d[i+2]}
-				c2 := Point{p.d[i+3], p.d[i+4]}
-				end = Point{p.d[i+5], p.d[i+6]}
-				n0 = cubicBezierNormal(start, c1, c2, end, 0.0).Norm(halfWidth)
-				n1 = cubicBezierNormal(start, c1, c2, end, 1.0).Norm(halfWidth)
-				radius0 = cubicBezierRadiusAt(start, c1, c2, end, 0.0)
-				radius1 = cubicBezierRadiusAt(start, c1, c2, end, 1.0)
-
-				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, radius1Prev, radius0, &first, &n0First, &radius0First)
-
-				rhs := strokeCubicBezier(start, c1, c2, end, halfWidth, Tolerance)
-				lhs := strokeCubicBezier(start, c1, c2, end, -halfWidth, Tolerance)
-				sp.Join(rhs)
-				ret.Join(lhs)
-			case ArcToCmd:
-				rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
-				largeAngle, sweep := fromArcFlags(p.d[i+4])
-				end = Point{p.d[i+5], p.d[i+6]}
-				_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeAngle, sweep, end.X, end.Y)
-				n0 = ellipseNormal(theta0, phi).Norm(halfWidth)
-				n1 = ellipseNormal(theta1, phi).Norm(halfWidth)
-				if !sweep { // CW
-					n0 = n0.Neg()
-					n1 = n1.Neg()
-				}
-				radius0 = ellipseRadiusAt(theta0, rx, ry, phi, sweep)
-				radius1 = ellipseRadiusAt(theta1, rx, ry, phi, sweep)
-
-				strokeJoin(sp, ret, jr, halfWidth, start, n1Prev, n0, radius1Prev, radius0, &first, &n0First, &radius0First)
-
-				rEnd := end.Add(n1)
-				lEnd := end.Sub(n1)
-				if !sweep { // bend to the right, ie. CW
-					sp.ArcTo(rx-halfWidth, ry-halfWidth, phi*180.0/math.Pi, largeAngle, sweep, rEnd.X, rEnd.Y)
-					ret.ArcTo(rx+halfWidth, ry+halfWidth, phi*180.0/math.Pi, largeAngle, sweep, lEnd.X, lEnd.Y)
-				} else { // bend to the left, ie. CCW
-					sp.ArcTo(rx+halfWidth, ry+halfWidth, phi*180.0/math.Pi, largeAngle, sweep, rEnd.X, rEnd.Y)
-					ret.ArcTo(rx-halfWidth, ry-halfWidth, phi*180.0/math.Pi, largeAngle, sweep, lEnd.X, lEnd.Y)
-				}
-			case CloseCmd:
-				end = Point{p.d[i+1], p.d[i+2]}
-				if !equal(start.X, end.X) || !equal(start.Y, end.Y) {
-					n1 = end.Sub(start).Rot90CW().Norm(halfWidth)
-					radius1 = math.NaN()
-					if !first {
-						jr.Join(sp, ret, halfWidth, start, n1Prev, n1, radius1Prev, radius1)
-						rEnd := end.Add(n1)
-						lEnd := end.Sub(n1)
-						sp.LineTo(rEnd.X, rEnd.Y)
-						ret.LineTo(lEnd.X, lEnd.Y)
-					}
-
-					rEnd := end.Add(n1)
-					lEnd := end.Sub(n1)
-					sp.LineTo(rEnd.X, rEnd.Y)
-					ret.LineTo(lEnd.X, lEnd.Y)
-				}
-				closed = true
-			}
-			start = end
-			n1Prev = n1
-			radius1Prev = radius1
-			i += cmdLen(cmd)
+	for _, ps := range p.Split() {
+		rhs, lhs := offsetSegment(ps, halfWidth, cr, jr)
+		if rhs != nil {
+			sp.Append(rhs)
 		}
-		if first {
-			continue
+		if lhs != nil {
+			sp.Append(lhs)
 		}
-
-		if !closed {
-			cr.Cap(sp, halfWidth, start, n1Prev)
-		} else {
-			jr.Join(sp, ret, halfWidth, start, n1Prev, n0First, radius1Prev, radius0First)
-			// close path and move to inverse path (which runs the other way around to negate the other)
-			invStart := start.Sub(n0First)
-			sp.Close()
-			sp.MoveTo(invStart.X, invStart.Y)
-		}
-		sp.Join(ret.Reverse())
-		if !closed {
-			cr.Cap(sp, halfWidth, startFirst, n0First.Neg())
-		}
-		sp.Close()
 	}
 	return sp
 }

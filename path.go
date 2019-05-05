@@ -68,6 +68,16 @@ func (p *Path) Empty() bool {
 	return len(p.d) == 0
 }
 
+// Closed returns true if the last segment in p is a closed path.
+func (p *Path) Closed() bool {
+	var cmd float64
+	for i := p.i0; i < len(p.d); {
+		cmd = p.d[i]
+		i += cmdLen(cmd)
+	}
+	return cmd == CloseCmd
+}
+
 // Copy returns a copy of p.
 func (p *Path) Copy() *Path {
 	q := &Path{}
@@ -299,7 +309,7 @@ func (p *Path) Bounds() Rect {
 			tdenom := (start.X - 2*c.X + end.X)
 			if tdenom != 0.0 {
 				t := (start.X - c.X) / tdenom
-				x := quadraticBezierAt(start, c, end, t)
+				x := quadraticBezierPos(start, c, end, t)
 				xmin = math.Min(xmin, x.X)
 				xmax = math.Max(xmax, x.X)
 			}
@@ -309,7 +319,7 @@ func (p *Path) Bounds() Rect {
 			tdenom = (start.Y - 2*c.Y + end.Y)
 			if tdenom != 0.0 {
 				t := (start.Y - c.Y) / tdenom
-				y := quadraticBezierAt(start, c, end, t)
+				y := quadraticBezierPos(start, c, end, t)
 				ymin = math.Min(ymin, y.Y)
 				ymax = math.Max(ymax, y.Y)
 			}
@@ -326,12 +336,12 @@ func (p *Path) Bounds() Rect {
 			xmin = math.Min(xmin, end.X)
 			xmax = math.Max(xmax, end.X)
 			if !math.IsNaN(t1) {
-				x1 := cubicBezierAt(start, c1, c2, end, t1)
+				x1 := cubicBezierPos(start, c1, c2, end, t1)
 				xmin = math.Min(xmin, x1.X)
 				xmax = math.Max(xmax, x1.X)
 			}
 			if !math.IsNaN(t2) {
-				x2 := cubicBezierAt(start, c1, c2, end, t2)
+				x2 := cubicBezierPos(start, c1, c2, end, t2)
 				xmin = math.Min(xmin, x2.X)
 				xmax = math.Max(xmax, x2.X)
 			}
@@ -344,12 +354,12 @@ func (p *Path) Bounds() Rect {
 			ymin = math.Min(ymin, end.Y)
 			ymax = math.Max(ymax, end.Y)
 			if !math.IsNaN(t1) {
-				y1 := cubicBezierAt(start, c1, c2, end, t1)
+				y1 := cubicBezierPos(start, c1, c2, end, t1)
 				ymin = math.Min(ymin, y1.Y)
 				ymax = math.Max(ymax, y1.Y)
 			}
 			if !math.IsNaN(t2) {
-				y2 := cubicBezierAt(start, c1, c2, end, t2)
+				y2 := cubicBezierPos(start, c1, c2, end, t2)
 				ymin = math.Min(ymin, y2.Y)
 				ymax = math.Max(ymax, y2.Y)
 			}

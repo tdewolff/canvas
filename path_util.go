@@ -107,25 +107,6 @@ func gaussLegendre5(f func(float64) float64, a, b float64) float64 {
 
 ////////////////////////////////////////////////////////////////
 
-type Shape interface {
-	Pos(float64) Point
-	Deriv(float64) Point
-	Deriv2(float64) Point
-	Speed(float64) Point
-	Radius(float64) Point
-	Normal(float64) Point
-	Length() float64
-}
-
-func NewShape(d []float64) {
-
-}
-
-type ellipseShape struct {
-	rx, ry, phi            float64
-	cx, cy, theta0, theta1 float64
-}
-
 // ellipseToEndpoints converts to the endpoint arc format and returns (startX, startY, largeArc, sweep, endX, endY)
 // see https://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
 //func ellipseToEndpoint(cx, cy, rx, ry, rot, theta1, theta2 float64) (float64, float64, bool, bool, float64, float64) {
@@ -138,6 +119,75 @@ type ellipseShape struct {
 //	sweep := (theta2 - theta1) > 0.0
 //	return x1, y1, largeArc, sweep, x2, y2
 //}
+
+func ellipsePos(theta, rx, ry, phi float64) Point {
+	sintheta, costheta := math.Sincos(theta)
+	sinphi, cosphi := math.Sincos(phi)
+	x := rx*costheta*cosphi - ry*sintheta*sinphi
+	y := rx*costheta*sinphi + ry*sintheta*cosphi
+	return Point{x, y}
+}
+
+func ellipseDeriv(theta, rx, ry, phi float64, sweep bool) Point {
+	sintheta, costheta := math.Sincos(theta)
+	sinphi, cosphi := math.Sincos(phi)
+	dx := -rx*sintheta*cosphi - ry*costheta*sinphi
+	dy := -rx*sintheta*sinphi + ry*costheta*cosphi
+	if !sweep {
+		return Point{-dx, -dy}
+	}
+	return Point{dx, dy}
+}
+
+func ellipseDeriv2(theta, rx, ry, phi float64, sweep bool) Point {
+	sintheta, costheta := math.Sincos(theta)
+	sinphi, cosphi := math.Sincos(phi)
+	ddx := -rx*costheta*cosphi + ry*sintheta*sinphi
+	ddy := -rx*costheta*sinphi - ry*sintheta*cosphi
+	return Point{ddx, ddy}
+}
+
+func ellipseRadius(theta, rx, ry, phi float64, sweep bool) float64 {
+	dp := ellipseDeriv(theta, rx, ry, phi, sweep)
+	ddp := ellipseDeriv2(theta, rx, ry, phi, sweep)
+	a := dp.PerpDot(ddp)
+	if equal(a, 0.0) {
+		return math.NaN()
+	}
+	return math.Pow(dp.X*dp.X+dp.Y*dp.Y, 1.5) / a
+}
+
+// ellipseNormal returns the normal to the right at angle theta of the ellipse, given rotation phi.
+func ellipseNormal(theta, phi float64, sweep bool, d float64) Point {
+	theta += phi
+	y, x := math.Sincos(theta)
+	n := Point{x, y}
+	if !sweep { // CW
+		n = n.Neg()
+	}
+	return n.Norm(d)
+}
+
+func ellipseSpeed(theta, rx, ry float64) float64 {
+	// phi and sweep have no influence
+	sintheta, costheta := math.Sincos(theta)
+	dx := rx * costheta
+	dy := ry * sintheta
+	return math.Sqrt(dx*dx + dy*dy)
+}
+
+// ellipseLength calculates the length of the elliptical arc
+// it uses Gauss-Legendre (n=5) and has an error of ~1% or less (empirical)
+func ellipseLength(start Point, rx, ry, phi float64, largeArc, sweep bool, end Point) float64 {
+	_, _, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
+	if theta2 < theta1 {
+		theta1, theta2 = theta2, theta1
+	}
+	speed := func(theta float64) float64 {
+		return ellipseSpeed(theta, rx, ry)
+	}
+	return gaussLegendre5(speed, theta1, theta2)
+}
 
 // ellipseToCenter converts to the center arc format and returns (centerX, centerY, angleFrom, angleTo) with angles in radians.
 // when angleFrom with range [0, 2*PI) is bigger than angleTo with range (-2*PI, 4*PI), the ellipse runs clockwise. The angles are from before the ellipse has been stretched and rotated.
@@ -197,82 +247,23 @@ func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 floa
 	return cx, cy, theta, theta + delta
 }
 
-// ellipseLength calculates the length of the elliptical arc
-// it uses Gauss-Legendre (n=5) and has an error of ~1% or less (empirical)
-func ellipseLength(start Point, rx, ry, phi float64, largeArc, sweep bool, end Point) float64 {
-	_, _, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
-	if theta2 < theta1 {
-		theta1, theta2 = theta2, theta1
-	}
-	speed := func(theta float64) float64 { return ellipseSpeedAt(theta, rx, ry) }
-	length := gaussLegendre5(speed, theta1, theta2)
-	return length
-}
-
-func ellipseAt(theta, rx, ry, phi float64) Point {
-	sintheta, costheta := math.Sincos(theta)
-	sinphi, cosphi := math.Sincos(phi)
-	x := rx*costheta*cosphi - ry*sintheta*sinphi
-	y := rx*costheta*sinphi + ry*sintheta*cosphi
-	return Point{x, y}
-}
-
-func ellipseDerivAt(theta, rx, ry, phi float64) Point {
-	sintheta, costheta := math.Sincos(theta)
-	sinphi, cosphi := math.Sincos(phi)
-	dx := -rx*sintheta*cosphi - ry*costheta*sinphi
-	dy := -rx*sintheta*sinphi + ry*costheta*cosphi
-	return Point{dx, dy}
-}
-
-func ellipseDerivDerivAt(theta, rx, ry, phi float64) Point {
-	sintheta, costheta := math.Sincos(theta)
-	sinphi, cosphi := math.Sincos(phi)
-	ddx := -rx*costheta*cosphi + ry*sintheta*sinphi
-	ddy := -rx*costheta*sinphi - ry*sintheta*cosphi
-	return Point{ddx, ddy}
-}
-
-func ellipseRadiusAt(theta, rx, ry, phi float64, sweep bool) float64 {
-	dp := ellipseDerivAt(theta, rx, ry, phi)
-	ddp := ellipseDerivDerivAt(theta, rx, ry, phi)
-	if equal(dp.X*ddp.Y-dp.Y*ddp.X, 0.0) {
-		return math.NaN()
-	}
-	sign := 1.0
-	if !sweep {
-		sign = -1.0
-	}
-	return sign * math.Pow(dp.X*dp.X+dp.Y*dp.Y, 1.5) / math.Abs(dp.X*ddp.Y-dp.Y*ddp.X)
-}
-
-// ellipseNormal returns the normal at angle theta of the ellipse, given rotation phi.
-// TODO: use DerivDerivAt?
-func ellipseNormal(theta, phi float64) Point {
-	theta += phi
-	y, x := math.Sincos(theta)
-	return Point{x, y}
-}
-
-// TODO: use DerivAt?
-func ellipseSpeedAt(theta, rx, ry float64) float64 {
-	sintheta, costheta := math.Sincos(theta)
-	dx := rx * costheta
-	dy := ry * sintheta
-	return math.Sqrt(dx*dx + dy*dy)
-}
-
 func splitEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) (Point, bool, bool, bool, bool) {
 	panic("not implemented") // TODO
 }
 
+// from https://github.com/fogleman/gg/blob/master/context.go#L485
 func ellipseToBeziers(start Point, rx, ry, phi float64, largeArc, sweep bool, end Point) *Path {
 	p := &Path{}
 	cx, cy, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
 
 	// TODO: improve: use dynamic step size, tolerance and maybe cubic Beziers
 	// use https://blogs.datalogics.com/2018/09/24/svg-to-pdf-part-2-drawing-arcs/ ?
-	// from https://github.com/fogleman/gg/blob/master/context.go#L485
+	// ie. https://dxr.mozilla.org/mozilla-central/source/dom/svg/SVGPathDataParser.cpp#359
+	// also check https://github.com/srwiley/rasterx/blob/master/shapes.go#L99 with reference to:
+	// Approximate the ellipse using a set of cubic bezier curves by the method of
+	// L. Maisonobe, "Drawing an elliptical arc using polylines, quadratic
+	// or cubic Bezier curves", 2003, https://www.spaceroots.org/documents/elllipse/elliptical-arc.pdf
+
 	const n = 16
 	sinphi, cosphi := math.Sincos(phi)
 	for i := 0; i < n; i++ {
@@ -322,6 +313,13 @@ func quadraticToCubicBezier(start, c, end Point) (Point, Point) {
 	return c1, c2
 }
 
+func quadraticBezierPos(p0, p1, p2 Point, t float64) Point {
+	p0 = p0.Mul((1 - t) * (1 - t))
+	p1 = p1.Mul(2 * t * (1 - t))
+	p2 = p2.Mul(t * t)
+	return p0.Add(p1).Add(p2)
+}
+
 // see https://malczak.linuxpl.com/blog/quadratic-bezier-curve-length/
 func quadraticBezierLength(p0, p1, p2 Point) float64 {
 	a := p0.Sub(p1.Mul(2.0)).Add(p2)
@@ -338,13 +336,69 @@ func quadraticBezierLength(p0, p1, p2 Point) float64 {
 	return (A_32*Sabc + A_2*B*(Sabc-C_2) + (4.0*C*A-B*B)*math.Log((2.0*A_2+BA+Sabc)/(BA+C_2))) / (4.0 * A_32)
 }
 
-// TODO: remove and use DerivAt?
-func cubicBezierSpeedAt(p0, p1, p2, p3 Point, t float64) float64 {
+func cubicBezierPos(p0, p1, p2, p3 Point, t float64) Point {
+	p0 = p0.Mul((1 - t) * (1 - t) * (1 - t))
+	p1 = p1.Mul(3 * t * (1 - t) * (1 - t))
+	p2 = p2.Mul(3 * t * t * (1 - t))
+	p3 = p3.Mul(t * t * t)
+	return p0.Add(p1).Add(p2).Add(p3)
+}
+
+func cubicBezierDeriv(p0, p1, p2, p3 Point, t float64) Point {
 	p0 = p0.Mul(-3.0 + 6.0*t - 3.0*t*t)
 	p1 = p1.Mul(3.0 - 12.0*t + 9.0*t*t)
 	p2 = p2.Mul(6.0*t - 9.0*t*t)
 	p3 = p3.Mul(3.0 * t * t)
-	return p0.Add(p1).Add(p2).Add(p3).Length()
+	return p0.Add(p1).Add(p2).Add(p3)
+}
+
+func cubicBezierDeriv2(p0, p1, p2, p3 Point, t float64) Point {
+	p0 = p0.Mul(6.0 - 6.0*t)
+	p1 = p1.Mul(18.0*t - 12.0)
+	p2 = p2.Mul(6.0 - 18.0*t)
+	p3 = p3.Mul(6.0 * t)
+	return p0.Add(p1).Add(p2).Add(p3)
+}
+
+// negative when curve bends CW while following t
+func cubicBezierRadius(p0, p1, p2, p3 Point, t float64) float64 {
+	dp := cubicBezierDeriv(p0, p1, p2, p3, t)
+	ddp := cubicBezierDeriv2(p0, p1, p2, p3, t)
+	a := dp.PerpDot(ddp) // negative when bending right ie. curve is CW at this point
+	if equal(a, 0.0) {
+		return math.NaN()
+	}
+	return math.Pow(dp.X*dp.X+dp.Y*dp.Y, 1.5) / a
+}
+
+// return the normal at the right-side of the curve (when increasing t)
+func cubicBezierNormal(p0, p1, p2, p3 Point, t, d float64) Point {
+	if t == 0.0 {
+		n := p1.Sub(p0)
+		if n.X == 0 && n.Y == 0 {
+			n = p2.Sub(p0)
+		}
+		if n.X == 0 && n.Y == 0 {
+			n = p3.Sub(p0)
+		}
+		if n.X == 0 && n.Y == 0 {
+			return Point{}
+		}
+		return n.Rot90CW().Norm(d)
+	} else if t == 1.0 {
+		n := p3.Sub(p2)
+		if n.X == 0 && n.Y == 0 {
+			n = p3.Sub(p1)
+		}
+		if n.X == 0 && n.Y == 0 {
+			n = p3.Sub(p0)
+		}
+		if n.X == 0 && n.Y == 0 {
+			return Point{}
+		}
+		return n.Rot90CW().Norm(d)
+	}
+	panic("not implemented")
 }
 
 // cubicBezierLength calculates the length of the Beziér, taking care of inflection points
@@ -369,8 +423,10 @@ func cubicBezierLength(p0, p1, p2, p3 Point) float64 {
 
 	length := 0.0
 	for _, bezier := range beziers {
-		deriv := func(t float64) float64 { return cubicBezierSpeedAt(bezier[0], bezier[1], bezier[2], bezier[3], t) }
-		length += gaussLegendre5(deriv, 0.0, 1.0)
+		speed := func(t float64) float64 {
+			return cubicBezierDeriv(bezier[0], bezier[1], bezier[2], bezier[3], t).Length()
+		}
+		length += gaussLegendre5(speed, 0.0, 1.0)
 	}
 	return length
 }
@@ -423,77 +479,6 @@ func cubicBezierLength(p0, p1, p2, p3 Point) float64 {
 //	}
 //}
 
-func quadraticBezierAt(p0, p1, p2 Point, t float64) Point {
-	p0 = p0.Mul((1 - t) * (1 - t))
-	p1 = p1.Mul(2 * t * (1 - t))
-	p2 = p2.Mul(t * t)
-	return p0.Add(p1).Add(p2)
-}
-
-func cubicBezierAt(p0, p1, p2, p3 Point, t float64) Point {
-	p0 = p0.Mul((1 - t) * (1 - t) * (1 - t))
-	p1 = p1.Mul(3 * t * (1 - t) * (1 - t))
-	p2 = p2.Mul(3 * t * t * (1 - t))
-	p3 = p3.Mul(t * t * t)
-	return p0.Add(p1).Add(p2).Add(p3)
-}
-
-func cubicBezierDerivAt(p0, p1, p2, p3 Point, t float64) Point {
-	p0 = p0.Mul(-3.0 + 6.0*t - 3.0*t*t)
-	p1 = p1.Mul(3.0 - 12.0*t + 9.0*t*t)
-	p2 = p2.Mul(6.0*t - 9.0*t*t)
-	p3 = p3.Mul(3.0 * t * t)
-	return p0.Add(p1).Add(p2).Add(p3)
-}
-
-func cubicBezierDerivDerivAt(p0, p1, p2, p3 Point, t float64) Point {
-	p0 = p0.Mul(6.0 - 6.0*t)
-	p1 = p1.Mul(18.0*t - 12.0)
-	p2 = p2.Mul(6.0 - 18.0*t)
-	p3 = p3.Mul(6.0 * t)
-	return p0.Add(p1).Add(p2).Add(p3)
-}
-
-// negative when curve bends CW while following t
-func cubicBezierRadiusAt(p0, p1, p2, p3 Point, t float64) float64 {
-	// TODO: use DerivAt length? https://stackoverflow.com/questions/46762955/computing-the-radius-of-curvature-of-a-bezier-curve-given-control-points
-	dp := cubicBezierDerivAt(p0, p1, p2, p3, t)
-	ddp := cubicBezierDerivDerivAt(p0, p1, p2, p3, t)
-	if equal(dp.X*ddp.Y-dp.Y*ddp.X, 0.0) {
-		return math.NaN()
-	}
-	return math.Pow(dp.X*dp.X+dp.Y*dp.Y, 1.5) / (dp.X*ddp.Y - dp.Y*ddp.X) // TODO: test negative for CW, seems to work?
-}
-
-func cubicBezierNormal(p0, p1, p2, p3 Point, t float64) Point {
-	if t == 0.0 {
-		n := p1.Sub(p0)
-		if n.X == 0 && n.Y == 0 {
-			n = p2.Sub(p0)
-		}
-		if n.X == 0 && n.Y == 0 {
-			n = p3.Sub(p0)
-		}
-		if n.X == 0 && n.Y == 0 {
-			return Point{}
-		}
-		return n.Rot90CW()
-	} else if t == 1.0 {
-		n := p3.Sub(p2)
-		if n.X == 0 && n.Y == 0 {
-			n = p3.Sub(p1)
-		}
-		if n.X == 0 && n.Y == 0 {
-			n = p3.Sub(p0)
-		}
-		if n.X == 0 && n.Y == 0 {
-			return Point{}
-		}
-		return n.Rot90CW()
-	}
-	panic("not implemented")
-}
-
 func splitCubicBezier(p0, p1, p2, p3 Point, t float64) (Point, Point, Point, Point, Point, Point, Point, Point) {
 	pm := p1.Interpolate(p2, t)
 
@@ -521,15 +506,15 @@ func addCubicBezierLine(p *Path, p0, p1, p2, p3 Point, t, d float64) {
 		// line to beginning of path
 		pos = p0
 		if d != 0.0 {
-			n := cubicBezierNormal(p0, p1, p2, p3, t)
-			pos = pos.Add(n.Norm(d))
+			n := cubicBezierNormal(p0, p1, p2, p3, t, d)
+			pos = pos.Add(n)
 		}
 	} else if t == 1.0 {
 		// line to the end of the path
 		pos = p3
 		if d != 0.0 {
-			n := cubicBezierNormal(p0, p1, p2, p3, t)
-			pos = pos.Add(n.Norm(d))
+			n := cubicBezierNormal(p0, p1, p2, p3, t, d)
+			pos = pos.Add(n)
 		}
 	} else {
 		panic("not implemented")
