@@ -35,7 +35,7 @@ General
 Fonts
 
 * **Font embedding for PDFs and EPSs**
-* Support ligatures and font hinting
+* Support font hinting
 * Support WOFF2 font format
 * Support Type1 font format?
 * Compressing fonts and embedding only used characters
@@ -49,12 +49,11 @@ Paths
 * Introduce elliptic arc function for PDFs much like for PostScript?
 * Add ArcTo in endpoint format (take begin/end angle and center point)
 * Add function to convert lines to cubic Beziérs to smooth out a path
-* Add offsetting of path (expand / contract), tricky with overlap
 
 Optimization
 
+* Avoid overlapping paths when offsetting in corners
 * Approximate Beziérs by elliptic arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (check)
-* Avoid overlapping paths when stroking, we need to know the ending and starting angle of the previous and next command respectively
 
 
 ## Canvas

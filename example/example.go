@@ -17,6 +17,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	dejaVuSerif.Use(canvas.CommonLigatures)
 
 	c := canvas.New(200, 80)
 	Draw(c)
@@ -86,7 +87,7 @@ func drawText(c *canvas.C, x, y float64, size float64, s string) {
 }
 
 func Draw(c *canvas.C) {
-	drawText(c, 10, 60, 12.0, "Aap noot mies wim zus teun vuur")
+	drawText(c, 10, 60, 12.0, "Justified with \"typographics\"")
 
 	face := dejaVuSerif.Face(30)
 	p := canvas.NewText(face, "Stroke").ToPath(0.0, 0.0)

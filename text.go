@@ -48,6 +48,7 @@ func calcTextHeight(ff FontFace, lines int) float64 {
 }
 
 func NewText(ff FontFace, s string) *Text {
+	s = ff.f.transform(s)
 	ss := splitNewlines(s)
 	lines := [][]textSpan{}
 	for _, s := range ss {
@@ -64,6 +65,7 @@ func NewText(ff FontFace, s string) *Text {
 
 func NewTextBox(ff FontFace, s string, width, height float64, halign, valign TextAlign, indent float64) *Text {
 	// TODO: do inner-word boundaries
+	s = ff.f.transform(s)
 	lines := [][]textSpan{}
 	var iPrev, iSpace int
 	for i := 0; i < len(s); {
@@ -96,8 +98,10 @@ func NewTextBox(ff FontFace, s string, width, height float64, halign, valign Tex
 				continue
 			}
 			iPrev = iBreak
-			if isNewline || iPrev == iSpace {
-				iPrev += size // skip space or newline
+			if isNewline {
+				iPrev += size // skip newline
+			} else if iPrev == iSpace {
+				iPrev += 1 // skip space
 			}
 		}
 		i += size

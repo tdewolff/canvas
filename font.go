@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"math"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	findfont "github.com/flopp/go-findfont"
 	"golang.org/x/image/font"
@@ -13,6 +15,25 @@ import (
 )
 
 var sfntBuffer sfnt.Buffer
+
+type TransformationOptions int
+
+const (
+	NoTypography TransformationOptions = 2 << iota
+	NoRequiredLigatures
+	CommonLigatures
+	DiscretionaryLigatures
+	HistoricalLigatures
+)
+
+// TODO: read from liga tables in OpenType (clig, dlig, hlig) with rlig default enabled
+var commonLigatures = [][2]string{
+	{"ffi", "\uFB03"},
+	{"ffl", "\uFB04"},
+	{"ff", "\uFB00"},
+	{"fi", "\uFB01"},
+	{"fl", "\uFB02"},
+}
 
 type FontStyle int
 
@@ -29,6 +50,12 @@ type Font struct {
 	sfnt  *sfnt.Font
 	name  string
 	style FontStyle
+
+	transformationOptions  TransformationOptions
+	requiredLigatures      [][2]string
+	commonLigatures        [][2]string
+	discretionaryLigatures [][2]string
+	historicalLigatures    [][2]string
 }
 
 // LoadLocalFont loads a font from the system fonts location.
@@ -55,13 +82,34 @@ func LoadFont(name string, style FontStyle, b []byte) (Font, error) {
 	if err != nil {
 		return Font{}, err
 	}
+
+	// TODO: extract from liga tables
+	clig := [][2]string{}
+	for _, transformation := range commonLigatures {
+		var err error
+		for _, r := range []rune(transformation[1]) {
+			_, err = sfnt.GlyphIndex(&sfntBuffer, r)
+			if err != nil {
+				continue
+			}
+		}
+		if err == nil {
+			clig = append(clig, transformation)
+		}
+	}
+
 	return Font{
-		mimetype: mimetype,
-		raw:      b,
-		sfnt:     sfnt,
-		name:     name,
-		style:    style,
+		mimetype:        mimetype,
+		raw:             b,
+		sfnt:            sfnt,
+		name:            name,
+		style:           style,
+		commonLigatures: clig,
 	}, nil
+}
+
+func (f *Font) Use(transformationOptions TransformationOptions) {
+	f.transformationOptions = transformationOptions
 }
 
 // Face gets the font face associated with the give font name and font size (in mm).
@@ -208,4 +256,189 @@ func (ff FontFace) Kerning(rPrev, rNext rune) float64 {
 		return fromI26_6(kern)
 	}
 	return 0.0
+}
+
+func isspace(r rune) bool {
+	return unicode.IsSpace(r)
+}
+
+func ispunct(r rune) bool {
+	for _, punct := range "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~" {
+		if r == punct {
+			return true
+		}
+	}
+	return false
+}
+
+func isWordBoundary(r rune) bool {
+	return r == 0 || isspace(r) || ispunct(r)
+}
+
+func stringReplace(s string, i, n int, target string) (string, int) {
+	s = s[:i] + target + s[i+n:]
+	return s, len(target)
+}
+
+// from https://github.com/russross/blackfriday/blob/11635eb403ff09dbc3a6b5a007ab5ab09151c229/smartypants.go#L42
+func quoteReplace(s string, i int, prev, quote, next rune, isOpen *bool) (string, int) {
+	switch {
+	case prev == 0 && next == 0:
+		// context is not any help here, so toggle
+		*isOpen = !*isOpen
+	case isspace(prev) && next == 0:
+		// [ "] might be [ "<code>foo...]
+		*isOpen = true
+	case ispunct(prev) && next == 0:
+		// [!"] hmm... could be [Run!"] or [("<code>...]
+		*isOpen = false
+	case /* isnormal(prev) && */ next == 0:
+		// [a"] is probably a close
+		*isOpen = false
+	case prev == 0 && isspace(next):
+		// [" ] might be [...foo</code>" ]
+		*isOpen = false
+	case isspace(prev) && isspace(next):
+		// [ " ] context is not any help here, so toggle
+		*isOpen = !*isOpen
+	case ispunct(prev) && isspace(next):
+		// [!" ] is probably a close
+		*isOpen = false
+	case /* isnormal(prev) && */ isspace(next):
+		// [a" ] this is one of the easy cases
+		*isOpen = false
+	case prev == 0 && ispunct(next):
+		// ["!] hmm... could be ["$1.95] or [</code>"!...]
+		*isOpen = false
+	case isspace(prev) && ispunct(next):
+		// [ "!] looks more like [ "$1.95]
+		*isOpen = true
+	case ispunct(prev) && ispunct(next):
+		// [!"!] context is not any help here, so toggle
+		*isOpen = !*isOpen
+	case /* isnormal(prev) && */ ispunct(next):
+		// [a"!] is probably a close
+		*isOpen = false
+	case prev == 0 /* && isnormal(next) */ :
+		// ["a] is probably an open
+		*isOpen = true
+	case isspace(prev) /* && isnormal(next) */ :
+		// [ "a] this is one of the easy cases
+		*isOpen = true
+	case ispunct(prev) /* && isnormal(next) */ :
+		// [!"a] is probably an open
+		*isOpen = true
+	default:
+		// [a'b] maybe a contraction?
+		*isOpen = false
+	}
+
+	if quote == '"' {
+		if *isOpen {
+			return stringReplace(s, i, 1, "\u201C")
+		} else {
+			return stringReplace(s, i, 1, "\u201D")
+		}
+	} else if quote == '\'' {
+		if *isOpen {
+			return stringReplace(s, i, 1, "\u2018")
+		} else {
+			return stringReplace(s, i, 1, "\u2019")
+		}
+	}
+	return s, 1
+}
+
+func (f *Font) transform(s string) string {
+	if f.transformationOptions&NoRequiredLigatures == 0 {
+		for _, transformation := range f.requiredLigatures {
+			s = strings.ReplaceAll(s, transformation[0], transformation[1])
+		}
+	}
+	if f.transformationOptions&CommonLigatures != 0 {
+		for _, transformation := range f.commonLigatures {
+			s = strings.ReplaceAll(s, transformation[0], transformation[1])
+		}
+	}
+	if f.transformationOptions&DiscretionaryLigatures != 0 {
+		for _, transformation := range f.discretionaryLigatures {
+			s = strings.ReplaceAll(s, transformation[0], transformation[1])
+		}
+	}
+	if f.transformationOptions&HistoricalLigatures != 0 {
+		for _, transformation := range f.historicalLigatures {
+			s = strings.ReplaceAll(s, transformation[0], transformation[1])
+		}
+	}
+	// TODO: make sure unicode points exist in font
+	if f.transformationOptions&NoTypography == 0 {
+		var inSingleQuote, inDoubleQuote bool
+		var rPrev, r rune
+		var i, size int
+		for {
+			rPrev = r
+			i += size
+			if i >= len(s) {
+				break
+			}
+
+			r, size = utf8.DecodeRuneInString(s[i:])
+			if i+2 < len(s) && s[i] == '.' && s[i+1] == '.' && s[i+2] == '.' {
+				s, size = stringReplace(s, i, 3, "\u2026") // ellipsis
+				continue
+			} else if i+4 < len(s) && s[i] == '.' && s[i+1] == ' ' && s[i+2] == '.' && s[i+3] == ' ' && s[i+4] == '.' {
+				s, size = stringReplace(s, i, 5, "\u2026") // ellipsis
+				continue
+			} else if i+2 < len(s) && s[i] == '-' && s[i+1] == '-' && s[i+2] == '-' {
+				s, size = stringReplace(s, i, 3, "\u2014") // em-dash
+				continue
+			} else if i+1 < len(s) && s[i] == '-' && s[i+1] == '-' {
+				s, size = stringReplace(s, i, 2, "\u2013") // en-dash
+				continue
+			} else if i+2 < len(s) && s[i] == '(' && s[i+1] == 'c' && s[i+2] == ')' {
+				s, size = stringReplace(s, i, 3, "\u00A9") // copyright
+				continue
+			} else if i+2 < len(s) && s[i] == '(' && s[i+1] == 'r' && s[i+2] == ')' {
+				s, size = stringReplace(s, i, 3, "\u00AE") // registered
+				continue
+			} else if i+3 < len(s) && s[i] == '(' && s[i+1] == 't' && s[i+2] == 'm' && s[i+3] == ')' {
+				s, size = stringReplace(s, i, 4, "\u2122") // trademark
+				continue
+			}
+
+			var rNext rune
+			// quotes
+			if i+1 < len(s) {
+				rNext, _ = utf8.DecodeRuneInString(s[i+1:])
+			}
+			if s[i] == '"' {
+				s, size = quoteReplace(s, i, rPrev, r, rNext, &inDoubleQuote)
+				continue
+			} else if s[i] == '\'' {
+				s, size = quoteReplace(s, i, rPrev, r, rNext, &inSingleQuote)
+				continue
+			}
+
+			// fractions
+			if i+3 < len(s) {
+				rNext, _ = utf8.DecodeRuneInString(s[i+3:])
+			}
+			if i+2 < len(s) && s[i+1] == '/' && isWordBoundary(rPrev) && rPrev != '/' && isWordBoundary(rNext) && rNext != '/' {
+				if s[i] == '1' && s[i+2] == '2' {
+					s, size = stringReplace(s, i, 3, "\u00BD") // 1/2
+					continue
+				} else if s[i] == '1' && s[i+2] == '4' {
+					s, size = stringReplace(s, i, 3, "\u00BC") // 1/4
+					continue
+				} else if s[i] == '3' && s[i+2] == '4' {
+					s, size = stringReplace(s, i, 3, "\u00BE") // 3/4
+					continue
+				} else if s[i] == '+' && s[i+2] == '-' {
+					s, size = stringReplace(s, i, 3, "\u00B1") // +/-
+					continue
+				}
+			}
+		}
+	}
+	return s
 }
