@@ -122,19 +122,13 @@ func gaussLegendre7(f func(float64) float64, a, b float64) float64 {
 //	}
 //}
 
-// polynomialApprox3 returns a function L(t) that maps the parameter t [0,1] to the curve length between [tmin,tmax],
+// polynomialApprox3 returns a function L(t) that maps the parameter t [0,1] to the integral of speed over [tmin, tmax]. For a circle tmin and tmax would be 0 and 2PI respectively for example.
 // Implemented using M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI, p. 143--150, 1996
 // see https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf
 func polynomialApprox3(gaussLegendre gaussLegendreFunc, speed func(float64) float64, tmin, tmax float64) func(float64) float64 {
-	tinc := (tmax - tmin) / 3.0
-	s1 := gaussLegendre(speed, tmin, tmin+1.0*tinc)
-	s2 := gaussLegendre(speed, tmin, tmin+2.0*tinc)
+	s1 := gaussLegendre(speed, tmin, tmin+(tmax-tmin)*1.0/3.0)
+	s2 := gaussLegendre(speed, tmin, tmin+(tmax-tmin)*2.0/3.0)
 	s3 := gaussLegendre(speed, tmin, tmax)
-	if tmax < tmin {
-		s1 = -s1
-		s2 = -s2
-		s3 = -s3
-	}
 
 	// We have three points on the s(t) curve at t0=0, t1=1/3, t2=2/3 and t3=1
 	// now obtain a polynomial that goes through these four points by solving the system of linear equations

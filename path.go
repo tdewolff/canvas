@@ -759,23 +759,26 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 				if j == len(ts) {
 					q.ArcTo(rx, ry, phi*180.0/math.Pi, largeArc, sweep, end.X, end.Y)
 				} else {
-					var theta float64
 					dT := ellipseLength(rx, ry, theta1, theta2)
+					startTheta := theta1
+					nextLargeArc := largeArc
 					for j < len(ts) && T < ts[j] && ts[j] <= T+dT {
 						tpos := (ts[j] - T) / dT
-						theta = L(tpos)
-						mid, _, _, ok := splitEllipse(rx, ry, phi, cx, cy, theta1, theta2, theta)
+						theta := L(tpos)
+						mid, largeArc1, largeArc2, ok := splitEllipse(rx, ry, phi, cx, cy, startTheta, theta2, theta)
 						if !ok {
 							panic("theta not in elliptic arc range for splitting")
 						}
 
-						q.ArcTo(rx, ry, phi*180.0/math.Pi, math.Abs(theta-theta1) > math.Pi, sweep, mid.X, mid.Y)
+						q.ArcTo(rx, ry, phi*180.0/math.Pi, largeArc1, sweep, mid.X, mid.Y)
 						push()
 						q.MoveTo(mid.X, mid.Y)
+						startTheta = theta
+						nextLargeArc = largeArc2
 						j++
 					}
-					if !equal(theta, theta2) {
-						q.ArcTo(rx, ry, phi*180.0/math.Pi, math.Abs(theta-theta2) > math.Pi, sweep, end.X, end.Y)
+					if !equal(startTheta, theta2) {
+						q.ArcTo(rx, ry, phi*180.0/math.Pi, nextLargeArc, sweep, end.X, end.Y)
 					}
 					T += dT
 				}

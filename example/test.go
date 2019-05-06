@@ -80,7 +80,8 @@ func Draw(c *canvas.C) {
 	// text := canvas.NewTextBox(ff, "Lorem ipsum dolor sid amet, confiscusar patria est gravus repara sid ipsum. Apare tu garage.", 160.0, 40.0, canvas.Justify, canvas.Justify, 140.0)
 	// c.DrawText(20, 60-ff.Metrics().Ascent, 0.0, text)
 
-	p, _ := canvas.ParseSVG("A40 40 0 1 0 40 -40z")
-	p.Flatten()
-	c.DrawPath(50, 50, 0, p)
+	p, _ := canvas.ParseSVG("A20 20 0 1 0 20 -20")
+	ps := p.SplitAt(31.4)
+	c.DrawPath(50, 40, 0, ps[0])
+	c.DrawPath(50, 40, 0, ps[1])
 }
