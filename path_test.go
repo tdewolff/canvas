@@ -163,6 +163,8 @@ func TestPathSplitAt(t *testing.T) {
 		{"L4 3L8 0z", []float64{5.0, 20.0}, []string{"L4 3", "M4 3L8 0L0 0"}},
 		{"L4 3L8 0z", []float64{2.5, 7.5, 14.0}, []string{"L2 1.5", "M2 1.5L4 3L6 1.5", "M6 1.5L8 0L4 0", "M4 0L0 0"}},
 		{"C10 0 10 0 20 0", []float64{10.0}, []string{"C5 0 7.5 0 10 0", "M10 0C12.5 0 15 0 20 0"}},
+		{"A10 10 0 0 0 20 0", []float64{15.707963}, []string{"A10 10 0 0 0 10 10", "M10 10A10 10 0 0 0 20 0"}},
+		{"A10 10 0 1 0 10 -10", []float64{15.707963}, []string{"A10 10 0 0 0 10 10", "M10 10A10 10 0 1 0 10 -10"}},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {

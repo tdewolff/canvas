@@ -14,14 +14,10 @@ Terminology: a path is a sequence of drawing commands (MoveTo, LineTo, QuadTo, C
 | LineTo  | yes     | yes    | yes    | yes     |
 | QuadTo  | yes (cubic) | yes (cubic) | yes | yes |
 | CubeTo  | yes     | yes    | yes (Gauss-Legendre n=5) | yes |
-| ArcTo   | yes (imprecise) | yes | yes (Gauss-Legendre n=5) | no (is flattened) |
+| ArcTo   | yes (imprecise) | yes | yes (Gauss-Legendre n=5) | yes (Gauss-Legendre n=5) |
 
 * Ellipse => Cubic Beziér: used by rasterizer and PDF targets (imprecise)
 * Cubic Beziér => Ellipse: could be used by Stroke to increase precision and reduce the number of commands, but this is much work with little gain
-
-NB: Length and SplitAt are needed for Dash
-
-NB: QuadTo can easily be converted into CubeTo, but there may be some properties in the quadratic Beziérs that could speed up calculations
 
 NB: Gauss-Legendre is an numerical approximation as there is no analytical solution
 
@@ -45,8 +41,7 @@ Fonts
 Paths
 
 * **Approximate elliptic arcs by lines given a tolerance for use in `Flatten`**
-* **Approximate elliptic arcs by Beziérs given a tolerance for use in `WriteImage`, `ToPDF`, `SplitAt` and `Dash`**
-* **Introduce splitting up ellipses into partial arcs for `SplitAt` and `Dash` and remove approximating them by Beziérs**
+* **Approximate elliptic arcs by Beziérs given a tolerance for use in `WriteImage`, `ToPDF`**
 * Easier support for building paths from strings, like AppendSVG for example?
 * Add ArcTo in endpoint format (take begin/end angle and center point)
 * Add function to convert lines to cubic Beziérs to smooth out a path

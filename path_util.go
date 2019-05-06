@@ -67,7 +67,10 @@ func solveQuadraticFormula(a, b, c float64) (float64, float64) {
 	return x1, x2
 }
 
+type gaussLegendreFunc func(func(float64) float64, float64, float64) float64
+
 // Gauss-Legendre quadrature integration from a to b with n=3
+// see https://pomax.github.io/bezierinfo/legendre-gauss.html for more values
 func gaussLegendre3(f func(float64) float64, a, b float64) float64 {
 	c := (b - a) / 2.0
 	d := (a + b) / 2.0
@@ -89,6 +92,20 @@ func gaussLegendre5(f func(float64) float64, a, b float64) float64 {
 	return c * (0.236927*(Qd1+Qd5) + 0.478629*(Qd2+Qd4) + 0.568889*Qd3)
 }
 
+// Gauss-Legendre quadrature integration from a to b with n=7
+func gaussLegendre7(f func(float64) float64, a, b float64) float64 {
+	c := (b - a) / 2.0
+	d := (a + b) / 2.0
+	Qd1 := f(-0.949108*c + d)
+	Qd2 := f(-0.741531*c + d)
+	Qd3 := f(-0.405845*c + d)
+	Qd4 := f(d)
+	Qd5 := f(0.405845*c + d)
+	Qd6 := f(0.741531*c + d)
+	Qd7 := f(0.949108*c + d)
+	return c * (0.129485*(Qd1+Qd7) + 0.279705*(Qd2+Qd6) + 0.381830*(Qd3+Qd5) + 0.417959*Qd4)
+}
+
 // find parametric value t at a given length s on the curve using the bisection method
 //func bisectionMethod(f func(float64) float64, s float64) float64 {
 //	tmin, tmax := 0.0, 1.0
@@ -102,6 +119,59 @@ func gaussLegendre5(f func(float64) float64, a, b float64) float64 {
 //		} else {
 //			tmin = t
 //		}
+//	}
+//}
+
+// polynomialApprox3 returns a function L(t) that maps the parameter t [0,1] to the curve length between [tmin,tmax],
+// Implemented using M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI, p. 143--150, 1996
+// see https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf
+func polynomialApprox3(gaussLegendre gaussLegendreFunc, speed func(float64) float64, tmin, tmax float64) func(float64) float64 {
+	tinc := (tmax - tmin) / 3.0
+	s1 := gaussLegendre(speed, tmin, tmin+1.0*tinc)
+	s2 := gaussLegendre(speed, tmin, tmin+2.0*tinc)
+	s3 := gaussLegendre(speed, tmin, tmax)
+	if tmax < tmin {
+		s1 = -s1
+		s2 = -s2
+		s3 = -s3
+	}
+
+	// We have three points on the s(t) curve at t0=0, t1=1/3, t2=2/3 and t3=1
+	// now obtain a polynomial that goes through these four points by solving the system of linear equations
+	// s(t) = a*t^3 + b*t^2 + c*t + d  (s0=0; d=0)
+	// [s1; s2; s3] = [1/27, 1/9, 1/3;
+	//                 8/27, 4/9, 2/3;
+	//                    1,   1,   1] * [a; b; c]
+	//
+	// After inverting (note that d=0):
+	// [a; b; c] = 0.5 * [ 27, -27,  9;
+	//                    -45,  36, -9;
+	//                     18,  -9,  2] * [s1; s2; s3]
+
+	a := 13.5*s1 - 13.5*s2 + 4.5*s3
+	b := -22.5*s1 + 18.0*s2 - 4.5*s3
+	c := 9.0*s1 - 4.5*s2 + s3
+	a *= (tmax - tmin) / s3
+	b *= (tmax - tmin) / s3
+	c *= (tmax - tmin) / s3
+	return func(t float64) float64 {
+		return a*t*t*t + b*t*t + c*t + tmin
+	}
+}
+
+//func invLengthFunc(speed func(float64) float64, gaussLegendre gaussLegendreFunc) func(float64) float64 {
+//	f := func(s float64) float64 { return gaussLegendre(speed, 0.0, s) }
+//	s3 := f(1.0)
+//	t1 := bisectionMethod(f, (1.0/3.0)*s3)
+//	t2 := bisectionMethod(f, (2.0/3.0)*s3)
+//
+//	div := 1.0 / (s3 * s3 * s3)
+//	a := div * (13.5*t1 - 13.5*t2 + 4.5)
+//	b := div * (-22.5*t1*s3 + 18.0*t2*s3 - 4.5*s3)
+//	c := div * (9.0*t1*s3*s3 - 4.5*t2*s3*s3 + 1.0*s3*s3)
+//
+//	return func(s float64) float64 {
+//		return a*s*s*s + b*s*s + c*s
 //	}
 //}
 
@@ -120,15 +190,15 @@ func gaussLegendre5(f func(float64) float64, a, b float64) float64 {
 //	return x1, y1, largeArc, sweep, x2, y2
 //}
 
-func ellipsePos(theta, rx, ry, phi float64) Point {
+func ellipsePos(rx, ry, phi, cx, cy, theta float64) Point {
 	sintheta, costheta := math.Sincos(theta)
 	sinphi, cosphi := math.Sincos(phi)
-	x := rx*costheta*cosphi - ry*sintheta*sinphi
-	y := rx*costheta*sinphi + ry*sintheta*cosphi
+	x := cx + rx*costheta*cosphi - ry*sintheta*sinphi
+	y := cy + rx*costheta*sinphi + ry*sintheta*cosphi
 	return Point{x, y}
 }
 
-func ellipseDeriv(theta, rx, ry, phi float64, sweep bool) Point {
+func ellipseDeriv(rx, ry, phi float64, sweep bool, theta float64) Point {
 	sintheta, costheta := math.Sincos(theta)
 	sinphi, cosphi := math.Sincos(phi)
 	dx := -rx*sintheta*cosphi - ry*costheta*sinphi
@@ -139,7 +209,7 @@ func ellipseDeriv(theta, rx, ry, phi float64, sweep bool) Point {
 	return Point{dx, dy}
 }
 
-func ellipseDeriv2(theta, rx, ry, phi float64, sweep bool) Point {
+func ellipseDeriv2(rx, ry, phi float64, sweep bool, theta float64) Point {
 	sintheta, costheta := math.Sincos(theta)
 	sinphi, cosphi := math.Sincos(phi)
 	ddx := -rx*costheta*cosphi + ry*sintheta*sinphi
@@ -147,9 +217,9 @@ func ellipseDeriv2(theta, rx, ry, phi float64, sweep bool) Point {
 	return Point{ddx, ddy}
 }
 
-func ellipseRadius(theta, rx, ry, phi float64, sweep bool) float64 {
-	dp := ellipseDeriv(theta, rx, ry, phi, sweep)
-	ddp := ellipseDeriv2(theta, rx, ry, phi, sweep)
+func ellipseRadius(rx, ry, phi float64, sweep bool, theta float64) float64 {
+	dp := ellipseDeriv(rx, ry, phi, sweep, theta)
+	ddp := ellipseDeriv2(rx, ry, phi, sweep, theta)
 	a := dp.PerpDot(ddp)
 	if equal(a, 0.0) {
 		return math.NaN()
@@ -158,7 +228,7 @@ func ellipseRadius(theta, rx, ry, phi float64, sweep bool) float64 {
 }
 
 // ellipseNormal returns the normal to the right at angle theta of the ellipse, given rotation phi.
-func ellipseNormal(theta, phi float64, sweep bool, d float64) Point {
+func ellipseNormal(phi float64, sweep bool, theta, d float64) Point {
 	theta += phi
 	y, x := math.Sincos(theta)
 	n := Point{x, y}
@@ -168,7 +238,7 @@ func ellipseNormal(theta, phi float64, sweep bool, d float64) Point {
 	return n.Norm(d)
 }
 
-func ellipseSpeed(theta, rx, ry float64) float64 {
+func ellipseSpeed(rx, ry float64, theta float64) float64 {
 	// phi and sweep have no influence
 	sintheta, costheta := math.Sincos(theta)
 	dx := rx * costheta
@@ -178,13 +248,12 @@ func ellipseSpeed(theta, rx, ry float64) float64 {
 
 // ellipseLength calculates the length of the elliptical arc
 // it uses Gauss-Legendre (n=5) and has an error of ~1% or less (empirical)
-func ellipseLength(start Point, rx, ry, phi float64, largeArc, sweep bool, end Point) float64 {
-	_, _, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
+func ellipseLength(rx, ry, theta1, theta2 float64) float64 {
 	if theta2 < theta1 {
 		theta1, theta2 = theta2, theta1
 	}
 	speed := func(theta float64) float64 {
-		return ellipseSpeed(theta, rx, ry)
+		return ellipseSpeed(rx, ry, theta)
 	}
 	return gaussLegendre5(speed, theta1, theta2)
 }
@@ -247,8 +316,20 @@ func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 floa
 	return cx, cy, theta, theta + delta
 }
 
-func splitEllipse(start Point, rx, ry, rot float64, largeArc, sweep bool, end Point) (Point, bool, bool, bool, bool) {
-	panic("not implemented") // TODO
+// splitEllipse returns the new mid point, the two largeArc parameters and the ok bool, the rest stays the same
+func splitEllipse(rx, ry, phi, cx, cy, theta1, theta2, theta float64) (Point, bool, bool, bool) {
+	if !angleBetween(theta, theta1, theta2) {
+		return Point{}, false, false, false
+	}
+
+	mid := ellipsePos(rx, ry, phi, cx, cy, theta)
+	largeArc0, largeArc1 := false, false
+	if math.Abs(theta-theta1) > math.Pi {
+		largeArc0 = true
+	} else if math.Abs(theta-theta2) > math.Pi {
+		largeArc1 = true
+	}
+	return mid, largeArc0, largeArc1, true
 }
 
 // from https://github.com/fogleman/gg/blob/master/context.go#L485
@@ -265,22 +346,14 @@ func ellipseToBeziers(start Point, rx, ry, phi float64, largeArc, sweep bool, en
 	// or cubic Bezier curves", 2003, https://www.spaceroots.org/documents/elllipse/elliptical-arc.pdf
 
 	const n = 16
-	sinphi, cosphi := math.Sincos(phi)
 	for i := 0; i < n; i++ {
 		p1 := float64(i+0) / n
 		p2 := float64(i+1) / n
-		sina0, cosa0 := math.Sincos(theta1 + (theta2-theta1)*p1)
-		sina1, cosa1 := math.Sincos(theta1 + (theta2-theta1)*(p1+p2)/2.0)
-		sina2, cosa2 := math.Sincos(theta1 + (theta2-theta1)*p2)
-		xt0 := cx + rx*cosa0*cosphi - ry*sina0*sinphi
-		yt0 := cy + rx*cosa0*sinphi + ry*sina0*cosphi
-		xt1 := cx + rx*cosa1*cosphi - ry*sina1*sinphi
-		yt1 := cy + rx*cosa1*sinphi + ry*sina1*cosphi
-		xt2 := cx + rx*cosa2*cosphi - ry*sina2*sinphi
-		yt2 := cy + rx*cosa2*sinphi + ry*sina2*cosphi
-		ctx := 2.0*xt1 - xt0/2.0 - xt2/2.0
-		cty := 2.0*yt1 - yt0/2.0 - yt2/2.0
-		p.QuadTo(ctx, cty, xt2, yt2)
+		start := ellipsePos(rx, ry, phi, cx, cy, theta1+(theta2-theta1)*p1)
+		mid := ellipsePos(rx, ry, phi, cx, cy, theta1+(theta2-theta1)*(p1+p2)/2.0)
+		end := ellipsePos(rx, ry, phi, cx, cy, theta1+(theta2-theta1)*p2)
+		c := mid.Mul(2.0).Sub(start.Mul(0.5)).Sub(end.Mul(0.5))
+		p.QuadTo(c.X, c.Y, end.X, end.Y)
 	}
 	return p
 }
@@ -292,13 +365,10 @@ func flattenEllipse(start Point, rx, ry, phi float64, largeArc, sweep bool, end 
 	// TODO: improve: use dynamic step size and tolerance
 	const nFull = 64 // points per full ellipse
 	n := int(math.Abs(theta2-theta1) / 2.0 / math.Pi * nFull)
-	sinphi, cosphi := math.Sincos(phi)
 	for i := 0; i < n; i++ {
 		t := float64(i+1) / float64(n)
-		sina, cosa := math.Sincos(theta1 + (theta2-theta1)*t)
-		xt := cx + rx*cosa*cosphi - ry*sina*sinphi
-		yt := cy + rx*cosa*sinphi + ry*sina*cosphi
-		p.LineTo(xt, yt)
+		end := ellipsePos(rx, ry, phi, cx, cy, theta1+(theta2-theta1)*t)
+		p.LineTo(end.X, end.Y)
 	}
 	return p
 }
@@ -442,54 +512,6 @@ func cubicBezierLength(p0, p1, p2, p3 Point) float64 {
 	}
 	return length
 }
-
-// cubicBezierLength returns a function that maps t=[0,1] to its lengths L(t)
-// implemented using M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI, p. 143--150, 1996
-// see https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf
-//func cubicBezierLengthFunc(p0, p1, p2, p3 Point) func(float64) float64 {
-//	// TODO: split at inflection points
-//	speed := func(t float64) float64 { return cubicBezierSpeedAt(p0, p1, p2, p3, t) }
-//	s1 := gaussLegendre3(speed, 0.0, 1.0/3.0)
-//	s2 := gaussLegendre3(speed, 0.0, 2.0/3.0)
-//	s3 := gaussLegendre3(speed, 0.0, 1.0)
-//
-//	// We have three points on the s(t) curve at t0=0, t1=1/3, t2=2/3 and t3=1
-//	// now obtain a polynomial that goes through these four points by solving the system of linear equations
-//	// s(t) = a*t^3 + b*t^2 + c*t + d  (s0=0; d=0)
-//	// [s1; s2; s3] = [1/27, 1/9, 1/3;
-//	//                 8/27, 4/9, 2/3;
-//	//                    1,   1,   1] * [a; b; c]
-//	//
-//	// After inverting (note that d=0):
-//	// [a; b; c] = 0.5 * [ 27, -27,  9;
-//	//                    -45,  36, -9;
-//	//                     18,  -9,  2] * [s1; s2; s3]
-//
-//	a := 13.5*s1 - 13.5*s2 + 4.5*s3
-//	b := -22.5*s1 + 18.0*s2 - 4.5*s3
-//	c := 9.0*s1 - 4.5*s2 + s3
-//	return func(t float64) float64 {
-//		return a*t*t*t + b*t*t + c*t
-//	}
-//}
-//
-//func cubicBezierInverseLengthFunc(p0, p1, p2, p3 Point) func(float64) float64 {
-//	// TODO: split at inflection points
-//	speed := func(t float64) float64 { return cubicBezierSpeedAt(p0, p1, p2, p3, t) }
-//	gaussLegendre := func(s float64) float64 { return gaussLegendre3(speed, 0.0, s) }
-//	s3 := gaussLegendre(1.0)
-//	t1 := bisectionMethod(gaussLegendre, (1.0/3.0)*s3)
-//	t2 := bisectionMethod(gaussLegendre, (2.0/3.0)*s3)
-//
-//	div := 1.0 / (s3 * s3 * s3)
-//	a := div * (13.5*t1 - 13.5*t2 + 4.5)
-//	b := div * (-22.5*t1*s3 + 18.0*t2*s3 - 4.5*s3)
-//	c := div * (9.0*t1*s3*s3 - 4.5*t2*s3*s3 + 1.0*s3*s3)
-//
-//	return func(s float64) float64 {
-//		return a*s*s*s + b*s*s + c*s
-//	}
-//}
 
 func splitCubicBezier(p0, p1, p2, p3 Point, t float64) (Point, Point, Point, Point, Point, Point, Point, Point) {
 	pm := p1.Interpolate(p2, t)

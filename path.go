@@ -175,6 +175,7 @@ func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x2, y2 float64) *Path {
 // ArcTo adds an arc with radii rx and ry, with rot the counter clockwise rotation with respect to the coordinate system in degrees,
 // largeArc and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
 // and x2,y2 the end position of the pen. The start positions of the pen was given by a previous command.
+// When sweep is true it means following the arc in a CCW direction in the Cartesian coordinate system, ie. that is CW in the upper-left coordinate system as is the case in SVGs.
 func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x2, y2 float64) *Path {
 	x1, y1 := p.Pos()
 	if equal(x1, x2) && equal(y1, y2) {
@@ -431,7 +432,8 @@ func (p *Path) Length() float64 {
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
-			d += ellipseLength(start, rx, ry, phi, largeArc, sweep, end)
+			_, _, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
+			d += ellipseLength(rx, ry, theta1, theta2)
 		}
 		i += cmdLen(cmd)
 		start = end
@@ -644,10 +646,8 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 		ts = ts[1:]
 	}
 
-	j := 0   // index into T
+	j := 0   // index into ts
 	T := 0.0 // current position along curve
-
-	p = p.Replace(nil, nil, flattenEllipse)
 
 	qs := []*Path{}
 	q := &Path{}
@@ -746,8 +746,39 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 					T += dT
 				}
 			case ArcToCmd:
-				panic("arcs should have been replaced")
-				// TODO: implement splitting ellipses
+				rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
+				largeArc, sweep := fromArcFlags(p.d[i+4])
+				end = Point{p.d[i+5], p.d[i+6]}
+				cx, cy, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
+
+				speed := func(theta float64) float64 {
+					return ellipseSpeed(rx, ry, theta)
+				}
+				L := polynomialApprox3(gaussLegendre5, speed, theta1, theta2)
+
+				if j == len(ts) {
+					q.ArcTo(rx, ry, phi*180.0/math.Pi, largeArc, sweep, end.X, end.Y)
+				} else {
+					var theta float64
+					dT := ellipseLength(rx, ry, theta1, theta2)
+					for j < len(ts) && T < ts[j] && ts[j] <= T+dT {
+						tpos := (ts[j] - T) / dT
+						theta = L(tpos)
+						mid, _, _, ok := splitEllipse(rx, ry, phi, cx, cy, theta1, theta2, theta)
+						if !ok {
+							panic("theta not in elliptic arc range for splitting")
+						}
+
+						q.ArcTo(rx, ry, phi*180.0/math.Pi, math.Abs(theta-theta1) > math.Pi, sweep, mid.X, mid.Y)
+						push()
+						q.MoveTo(mid.X, mid.Y)
+						j++
+					}
+					if !equal(theta, theta2) {
+						q.ArcTo(rx, ry, phi*180.0/math.Pi, math.Abs(theta-theta2) > math.Pi, sweep, end.X, end.Y)
+					}
+					T += dT
+				}
 			}
 			i += cmdLen(cmd)
 			start = end
@@ -761,8 +792,6 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 
 // Dash returns a new path that consists of dashes. Each parameter represents a length in millimeters along the original path, and will be either a dash or a space alternatingly.
 func (p *Path) Dash(d ...float64) *Path {
-	p = p.Replace(nil, nil, flattenEllipse) // TODO: remove once we can split ellipses
-
 	length := p.Length()
 	if len(d) == 0 || length <= d[0] {
 		return p
