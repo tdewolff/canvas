@@ -73,23 +73,23 @@ func drawText(c *canvas.C, x, y float64, size float64, s string) {
 	face := dejaVuSerif.Face(size)
 	metrics := face.Metrics()
 	text := canvas.NewTextBox(face, s, 100.0, 40.0, canvas.Justify, canvas.Top, 0.0)
-	w, h := text.Bounds()
+	rect := text.Bounds()
 
 	c.SetColor(canvas.Gainsboro)
-	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.Ascent, w, -h))
+	c.DrawPath(x, y, 0.0, rect.ToPath())
 	c.SetColor(color.RGBA{0, 0, 0, 50})
-	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.Ascent, w, -metrics.LineHeight))
-	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.CapHeight, w, -metrics.CapHeight-metrics.Descent))
-	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.XHeight, w, -metrics.XHeight))
+	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.Ascent, rect.W, -metrics.LineHeight))
+	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.CapHeight, rect.W, -metrics.CapHeight-metrics.Descent))
+	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.XHeight, rect.W, -metrics.XHeight))
 
 	c.SetColor(canvas.Black)
 	c.DrawText(x, y, 0.0, text)
 }
 
 func Draw(c *canvas.C) {
-	drawText(c, 10, 60, 12.0, "Justified with \"typographics\"")
+	drawText(c, 10, 60, 28.0, "Justified with \"typographics\"")
 
-	face := dejaVuSerif.Face(30)
+	face := dejaVuSerif.Face(80.0)
 	p := canvas.NewText(face, "Stroke").ToPath(0.0, 0.0)
 	c.DrawPath(5, 10, 0.0, p.Stroke(1, canvas.RoundCapper, canvas.RoundJoiner))
 

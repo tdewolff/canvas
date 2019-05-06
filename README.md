@@ -68,6 +68,8 @@ c.WriteImage(dpi float64) *image.RGBA
 Canvas allows to draw either paths or text. All positions and sizes are given in millimeters.
 
 ## Text
+![Text Example](https://raw.githubusercontent.com/tdewolff/canvas/master/example/text_example.png)
+
 ``` go
 dejaVuSerif, err := canvas.LoadFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")  // TTF, OTF or WOFF
 

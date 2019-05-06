@@ -112,12 +112,12 @@ func (f *Font) Use(transformationOptions TransformationOptions) {
 	f.transformationOptions = transformationOptions
 }
 
-// Face gets the font face associated with the give font name and font size (in mm).
+// Face gets the font face associated with the give font name and font size (in pt).
 func (f *Font) Face(size float64) FontFace {
 	// TODO: add hinting
 	return FontFace{
 		f:       f,
-		ppem:    toI26_6(size),
+		ppem:    toI26_6(size * MmPerPt),
 		hinting: font.HintingNone,
 	}
 }

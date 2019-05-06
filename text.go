@@ -136,14 +136,15 @@ func NewTextBox(ff FontFace, s string, width, height float64, halign, valign Tex
 	}
 }
 
-func (t *Text) Bounds() (w, h float64) {
+func (t *Text) Bounds() Rect {
+	var w, h float64
 	for _, line := range t.lines {
 		for _, span := range line {
 			w = math.Max(w, span.dx+span.width)
 		}
 	}
 	h = calcTextHeight(t.ff, len(t.lines)) + t.lineSpacing*float64(len(t.lines)-1)
-	return w, h
+	return Rect{0.0, t.ff.Metrics().Ascent, w, -h}
 
 }
 
