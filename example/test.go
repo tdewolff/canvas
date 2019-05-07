@@ -97,7 +97,4 @@ func Draw(c *canvas.C) {
 	c.DrawPath(105, 40, 0, ps[0])
 	c.DrawPath(105, 40, 0, ps[1])
 	c.DrawPath(105, 50, 0, p.Dash(1.0, 1.0).Stroke(1.0, canvas.ButtCapper, canvas.RoundJoiner))
-
-	p, _ = canvas.ParseSVG("A10 10 0 1 0 2.92893 -7.07107")
-	c.DrawPath(50, 20, 0, p)
 }
