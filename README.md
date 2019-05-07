@@ -12,14 +12,14 @@ Terminology: a path is a sequence of drawing commands (MoveTo, LineTo, QuadTo, C
 | Command | Flatten | Stroke | Length | SplitAt |
 | ------- | ------- | ------ | ------ | ------- |
 | LineTo  | yes     | yes    | yes    | yes     |
-| QuadTo  | yes (cubic) | yes (cubic) | yes | yes (Gauss-Legendre n=5 and cubic polynomial approx) |
-| CubeTo  | yes     | yes    | yes (Gauss-Legendre n=5) | yes (Gauss-Legendre n=5 and cubic polynomial approx) |
-| ArcTo   | yes (imprecise) | yes | yes (Gauss-Legendre n=5) | yes (Gauss-Legendre n=5 and cubic polynomial approx) |
+| QuadTo  | yes (cubic) | yes (cubic) | yes | yes (GL5 + Poly3) |
+| CubeTo  | yes     | yes    | yes (GL5) | yes (GL5 + Poly3) |
+| ArcTo   | yes (imprecise) | yes | yes (GL5) | yes (GL5 + Poly3) |
 
 * Ellipse => Cubic Beziér: used by rasterizer and PDF targets (imprecise)
 * Cubic Beziér => Ellipse: could be used by Stroke to increase precision and reduce the number of commands, but this is much work with little gain
 
-NB: Gauss-Legendre is an numerical approximation as there is no analytical solution
+NB: GL5 means a Gauss-Legendre n=5, which is an numerical approximation as there is no analytical solution. Poly3 is a cubic polynomial approximation, which uses the bisection method as well to determine the polynomial points.
 
 
 ## Planning
@@ -136,7 +136,7 @@ p.Optimize()  // optimize and shorten path
 ```
 
 
-## Path stroke
+### Path stroke
 Below is an illustration of the different types of Cappers and Joiners you can use when creating a stroke of a path:
 
 ![Stroke example](https://raw.githubusercontent.com/tdewolff/canvas/master/example/stroke_example.png)
