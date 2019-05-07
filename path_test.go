@@ -167,8 +167,9 @@ func TestPathSplitAt(t *testing.T) {
 		{"L4 3L8 0z", []float64{5.0, 20.0}, []string{"L4 3", "M4 3L8 0L0 0"}},
 		{"L4 3L8 0z", []float64{2.5, 7.5, 14.0}, []string{"L2 1.5", "M2 1.5L4 3L6 1.5", "M6 1.5L8 0L4 0", "M4 0L0 0"}},
 		{"C10 0 10 0 20 0", []float64{10.0}, []string{"C5 0 7.5 0 10 0", "M10 0C12.5 0 15 0 20 0"}},
-		{"A10 10 0 0 0 20 0", []float64{15.707963}, []string{"A10 10 0 0 0 10 10", "M10 10A10 10 0 0 0 20 0"}},
-		{"A10 10 0 1 0 10 -10", []float64{15.707963}, []string{"A10 10 0 0 0 10 10", "M10 10A10 10 0 1 0 10 -10"}},
+		{"A10 10 0 0 1 -20 0", []float64{15.707963}, []string{"A10 10 0 0 1 -10.003 10", "M-10.003 10A10 10 0 0 1 -20 0"}},
+		{"A10 10 0 0 0 20 0", []float64{15.707963}, []string{"A10 10 0 0 0 10.003 10", "M10.003 10A10 10 0 0 0 20 0"}},
+		{"A10 10 0 1 0 10 -10", []float64{15.707963}, []string{"A10 10 0 0 0 10.051 9.9999", "M10.051 9.9999A10 10 0 0 0 10 -10"}}, // TODO: test sweep
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
@@ -343,8 +344,8 @@ func plotPathLengthParametrization(filename string, speed, length func(float64) 
 	if err != nil {
 		panic(err)
 	}
-	p.X.Label.Text = "t"
-	p.Y.Label.Text = "L"
+	p.X.Label.Text = "x"
+	p.Y.Label.Text = "y"
 	p.Add(line1, line2, line3, scatter)
 
 	for i := range pData {
@@ -354,9 +355,9 @@ func plotPathLengthParametrization(filename string, speed, length func(float64) 
 	}
 
 	p.Legend.Add("real", scatter)
-	p.Legend.Add("L(t) 3-points", line1)
-	p.Legend.Add("t(L) 3-points", line2)
-	p.Legend.Add("t(L) 4-points", line3)
+	p.Legend.Add("y(x) 3-points", line1)
+	p.Legend.Add("x(y) 3-points", line2)
+	p.Legend.Add("x(y) 4-points", line3)
 
 	if err := p.Save(16*vg.Inch, 8*vg.Inch, filename); err != nil {
 		panic(err)
@@ -394,9 +395,22 @@ func TestPathLengthParametrization(t *testing.T) {
 	}
 	plotPathLengthParametrization("test/cubic_bezier_parametrization.png", speed, length, 0.0, 1.0)
 
+	start = Point{0.0, 0.0}
+	cp1 = Point{10.0, 10.0}
+	cp2 = Point{0.0, 10.0}
+	end = Point{10.0, 10.0}
+	speed = func(t float64) float64 {
+		return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
+	}
+	length = func(t float64) float64 {
+		p0, p1, p2, p3, _, _, _, _ := splitCubicBezier(start, cp1, cp2, end, t)
+		return cubicBezierLength(p0, p1, p2, p3)
+	}
+	plotPathLengthParametrization("test/cubic_bezier_parametrization_inflection.png", speed, length, 0.0, 1.0)
+
 	rx, ry := 100.0, 10.0
 	phi := 0.0
-	sweep := true
+	sweep := false
 	end = Point{-100.0, 10.0}
 	theta1, theta2 := 0.0, 0.5*math.Pi
 	speed = func(theta float64) float64 {

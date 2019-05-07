@@ -724,6 +724,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 				cp2 := Point{p.d[i+3], p.d[i+4]}
 				end = Point{p.d[i+5], p.d[i+6]}
 
+				// TODO: handle inflection points
 				speed := func(t float64) float64 {
 					return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
 				}
@@ -757,9 +758,10 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 				cx, cy, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
 
 				speed := func(theta float64) float64 {
-					return ellipseDeriv(rx, ry, 0.0, sweep, theta).Length()
+					return ellipseDeriv(rx, ry, 0.0, true, theta).Length()
 				}
-				invL, dT := invPolynomialApprox3(gaussLegendre5, speed, theta1, theta2)
+				invL, totalLength := invPolynomialApprox3(gaussLegendre5, speed, theta1, theta2)
+				dT := math.Abs(totalLength)
 				if j == len(ts) {
 					q.ArcTo(rx, ry, phi*180.0/math.Pi, largeArc, sweep, end.X, end.Y)
 				} else {
@@ -767,7 +769,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 					nextLargeArc := largeArc
 					for j < len(ts) && T < ts[j] && ts[j] <= T+dT {
 						tpos := (ts[j] - T) / dT
-						theta := invL(tpos * dT)
+						theta := invL(tpos * totalLength)
 						mid, largeArc1, largeArc2, ok := splitEllipse(rx, ry, phi, cx, cy, startTheta, theta2, theta)
 						if !ok {
 							panic("theta not in elliptic arc range for splitting")

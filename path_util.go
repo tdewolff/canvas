@@ -112,8 +112,8 @@ func bisectionMethod(f func(float64) float64, y, xmin, xmax float64) float64 {
 	const Tolerance = 0.001 // 0.1%
 
 	n := 0
-	toleranceX := (xmax - xmin) * Tolerance
-	toleranceY := (f(xmax) - f(xmin)) * Tolerance
+	toleranceX := math.Abs(xmax-xmin) * Tolerance
+	toleranceY := math.Abs(f(xmax)-f(xmin)) * Tolerance
 
 	var x float64
 	for {
@@ -123,7 +123,7 @@ func bisectionMethod(f func(float64) float64, y, xmin, xmax float64) float64 {
 		}
 
 		dy := f(x) - y
-		if math.Abs(dy) < toleranceY || (xmax-xmin)/2.0 < toleranceX {
+		if math.Abs(dy) < toleranceY || math.Abs(xmax-xmin)/2.0 < toleranceX {
 			return x
 		} else if dy > 0.0 {
 			xmax = x
