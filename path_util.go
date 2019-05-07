@@ -222,14 +222,8 @@ func ellipseRadius(rx, ry, phi float64, sweep bool, theta float64) float64 {
 }
 
 // ellipseNormal returns the normal to the right at angle theta of the ellipse, given rotation phi.
-func ellipseNormal(phi float64, sweep bool, theta, d float64) Point {
-	theta += phi
-	y, x := math.Sincos(theta)
-	n := Point{x, y}
-	if !sweep { // CW
-		n = n.Neg()
-	}
-	return n.Norm(d)
+func ellipseNormal(rx, ry, phi float64, sweep bool, theta, d float64) Point {
+	return ellipseDeriv(rx, ry, phi, sweep, theta).Rot90CW().Norm(d)
 }
 
 func ellipseSpeed(rx, ry float64, theta float64) float64 {

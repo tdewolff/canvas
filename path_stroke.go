@@ -326,8 +326,8 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
 			_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
-			n0 := ellipseNormal(phi, sweep, theta0, halfWidth)
-			n1 := ellipseNormal(phi, sweep, theta1, halfWidth)
+			n0 := ellipseNormal(rx, ry, phi, sweep, theta0, halfWidth)
+			n1 := ellipseNormal(rx, ry, phi, sweep, theta1, halfWidth)
 			r0 := ellipseRadius(rx, ry, phi, sweep, theta0)
 			r1 := ellipseRadius(rx, ry, phi, sweep, theta1)
 			states = append(states, pathState{
