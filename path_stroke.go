@@ -298,9 +298,9 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 		case QuadToCmd, CubeToCmd:
 			var cp1, cp2 Point
 			if cmd == QuadToCmd {
-				c := Point{p.d[i+1], p.d[i+2]}
+				cp := Point{p.d[i+1], p.d[i+2]}
 				end = Point{p.d[i+3], p.d[i+4]}
-				cp1, cp2 = quadraticToCubicBezier(start, c, end)
+				cp1, cp2 = quadraticToCubicBezier(start, cp, end)
 			} else {
 				cp1 = Point{p.d[i+1], p.d[i+2]}
 				cp2 = Point{p.d[i+3], p.d[i+4]}

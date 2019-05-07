@@ -106,68 +106,131 @@ func gaussLegendre7(f func(float64) float64, a, b float64) float64 {
 	return c * (0.129485*(Qd1+Qd7) + 0.279705*(Qd2+Qd6) + 0.381830*(Qd3+Qd5) + 0.417959*Qd4)
 }
 
-// find parametric value t at a given length s on the curve using the bisection method
-//func bisectionMethod(f func(float64) float64, s float64) float64 {
-//	tmin, tmax := 0.0, 1.0
-//	for {
-//		t := (tmin + tmax) / 2.0
-//		ds := f(t) - s
-//		if math.Abs(ds) < 0.1 || (tmax-tmin)/2.0 < 0.1 {
-//			return t
-//		} else if ds > 0.0 {
-//			tmax = t
-//		} else {
-//			tmin = t
-//		}
-//	}
-//}
+// find value x for which f(x) = y in the interval x in [xmin, xmax] using the bisection method
+func bisectionMethod(f func(float64) float64, y, xmin, xmax float64) float64 {
+	const MaxIterations = 100
+	const Tolerance = 0.001 // 0.1%
 
-// polynomialApprox3 returns a function L(t) that maps the parameter t [0,1] to the integral of speed over [tmin, tmax]. For a circle tmin and tmax would be 0 and 2PI respectively for example.
+	n := 0
+	toleranceX := (xmax - xmin) * Tolerance
+	toleranceY := (f(xmax) - f(xmin)) * Tolerance
+
+	var x float64
+	for {
+		x = (xmin + xmax) / 2.0
+		if n >= MaxIterations {
+			return x
+		}
+
+		dy := f(x) - y
+		if math.Abs(dy) < toleranceY || (xmax-xmin)/2.0 < toleranceX {
+			return x
+		} else if dy > 0.0 {
+			xmax = x
+		} else {
+			xmin = x
+		}
+		n++
+	}
+	return x // MaxIterations reached
+}
+
+// polynomialApprox returns a function y(x) that maps the parameter x [xmin,xmax] to the integral of fp. For a circle tmin and tmax would be 0 and 2PI respectively for example. It also returns the total length of the curve.
 // Implemented using M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI, p. 143--150, 1996
 // see https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf
-func polynomialApprox3(gaussLegendre gaussLegendreFunc, speed func(float64) float64, tmin, tmax float64) func(float64) float64 {
-	s1 := gaussLegendre(speed, tmin, tmin+(tmax-tmin)*1.0/3.0)
-	s2 := gaussLegendre(speed, tmin, tmin+(tmax-tmin)*2.0/3.0)
-	s3 := gaussLegendre(speed, tmin, tmax)
+func polynomialApprox3(gaussLegendre gaussLegendreFunc, fp func(float64) float64, xmin, xmax float64) (func(float64) float64, float64) {
+	y1 := gaussLegendre(fp, xmin, xmin+(xmax-xmin)*1.0/3.0)
+	y2 := gaussLegendre(fp, xmin, xmin+(xmax-xmin)*2.0/3.0)
+	y3 := gaussLegendre(fp, xmin, xmax)
 
-	// We have three points on the s(t) curve at t0=0, t1=1/3, t2=2/3 and t3=1
+	// We have four points on the y(x) curve at x0=0, x1=1/3, x2=2/3 and x3=1
 	// now obtain a polynomial that goes through these four points by solving the system of linear equations
-	// s(t) = a*t^3 + b*t^2 + c*t + d  (s0=0; d=0)
-	// [s1; s2; s3] = [1/27, 1/9, 1/3;
+	// y(x) = a*x^3 + b*x^2 + c*x + d  (NB: y0 = d = 0)
+	// [y1; y2; y3] = [1/27, 1/9, 1/3;
 	//                 8/27, 4/9, 2/3;
 	//                    1,   1,   1] * [a; b; c]
 	//
-	// After inverting (note that d=0):
+	// After inverting:
 	// [a; b; c] = 0.5 * [ 27, -27,  9;
 	//                    -45,  36, -9;
-	//                     18,  -9,  2] * [s1; s2; s3]
+	//                     18,  -9,  2] * [y1; y2; y3]
+	// NB: y0 = d = 0
 
-	a := 13.5*s1 - 13.5*s2 + 4.5*s3
-	b := -22.5*s1 + 18.0*s2 - 4.5*s3
-	c := 9.0*s1 - 4.5*s2 + s3
-	a *= (tmax - tmin) / s3
-	b *= (tmax - tmin) / s3
-	c *= (tmax - tmin) / s3
-	return func(t float64) float64 {
-		return a*t*t*t + b*t*t + c*t + tmin
-	}
+	a := 13.5*y1 - 13.5*y2 + 4.5*y3
+	b := -22.5*y1 + 18.0*y2 - 4.5*y3
+	c := 9.0*y1 - 4.5*y2 + y3
+	return func(x float64) float64 {
+		x = (x - xmin) / (xmax - xmin)
+		return a*x*x*x + b*x*x + c*x
+	}, math.Abs(y3)
 }
 
-//func invLengthFunc(speed func(float64) float64, gaussLegendre gaussLegendreFunc) func(float64) float64 {
-//	f := func(s float64) float64 { return gaussLegendre(speed, 0.0, s) }
-//	s3 := f(1.0)
-//	t1 := bisectionMethod(f, (1.0/3.0)*s3)
-//	t2 := bisectionMethod(f, (2.0/3.0)*s3)
-//
-//	div := 1.0 / (s3 * s3 * s3)
-//	a := div * (13.5*t1 - 13.5*t2 + 4.5)
-//	b := div * (-22.5*t1*s3 + 18.0*t2*s3 - 4.5*s3)
-//	c := div * (9.0*t1*s3*s3 - 4.5*t2*s3*s3 + 1.0*s3*s3)
-//
-//	return func(s float64) float64 {
-//		return a*s*s*s + b*s*s + c*s
-//	}
-//}
+// invPolynomialApprox does the opposite of polynomialApprox, it returns a function x(y) that maps the parameter y [f(xmin),f(xmax)] to x [xmin,xmax]
+func invPolynomialApprox3(gaussLegendre gaussLegendreFunc, fp func(float64) float64, xmin, xmax float64) (func(float64) float64, float64) {
+	f := func(x float64) float64 {
+		return gaussLegendre(fp, xmin, xmin+(xmax-xmin)*x)
+	}
+	y3 := f(1.0)
+	x1 := bisectionMethod(f, (1.0/3.0)*y3, xmin, xmax)
+	x2 := bisectionMethod(f, (2.0/3.0)*y3, xmin, xmax)
+	x3 := 1.0
+
+	// We have four points on the x(y) curve at y0=0, y1=1/3, y2=2/3 and y3=1
+	// now obtain a polynomial that goes through these four points by solving the system of linear equations
+	// x(y) = a*y^3 + b*y^2 + c*y + d  (NB: x0 = d = 0)
+	// [x1; x2; x3] = [1/27, 1/9, 1/3;
+	//                 8/27, 4/9, 2/3;
+	//                    1,   1,   1] * [a*y3^3; b*y3^2; c*y3]
+	//
+	// After inverting:
+	// [a*y3^3; b*y3^2; c*y3] = 0.5 * [ 27, -27,  9;
+	//                                 -45,  36, -9;
+	//                                  18,  -9,  2] * [x1; x2; x3]
+	// NB: x0 = d = 0
+
+	a := (27.0*x1 - 27.0*x2 + 9.0*x3) / (2.0 * y3 * y3 * y3)
+	b := (-45.0*x1 + 36.0*x2 - 9.0*x3) / (2.0 * y3 * y3)
+	c := (18.0*x1 - 9.0*x2 + 2.0*x3) / (2.0 * y3)
+	return func(y float64) float64 {
+		x := a*y*y*y + b*y*y + c*y
+		return xmin + (xmax-xmin)*x
+	}, y3
+}
+
+func invPolynomialApprox4(gaussLegendre gaussLegendreFunc, fp func(float64) float64, xmin, xmax float64) (func(float64) float64, float64) {
+	f := func(x float64) float64 {
+		return gaussLegendre(fp, xmin, xmin+(xmax-xmin)*x)
+	}
+	y4 := f(1.0)
+	x1 := bisectionMethod(f, (1.0/4.0)*y4, xmin, xmax)
+	x2 := bisectionMethod(f, (2.0/4.0)*y4, xmin, xmax)
+	x3 := bisectionMethod(f, (3.0/4.0)*y4, xmin, xmax)
+	x4 := 1.0
+
+	// We have four points on the x(y) curve at y0=0, y1=1/4, y2=2/4, y3=3/4 and y4=1
+	// now obtain a polynomial that goes through these four points by solving the system of linear equations
+	// x(y) = a*y^4 + b*y^3 + c*y^2 + d*y + e  (NB: x0 = 3 = 0)
+	// [x1; x2; x3; x4] = [1/256,  1/64, 1/16, 1/4;
+	//                      1/16,   1/8,  1/4, 1/2;
+	//                    81/256, 27/64, 9/16, 3/4;
+	//                         1,     1,    1,   1] * [a*y4^4; b*y4^3; c*y4^2; d*y4]
+	//
+	// After inverting:
+	// [a*y4^4; b*y4^3; c*y4^3, d*y4] = 1/3 * [-128,  192, -128,  32;
+	//                                          288, -384,  224, -48;
+	//                                         -208,  228, -112,  22;
+	//                                           48,  -36,   16,  -3] * [x1; x2; x3; x4]
+	// NB: x0 = d = 0
+
+	a := (-128.0*x1 + 192.0*x2 - 128.0*x3 + 32.0*x4) / (3.0 * y4 * y4 * y4 * y4)
+	b := (288.0*x1 - 384.0*x2 + 224.0*x3 - 48.0*x4) / (3.0 * y4 * y4 * y4)
+	c := (-208.0*x1 + 228.0*x2 - 112.0*x3 + 22.0*x4) / (3.0 * y4 * y4)
+	d := (48.0*x1 - 36.0*x2 + 16.0*x3 - 3.0*x4) / (3.0 * y4)
+	return func(y float64) float64 {
+		x := a*y*y*y*y + b*y*y*y + c*y*y + d*y
+		return xmin + (xmax-xmin)*x
+	}, y4
+}
 
 ////////////////////////////////////////////////////////////////
 
@@ -226,14 +289,6 @@ func ellipseNormal(rx, ry, phi float64, sweep bool, theta, d float64) Point {
 	return ellipseDeriv(rx, ry, phi, sweep, theta).Rot90CW().Norm(d)
 }
 
-func ellipseSpeed(rx, ry float64, theta float64) float64 {
-	// phi and sweep have no influence
-	sintheta, costheta := math.Sincos(theta)
-	dx := rx * costheta
-	dy := ry * sintheta
-	return math.Sqrt(dx*dx + dy*dy)
-}
-
 // ellipseLength calculates the length of the elliptical arc
 // it uses Gauss-Legendre (n=5) and has an error of ~1% or less (empirical)
 func ellipseLength(rx, ry, theta1, theta2 float64) float64 {
@@ -241,7 +296,7 @@ func ellipseLength(rx, ry, theta1, theta2 float64) float64 {
 		theta1, theta2 = theta2, theta1
 	}
 	speed := func(theta float64) float64 {
-		return ellipseSpeed(rx, ry, theta)
+		return ellipseDeriv(rx, ry, 0.0, true, theta).Length()
 	}
 	return gaussLegendre5(speed, theta1, theta2)
 }
@@ -372,9 +427,16 @@ func quadraticToCubicBezier(start, c, end Point) (Point, Point) {
 }
 
 func quadraticBezierPos(p0, p1, p2 Point, t float64) Point {
-	p0 = p0.Mul((1 - t) * (1 - t))
-	p1 = p1.Mul(2 * t * (1 - t))
+	p0 = p0.Mul(1.0 - 2.0*t + t*t)
+	p1 = p1.Mul(2.0*t - 2.0*t*t)
 	p2 = p2.Mul(t * t)
+	return p0.Add(p1).Add(p2)
+}
+
+func quadraticBezierDeriv(p0, p1, p2 Point, t float64) Point {
+	p0 = p0.Mul(-2.0 + 2.0*t)
+	p1 = p1.Mul(1.0 - 2.0*t)
+	p2 = p2.Mul(2.0 * t)
 	return p0.Add(p1).Add(p2)
 }
 
@@ -385,6 +447,9 @@ func quadraticBezierLength(p0, p1, p2 Point) float64 {
 	A := 4.0 * a.Dot(a)
 	B := 4.0 * a.Dot(b)
 	C := b.Dot(b)
+	if equal(A, 0.0) {
+		return 0.0
+	}
 
 	Sabc := 2.0 * math.Sqrt(A+B+C)
 	A_2 := math.Sqrt(A)
@@ -407,9 +472,9 @@ func splitQuadraticBezier(p0, p1, p2 Point, t float64) (Point, Point, Point, Poi
 }
 
 func cubicBezierPos(p0, p1, p2, p3 Point, t float64) Point {
-	p0 = p0.Mul((1 - t) * (1 - t) * (1 - t))
-	p1 = p1.Mul(3 * t * (1 - t) * (1 - t))
-	p2 = p2.Mul(3 * t * t * (1 - t))
+	p0 = p0.Mul(1.0 - 3.0*t + 3.0*t*t - t*t*t)
+	p1 = p1.Mul(3.0*t - 6.0*t*t + 3.0*t*t*t)
+	p2 = p2.Mul(3.0*t*t - 3.0*t*t*t)
 	p3 = p3.Mul(t * t * t)
 	return p0.Add(p1).Add(p2).Add(p3)
 }

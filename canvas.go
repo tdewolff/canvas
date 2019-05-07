@@ -34,13 +34,13 @@ var (
 	LightGrey        color.Color = color.RGBA{211, 211, 211, 255}
 	Gainsboro        color.Color = color.RGBA{220, 220, 220, 255}
 	WhiteSmoke       color.Color = color.RGBA{245, 245, 245, 255}
-	SteelBlue        color.Color = color.RGBA{70, 130, 180, 128}
-	SlateGrey        color.Color = color.RGBA{112, 128, 144, 128}
-	LightSteelBlue   color.Color = color.RGBA{176, 196, 222, 128}
-	LightSlateGrey   color.Color = color.RGBA{119, 136, 153, 128}
-	DarkSlateBlue    color.Color = color.RGBA{72, 61, 139, 128}
-	DarkSlateGrey    color.Color = color.RGBA{47, 79, 79, 128}
-	OrangeRed        color.Color = color.RGBA{255, 69, 0, 128}
+	SteelBlue        color.Color = color.RGBA{70, 130, 180, 255}
+	SlateGrey        color.Color = color.RGBA{112, 128, 144, 255}
+	LightSteelBlue   color.Color = color.RGBA{176, 196, 222, 255}
+	LightSlateGrey   color.Color = color.RGBA{119, 136, 153, 255}
+	DarkSlateBlue    color.Color = color.RGBA{72, 61, 139, 255}
+	DarkSlateGrey    color.Color = color.RGBA{47, 79, 79, 255}
+	OrangeRed        color.Color = color.RGBA{255, 69, 0, 255}
 )
 
 func writeCSSColor(w io.Writer, c color.Color) {

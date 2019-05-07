@@ -302,65 +302,65 @@ func (p *Path) Bounds() Rect {
 			ymin = math.Min(ymin, end.Y)
 			ymax = math.Max(ymax, end.Y)
 		case QuadToCmd:
-			c := Point{p.d[i+1], p.d[i+2]}
+			cp := Point{p.d[i+1], p.d[i+2]}
 			end = Point{p.d[i+3], p.d[i+4]}
 
 			xmin = math.Min(xmin, end.X)
 			xmax = math.Max(xmax, end.X)
-			tdenom := (start.X - 2*c.X + end.X)
+			tdenom := (start.X - 2*cp.X + end.X)
 			if tdenom != 0.0 {
-				t := (start.X - c.X) / tdenom
-				x := quadraticBezierPos(start, c, end, t)
+				t := (start.X - cp.X) / tdenom
+				x := quadraticBezierPos(start, cp, end, t)
 				xmin = math.Min(xmin, x.X)
 				xmax = math.Max(xmax, x.X)
 			}
 
 			ymin = math.Min(ymin, end.Y)
 			ymax = math.Max(ymax, end.Y)
-			tdenom = (start.Y - 2*c.Y + end.Y)
+			tdenom = (start.Y - 2*cp.Y + end.Y)
 			if tdenom != 0.0 {
-				t := (start.Y - c.Y) / tdenom
-				y := quadraticBezierPos(start, c, end, t)
+				t := (start.Y - cp.Y) / tdenom
+				y := quadraticBezierPos(start, cp, end, t)
 				ymin = math.Min(ymin, y.Y)
 				ymax = math.Max(ymax, y.Y)
 			}
 		case CubeToCmd:
-			c1 := Point{p.d[i+1], p.d[i+2]}
-			c2 := Point{p.d[i+3], p.d[i+4]}
+			cp1 := Point{p.d[i+1], p.d[i+2]}
+			cp2 := Point{p.d[i+3], p.d[i+4]}
 			end = Point{p.d[i+5], p.d[i+6]}
 
-			a := -start.X + 3*c1.X - 3*c2.X + end.X
-			b := 2*start.X - 4*c1.X + 2*c2.X
-			c := -start.X + c1.X
+			a := -start.X + 3*cp1.X - 3*cp2.X + end.X
+			b := 2*start.X - 4*cp1.X + 2*cp2.X
+			c := -start.X + cp1.X
 			t1, t2 := solveQuadraticFormula(a, b, c)
 
 			xmin = math.Min(xmin, end.X)
 			xmax = math.Max(xmax, end.X)
 			if !math.IsNaN(t1) {
-				x1 := cubicBezierPos(start, c1, c2, end, t1)
+				x1 := cubicBezierPos(start, cp1, cp2, end, t1)
 				xmin = math.Min(xmin, x1.X)
 				xmax = math.Max(xmax, x1.X)
 			}
 			if !math.IsNaN(t2) {
-				x2 := cubicBezierPos(start, c1, c2, end, t2)
+				x2 := cubicBezierPos(start, cp1, cp2, end, t2)
 				xmin = math.Min(xmin, x2.X)
 				xmax = math.Max(xmax, x2.X)
 			}
 
-			a = -start.Y + 3*c1.Y - 3*c2.Y + end.Y
-			b = 2*start.Y - 4*c1.Y + 2*c2.Y
-			c = -start.Y + c1.Y
+			a = -start.Y + 3*cp1.Y - 3*cp2.Y + end.Y
+			b = 2*start.Y - 4*cp1.Y + 2*cp2.Y
+			c = -start.Y + cp1.Y
 			t1, t2 = solveQuadraticFormula(a, b, c)
 
 			ymin = math.Min(ymin, end.Y)
 			ymax = math.Max(ymax, end.Y)
 			if !math.IsNaN(t1) {
-				y1 := cubicBezierPos(start, c1, c2, end, t1)
+				y1 := cubicBezierPos(start, cp1, cp2, end, t1)
 				ymin = math.Min(ymin, y1.Y)
 				ymax = math.Max(ymax, y1.Y)
 			}
 			if !math.IsNaN(t2) {
-				y2 := cubicBezierPos(start, c1, c2, end, t2)
+				y2 := cubicBezierPos(start, cp1, cp2, end, t2)
 				ymin = math.Min(ymin, y2.Y)
 				ymax = math.Max(ymax, y2.Y)
 			}
@@ -420,14 +420,14 @@ func (p *Path) Length() float64 {
 			end = Point{p.d[i+1], p.d[i+2]}
 			d += end.Sub(start).Length()
 		case QuadToCmd:
-			c := Point{p.d[i+1], p.d[i+2]}
+			cp := Point{p.d[i+1], p.d[i+2]}
 			end = Point{p.d[i+3], p.d[i+4]}
-			d += quadraticBezierLength(start, c, end)
+			d += quadraticBezierLength(start, cp, end)
 		case CubeToCmd:
-			c1 := Point{p.d[i+1], p.d[i+2]}
-			c2 := Point{p.d[i+3], p.d[i+4]}
+			cp1 := Point{p.d[i+1], p.d[i+2]}
+			cp2 := Point{p.d[i+3], p.d[i+4]}
 			end = Point{p.d[i+5], p.d[i+6]}
-			d += cubicBezierLength(start, c1, c2, end)
+			d += cubicBezierLength(start, cp1, cp2, end)
 		case ArcToCmd:
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			largeArc, sweep := fromArcFlags(p.d[i+4])
@@ -521,20 +521,20 @@ func (p *Path) Rotate(rot, x, y float64) *Path {
 			p.d[i+1] = end.X
 			p.d[i+2] = end.Y
 		case QuadToCmd:
-			c := Point{p.d[i+1], p.d[i+2]}.Rot(rot, mid)
+			cp := Point{p.d[i+1], p.d[i+2]}.Rot(rot, mid)
 			end := Point{p.d[i+3], p.d[i+4]}.Rot(rot, mid)
-			p.d[i+1] = c.X
-			p.d[i+2] = c.Y
+			p.d[i+1] = cp.X
+			p.d[i+2] = cp.Y
 			p.d[i+3] = end.X
 			p.d[i+4] = end.Y
 		case CubeToCmd:
-			c1 := Point{p.d[i+1], p.d[i+2]}.Rot(rot, mid)
-			c2 := Point{p.d[i+3], p.d[i+4]}.Rot(rot, mid)
+			cp1 := Point{p.d[i+1], p.d[i+2]}.Rot(rot, mid)
+			cp2 := Point{p.d[i+3], p.d[i+4]}.Rot(rot, mid)
 			end := Point{p.d[i+5], p.d[i+6]}.Rot(rot, mid)
-			p.d[i+1] = c1.X
-			p.d[i+2] = c1.Y
-			p.d[i+3] = c2.X
-			p.d[i+4] = c2.Y
+			p.d[i+1] = cp1.X
+			p.d[i+2] = cp1.Y
+			p.d[i+3] = cp2.X
+			p.d[i+4] = cp2.Y
 			p.d[i+5] = end.X
 			p.d[i+6] = end.Y
 		case ArcToCmd:
@@ -574,17 +574,17 @@ func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer
 			}
 		case QuadToCmd:
 			if bezier != nil {
-				c := Point{p.d[i+1], p.d[i+2]}
+				cp := Point{p.d[i+1], p.d[i+2]}
 				end := Point{p.d[i+3], p.d[i+4]}
-				c1, c2 := quadraticToCubicBezier(start, c, end)
-				q = bezier(start, c1, c2, end)
+				cp1, cp2 := quadraticToCubicBezier(start, cp, end)
+				q = bezier(start, cp1, cp2, end)
 			}
 		case CubeToCmd:
 			if bezier != nil {
-				c1 := Point{p.d[i+1], p.d[i+2]}
-				c2 := Point{p.d[i+3], p.d[i+4]}
+				cp1 := Point{p.d[i+1], p.d[i+2]}
+				cp2 := Point{p.d[i+3], p.d[i+4]}
 				end := Point{p.d[i+5], p.d[i+6]}
-				q = bezier(start, c1, c2, end)
+				q = bezier(start, cp1, cp2, end)
 			}
 		case ArcToCmd:
 			if arc != nil {
@@ -673,7 +673,6 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 					q.LineTo(end.X, end.Y)
 				} else {
 					dT := end.Sub(start).Length()
-
 					Tcurve := T
 					for j < len(ts) && T < ts[j] && ts[j] <= T+dT {
 						tpos := (ts[j] - T) / dT
@@ -691,23 +690,26 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 					T += dT
 				}
 			case QuadToCmd:
-				c := Point{p.d[i+1], p.d[i+2]}
+				cp := Point{p.d[i+1], p.d[i+2]}
 				end = Point{p.d[i+3], p.d[i+4]}
 
+				speed := func(t float64) float64 {
+					return quadraticBezierDeriv(start, cp, end, t).Length()
+				}
+				invL, dT := invPolynomialApprox3(gaussLegendre5, speed, 0.0, 1.0)
 				if j == len(ts) {
-					q.QuadTo(c.X, c.Y, end.X, end.Y)
+					q.QuadTo(cp.X, cp.Y, end.X, end.Y)
 				} else {
-					dT := quadraticBezierLength(start, c, end)
-
 					Tcurve, dTcurve := T, dT
-					r0, r1, r2 := start, c, end
+					r0, r1, r2 := start, cp, end
 					for j < len(ts) && T < ts[j] && ts[j] <= T+dT {
 						tpos := (ts[j] - Tcurve) / dTcurve
-						_, c, _, r0, r1, r2 = splitQuadraticBezier(r0, r1, r2, tpos)
+						t := invL(tpos * dT)
+						_, cp, _, r0, r1, r2 = splitQuadraticBezier(r0, r1, r2, t)
 						dTcurve = dT - (ts[j] - T)
 						Tcurve = ts[j]
 
-						q.QuadTo(c.X, c.Y, r0.X, r0.Y)
+						q.QuadTo(cp.X, cp.Y, r0.X, r0.Y)
 						push()
 						q.MoveTo(r0.X, r0.Y)
 						j++
@@ -718,24 +720,27 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 					T += dT
 				}
 			case CubeToCmd:
-				c1 := Point{p.d[i+1], p.d[i+2]}
-				c2 := Point{p.d[i+3], p.d[i+4]}
+				cp1 := Point{p.d[i+1], p.d[i+2]}
+				cp2 := Point{p.d[i+3], p.d[i+4]}
 				end = Point{p.d[i+5], p.d[i+6]}
 
+				speed := func(t float64) float64 {
+					return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
+				}
+				invL, dT := invPolynomialApprox3(gaussLegendre5, speed, 0.0, 1.0)
 				if j == len(ts) {
-					q.CubeTo(c1.X, c1.Y, c2.X, c2.Y, end.X, end.Y)
+					q.CubeTo(cp1.X, cp1.Y, cp2.X, cp2.Y, end.X, end.Y)
 				} else {
-					dT := cubicBezierLength(start, c1, c2, end)
-
 					Tcurve, dTcurve := T, dT
-					r0, r1, r2, r3 := start, c1, c2, end
+					r0, r1, r2, r3 := start, cp1, cp2, end
 					for j < len(ts) && T < ts[j] && ts[j] <= T+dT {
 						tpos := (ts[j] - Tcurve) / dTcurve
-						_, c1, c2, _, r0, r1, r2, r3 = splitCubicBezier(r0, r1, r2, r3, tpos)
+						t := invL(tpos * dT)
+						_, cp1, cp2, _, r0, r1, r2, r3 = splitCubicBezier(r0, r1, r2, r3, t)
 						dTcurve = dT - (ts[j] - T)
 						Tcurve = ts[j]
 
-						q.CubeTo(c1.X, c1.Y, c2.X, c2.Y, r0.X, r0.Y)
+						q.CubeTo(cp1.X, cp1.Y, cp2.X, cp2.Y, r0.X, r0.Y)
 						push()
 						q.MoveTo(r0.X, r0.Y)
 						j++
@@ -752,19 +757,17 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 				cx, cy, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
 
 				speed := func(theta float64) float64 {
-					return ellipseSpeed(rx, ry, theta)
+					return ellipseDeriv(rx, ry, 0.0, sweep, theta).Length()
 				}
-				L := polynomialApprox3(gaussLegendre5, speed, theta1, theta2)
-
+				invL, dT := invPolynomialApprox3(gaussLegendre5, speed, theta1, theta2)
 				if j == len(ts) {
 					q.ArcTo(rx, ry, phi*180.0/math.Pi, largeArc, sweep, end.X, end.Y)
 				} else {
-					dT := ellipseLength(rx, ry, theta1, theta2)
 					startTheta := theta1
 					nextLargeArc := largeArc
 					for j < len(ts) && T < ts[j] && ts[j] <= T+dT {
 						tpos := (ts[j] - T) / dT
-						theta := L(tpos)
+						theta := invL(tpos * dT)
 						mid, largeArc1, largeArc2, ok := splitEllipse(rx, ry, phi, cx, cy, startTheta, theta2, theta)
 						if !ok {
 							panic("theta not in elliptic arc range for splitting")
@@ -871,12 +874,12 @@ func (p *Path) Reverse() *Path {
 				ip.LineTo(end.X, end.Y)
 			}
 		case QuadToCmd:
-			x1, y1 := p.d[i+1], p.d[i+2]
-			ip.QuadTo(x1, y1, end.X, end.Y)
+			cx, cy := p.d[i+1], p.d[i+2]
+			ip.QuadTo(cx, cy, end.X, end.Y)
 		case CubeToCmd:
-			x1, y1 := p.d[i+3], p.d[i+4]
-			x2, y2 := p.d[i+1], p.d[i+2]
-			ip.CubeTo(x1, y1, x2, y2, end.X, end.Y)
+			cx1, cy1 := p.d[i+3], p.d[i+4]
+			cx2, cy2 := p.d[i+1], p.d[i+2]
+			ip.CubeTo(cx1, cy1, cx2, cy2, end.X, end.Y)
 		case ArcToCmd:
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			largeArc, sweep := fromArcFlags(p.d[i+4])
@@ -922,18 +925,18 @@ func (p *Path) Optimize() *Path {
 				p.d = append(p.d[:i+3], p.d[i+6:]...) // remove last CloseCmd to ensure x,y values are valid
 			}
 		case QuadToCmd:
-			c := Point{p.d[i+1], p.d[i+2]}
+			cp := Point{p.d[i+1], p.d[i+2]}
 			end = Point{p.d[i+3], p.d[i+4]}
-			if c == start || c == end {
+			if cp == start || cp == end {
 				p.d = append(p.d[:i+1], p.d[i+3:]...)
 				p.d[i] = LineToCmd
 				cmd = LineToCmd
 			}
 		case CubeToCmd:
-			c1 := Point{p.d[i+1], p.d[i+2]}
-			c2 := Point{p.d[i+3], p.d[i+4]}
+			cp1 := Point{p.d[i+1], p.d[i+2]}
+			cp2 := Point{p.d[i+3], p.d[i+4]}
 			end := Point{p.d[i+5], p.d[i+6]}
-			if (c1 == start || c1 == end) && (c2 == start || c2 == end) {
+			if (cp1 == start || cp1 == end) && (cp2 == start || cp2 == end) {
 				p.d = append(p.d[:i+1], p.d[i+5:]...)
 				p.d[i] = LineToCmd
 				cmd = LineToCmd
@@ -1298,17 +1301,17 @@ func (p *Path) ToPS() string {
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, " %.5g %.5g lineto", x, y)
 		case QuadToCmd, CubeToCmd:
-			var start, c1, c2 Point
+			var start, cp1, cp2 Point
 			start = Point{x, y}
 			if cmd == QuadToCmd {
 				x, y = p.d[i+3], p.d[i+4]
-				c1, c2 = quadraticToCubicBezier(start, Point{p.d[i+1], p.d[i+2]}, Point{x, y})
+				cp1, cp2 = quadraticToCubicBezier(start, Point{p.d[i+1], p.d[i+2]}, Point{x, y})
 			} else {
-				c1 = Point{p.d[i+1], p.d[i+2]}
-				c2 = Point{p.d[i+3], p.d[i+4]}
+				cp1 = Point{p.d[i+1], p.d[i+2]}
+				cp2 = Point{p.d[i+3], p.d[i+4]}
 				x, y = p.d[i+5], p.d[i+6]
 			}
-			fmt.Fprintf(&sb, " %.5g %.5g %.5g %.5g %.5g %.5g curveto", c1.X, c1.Y, c2.X, c2.Y, x, y)
+			fmt.Fprintf(&sb, " %.5g %.5g %.5g %.5g %.5g %.5g curveto", cp1.X, cp1.Y, cp2.X, cp2.Y, x, y)
 		case ArcToCmd:
 			x0, y0 := x, y
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
@@ -1374,17 +1377,17 @@ func (p *Path) ToPDF() string {
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, " %.5f %.5f l", x, y)
 		case QuadToCmd, CubeToCmd:
-			var start, c1, c2 Point
+			var start, cp1, cp2 Point
 			start = Point{x, y}
 			if cmd == QuadToCmd {
 				x, y = p.d[i+3], p.d[i+4]
-				c1, c2 = quadraticToCubicBezier(start, Point{p.d[i+1], p.d[i+2]}, Point{x, y})
+				cp1, cp2 = quadraticToCubicBezier(start, Point{p.d[i+1], p.d[i+2]}, Point{x, y})
 			} else {
-				c1 = Point{p.d[i+1], p.d[i+2]}
-				c2 = Point{p.d[i+3], p.d[i+4]}
+				cp1 = Point{p.d[i+1], p.d[i+2]}
+				cp2 = Point{p.d[i+3], p.d[i+4]}
 				x, y = p.d[i+5], p.d[i+6]
 			}
-			fmt.Fprintf(&sb, " %.5f %.5f %.5f %.5f %.5f %.5f c", c1.X, c1.Y, c2.X, c2.Y, x, y)
+			fmt.Fprintf(&sb, " %.5f %.5f %.5f %.5f %.5f %.5f c", cp1.X, cp1.Y, cp2.X, cp2.Y, x, y)
 		case ArcToCmd:
 			panic("arcs should have been replaced")
 		case CloseCmd:

@@ -2,10 +2,14 @@ package canvas
 
 import (
 	"math"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/tdewolff/test"
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
 )
 
 func TestParse(t *testing.T) {
@@ -107,7 +111,7 @@ func TestPathLength(t *testing.T) {
 		{"A10 20 0 0 1 20 0", 48.4422},
 		{"A10 20 0 1 0 20 0", 48.4422},
 		{"A10 20 0 1 1 20 0", 48.4422},
-		{"A10 20 30 0 0 20 0", 37.9733},
+		{"A10 20 30 0 0 20 0", 31.4622},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
@@ -280,4 +284,126 @@ func TestPathOptimize(t *testing.T) {
 			test.T(t, opt, tt.opt)
 		})
 	}
+}
+
+func plotPathLengthParametrization(filename string, speed, length func(float64) float64, tmin, tmax float64) {
+	L3, totalLength := polynomialApprox3(gaussLegendre5, speed, tmin, tmax)
+	T3, _ := invPolynomialApprox3(gaussLegendre5, speed, tmin, tmax)
+	T4, _ := invPolynomialApprox4(gaussLegendre5, speed, tmin, tmax)
+
+	pData := make([]plotter.XYs, 5)
+	pY := []float64{1.0 / 4.0, 1.0 / 3.0, 1.0 / 2.0, 2.0 / 3.0, 3.0 / 4.0}
+	for j := range pData {
+		pData[j] = make(plotter.XYs, 2)
+		pData[j][0].X = tmin
+		pData[j][0].Y = pY[j] * totalLength
+		pData[j][1].X = tmax
+		pData[j][1].Y = pY[j] * totalLength
+	}
+
+	n := 100
+	realData := make(plotter.XYs, n+1)
+	model1Data := make(plotter.XYs, n+1)
+	model2Data := make(plotter.XYs, n+1)
+	model3Data := make(plotter.XYs, n+1)
+	for i := 0; i < n+1; i++ {
+		t := tmin + (tmax-tmin)*float64(i)/float64(n)
+		l := totalLength * float64(i) / float64(n)
+		realData[i].X = t
+		realData[i].Y = length(t)
+		model1Data[i].X = t
+		model1Data[i].Y = L3(t)
+		model2Data[i].X = T3(l)
+		model2Data[i].Y = l
+		model3Data[i].X = T4(l)
+		model3Data[i].Y = l
+	}
+
+	scatter, err := plotter.NewScatter(realData)
+	if err != nil {
+		panic(err)
+	}
+	line1, err := plotter.NewLine(model1Data)
+	if err != nil {
+		panic(err)
+	}
+	line1.LineStyle.Color = SteelBlue
+	line2, err := plotter.NewLine(model2Data)
+	if err != nil {
+		panic(err)
+	}
+	line2.LineStyle.Color = OrangeRed
+	line3, err := plotter.NewLine(model3Data)
+	if err != nil {
+		panic(err)
+	}
+	line3.LineStyle.Color = Lime
+
+	p, err := plot.New()
+	if err != nil {
+		panic(err)
+	}
+	p.X.Label.Text = "t"
+	p.Y.Label.Text = "L"
+	p.Add(line1, line2, line3, scatter)
+
+	for i := range pData {
+		line, _ := plotter.NewLine(pData[i])
+		line.LineStyle.Color = DarkGrey
+		p.Add(line)
+	}
+
+	p.Legend.Add("real", scatter)
+	p.Legend.Add("L(t) 3-points", line1)
+	p.Legend.Add("t(L) 3-points", line2)
+	p.Legend.Add("t(L) 4-points", line3)
+
+	if err := p.Save(16*vg.Inch, 8*vg.Inch, filename); err != nil {
+		panic(err)
+	}
+}
+
+func TestPathLengthParametrization(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping length parametrization test")
+	}
+	_ = os.Mkdir("test", 0755)
+
+	start := Point{0.0, 0.0}
+	cp := Point{0.0, 10.0}
+	end := Point{100.0, 0.0}
+	speed := func(t float64) float64 {
+		return quadraticBezierDeriv(start, cp, end, t).Length()
+	}
+	length := func(t float64) float64 {
+		p0, p1, p2, _, _, _ := splitQuadraticBezier(start, cp, end, t)
+		return quadraticBezierLength(p0, p1, p2)
+	}
+	plotPathLengthParametrization("test/quadratic_bezier_parametrization.png", speed, length, 0.0, 1.0)
+
+	start = Point{0.0, 0.0}
+	cp1 := Point{0.0, 10.0}
+	cp2 := Point{100.0, 10.0}
+	end = Point{100.0, 0.0}
+	speed = func(t float64) float64 {
+		return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
+	}
+	length = func(t float64) float64 {
+		p0, p1, p2, p3, _, _, _, _ := splitCubicBezier(start, cp1, cp2, end, t)
+		return cubicBezierLength(p0, p1, p2, p3)
+	}
+	plotPathLengthParametrization("test/cubic_bezier_parametrization.png", speed, length, 0.0, 1.0)
+
+	rx, ry := 100.0, 10.0
+	phi := 0.0
+	sweep := true
+	end = Point{-100.0, 10.0}
+	theta1, theta2 := 0.0, 0.5*math.Pi
+	speed = func(theta float64) float64 {
+		return ellipseDeriv(rx, ry, phi, sweep, theta).Length()
+	}
+	length = func(theta float64) float64 {
+		return ellipseLength(rx, ry, theta1, theta)
+	}
+	plotPathLengthParametrization("test/ellipse_parametrization.png", speed, length, theta1, theta2)
 }
