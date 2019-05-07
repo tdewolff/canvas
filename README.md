@@ -12,9 +12,9 @@ Terminology: a path is a sequence of drawing commands (MoveTo, LineTo, QuadTo, C
 | Command | Flatten | Stroke | Length | SplitAt |
 | ------- | ------- | ------ | ------ | ------- |
 | LineTo  | yes     | yes    | yes    | yes     |
-| QuadTo  | yes (cubic) | yes (cubic) | yes | yes |
-| CubeTo  | yes     | yes    | yes (Gauss-Legendre n=5) | yes |
-| ArcTo   | yes (imprecise) | yes | yes (Gauss-Legendre n=5) | yes (Gauss-Legendre n=5) |
+| QuadTo  | yes (cubic) | yes (cubic) | yes | yes (Gauss-Legendre n=5 and cubic polynomial approx) |
+| CubeTo  | yes     | yes    | yes (Gauss-Legendre n=5) | yes (Gauss-Legendre n=5 and cubic polynomial approx) |
+| ArcTo   | yes (imprecise) | yes | yes (Gauss-Legendre n=5) | yes (Gauss-Legendre n=5 and cubic polynomial approx) |
 
 * Ellipse => Cubic Beziér: used by rasterizer and PDF targets (imprecise)
 * Cubic Beziér => Ellipse: could be used by Stroke to increase precision and reduce the number of commands, but this is much work with little gain
@@ -164,7 +164,7 @@ Where the provided string gets inserted into the following document template:
 
 
 ## Example
-See https://github.com/tdewolff/canvas/tree/master/example for a working example, including fonts.
+See https://github.com/tdewolff/canvas/tree/master/example for a working examples.
 
 ## License
 Released under the [MIT license](LICENSE.md).
