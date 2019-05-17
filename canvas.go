@@ -122,15 +122,22 @@ func (c *C) DrawPath(x, y, rot float64, p *Path) {
 }
 
 func (c *C) DrawText(x, y, rot float64, text *Text) {
-	found := false
-	for _, f := range c.fonts {
-		if f == text.ff.f {
-			found = true
-			break
+	// TODO: this is ugly and slow
+	for _, line := range text.lines {
+		for _, ls := range line {
+			if ts, ok := ls.span.(textSpan); ok {
+				found := false
+				for _, f := range c.fonts {
+					if f == ts.ff.f {
+						found = true
+						break
+					}
+				}
+				if !found {
+					c.fonts = append(c.fonts, ts.ff.f)
+				}
+			}
 		}
-	}
-	if !found {
-		c.fonts = append(c.fonts, text.ff.f)
 	}
 	c.layers = append(c.layers, layer{textLayer, x, y, rot, c.color, nil, text})
 }

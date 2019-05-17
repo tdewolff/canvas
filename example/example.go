@@ -72,7 +72,7 @@ func main() {
 func drawText(c *canvas.C, x, y float64, size float64, s string) {
 	face := dejaVuSerif.Face(size)
 	metrics := face.Metrics()
-	text := canvas.NewTextBox(face, s, 100.0, 40.0, canvas.Justify, canvas.Top, 0.0)
+	text := canvas.NewTextBox(face, s, 100.0, 30.0, canvas.Left, canvas.Top, 0.0)
 	rect := text.Bounds()
 
 	c.SetColor(canvas.Gainsboro)
@@ -87,7 +87,7 @@ func drawText(c *canvas.C, x, y float64, size float64, s string) {
 }
 
 func Draw(c *canvas.C) {
-	drawText(c, 10, 60, 28.0, "Justified with \"typographics\"")
+	drawText(c, 10, 60, 28.0, "Justified and \"typographics\"")
 
 	face := dejaVuSerif.Face(80.0)
 	p := canvas.NewText(face, "Stroke").ToPath(0.0, 0.0)

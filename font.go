@@ -349,7 +349,7 @@ func quoteReplace(s string, i int, prev, quote, next rune, isOpen *bool) (string
 	return s, 1
 }
 
-func (f *Font) transform(s string) string {
+func (f *Font) transform(s string, replaceCombinations bool) string {
 	if f.transformationOptions&NoRequiredLigatures == 0 {
 		for _, transformation := range f.requiredLigatures {
 			s = strings.ReplaceAll(s, transformation[0], transformation[1])
@@ -357,17 +357,23 @@ func (f *Font) transform(s string) string {
 	}
 	if f.transformationOptions&CommonLigatures != 0 {
 		for _, transformation := range f.commonLigatures {
-			s = strings.ReplaceAll(s, transformation[0], transformation[1])
+			if replaceCombinations || utf8.RuneCountInString(transformation[0]) == 1 {
+				s = strings.ReplaceAll(s, transformation[0], transformation[1])
+			}
 		}
 	}
 	if f.transformationOptions&DiscretionaryLigatures != 0 {
 		for _, transformation := range f.discretionaryLigatures {
-			s = strings.ReplaceAll(s, transformation[0], transformation[1])
+			if replaceCombinations || utf8.RuneCountInString(transformation[0]) == 1 {
+				s = strings.ReplaceAll(s, transformation[0], transformation[1])
+			}
 		}
 	}
 	if f.transformationOptions&HistoricalLigatures != 0 {
 		for _, transformation := range f.historicalLigatures {
-			s = strings.ReplaceAll(s, transformation[0], transformation[1])
+			if replaceCombinations || utf8.RuneCountInString(transformation[0]) == 1 {
+				s = strings.ReplaceAll(s, transformation[0], transformation[1])
+			}
 		}
 	}
 	// TODO: make sure unicode points exist in font
