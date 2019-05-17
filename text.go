@@ -258,7 +258,7 @@ func (t *Text) ToSVG(x, y, rot float64, c color.Color) string {
 					writeFloat64(&sb, x+dx)
 					sb.WriteString("\" y=\"")
 					writeFloat64(&sb, y)
-					if w > span.textWidth {
+					if w != 0.0 {
 						sb.WriteString("\" textLength=\"")
 						writeFloat64(&sb, w)
 					}
@@ -273,7 +273,7 @@ func (t *Text) ToSVG(x, y, rot float64, c color.Color) string {
 						sb.WriteString("\" font-weight=\"bold")
 					}
 					sb.WriteString("\">")
-					sb.WriteString(s)
+					sb.WriteString(s) // TODO: replace typographic characters by XML entities
 					sb.WriteString("</tspan>")
 				})
 			default:
