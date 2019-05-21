@@ -20,9 +20,25 @@ const (
 )
 
 type Text struct {
-	lines       [][]lineSpan // each line can have multiple spans
-	dy          float64
-	lineSpacing float64
+	lines []line
+	fonts []*Font
+}
+
+type line struct {
+	lineSpans []lineSpan
+	y         float64
+}
+
+func (l line) Heights() (float64, float64, float64, float64) {
+	top, ascent, descent, bottom := 0.0, 0.0, 0.0, 0.0
+	for _, ls := range l.lineSpans {
+		spanAscent, spanDescent, lineSpacing := ls.span.Heights()
+		top = math.Max(top, spanAscent+lineSpacing)
+		ascent = math.Max(ascent, spanAscent)
+		descent = math.Max(descent, spanDescent)
+		bottom = math.Max(bottom, spanDescent+lineSpacing)
+	}
+	return top, ascent, descent, bottom
 }
 
 type lineSpan struct {
@@ -63,21 +79,22 @@ func calcSpanPosition(textWidth, maxTextWidth float64, halign TextAlign, indent,
 
 func NewText(ff FontFace, s string) *Text {
 	ss := splitNewlines(s)
-	lines := [][]lineSpan{}
+	y := 0.0
+	lines := []line{}
 	for _, s := range ss {
-		lines = append(lines, []lineSpan{{newTextSpan(ff, s), 0.0, 0.0}})
+		span := lineSpan{newTextSpan(ff, s), 0.0, 0.0}
+		lines = append(lines, line{[]lineSpan{span}, y})
+
+		ascent, descent, spacing := span.Heights()
+		y += spacing + ascent + descent + spacing
 	}
-	return &Text{
-		lines:       lines,
-		dy:          0.0,
-		lineSpacing: 0.0,
-	}
+	return &Text{lines, []*Font{ff.f}}
 }
 
 func NewTextBox(ff FontFace, s string, width, height float64, halign, valign TextAlign, indent float64) *Text {
 	// TODO: do inner-word boundaries
-	h, prevLineSpacing := 0.0, 0.0
-	lines := [][]lineSpan{}
+	h := 0.0
+	lines := []line{}
 	var iPrev, iSpace int
 	for i := 0; i < len(s); {
 		r, size := utf8.DecodeRuneInString(s[i:])
@@ -105,17 +122,16 @@ func NewTextBox(ff FontFace, s string, width, height float64, halign, valign Tex
 				dx, spanWidth := calcSpanPosition(textWidth, maxTextWidth, halign, indent, width)
 				ls = lineSpan{textSpan, dx, spanWidth}
 			}
-			ascent, descent, curLineSpacing := ls.span.Heights()
-			topLineSpacing := math.Max(prevLineSpacing, curLineSpacing)
+
+			ascent, descent, lineSpacing := ls.span.Heights()
 			if h == 0.0 {
-				topLineSpacing = 0.0
+				lineSpacing = 0.0
 			}
-			if height != 0.0 && height < h+topLineSpacing+ascent+descent {
+			if height != 0.0 && height < h+lineSpacing+ascent+descent {
 				break
 			}
-			lines = append(lines, []lineSpan{ls})
-			h += topLineSpacing + ascent + descent
-			prevLineSpacing = curLineSpacing
+			lines = append(lines, line{[]lineSpan{ls}, h + lineSpacing + ascent})
+			h += lineSpacing + ascent + descent
 			indent = 0.0
 
 			if i == 0 {
@@ -143,88 +159,69 @@ func NewTextBox(ff FontFace, s string, width, height float64, halign, valign Tex
 		textWidth, _ := textSpan.WidthRange()
 		ls = lineSpan{textSpan, indent, textWidth}
 	}
-	ascent, descent, curLineSpacing := ls.span.Heights()
-	topLineSpacing := math.Max(prevLineSpacing, curLineSpacing)
+	ascent, descent, lineSpacing := ls.span.Heights()
 	if h == 0.0 {
-		topLineSpacing = 0.0
+		lineSpacing = 0.0
 	}
-	if height == 0.0 || h+topLineSpacing+ascent+descent <= height {
-		lines = append(lines, []lineSpan{ls})
-		h += topLineSpacing + ascent + descent
+	if height == 0.0 || h+lineSpacing+ascent+descent <= height {
+		lines = append(lines, line{[]lineSpan{ls}, h + lineSpacing + ascent})
+		h += lineSpacing + ascent + descent
 	}
 
+	// apply vertical alignment
 	dy := 0.0
-	lineSpacing := 0.0
+	extraLineSpacing := 0.0
 	if height != 0.0 && (valign == Bottom || valign == Center || valign == Justify) {
 		if valign == Bottom {
 			dy = height - h
 		} else if valign == Center {
 			dy = (height - h) / 2.0
-		} else {
-			lineSpacing = (height - h) / float64(len(lines)-1)
+		} else if len(lines) > 1 {
+			extraLineSpacing = (height - h) / float64(len(lines)-1)
 		}
 	}
-	return &Text{
-		lines:       lines,
-		dy:          dy,
-		lineSpacing: lineSpacing,
+	for j := range lines {
+		lines[j].y += dy + float64(j)*extraLineSpacing
 	}
+	return &Text{lines, []*Font{ff.f}}
 }
 
+// Bounds returns the rectangle that contains the entire text box. It does not take into account that glyphs can exceed their boxes.
 func (t *Text) Bounds() Rect {
-	var w, h float64
-	firstAscent := 0.0
-	prevLineSpacing := 0.0
-	for j, line := range t.lines {
-		maxAscent, maxHeight, maxLineSpacing := 0.0, 0.0, 0.0
-		for _, ls := range line {
-			w = math.Max(w, ls.dx+ls.w)
-
-			ascent, descent, curLineSpacing := ls.span.Heights()
-			curLineSpacing = math.Max(prevLineSpacing, curLineSpacing)
-			maxAscent = math.Max(maxAscent, ascent)
-			if maxHeight < curLineSpacing+ascent+descent {
-				maxHeight = curLineSpacing + ascent + descent
-				maxLineSpacing = curLineSpacing
-			}
-		}
-		h += maxHeight + t.lineSpacing
-		if j == 0 {
-			firstAscent = maxAscent
-			h -= maxLineSpacing
-		}
-		prevLineSpacing = maxLineSpacing
+	if len(t.lines) == 0 {
+		return Rect{}
 	}
-	return Rect{0.0, firstAscent, w, -h}
+	x := math.Inf(1.0)
+	w := 0.0
+	for _, line := range t.lines {
+		for _, ls := range line.lineSpans {
+			x = math.Min(x, ls.dx)
+			w = math.Max(w, ls.dx+ls.w)
+		}
+	}
 
+	firstLine := t.lines[0]
+	_, ascent, _, _ := firstLine.Heights()
+	y := firstLine.y - ascent
+
+	lastLine := t.lines[len(t.lines)-1]
+	_, _, descent, _ := lastLine.Heights()
+	h := ascent + lastLine.y - firstLine.y + descent
+	return Rect{x, -y, w, -h}
 }
 
 // ToPath makes a path out of the text, with x,y the top-left point of the rectangle that fits the text (ie. y is not the text base)
 func (t *Text) ToPath(x, y float64) *Path {
 	p := &Path{}
-	y -= t.dy
-	prevLineSpacing := 0.0
 	for _, line := range t.lines {
-		maxHeight, maxLineSpacing := 0.0, 0.0
-		for _, ls := range line {
-			p.Append(ls.span.ToPath(x+ls.dx, y, ls.w))
-
-			ascent, descent, curLineSpacing := ls.span.Heights()
-			curLineSpacing = math.Max(prevLineSpacing, curLineSpacing)
-			if maxHeight < curLineSpacing+ascent+descent {
-				maxHeight = curLineSpacing + ascent + descent
-				maxLineSpacing = curLineSpacing
-			}
+		for _, ls := range line.lineSpans {
+			p.Append(ls.span.ToPath(x+ls.dx, y-line.y, ls.w))
 		}
-		y -= maxHeight + t.lineSpacing
-		prevLineSpacing = maxLineSpacing
 	}
 	return p
 }
 
 func (t *Text) ToSVG(x, y, rot float64, c color.Color) string {
-	y += t.dy
-
 	sb := strings.Builder{}
 	sb.WriteString("<text x=\"")
 	writeFloat64(&sb, x)
@@ -246,10 +243,7 @@ func (t *Text) ToSVG(x, y, rot float64, c color.Color) string {
 	sb.WriteString("\">")
 
 	for _, line := range t.lines {
-		h := 0.0
-		for _, ls := range line {
-			ascent, descent, lineSpacing := ls.span.Heights()
-			h = math.Max(h, ascent+descent+lineSpacing)
+		for _, ls := range line.lineSpans {
 			switch span := ls.span.(type) {
 			case textSpan:
 				name, style, size := span.ff.Info()
@@ -257,7 +251,7 @@ func (t *Text) ToSVG(x, y, rot float64, c color.Color) string {
 					sb.WriteString("<tspan x=\"")
 					writeFloat64(&sb, x+dx)
 					sb.WriteString("\" y=\"")
-					writeFloat64(&sb, y)
+					writeFloat64(&sb, y+line.y)
 					if w != 0.0 {
 						sb.WriteString("\" textLength=\"")
 						writeFloat64(&sb, w)
@@ -281,7 +275,6 @@ func (t *Text) ToSVG(x, y, rot float64, c color.Color) string {
 				panic("unsupported span type")
 			}
 		}
-		y += h + t.lineSpacing
 	}
 	sb.WriteString("</text>")
 	return sb.String()

@@ -78,16 +78,16 @@ func drawText(c *canvas.C, x, y float64, size float64, s string) {
 	c.SetColor(canvas.Gainsboro)
 	c.DrawPath(x, y, 0.0, rect.ToPath())
 	c.SetColor(color.RGBA{0, 0, 0, 50})
-	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.Ascent, rect.W, -metrics.LineHeight))
-	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.CapHeight, rect.W, -metrics.CapHeight-metrics.Descent))
-	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.XHeight, rect.W, -metrics.XHeight))
+	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, 0, rect.W, -metrics.LineHeight))
+	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.CapHeight-metrics.Ascent, rect.W, -metrics.CapHeight-metrics.Descent))
+	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.XHeight-metrics.Ascent, rect.W, -metrics.XHeight))
 
 	c.SetColor(canvas.Black)
 	c.DrawText(x, y, 0.0, text)
 }
 
 func Draw(c *canvas.C) {
-	drawText(c, 10, 60, 28.0, "Justified and \"typographics\"")
+	drawText(c, 10, 70, 28.0, "Aap noot mies \"fi ffi ffl\"")
 
 	face := dejaVuSerif.Face(80.0)
 	p := canvas.NewText(face, "Stroke").ToPath(0.0, 0.0)
