@@ -1,6 +1,7 @@
 package main
 
 import (
+	"image/color"
 	"image/png"
 	"os"
 
@@ -37,10 +38,14 @@ func drawStrokedPath(c *canvas.C, x, y float64, path string, cr canvas.Capper, j
 	if err != nil {
 		panic(err)
 	}
-	c.SetColor(canvas.Black)
-	c.DrawPath(x, y, 0.0, p.Stroke(10.0, cr, jr))
-	c.SetColor(canvas.Red)
-	c.DrawPath(x, y, 0.0, p.Stroke(0.3, canvas.ButtCapper, canvas.BevelJoiner))
+
+	outerStroke := p.Stroke(10.0, cr, jr)
+	c.SetColor(canvas.DarkGrey)
+	c.DrawPath(x, y, 0.0, outerStroke)
+	c.SetColor(color.RGBA{150, 150, 150, 255})
+	c.DrawPath(x, y, 0.0, outerStroke.Stroke(0.2, canvas.ButtCapper, canvas.RoundJoiner))
+	c.SetColor(canvas.SteelBlue)
+	c.DrawPath(x, y, 0.0, p.Stroke(0.5, canvas.ButtCapper, canvas.BevelJoiner))
 }
 
 func drawText(c *canvas.C, x, y float64, text string) {
@@ -53,24 +58,24 @@ func Draw(c *canvas.C) {
 	pathCapper := "M-20 0L0 0"
 	pathJoiner := "M-20 -10A25 25 0 0 0 0 0A20 20 0 0 1 -5 -15"
 
-	drawText(c, 20.0, 70.0, "ButtCapper")
-	drawStrokedPath(c, 30.0, 60.0, pathCapper, canvas.ButtCapper, canvas.RoundJoiner)
+	drawText(c, 20.0, 75.0, "ButtCapper")
+	drawStrokedPath(c, 30.0, 58.0, pathCapper, canvas.ButtCapper, canvas.RoundJoiner)
 
-	drawText(c, 70.0, 70.0, "SquareCapper")
-	drawStrokedPath(c, 80.0, 60.0, pathCapper, canvas.SquareCapper, canvas.RoundJoiner)
+	drawText(c, 70.0, 75.0, "SquareCapper")
+	drawStrokedPath(c, 80.0, 58.0, pathCapper, canvas.SquareCapper, canvas.RoundJoiner)
 
-	drawText(c, 120.0, 70.0, "RoundCapper")
-	drawStrokedPath(c, 130.0, 60.0, pathCapper, canvas.RoundCapper, canvas.RoundJoiner)
+	drawText(c, 120.0, 75.0, "RoundCapper")
+	drawStrokedPath(c, 130.0, 58.0, pathCapper, canvas.RoundCapper, canvas.RoundJoiner)
 
-	drawText(c, 23.0, 37.0, "RoundJoiner")
+	drawText(c, 23.0, 42.0, "RoundJoiner")
 	drawStrokedPath(c, 30.0, 25.0, pathJoiner, canvas.ButtCapper, canvas.RoundJoiner)
 
-	drawText(c, 73.0, 37.0, "BevelJoiner")
+	drawText(c, 73.0, 42.0, "BevelJoiner")
 	drawStrokedPath(c, 80.0, 25.0, pathJoiner, canvas.ButtCapper, canvas.BevelJoiner)
 
-	drawText(c, 123.0, 37.0, "MiterJoiner")
+	drawText(c, 123.0, 42.0, "MiterJoiner")
 	drawStrokedPath(c, 130.0, 25.0, pathJoiner, canvas.ButtCapper, canvas.MiterJoiner)
 
-	drawText(c, 173.0, 37.0, "ArcsJoiner")
+	drawText(c, 173.0, 42.0, "ArcsJoiner")
 	drawStrokedPath(c, 180.0, 25.0, pathJoiner, canvas.ButtCapper, canvas.ArcsJoiner)
 }

@@ -81,7 +81,7 @@ ff.Kerning(r0, r1 rune) float64               // return kerning between runes
 
 text := NewText(ff, "string")                                            // simple text with newlines
 text := NewTextBox(ff, "string", width, height, halign, valign, indent)  // split on word boundaries and specify text alignment
-text.Bounds() (width, height float64)
+text.Bounds() Rect
 text.ToPath() *Path
 text.ToSVG() string  // convert to series of <tspan>
 ```
