@@ -36,8 +36,10 @@ func drawText(c *canvas.C, x, y float64, halign, valign canvas.TextAlign, indent
 	face := dejaVuSerif.Face(6.0)
 	phrase := "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi egestas, augue eget blandit laoreet, dolor lorem interdum ante, quis consectetur lorem massa vitae nulla. Sed cursus tellus id venenatis suscipit. Nunc volutpat imperdiet ipsum vel varius. Pellentesque mattis viverra odio, ullamcorper iaculis massa tristique imperdiet. Aliquam posuere nisl tortor, in scelerisque elit eleifend sed."
 
-	text := canvas.NewTextBox(face, phrase, 0.0, 35.0, halign, valign, indent)
+	text := canvas.NewTextBox(face, phrase, 60.0, 35.0, halign, valign, indent)
 	rect := text.Bounds()
+	rect.Y = 0.0
+	rect.H = -35.0
 	c.SetColor(canvas.WhiteSmoke)
 	c.DrawPath(x, y, 0.0, rect.ToPath())
 	c.SetColor(canvas.Black)
