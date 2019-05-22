@@ -110,4 +110,14 @@ func Draw(c *canvas.C) {
 	ellipse = ellipse.Dash(2.0, 4.0, 2.0).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner)
 	c.SetColor(canvas.Black)
 	c.DrawPath(130, 20, 0.0, ellipse)
+
+	p = &canvas.Path{}
+	p.LineTo(10.0, 0.0)
+	p.LineTo(15.0, 5.0)
+	p.LineTo(15.0, 15.0)
+	p.LineTo(10.0, 20.0)
+	p.Close()
+	c.DrawPath(140, 10, 0.0, p)
+	q := p.Smoothen()
+	c.DrawPath(160, 10, 0.0, q)
 }

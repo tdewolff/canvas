@@ -821,7 +821,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 				cp2 := Point{p.d[i+3], p.d[i+4]}
 				end = Point{p.d[i+5], p.d[i+6]}
 
-				// TODO: handle inflection points
+				// TODO: handle inflection points? Not sure if necessary
 				speed := func(t float64) float64 {
 					return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
 				}
@@ -918,6 +918,89 @@ func (p *Path) Dash(d ...float64) *Path {
 	q := &Path{}
 	for j := 0; j < len(ps); j += 2 {
 		q.Append(ps[j])
+	}
+	return q
+}
+
+// Smoothen returns a new path that smoothens out a path using cubic Beziérs between all the path points. This is equivalent of saying all path commands are linear and are replaced by cubic Beziérs so that the curvature at is smooth along the whole path.
+func (p *Path) Smoothen() *Path {
+	if len(p.d) == 0 {
+		return &Path{}
+	}
+
+	// see https://www.particleincell.com/2012/bezier-splines/
+	K := []Point{}
+	if p.d[0] != MoveToCmd {
+		K = append(K, Point{0.0, 0.0})
+	}
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		i += cmdLen(cmd)
+		K = append(K, Point{p.d[i-2], p.d[i-1]})
+	}
+
+	n := len(K) - 1
+	a := make([]float64, n)
+	b := make([]float64, n)
+	c := make([]float64, n)
+	d := make([]Point, n)
+	for i := 0; i < n-1; i++ {
+		a[i] = 1.0
+		b[i] = 4.0
+		c[i] = 1.0
+		d[i] = K[i].Mul(4.0).Add(K[i+1].Mul(2.0))
+	}
+
+	closed := p.Closed()
+	if !closed {
+		a[0] = 0.0
+		b[0] = 2.0
+		c[0] = 1.0
+		d[0] = K[0].Add(K[1].Mul(2.0))
+		a[n-1] = 2.0
+		b[n-1] = 7.0
+		c[n-1] = 0.0
+		d[n-1] = K[n-1].Mul(8.0).Add(K[n])
+	} else {
+		a[n-1] = 1.0
+		b[n-1] = 4.0
+		c[n-1] = 1.0
+		d[n-1] = K[n-1].Mul(4.0).Add(K[0].Mul(2.0))
+	}
+
+	// solve with Thomas algorithm
+	for i := 1; i < n; i++ {
+		m := a[i] / b[i-1]
+		b[i] -= m * c[i-1]
+		d[i] = d[i].Sub(d[i-1].Mul(m))
+	}
+
+	p1 := make([]Point, n)
+	p2 := make([]Point, n)
+	if !closed {
+		p1[n-1] = d[n-1].Div(b[n-1])
+	} else {
+		p1[n-1] = d[n-1].Div(b[n-1]) // TODO: WRONG! closed path is not smooth
+	}
+	for i := n - 2; i >= 0; i-- {
+		p1[i] = d[i].Sub(Point{c[i] * p1[i+1].X, c[i] * p1[i+1].Y}).Div(b[i])
+	}
+	for i := 0; i < n-1; i++ {
+		p2[i] = K[i+1].Mul(2.0).Sub(p1[i+1])
+	}
+	if !closed {
+		p2[n-1] = K[n].Add(p1[n-1]).Mul(0.5)
+	} else {
+		p2[n-1] = K[n].Mul(2.0).Sub(p1[0])
+	}
+
+	q := &Path{}
+	q.MoveTo(K[0].X, K[0].Y)
+	for i := 0; i < n; i++ {
+		q.CubeTo(p1[i].X, p1[i].Y, p2[i].X, p2[i].Y, K[i+1].X, K[i+1].Y)
+	}
+	if closed {
+		q.Close()
 	}
 	return q
 }

@@ -84,6 +84,10 @@ func (p Point) Mul(f float64) Point {
 	return Point{f * p.X, f * p.Y}
 }
 
+func (p Point) Div(f float64) Point {
+	return Point{p.X / f, p.Y / f}
+}
+
 func (p Point) Rot90CW() Point {
 	return Point{p.Y, -p.X}
 }
