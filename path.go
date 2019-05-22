@@ -202,6 +202,30 @@ func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x2, y2 float64) 
 	return p
 }
 
+// Arc adds an elliptical arc with radii rx and ry, with rot the counter clockwise rotation in degrees, and theta0 and theta1 the angles in degrees of the ellipse (before rot is applies) between which the arc will run. If theta0 < theta1, the arc will run in a CCW direction. If the difference between theta0 and theta1 is bigger than 360 degrees, a full circle will be drawn and the remaining part (eg. a difference of 810 degrees will draw one full circle and an arc over 90 degrees).
+func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
+	phi := rot * math.Pi / 180.0
+	theta0 *= math.Pi / 180.0
+	theta1 *= math.Pi / 180.0
+	dtheta := math.Abs(theta1 - theta0)
+
+	sweep := theta0 < theta1
+	largeArc := math.Mod(dtheta, 2.0*math.Pi) > math.Pi
+	p0 := ellipsePos(rx, ry, phi, 0.0, 0.0, theta0)
+	p1 := ellipsePos(rx, ry, phi, 0.0, 0.0, theta1)
+
+	x1, y1 := p.Pos()
+	start := Point{x1, y1}
+	center := start.Sub(p0)
+	if dtheta > 2.0*math.Pi {
+		startOpposite := center.Sub(p0)
+		p.ArcTo(rx, ry, rot, largeArc, sweep, startOpposite.X, startOpposite.Y)
+		p.ArcTo(rx, ry, rot, largeArc, sweep, start.X, start.Y)
+	}
+	end := center.Add(p1)
+	return p.ArcTo(rx, ry, rot, largeArc, sweep, end.X, end.Y)
+}
+
 // Close closes a path with a LineTo to the start of the path (the most recent MoveTo command).
 // It also signals the path closes, as opposed to being just a LineTo command.
 func (p *Path) Close() *Path {
@@ -280,7 +304,7 @@ func Ellipse(x, y, rx, ry float64) *Path {
 	return p
 }
 
-// RegularPolygon returns a regular polygon at x,y with radius r and rotation rot. It uses n vertices/edges, so when n approaches infinity this will return a path that approximates a circle.
+// RegularPolygon returns a regular polygon at x,y with radius r and rotation rot in degrees. It uses n vertices/edges, so when n approaches infinity this will return a path that approximates a circle.
 func RegularPolygon(n int, x, y, r, rot float64) *Path {
 	if n < 2 {
 		return &Path{}

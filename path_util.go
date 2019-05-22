@@ -234,19 +234,6 @@ func invPolynomialApprox4(gaussLegendre gaussLegendreFunc, fp func(float64) floa
 
 ////////////////////////////////////////////////////////////////
 
-// ellipseToEndpoints converts to the endpoint arc format and returns (startX, startY, largeArc, sweep, endX, endY)
-// see https://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
-//func ellipseToEndpoint(cx, cy, rx, ry, rot, theta1, theta2 float64) (float64, float64, bool, bool, float64, float64) {
-//	// TODO: is rot, theta1 and theta2 in degrees?? Must be radians!!
-//	x1 := math.Cos(rot)*rx*math.Cos(theta1) - math.Sin(rot)*ry*math.Sin(theta1) + cx
-//	y1 := math.Sin(rot)*rx*math.Cos(theta1) + math.Cos(rot)*ry*math.Sin(theta1) + cy
-//	x2 := math.Cos(rot)*rx*math.Cos(theta2) - math.Sin(rot)*ry*math.Sin(theta2) + cx
-//	y2 := math.Sin(rot)*rx*math.Cos(theta2) + math.Cos(rot)*ry*math.Sin(theta2) + cy
-//	largeArc := math.Abs(theta2-theta1) > 180.0
-//	sweep := (theta2 - theta1) > 0.0
-//	return x1, y1, largeArc, sweep, x2, y2
-//}
-
 func ellipsePos(rx, ry, phi, cx, cy, theta float64) Point {
 	sintheta, costheta := math.Sincos(theta)
 	sinphi, cosphi := math.Sincos(phi)

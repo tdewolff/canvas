@@ -45,7 +45,6 @@ Paths
 * **Approximate elliptic arcs by lines given a tolerance for use in `Flatten`**
 * **Approximate elliptic arcs by Beziérs given a tolerance for use in `WriteImage`, `ToPDF`**
 * Easier support for building paths from strings, like AppendSVG for example?
-* Add ArcTo in endpoint format (take begin/end angle and center point)
 * Add function to convert lines to cubic Beziérs to smooth out a path
 * Add function to apply mask (ie. apply a mask path onto another path)
 * Add function to apply shear transformation
@@ -103,6 +102,13 @@ p.QuadTo(cpx, cpy, x, y float64)                                  // a quadratic
 p.CubeTo(cp1x, cp1y, cp2x, cp2y, x, y float64)                    // a cubic Bézier with control points (cp1x,cp1y), (cp2x,cp2y) and end point (x,y)
 p.ArcTo(rx, ry, rot float64, largeArc, sweep bool, x, y float64)  // an arc of an ellipse with radii (rx,ry), rotated by rot (in degrees CCW), with flags largeArc and sweep (booleans, see https://www.w3.org/TR/SVG/paths.html#PathDataEllipticalArcCommands)
 p.Close()                                                         // close the path, essentially a LineTo to the last MoveTo location
+
+p = Rectangle(x, y, w, h float64)
+p = RoundedRectangle(x, y, w, h, r float64)
+p = BeveledRectangle(x, y, w, h, r float64)
+p = RegularPolygon(n int, x, y, r, rot float64)
+p = Circle(x, y, r float64)
+p = Ellipse(x, y, rx, ry float64)
 ```
 
 We can extract information from these paths using:
