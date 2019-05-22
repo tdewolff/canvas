@@ -28,7 +28,9 @@ Features that are planned to be implemented in the future. Also see the TODOs in
 General
 
 * Fix slowness, transparency and colors in the rasterizer
-* Fix transparency for EPS
+* Fix transparency for EPS (cannot be fixed...)
+* Support fill gradients and patterns (hard)
+* Allow embedding raster images? (unsure)
 
 Fonts
 
@@ -45,10 +47,13 @@ Paths
 * Easier support for building paths from strings, like AppendSVG for example?
 * Add ArcTo in endpoint format (take begin/end angle and center point)
 * Add function to convert lines to cubic Beziérs to smooth out a path
+* Add function to apply mask (ie. apply a mask path onto another path)
+* Add function to apply shear transformation
 
 Optimization
 
 * Avoid overlapping paths when offsetting in corners
+* Improve arc length parametrization for Beziérs and elliptical arcs
 * Approximate Beziérs by elliptic arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (check)
 
 
