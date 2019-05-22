@@ -10,6 +10,7 @@ import (
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
+	"gonum.org/v1/plot/vg/draw"
 )
 
 func TestParse(t *testing.T) {
@@ -167,9 +168,9 @@ func TestPathSplitAt(t *testing.T) {
 		{"L4 3L8 0z", []float64{5.0, 20.0}, []string{"L4 3", "M4 3L8 0L0 0"}},
 		{"L4 3L8 0z", []float64{2.5, 7.5, 14.0}, []string{"L2 1.5", "M2 1.5L4 3L6 1.5", "M6 1.5L8 0L4 0", "M4 0L0 0"}},
 		{"C10 0 10 0 20 0", []float64{10.0}, []string{"C5 0 7.5 0 10 0", "M10 0C12.5 0 15 0 20 0"}},
-		{"A10 10 0 0 1 -20 0", []float64{15.707963}, []string{"A10 10 0 0 1 -10.003 10", "M-10.003 10A10 10 0 0 1 -20 0"}},
-		{"A10 10 0 0 0 20 0", []float64{15.707963}, []string{"A10 10 0 0 0 10.003 10", "M10.003 10A10 10 0 0 0 20 0"}},
-		{"A10 10 0 1 0 2.9289 -7.0711", []float64{15.707963}, []string{"A10 10 0 0 0 9.6702 9.9945", "M9.6702 9.9945A10 10 0 1 0 2.9289 -7.0711"}},
+		{"A10 10 0 0 1 -20 0", []float64{15.707963}, []string{"A10 10 0 0 1 -10 10", "M-10 10A10 10 0 0 1 -20 0"}},
+		{"A10 10 0 0 0 20 0", []float64{15.707963}, []string{"A10 10 0 0 0 10 10", "M10 10A10 10 0 0 0 20 0"}},
+		{"A10 10 0 1 0 2.9289 -7.0711", []float64{15.707963}, []string{"A10 10 0 0 0 10.024 9.9999", "M10.024 9.9999A10 10 0 1 0 2.9289 -7.0711"}},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
@@ -288,78 +289,69 @@ func TestPathOptimize(t *testing.T) {
 }
 
 func plotPathLengthParametrization(filename string, speed, length func(float64) float64, tmin, tmax float64) {
-	L3, totalLength := polynomialApprox3(gaussLegendre5, speed, tmin, tmax)
-	T3, _ := invPolynomialApprox3(gaussLegendre5, speed, tmin, tmax)
-	T4, _ := invPolynomialApprox4(gaussLegendre5, speed, tmin, tmax)
+	T3, totalLength := invPolynomialApprox3(gaussLegendre5, speed, tmin, tmax)
+	Tc, _ := invSpeedPolynomialChebyshevApprox(10, gaussLegendre5, speed, tmin, tmax)
 
-	pData := make([]plotter.XYs, 5)
-	pY := []float64{1.0 / 4.0, 1.0 / 3.0, 1.0 / 2.0, 2.0 / 3.0, 3.0 / 4.0}
-	for j := range pData {
-		pData[j] = make(plotter.XYs, 2)
-		pData[j][0].X = tmin
-		pData[j][0].Y = pY[j] * totalLength
-		pData[j][1].X = tmax
-		pData[j][1].Y = pY[j] * totalLength
-	}
+	anchor1Data := make(plotter.XYs, 2)
+	anchor1Data[0].X = totalLength * 1.0 / 3.0
+	anchor1Data[0].Y = T3(totalLength * 1.0 / 3.0)
+	anchor1Data[1].X = totalLength * 2.0 / 3.0
+	anchor1Data[1].Y = T3(totalLength * 2.0 / 3.0)
 
 	n := 100
 	realData := make(plotter.XYs, n+1)
 	model1Data := make(plotter.XYs, n+1)
 	model2Data := make(plotter.XYs, n+1)
-	model3Data := make(plotter.XYs, n+1)
 	for i := 0; i < n+1; i++ {
 		t := tmin + (tmax-tmin)*float64(i)/float64(n)
 		l := totalLength * float64(i) / float64(n)
-		realData[i].X = t
-		realData[i].Y = length(t)
-		model1Data[i].X = t
-		model1Data[i].Y = L3(t)
-		model2Data[i].X = T3(l)
-		model2Data[i].Y = l
-		model3Data[i].X = T4(l)
-		model3Data[i].Y = l
+		realData[i].X = length(t)
+		realData[i].Y = t
+		model1Data[i].X = l
+		model1Data[i].Y = T3(l)
+		model2Data[i].X = l
+		model2Data[i].Y = Tc(l)
 	}
 
 	scatter, err := plotter.NewScatter(realData)
 	if err != nil {
 		panic(err)
 	}
+	scatter.Shape = draw.CircleGlyph{}
+
+	anchors1, err := plotter.NewScatter(anchor1Data)
+	if err != nil {
+		panic(err)
+	}
+	anchors1.GlyphStyle.Shape = draw.CircleGlyph{}
+	anchors1.GlyphStyle.Color = SteelBlue
+	anchors1.GlyphStyle.Radius = 5.0
+
 	line1, err := plotter.NewLine(model1Data)
 	if err != nil {
 		panic(err)
 	}
 	line1.LineStyle.Color = SteelBlue
+
 	line2, err := plotter.NewLine(model2Data)
 	if err != nil {
 		panic(err)
 	}
 	line2.LineStyle.Color = OrangeRed
-	line3, err := plotter.NewLine(model3Data)
-	if err != nil {
-		panic(err)
-	}
-	line3.LineStyle.Color = Lime
 
 	p, err := plot.New()
 	if err != nil {
 		panic(err)
 	}
-	p.X.Label.Text = "x"
-	p.Y.Label.Text = "y"
-	p.Add(line1, line2, line3, scatter)
-
-	for i := range pData {
-		line, _ := plotter.NewLine(pData[i])
-		line.LineStyle.Color = DarkGrey
-		p.Add(line)
-	}
+	p.X.Label.Text = "L"
+	p.Y.Label.Text = "t"
+	p.Add(scatter, line1, line2, anchors1)
 
 	p.Legend.Add("real", scatter)
-	p.Legend.Add("y(x) 3-points", line1)
-	p.Legend.Add("x(y) 3-points", line2)
-	p.Legend.Add("x(y) 4-points", line3)
+	p.Legend.Add("Simple polynomial", line1)
+	p.Legend.Add("Chebyshev", line2)
 
-	if err := p.Save(16*vg.Inch, 8*vg.Inch, filename); err != nil {
+	if err := p.Save(8*vg.Inch, 16*vg.Inch, filename); err != nil {
 		panic(err)
 	}
 }

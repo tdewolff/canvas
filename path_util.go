@@ -167,13 +167,13 @@ func polynomialApprox3(gaussLegendre gaussLegendreFunc, fp func(float64) float64
 
 // invPolynomialApprox does the opposite of polynomialApprox, it returns a function x(y) that maps the parameter y [f(xmin),f(xmax)] to x [xmin,xmax]
 func invPolynomialApprox3(gaussLegendre gaussLegendreFunc, fp func(float64) float64, xmin, xmax float64) (func(float64) float64, float64) {
-	f := func(x float64) float64 {
-		return gaussLegendre(fp, xmin, xmin+(xmax-xmin)*x)
+	f := func(t float64) float64 {
+		return math.Abs(gaussLegendre(fp, xmin, xmin+(xmax-xmin)*t))
 	}
-	y3 := f(1.0)
-	x1 := bisectionMethod(f, (1.0/3.0)*y3, xmin, xmax)
-	x2 := bisectionMethod(f, (2.0/3.0)*y3, xmin, xmax)
-	x3 := 1.0
+	f3 := f(1.0)
+	t1 := bisectionMethod(f, (1.0/3.0)*f3, 0.0, 1.0)
+	t2 := bisectionMethod(f, (2.0/3.0)*f3, 0.0, 1.0)
+	t3 := 1.0
 
 	// We have four points on the x(y) curve at y0=0, y1=1/3, y2=2/3 and y3=1
 	// now obtain a polynomial that goes through these four points by solving the system of linear equations
@@ -188,48 +188,50 @@ func invPolynomialApprox3(gaussLegendre gaussLegendreFunc, fp func(float64) floa
 	//                                  18,  -9,  2] * [x1; x2; x3]
 	// NB: x0 = d = 0
 
-	a := (27.0*x1 - 27.0*x2 + 9.0*x3) / (2.0 * y3 * y3 * y3)
-	b := (-45.0*x1 + 36.0*x2 - 9.0*x3) / (2.0 * y3 * y3)
-	c := (18.0*x1 - 9.0*x2 + 2.0*x3) / (2.0 * y3)
-	return func(y float64) float64 {
-		x := a*y*y*y + b*y*y + c*y
-		return xmin + (xmax-xmin)*x
-	}, y3
+	a := (27.0*t1 - 27.0*t2 + 9.0*t3) / (2.0 * f3 * f3 * f3)
+	b := (-45.0*t1 + 36.0*t2 - 9.0*t3) / (2.0 * f3 * f3)
+	c := (18.0*t1 - 9.0*t2 + 2.0*t3) / (2.0 * f3)
+	return func(f float64) float64 {
+		t := a*f*f*f + b*f*f + c*f
+		return xmin + (xmax-xmin)*t
+	}, f3
 }
 
-func invPolynomialApprox4(gaussLegendre gaussLegendreFunc, fp func(float64) float64, xmin, xmax float64) (func(float64) float64, float64) {
+func invSpeedPolynomialChebyshevApprox(N int, gaussLegendre gaussLegendreFunc, fp func(float64) float64, xmin, xmax float64) (func(float64) float64, float64) {
 	f := func(x float64) float64 {
-		return gaussLegendre(fp, xmin, xmin+(xmax-xmin)*x)
+		return math.Abs(gaussLegendre(fp, xmin, x))
 	}
-	y4 := f(1.0)
-	x1 := bisectionMethod(f, (1.0/4.0)*y4, xmin, xmax)
-	x2 := bisectionMethod(f, (2.0/4.0)*y4, xmin, xmax)
-	x3 := bisectionMethod(f, (3.0/4.0)*y4, xmin, xmax)
-	x4 := 1.0
+	ymax := f(xmax)
+	x := func(y float64) float64 {
+		return bisectionMethod(f, y, xmin, xmax)
+	}
+	return polynomialChebyshevApprox(N, x, 0.0, ymax), ymax
+}
 
-	// We have four points on the x(y) curve at y0=0, y1=1/4, y2=2/4, y3=3/4 and y4=1
-	// now obtain a polynomial that goes through these four points by solving the system of linear equations
-	// x(y) = a*y^4 + b*y^3 + c*y^2 + d*y + e  (NB: x0 = 3 = 0)
-	// [x1; x2; x3; x4] = [1/256,  1/64, 1/16, 1/4;
-	//                      1/16,   1/8,  1/4, 1/2;
-	//                    81/256, 27/64, 9/16, 3/4;
-	//                         1,     1,    1,   1] * [a*y4^4; b*y4^3; c*y4^2; d*y4]
-	//
-	// After inverting:
-	// [a*y4^4; b*y4^3; c*y4^3, d*y4] = 1/3 * [-128,  192, -128,  32;
-	//                                          288, -384,  224, -48;
-	//                                         -208,  228, -112,  22;
-	//                                           48,  -36,   16,  -3] * [x1; x2; x3; x4]
-	// NB: x0 = d = 0
+func polynomialChebyshevApprox(N int, f func(float64) float64, xmin, xmax float64) func(float64) float64 {
+	fs := make([]float64, N)
+	for k := 0; k < N; k++ {
+		u := math.Cos(math.Pi * (float64(k+1) - 0.5) / float64(N))
+		fs[k] = f(xmin + (xmax-xmin)*(u+1.0)/2.0)
+	}
 
-	a := (-128.0*x1 + 192.0*x2 - 128.0*x3 + 32.0*x4) / (3.0 * y4 * y4 * y4 * y4)
-	b := (288.0*x1 - 384.0*x2 + 224.0*x3 - 48.0*x4) / (3.0 * y4 * y4 * y4)
-	c := (-208.0*x1 + 228.0*x2 - 112.0*x3 + 22.0*x4) / (3.0 * y4 * y4)
-	d := (48.0*x1 - 36.0*x2 + 16.0*x3 - 3.0*x4) / (3.0 * y4)
-	return func(y float64) float64 {
-		x := a*y*y*y*y + b*y*y*y + c*y*y + d*y
-		return xmin + (xmax-xmin)*x
-	}, y4
+	c := make([]float64, N)
+	for j := 0; j < N; j++ {
+		a := 0.0
+		for k := 0; k < N; k++ {
+			a += fs[k] * math.Cos(float64(j)*math.Pi*(float64(k+1)-0.5)/float64(N))
+		}
+		c[j] = (2.0 / float64(N)) * a
+	}
+
+	return func(x float64) float64 {
+		u := (x-xmin)/(xmax-xmin)*2.0 - 1.0
+		a := 0.0
+		for j := 0; j < N; j++ {
+			a += c[j] * math.Cos(float64(j)*math.Acos(u))
+		}
+		return -0.5*c[0] + a
+	}
 }
 
 ////////////////////////////////////////////////////////////////

@@ -12,14 +12,14 @@ Terminology: a path is a sequence of drawing commands (MoveTo, LineTo, QuadTo, C
 | Command | Flatten | Stroke | Length | SplitAt |
 | ------- | ------- | ------ | ------ | ------- |
 | LineTo  | yes     | yes    | yes    | yes     |
-| QuadTo  | yes (cubic) | yes (cubic) | yes | yes (GL5 + Poly3) |
-| CubeTo  | yes     | yes    | yes (GL5) | yes (GL5 + Poly3) |
-| ArcTo   | yes (imprecise) | yes | yes (GL5) | yes (GL5 + Poly3) |
+| QuadTo  | yes (cubic) | yes (cubic) | yes | yes (GL5 + Chebyshev10) |
+| CubeTo  | yes     | yes    | yes (GL5) | yes (GL5 + Chebyshev10) |
+| ArcTo   | yes (imprecise) | yes | yes (GL5) | yes (GL5 + Chebyshev10) |
 
 * Ellipse => Cubic Beziér: used by rasterizer and PDF targets (imprecise)
 * Cubic Beziér => Ellipse: could be used by Stroke to increase precision and reduce the number of commands, but this is much work with little gain
 
-NB: GL5 means a Gauss-Legendre n=5, which is an numerical approximation as there is no analytical solution. Poly3 is a cubic polynomial approximation, which uses the bisection method as well to determine the polynomial points.
+NB: GL5 means a Gauss-Legendre n=5, which is an numerical approximation as there is no analytical solution. Chebyshev is a converging way to approximate a function by an n=10 degree polynomial. It uses the bisection method as well to determine the polynomial points.
 
 
 ## Planning
@@ -35,7 +35,7 @@ General
 Fonts
 
 * **Font embedding for PDFs and EPSs**
-* Support font hinting
+* Support font hinting (for the rasterizer)
 * Support WOFF2 font format
 * Support Type1 font format?
 * Compressing fonts and embedding only used characters
@@ -44,15 +44,14 @@ Paths
 
 * **Approximate elliptic arcs by lines given a tolerance for use in `Flatten`**
 * **Approximate elliptic arcs by Beziérs given a tolerance for use in `WriteImage`, `ToPDF`**
-* Easier support for building paths from strings, like AppendSVG for example?
 * Add function to convert lines to cubic Beziérs to smooth out a path
 * Add function to apply mask (ie. apply a mask path onto another path)
 * Add function to apply shear transformation
+* Easier support for building paths from strings, like AppendSVG for example? (unsure)
 
 Optimization
 
 * Avoid overlapping paths when offsetting in corners
-* Improve arc length parametrization for Beziérs and elliptical arcs
 * Approximate Beziérs by elliptic arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (check)
 
 

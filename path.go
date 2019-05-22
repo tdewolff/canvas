@@ -793,7 +793,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 				speed := func(t float64) float64 {
 					return quadraticBezierDeriv(start, cp, end, t).Length()
 				}
-				invL, dT := invPolynomialApprox3(gaussLegendre5, speed, 0.0, 1.0)
+				invL, dT := invSpeedPolynomialChebyshevApprox(10, gaussLegendre5, speed, 0.0, 1.0)
 				if j == len(ts) {
 					q.QuadTo(cp.X, cp.Y, end.X, end.Y)
 				} else {
@@ -825,7 +825,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 				speed := func(t float64) float64 {
 					return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
 				}
-				invL, dT := invPolynomialApprox3(gaussLegendre5, speed, 0.0, 1.0)
+				invL, dT := invSpeedPolynomialChebyshevApprox(10, gaussLegendre5, speed, 0.0, 1.0)
 				if j == len(ts) {
 					q.CubeTo(cp1.X, cp1.Y, cp2.X, cp2.Y, end.X, end.Y)
 				} else {
@@ -857,7 +857,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 				speed := func(theta float64) float64 {
 					return ellipseDeriv(rx, ry, 0.0, true, theta).Length()
 				}
-				invL, totalLength := invPolynomialApprox3(gaussLegendre5, speed, theta1, theta2)
+				invL, totalLength := invSpeedPolynomialChebyshevApprox(10, gaussLegendre5, speed, theta1, theta2)
 				dT := math.Abs(totalLength)
 				if j == len(ts) {
 					q.ArcTo(rx, ry, phi*180.0/math.Pi, largeArc, sweep, end.X, end.Y)
