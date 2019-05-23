@@ -4,6 +4,8 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS and raste
 
 ![Example](https://raw.githubusercontent.com/tdewolff/canvas/master/example/example.png)
 
+Figure 1: top-left you can see text being fitted into a box, the space between the words on the first row is being stretched to fill the whole width. The second row shows typographic substitution (the quotes) and ligature support (fi, ffi, ffl, ...). Below the text box, the word "stroke" is being stroked and drawn as a path. Top-right we see a LaTeX formula that has been converted to a path. Left of that we see ellipse support showcasing precise dashing, notably the length of e.g. the short dash is equal wherever it is (approximated through arc length parametrization) on the curve. It also shows support for alternating dash lengths, in this case (2.0, 4.0, 2.0) for dashes and for spaces. Be aware that the dashes themselves are elliptic arcs as well (thus exactly precise even if magnified greatly). In the bottom-right we see a closed polygon of four points being smoothed by cubic Beziérs that are smooth along the whole path.
+
 Terminology: a path is a sequence of drawing commands (MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close) that completely describe a path. QuadTo and CubeTo are quadratic and cubic Beziérs respectively, ArcTo is an elliptical arc, and Close is a LineTo to the last MoveTo command and closes the path (sometimes this has a special meaning such as when stroking). A path can consist of several path segments by having multiple MoveTos, Closes, or the pair of Close and MoveTo. Flattening is the action of converting the QuadTo, CubeTo and ArcTo commands into LineTos.
 
 
@@ -44,7 +46,6 @@ Paths
 
 * **Approximate elliptic arcs by lines given a tolerance for use in `Flatten`**
 * **Approximate elliptic arcs by Beziérs given a tolerance for use in `WriteImage`, `ToPDF`**
-* Add function to convert lines to cubic Beziérs to smooth out a path
 * Add function to apply mask (ie. apply a mask path onto another path)
 * Add function to apply shear transformation
 * Easier support for building paths from strings, like AppendSVG for example? (unsure)
@@ -139,6 +140,7 @@ p.Scale(x, y float64)
 p.Rotate(rot, x, y float64)  // with the rotation rot in degrees, around point (x,y)
 
 p.Flatten()                                            // flatten Bézier and arc commands to straight lines
+p.Smoothen()                                           // treat path as a polygon and smoothen it by cubic beziers
 p.Stroke(width float64, capper Capper, joiner Joiner)  // create a stroke from a path of certain width, using capper and joiner for caps and joins
 p.Dash(d ...float64)                                   // create dashed path with lengths d which are alternating the dash and the space
 

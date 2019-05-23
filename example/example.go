@@ -112,11 +112,12 @@ func Draw(c *canvas.C) {
 	c.DrawPath(130, 20, 0.0, ellipse)
 
 	p = &canvas.Path{}
-	p.LineTo(10.0, 0.0)
-	p.LineTo(10.0, 10.0)
-	p.LineTo(0.0, 10.0)
+	p.LineTo(20.0, 0.0)
+	p.LineTo(20.0, 10.0)
+	p.LineTo(0.0, 20.0)
+	p.Close()
 	q := p.Smoothen()
-	c.DrawPath(160, 10, 0.0, q)
+	c.DrawPath(170, 10, 0.0, q)
 	c.SetColor(canvas.Grey)
-	c.DrawPath(160, 10, 0.0, p)
+	c.DrawPath(170, 10, 0.0, p)
 }
