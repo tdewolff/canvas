@@ -19,7 +19,6 @@ Terminology: a path is a sequence of drawing commands (MoveTo, LineTo, QuadTo, C
 | ArcTo   | yes (imprecise) | yes | yes (GL5) | yes (GL5 + Chebyshev10) |
 
 * Ellipse => Cubic Beziér: used by rasterizer and PDF targets (imprecise)
-* Cubic Beziér => Ellipse: could be used by Stroke to increase precision and reduce the number of commands, but this is much work with little gain
 
 NB: GL5 means a Gauss-Legendre n=5, which is an numerical approximation as there is no analytical solution. Chebyshev is a converging way to approximate a function by an n=10 degree polynomial. It uses the bisection method as well to determine the polynomial points.
 
@@ -37,23 +36,23 @@ General
 Fonts
 
 * **Font embedding for PDFs and EPSs**
-* Support font hinting (for the rasterizer)
+* Compressing fonts and embedding only used characters
 * Support WOFF2 font format
 * Support Type1 font format?
-* Compressing fonts and embedding only used characters
+* Support font hinting (for the rasterizer)
 
 Paths
 
 * **Approximate elliptic arcs by lines given a tolerance for use in `Flatten`**
 * **Approximate elliptic arcs by Beziérs given a tolerance for use in `WriteImage`, `ToPDF`**
+* Avoid overlapping paths when offsetting in corners
 * Add function to apply mask (ie. apply a mask path onto another path)
-* Add function to apply shear transformation
+* Add function to apply shear transformation (hard, how do curves transform?)
 * Easier support for building paths from strings, like AppendSVG for example? (unsure)
 
 Optimization
 
-* Avoid overlapping paths when offsetting in corners
-* Approximate Beziérs by elliptic arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (check)
+* Approximate Beziérs by elliptic arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (unsure if worth it)
 
 
 ## Canvas
