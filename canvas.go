@@ -189,7 +189,7 @@ func (c *C) WritePDF(writer io.Writer) error {
 
 		if l.t == textLayer {
 			// TODO: embed fonts and draw text
-			l.path = l.text.ToPath(0.0, 0.0)
+			l.path = l.text.ToPath()
 			l.t = pathLayer
 		}
 
@@ -222,7 +222,7 @@ func (c *C) WriteImage(dpi float64) *image.RGBA {
 	dy := float32(c.h * dpm)
 	for _, l := range layers {
 		if l.t == textLayer {
-			l.path = l.text.ToPath(0.0, 0.0)
+			l.path = l.text.ToPath()
 			l.t = pathLayer
 		}
 
@@ -286,7 +286,7 @@ func (c *C) WriteEPS(w io.Writer) {
 
 		if l.t == textLayer {
 			// TODO: embed fonts (convert TTF to Type 42) and draw text
-			l.path = l.text.ToPath(0.0, 0.0)
+			l.path = l.text.ToPath()
 			l.t = pathLayer
 		}
 

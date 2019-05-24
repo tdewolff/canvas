@@ -86,7 +86,7 @@ text := NewText(ff, "string")                                            // simp
 text := NewTextBox(ff, "string", width, height, halign, valign, indent)  // split on word boundaries and specify text alignment
 text.Bounds() Rect
 text.ToPath() *Path
-text.ToSVG() string  // convert to series of <tspan>
+text.ToSVG(x, y, rot, color) string  // convert to series of <tspan>
 ```
 
 

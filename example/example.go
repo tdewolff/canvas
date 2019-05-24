@@ -87,10 +87,10 @@ func drawText(c *canvas.C, x, y float64, size float64, s string) {
 }
 
 func Draw(c *canvas.C) {
-	drawText(c, 10, 70, 28.0, "Aap noot mies \"fi ffi ffl\"")
+	drawText(c, 10, 70, 28.0, "Jaap noot mies \"fi ffi ffl\"")
 
 	face := dejaVuSerif.Face(80.0)
-	p := canvas.NewText(face, "Stroke").ToPath(0.0, 0.0)
+	p := canvas.NewText(face, "Stroke").ToPath()
 	c.DrawPath(5, 10, 0.0, p.Stroke(1, canvas.RoundCapper, canvas.RoundJoiner))
 
 	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)

@@ -404,22 +404,22 @@ func (p *Path) Bounds() Rect {
 
 			xmin = math.Min(xmin, end.X)
 			xmax = math.Max(xmax, end.X)
-			tdenom := (start.X - 2*cp.X + end.X)
-			if tdenom != 0.0 {
-				t := (start.X - cp.X) / tdenom
-				x := quadraticBezierPos(start, cp, end, t)
-				xmin = math.Min(xmin, x.X)
-				xmax = math.Max(xmax, x.X)
+			if tdenom := (start.X - 2*cp.X + end.X); tdenom != 0.0 {
+				if t := (start.X - cp.X) / tdenom; t > 0.0 && t < 1.0 {
+					x := quadraticBezierPos(start, cp, end, t)
+					xmin = math.Min(xmin, x.X)
+					xmax = math.Max(xmax, x.X)
+				}
 			}
 
 			ymin = math.Min(ymin, end.Y)
 			ymax = math.Max(ymax, end.Y)
-			tdenom = (start.Y - 2*cp.Y + end.Y)
-			if tdenom != 0.0 {
-				t := (start.Y - cp.Y) / tdenom
-				y := quadraticBezierPos(start, cp, end, t)
-				ymin = math.Min(ymin, y.Y)
-				ymax = math.Max(ymax, y.Y)
+			if tdenom := (start.Y - 2*cp.Y + end.Y); tdenom != 0.0 {
+				if t := (start.Y - cp.Y) / tdenom; t > 0.0 && t < 1.0 {
+					y := quadraticBezierPos(start, cp, end, t)
+					ymin = math.Min(ymin, y.Y)
+					ymax = math.Max(ymax, y.Y)
+				}
 			}
 		case CubeToCmd:
 			cp1 := Point{p.d[i+1], p.d[i+2]}
