@@ -213,7 +213,7 @@ func NewTextBox(ff FontFace, s string, width, height float64, halign, valign Tex
 		}
 	}
 	for j := range lines {
-		lines[j].y += dy + float64(j)*extraLineSpacing
+		lines[j].y -= dy + float64(j)*extraLineSpacing
 	}
 	return &Text{lines, []*Font{ff.f}}
 }

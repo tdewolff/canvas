@@ -37,6 +37,7 @@ Fonts
 
 * **Font embedding for PDFs and EPSs**
 * Compressing fonts and embedding only used characters
+* Use ligature tables
 * Support WOFF2 font format
 * Support Type1 font format?
 * Support font hinting (for the rasterizer)
