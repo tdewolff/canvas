@@ -133,6 +133,11 @@ func (f *Font) ToDataURI() string {
 	return sb.String()
 }
 
+// TODO: generate new raw with only used characters
+func (f *Font) Raw() (string, []byte) {
+	return f.mimetype, f.raw
+}
+
 type Metrics struct {
 	Size       float64
 	LineHeight float64

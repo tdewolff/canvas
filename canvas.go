@@ -105,11 +105,11 @@ type C struct {
 	color color.Color
 
 	layers []layer
-	fonts  []*Font
+	fonts  map[*Font]bool
 }
 
 func New(w, h float64) *C {
-	return &C{w, h, color.Black, []layer{}, []*Font{}}
+	return &C{w, h, color.Black, []layer{}, map[*Font]bool{}}
 }
 
 func (c *C) SetColor(col color.Color) {
@@ -122,18 +122,8 @@ func (c *C) DrawPath(x, y, rot float64, p *Path) {
 }
 
 func (c *C) DrawText(x, y, rot float64, text *Text) {
-	// TODO: is this too ugly?
 	for _, font := range text.fonts {
-		found := false
-		for _, f := range c.fonts {
-			if f == font {
-				found = true
-				break
-			}
-		}
-		if !found {
-			c.fonts = append(c.fonts, font)
-		}
+		c.fonts[font] = true
 	}
 	c.layers = append(c.layers, layer{textLayer, x, y, rot, c.color, nil, text})
 }
@@ -150,7 +140,7 @@ func (c *C) WriteSVG(w io.Writer) {
 	w.Write([]byte("\">"))
 	if len(c.fonts) > 0 {
 		w.Write([]byte("<defs><style>"))
-		for _, f := range c.fonts {
+		for f := range c.fonts {
 			w.Write([]byte("@font-face { font-family: '"))
 			w.Write([]byte(f.name))
 			w.Write([]byte("'; src: url('"))
@@ -163,7 +153,7 @@ func (c *C) WriteSVG(w io.Writer) {
 		if l.t == pathLayer {
 			p := l.path.Copy().Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y).Scale(1.0, -1.0).Translate(0.0, c.h)
 			w.Write([]byte("<path d=\""))
-			w.Write([]byte(p.String()))
+			w.Write([]byte(p.ToSVG()))
 			if l.color != color.Black {
 				w.Write([]byte("\" fill=\""))
 				writeCSSColor(w, l.color)
