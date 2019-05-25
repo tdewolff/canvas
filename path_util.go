@@ -369,13 +369,13 @@ func ellipseToBeziers(start Point, rx, ry, phi float64, largeArc, sweep bool, en
 	p := &Path{}
 	cx, cy, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
 
-	// TODO: improve: use dynamic step size, tolerance and maybe cubic Beziers
+	// TODO: improve: use dynamic step size, tolerance and maybe cubic Béziers
 	// use https://blogs.datalogics.com/2018/09/24/svg-to-pdf-part-2-drawing-arcs/ ?
 	// ie. https://dxr.mozilla.org/mozilla-central/source/dom/svg/SVGPathDataParser.cpp#359
 	// also check https://github.com/srwiley/rasterx/blob/master/shapes.go#L99 with reference to:
 	// Approximate the ellipse using a set of cubic bezier curves by the method of
 	// L. Maisonobe, "Drawing an elliptical arc using polylines, quadratic
-	// or cubic Bezier curves", 2003, https://www.spaceroots.org/documents/elllipse/elliptical-arc.pdf
+	// or cubic Bézier curves", 2003, https://www.spaceroots.org/documents/elllipse/elliptical-arc.pdf
 
 	const n = 16
 	for i := 0; i < n; i++ {
@@ -406,7 +406,7 @@ func flattenEllipse(start Point, rx, ry, phi float64, largeArc, sweep bool, end 
 }
 
 ////////////////////////////////////////////////////////////////
-// Beziérs /////////////////////////////////////////////////////
+// Béziers /////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
 
 func quadraticToCubicBezier(start, c, end Point) (Point, Point) {
@@ -525,7 +525,7 @@ func cubicBezierNormal(p0, p1, p2, p3 Point, t, d float64) Point {
 	panic("not implemented")
 }
 
-// cubicBezierLength calculates the length of the Beziér, taking care of inflection points
+// cubicBezierLength calculates the length of the Bézier, taking care of inflection points
 // it uses Gauss-Legendre (n=5) and has an error of ~1% or less (emperical)
 func cubicBezierLength(p0, p1, p2, p3 Point) float64 {
 	t1, t2 := findInflectionPointsCubicBezier(p0, p1, p2, p3)
@@ -573,7 +573,7 @@ func splitCubicBezier(p0, p1, p2, p3 Point, t float64) (Point, Point, Point, Poi
 
 func addCubicBezierLine(p *Path, p0, p1, p2, p3 Point, t, d float64) {
 	if p0.X == p3.X && p0.Y == p3.X && (p0.X == p1.X && p0.Y == p1.Y || p0.X == p2.X && p0.Y == p2.Y) {
-		// Bezier has p0=p1=p3 or p0=p2=p3 and thus has no surface
+		// Bézier has p0=p1=p3 or p0=p2=p3 and thus has no surface
 		return
 	}
 
@@ -679,13 +679,13 @@ func flattenCubicBezier(p0, p1, p2, p3 Point) *Path {
 	return strokeCubicBezier(p0, p1, p2, p3, 0.0, Tolerance)
 }
 
-// see Flat, precise flattening of cubic Bezier path and offset curves, by T.F. Hain et al., 2005
+// see Flat, precise flattening of cubic Bézier path and offset curves, by T.F. Hain et al., 2005
 // https://www.sciencedirect.com/science/article/pii/S0097849305001287
 // see https://github.com/Manishearth/stylo-flat/blob/master/gfx/2d/Path.cpp for an example implementation
 // or https://docs.rs/crate/lyon_bezier/0.4.1/source/src/flatten_cubic.rs
 // p0, p1, p2, p3 are the start points, two control points and the end points respectively. With flatness defined as
 // the maximum error from the orinal curve, and d the half width of the curve used for stroking (positive is to the right).
-// TODO: use ellipse arcs for better results
+// TODO: use ellipse arcs for better results?
 func strokeCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 	p := &Path{}
 	// 0 <= t1 <= 1 if t1 exists

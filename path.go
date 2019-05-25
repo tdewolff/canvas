@@ -151,7 +151,7 @@ func (p *Path) LineTo(x2, y2 float64) *Path {
 	return p
 }
 
-// Quadto adds a quadratic Bezier path with control point cpx,cpy and end point x2,y2.
+// Quadto adds a quadratic Bézier path with control point cpx,cpy and end point x2,y2.
 func (p *Path) QuadTo(cpx, cpy, x2, y2 float64) *Path {
 	x1, y1 := p.Pos()
 	if equal(cpx, x1) && equal(cpy, y1) || equal(cpx, x2) && equal(cpy, y2) {
@@ -161,7 +161,7 @@ func (p *Path) QuadTo(cpx, cpy, x2, y2 float64) *Path {
 	return p
 }
 
-// CubeTo adds a cubic Bezier path with control points cpx1,cpy1 and cpx2,cpy2 and end point x2,y2.
+// CubeTo adds a cubic Bézier path with control points cpx1,cpy1 and cpx2,cpy2 and end point x2,y2.
 func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x2, y2 float64) *Path {
 	x1, y1 := p.Pos()
 	if (equal(cpx1, x1) && equal(cpy1, y1) || equal(cpx1, x2) && equal(cpy1, y2)) &&
@@ -922,7 +922,7 @@ func (p *Path) Dash(d ...float64) *Path {
 	return q
 }
 
-// Smoothen returns a new path that smoothens out a path using cubic Beziérs between all the path points. This is equivalent of saying all path commands are linear and are replaced by cubic Beziérs so that the curvature at is smooth along the whole path.
+// Smoothen returns a new path that smoothens out a path using cubic Béziers between all the path points. This is equivalent of saying all path commands are linear and are replaced by cubic Béziers so that the curvature at is smooth along the whole path.
 func (p *Path) Smoothen() *Path {
 	if len(p.d) == 0 {
 		return &Path{}

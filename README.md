@@ -4,21 +4,33 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS and raste
 
 ![Example](https://raw.githubusercontent.com/tdewolff/canvas/master/example/example.png)
 
-Figure 1: top-left you can see text being fitted into a box and their bounding box (light grey), the space between the words on the first row is being stretched to fill the whole width. The second row shows typographic substitution (the quotes) and ligature support (fi, ffi, ffl, ...). Below the text box, the word "stroke" is being stroked and drawn as a path. Top-right we see a LaTeX formula that has been converted to a path. Left of that we see ellipse support showcasing precise dashing, notably the length of e.g. the short dash is equal wherever it is (approximated through arc length parametrization) on the curve. It also shows support for alternating dash lengths, in this case (2.0, 4.0, 2.0) for dashes and for spaces. Note that the dashes themselves are elliptical arcs as well (thus exactly precise even if magnified greatly). In the bottom-right we see a closed polygon of four points being smoothed by cubic Beziérs that are smooth along the whole path (works for both open and closed paths).
+Figure 1: top-left you can see text being fitted into a box and their bounding box (light grey), the space between the words on the first row is being stretched to fill the whole width. The second row shows typographic substitution (the quotes) and ligature support (fi, ffi, ffl, ...). Below the text box, the word "stroke" is being stroked and drawn as a path. Top-right we see a LaTeX formula that has been converted to a path. Left of that we see ellipse support showcasing precise dashing, notably the length of e.g. the short dash is equal wherever it is (approximated through arc length parametrization) on the curve. It also shows support for alternating dash lengths, in this case (2.0, 4.0, 2.0) for dashes and for spaces. Note that the dashes themselves are elliptical arcs as well (thus exactly precise even if magnified greatly). In the bottom-right we see a closed polygon of four points being smoothed by cubic Béziers that are smooth along the whole path (works for both open and closed paths).
 
-Terminology: a path is a sequence of drawing commands (MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close) that completely describe a path. QuadTo and CubeTo are quadratic and cubic Beziérs respectively, ArcTo is an elliptical arc, and Close is a LineTo to the last MoveTo command and closes the path (sometimes this has a special meaning such as when stroking). A path can consist of several path segments by having multiple MoveTos, Closes, or the pair of Close and MoveTo. Flattening is the action of converting the QuadTo, CubeTo and ArcTo commands into LineTos.
+Terminology: a path is a sequence of drawing commands (MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close) that completely describe a path. QuadTo and CubeTo are quadratic and cubic Béziers respectively, ArcTo is an elliptical arc, and Close is a LineTo to the last MoveTo command and closes the path (sometimes this has a special meaning such as when stroking). A path can consist of several path segments by having multiple MoveTos, Closes, or the pair of Close and MoveTo. Flattening is the action of converting the QuadTo, CubeTo and ArcTo commands into LineTos.
 
+### Articles
+[Numerically stable quadratic formula](https://math.stackexchange.com/questions/866331/numerically-stable-algorithm-for-solving-the-quadratic-equation-when-a-is-very/2007723#2007723)
+[Quadratic Bézier length](https://malczak.linuxpl.com/blog/quadratic-bezier-curve-length/)
+[Bézier spline through open path](https://www.particleincell.com/2012/bezier-splines/)
+[Bézier spline through closed path](http://www.jacos.nl/jacos_html/spline/circular/index.html)
+
+My own:
+[Arc length parametrization](https://tacodewolff.nl/posts/20190525-arc-length/)
+
+Papers:
+[M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI, p. 143--150, 1996](https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf)
+[T.F. Hain, A.L. Ahmad, S.V.R. Racherla, D.D. Langan, Fast, precise flattening of cubic Bézier path and offset curves, Computers & Graphics 29, 0. 656--666, 2005](https://www.sciencedirect.com/science/article/pii/S0097849305001287?via%3Dihub)
 
 ## Status
 ### Path
 | Command | Flatten | Stroke | Length | SplitAt |
 | ------- | ------- | ------ | ------ | ------- |
 | LineTo  | yes     | yes    | yes    | yes     |
-| QuadTo  | yes (cubic) | yes (cubic) | yes | yes (GL5 + Chebyshev10) |
+| QuadTo  | yes (CubeTo) | yes (CubeTo) | yes | yes (GL5 + Chebyshev10) |
 | CubeTo  | yes     | yes    | yes (GL5) | yes (GL5 + Chebyshev10) |
 | ArcTo   | yes (imprecise) | yes | yes (GL5) | yes (GL5 + Chebyshev10) |
 
-* Ellipse => Cubic Beziér: used by rasterizer and PDF targets (imprecise)
+* Ellipse => Cubic Bézier: used by rasterizer and PDF targets (imprecise)
 
 NB: GL5 means a Gauss-Legendre n=5, which is an numerical approximation as there is no analytical solution. Chebyshev is a converging way to approximate a function by an n=10 degree polynomial. It uses the bisection method as well to determine the polynomial points.
 
@@ -45,7 +57,7 @@ Fonts
 Paths
 
 * **Approximate elliptic arcs by lines given a tolerance for use in `Flatten`**
-* **Approximate elliptic arcs by Beziérs given a tolerance for use in `WriteImage`, `ToPDF`**
+* **Approximate elliptic arcs by Béziers given a tolerance for use in `WriteImage`, `ToPDF`**
 * Avoid overlapping paths when offsetting in corners
 * Add function to apply mask (ie. apply a mask path onto another path)
 * Add function to apply shear transformation (hard, how do curves transform?)
@@ -53,7 +65,7 @@ Paths
 
 Optimization
 
-* Approximate Beziérs by elliptic arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (unsure if worth it)
+* Approximate Béziers by elliptic arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (unsure if worth it)
 
 
 ## Canvas
@@ -140,7 +152,7 @@ p.Scale(x, y float64)
 p.Rotate(rot, x, y float64)  // with the rotation rot in degrees, around point (x,y)
 
 p.Flatten()                                            // flatten Bézier and arc commands to straight lines
-p.Smoothen()                                           // treat path as a polygon and smoothen it by cubic beziers
+p.Smoothen()                                           // treat path as a polygon and smoothen it by cubic Béziers
 p.Stroke(width float64, capper Capper, joiner Joiner)  // create a stroke from a path of certain width, using capper and joiner for caps and joins
 p.Dash(d ...float64)                                   // create dashed path with lengths d which are alternating the dash and the space
 

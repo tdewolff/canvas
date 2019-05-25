@@ -267,7 +267,7 @@ type pathState struct {
 	n0, n1 Point   // normal of start and end
 	r0, r1 float64 // radius of start and end
 
-	cp1, cp2                    Point   // Beziérs
+	cp1, cp2                    Point   // Béziers
 	rx, ry, rot, theta0, theta1 float64 // arcs
 	largeArc, sweep             bool    // arcs
 }
@@ -452,7 +452,7 @@ func (p *Path) Offset(w float64) *Path {
 
 // Stroke converts a path into a stroke of width w. It uses cr to cap the start and end of the path, and jr to
 // join all path elemtents. If the path closes itself, it will use a join between the start and end instead of capping them.
-// The tolerance is the maximum deviation from the original path when flattening Beziers and optimizing the stroke.
+// The tolerance is the maximum deviation from the original path when flattening Béziers and optimizing the stroke.
 func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 	sp := &Path{}
 	halfWidth := w / 2.0
