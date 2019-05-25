@@ -9,17 +9,19 @@ Figure 1: top-left you can see text being fitted into a box and their bounding b
 Terminology: a path is a sequence of drawing commands (MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close) that completely describe a path. QuadTo and CubeTo are quadratic and cubic Béziers respectively, ArcTo is an elliptical arc, and Close is a LineTo to the last MoveTo command and closes the path (sometimes this has a special meaning such as when stroking). A path can consist of several path segments by having multiple MoveTos, Closes, or the pair of Close and MoveTo. Flattening is the action of converting the QuadTo, CubeTo and ArcTo commands into LineTos.
 
 ### Articles
-[Numerically stable quadratic formula](https://math.stackexchange.com/questions/866331/numerically-stable-algorithm-for-solving-the-quadratic-equation-when-a-is-very/2007723#2007723)
-[Quadratic Bézier length](https://malczak.linuxpl.com/blog/quadratic-bezier-curve-length/)
-[Bézier spline through open path](https://www.particleincell.com/2012/bezier-splines/)
-[Bézier spline through closed path](http://www.jacos.nl/jacos_html/spline/circular/index.html)
+* [Numerically stable quadratic formula](https://math.stackexchange.com/questions/866331/numerically-stable-algorithm-for-solving-the-quadratic-equation-when-a-is-very/2007723#2007723)
+* [Quadratic Bézier length](https://malczak.linuxpl.com/blog/quadratic-bezier-curve-length/)
+* [Bézier spline through open path](https://www.particleincell.com/2012/bezier-splines/)
+* [Bézier spline through closed path](http://www.jacos.nl/jacos_html/spline/circular/index.html)
 
-My own:
-[Arc length parametrization](https://tacodewolff.nl/posts/20190525-arc-length/)
+My own
 
-Papers:
-[M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI, p. 143--150, 1996](https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf)
-[T.F. Hain, A.L. Ahmad, S.V.R. Racherla, D.D. Langan, Fast, precise flattening of cubic Bézier path and offset curves, Computers & Graphics 29, 0. 656--666, 2005](https://www.sciencedirect.com/science/article/pii/S0097849305001287?via%3Dihub)
+* [Arc length parametrization](https://tacodewolff.nl/posts/20190525-arc-length/)
+
+Papers
+
+* [M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI, p. 143--150, 1996](https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf)
+* [T.F. Hain, A.L. Ahmad, S.V.R. Racherla, D.D. Langan, Fast, precise flattening of cubic Bézier path and offset curves, Computers & Graphics 29, 0. 656--666, 2005](https://www.sciencedirect.com/science/article/pii/S0097849305001287?via%3Dihub)
 
 ## Status
 ### Path
