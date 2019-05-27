@@ -289,8 +289,8 @@ func TestPathOptimize(t *testing.T) {
 }
 
 func plotPathLengthParametrization(filename string, speed, length func(float64) float64, tmin, tmax float64) {
-	T3, totalLength := invPolynomialApprox3(gaussLegendre5, speed, tmin, tmax)
-	Tc, _ := invSpeedPolynomialChebyshevApprox(10, gaussLegendre5, speed, tmin, tmax)
+	T3, _ := invPolynomialApprox3(gaussLegendre5, speed, tmin, tmax)
+	Tc, totalLength := invSpeedPolynomialChebyshevApprox(10, gaussLegendre5, speed, tmin, tmax)
 
 	anchor1Data := make(plotter.XYs, 2)
 	anchor1Data[0].X = totalLength * 1.0 / 3.0
@@ -332,12 +332,14 @@ func plotPathLengthParametrization(filename string, speed, length func(float64) 
 		panic(err)
 	}
 	line1.LineStyle.Color = SteelBlue
+	line1.LineStyle.Width = 2.0
 
 	line2, err := plotter.NewLine(model2Data)
 	if err != nil {
 		panic(err)
 	}
 	line2.LineStyle.Color = OrangeRed
+	line2.LineStyle.Width = 1.0
 
 	p, err := plot.New()
 	if err != nil {
@@ -348,10 +350,10 @@ func plotPathLengthParametrization(filename string, speed, length func(float64) 
 	p.Add(scatter, line1, line2, anchors1)
 
 	p.Legend.Add("real", scatter)
-	p.Legend.Add("Simple polynomial", line1)
-	p.Legend.Add("Chebyshev", line2)
+	p.Legend.Add("Polynomial", line1)
+	p.Legend.Add("Chebyshev N=10", line2)
 
-	if err := p.Save(16*vg.Inch, 8*vg.Inch, filename); err != nil {
+	if err := p.Save(7*vg.Inch, 4*vg.Inch, filename); err != nil {
 		panic(err)
 	}
 }

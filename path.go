@@ -816,7 +816,6 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 					r0, r1, r2 := start, cp, end
 					for j < len(ts) && T < ts[j] && ts[j] <= T+dT {
 						t := invL(ts[j] - T)
-						t = math.Min(1.0, math.Max(0.0, t))
 						tsub := (t - t0) / (1.0 - t0)
 						t0 = t
 
@@ -851,7 +850,6 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 					r0, r1, r2, r3 := start, cp1, cp2, end
 					for j < len(ts) && T < ts[j] && ts[j] <= T+dT {
 						t := invL(ts[j] - T)
-						t = math.Min(1.0, math.Max(0.0, t))
 						tsub := (t - t0) / (1.0 - t0)
 						t0 = t
 

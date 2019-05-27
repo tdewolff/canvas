@@ -136,6 +136,7 @@ We can extract information from these paths using:
 p.Empty() bool
 p.Pos() (x, y float64)       // current pen position
 p.StartPos() (x, y float64)  // position of last MoveTo
+p.Points() []Point           // positions of all commands
 p.CW() bool                  // true if the last path segment has a clockwise direction
 p.CCW() bool                 // true if the last path segment has a counter clockwise direction
 p.Bounds() Rect              // bounding box of path

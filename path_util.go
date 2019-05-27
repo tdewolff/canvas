@@ -63,7 +63,7 @@ func solveQuadraticFormula(a, b, c float64) (float64, float64) {
 	}
 	if 1.0 <= x2 || x2 < 0.0 {
 		x2 = math.NaN()
-	} else {
+	} else if math.IsNaN(x1) {
 		x1, x2 = x2, x1
 	}
 	return x1, x2
@@ -199,18 +199,18 @@ func invPolynomialApprox3(gaussLegendre gaussLegendreFunc, fp func(float64) floa
 	}, f3
 }
 
-func invSpeedPolynomialChebyshevApprox(N int, gaussLegendre gaussLegendreFunc, fp func(float64) float64, xmin, xmax float64) (func(float64) float64, float64) {
-	f := func(x float64) float64 {
-		return math.Abs(gaussLegendre(fp, xmin, x))
+func invSpeedPolynomialChebyshevApprox(N int, gaussLegendre gaussLegendreFunc, fp func(float64) float64, tmin, tmax float64) (func(float64) float64, float64) {
+	fLength := func(t float64) float64 {
+		return math.Abs(gaussLegendre(fp, tmin, t))
 	}
-	ymax := f(xmax)
-	x := func(y float64) float64 {
-		return bisectionMethod(f, y, xmin, xmax)
+	totalLength := fLength(tmax)
+	t := func(L float64) float64 {
+		return bisectionMethod(fLength, L, tmin, tmax)
 	}
-	return polynomialChebyshevApprox(N, x, 0.0, ymax), ymax
+	return polynomialChebyshevApprox(N, t, 0.0, totalLength, tmin, tmax), totalLength
 }
 
-func polynomialChebyshevApprox(N int, f func(float64) float64, xmin, xmax float64) func(float64) float64 {
+func polynomialChebyshevApprox(N int, f func(float64) float64, xmin, xmax, ymin, ymax float64) func(float64) float64 {
 	fs := make([]float64, N)
 	for k := 0; k < N; k++ {
 		u := math.Cos(math.Pi * (float64(k+1) - 0.5) / float64(N))
@@ -226,13 +226,20 @@ func polynomialChebyshevApprox(N int, f func(float64) float64, xmin, xmax float6
 		c[j] = (2.0 / float64(N)) * a
 	}
 
+	if ymax < ymin {
+		ymin, ymax = ymax, ymin
+	}
 	return func(x float64) float64 {
 		u := (x-xmin)/(xmax-xmin)*2.0 - 1.0
 		a := 0.0
 		for j := 0; j < N; j++ {
 			a += c[j] * math.Cos(float64(j)*math.Acos(u))
 		}
-		return -0.5*c[0] + a
+		y := -0.5*c[0] + a
+		if !math.IsNaN(ymin) && !math.IsNaN(ymax) {
+			y = math.Min(ymax, math.Max(ymin, y))
+		}
+		return y
 	}
 }
 
