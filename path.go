@@ -130,6 +130,20 @@ func (p *Path) StartPos() (float64, float64) {
 	return 0.0, 0.0
 }
 
+// Points returns all the points between the commands.
+func (p *Path) Points() []Point {
+	P := []Point{}
+	if 0 < len(p.d) && p.d[0] != MoveToCmd {
+		P = append(P, Point{0.0, 0.0})
+	}
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		i += cmdLen(cmd)
+		P = append(P, Point{p.d[i-2], p.d[i-1]})
+	}
+	return P
+}
+
 ////////////////////////////////////////////////////////////////
 
 // MoveTo moves the path to x,y without connecting the path. It starts a new independent path segment.
@@ -790,28 +804,31 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 				cp := Point{p.d[i+1], p.d[i+2]}
 				end = Point{p.d[i+3], p.d[i+4]}
 
-				speed := func(t float64) float64 {
-					return quadraticBezierDeriv(start, cp, end, t).Length()
-				}
-				invL, dT := invSpeedPolynomialChebyshevApprox(10, gaussLegendre5, speed, 0.0, 1.0)
 				if j == len(ts) {
 					q.QuadTo(cp.X, cp.Y, end.X, end.Y)
 				} else {
-					Tcurve, dTcurve := T, dT
+					speed := func(t float64) float64 {
+						return quadraticBezierDeriv(start, cp, end, t).Length()
+					}
+					invL, dT := invSpeedPolynomialChebyshevApprox(10, gaussLegendre5, speed, 0.0, 1.0)
+
+					t0 := 0.0
 					r0, r1, r2 := start, cp, end
 					for j < len(ts) && T < ts[j] && ts[j] <= T+dT {
-						tpos := (ts[j] - Tcurve) / dTcurve
-						t := invL(tpos * dT)
-						_, cp, _, r0, r1, r2 = splitQuadraticBezier(r0, r1, r2, t)
-						dTcurve = dT - (ts[j] - T)
-						Tcurve = ts[j]
+						t := invL(ts[j] - T)
+						t = math.Min(1.0, math.Max(0.0, t))
+						tsub := (t - t0) / (1.0 - t0)
+						t0 = t
 
-						q.QuadTo(cp.X, cp.Y, r0.X, r0.Y)
+						var q1 Point
+						_, q1, _, r0, r1, r2 = splitQuadraticBezier(r0, r1, r2, tsub)
+
+						q.QuadTo(q1.X, q1.Y, r0.X, r0.Y)
 						push()
 						q.MoveTo(r0.X, r0.Y)
 						j++
 					}
-					if Tcurve < T+dT {
+					if !equal(t0, 1.0) {
 						q.QuadTo(r1.X, r1.Y, r2.X, r2.Y)
 					}
 					T += dT
@@ -821,29 +838,32 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 				cp2 := Point{p.d[i+3], p.d[i+4]}
 				end = Point{p.d[i+5], p.d[i+6]}
 
-				// TODO: handle inflection points? Not sure if necessary
-				speed := func(t float64) float64 {
-					return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
-				}
-				invL, dT := invSpeedPolynomialChebyshevApprox(10, gaussLegendre5, speed, 0.0, 1.0)
 				if j == len(ts) {
 					q.CubeTo(cp1.X, cp1.Y, cp2.X, cp2.Y, end.X, end.Y)
 				} else {
-					Tcurve, dTcurve := T, dT
+					// TODO: handle inflection points
+					speed := func(t float64) float64 {
+						return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
+					}
+					invL, dT := invSpeedPolynomialChebyshevApprox(10, gaussLegendre5, speed, 0.0, 1.0)
+
+					t0 := 0.0
 					r0, r1, r2, r3 := start, cp1, cp2, end
 					for j < len(ts) && T < ts[j] && ts[j] <= T+dT {
-						tpos := (ts[j] - Tcurve) / dTcurve
-						t := invL(tpos * dT)
-						_, cp1, cp2, _, r0, r1, r2, r3 = splitCubicBezier(r0, r1, r2, r3, t)
-						dTcurve = dT - (ts[j] - T)
-						Tcurve = ts[j]
+						t := invL(ts[j] - T)
+						t = math.Min(1.0, math.Max(0.0, t))
+						tsub := (t - t0) / (1.0 - t0)
+						t0 = t
 
-						q.CubeTo(cp1.X, cp1.Y, cp2.X, cp2.Y, r0.X, r0.Y)
+						var q1, q2 Point
+						_, q1, q2, _, r0, r1, r2, r3 = splitCubicBezier(r0, r1, r2, r3, tsub)
+
+						q.CubeTo(q1.X, q1.Y, q2.X, q2.Y, r0.X, r0.Y)
 						push()
 						q.MoveTo(r0.X, r0.Y)
 						j++
 					}
-					if Tcurve < T+dT {
+					if !equal(t0, 1.0) {
 						q.CubeTo(r1.X, r1.Y, r2.X, r2.Y, r3.X, r3.Y)
 					}
 					T += dT
@@ -854,19 +874,18 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 				end = Point{p.d[i+5], p.d[i+6]}
 				cx, cy, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
 
-				speed := func(theta float64) float64 {
-					return ellipseDeriv(rx, ry, 0.0, true, theta).Length()
-				}
-				invL, totalLength := invSpeedPolynomialChebyshevApprox(10, gaussLegendre5, speed, theta1, theta2)
-				dT := math.Abs(totalLength)
 				if j == len(ts) {
 					q.ArcTo(rx, ry, phi*180.0/math.Pi, largeArc, sweep, end.X, end.Y)
 				} else {
+					speed := func(theta float64) float64 {
+						return ellipseDeriv(rx, ry, 0.0, true, theta).Length()
+					}
+					invL, dT := invSpeedPolynomialChebyshevApprox(10, gaussLegendre5, speed, theta1, theta2)
+
 					startTheta := theta1
 					nextLargeArc := largeArc
 					for j < len(ts) && T < ts[j] && ts[j] <= T+dT {
-						tpos := (ts[j] - T) / dT
-						theta := invL(tpos * totalLength)
+						theta := invL(ts[j] - T)
 						mid, largeArc1, largeArc2, ok := splitEllipse(rx, ry, phi, cx, cy, startTheta, theta2, theta)
 						if !ok {
 							panic("theta not in elliptic arc range for splitting")
@@ -928,15 +947,7 @@ func (p *Path) Smoothen() *Path {
 		return &Path{}
 	}
 
-	K := []Point{}
-	if p.d[0] != MoveToCmd {
-		K = append(K, Point{0.0, 0.0})
-	}
-	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
-		i += cmdLen(cmd)
-		K = append(K, Point{p.d[i-2], p.d[i-1]})
-	}
+	K := p.Points()
 	if len(K) == 2 { // there are only two coordinates, that's a straight line
 		q := &Path{}
 		q.MoveTo(K[0].X, K[0].Y)

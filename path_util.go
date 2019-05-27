@@ -63,6 +63,8 @@ func solveQuadraticFormula(a, b, c float64) (float64, float64) {
 	}
 	if 1.0 <= x2 || x2 < 0.0 {
 		x2 = math.NaN()
+	} else {
+		x1, x2 = x2, x1
 	}
 	return x1, x2
 }
@@ -528,24 +530,8 @@ func cubicBezierNormal(p0, p1, p2, p3 Point, t, d float64) Point {
 // cubicBezierLength calculates the length of the Bézier, taking care of inflection points
 // it uses Gauss-Legendre (n=5) and has an error of ~1% or less (emperical)
 func cubicBezierLength(p0, p1, p2, p3 Point) float64 {
-	t1, t2 := findInflectionPointsCubicBezier(p0, p1, p2, p3)
-	var beziers [][4]Point
-	if (math.IsNaN(t1) || t1 == 0.0 || t1 == 1.0) && (math.IsNaN(t2) || t2 == 0.0 || t2 == 1.0) {
-		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
-	} else if math.IsNaN(t2) || t2 == 0.0 || t2 == 1.0 {
-		p0, p1, p2, p3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1)
-		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
-		beziers = append(beziers, [4]Point{q0, q1, q2, q3})
-	} else {
-		p0, p1, p2, p3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1)
-		t2 = (t2 - t1) / (1.0 - t1)
-		q0, q1, q2, q3, r0, r1, r2, r3 := splitCubicBezier(q0, q1, q2, q3, t2)
-		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
-		beziers = append(beziers, [4]Point{q0, q1, q2, q3})
-		beziers = append(beziers, [4]Point{r0, r1, r2, r3})
-	}
-
 	length := 0.0
+	beziers := splitCubicBezierAtInflections(p0, p1, p2, p3)
 	for _, bezier := range beziers {
 		speed := func(t float64) float64 {
 			return cubicBezierDeriv(bezier[0], bezier[1], bezier[2], bezier[3], t).Length()
@@ -553,6 +539,30 @@ func cubicBezierLength(p0, p1, p2, p3 Point) float64 {
 		length += gaussLegendre5(speed, 0.0, 1.0)
 	}
 	return length
+}
+
+func splitCubicBezierAtInflections(p0, p1, p2, p3 Point) [][4]Point {
+	t1, t2 := findInflectionPointsCubicBezier(p0, p1, p2, p3)
+	var beziers [][4]Point
+	if t1 > 0.0 && t1 < 1.0 && t2 > 0.0 && t2 < 1.0 {
+		p0, p1, p2, p3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1)
+		t2 = (t2 - t1) / (1.0 - t1)
+		q0, q1, q2, q3, r0, r1, r2, r3 := splitCubicBezier(q0, q1, q2, q3, t2)
+		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
+		beziers = append(beziers, [4]Point{q0, q1, q2, q3})
+		beziers = append(beziers, [4]Point{r0, r1, r2, r3})
+	} else if t1 > 0.0 && t1 < 1.0 || t2 > 0.0 && t2 < 1.0 {
+		t := t1
+		if t2 > 0.0 && t2 < 1.0 {
+			t = t2
+		}
+		p0, p1, p2, p3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t)
+		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
+		beziers = append(beziers, [4]Point{q0, q1, q2, q3})
+	} else {
+		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
+	}
+	return beziers
 }
 
 func splitCubicBezier(p0, p1, p2, p3 Point, t float64) (Point, Point, Point, Point, Point, Point, Point, Point) {

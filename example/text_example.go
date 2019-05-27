@@ -16,7 +16,7 @@ func main() {
 		panic(err)
 	}
 
-	c := canvas.New(265, 100)
+	c := canvas.New(265, 90)
 	Draw(c)
 
 	pngFile, err := os.Create("text_example.png")

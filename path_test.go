@@ -351,7 +351,7 @@ func plotPathLengthParametrization(filename string, speed, length func(float64) 
 	p.Legend.Add("Simple polynomial", line1)
 	p.Legend.Add("Chebyshev", line2)
 
-	if err := p.Save(8*vg.Inch, 16*vg.Inch, filename); err != nil {
+	if err := p.Save(16*vg.Inch, 8*vg.Inch, filename); err != nil {
 		panic(err)
 	}
 }

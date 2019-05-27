@@ -60,6 +60,7 @@ Paths
 
 * **Approximate elliptic arcs by lines given a tolerance for use in `Flatten`**
 * **Approximate elliptic arcs by Béziers given a tolerance for use in `WriteImage`, `ToPDF`**
+* Intersection function between line, Bézier and ellipse and between themselves
 * Avoid overlapping paths when offsetting in corners
 * Add function to apply mask (ie. apply a mask path onto another path)
 * Add function to apply shear transformation (hard, how do curves transform?)
@@ -68,6 +69,10 @@ Paths
 Optimization
 
 * Approximate Béziers by elliptic arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (unsure if worth it)
+
+Far future
+
+* Load in PDFs, SVGs and EPSs and turn to paths/texts
 
 
 ## Canvas
