@@ -363,13 +363,13 @@ func (p *Path) direction() float64 {
 			a0 = b
 			first = false
 		} else {
-			theta += a.Angle(b)
+			theta += a.AngleBetween(b)
 		}
 		start = end
 		a = b
 	}
 	if !first {
-		theta += b.Angle(a0)
+		theta += b.AngleBetween(a0)
 	}
 	return theta
 }
@@ -1189,7 +1189,7 @@ func (p *Path) Optimize() *Path {
 			nextEnd := Point{p.d[i+4], p.d[i+5]}
 			if p.d[i+3] == CloseCmd && end == nextEnd {
 				p.d = append(p.d[:i], p.d[i+3:]...)
-			} else if p.d[i+3] == LineToCmd && end.Angle(nextEnd) == 0.0 {
+			} else if p.d[i+3] == LineToCmd && end.AngleBetween(nextEnd) == 0.0 {
 				p.d = append(p.d[:i], p.d[i+3:]...)
 			}
 		}

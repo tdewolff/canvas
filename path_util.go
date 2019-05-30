@@ -272,7 +272,7 @@ func ellipseDeriv2(rx, ry, phi float64, sweep bool, theta float64) Point {
 	return Point{ddx, ddy}
 }
 
-func ellipseRadius(rx, ry, phi float64, sweep bool, theta float64) float64 {
+func ellipseCurvatureRadius(rx, ry, phi float64, sweep bool, theta float64) float64 {
 	dp := ellipseDeriv(rx, ry, phi, sweep, theta)
 	ddp := ellipseDeriv2(rx, ry, phi, sweep, theta)
 	a := dp.PerpDot(ddp)
@@ -373,45 +373,84 @@ func splitEllipse(rx, ry, phi, cx, cy, theta1, theta2, theta float64) (Point, bo
 	return mid, largeArc0, largeArc1, true
 }
 
-// from https://github.com/fogleman/gg/blob/master/context.go#L485
+// see Approximation of circular arcs by cubic polynomials, M. Goldapp, Computer Aided Geometric Design 8 (1991), 227--238.
+// the same as used in Cairo in https://github.com/freedesktop/cairo/blob/master/src/cairo-arc.c
+// This implementation has a very convenient error function in contrast to the following paper: Drawing and elliptical arc using
+// polylines, quadratic or cubic Bézier curves (2003), L. Maisonobe, https://spaceroots.org/documents/ellipse/elliptical-arc.pdf
 func ellipseToBeziers(start Point, rx, ry, phi float64, largeArc, sweep bool, end Point) *Path {
 	p := &Path{}
-	cx, cy, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
+	cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
 
-	// TODO: improve: use dynamic step size, tolerance and maybe cubic Béziers
-	// use https://blogs.datalogics.com/2018/09/24/svg-to-pdf-part-2-drawing-arcs/ ?
-	// ie. https://dxr.mozilla.org/mozilla-central/source/dom/svg/SVGPathDataParser.cpp#359
-	// also check https://github.com/srwiley/rasterx/blob/master/shapes.go#L99 with reference to:
-	// Approximate the ellipse using a set of cubic bezier curves by the method of
-	// L. Maisonobe, "Drawing an elliptical arc using polylines, quadratic
-	// or cubic Bézier curves", 2003, https://www.spaceroots.org/documents/elllipse/elliptical-arc.pdf
+	i := 1.0
+	dtheta := math.Pi
+	for Tolerance < 2.0/27.0*math.Pow(math.Sin(dtheta/4.0), 6.0)/math.Pow(math.Cos(dtheta/4.0), 2.0) {
+		i += 1.0
+		dtheta = math.Pi / i
+	}
 
-	const n = 16
-	for i := 0; i < n; i++ {
-		p1 := float64(i+0) / n
-		p2 := float64(i+1) / n
-		start := ellipsePos(rx, ry, phi, cx, cy, theta1+(theta2-theta1)*p1)
-		mid := ellipsePos(rx, ry, phi, cx, cy, theta1+(theta2-theta1)*(p1+p2)/2.0)
-		end := ellipsePos(rx, ry, phi, cx, cy, theta1+(theta2-theta1)*p2)
-		c := mid.Mul(2.0).Sub(start.Mul(0.5)).Sub(end.Mul(0.5))
-		p.QuadTo(c.X, c.Y, end.X, end.Y)
+	n := int(math.Abs(theta1-theta0)/dtheta) + 1
+	dtheta = math.Abs(theta1-theta0) / float64(n) // evenly spread the n points, dalpha will get smaller
+	kappa := 4.0 / 3.0 * math.Tan(dtheta/4.0)
+	if !sweep {
+		dtheta = -dtheta
+	}
+
+	center := Point{cx, cy}
+	for i := 1; i < n+1; i++ {
+		theta := theta0 + float64(i)*dtheta
+		end := ellipsePos(rx, ry, phi, cx, cy, theta)
+
+		var cp1, cp2 Point
+		if sweep {
+			cp1 = start.Add(start.Sub(center).Rot90CCW().Mul(kappa))
+			cp2 = end.Add(end.Sub(center).Rot90CW().Mul(kappa))
+		} else {
+			cp1 = start.Add(start.Sub(center).Rot90CW().Mul(kappa))
+			cp2 = end.Add(end.Sub(center).Rot90CCW().Mul(kappa))
+		}
+		p.CubeTo(cp1.X, cp1.Y, cp2.X, cp2.Y, end.X, end.Y)
+		start = end
 	}
 	return p
 }
 
 func flattenEllipse(start Point, rx, ry, phi float64, largeArc, sweep bool, end Point) *Path {
-	p := &Path{}
-	cx, cy, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
+	return ellipseToBeziers(start, rx, ry, phi, largeArc, sweep, end).Flatten()
 
-	// TODO: improve: use dynamic step size and tolerance
-	const nFull = 64 // points per full ellipse
-	n := int(math.Abs(theta2-theta1) / 2.0 / math.Pi * nFull)
-	for i := 0; i < n; i++ {
-		t := float64(i+1) / float64(n)
-		end := ellipsePos(rx, ry, phi, cx, cy, theta1+(theta2-theta1)*t)
-		p.LineTo(end.X, end.Y)
-	}
-	return p
+	// TODO: make more efficient? The following gives too small spacing with high curvature
+	//p := &Path{}
+	//cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
+
+	//// calculate the what a deviation of Tolerance would give at the part of the ellipse with the strongest curvature
+	//// ie. at rmax, with rmax put on the x-axis. This will make sure that our maximum deviation is Tolerance on the ellipse.
+	//rmax := math.Max(rx, ry)
+	//rmin := math.Min(rx, ry)
+	//dthetaMin := math.Acos(1 - Tolerance/rmax)
+	//dalpha := 2.0 * math.Atan(rmin/rmax*math.Tan(dthetaMin))
+	//fmt.Println(dalpha, 2.0*math.Atan(rmax/rmin*math.Tan(math.Acos(1-Tolerance/rmin))))
+
+	//alpha0 := angleNorm(math.Atan2(1/ry*math.Sin(theta0), 1/rx*math.Cos(theta0)))
+	//alpha1 := angleNorm(math.Atan2(1/ry*math.Sin(theta1), 1/rx*math.Cos(theta1)))
+	//if theta0 < theta1 && alpha1 < alpha0 {
+	//	alpha1 += 2.0 * math.Pi
+	//} else if theta1 < theta0 && alpha0 < alpha1 {
+	//	alpha1 -= 2.0 * math.Pi
+	//}
+
+	//// number of points needed on this arc, including start and end point (which are set)
+	//n := int(math.Abs(alpha1-alpha0)/dalpha) + 1
+	//dalpha = math.Abs(alpha1-alpha0) / float64(n) // evenly spread the n points, dalpha will get smaller
+	//if alpha1 < alpha0 {
+	//	dalpha = -dalpha
+	//}
+	//for i := 1; i < n; i++ {
+	//	alpha := alpha0 + float64(i)*dalpha
+	//	theta := math.Atan2(ry*math.Sin(alpha), rx*math.Cos(alpha))
+	//	q := ellipsePos(rx, ry, phi, cx, cy, theta)
+	//	p.LineTo(q.X, q.Y)
+	//}
+	//p.LineTo(end.X, end.Y)
+	//return p
 }
 
 ////////////////////////////////////////////////////////////////
@@ -494,7 +533,7 @@ func cubicBezierDeriv2(p0, p1, p2, p3 Point, t float64) Point {
 }
 
 // negative when curve bends CW while following t
-func cubicBezierRadius(p0, p1, p2, p3 Point, t float64) float64 {
+func cubicBezierCurvatureRadius(p0, p1, p2, p3 Point, t float64) float64 {
 	dp := cubicBezierDeriv(p0, p1, p2, p3, t)
 	ddp := cubicBezierDeriv2(p0, p1, p2, p3, t)
 	a := dp.PerpDot(ddp) // negative when bending right ie. curve is CW at this point

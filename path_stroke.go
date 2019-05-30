@@ -113,7 +113,7 @@ func miterJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 
 		hw = -hw // used to calculate |R|, when running CW then n0 and n1 point the other way, so the sign of r0 and r1 is negated
 	}
 
-	theta := n0.Angle(n1) / 2.0
+	theta := n0.AngleBetween(n1) / 2.0
 	d := hw / math.Cos(theta)
 	mid := pivot.Add(n0.Add(n1).Norm(d))
 
@@ -220,9 +220,9 @@ func arcsJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 f
 	if math.IsNaN(r0) {
 		c, rcw = c1, r1 >= 0.0
 	}
-	thetaPivot := pivot.Sub(c).Radial()
-	dtheta0 := i0.Sub(c).Radial() - thetaPivot
-	dtheta1 := i1.Sub(c).Radial() - thetaPivot
+	thetaPivot := pivot.Sub(c).Angle()
+	dtheta0 := i0.Sub(c).Angle() - thetaPivot
+	dtheta1 := i1.Sub(c).Angle() - thetaPivot
 	if rcw { // r runs clockwise, so look the other way around
 		dtheta0 = -dtheta0
 		dtheta1 = -dtheta1
@@ -308,8 +308,8 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			}
 			n0 := cubicBezierNormal(start, cp1, cp2, end, 0.0, halfWidth)
 			n1 := cubicBezierNormal(start, cp1, cp2, end, 1.0, halfWidth)
-			r0 := cubicBezierRadius(start, cp1, cp2, end, 0.0)
-			r1 := cubicBezierRadius(start, cp1, cp2, end, 1.0)
+			r0 := cubicBezierCurvatureRadius(start, cp1, cp2, end, 0.0)
+			r1 := cubicBezierCurvatureRadius(start, cp1, cp2, end, 1.0)
 			states = append(states, pathState{
 				cmd: CubeToCmd,
 				p0:  start,
@@ -328,8 +328,8 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
 			n0 := ellipseNormal(rx, ry, phi, sweep, theta0, halfWidth)
 			n1 := ellipseNormal(rx, ry, phi, sweep, theta1, halfWidth)
-			r0 := ellipseRadius(rx, ry, phi, sweep, theta0)
-			r1 := ellipseRadius(rx, ry, phi, sweep, theta1)
+			r0 := ellipseCurvatureRadius(rx, ry, phi, sweep, theta0)
+			r1 := ellipseCurvatureRadius(rx, ry, phi, sweep, theta1)
 			states = append(states, pathState{
 				cmd:      ArcToCmd,
 				p0:       start,

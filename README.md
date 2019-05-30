@@ -20,8 +20,9 @@ My own
 
 Papers
 
-* [M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI, p. 143--150, 1996](https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf)
-* [T.F. Hain, A.L. Ahmad, S.V.R. Racherla, D.D. Langan, Fast, precise flattening of cubic Bézier path and offset curves, Computers & Graphics 29, 0. 656--666, 2005](https://www.sciencedirect.com/science/article/pii/S0097849305001287?via%3Dihub)
+* [M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI (1996), p. 143--150](https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf)
+* [T.F. Hain, A.L. Ahmad, S.V.R. Racherla, D.D. Langan, Fast, precise flattening of cubic Bézier path and offset curves, Computers & Graphics 29 (2005). p. 656--666](https://www.sciencedirect.com/science/article/pii/S0097849305001287?via%3Dihub)
+* [M. Goldapp, Approximation of circular arcs by cibic polynomials, Computer Aided Geometric Design 8 (1991), p. 227--238](https://www.sciencedirect.com/science/article/abs/pii/016783969190007X)
 
 ## Status
 ### Path
@@ -30,9 +31,9 @@ Papers
 | LineTo  | yes     | yes    | yes    | yes     |
 | QuadTo  | yes (CubeTo) | yes (CubeTo) | yes | yes (GL5 + Chebyshev10) |
 | CubeTo  | yes     | yes    | yes (GL5) | yes (GL5 + Chebyshev10) |
-| ArcTo   | yes (imprecise) | yes | yes (GL5) | yes (GL5 + Chebyshev10) |
+| ArcTo   | yes | yes | yes (GL5) | yes (GL5 + Chebyshev10) |
 
-* Ellipse => Cubic Bézier: used by rasterizer and PDF targets (imprecise)
+* Ellipse => Cubic Bézier: used by rasterizer and PDF targets (Goldapp)
 
 NB: GL5 means a Gauss-Legendre n=5, which is an numerical approximation as there is no analytical solution. Chebyshev is a converging way to approximate a function by an n=10 degree polynomial. It uses the bisection method as well to determine the polynomial points.
 
@@ -58,13 +59,12 @@ Fonts
 
 Paths
 
-* **Approximate elliptic arcs by lines given a tolerance for use in `Flatten`**
-* **Approximate elliptic arcs by Béziers given a tolerance for use in `WriteImage`, `ToPDF`**
 * Intersection function between line, Bézier and ellipse and between themselves
 * Avoid overlapping paths when offsetting in corners
 * Add function to apply mask (ie. apply a mask path onto another path)
 * Add function to apply shear transformation (hard, how do curves transform?)
 * Easier support for building paths from strings, like AppendSVG for example? (unsure)
+* Simplify polygons using the Ramer-Douglas-Peucker algorithm
 
 Optimization
 

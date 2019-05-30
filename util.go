@@ -7,12 +7,14 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-const epsilon = 1e-10
+const Epsilon = 1e-10
 
+// equal returns true if a and b are equal with tolerance Epsilon.
 func equal(a, b float64) bool {
-	return math.Abs(a-b) < epsilon
+	return math.Abs(a-b) < Epsilon
 }
 
+// angleNorm returns the angle theta in the range [0,2PI).
 func angleNorm(theta float64) float64 {
 	theta = math.Mod(theta, 2.0*math.Pi)
 	if theta < 0.0 {
@@ -56,46 +58,57 @@ func fromI26_6(f fixed.Int26_6) float64 {
 
 ////////////////////////////////////////////////////////////////
 
+// Point is a coordinate in 2D space. OP refers to the line that goes through the origin (0,0) and this point (x,y).
 type Point struct {
 	X, Y float64
 }
 
+// IsZero returns true if P is exactly zero.
 func (p Point) IsZero() bool {
 	return p.X == 0.0 && p.Y == 0.0
 }
 
+// Equals returns true if P and Q are equal with tolerance Epsilon.
 func (p Point) Equals(q Point) bool {
 	return equal(p.X, q.X) && equal(p.Y, q.Y)
 }
 
+// Neg negates x and y.
 func (p Point) Neg() Point {
 	return Point{-p.X, -p.Y}
 }
 
-func (p Point) Add(a Point) Point {
-	return Point{p.X + a.X, p.Y + a.Y}
+// Add adds Q to P.
+func (p Point) Add(q Point) Point {
+	return Point{p.X + q.X, p.Y + q.Y}
 }
 
-func (p Point) Sub(a Point) Point {
-	return Point{p.X - a.X, p.Y - a.Y}
+// Sub subtracts Q from P.
+func (p Point) Sub(q Point) Point {
+	return Point{p.X - q.X, p.Y - q.Y}
 }
 
+// Mul multiplies x and y by f.
 func (p Point) Mul(f float64) Point {
 	return Point{f * p.X, f * p.Y}
 }
 
+// Div divides x and y by f.
 func (p Point) Div(f float64) Point {
 	return Point{p.X / f, p.Y / f}
 }
 
+// Rot90CW rotates the line OP by 90 degrees CW.
 func (p Point) Rot90CW() Point {
 	return Point{p.Y, -p.X}
 }
 
+// Rot90CCW rotates the line OP by 90 degrees CCW.
 func (p Point) Rot90CCW() Point {
 	return Point{-p.Y, p.X}
 }
 
+// Rot rotates the line OP by rot degrees CCW.
 func (p Point) Rot(rot float64, p0 Point) Point {
 	sinphi, cosphi := math.Sincos(rot * math.Pi / 180.0)
 	return Point{
@@ -104,26 +117,37 @@ func (p Point) Rot(rot float64, p0 Point) Point {
 	}
 }
 
+// Dot returns the dot product between OP and OQ, ie. zero if perpendicular and |OP|*|OQ| if aligned.
 func (p Point) Dot(q Point) float64 {
 	return p.X*q.X + p.Y*q.Y
 }
 
+// PerpDot returns the perp dot product between OP and OQ, ie. zero if aligned and |OP|*|OQ| if perpendicular.
 func (p Point) PerpDot(q Point) float64 {
 	return p.X*q.Y - p.Y*q.X
 }
 
+// Length returns the length of OP.
 func (p Point) Length() float64 {
 	return math.Sqrt(p.X*p.X + p.Y*p.Y)
 }
 
-func (p Point) Radial() float64 {
+// Slope returns the slope between OP, ie. y/x.
+func (p Point) Slope() float64 {
+	return p.Y / p.X
+}
+
+// Angle returns the angle between the x-axis and OP.
+func (p Point) Angle() float64 {
 	return math.Atan2(p.Y, p.X)
 }
 
-func (p Point) Angle(q Point) float64 {
+// AngleBetween returns the angle between OP and OQ.
+func (p Point) AngleBetween(q Point) float64 {
 	return math.Atan2(p.PerpDot(q), p.Dot(q))
 }
 
+// Norm normalized OP to be of certain length.
 func (p Point) Norm(length float64) Point {
 	d := p.Length()
 	if equal(d, 0.0) {
@@ -132,6 +156,7 @@ func (p Point) Norm(length float64) Point {
 	return Point{p.X / d * length, p.Y / d * length}
 }
 
+// Interpolate returns a point on PQ that is linearly interpolated by t, ie. t=0 returns P and t=1 returns Q.
 func (p Point) Interpolate(q Point, t float64) Point {
 	return Point{(1-t)*p.X + t*q.X, (1-t)*p.Y + t*q.Y}
 }

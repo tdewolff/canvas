@@ -60,6 +60,13 @@ func drawStrokedPath(c *canvas.C, x, y, d float64, path string) {
 }
 
 func Draw(c *canvas.C) {
+	p, _ := canvas.ParseSVG("A20 20 0 0 1 -20 20V0z")
+	c.SetColor(canvas.Red)
+	c.DrawPath(50.0, 50.0, 0.0, p)
+	p = p.Flatten()
+	c.SetColor(canvas.Black)
+	c.DrawPath(50.0, 50.0, 0.0, p)
+
 	//drawStrokedPath(c, 30, 50, 2.0, "M0 0L50 0")
 	//drawStrokedPath(c, 30, 40, 2.0, "M0 0L50 0L50 -5")
 	//drawStrokedPath(c, 30, 30, 2.0, "M-25 -25A25 25 0 0 1 0 0A25 25 0 0 1 25 -25z")
