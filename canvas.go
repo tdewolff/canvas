@@ -189,11 +189,13 @@ func (c *C) WritePDF(writer io.Writer) error {
 
 		if l.t == textLayer {
 			// TODO: embed fonts and draw text
-			l.path = l.text.ToPath()
-			l.t = pathLayer
-		}
-
-		if l.t == pathLayer {
+			p := l.text.ToPath().Copy().Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
+			buf.WriteString(" ")
+			buf.WriteString(p.ToPDF())
+			p = l.text.ToPathDecorations().Copy().Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
+			buf.WriteString(" ")
+			buf.WriteString(p.ToPDF())
+		} else if l.t == pathLayer {
 			p := l.path.Copy().Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
 			buf.WriteString(" ")
 			buf.WriteString(p.ToPDF())
@@ -218,43 +220,46 @@ func (c *C) WriteImage(dpi float64) *image.RGBA {
 
 	bg := Rectangle(0.0, 0.0, c.w, c.h)
 	layers := append([]layer{{pathLayer, 0.0, 0.0, 0.0, color.White, bg, nil}}, c.layers...)
-
 	dy := float32(c.h * dpm)
-	for _, l := range layers {
-		if l.t == textLayer {
-			l.path = l.text.ToPath()
-			l.t = pathLayer
-		}
 
-		if l.t == pathLayer {
-			p := l.path.Copy().Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
-			p.Replace(nil, nil, ellipseToBeziers)
-
-			for i := 0; i < len(p.d); {
-				cmd := p.d[i]
-				switch cmd {
-				case MoveToCmd:
-					ras.MoveTo(float32(p.d[i+1]*dpm), dy-float32(p.d[i+2]*dpm))
-				case LineToCmd:
-					ras.LineTo(float32(p.d[i+1]*dpm), dy-float32(p.d[i+2]*dpm))
-				case QuadToCmd:
-					ras.QuadTo(float32(p.d[i+1]*dpm), dy-float32(p.d[i+2]*dpm), float32(p.d[i+3]*dpm), dy-float32(p.d[i+4]*dpm))
-				case CubeToCmd:
-					ras.CubeTo(float32(p.d[i+1]*dpm), dy-float32(p.d[i+2]*dpm), float32(p.d[i+3]*dpm), dy-float32(p.d[i+4]*dpm), float32(p.d[i+5]*dpm), dy-float32(p.d[i+6]*dpm))
-				case ArcToCmd:
-					panic("arcs should have been replaced")
-				case CloseCmd:
-					ras.ClosePath()
-				}
-				i += cmdLen(cmd)
-			}
-			if len(p.d) > 2 && p.d[len(p.d)-3] != CloseCmd {
-				// implicitly close path
+	draw := func(p *Path, color color.Color) {
+		p.Replace(nil, nil, ellipseToBeziers)
+		for i := 0; i < len(p.d); {
+			cmd := p.d[i]
+			switch cmd {
+			case MoveToCmd:
+				ras.MoveTo(float32(p.d[i+1]*dpm), dy-float32(p.d[i+2]*dpm))
+			case LineToCmd:
+				ras.LineTo(float32(p.d[i+1]*dpm), dy-float32(p.d[i+2]*dpm))
+			case QuadToCmd:
+				ras.QuadTo(float32(p.d[i+1]*dpm), dy-float32(p.d[i+2]*dpm), float32(p.d[i+3]*dpm), dy-float32(p.d[i+4]*dpm))
+			case CubeToCmd:
+				ras.CubeTo(float32(p.d[i+1]*dpm), dy-float32(p.d[i+2]*dpm), float32(p.d[i+3]*dpm), dy-float32(p.d[i+4]*dpm), float32(p.d[i+5]*dpm), dy-float32(p.d[i+6]*dpm))
+			case ArcToCmd:
+				panic("arcs should have been replaced")
+			case CloseCmd:
 				ras.ClosePath()
 			}
-			size := ras.Size()
-			ras.Draw(img, image.Rect(0, 0, size.X, size.Y), image.NewUniform(l.color), image.Point{})
-			ras.Reset(size.X, size.Y)
+			i += cmdLen(cmd)
+		}
+		if len(p.d) > 2 && p.d[len(p.d)-3] != CloseCmd {
+			// implicitly close path
+			ras.ClosePath()
+		}
+		size := ras.Size()
+		ras.Draw(img, image.Rect(0, 0, size.X, size.Y), image.NewUniform(color), image.Point{})
+		ras.Reset(size.X, size.Y)
+	}
+
+	for _, l := range layers {
+		if l.t == textLayer {
+			p := l.text.ToPath().Copy().Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
+			draw(p, l.color)
+			p = l.text.ToPathDecorations().Copy().Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
+			draw(p, l.color)
+		} else if l.t == pathLayer {
+			p := l.path.Copy().Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
+			draw(p, l.color)
 		}
 	}
 	return img
@@ -286,11 +291,13 @@ func (c *C) WriteEPS(w io.Writer) {
 
 		if l.t == textLayer {
 			// TODO: embed fonts (convert TTF to Type 42) and draw text
-			l.path = l.text.ToPath()
-			l.t = pathLayer
-		}
-
-		if l.t == pathLayer {
+			p := l.text.ToPath().Copy().Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
+			w.Write([]byte(" "))
+			w.Write([]byte(p.ToPS()))
+			p = l.text.ToPathDecorations().Copy().Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
+			w.Write([]byte(" "))
+			w.Write([]byte(p.ToPS()))
+		} else if l.t == pathLayer {
 			p := l.path.Copy().Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
 			w.Write([]byte(" "))
 			w.Write([]byte(p.ToPS()))

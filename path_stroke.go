@@ -426,25 +426,22 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 	return rhs, nil
 }
 
-// Offset offsets the path to expand by w. If w is negative it will contract (buggy).
+// Offset offsets the path to expand by w. If w is negative it will contract (TODO: buggy).
 func (p *Path) Offset(w float64) *Path {
 	if w == 0.0 {
 		return p
 	}
 
 	q := &Path{}
-	expand := w > 0.0
+	//expand := w > 0.0
 	for _, ps := range p.Split() {
 		if !ps.Closed() {
 			continue
 		}
-		rhs, lhs := offsetSegment(p, w, ButtCapper, RoundJoiner)
-		if rhs != nil { // lhs is also nil, as path is closed
-			if expand == ps.CCW() {
-				q.Append(rhs)
-			} else {
-				q.Append(lhs)
-			}
+		// TODO: fix choosing rhs or lhs as we don't know if the path inverts an earlier one
+		_, lhs := offsetSegment(ps, w, ButtCapper, RoundJoiner)
+		if lhs != nil { // lhs is also nil, as path is closed
+			q.Append(lhs)
 		}
 	}
 	return q

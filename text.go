@@ -52,6 +52,7 @@ type span interface {
 	Heights() (float64, float64, float64) // ascent, descent, line spacing
 	Bounds(float64) Rect
 	Split(float64) (span, span)
+	Decorate(float64) *Path
 	ToPath(float64) *Path
 }
 
@@ -264,6 +265,18 @@ func (t *Text) ToPath() *Path {
 	return p
 }
 
+func (t *Text) ToPathDecorations() *Path {
+	p := &Path{}
+	for _, line := range t.lines {
+		for _, ls := range line.lineSpans {
+			ps := ls.span.Decorate(ls.w)
+			ps.Translate(ls.dx, line.y)
+			p.Append(ps)
+		}
+	}
+	return p
+}
+
 func (t *Text) ToSVG(x, y, rot float64, c color.Color) string {
 	sb := strings.Builder{}
 	sb.WriteString("<text x=\"")
@@ -392,6 +405,13 @@ func (ts textSpan) Split(width float64) (span, span) {
 		}
 	}
 	return ts, nil
+}
+
+func (ts textSpan) Decorate(width float64) *Path {
+	if ts.ff.decoration == nil {
+		return &Path{}
+	}
+	return ts.ff.decoration(ts.ff.Metrics(), width)
 }
 
 func (ts textSpan) ToPath(width float64) *Path {

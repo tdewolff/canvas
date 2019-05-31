@@ -69,11 +69,10 @@ func main() {
 	c.WriteEPS(epsFile)
 }
 
-func drawText(c *canvas.C, x, y float64, size float64, s string) {
-	face := dejaVuSerif.Face(size)
+func drawText(c *canvas.C, x, y float64, face canvas.FontFace, rich *canvas.RichText) {
 	metrics := face.Metrics()
 	width, height := 80.0, 30.0
-	text := canvas.NewTextBox(face, s, width, height, canvas.Justify, canvas.Top, 0.0)
+	text := rich.ToText(width, height, canvas.Justify, canvas.Top, 0.0)
 
 	c.SetColor(canvas.Gainsboro)
 	c.DrawPath(x, y, 0.0, text.Bounds().ToPath())
@@ -88,9 +87,30 @@ func drawText(c *canvas.C, x, y float64, size float64, s string) {
 }
 
 func Draw(c *canvas.C) {
-	drawText(c, 10, 70, 28.0, "Jaap noot mies \"fi ffi ffl\"")
+	face := dejaVuSerif.Face(12.0)
+	rich := canvas.NewRichText()
+	rich.Add(face, "Lorem ")
+	rich.Add(face.FauxBold(), "ipsum ")
+	rich.Add(face.FauxItalic(), "dolor ")
+	rich.Add(face, "sit amet, ")
+	rich.Add(face.Decoration(canvas.DoubleUnderline), "confiscatur")
+	rich.Add(face, " ")
+	rich.Add(face.Decoration(canvas.SineUnderline), "patria")
+	rich.Add(face, " ")
+	rich.Add(face.Decoration(canvas.SawtoothUnderline), "est")
+	rich.Add(face, " ")
+	rich.Add(face.Decoration(canvas.DottedUnderline), "gravus")
+	rich.Add(face, " ")
+	rich.Add(face.Decoration(canvas.DashedUnderline), "instantum")
+	rich.Add(face, " ")
+	rich.Add(face.Decoration(canvas.Underline), "norpe")
+	rich.Add(face, " ")
+	rich.Add(face.Decoration(canvas.Strikethrough), "targe")
+	rich.Add(face, " ")
+	rich.Add(face.Decoration(canvas.Overline), "yatum")
+	drawText(c, 10, 70, face, rich)
 
-	face := dejaVuSerif.Face(80.0)
+	face = dejaVuSerif.Face(80.0)
 	p := canvas.NewText(face, "Stroke").ToPath()
 	c.DrawPath(5, 10, 0.0, p.Stroke(0.75, canvas.RoundCapper, canvas.RoundJoiner))
 

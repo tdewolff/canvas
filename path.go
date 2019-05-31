@@ -88,7 +88,7 @@ func (p *Path) Copy() *Path {
 
 // Append appends path q to p.
 func (p *Path) Append(q *Path) *Path {
-	if len(q.d) == 0 {
+	if q == nil || len(q.d) == 0 {
 		return p
 	} else if len(p.d) > 0 && q.d[0] != MoveToCmd {
 		p.MoveTo(0.0, 0.0)
@@ -100,7 +100,7 @@ func (p *Path) Append(q *Path) *Path {
 
 // Join joins path q to p.
 func (p *Path) Join(q *Path) *Path {
-	if len(q.d) == 0 {
+	if q == nil || len(q.d) == 0 {
 		return p
 	} else if len(p.d) > 0 && q.d[0] == MoveToCmd {
 		x0, y0 := p.d[len(p.d)-2], p.d[len(p.d)-1]
@@ -115,19 +115,19 @@ func (p *Path) Join(q *Path) *Path {
 }
 
 // Pos returns the current position of the path, which is the end point of the last command.
-func (p *Path) Pos() (float64, float64) {
+func (p *Path) Pos() Point {
 	if len(p.d) > 0 {
-		return p.d[len(p.d)-2], p.d[len(p.d)-1]
+		return Point{p.d[len(p.d)-2], p.d[len(p.d)-1]}
 	}
-	return 0.0, 0.0
+	return Point{}
 }
 
 // StartPos returns the start point of the current path segment, ie. it returns the position of the last MoveTo command.
-func (p *Path) StartPos() (float64, float64) {
+func (p *Path) StartPos() Point {
 	if len(p.d) > 0 && p.d[p.i0] == MoveToCmd {
-		return p.d[p.i0+1], p.d[p.i0+2]
+		return Point{p.d[p.i0+1], p.d[p.i0+2]}
 	}
-	return 0.0, 0.0
+	return Point{}
 }
 
 // Points returns all the points between the commands.
@@ -155,64 +155,71 @@ func (p *Path) MoveTo(x, y float64) *Path {
 	return p
 }
 
-// LineTo adds a linear path to x2,y2.
-func (p *Path) LineTo(x2, y2 float64) *Path {
-	x1, y1 := p.Pos()
-	if equal(x1, x2) && equal(y1, y2) {
+// LineTo adds a linear path to x1,y1.
+func (p *Path) LineTo(x1, y1 float64) *Path {
+	p0 := p.Pos()
+	p1 := Point{x1, y1}
+	if p0.Equals(p1) {
 		return p
 	}
-	p.d = append(p.d, LineToCmd, x2, y2)
+	p.d = append(p.d, LineToCmd, p1.X, p1.Y)
 	return p
 }
 
-// Quadto adds a quadratic Bézier path with control point cpx,cpy and end point x2,y2.
-func (p *Path) QuadTo(cpx, cpy, x2, y2 float64) *Path {
-	x1, y1 := p.Pos()
-	if equal(cpx, x1) && equal(cpy, y1) || equal(cpx, x2) && equal(cpy, y2) {
-		return p.LineTo(x2, y2)
+// Quadto adds a quadratic Bézier path with control point cpx,cpy and end point x1,y1.
+func (p *Path) QuadTo(cpx, cpy, x1, y1 float64) *Path {
+	p0 := p.Pos()
+	cp := Point{cpx, cpy}
+	p1 := Point{x1, y1}
+	if cp.Equals(p0) || cp.Equals(p1) {
+		return p.LineTo(p1.X, p1.Y)
 	}
-	p.d = append(p.d, QuadToCmd, cpx, cpy, x2, y2)
+	p.d = append(p.d, QuadToCmd, cp.X, cp.Y, p1.X, p1.Y)
 	return p
 }
 
-// CubeTo adds a cubic Bézier path with control points cpx1,cpy1 and cpx2,cpy2 and end point x2,y2.
-func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x2, y2 float64) *Path {
-	x1, y1 := p.Pos()
-	if (equal(cpx1, x1) && equal(cpy1, y1) || equal(cpx1, x2) && equal(cpy1, y2)) &&
-		(equal(cpx2, x1) && equal(cpy2, y1) || equal(cpx2, x2) && equal(cpy2, y2)) {
-		return p.LineTo(x2, y2)
+// CubeTo adds a cubic Bézier path with control points cpx1,cpy1 and cpx2,cpy2 and end point x1,y1.
+func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x1, y1 float64) *Path {
+	p0 := p.Pos()
+	cp1 := Point{cpx1, cpy1}
+	cp2 := Point{cpx2, cpy2}
+	p1 := Point{x1, y1}
+	if (cp1.Equals(p0) || cp1.Equals(p1)) && (cp2.Equals(p0) || cp2.Equals(p1)) {
+		return p.LineTo(p1.X, p1.Y)
 	}
-	p.d = append(p.d, CubeToCmd, cpx1, cpy1, cpx2, cpy2, x2, y2)
+	p.d = append(p.d, CubeToCmd, cp1.X, cp1.Y, cp2.X, cp2.Y, p1.X, p1.Y)
 	return p
 }
 
 // ArcTo adds an arc with radii rx and ry, with rot the counter clockwise rotation with respect to the coordinate system in degrees,
 // largeArc and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
-// and x2,y2 the end position of the pen. The start positions of the pen was given by a previous command.
+// and x1,y1 the end position of the pen. The start positions of the pen was given by a previous command.
 // When sweep is true it means following the arc in a CCW direction in the Cartesian coordinate system, ie. that is CW in the upper-left coordinate system as is the case in SVGs.
-func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x2, y2 float64) *Path {
-	x1, y1 := p.Pos()
-	if equal(x1, x2) && equal(y1, y2) {
+func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x1, y1 float64) *Path {
+	p0 := p.Pos()
+	p1 := Point{x1, y1}
+	if p0.Equals(p1) {
 		return p
 	}
 	if equal(rx, 0.0) || equal(ry, 0.0) {
-		return p.LineTo(x2, y2)
+		return p.LineTo(p1.X, p1.Y)
 	}
 	rx = math.Abs(rx)
 	ry = math.Abs(ry)
 
 	// scale ellipse if rx and ry are too small, see https://www.w3.org/TR/SVG/implnote.html#ArcCorrectionOutOfRangeRadii
 	phi := angleNorm(rot * math.Pi / 180.0)
+	diff := p0.Sub(p1)
 	sinphi, cosphi := math.Sincos(phi)
-	x1p := (cosphi*(x1-x2) - sinphi*(y1-y2)) / 2.0
-	y1p := (sinphi*(x1-x2) + cosphi*(y1-y2)) / 2.0
+	x1p := (cosphi*diff.X - sinphi*diff.Y) / 2.0
+	y1p := (sinphi*diff.X + cosphi*diff.Y) / 2.0
 	lambda := x1p*x1p/rx/rx + y1p*y1p/ry/ry
 	if lambda > 1.0 {
 		rx = math.Sqrt(lambda) * rx
 		ry = math.Sqrt(lambda) * ry
 	}
 
-	p.d = append(p.d, ArcToCmd, rx, ry, phi, toArcFlags(largeArc, sweep), x2, y2)
+	p.d = append(p.d, ArcToCmd, rx, ry, phi, toArcFlags(largeArc, sweep), p1.X, p1.Y)
 	return p
 }
 
@@ -228,8 +235,7 @@ func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
 	p0 := ellipsePos(rx, ry, phi, 0.0, 0.0, theta0)
 	p1 := ellipsePos(rx, ry, phi, 0.0, 0.0, theta1)
 
-	x1, y1 := p.Pos()
-	start := Point{x1, y1}
+	start := p.Pos()
 	center := start.Sub(p0)
 	if dtheta > 2.0*math.Pi {
 		startOpposite := center.Sub(p0)
@@ -243,8 +249,8 @@ func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
 // Close closes a path with a LineTo to the start of the path (the most recent MoveTo command).
 // It also signals the path closes, as opposed to being just a LineTo command.
 func (p *Path) Close() *Path {
-	x0, y0 := p.StartPos()
-	p.d = append(p.d, CloseCmd, x0, y0)
+	start := p.StartPos()
+	p.d = append(p.d, CloseCmd, start.X, start.Y)
 	return p
 }
 
@@ -724,24 +730,19 @@ func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer
 func (p *Path) Split() []*Path {
 	ps := []*Path{}
 	closed := false
-	var i, j, i0 int
+	var i, j int
 	for j < len(p.d) {
 		cmd := p.d[j]
 		if j > i && cmd == MoveToCmd || closed {
-			ps = append(ps, &Path{p.d[i:j], i0})
-			i = j
+			ps = append(ps, &Path{p.d[i:j], 0})
 			closed = false
+			i = j
 		}
-		switch cmd {
-		case MoveToCmd:
-			i0 = j
-		case CloseCmd:
-			closed = true
-		}
+		closed = cmd == CloseCmd
 		j += cmdLen(cmd)
 	}
 	if j > i {
-		ps = append(ps, &Path{p.d[i:j], i0})
+		ps = append(ps, &Path{p.d[i:j], 0})
 	}
 	return ps
 }
@@ -1225,11 +1226,25 @@ func ParseSVG(s string) (*Path, error) {
 		return nil, fmt.Errorf("bad path: path should start with command")
 	}
 
-	var prevCmd byte
-	qx, qy, cx, cy := 0.0, 0.0, 0.0, 0.0 // control points
+	cmdLens := map[byte]int{
+		'M': 2,
+		'Z': 0,
+		'L': 2,
+		'H': 1,
+		'V': 1,
+		'C': 6,
+		'S': 4,
+		'Q': 4,
+		'T': 2,
+		'A': 7,
+	}
+	f := [7]float64{}
 
 	i := 0
 	p := &Path{}
+	var q, c Point
+	var p0, p1 Point
+	var prevCmd byte
 	for i < len(path) {
 		i += skipCommaWhitespace(path[i:])
 		cmd := prevCmd
@@ -1237,171 +1252,108 @@ func ParseSVG(s string) (*Path, error) {
 			cmd = path[i]
 			i++
 		}
-		x1, y1 := p.Pos()
+
+		CMD := cmd
+		if 'a' <= cmd && cmd <= 'z' {
+			CMD -= 'a' - 'A'
+		}
+		for j := 0; j < cmdLens[CMD]; j++ {
+			num, n := parseNum(path[i:])
+			if n == 0 {
+				return nil, fmt.Errorf("bad path: %d numbers should follow command '%c' at position %d", cmdLens[CMD], cmd, i)
+			}
+			f[j] = num
+			i += n
+		}
+
 		switch cmd {
 		case 'M', 'm':
-			x2, n := parseNum(path[i:])
-			i += n
-			y2, n := parseNum(path[i:])
-			i += n
-			if n == 0 {
-				return nil, fmt.Errorf("bad path: number should follow command '%c'", cmd)
-			}
+			p1 = Point{f[0], f[1]}
 			if cmd == 'm' {
-				x2 += x1
-				y2 += y1
+				p1 = p1.Add(p0)
 			}
-			p.MoveTo(x2, y2)
+			p.MoveTo(p1.X, p1.Y)
 		case 'Z', 'z':
+			p1 = p.StartPos()
 			p.Close()
 		case 'L', 'l':
-			x2, n := parseNum(path[i:])
-			i += n
-			y2, n := parseNum(path[i:])
-			i += n
-			if n == 0 {
-				return nil, fmt.Errorf("bad path: number should follow command '%c'", cmd)
-			}
+			p1 = Point{f[0], f[1]}
 			if cmd == 'l' {
-				x2 += x1
-				y2 += y1
+				p1 = p1.Add(p0)
 			}
-			p.LineTo(x2, y2)
+			p.LineTo(p1.X, p1.Y)
 		case 'H', 'h':
-			x2, n := parseNum(path[i:])
-			i += n
-			if n == 0 {
-				return nil, fmt.Errorf("bad path: number should follow command '%c'", cmd)
-			}
+			p1.X = f[0]
 			if cmd == 'h' {
-				x2 += x1
+				p1.X += p0.X
 			}
-			p.LineTo(x2, y1)
+			p.LineTo(p1.X, p1.Y)
 		case 'V', 'v':
-			y2, n := parseNum(path[i:])
-			i += n
-			if n == 0 {
-				return nil, fmt.Errorf("bad path: number should follow command '%c'", cmd)
-			}
+			p1.Y = f[0]
 			if cmd == 'v' {
-				y2 += y1
+				p1.Y += p0.Y
 			}
-			p.LineTo(x1, y2)
+			p.LineTo(p1.X, p1.Y)
 		case 'C', 'c':
-			cpx1, n := parseNum(path[i:])
-			i += n
-			cpy1, n := parseNum(path[i:])
-			i += n
-			cpx2, n := parseNum(path[i:])
-			i += n
-			cpy2, n := parseNum(path[i:])
-			i += n
-			x2, n := parseNum(path[i:])
-			i += n
-			y2, n := parseNum(path[i:])
-			i += n
-			if n == 0 {
-				return nil, fmt.Errorf("bad path: number should follow command '%c'", cmd)
-			}
+			cp1 := Point{f[0], f[1]}
+			cp2 := Point{f[2], f[3]}
+			p1 = Point{f[4], f[5]}
 			if cmd == 'c' {
-				cpx1 += x1
-				cpy1 += y1
-				cpx2 += x1
-				cpy2 += y1
-				x2 += x1
-				y2 += y1
+				cp1 = cp1.Add(p0)
+				cp2 = cp2.Add(p0)
+				p1 = p1.Add(p0)
 			}
-			p.CubeTo(cpx1, cpy1, cpx2, cpy2, x2, y2)
-			cx, cy = cpx2, cpy2
+			p.CubeTo(cp1.X, cp1.Y, cp2.X, cp2.Y, p1.X, p1.Y)
+			c = cp2
 		case 'S', 's':
-			cpx2, n := parseNum(path[i:])
-			i += n
-			cpy2, n := parseNum(path[i:])
-			i += n
-			x2, n := parseNum(path[i:])
-			i += n
-			y2, n := parseNum(path[i:])
-			i += n
-			if n == 0 {
-				return nil, fmt.Errorf("bad path: number should follow command '%c'", cmd)
-			}
+			cp1 := p0
+			cp2 := Point{f[0], f[1]}
+			p1 = Point{f[2], f[3]}
 			if cmd == 's' {
-				cpx2 += x1
-				cpy2 += y1
-				x2 += x1
-				y2 += y1
+				cp2 = cp2.Add(p0)
+				p1 = p1.Add(p0)
 			}
-			cpx1, cpy1 := x1, y1
 			if prevCmd == 'C' || prevCmd == 'c' || prevCmd == 'S' || prevCmd == 's' {
-				cpx1, cpy1 = 2*x1-cx, 2*y1-cy
+				cp1 = p0.Mul(2.0).Sub(c)
 			}
-			p.CubeTo(cpx1, cpy1, cpx2, cpy2, x2, y2)
-			cx, cy = cpx2, cpy2
+			p.CubeTo(cp1.X, cp1.Y, cp2.X, cp2.Y, p1.X, p1.Y)
+			c = cp2
 		case 'Q', 'q':
-			cpx, n := parseNum(path[i:])
-			i += n
-			cpy, n := parseNum(path[i:])
-			i += n
-			x2, n := parseNum(path[i:])
-			i += n
-			y2, n := parseNum(path[i:])
-			i += n
-			if n == 0 {
-				return nil, fmt.Errorf("bad path: number should follow command '%c'", cmd)
-			}
+			cp := Point{f[0], f[1]}
+			p1 = Point{f[2], f[3]}
 			if cmd == 'q' {
-				cpx += x1
-				cpy += y1
-				x2 += x1
-				y2 += y1
+				cp = cp.Add(p0)
+				p1 = p1.Add(p0)
 			}
-			p.QuadTo(cpx, cpy, x2, y2)
-			qx, qy = cpx, cpy
+			p.QuadTo(cp.X, cp.Y, p1.X, p1.Y)
+			q = cp
 		case 'T', 't':
-			x2, n := parseNum(path[i:])
-			i += n
-			y2, n := parseNum(path[i:])
-			i += n
-			if n == 0 {
-				return nil, fmt.Errorf("bad path: number should follow command '%c'", cmd)
-			}
+			cp := p0
+			p1 = Point{f[0], f[1]}
 			if cmd == 't' {
-				x2 += x1
-				y2 += y1
+				p1 = p1.Add(p0)
 			}
-			cpx, cpy := x1, y1
 			if prevCmd == 'Q' || prevCmd == 'q' || prevCmd == 'T' || prevCmd == 't' {
-				cpx, cpy = 2*x1-qx, 2*y1-qy
+				cp = p0.Mul(2.0).Sub(q)
 			}
-			p.QuadTo(cpx, cpy, x2, y2)
-			qx, qy = cpx, cpy
+			p.QuadTo(cp.X, cp.Y, p1.X, p1.Y)
+			q = cp
 		case 'A', 'a':
-			rx, n := parseNum(path[i:])
-			i += n
-			ry, n := parseNum(path[i:])
-			i += n
-			rot, n := parseNum(path[i:])
-			i += n
-			largeArc, n := parseNum(path[i:])
-			i += n
-			sweep, n := parseNum(path[i:])
-			i += n
-			x2, n := parseNum(path[i:])
-			i += n
-			y2, n := parseNum(path[i:])
-			i += n
-			if n == 0 {
-				return nil, fmt.Errorf("bad path: number should follow command '%c'", cmd)
-			}
+			rx := f[0]
+			ry := f[1]
+			rot := f[2]
+			largeArc := f[3] == 1.0
+			sweep := f[4] == 1.0
+			p1 = Point{f[5], f[6]}
 			if cmd == 'a' {
-				x2 += x1
-				y2 += y1
+				p1 = p1.Add(p0)
 			}
-			p.ArcTo(rx, ry, rot, largeArc == 1.0, sweep == 1.0, x2, y2)
+			p.ArcTo(rx, ry, rot, largeArc, sweep, p1.X, p1.Y)
 		default:
-			return nil, fmt.Errorf("bad path: unknown command '%c'", cmd)
+			return nil, fmt.Errorf("bad path: unknown command '%c' at position %d", cmd, i)
 		}
 		prevCmd = cmd
+		p0 = p1
 	}
 	return p, nil
 }
