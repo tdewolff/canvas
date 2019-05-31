@@ -110,5 +110,5 @@ func Draw(c *canvas.C) {
 	c.SetColor(canvas.Black)
 	rich := canvas.NewRichText()
 	rich.Add(dejaVuSerif.Face(8.0), "Lorem ipsum dolor sit am\u200bet, confiscatur patria est gravus et mas")
-	c.DrawText(20, 60, 0.0, rich.ToText(50.0, 20.0, canvas.Center, canvas.Justify, 10.0))
+	c.DrawText(20, 60, 0.0, rich.ToText(50.0, 20.0, canvas.Center, canvas.Bottom, 10.0))
 }

@@ -118,7 +118,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	if 0 < len(rt.spans) {
 		span1 = rt.spans[0]
 	}
-	h, prevBottom := 0.0, 0.0
+	h, prevLineSpacing := 0.0, 0.0
 	for (height == 0.0 || h < height) && j < len(rt.spans) {
 		dx := indent
 		indent = 0.0
@@ -144,14 +144,14 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 		l := line{lss, 0.0}
 		top, ascent, descent, bottom := l.Heights()
-		top = math.Max(top, prevBottom)
+		lineSpacing := math.Max(top-ascent, prevLineSpacing)
 		if len(lines) != 0 {
-			h += top
+			h += lineSpacing
 		}
 		h += ascent
 		l.y = -h
 		h += descent
-		prevBottom = bottom
+		prevLineSpacing = bottom - descent
 
 		lines = append(lines, l)
 	}
@@ -289,7 +289,7 @@ func (t *Text) ToSVG(x, y, rot float64, c color.Color) string {
 		for _, ls := range line.lineSpans {
 			switch span := ls.span.(type) {
 			case textSpan:
-				name, style, size := span.ff.Info()
+				name, size, style, _ := span.ff.Info() // TODO: use decoration
 				span.splitAtSpacings(ls.dx, ls.w, func(dx, w, glyphSpacing float64, s string) {
 					sb.WriteString("<tspan x=\"")
 					writeFloat64(&sb, x+dx)

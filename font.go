@@ -145,23 +145,57 @@ type Metrics struct {
 	Descent    float64
 	XHeight    float64
 	CapHeight  float64
+	Offset     float64
 }
 
+type FontDecoration int
+
+const (
+	Underline FontDecoration = 2 << iota
+	Overline
+	LineThrough
+)
+
+// TODO: use font provided subscript etc, or use suggested values for subscript position and size
+// same for underlining
 type FontFace struct {
-	f       *Font
-	ppem    fixed.Int26_6
-	hinting font.Hinting
-	dy      float64 // TODO
+	f                            *Font
+	ppem                         fixed.Int26_6
+	hinting                      font.Hinting
+	offset, fauxBold, fauxItalic float64 // relative to ppem
+	decoration                   FontDecoration
 }
 
-// TODO: support subscript and superscript
 func (ff FontFace) Subscript() FontFace {
-	return FontFace{}
+	ff.ppem = ff.ppem.Mul(toI26_6(0.583))
+	ff.offset = -0.33 / 0.583
+	return ff
+}
+
+func (ff FontFace) Superscript() FontFace {
+	ff.ppem = ff.ppem.Mul(toI26_6(0.583))
+	ff.offset = 0.33 / 0.583
+	return ff
+}
+
+func (ff FontFace) FauxBold(fauxBold float64) FontFace {
+	ff.fauxBold = fauxBold
+	return ff
+}
+
+func (ff FontFace) FauxItalic(fauxItalic float64) FontFace {
+	ff.fauxItalic = fauxItalic
+	return ff
+}
+
+func (ff FontFace) Decoration(decoration FontDecoration) FontFace {
+	ff.decoration = decoration
+	return ff
 }
 
 // Info returns the font name, style and size.
-func (ff FontFace) Info() (name string, style FontStyle, size float64) {
-	return ff.f.name, ff.f.style, fromI26_6(ff.ppem)
+func (ff FontFace) Info() (name string, size float64, style FontStyle, decoration FontDecoration) {
+	return ff.f.name, fromI26_6(ff.ppem), ff.f.style, ff.decoration
 }
 
 // Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explaination of the different metrics.
@@ -174,6 +208,7 @@ func (ff FontFace) Metrics() Metrics {
 		Descent:    math.Abs(fromI26_6(m.Descent)),
 		XHeight:    math.Abs(fromI26_6(m.XHeight)),
 		CapHeight:  math.Abs(fromI26_6(m.CapHeight)),
+		Offset:     ff.offset * fromI26_6(ff.ppem),
 	}
 }
 
@@ -215,6 +250,10 @@ func (ff FontFace) ToPath(r rune) (*Path, float64) {
 		return p, 0.0
 	}
 
+	offset := ff.offset * fromI26_6(ff.ppem)
+	fauxBold := ff.fauxBold * fromI26_6(ff.ppem)
+	fauxItalic := ff.fauxItalic * fromI26_6(ff.ppem)
+
 	var start0, end Point
 	for i, segment := range segments {
 		switch segment.Op {
@@ -223,24 +262,34 @@ func (ff FontFace) ToPath(r rune) (*Path, float64) {
 				p.Close()
 			}
 			end = fromP26_6(segment.Args[0])
-			p.MoveTo(end.X, -end.Y)
+			end.X *= fauxItalic * -end.Y
+			p.MoveTo(end.X, offset-end.Y)
 			start0 = end
 		case sfnt.SegmentOpLineTo:
 			end = fromP26_6(segment.Args[0])
-			p.LineTo(end.X, -end.Y)
+			end.X *= fauxItalic * -end.Y
+			p.LineTo(end.X, offset-end.Y)
 		case sfnt.SegmentOpQuadTo:
-			c := fromP26_6(segment.Args[0])
+			cp := fromP26_6(segment.Args[0])
 			end = fromP26_6(segment.Args[1])
-			p.QuadTo(c.X, -c.Y, end.X, -end.Y)
+			cp.X *= fauxItalic * -cp.Y
+			end.X *= fauxItalic * -end.Y
+			p.QuadTo(cp.X, offset-cp.Y, end.X, offset-end.Y)
 		case sfnt.SegmentOpCubeTo:
-			c0 := fromP26_6(segment.Args[0])
-			c1 := fromP26_6(segment.Args[1])
+			cp1 := fromP26_6(segment.Args[0])
+			cp2 := fromP26_6(segment.Args[1])
 			end = fromP26_6(segment.Args[2])
-			p.CubeTo(c0.X, -c0.Y, c1.X, -c1.Y, end.X, -end.Y)
+			cp1.X *= fauxItalic * -cp1.Y
+			cp2.X *= fauxItalic * -cp2.Y
+			end.X *= fauxItalic * -end.Y
+			p.CubeTo(cp1.X, offset-cp1.Y, cp2.X, offset-cp2.Y, end.X, offset-end.Y)
 		}
 	}
 	if !p.Empty() && start0.Equals(end) {
 		p.Close()
+	}
+	if fauxBold > 0.0 {
+		p = p.Offset(fauxBold)
 	}
 
 	dx := 0.0
