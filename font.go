@@ -151,6 +151,12 @@ type FontFace struct {
 	f       *Font
 	ppem    fixed.Int26_6
 	hinting font.Hinting
+	dy      float64 // TODO
+}
+
+// TODO: support subscript and superscript
+func (ff FontFace) Subscript() FontFace {
+	return FontFace{}
 }
 
 // Info returns the font name, style and size.

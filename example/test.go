@@ -18,7 +18,7 @@ func main() {
 		panic(err)
 	}
 
-	c := canvas.New(220, 80)
+	c := canvas.New(160, 80)
 	Draw(c)
 
 	////////////////
@@ -60,12 +60,12 @@ func drawStrokedPath(c *canvas.C, x, y, d float64, path string) {
 }
 
 func Draw(c *canvas.C) {
-	p, _ := canvas.ParseSVG("A20 20 0 0 1 -20 20V0z")
-	c.SetColor(canvas.Red)
-	c.DrawPath(50.0, 50.0, 0.0, p)
-	p = p.Flatten()
-	c.SetColor(canvas.Black)
-	c.DrawPath(50.0, 50.0, 0.0, p)
+	//p, _ := canvas.ParseSVG("A20 20 0 0 1 -20 20V0z")
+	//c.SetColor(canvas.Red)
+	//c.DrawPath(50.0, 50.0, 0.0, p)
+	//p = p.Flatten()
+	//c.SetColor(canvas.Black)
+	//c.DrawPath(50.0, 50.0, 0.0, p)
 
 	//drawStrokedPath(c, 30, 50, 2.0, "M0 0L50 0")
 	//drawStrokedPath(c, 30, 40, 2.0, "M0 0L50 0L50 -5")
@@ -104,4 +104,11 @@ func Draw(c *canvas.C) {
 	//c.DrawPath(105, 40, 0, ps[0])
 	//c.DrawPath(105, 40, 0, ps[1])
 	//c.DrawPath(105, 50, 0, p.Dash(1.0, 1.0).Stroke(1.0, canvas.ButtCapper, canvas.RoundJoiner))
+
+	c.SetColor(canvas.LightGrey)
+	c.DrawPath(20.0, 60.0, 0.0, canvas.Rectangle(0.0, 0.0, 50.0, -20.0))
+	c.SetColor(canvas.Black)
+	rich := canvas.NewRichText()
+	rich.Add(dejaVuSerif.Face(8.0), "Lorem ipsum dolor sit am\u200bet, confiscatur patria est gravus et mas")
+	c.DrawText(20, 60, 0.0, rich.ToText(50.0, 20.0, canvas.Center, canvas.Justify, 10.0))
 }
