@@ -243,6 +243,7 @@ var SineUnderline = func(metrics Metrics, w float64) *Path {
 	y := -metrics.Size * underlineDistance
 	d := 10.0 * underlineThickness
 	n := int(0.5 + w/d)
+	d = (w - r) / float64(n)
 	dx := r
 
 	p := &Path{}
@@ -266,6 +267,7 @@ var SawtoothUnderline = func(metrics Metrics, w float64) *Path {
 	y := -metrics.Size * underlineDistance
 	d := 6.0 * underlineThickness
 	n := int(0.5 + w/d)
+	d = (w - r) / float64(n)
 	dx := r
 
 	p := &Path{}
@@ -292,16 +294,32 @@ type FontFace struct {
 }
 
 func (ff FontFace) Subscript() FontFace {
+	offset := -0.33 * fromI26_6(ff.ppem)
 	ff.ppem = ff.ppem.Mul(toI26_6(0.583))
-	ff.offset = -0.33 / 0.583
-	ff.fauxBold = 0.1
+	ff.offset = offset
+	ff.fauxBold = 0.02
 	return ff
 }
 
 func (ff FontFace) Superscript() FontFace {
+	offset := 0.33 * fromI26_6(ff.ppem)
 	ff.ppem = ff.ppem.Mul(toI26_6(0.583))
-	ff.offset = 0.33 / 0.583
-	ff.fauxBold = 0.1
+	ff.offset = offset
+	ff.fauxBold = 0.02
+	return ff
+}
+
+func (ff FontFace) Inferior() FontFace {
+	ff.ppem = ff.ppem.Mul(toI26_6(0.583))
+	ff.fauxBold = 0.02
+	return ff
+}
+
+func (ff FontFace) Superior() FontFace {
+	capHeight := ff.Metrics().CapHeight
+	ff.ppem = ff.ppem.Mul(toI26_6(0.583))
+	ff.offset = capHeight - ff.Metrics().CapHeight
+	ff.fauxBold = 0.02
 	return ff
 }
 
@@ -342,7 +360,7 @@ func (ff FontFace) Metrics() Metrics {
 		Descent:    math.Abs(fromI26_6(m.Descent)),
 		XHeight:    math.Abs(fromI26_6(m.XHeight)),
 		CapHeight:  math.Abs(fromI26_6(m.CapHeight)),
-		Offset:     ff.offset * fromI26_6(ff.ppem),
+		Offset:     ff.offset,
 	}
 }
 
@@ -384,7 +402,7 @@ func (ff FontFace) ToPath(r rune) (*Path, float64) {
 		return p, 0.0
 	}
 
-	offset := ff.offset * fromI26_6(ff.ppem)
+	offset := ff.offset
 	fauxBold := ff.fauxBold * fromI26_6(ff.ppem)
 	fauxItalic := ff.fauxItalic * fromI26_6(ff.ppem)
 

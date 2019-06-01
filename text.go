@@ -95,6 +95,7 @@ func (rt *RichText) Add(ff FontFace, s string) *RichText {
 	return rt
 }
 
+// TODO: see if can be simplified + more documentation
 func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, indent float64) *Text {
 	j := 0
 	lines := []line{}
