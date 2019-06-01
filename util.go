@@ -167,6 +167,14 @@ type Rect struct {
 	X, Y, W, H float64
 }
 
-func (rect Rect) ToPath() *Path {
-	return Rectangle(rect.X, rect.Y, rect.W, rect.H)
+func (r Rect) Add(q Rect) Rect {
+	x0 := math.Min(r.X, q.X)
+	y0 := math.Min(r.Y, q.Y)
+	x1 := math.Max(r.X+r.W, q.X+q.W)
+	y1 := math.Max(r.Y+r.H, q.Y+q.H)
+	return Rect{x0, y0, x1 - x0, y1 - y0}
+}
+
+func (r Rect) ToPath() *Path {
+	return Rectangle(r.X, r.Y, r.W, r.H)
 }

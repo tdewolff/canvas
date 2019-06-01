@@ -347,10 +347,10 @@ type FontDecoration interface {
 }
 
 const underlineDistance = 0.15
-const underlineThickness = 0.1
+const underlineThickness = 0.075
 
 var Underline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness * 0.75
+	r := ff.Metrics().Size * underlineThickness
 	w -= r
 
 	y := -ff.Metrics().Size * underlineDistance
@@ -362,7 +362,7 @@ var Underline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
 })
 
 var Overline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness * 0.75
+	r := ff.Metrics().Size * underlineThickness
 	dx := r
 	w -= r
 	y := ff.Metrics().XHeight + ff.Metrics().Size*underlineDistance
@@ -377,7 +377,7 @@ var Overline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
 })
 
 var Strikethrough = FontDecorationFunc(func(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness * 0.75
+	r := ff.Metrics().Size * underlineThickness
 	dx := r
 	w -= r
 	y := ff.Metrics().XHeight / 2.0
@@ -392,7 +392,7 @@ var Strikethrough = FontDecorationFunc(func(ff FontFace, w float64) *Path {
 })
 
 var DoubleUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness * 0.75
+	r := ff.Metrics().Size * underlineThickness
 	w -= r
 
 	y := -ff.Metrics().Size * underlineDistance * 0.75
@@ -406,11 +406,11 @@ var DoubleUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
 })
 
 var DottedUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness / 2.0
+	r := ff.Metrics().Size * underlineThickness * 0.8
 	w -= r
 
 	y := -ff.Metrics().Size * underlineDistance
-	d := 10.0 * underlineThickness
+	d := 15.0 * underlineThickness
 	n := int((w-r)/d) + 1
 	d = (w - r) / float64(n-1)
 
@@ -441,7 +441,7 @@ var SineUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
 	r := ff.Metrics().Size * underlineThickness
 	w -= r
 
-	dh := -ff.Metrics().Size * 0.15
+	dh := -ff.Metrics().Size * 0.1
 	y := -ff.Metrics().Size * underlineDistance
 	d := 10.0 * underlineThickness
 	n := int(0.5 + w/d)
@@ -467,7 +467,7 @@ var SawtoothUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
 
 	dh := -ff.Metrics().Size * 0.15
 	y := -ff.Metrics().Size * underlineDistance
-	d := 6.0 * underlineThickness
+	d := 8.0 * underlineThickness
 	n := int(0.5 + w/d)
 	d = (w - r) / float64(n)
 	dx := r

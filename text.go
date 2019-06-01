@@ -306,17 +306,19 @@ func (t *Text) Bounds() Rect {
 	if len(t.lines) == 0 {
 		return Rect{}
 	}
-	x0, y0, x1, y1 := math.Inf(1.0), math.Inf(-1.0), math.Inf(-1.0), math.Inf(1.0)
+	x0, y0, x1, y1 := math.Inf(1.0), math.Inf(1.0), math.Inf(-1.0), math.Inf(-1.0)
 	for _, line := range t.lines {
 		for _, ls := range line.lineSpans {
 			spanBounds := ls.span.Bounds(ls.w)
 			x0 = math.Min(x0, ls.dx+spanBounds.X)
 			x1 = math.Max(x1, ls.dx+spanBounds.X+spanBounds.W)
-			y0 = math.Max(y0, line.y+spanBounds.H+spanBounds.Y)
-			y1 = math.Min(y1, line.y+spanBounds.Y)
+			y0 = math.Min(y0, line.y+spanBounds.Y)
+			y1 = math.Max(y1, line.y+spanBounds.H+spanBounds.Y)
 		}
 	}
-	return Rect{x0, y0, x1 - x0, y1 - y0}
+	text := Rect{x0, y0, x1 - x0, y1 - y0}
+	deco := t.ToPathDecorations().Bounds()
+	return text.Add(deco)
 }
 
 // ToPath makes a path out of the text, with x,y the top-left point of the rectangle that fits the text (ie. y is not the text base)
