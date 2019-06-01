@@ -155,78 +155,98 @@ const underlineDistance = 0.15
 const underlineThickness = 0.1
 
 var Underline = func(metrics Metrics, w float64) *Path {
+	r := metrics.Size * underlineThickness
+	w -= r
+
 	y := -metrics.Size * underlineDistance
 
 	p := &Path{}
-	p.MoveTo(0.0, y)
+	p.MoveTo(r, y)
 	p.LineTo(w, y)
-	return p.Stroke(metrics.Size*underlineThickness, RoundCapper, RoundJoiner)
+	return p.Stroke(r, RoundCapper, RoundJoiner)
 }
 
 var Overline = func(metrics Metrics, w float64) *Path {
+	r := metrics.Size * underlineThickness
+	w -= r
 	y := metrics.XHeight + metrics.Size*underlineDistance
 
 	p := &Path{}
-	p.MoveTo(0.0, y)
+	p.MoveTo(r, y)
 	p.LineTo(w, y)
-	return p.Stroke(metrics.Size*underlineThickness, RoundCapper, RoundJoiner)
+	return p.Stroke(r, RoundCapper, RoundJoiner)
 }
 
 var Strikethrough = func(metrics Metrics, w float64) *Path {
+	r := metrics.Size * underlineThickness
+	w -= r
+
 	y := metrics.XHeight / 2.0
 
 	p := &Path{}
-	p.MoveTo(0.0, y)
+	p.MoveTo(r, y)
 	p.LineTo(w, y)
-	return p.Stroke(metrics.Size*underlineThickness, RoundCapper, RoundJoiner)
+	return p.Stroke(r, RoundCapper, RoundJoiner)
 }
 
 var DoubleUnderline = func(metrics Metrics, w float64) *Path {
-	dh := metrics.Size * underlineThickness
+	r := metrics.Size * underlineThickness
+	w -= r
+
 	y := -metrics.Size * underlineDistance * 0.75
 
 	p := &Path{}
-	p.MoveTo(0.0, y)
+	p.MoveTo(r, y)
 	p.LineTo(w, y)
-	p.MoveTo(0.0, y-dh*1.5)
-	p.LineTo(w, y-dh*1.5)
-	return p.Stroke(dh, RoundCapper, RoundJoiner)
+	p.MoveTo(r, y-r*1.5)
+	p.LineTo(w, y-r*1.5)
+	return p.Stroke(r, RoundCapper, RoundJoiner)
 }
 
 var DottedUnderline = func(metrics Metrics, w float64) *Path {
+	r := metrics.Size * underlineThickness / 2.0
+	w -= r
+
 	y := -metrics.Size * underlineDistance
-	d := 8.0 * underlineThickness
-	n := int(w/d) + 1
-	d = w / float64(n-1)
+	d := 10.0 * underlineThickness
+	n := int((w-r)/d) + 1
+	d = (w - r) / float64(n-1)
 
 	p := &Path{}
 	for i := 0; i < n; i++ {
-		p.Append(Circle(float64(i)*d, y, metrics.Size*underlineThickness*1.5/2.0))
+		p.Append(Circle(r+float64(i)*d, y, r))
 	}
 	return p
 }
 
 var DashedUnderline = func(metrics Metrics, w float64) *Path {
+	r := metrics.Size * underlineThickness
+	w -= r
+
 	y := -metrics.Size * underlineDistance
 	d := 6.0 * underlineThickness
-	n := int(w/(3.0*d)) + 1
-	d = w / float64(3*n+1)
+	n := int((w-r)/(3.0*d)) + 1
+	d = (w - r + 2.0*d) / float64(3*n-3)
 
 	p := &Path{}
-	p.MoveTo(0.0, y)
+	p.MoveTo(r, y)
 	p.LineTo(w, y)
-	return p.Dash(d, d*2.0).Stroke(metrics.Size*underlineThickness, RoundCapper, RoundJoiner)
+	p = p.Dash(d, d*2.0).Stroke(r, RoundCapper, RoundJoiner)
+	return p
 }
 
 var SineUnderline = func(metrics Metrics, w float64) *Path {
-	dh := -metrics.Size * 0.2
+	r := metrics.Size * underlineThickness
+	w -= r
+
+	dh := -metrics.Size * 0.15
 	y := -metrics.Size * underlineDistance
-	d := 6.0 * underlineThickness
+	d := 10.0 * underlineThickness
 	n := int(0.5 + w/d)
-	dx := 0.0
+	dx := r
 
 	p := &Path{}
-	p.MoveTo(0.0, y)
+	p.MoveTo(dx, y)
 	for i := 0; i < n; i++ {
 		if i%2 == 0 {
 			p.CubeTo(dx+d*0.3642, y, dx+d*0.6358, y+dh, dx+d, y+dh)
@@ -235,18 +255,21 @@ var SineUnderline = func(metrics Metrics, w float64) *Path {
 		}
 		dx += d
 	}
-	return p.Stroke(metrics.Size*underlineThickness, RoundCapper, RoundJoiner)
+	return p.Stroke(r, RoundCapper, RoundJoiner)
 }
 
 var SawtoothUnderline = func(metrics Metrics, w float64) *Path {
-	dh := -metrics.Size * 0.2
+	r := metrics.Size * underlineThickness
+	w -= r
+
+	dh := -metrics.Size * 0.15
 	y := -metrics.Size * underlineDistance
 	d := 6.0 * underlineThickness
 	n := int(0.5 + w/d)
-	dx := 0.0
+	dx := r
 
 	p := &Path{}
-	p.MoveTo(0.0, y)
+	p.MoveTo(dx, y)
 	for i := 0; i < n; i++ {
 		if i%2 == 0 {
 			p.LineTo(dx+d, y+dh)
@@ -255,7 +278,7 @@ var SawtoothUnderline = func(metrics Metrics, w float64) *Path {
 		}
 		dx += d
 	}
-	return p.Stroke(metrics.Size*underlineThickness, RoundCapper, RoundJoiner)
+	return p.Stroke(r, RoundCapper, RoundJoiner)
 }
 
 // TODO: use font provided subscript etc, or use suggested values for subscript position and size
@@ -265,7 +288,7 @@ type FontFace struct {
 	ppem                         fixed.Int26_6
 	hinting                      font.Hinting
 	offset, fauxBold, fauxItalic float64 // relative to ppem
-	decoration                   func(Metrics, float64) *Path
+	decoration                   *FontDecoration
 }
 
 func (ff FontFace) Subscript() FontFace {
@@ -288,17 +311,24 @@ func (ff FontFace) FauxBold() FontFace {
 }
 
 func (ff FontFace) FauxItalic() FontFace {
-	ff.fauxItalic = 0.08
+	ff.fauxItalic = 0.07
 	return ff
 }
 
 func (ff FontFace) Decoration(decoration FontDecoration) FontFace {
-	ff.decoration = decoration
+	ff.decoration = &decoration
 	return ff
 }
 
+func (ff FontFace) ToPathDecoration(width float64) *Path {
+	if ff.decoration == nil {
+		return &Path{}
+	}
+	return (*ff.decoration)(ff.Metrics(), width)
+}
+
 // Info returns the font name, style and size.
-func (ff FontFace) Info() (name string, size float64, style FontStyle, decoration FontDecoration) {
+func (ff FontFace) Info() (name string, size float64, style FontStyle, decoration *FontDecoration) {
 	return ff.f.name, fromI26_6(ff.ppem), ff.f.style, ff.decoration
 }
 

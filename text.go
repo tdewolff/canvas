@@ -8,6 +8,10 @@ import (
 	"unicode/utf8"
 )
 
+const MaxSentenceSpacing = 3.0 // times width of space
+const MaxWordSpacing = 2.5     // times width of space
+const MaxGlyphSpacing = 0.5    // times x-height
+
 type TextAlign int
 
 const (
@@ -21,7 +25,7 @@ const (
 
 type Text struct {
 	lines []line
-	fonts []*Font
+	fonts map[*Font]bool
 }
 
 type line struct {
@@ -51,64 +55,43 @@ type span interface {
 	WidthRange() (float64, float64)       // min-width and max-width
 	Heights() (float64, float64, float64) // ascent, descent, line spacing
 	Bounds(float64) Rect
-	Split(float64) (span, span)
-	Decorate(float64) *Path
+	Split(float64) (span, span, int)
 	ToPath(float64) *Path
 }
 
 ////////////////////////////////
 
-func splitNewlines(s string) []string {
-	ss := []string{}
-	i := 0
-	for j, r := range s {
-		if r == '\n' || r == '\r' || r == '\f' || r == '\v' || r == '\u2028' || r == '\u2029' {
-			if r == '\n' && 0 < j && s[j-1] == '\r' {
-				i++
-				continue
-			}
-			ss = append(ss, s[i:j])
-			i = j + utf8.RuneLen(r)
-		}
-	}
-	ss = append(ss, s[i:])
-	return ss
-}
-
-func calcSpanPosition(textWidth, maxTextWidth float64, halign TextAlign, indent, width float64) (float64, float64) {
-	dx := indent
-	spanWidth := textWidth
-	if halign == Right {
-		dx = width - textWidth - indent
-	} else if halign == Center {
-		dx = (width - textWidth) / 2.0
-	} else if halign == Justify {
-		spanWidth = math.Min(maxTextWidth, width-indent)
-	}
-	return dx, spanWidth
-}
-
 type RichText struct {
-	spans []span
-	fonts []*Font
+	spans      []span
+	boundaries []textBoundary
+	fonts      map[*Font]bool
+	text       string
 }
 
 func NewRichText() *RichText {
-	return &RichText{}
+	return &RichText{
+		fonts: map[*Font]bool{},
+	}
 }
 
 func (rt *RichText) Add(ff FontFace, s string) *RichText {
-	rt.spans = append(rt.spans, newTextSpan(ff, s))
-	found := false
-	for _, font := range rt.fonts {
-		if font == ff.f {
-			found = true
-			break
+	i := len(rt.text)
+	rt.text += s
+
+	pos := 0
+	boundaries := calcTextBoundaries(ff, rt.text, i, i+len(s))
+	for _, boundary := range boundaries {
+		end := boundary.pos - i
+		if pos < end {
+			rt.spans = append(rt.spans, newTextSpan(ff, s[pos:end]))
 		}
+		pos = end + boundary.size
 	}
-	if !found {
-		rt.fonts = append(rt.fonts, ff.f)
+	if pos < len(s) {
+		rt.spans = append(rt.spans, newTextSpan(ff, s[pos:]))
 	}
+	rt.boundaries = append(rt.boundaries, boundaries...)
+	rt.fonts[ff.f] = true
 	return rt
 }
 
@@ -119,19 +102,38 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	if 0 < len(rt.spans) {
 		span1 = rt.spans[0]
 	}
+	lineBoundaries := [][]textBoundary{}
+	i, di, iBoundary, iPrevBoundary := 0, 0, 0, 0
 	h, prevLineSpacing := 0.0, 0.0
-	for (height == 0.0 || h < height) && j < len(rt.spans) {
+	for j < len(rt.spans) {
 		dx := indent
 		indent = 0.0
 		lss := []lineSpan{}
 		for {
-			span0, span1 = span1.Split(width - dx)
+			if iBoundary < len(rt.boundaries) && rt.boundaries[iBoundary].pos == i {
+				boundary := rt.boundaries[iBoundary]
+				i += boundary.size
+				iBoundary++
+				if boundary.kind == lineBoundary {
+					break
+				} else if boundary.kind == sentenceBoundary || boundary.kind == wordBoundary {
+					dx += boundary.width
+				}
+			}
+
+			span0, span1, di = span1.Split(width - dx)
 			if span0 == nil {
-				break // span starts with newline or cannot be broken up to fit
+				if len(lss) == 0 {
+					span0 = span1
+					span1 = nil
+				} else {
+					break
+				}
 			}
 			spanWidth, _ := span0.WidthRange()
 			lss = append(lss, lineSpan{span0, dx, spanWidth})
 			dx += spanWidth
+			i += di
 			if span1 != nil {
 				break // span couldn't fully fit, we have a full line
 			} else {
@@ -154,7 +156,12 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		h += descent
 		prevLineSpacing = bottom - descent
 
+		if height != 0.0 && h > height {
+			break
+		}
 		lines = append(lines, l)
+		lineBoundaries = append(lineBoundaries, rt.boundaries[iPrevBoundary:iBoundary])
+		iPrevBoundary = iBoundary
 	}
 
 	if 0 < len(lines) {
@@ -172,7 +179,17 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 				}
 			}
 		} else if halign == Justify {
-			for _, l := range lines[:len(lines)-1] {
+			for j, l := range lines[:len(lines)-1] {
+				minBoundaryWidth, maxBoundaryWidth := 0.0, 0.0
+				for i := 1; i < len(l.lineSpans); i++ {
+					boundary := lineBoundaries[j][i-1]
+					minBoundaryWidth += boundary.width
+					if boundary.kind == sentenceBoundary {
+						maxBoundaryWidth += boundary.width * (1.0 + MaxSentenceSpacing)
+					} else if boundary.kind == wordBoundary {
+						maxBoundaryWidth += boundary.width * (1.0 + MaxWordSpacing)
+					}
+				}
 				minWidth, maxWidth := 0.0, 0.0
 				for i, ls := range l.lineSpans {
 					spanWidth, spanMaxWidth := ls.span.WidthRange()
@@ -183,12 +200,33 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 					minWidth += spanWidth
 					maxWidth += spanMaxWidth
 				}
+
+				expandBoundaryWidth := minWidth + maxBoundaryWidth
+				minWidth += minBoundaryWidth
+				maxWidth += maxBoundaryWidth
 				if minWidth < width && width < maxWidth {
 					dx := 0.0
-					f := (width - minWidth) / (maxWidth - minWidth)
+					boundaryFactor, spanFactor := 0.0, 0.0
+					if width < expandBoundaryWidth {
+						boundaryFactor = (width - minWidth) / (expandBoundaryWidth - minWidth)
+					} else {
+						boundaryFactor = 1.0
+						spanFactor = (width - expandBoundaryWidth) / (maxWidth - expandBoundaryWidth)
+					}
 					for i, ls := range l.lineSpans {
+						if 0 < i {
+							boundary := lineBoundaries[j][i-1]
+							boundaryMaxWidth := boundary.width
+							if boundary.kind == sentenceBoundary {
+								boundaryMaxWidth *= 1.0 + MaxSentenceSpacing
+							} else if boundary.kind == wordBoundary {
+								boundaryMaxWidth *= 1.0 + MaxWordSpacing
+							}
+							dx += (boundaryMaxWidth - boundary.width) * boundaryFactor
+						}
+
 						spanWidth, spanMaxWidth := ls.span.WidthRange()
-						w := spanWidth + (spanMaxWidth-spanWidth)*f
+						w := spanWidth + (spanMaxWidth-spanWidth)*spanFactor
 						l.lineSpans[i].dx += dx
 						dx += w - ls.w
 						l.lineSpans[i].w = w
@@ -227,7 +265,7 @@ func NewText(ff FontFace, s string) *Text {
 		ascent, descent, spacing := span.Heights()
 		y -= spacing + ascent + descent + spacing
 	}
-	return &Text{lines, []*Font{ff.f}}
+	return &Text{lines, map[*Font]bool{ff.f: true}}
 }
 
 func NewTextBox(ff FontFace, s string, width, height float64, halign, valign TextAlign, indent float64) *Text {
@@ -265,13 +303,42 @@ func (t *Text) ToPath() *Path {
 	return p
 }
 
+//func (ts textSpan) Decorate(width float64) *Path {
+//	if ts.ff.decoration == nil {
+//		return &Path{}
+//	}
+//	return ts.ff.decoration(ts.ff.Metrics(), width)
+//}
+
 func (t *Text) ToPathDecorations() *Path {
 	p := &Path{}
 	for _, line := range t.lines {
-		for _, ls := range line.lineSpans {
-			ps := ls.span.Decorate(ls.w)
-			ps.Translate(ls.dx, line.y)
-			p.Append(ps)
+		if 0 < len(line.lineSpans) {
+			var ff FontFace
+			x0, x1 := 0.0, 0.0
+			for i, ls := range line.lineSpans {
+				ts, ok := ls.span.(textSpan)
+				if 0.0 < x1-x0 && (!ok || ts.ff != ff || i+1 == len(line.lineSpans)) {
+					ps := ff.ToPathDecoration(x1 - x0)
+					if !ps.Empty() {
+						ps.Translate(x0, line.y)
+						p.Append(ps)
+					}
+					x0 = x1
+				}
+				ff = ts.ff
+				if x0 == x1 {
+					x0 = ls.dx
+				}
+				x1 = ls.dx + ls.w
+			}
+			if 0.0 < x1-x0 {
+				ps := ff.ToPathDecoration(x1 - x0)
+				if !ps.Empty() {
+					ps.Translate(x0, line.y)
+					p.Append(ps)
+				}
+			}
 		}
 	}
 	return p
@@ -336,31 +403,25 @@ func (t *Text) ToSVG(x, y, rot float64, c color.Color) string {
 	return sb.String()
 }
 
-const MaxSentenceSpacing = 2.0
-const MaxWordSpacing = 1.5
-const MaxGlyphSpacing = 1.0
-
 type textSpan struct {
-	ff               FontFace
-	s                string
-	textWidth        float64
-	sentenceSpacings int
-	wordSpacings     int
-	glyphSpacings    int
-	textBoundaries   []textBoundary
+	ff        FontFace
+	s         string
+	textWidth float64
+	//sentenceSpacings int
+	//wordSpacings     int
+	glyphSpacings  int
+	wordBoundaries []textBoundary
 }
 
 func newTextSpan(ff FontFace, s string) textSpan {
 	textWidth := ff.TextWidth(s)
-	textBoundaries, sentenceSpacings, wordSpacings, glyphSpacings := calcTextBoundaries(s)
+	wordBoundaries, glyphSpacings := calcWordBoundaries(s)
 	return textSpan{
-		ff:               ff,
-		s:                s,
-		textWidth:        textWidth,
-		sentenceSpacings: sentenceSpacings,
-		wordSpacings:     wordSpacings,
-		glyphSpacings:    glyphSpacings,
-		textBoundaries:   textBoundaries,
+		ff:             ff,
+		s:              s,
+		textWidth:      textWidth,
+		glyphSpacings:  glyphSpacings,
+		wordBoundaries: wordBoundaries,
 	}
 }
 
@@ -369,66 +430,46 @@ func (ts textSpan) Bounds(width float64) Rect {
 }
 
 func (ts textSpan) WidthRange() (float64, float64) {
-	spacings := float64(ts.sentenceSpacings) * MaxSentenceSpacing
-	spacings += float64(ts.wordSpacings) * MaxWordSpacing
-	spacings += float64(ts.glyphSpacings) * MaxGlyphSpacing
-	return ts.textWidth, ts.textWidth + spacings
+	return ts.textWidth, ts.textWidth + float64(ts.glyphSpacings)*ts.ff.Metrics().XHeight*MaxGlyphSpacing
 }
 
 func (ts textSpan) Heights() (float64, float64, float64) {
 	return ts.ff.Metrics().Ascent, ts.ff.Metrics().Descent, ts.ff.Metrics().LineHeight - ts.ff.Metrics().Ascent - ts.ff.Metrics().Descent
 }
 
-func (ts textSpan) Split(width float64) (span, span) {
-	if width == 0.0 || ts.textWidth < width {
-		return ts, nil
+func (ts textSpan) Split(width float64) (span, span, int) {
+	if width == 0.0 || ts.textWidth <= width {
+		return ts, nil, len(ts.s)
 	}
-	for i, textBoundary := range ts.textBoundaries {
-		s := ts.s[:textBoundary.pos]
-		if textBoundary.kind == breakBoundary {
-			s += "-"
-		}
-		if textBoundary.kind == lineBoundary || width != 0.0 && width < ts.ff.TextWidth(s) {
-			if i == 0 {
-				return nil, ts
+	for i := len(ts.wordBoundaries) - 1; i >= 0; i-- {
+		boundary := ts.wordBoundaries[i]
+		s0 := ts.s[:boundary.pos] + "-"
+		if ts.ff.TextWidth(s0) <= width {
+			s1 := ts.s[boundary.pos+boundary.size:]
+			if boundary.pos == 0 {
+				return nil, ts, 0
 			}
-			textBoundary = ts.textBoundaries[i-1]
-			s0 := ts.s[:textBoundary.pos]
-			s1 := ts.s[textBoundary.pos+textBoundary.size:]
-			if textBoundary.pos == 0 {
-				return nil, newTextSpan(ts.ff, s1)
-			}
-			if textBoundary.kind == breakBoundary {
-				s0 += "-"
-			}
-			return newTextSpan(ts.ff, s0), newTextSpan(ts.ff, s1)
+			return newTextSpan(ts.ff, s0), newTextSpan(ts.ff, s1), boundary.pos + boundary.size
 		}
 	}
-	return ts, nil
-}
-
-func (ts textSpan) Decorate(width float64) *Path {
-	if ts.ff.decoration == nil {
-		return &Path{}
-	}
-	return ts.ff.decoration(ts.ff.Metrics(), width)
+	return nil, ts, 0
 }
 
 func (ts textSpan) ToPath(width float64) *Path {
-	sentenceSpacing := 0.0
-	wordSpacing := 0.0
+	//sentenceSpacing := 0.0
+	//wordSpacing := 0.0
 	glyphSpacing := 0.0
 	if width > ts.textWidth {
 		widthLeft := width - ts.textWidth
 		xHeight := ts.ff.Metrics().XHeight
-		if ts.sentenceSpacings > 0 {
-			sentenceSpacing = math.Min(widthLeft/float64(ts.sentenceSpacings), xHeight*MaxSentenceSpacing)
-			widthLeft -= float64(ts.sentenceSpacings) * sentenceSpacing
-		}
-		if ts.wordSpacings > 0 {
-			wordSpacing = math.Min(widthLeft/float64(ts.wordSpacings), xHeight*MaxWordSpacing)
-			widthLeft -= float64(ts.wordSpacings) * wordSpacing
-		}
+		//if ts.sentenceSpacings > 0 {
+		//	sentenceSpacing = math.Min(widthLeft/float64(ts.sentenceSpacings), xHeight*MaxSentenceSpacing)
+		//	widthLeft -= float64(ts.sentenceSpacings) * sentenceSpacing
+		//}
+		//if ts.wordSpacings > 0 {
+		//	wordSpacing = math.Min(widthLeft/float64(ts.wordSpacings), xHeight*MaxWordSpacing)
+		//	widthLeft -= float64(ts.wordSpacings) * wordSpacing
+		//}
 		if ts.glyphSpacings > 0 {
 			glyphSpacing = math.Min(widthLeft/float64(ts.glyphSpacings), xHeight*MaxGlyphSpacing)
 		}
@@ -438,7 +479,7 @@ func (ts textSpan) ToPath(width float64) *Path {
 	x := 0.0
 	p := &Path{}
 	var rPrev rune
-	iBoundary := 0
+	//iBoundary := 0
 	for i, r := range s {
 		if i > 0 {
 			x += ts.ff.Kerning(rPrev, r)
@@ -450,111 +491,144 @@ func (ts textSpan) ToPath(width float64) *Path {
 		x += advance
 
 		spacing := glyphSpacing
-		if iBoundary < len(ts.textBoundaries) && ts.textBoundaries[iBoundary].pos == i {
-			if ts.textBoundaries[iBoundary].kind == wordBoundary {
-				spacing = wordSpacing
-			} else if ts.textBoundaries[iBoundary].kind == sentenceBoundary {
-				spacing = sentenceSpacing
-			}
-			iBoundary++
-		}
+		//if iBoundary < len(ts.textBoundaries) && ts.textBoundaries[iBoundary].pos == i {
+		//	if ts.textBoundaries[iBoundary].kind == wordBoundary {
+		//		spacing = wordSpacing
+		//	} else if ts.textBoundaries[iBoundary].kind == sentenceBoundary {
+		//		spacing = sentenceSpacing
+		//	}
+		//	iBoundary++
+		//}
 		x += spacing
 		rPrev = r
 	}
 	return p
 }
 
+// TODO: remove
 func (ts textSpan) splitAtSpacings(spanDx, width float64, f func(float64, float64, float64, string)) {
-	spaceWidth := ts.ff.TextWidth(" ")
-	sentenceSpacing := 0.0
-	wordSpacing := 0.0
+	//spaceWidth := ts.ff.TextWidth(" ")
+	//sentenceSpacing := 0.0
+	//wordSpacing := 0.0
 	glyphSpacing := 0.0
 	if width > ts.textWidth {
 		widthLeft := width - ts.textWidth
 		xHeight := ts.ff.Metrics().XHeight
-		if ts.sentenceSpacings > 0 {
-			sentenceSpacing = math.Min(widthLeft/float64(ts.sentenceSpacings), xHeight*MaxSentenceSpacing)
-			widthLeft -= float64(ts.sentenceSpacings) * sentenceSpacing
-		}
-		if ts.wordSpacings > 0 {
-			wordSpacing = math.Min(widthLeft/float64(ts.wordSpacings), xHeight*MaxWordSpacing)
-			widthLeft -= float64(ts.wordSpacings) * wordSpacing
-		}
+		//	if ts.sentenceSpacings > 0 {
+		//		sentenceSpacing = math.Min(widthLeft/float64(ts.sentenceSpacings), xHeight*MaxSentenceSpacing)
+		//		widthLeft -= float64(ts.sentenceSpacings) * sentenceSpacing
+		//	}
+		//	if ts.wordSpacings > 0 {
+		//		wordSpacing = math.Min(widthLeft/float64(ts.wordSpacings), xHeight*MaxWordSpacing)
+		//		widthLeft -= float64(ts.wordSpacings) * wordSpacing
+		//	}
 		if ts.glyphSpacings > 0 {
 			glyphSpacing = math.Min(widthLeft/float64(ts.glyphSpacings), xHeight*MaxGlyphSpacing)
 		}
 	}
-	if sentenceSpacing > 0.0 || wordSpacing > 0.0 {
-		prevPos := 0
-		dx := spanDx
-		for _, textBoundary := range ts.textBoundaries {
-			s := ts.s[prevPos:textBoundary.pos]
-			w := ts.ff.TextWidth(s)
-			if glyphSpacing > 0.0 {
-				w += float64(utf8.RuneCountInString(s)-1) * glyphSpacing
-			}
-			f(dx, w, glyphSpacing, s)
-			prevPos = textBoundary.pos + 1
-			dx += ts.ff.TextWidth(s) + spaceWidth + float64(utf8.RuneCountInString(s))*glyphSpacing
-			if textBoundary.kind == wordBoundary {
-				dx += wordSpacing
-			} else if textBoundary.kind == sentenceBoundary {
-				dx += sentenceSpacing
-			}
-		}
-	} else {
-		f(spanDx, width, glyphSpacing, ts.s)
-	}
+	//if sentenceSpacing > 0.0 || wordSpacing > 0.0 {
+	//	prevPos := 0
+	//	dx := spanDx
+	//	for _, textBoundary := range ts.textBoundaries {
+	//		s := ts.s[prevPos:textBoundary.pos]
+	//		w := ts.ff.TextWidth(s)
+	//		if glyphSpacing > 0.0 {
+	//			w += float64(utf8.RuneCountInString(s)-1) * glyphSpacing
+	//		}
+	//		f(dx, w, glyphSpacing, s)
+	//		prevPos = textBoundary.pos + 1
+	//		dx += ts.ff.TextWidth(s) + spaceWidth + float64(utf8.RuneCountInString(s))*glyphSpacing
+	//		if textBoundary.kind == wordBoundary {
+	//			dx += wordSpacing
+	//		} else if textBoundary.kind == sentenceBoundary {
+	//			dx += sentenceSpacing
+	//		}
+	//	}
+	//} else {
+	f(spanDx, width, glyphSpacing, ts.s)
+	//}
 }
 
 type textBoundaryKind int
 
 const (
-	endBoundary textBoundaryKind = iota
-	lineBoundary
+	lineBoundary textBoundaryKind = iota
 	sentenceBoundary
 	wordBoundary
 	breakBoundary // zero-width space indicates word boundary
 )
 
 type textBoundary struct {
-	kind textBoundaryKind
-	pos  int
-	size int
+	kind  textBoundaryKind
+	pos   int
+	size  int
+	width float64
 }
 
-func calcTextBoundaries(s string) ([]textBoundary, int, int, int) {
+func calcWordBoundaries(s string) ([]textBoundary, int) {
 	boundaries := []textBoundary{}
-	sentenceSpacings, wordSpacings, glyphSpacings := 0, 0, 0
-
-	var rPrev, rPrevPrev rune
+	glyphSpacings := 0
 	for i, r := range s {
-		glyphSpacings++
+		size := utf8.RuneLen(r)
+		if r == '\u200b' {
+			boundaries = append(boundaries, textBoundary{breakBoundary, i, size, 0.0})
+		} else {
+			glyphSpacings++
+		}
+	}
+	return boundaries, glyphSpacings
+}
+
+func calcTextBoundaries(ff FontFace, s string, a, b int) []textBoundary {
+	boundaries := []textBoundary{}
+	var rPrev, rPrevPrev rune
+	if 0 < a {
+		var size int
+		rPrev, size = utf8.DecodeLastRuneInString(s[:a])
+		if size < a {
+			rPrevPrev, _ = utf8.DecodeLastRuneInString(s[:a-size])
+		}
+	}
+	for i, r := range s[a:b] {
 		size := utf8.RuneLen(r)
 		if r == '\r' || r == '\n' || r == '\f' || r == '\v' || r == '\u2028' || r == '\u2029' {
 			if r == '\n' && 0 < i && s[i-1] == '\r' {
 				boundaries[len(boundaries)-1].size++
 			} else {
-				boundaries = append(boundaries, textBoundary{lineBoundary, i, size})
+				boundaries = append(boundaries, textBoundary{lineBoundary, a + i, size, 0.0})
 			}
 		} else if r == ' ' {
+			// TODO: add breaking spaces such as en quad, em space, hair space, ...
+			// see https://unicode.org/reports/tr14/#Properties
+			width := ff.TextWidth(string(r))
 			if (rPrev == '.' && !unicode.IsUpper(rPrevPrev) && rPrevPrev != ' ') || rPrev == '!' || rPrev == '?' {
-				boundaries = append(boundaries, textBoundary{sentenceBoundary, i, 1})
-				sentenceSpacings++
-			} else if rPrev != ' ' {
-				// TODO: add breaking spaces such as en quad, em space, hair space, ...
-				// see https://unicode.org/reports/tr14/#Properties
-				boundaries = append(boundaries, textBoundary{wordBoundary, i, 1})
-				wordSpacings++
+				boundaries = append(boundaries, textBoundary{sentenceBoundary, a + i, size, width})
+			} else if 0 < len(boundaries) && boundaries[len(boundaries)-1].pos+boundaries[len(boundaries)-1].size == a+i {
+				boundaries[len(boundaries)-1].size += size
+				boundaries[len(boundaries)-1].width = math.Max(width, boundaries[len(boundaries)-1].width)
+			} else {
+				boundaries = append(boundaries, textBoundary{wordBoundary, a + i, size, width})
 			}
-		} else if r == '\u200b' {
-			boundaries = append(boundaries, textBoundary{breakBoundary, i, size})
 		}
 		rPrevPrev = rPrev
 		rPrev = r
 	}
-	boundaries = append(boundaries, textBoundary{endBoundary, len(s), 0})
+	return boundaries
+}
 
-	glyphSpacings -= wordSpacings + sentenceSpacings + 1
-	return boundaries, sentenceSpacings, wordSpacings, glyphSpacings
+func splitNewlines(s string) []string {
+	ss := []string{}
+	i := 0
+	for j, r := range s {
+		if r == '\n' || r == '\r' || r == '\f' || r == '\v' || r == '\u2028' || r == '\u2029' {
+			if r == '\n' && 0 < j && s[j-1] == '\r' {
+				i++
+				continue
+			}
+			ss = append(ss, s[i:j])
+			i = j + utf8.RuneLen(r)
+		}
+	}
+	ss = append(ss, s[i:])
+	return ss
 }

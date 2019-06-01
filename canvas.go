@@ -122,7 +122,7 @@ func (c *C) DrawPath(x, y, rot float64, p *Path) {
 }
 
 func (c *C) DrawText(x, y, rot float64, text *Text) {
-	for _, font := range text.fonts {
+	for font := range text.fonts {
 		c.fonts[font] = true
 	}
 	c.layers = append(c.layers, layer{textLayer, x, y, rot, c.color, nil, text})
