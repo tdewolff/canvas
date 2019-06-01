@@ -74,7 +74,7 @@ func drawText(c *canvas.C, x, y float64, face canvas.FontFace, rich *canvas.Rich
 	width, height := 80.0, 25.0
 	text := rich.ToText(width, height, canvas.Justify, canvas.Top, 0.0)
 
-	c.SetColor(canvas.OrangeRed)
+	c.SetColor(canvas.Orangered)
 	c.DrawPath(x, y, 0.0, text.Bounds().ToPath())
 	c.SetColor(color.RGBA{0, 0, 0, 50})
 	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, 0, width, -metrics.LineHeight))
@@ -131,7 +131,7 @@ func Draw(c *canvas.C) {
 	if err != nil {
 		panic(err)
 	}
-	c.SetColor(canvas.WhiteSmoke)
+	c.SetColor(canvas.Whitesmoke)
 	c.DrawPath(110, 40, 0.0, ellipse)
 	ellipse = ellipse.Dash(2.0, 4.0, 2.0).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner)
 	c.SetColor(canvas.Black)
@@ -143,7 +143,7 @@ func Draw(c *canvas.C) {
 	p.LineTo(0.0, 20.0)
 	p.Close()
 	q := p.Smoothen()
-	c.SetColor(canvas.SteelBlue)
+	c.SetColor(canvas.Seagreen)
 	c.DrawPath(170, 10, 0.0, q)
 	c.SetColor(canvas.Black)
 	c.DrawPath(170, 10, 0.0, p.Stroke(0.25, canvas.RoundCapper, canvas.RoundJoiner))
@@ -154,7 +154,7 @@ func Draw(c *canvas.C) {
 	p.LineTo(30.0, 20.0)
 	p.LineTo(40.0, 10.0)
 	q = p.Smoothen()
-	c.SetColor(canvas.SteelBlue)
+	c.SetColor(canvas.Seagreen)
 	c.DrawPath(120, 5, 0.0, q.Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner))
 	c.SetColor(canvas.Black)
 	for _, point := range p.Points() {

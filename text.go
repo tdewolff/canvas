@@ -368,7 +368,7 @@ func (t *Text) ToPathDecorations() *Path {
 	return p
 }
 
-func (t *Text) ToSVG(x, y, rot float64, c color.Color) string {
+func (t *Text) ToSVG(x, y, rot float64, color color.RGBA) string {
 	sb := strings.Builder{}
 	sb.WriteString("<text x=\"")
 	writeFloat64(&sb, x)
@@ -383,9 +383,9 @@ func (t *Text) ToSVG(x, y, rot float64, c color.Color) string {
 		writeFloat64(&sb, y)
 		sb.WriteString(")")
 	}
-	if c != color.Black {
+	if color != Black {
 		sb.WriteString("\" fill=\"")
-		writeCSSColor(&sb, c)
+		writeCSSColor(&sb, color)
 	}
 	sb.WriteString("\">")
 

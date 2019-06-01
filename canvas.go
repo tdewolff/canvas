@@ -17,64 +17,33 @@ const PtPerMm = 2.8346456692913384
 const MmPerInch = 25.4
 const InchPerMm = 1 / 25.4
 
-var (
-	Black            color.Color = color.RGBA{0, 0, 0, 255}
-	Grey             color.Color = color.RGBA{128, 128, 128, 255}
-	White            color.Color = color.RGBA{0, 0, 0, 255}
-	Red              color.Color = color.RGBA{255, 0, 0, 255}
-	Lime             color.Color = color.RGBA{0, 255, 0, 255}
-	Blue             color.Color = color.RGBA{0, 0, 255, 255}
-	Yellow           color.Color = color.RGBA{255, 255, 0, 255}
-	Magenta          color.Color = color.RGBA{255, 0, 255, 255}
-	Cyan             color.Color = color.RGBA{0, 255, 255, 255}
-	BlackTransparent color.Color = color.RGBA{0, 0, 0, 128}
-	DimGrey          color.Color = color.RGBA{105, 105, 105, 255}
-	DarkGrey         color.Color = color.RGBA{169, 169, 169, 255}
-	Silver           color.Color = color.RGBA{192, 192, 192, 255}
-	LightGrey        color.Color = color.RGBA{211, 211, 211, 255}
-	Gainsboro        color.Color = color.RGBA{220, 220, 220, 255}
-	WhiteSmoke       color.Color = color.RGBA{245, 245, 245, 255}
-	SteelBlue        color.Color = color.RGBA{70, 130, 180, 255}
-	SlateGrey        color.Color = color.RGBA{112, 128, 144, 255}
-	LightSteelBlue   color.Color = color.RGBA{176, 196, 222, 255}
-	LightSlateGrey   color.Color = color.RGBA{119, 136, 153, 255}
-	DarkSlateBlue    color.Color = color.RGBA{72, 61, 139, 255}
-	DarkSlateGrey    color.Color = color.RGBA{47, 79, 79, 255}
-	OrangeRed        color.Color = color.RGBA{255, 69, 0, 255}
-)
-
-func writeCSSColor(w io.Writer, c color.Color) {
-	r, g, b, a := c.RGBA()
-	rgba := [4]byte{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
-	if rgba[3] == 0xff {
+func writeCSSColor(w io.Writer, color color.RGBA) {
+	if color.A == 255 {
 		buf := make([]byte, 7)
 		buf[0] = '#'
-		hex.Encode(buf[1:], rgba[:3])
+		hex.Encode(buf[1:], []byte{color.R, color.G, color.B})
 		w.Write(buf)
 	} else {
 		buf := make([]byte, 0, 24)
 		buf = append(buf, []byte("rgba(")...)
-		buf = strconv.AppendInt(buf, int64(rgba[0]), 10)
+		buf = strconv.AppendInt(buf, int64(color.R), 10)
 		buf = append(buf, ',')
-		buf = strconv.AppendInt(buf, int64(rgba[1]), 10)
+		buf = strconv.AppendInt(buf, int64(color.G), 10)
 		buf = append(buf, ',')
-		buf = strconv.AppendInt(buf, int64(rgba[2]), 10)
+		buf = strconv.AppendInt(buf, int64(color.B), 10)
 		buf = append(buf, ',')
-		buf = strconv.AppendFloat(buf, float64(rgba[3])/0xff, 'g', 4, 64)
+		buf = strconv.AppendFloat(buf, float64(color.A)/255.0, 'g', 4, 64)
 		buf = append(buf, ')')
 		w.Write(buf)
 	}
 }
 
-func writePSColor(w io.Writer, c color.Color) {
-	r, g, b, _ := c.RGBA()
-	rf, gf, bf := float64(r)/65535.0, float64(g)/65535.0, float64(b)/65535.0
-
-	writeFloat64(w, rf)
+func writePSColor(w io.Writer, color color.RGBA) {
+	writeFloat64(w, float64(color.R))
 	w.Write([]byte(" "))
-	writeFloat64(w, gf)
+	writeFloat64(w, float64(color.G))
 	w.Write([]byte(" "))
-	writeFloat64(w, bf)
+	writeFloat64(w, float64(color.B))
 }
 
 func writeFloat64(w io.Writer, f float64) {
@@ -95,25 +64,25 @@ const (
 type layer struct {
 	t         layerType
 	x, y, rot float64
-	color     color.Color
+	color     color.RGBA
 	path      *Path
 	text      *Text
 }
 
 type C struct {
 	w, h  float64
-	color color.Color
+	color color.RGBA
 
 	layers []layer
 	fonts  map[*Font]bool
 }
 
 func New(w, h float64) *C {
-	return &C{w, h, color.Black, []layer{}, map[*Font]bool{}}
+	return &C{w, h, Black, []layer{}, map[*Font]bool{}}
 }
 
-func (c *C) SetColor(col color.Color) {
-	c.color = col
+func (c *C) SetColor(color color.RGBA) {
+	c.color = color
 }
 
 func (c *C) DrawPath(x, y, rot float64, p *Path) {
@@ -154,7 +123,7 @@ func (c *C) WriteSVG(w io.Writer) {
 			p := l.path.Copy().Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y).Scale(1.0, -1.0).Translate(0.0, c.h)
 			w.Write([]byte("<path d=\""))
 			w.Write([]byte(p.ToSVG()))
-			if l.color != color.Black {
+			if l.color != Black {
 				w.Write([]byte("\" fill=\""))
 				writeCSSColor(w, l.color)
 			}
@@ -172,15 +141,13 @@ func (c *C) WritePDF(writer io.Writer) error {
 	color := Black
 	buf := &bytes.Buffer{}
 	for _, l := range c.layers {
-		R, G, B, _ := color.RGBA()
-		r, g, b, a := l.color.RGBA()
-		if r != R || g != G || b != B {
+		if l.color.R != color.R || l.color.G != color.G || l.color.B != color.B {
 			buf.WriteString(" ")
 			writePSColor(buf, l.color)
 			buf.WriteString(" rg")
 		}
-		if a != 65535.0 {
-			gs := pdf.GetOpacityGS(float64(a) / 65535.0)
+		if color.A != 255 {
+			gs := pdf.GetOpacityGS(float64(color.A) / 255.0)
 			buf.WriteString(fmt.Sprintf(" q /%v gs", gs))
 		}
 		if l.color != color {
@@ -200,7 +167,7 @@ func (c *C) WritePDF(writer io.Writer) error {
 			buf.WriteString(" ")
 			buf.WriteString(p.ToPDF())
 		}
-		if a != 65535.0 {
+		if color.A != 255 {
 			buf.WriteString(" Q")
 		}
 	}
@@ -219,10 +186,10 @@ func (c *C) WriteImage(dpi float64) *image.RGBA {
 	ras := vector.NewRasterizer(int(c.w*dpm), int(c.h*dpm))
 
 	bg := Rectangle(0.0, 0.0, c.w, c.h)
-	layers := append([]layer{{pathLayer, 0.0, 0.0, 0.0, color.White, bg, nil}}, c.layers...)
+	layers := append([]layer{{pathLayer, 0.0, 0.0, 0.0, White, bg, nil}}, c.layers...)
 	dy := float32(c.h * dpm)
 
-	draw := func(p *Path, color color.Color) {
+	draw := func(p *Path, color color.RGBA) {
 		p.Replace(nil, nil, ellipseToBeziers)
 		for i := 0; i < len(p.d); {
 			cmd := p.d[i]
@@ -278,7 +245,7 @@ func (c *C) WriteEPS(w io.Writer) {
 	// TODO: generate preview
 
 	bg := Rectangle(0.0, 0.0, c.w, c.h)
-	layers := append([]layer{{pathLayer, 0.0, 0.0, 0.0, color.White, bg, nil}}, c.layers...)
+	layers := append([]layer{{pathLayer, 0.0, 0.0, 0.0, White, bg, nil}}, c.layers...)
 
 	color := Black
 	for _, l := range layers {

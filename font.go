@@ -2,6 +2,7 @@ package canvas
 
 import (
 	"encoding/base64"
+	"image/color"
 	"io/ioutil"
 	"math"
 	"strings"
@@ -150,9 +151,15 @@ type FontFace struct {
 	ppemOrig, ppem fixed.Int26_6
 	hinting        font.Hinting
 
+	color                        color.Color
 	fauxStyle                    FontStyle
 	offset, fauxBold, fauxItalic float64
 	decorations                  *[]FontDecoration // pointer to make FontFace comparable
+}
+
+func (ff FontFace) Color(color color.Color) FontFace {
+	ff.color = color
+	return ff
 }
 
 func (ff FontFace) Faux(style FontStyle) FontFace {
