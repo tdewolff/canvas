@@ -121,7 +121,11 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 				}
 			}
 
-			span0, span1, di = span1.Split(width - dx)
+			if width == 0.0 {
+				span0, span1, di = span1.Split(0.0)
+			} else {
+				span0, span1, di = span1.Split(width - dx)
+			}
 			if span0 == nil {
 				if len(lss) == 0 {
 					span0 = span1
@@ -178,7 +182,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 					l.lineSpans[i].dx += dx
 				}
 			}
-		} else if halign == Justify {
+		} else if 0.0 < width && halign == Justify {
 			for j, l := range lines[:len(lines)-1] {
 				minBoundaryWidth, maxBoundaryWidth := 0.0, 0.0
 				for i := 1; i < len(l.lineSpans); i++ {
@@ -302,13 +306,6 @@ func (t *Text) ToPath() *Path {
 	}
 	return p
 }
-
-//func (ts textSpan) Decorate(width float64) *Path {
-//	if ts.ff.decoration == nil {
-//		return &Path{}
-//	}
-//	return ts.ff.decoration(ts.ff.Metrics(), width)
-//}
 
 func (t *Text) ToPathDecorations() *Path {
 	p := &Path{}
