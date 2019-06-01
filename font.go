@@ -155,7 +155,7 @@ const underlineDistance = 0.15
 const underlineThickness = 0.1
 
 var Underline = func(metrics Metrics, w float64) *Path {
-	r := metrics.Size * underlineThickness
+	r := metrics.Size * underlineThickness * 0.75
 	w -= r
 
 	y := -metrics.Size * underlineDistance
@@ -167,7 +167,7 @@ var Underline = func(metrics Metrics, w float64) *Path {
 }
 
 var Overline = func(metrics Metrics, w float64) *Path {
-	r := metrics.Size * underlineThickness
+	r := metrics.Size * underlineThickness * 0.75
 	w -= r
 	y := metrics.XHeight + metrics.Size*underlineDistance
 
@@ -178,7 +178,7 @@ var Overline = func(metrics Metrics, w float64) *Path {
 }
 
 var Strikethrough = func(metrics Metrics, w float64) *Path {
-	r := metrics.Size * underlineThickness
+	r := metrics.Size * underlineThickness * 0.75
 	w -= r
 
 	y := metrics.XHeight / 2.0
@@ -190,7 +190,7 @@ var Strikethrough = func(metrics Metrics, w float64) *Path {
 }
 
 var DoubleUnderline = func(metrics Metrics, w float64) *Path {
-	r := metrics.Size * underlineThickness
+	r := metrics.Size * underlineThickness * 0.75
 	w -= r
 
 	y := -metrics.Size * underlineDistance * 0.75
@@ -198,8 +198,8 @@ var DoubleUnderline = func(metrics Metrics, w float64) *Path {
 	p := &Path{}
 	p.MoveTo(r, y)
 	p.LineTo(w, y)
-	p.MoveTo(r, y-r*1.5)
-	p.LineTo(w, y-r*1.5)
+	p.MoveTo(r, y-r*2.0)
+	p.LineTo(w, y-r*2.0)
 	return p.Stroke(r, RoundCapper, RoundJoiner)
 }
 
