@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"image/color"
-	"image/png"
 	"os"
 
 	"github.com/tdewolff/canvas"
@@ -32,17 +31,17 @@ func main() {
 
 	////////////////
 
-	pngFile, err := os.Create("test.png")
-	if err != nil {
-		panic(err)
-	}
-	defer pngFile.Close()
+	//pngFile, err := os.Create("test.png")
+	//if err != nil {
+	//	panic(err)
+	//}
+	//defer pngFile.Close()
 
-	img := c.WriteImage(144.0)
-	err = png.Encode(pngFile, img)
-	if err != nil {
-		panic(err)
-	}
+	//img := c.WriteImage(144.0)
+	//err = png.Encode(pngFile, img)
+	//if err != nil {
+	//	panic(err)
+	//}
 }
 
 func drawStrokedPath(c *canvas.C, x, y, d float64, path string) {
@@ -60,12 +59,14 @@ func drawStrokedPath(c *canvas.C, x, y, d float64, path string) {
 }
 
 func Draw(c *canvas.C) {
-	//p, _ := canvas.ParseSVG("A20 20 0 0 1 -20 20V0z")
-	//c.SetColor(canvas.Red)
-	//c.DrawPath(50.0, 50.0, 0.0, p)
-	//p = p.Flatten()
-	//c.SetColor(canvas.Black)
-	//c.DrawPath(50.0, 50.0, 0.0, p)
+	p, _ := canvas.ParseSVG("H20A20 20 0 0 1 0 20V0z")
+	c.SetColor(canvas.Red)
+	c.DrawPath(50.0, 20.0, 0.0, p)
+	p = p.Flatten()
+	c.SetColor(canvas.BlackTransparent)
+	c.DrawPath(50.0, 20.0, 0.0, p)
+	c.SetColor(canvas.Black)
+	c.DrawPath(50.0, 20.0, 0.0, canvas.Circle(23.2, 23.2, 2.0))
 
 	//drawStrokedPath(c, 30, 50, 2.0, "M0 0L50 0")
 	//drawStrokedPath(c, 30, 40, 2.0, "M0 0L50 0L50 -5")
@@ -105,30 +106,30 @@ func Draw(c *canvas.C) {
 	//c.DrawPath(105, 40, 0, ps[1])
 	//c.DrawPath(105, 50, 0, p.Dash(1.0, 1.0).Stroke(1.0, canvas.ButtCapper, canvas.RoundJoiner))
 
-	c.SetColor(canvas.LightGrey)
-	//c.DrawPath(20.0, 60.0, 0.0, canvas.Rectangle(0.0, 0.0, 50.0, -20.0))
-	c.SetColor(canvas.Black)
-	rich := canvas.NewRichText()
-	rich.Add(dejaVuSerif.Face(8.0), "Lorem ")
-	rich.Add(dejaVuSerif.Face(8.0).FauxBold(), "ipsum ")
-	rich.Add(dejaVuSerif.Face(8.0).FauxItalic(), "dolor ")
-	rich.Add(dejaVuSerif.Face(8.0), "sit am\u200bet, ")
-	rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.DoubleUnderline), "confiscatur")
-	rich.Add(dejaVuSerif.Face(8.0), " ")
-	rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.SineUnderline), "patria")
-	rich.Add(dejaVuSerif.Face(8.0), " ")
-	rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.SawtoothUnderline), "est")
-	rich.Add(dejaVuSerif.Face(8.0), " ")
-	rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.DottedUnderline), "gravus")
-	rich.Add(dejaVuSerif.Face(8.0), " ")
-	rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.DashedUnderline), "instantum")
-	rich.Add(dejaVuSerif.Face(8.0), " ")
-	rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.Underline), "norpe")
-	rich.Add(dejaVuSerif.Face(8.0), " ")
-	rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.Strikethrough), "targe")
-	rich.Add(dejaVuSerif.Face(8.0), " ")
-	rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.Overline), "yatum")
-	text := rich.ToText(50.0, 20.0, canvas.Left, canvas.Top, 0.0)
-	c.DrawPath(10, 70, 0.0, text.ToPath().Scale(2.0, 2.0))
-	c.DrawPath(10, 70, 0.0, text.ToPathDecorations().Scale(2.0, 2.0))
+	//c.SetColor(canvas.LightGrey)
+	////c.DrawPath(20.0, 60.0, 0.0, canvas.Rectangle(0.0, 0.0, 50.0, -20.0))
+	//c.SetColor(canvas.Black)
+	//rich := canvas.NewRichText()
+	//rich.Add(dejaVuSerif.Face(8.0), "Lorem ")
+	//rich.Add(dejaVuSerif.Face(8.0).FauxBold(), "ipsum ")
+	//rich.Add(dejaVuSerif.Face(8.0).FauxItalic(), "dolor ")
+	//rich.Add(dejaVuSerif.Face(8.0), "sit am\u200bet, ")
+	//rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.DoubleUnderline), "confiscatur")
+	//rich.Add(dejaVuSerif.Face(8.0), " ")
+	//rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.SineUnderline), "patria")
+	//rich.Add(dejaVuSerif.Face(8.0), " ")
+	//rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.SawtoothUnderline), "est")
+	//rich.Add(dejaVuSerif.Face(8.0), " ")
+	//rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.DottedUnderline), "gravus")
+	//rich.Add(dejaVuSerif.Face(8.0), " ")
+	//rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.DashedUnderline), "instantum")
+	//rich.Add(dejaVuSerif.Face(8.0), " ")
+	//rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.Underline), "norpe")
+	//rich.Add(dejaVuSerif.Face(8.0), " ")
+	//rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.Strikethrough), "targe")
+	//rich.Add(dejaVuSerif.Face(8.0), " ")
+	//rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.Overline), "yatum")
+	//text := rich.ToText(50.0, 20.0, canvas.Left, canvas.Top, 0.0)
+	//c.DrawPath(10, 70, 0.0, text.ToPath().Scale(2.0, 2.0))
+	//c.DrawPath(10, 70, 0.0, text.ToPathDecorations().Scale(2.0, 2.0))
 }
