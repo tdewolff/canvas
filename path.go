@@ -107,6 +107,7 @@ func (p *Path) Join(q *Path) *Path {
 		x1, y1 := q.d[1], q.d[2]
 		if equal(x0, x1) && equal(y0, y1) {
 			q.d = q.d[3:]
+			q.i0 = p.i0
 		}
 	}
 	p.d = append(p.d, q.d...)
@@ -713,6 +714,13 @@ func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer
 		}
 
 		if q != nil {
+			if 0 < len(q.d) && q.d[0] == MoveToCmd {
+				x0, y0 := p.d[i-2], p.d[i-1]
+				x1, y1 := q.d[1], q.d[2]
+				if equal(x0, x1) && equal(y0, y1) {
+					q.d = q.d[3:]
+				}
+			}
 			p.d = append(p.d[:i], append(q.d, p.d[i+cmdLen(cmd):]...)...)
 			i += len(q.d)
 			if q.Empty() {

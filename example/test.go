@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"image/color"
+	"image/png"
 	"os"
 
 	"github.com/tdewolff/canvas"
@@ -31,17 +32,17 @@ func main() {
 
 	////////////////
 
-	//pngFile, err := os.Create("test.png")
-	//if err != nil {
-	//	panic(err)
-	//}
-	//defer pngFile.Close()
+	pngFile, err := os.Create("test.png")
+	if err != nil {
+		panic(err)
+	}
+	defer pngFile.Close()
 
-	//img := c.WriteImage(144.0)
-	//err = png.Encode(pngFile, img)
-	//if err != nil {
-	//	panic(err)
-	//}
+	img := c.WriteImage(144.0)
+	err = png.Encode(pngFile, img)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func drawStrokedPath(c *canvas.C, x, y, d float64, path string) {
@@ -59,14 +60,16 @@ func drawStrokedPath(c *canvas.C, x, y, d float64, path string) {
 }
 
 func Draw(c *canvas.C) {
-	p, _ := canvas.ParseSVG("H20A20 20 0 0 1 0 20V0z")
+	ellipse, _ := canvas.ParseSVG(fmt.Sprintf("A10 20 0 0 0 20 0z"))
 	c.SetColor(canvas.Red)
-	c.DrawPath(50.0, 20.0, 0.0, p)
-	p = p.Flatten()
+	c.DrawPath(50.0, 40.0, 0.0, ellipse)
+	ps := ellipse.SplitAt(10.0)
+	ellipse = ps[0]
+	fmt.Println(ellipse)
+	ellipse = ellipse.Stroke(2.0, canvas.RoundCapper, canvas.RoundJoiner)
+	ellipse = ellipse.Flatten()
 	c.SetColor(canvas.BlackTransparent)
-	c.DrawPath(50.0, 20.0, 0.0, p)
-	c.SetColor(canvas.Black)
-	c.DrawPath(50.0, 20.0, 0.0, canvas.Circle(23.2, 23.2, 2.0))
+	c.DrawPath(50.0, 40.0, 0.0, ellipse)
 
 	//drawStrokedPath(c, 30, 50, 2.0, "M0 0L50 0")
 	//drawStrokedPath(c, 30, 40, 2.0, "M0 0L50 0L50 -5")
