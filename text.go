@@ -341,7 +341,7 @@ func (t *Text) ToPathDecorations() *Path {
 			for i, ls := range line.lineSpans {
 				ts, ok := ls.span.(textSpan)
 				if 0.0 < x1-x0 && (!ok || ts.ff != ff || i+1 == len(line.lineSpans)) {
-					ps := ff.ToPathDecoration(x1 - x0)
+					ps := ff.Decorate(x1 - x0)
 					if !ps.Empty() {
 						ps.Translate(x0, line.y)
 						p.Append(ps)
@@ -355,7 +355,7 @@ func (t *Text) ToPathDecorations() *Path {
 				x1 = ls.dx + ls.w
 			}
 			if 0.0 < x1-x0 {
-				ps := ff.ToPathDecoration(x1 - x0)
+				ps := ff.Decorate(x1 - x0)
 				if !ps.Empty() {
 					ps.Translate(x0, line.y)
 					p.Append(ps)
@@ -391,7 +391,7 @@ func (t *Text) ToSVG(x, y, rot float64, c color.Color) string {
 		for _, ls := range line.lineSpans {
 			switch span := ls.span.(type) {
 			case textSpan:
-				name, size, style, _ := span.ff.Info() // TODO: use decoration
+				name, size, style := span.ff.Info() // TODO: use faux styles and decoration
 				span.splitAtSpacings(ls.dx, ls.w, func(dx, w, glyphSpacing float64, s string) {
 					sb.WriteString("<tspan x=\"")
 					writeFloat64(&sb, x+dx)

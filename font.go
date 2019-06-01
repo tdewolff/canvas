@@ -41,6 +41,10 @@ const (
 	Regular FontStyle = 0
 	Bold    FontStyle = 1 << iota
 	Italic
+	Subscript
+	Superscript
+	Inferior
+	Superior
 )
 
 type Font struct {
@@ -116,9 +120,10 @@ func (f *Font) Use(transformationOptions TransformationOptions) {
 func (f *Font) Face(size float64) FontFace {
 	// TODO: add hinting
 	return FontFace{
-		f:       f,
-		ppem:    toI26_6(size * MmPerPt),
-		hinting: font.HintingNone,
+		f:        f,
+		ppemOrig: toI26_6(size * MmPerPt),
+		ppem:     toI26_6(size * MmPerPt),
+		hinting:  font.HintingNone,
 	}
 }
 
@@ -138,229 +143,92 @@ func (f *Font) Raw() (string, []byte) {
 	return f.mimetype, f.raw
 }
 
-type Metrics struct {
+// TODO: use font provided subscript etc, or use suggested values for subscript position and size
+// same for underlining
+type FontFace struct {
+	f              *Font
+	ppemOrig, ppem fixed.Int26_6
+	hinting        font.Hinting
+
+	fauxStyle                    FontStyle
+	offset, fauxBold, fauxItalic float64
+	decorations                  *[]FontDecoration // pointer to make FontFace comparable
+}
+
+func (ff FontFace) Faux(style FontStyle) FontFace {
+	metricsOrig := ff.Metrics()
+	ff.offset = 0.0
+	ff.fauxBold = 0.0
+	ff.fauxItalic = 0.0
+	ff.ppem = ff.ppemOrig
+	if style&Bold != 0 {
+		ff.fauxBold = 0.02
+	}
+	if style&Italic != 0 {
+		ff.fauxItalic = 0.07
+	}
+	if style&Subscript != 0 || style&Superscript != 0 || style&Inferior != 0 || style&Superior != 0 {
+		ff.ppem = ff.ppem.Mul(toI26_6(0.583))
+		ff.fauxBold += 0.02
+	}
+	if style&Subscript != 0 {
+		ff.offset = -0.33 * fromI26_6(ff.ppemOrig)
+	}
+	if style&Superscript != 0 {
+		ff.offset = 0.33 * fromI26_6(ff.ppemOrig)
+	}
+	if style&Superior != 0 {
+		ff.offset = metricsOrig.XHeight * (1.0 - 0.583)
+	}
+	ff.fauxBold *= fromI26_6(ff.ppem)
+	ff.fauxItalic *= fromI26_6(ff.ppem)
+	return ff
+}
+
+func (ff FontFace) Decoration(decorations ...FontDecoration) FontFace {
+	if ff.decorations == nil {
+		ff.decorations = &[]FontDecoration{}
+	}
+	for _, deco := range decorations {
+		*ff.decorations = append(*ff.decorations, deco)
+	}
+	return ff
+}
+
+func (ff FontFace) Decorate(width float64) *Path {
+	p := &Path{}
+	if ff.decorations != nil {
+		for _, deco := range *ff.decorations {
+			p.Append(deco.Decorate(ff, width))
+		}
+	}
+	return p
+}
+
+// Info returns the font name, style and size.
+func (ff FontFace) Info() (name string, size float64, style FontStyle) {
+	return ff.f.name, fromI26_6(ff.ppem), ff.f.style
+}
+
+type FontMetrics struct {
 	Size       float64
 	LineHeight float64
 	Ascent     float64
 	Descent    float64
 	XHeight    float64
 	CapHeight  float64
-	Offset     float64
-}
-
-// TODO: dashed underline, dotted underline, overline, strikethrough
-type FontDecoration func(Metrics, float64) *Path
-
-const underlineDistance = 0.15
-const underlineThickness = 0.1
-
-var Underline = func(metrics Metrics, w float64) *Path {
-	r := metrics.Size * underlineThickness * 0.75
-	w -= r
-
-	y := -metrics.Size * underlineDistance
-
-	p := &Path{}
-	p.MoveTo(r, y)
-	p.LineTo(w, y)
-	return p.Stroke(r, RoundCapper, RoundJoiner)
-}
-
-var Overline = func(metrics Metrics, w float64) *Path {
-	r := metrics.Size * underlineThickness * 0.75
-	w -= r
-	y := metrics.XHeight + metrics.Size*underlineDistance
-
-	p := &Path{}
-	p.MoveTo(r, y)
-	p.LineTo(w, y)
-	return p.Stroke(r, RoundCapper, RoundJoiner)
-}
-
-var Strikethrough = func(metrics Metrics, w float64) *Path {
-	r := metrics.Size * underlineThickness * 0.75
-	w -= r
-
-	y := metrics.XHeight / 2.0
-
-	p := &Path{}
-	p.MoveTo(r, y)
-	p.LineTo(w, y)
-	return p.Stroke(r, RoundCapper, RoundJoiner)
-}
-
-var DoubleUnderline = func(metrics Metrics, w float64) *Path {
-	r := metrics.Size * underlineThickness * 0.75
-	w -= r
-
-	y := -metrics.Size * underlineDistance * 0.75
-
-	p := &Path{}
-	p.MoveTo(r, y)
-	p.LineTo(w, y)
-	p.MoveTo(r, y-r*2.0)
-	p.LineTo(w, y-r*2.0)
-	return p.Stroke(r, RoundCapper, RoundJoiner)
-}
-
-var DottedUnderline = func(metrics Metrics, w float64) *Path {
-	r := metrics.Size * underlineThickness / 2.0
-	w -= r
-
-	y := -metrics.Size * underlineDistance
-	d := 10.0 * underlineThickness
-	n := int((w-r)/d) + 1
-	d = (w - r) / float64(n-1)
-
-	p := &Path{}
-	for i := 0; i < n; i++ {
-		p.Append(Circle(r+float64(i)*d, y, r))
-	}
-	return p
-}
-
-var DashedUnderline = func(metrics Metrics, w float64) *Path {
-	r := metrics.Size * underlineThickness
-	w -= r
-
-	y := -metrics.Size * underlineDistance
-	d := 6.0 * underlineThickness
-	n := int((w-r)/(3.0*d)) + 1
-	d = (w - r + 2.0*d) / float64(3*n-3)
-
-	p := &Path{}
-	p.MoveTo(r, y)
-	p.LineTo(w, y)
-	p = p.Dash(d, d*2.0).Stroke(r, RoundCapper, RoundJoiner)
-	return p
-}
-
-var SineUnderline = func(metrics Metrics, w float64) *Path {
-	r := metrics.Size * underlineThickness
-	w -= r
-
-	dh := -metrics.Size * 0.15
-	y := -metrics.Size * underlineDistance
-	d := 10.0 * underlineThickness
-	n := int(0.5 + w/d)
-	d = (w - r) / float64(n)
-	dx := r
-
-	p := &Path{}
-	p.MoveTo(dx, y)
-	for i := 0; i < n; i++ {
-		if i%2 == 0 {
-			p.CubeTo(dx+d*0.3642, y, dx+d*0.6358, y+dh, dx+d, y+dh)
-		} else {
-			p.CubeTo(dx+d*0.3642, y+dh, dx+d*0.6358, y, dx+d, y)
-		}
-		dx += d
-	}
-	return p.Stroke(r, RoundCapper, RoundJoiner)
-}
-
-var SawtoothUnderline = func(metrics Metrics, w float64) *Path {
-	r := metrics.Size * underlineThickness
-	w -= r
-
-	dh := -metrics.Size * 0.15
-	y := -metrics.Size * underlineDistance
-	d := 6.0 * underlineThickness
-	n := int(0.5 + w/d)
-	d = (w - r) / float64(n)
-	dx := r
-
-	p := &Path{}
-	p.MoveTo(dx, y)
-	for i := 0; i < n; i++ {
-		if i%2 == 0 {
-			p.LineTo(dx+d, y+dh)
-		} else {
-			p.LineTo(dx+d, y)
-		}
-		dx += d
-	}
-	return p.Stroke(r, RoundCapper, RoundJoiner)
-}
-
-// TODO: use font provided subscript etc, or use suggested values for subscript position and size
-// same for underlining
-type FontFace struct {
-	f                            *Font
-	ppem                         fixed.Int26_6
-	hinting                      font.Hinting
-	offset, fauxBold, fauxItalic float64 // relative to ppem
-	decoration                   *FontDecoration
-}
-
-func (ff FontFace) Subscript() FontFace {
-	offset := -0.33 * fromI26_6(ff.ppem)
-	ff.ppem = ff.ppem.Mul(toI26_6(0.583))
-	ff.offset = offset
-	ff.fauxBold = 0.02
-	return ff
-}
-
-func (ff FontFace) Superscript() FontFace {
-	offset := 0.33 * fromI26_6(ff.ppem)
-	ff.ppem = ff.ppem.Mul(toI26_6(0.583))
-	ff.offset = offset
-	ff.fauxBold = 0.02
-	return ff
-}
-
-func (ff FontFace) Inferior() FontFace {
-	ff.ppem = ff.ppem.Mul(toI26_6(0.583))
-	ff.fauxBold = 0.02
-	return ff
-}
-
-func (ff FontFace) Superior() FontFace {
-	capHeight := ff.Metrics().CapHeight
-	ff.ppem = ff.ppem.Mul(toI26_6(0.583))
-	ff.offset = capHeight - ff.Metrics().CapHeight
-	ff.fauxBold = 0.02
-	return ff
-}
-
-func (ff FontFace) FauxBold() FontFace {
-	ff.fauxBold = 0.02
-	return ff
-}
-
-func (ff FontFace) FauxItalic() FontFace {
-	ff.fauxItalic = 0.07
-	return ff
-}
-
-func (ff FontFace) Decoration(decoration FontDecoration) FontFace {
-	ff.decoration = &decoration
-	return ff
-}
-
-func (ff FontFace) ToPathDecoration(width float64) *Path {
-	if ff.decoration == nil {
-		return &Path{}
-	}
-	return (*ff.decoration)(ff.Metrics(), width)
-}
-
-// Info returns the font name, style and size.
-func (ff FontFace) Info() (name string, size float64, style FontStyle, decoration *FontDecoration) {
-	return ff.f.name, fromI26_6(ff.ppem), ff.f.style, ff.decoration
 }
 
 // Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explaination of the different metrics.
-func (ff FontFace) Metrics() Metrics {
+func (ff FontFace) Metrics() FontMetrics {
 	m, _ := ff.f.sfnt.Metrics(&sfntBuffer, ff.ppem, ff.hinting)
-	return Metrics{
+	return FontMetrics{
 		Size:       fromI26_6(ff.ppem),
 		LineHeight: math.Abs(fromI26_6(m.Height)),
 		Ascent:     math.Abs(fromI26_6(m.Ascent)),
 		Descent:    math.Abs(fromI26_6(m.Descent)),
 		XHeight:    math.Abs(fromI26_6(m.XHeight)),
 		CapHeight:  math.Abs(fromI26_6(m.CapHeight)),
-		Offset:     ff.offset,
 	}
 }
 
@@ -402,10 +270,6 @@ func (ff FontFace) ToPath(r rune) (*Path, float64) {
 		return p, 0.0
 	}
 
-	offset := ff.offset
-	fauxBold := ff.fauxBold * fromI26_6(ff.ppem)
-	fauxItalic := ff.fauxItalic * fromI26_6(ff.ppem)
-
 	var start0, end Point
 	for i, segment := range segments {
 		switch segment.Op {
@@ -414,34 +278,34 @@ func (ff FontFace) ToPath(r rune) (*Path, float64) {
 				p.Close()
 			}
 			end = fromP26_6(segment.Args[0])
-			end.X += fauxItalic * -end.Y
-			p.MoveTo(end.X, offset-end.Y)
+			end.X += ff.fauxItalic * -end.Y
+			p.MoveTo(end.X, ff.offset-end.Y)
 			start0 = end
 		case sfnt.SegmentOpLineTo:
 			end = fromP26_6(segment.Args[0])
-			end.X += fauxItalic * -end.Y
-			p.LineTo(end.X, offset-end.Y)
+			end.X += ff.fauxItalic * -end.Y
+			p.LineTo(end.X, ff.offset-end.Y)
 		case sfnt.SegmentOpQuadTo:
 			cp := fromP26_6(segment.Args[0])
 			end = fromP26_6(segment.Args[1])
-			cp.X += fauxItalic * -cp.Y
-			end.X += fauxItalic * -end.Y
-			p.QuadTo(cp.X, offset-cp.Y, end.X, offset-end.Y)
+			cp.X += ff.fauxItalic * -cp.Y
+			end.X += ff.fauxItalic * -end.Y
+			p.QuadTo(cp.X, ff.offset-cp.Y, end.X, ff.offset-end.Y)
 		case sfnt.SegmentOpCubeTo:
 			cp1 := fromP26_6(segment.Args[0])
 			cp2 := fromP26_6(segment.Args[1])
 			end = fromP26_6(segment.Args[2])
-			cp1.X += fauxItalic * -cp1.Y
-			cp2.X += fauxItalic * -cp2.Y
-			end.X += fauxItalic * -end.Y
-			p.CubeTo(cp1.X, offset-cp1.Y, cp2.X, offset-cp2.Y, end.X, offset-end.Y)
+			cp1.X += ff.fauxItalic * -cp1.Y
+			cp2.X += ff.fauxItalic * -cp2.Y
+			end.X += ff.fauxItalic * -end.Y
+			p.CubeTo(cp1.X, ff.offset-cp1.Y, cp2.X, ff.offset-cp2.Y, end.X, ff.offset-end.Y)
 		}
 	}
 	if !p.Empty() && start0.Equals(end) {
 		p.Close()
 	}
-	if fauxBold != 0.0 {
-		p = p.Offset(fauxBold)
+	if ff.fauxBold != 0.0 {
+		p = p.Offset(ff.fauxBold)
 	}
 
 	dx := 0.0
@@ -469,6 +333,159 @@ func (ff FontFace) Kerning(rPrev, rNext rune) float64 {
 	}
 	return 0.0
 }
+
+////////////////////////////////////////////////////////////////
+
+type FontDecorationFunc func(FontFace, float64) *Path
+
+func (f FontDecorationFunc) Decorate(ff FontFace, w float64) *Path {
+	return f(ff, w)
+}
+
+type FontDecoration interface {
+	Decorate(FontFace, float64) *Path
+}
+
+const underlineDistance = 0.15
+const underlineThickness = 0.1
+
+var Underline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
+	r := ff.Metrics().Size * underlineThickness * 0.75
+	w -= r
+
+	y := -ff.Metrics().Size * underlineDistance
+
+	p := &Path{}
+	p.MoveTo(r, y)
+	p.LineTo(w, y)
+	return p.Stroke(r, RoundCapper, RoundJoiner)
+})
+
+var Overline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
+	r := ff.Metrics().Size * underlineThickness * 0.75
+	dx := r
+	w -= r
+	y := ff.Metrics().XHeight + ff.Metrics().Size*underlineDistance
+
+	dx += ff.fauxItalic * y
+	w += ff.fauxItalic * y
+
+	p := &Path{}
+	p.MoveTo(dx, y)
+	p.LineTo(w, y)
+	return p.Stroke(r, RoundCapper, RoundJoiner)
+})
+
+var Strikethrough = FontDecorationFunc(func(ff FontFace, w float64) *Path {
+	r := ff.Metrics().Size * underlineThickness * 0.75
+	dx := r
+	w -= r
+	y := ff.Metrics().XHeight / 2.0
+
+	dx += ff.fauxItalic * y
+	w += ff.fauxItalic * y
+
+	p := &Path{}
+	p.MoveTo(dx, y)
+	p.LineTo(w, y)
+	return p.Stroke(r, RoundCapper, RoundJoiner)
+})
+
+var DoubleUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
+	r := ff.Metrics().Size * underlineThickness * 0.75
+	w -= r
+
+	y := -ff.Metrics().Size * underlineDistance * 0.75
+
+	p := &Path{}
+	p.MoveTo(r, y)
+	p.LineTo(w, y)
+	p.MoveTo(r, y-r*2.0)
+	p.LineTo(w, y-r*2.0)
+	return p.Stroke(r, RoundCapper, RoundJoiner)
+})
+
+var DottedUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
+	r := ff.Metrics().Size * underlineThickness / 2.0
+	w -= r
+
+	y := -ff.Metrics().Size * underlineDistance
+	d := 10.0 * underlineThickness
+	n := int((w-r)/d) + 1
+	d = (w - r) / float64(n-1)
+
+	p := &Path{}
+	for i := 0; i < n; i++ {
+		p.Append(Circle(r+float64(i)*d, y, r))
+	}
+	return p
+})
+
+var DashedUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
+	r := ff.Metrics().Size * underlineThickness
+	w -= r
+
+	y := -ff.Metrics().Size * underlineDistance
+	d := 6.0 * underlineThickness
+	n := int((w-r)/(3.0*d)) + 1
+	d = (w - r + 2.0*d) / float64(3*n-3)
+
+	p := &Path{}
+	p.MoveTo(r, y)
+	p.LineTo(w, y)
+	p = p.Dash(d, d*2.0).Stroke(r, RoundCapper, RoundJoiner)
+	return p
+})
+
+var SineUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
+	r := ff.Metrics().Size * underlineThickness
+	w -= r
+
+	dh := -ff.Metrics().Size * 0.15
+	y := -ff.Metrics().Size * underlineDistance
+	d := 10.0 * underlineThickness
+	n := int(0.5 + w/d)
+	d = (w - r) / float64(n)
+	dx := r
+
+	p := &Path{}
+	p.MoveTo(dx, y)
+	for i := 0; i < n; i++ {
+		if i%2 == 0 {
+			p.CubeTo(dx+d*0.3642, y, dx+d*0.6358, y+dh, dx+d, y+dh)
+		} else {
+			p.CubeTo(dx+d*0.3642, y+dh, dx+d*0.6358, y, dx+d, y)
+		}
+		dx += d
+	}
+	return p.Stroke(r, RoundCapper, RoundJoiner)
+})
+
+var SawtoothUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
+	r := ff.Metrics().Size * underlineThickness
+	w -= r
+
+	dh := -ff.Metrics().Size * 0.15
+	y := -ff.Metrics().Size * underlineDistance
+	d := 6.0 * underlineThickness
+	n := int(0.5 + w/d)
+	d = (w - r) / float64(n)
+	dx := r
+
+	p := &Path{}
+	p.MoveTo(dx, y)
+	for i := 0; i < n; i++ {
+		if i%2 == 0 {
+			p.LineTo(dx+d, y+dh)
+		} else {
+			p.LineTo(dx+d, y)
+		}
+		dx += d
+	}
+	return p.Stroke(r, RoundCapper, RoundJoiner)
+})
+
+////////////////////////////////////////////////////////////////
 
 func isspace(r rune) bool {
 	return unicode.IsSpace(r)
