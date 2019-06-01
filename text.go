@@ -59,7 +59,7 @@ type span interface {
 	ToPath(float64) *Path
 }
 
-////////////////////////////////
+////////////////////////////////////////////////////////////////
 
 type RichText struct {
 	spans      []span
@@ -392,30 +392,30 @@ func (t *Text) ToSVG(x, y, rot float64, c color.Color) string {
 			switch span := ls.span.(type) {
 			case textSpan:
 				name, size, style := span.ff.Info() // TODO: use faux styles and decoration
-				span.splitAtSpacings(ls.dx, ls.w, func(dx, w, glyphSpacing float64, s string) {
-					sb.WriteString("<tspan x=\"")
-					writeFloat64(&sb, x+dx)
-					sb.WriteString("\" y=\"")
-					writeFloat64(&sb, y-line.y)
-					if glyphSpacing > 0.0 {
-						sb.WriteString("\" textLength=\"")
-						writeFloat64(&sb, w)
-					}
-					sb.WriteString("\" font-family=\"")
-					sb.WriteString(name)
-					sb.WriteString("\" font-size=\"")
-					writeFloat64(&sb, size)
-					if style&Italic != 0 {
-						sb.WriteString("\" font-style=\"italic")
-					}
-					if style&Bold != 0 {
-						sb.WriteString("\" font-weight=\"bold")
-					}
-					sb.WriteString("\">")
-					s = span.ff.f.transform(s, w == 0.0)
-					sb.WriteString(s)
-					sb.WriteString("</tspan>")
-				})
+				glyphSpacing := span.getGlyphSpacing(ls.w)
+
+				sb.WriteString("<tspan x=\"")
+				writeFloat64(&sb, x+ls.dx)
+				sb.WriteString("\" y=\"")
+				writeFloat64(&sb, y-line.y)
+				if glyphSpacing > 0.0 {
+					sb.WriteString("\" textLength=\"")
+					writeFloat64(&sb, span.textWidth+float64(utf8.RuneCountInString(span.s))*glyphSpacing)
+				}
+				sb.WriteString("\" font-family=\"")
+				sb.WriteString(name)
+				sb.WriteString("\" font-size=\"")
+				writeFloat64(&sb, size)
+				if style&Italic != 0 {
+					sb.WriteString("\" font-style=\"italic")
+				}
+				if style&Bold != 0 {
+					sb.WriteString("\" font-weight=\"bold")
+				}
+				sb.WriteString("\">")
+				span.s = span.ff.f.transform(span.s, glyphSpacing == 0.0)
+				sb.WriteString(span.s)
+				sb.WriteString("</tspan>")
 			default:
 				panic("unsupported span type")
 			}
@@ -425,16 +425,17 @@ func (t *Text) ToSVG(x, y, rot float64, c color.Color) string {
 	return sb.String()
 }
 
+////////////////////////////////////////////////////////////////
+
 type textSpan struct {
-	ff        FontFace
-	s         string
-	textWidth float64
-	//sentenceSpacings int
-	//wordSpacings     int
+	ff             FontFace
+	s              string
+	textWidth      float64
 	glyphSpacings  int
 	wordBoundaries []textBoundary
 }
 
+// TODO: proper transformation of typographic elements, ie. including surrounding text
 func newTextSpan(ff FontFace, s string) textSpan {
 	textWidth := ff.TextWidth(s)
 	wordBoundaries, glyphSpacings := calcWordBoundaries(s)
@@ -477,31 +478,22 @@ func (ts textSpan) Split(width float64) (span, span) {
 	return nil, ts
 }
 
-func (ts textSpan) ToPath(width float64) *Path {
-	//sentenceSpacing := 0.0
-	//wordSpacing := 0.0
+func (ts textSpan) getGlyphSpacing(width float64) float64 {
 	glyphSpacing := 0.0
-	if width > ts.textWidth {
-		widthLeft := width - ts.textWidth
-		xHeight := ts.ff.Metrics().XHeight
-		//if ts.sentenceSpacings > 0 {
-		//	sentenceSpacing = math.Min(widthLeft/float64(ts.sentenceSpacings), xHeight*MaxSentenceSpacing)
-		//	widthLeft -= float64(ts.sentenceSpacings) * sentenceSpacing
-		//}
-		//if ts.wordSpacings > 0 {
-		//	wordSpacing = math.Min(widthLeft/float64(ts.wordSpacings), xHeight*MaxWordSpacing)
-		//	widthLeft -= float64(ts.wordSpacings) * wordSpacing
-		//}
-		if ts.glyphSpacings > 0 {
-			glyphSpacing = math.Min(widthLeft/float64(ts.glyphSpacings), xHeight*MaxGlyphSpacing)
-		}
+	maxGlyphSpacing := ts.ff.Metrics().XHeight * MaxGlyphSpacing
+	if 0 < ts.glyphSpacings && ts.textWidth < width && width < ts.textWidth+float64(ts.glyphSpacings)*maxGlyphSpacing {
+		glyphSpacing = (width - ts.textWidth) / float64(ts.glyphSpacings)
 	}
+	return glyphSpacing
+}
+
+func (ts textSpan) ToPath(width float64) *Path {
+	glyphSpacing := ts.getGlyphSpacing(width)
 	s := ts.ff.f.transform(ts.s, glyphSpacing == 0.0)
 
 	x := 0.0
 	p := &Path{}
 	var rPrev rune
-	//iBoundary := 0
 	for i, r := range s {
 		if i > 0 {
 			x += ts.ff.Kerning(rPrev, r)
@@ -512,64 +504,13 @@ func (ts textSpan) ToPath(width float64) *Path {
 		p.Append(pr)
 		x += advance
 
-		spacing := glyphSpacing
-		//if iBoundary < len(ts.textBoundaries) && ts.textBoundaries[iBoundary].pos == i {
-		//	if ts.textBoundaries[iBoundary].kind == wordBoundary {
-		//		spacing = wordSpacing
-		//	} else if ts.textBoundaries[iBoundary].kind == sentenceBoundary {
-		//		spacing = sentenceSpacing
-		//	}
-		//	iBoundary++
-		//}
-		x += spacing
+		x += glyphSpacing
 		rPrev = r
 	}
 	return p
 }
 
-// TODO: remove
-func (ts textSpan) splitAtSpacings(spanDx, width float64, f func(float64, float64, float64, string)) {
-	//spaceWidth := ts.ff.TextWidth(" ")
-	//sentenceSpacing := 0.0
-	//wordSpacing := 0.0
-	glyphSpacing := 0.0
-	if width > ts.textWidth {
-		widthLeft := width - ts.textWidth
-		xHeight := ts.ff.Metrics().XHeight
-		//	if ts.sentenceSpacings > 0 {
-		//		sentenceSpacing = math.Min(widthLeft/float64(ts.sentenceSpacings), xHeight*MaxSentenceSpacing)
-		//		widthLeft -= float64(ts.sentenceSpacings) * sentenceSpacing
-		//	}
-		//	if ts.wordSpacings > 0 {
-		//		wordSpacing = math.Min(widthLeft/float64(ts.wordSpacings), xHeight*MaxWordSpacing)
-		//		widthLeft -= float64(ts.wordSpacings) * wordSpacing
-		//	}
-		if ts.glyphSpacings > 0 {
-			glyphSpacing = math.Min(widthLeft/float64(ts.glyphSpacings), xHeight*MaxGlyphSpacing)
-		}
-	}
-	//if sentenceSpacing > 0.0 || wordSpacing > 0.0 {
-	//	prevPos := 0
-	//	dx := spanDx
-	//	for _, textBoundary := range ts.textBoundaries {
-	//		s := ts.s[prevPos:textBoundary.pos]
-	//		w := ts.ff.TextWidth(s)
-	//		if glyphSpacing > 0.0 {
-	//			w += float64(utf8.RuneCountInString(s)-1) * glyphSpacing
-	//		}
-	//		f(dx, w, glyphSpacing, s)
-	//		prevPos = textBoundary.pos + 1
-	//		dx += ts.ff.TextWidth(s) + spaceWidth + float64(utf8.RuneCountInString(s))*glyphSpacing
-	//		if textBoundary.kind == wordBoundary {
-	//			dx += wordSpacing
-	//		} else if textBoundary.kind == sentenceBoundary {
-	//			dx += sentenceSpacing
-	//		}
-	//	}
-	//} else {
-	f(spanDx, width, glyphSpacing, ts.s)
-	//}
-}
+////////////////////////////////////////////////////////////////
 
 type textBoundaryKind int
 
