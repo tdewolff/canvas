@@ -74,7 +74,7 @@ func drawText(c *canvas.C, x, y float64, face canvas.FontFace, rich *canvas.Rich
 	width, height := 80.0, 25.0
 	text := rich.ToText(width, height, canvas.Justify, canvas.Top, 0.0)
 
-	c.SetColor(canvas.Gainsboro)
+	c.SetColor(canvas.OrangeRed)
 	c.DrawPath(x, y, 0.0, text.Bounds().ToPath())
 	c.SetColor(color.RGBA{0, 0, 0, 50})
 	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, 0, width, -metrics.LineHeight))
@@ -83,9 +83,7 @@ func drawText(c *canvas.C, x, y float64, face canvas.FontFace, rich *canvas.Rich
 
 	c.SetColor(canvas.Black)
 	c.DrawPath(x, y, 0.0, canvas.Rectangle(0.0, 0.0, width, -height).Stroke(0.2, canvas.RoundCapper, canvas.RoundJoiner))
-	//c.DrawText(x, y, 0.0, text)
-	c.DrawPath(x, y, 0.0, text.ToPath())
-	c.DrawPath(x, y, 0.0, text.ToPathDecorations())
+	c.DrawText(x, y, 0.0, text)
 }
 
 func Draw(c *canvas.C) {
@@ -145,7 +143,21 @@ func Draw(c *canvas.C) {
 	p.LineTo(0.0, 20.0)
 	p.Close()
 	q := p.Smoothen()
+	c.SetColor(canvas.SteelBlue)
 	c.DrawPath(170, 10, 0.0, q)
-	c.SetColor(canvas.Grey)
-	c.DrawPath(170, 10, 0.0, p)
+	c.SetColor(canvas.Black)
+	c.DrawPath(170, 10, 0.0, p.Stroke(0.25, canvas.RoundCapper, canvas.RoundJoiner))
+
+	p = &canvas.Path{}
+	p.LineTo(10.0, 5.0)
+	p.LineTo(20.0, 15.0)
+	p.LineTo(30.0, 20.0)
+	p.LineTo(40.0, 10.0)
+	q = p.Smoothen()
+	c.SetColor(canvas.SteelBlue)
+	c.DrawPath(120, 5, 0.0, q.Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner))
+	c.SetColor(canvas.Black)
+	for _, point := range p.Points() {
+		c.DrawPath(120, 5, 0.0, canvas.Circle(point.X, point.Y, 1.0).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner))
+	}
 }
