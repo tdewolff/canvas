@@ -14,13 +14,13 @@ var Tolerance = 0.01
 
 // PathCmd specifies the path command.
 const (
-	NullCmd   = 0.0
 	MoveToCmd = 1.0 << iota
 	LineToCmd
 	QuadToCmd
 	CubeToCmd
 	ArcToCmd
 	CloseCmd
+	NullCmd = 0.0
 )
 
 // cmdLen returns the number of numbers the path command contains.

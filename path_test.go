@@ -19,7 +19,7 @@ func TestParse(t *testing.T) {
 		err  string
 	}{
 		{"5", "bad path: path should start with command"},
-		{"MM", "bad path: number should follow command 'M'"},
+		{"MM", "bad path: 2 numbers should follow command 'M' at position 1"},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
@@ -324,21 +324,21 @@ func plotPathLengthParametrization(filename string, speed, length func(float64) 
 		panic(err)
 	}
 	anchors1.GlyphStyle.Shape = draw.CircleGlyph{}
-	anchors1.GlyphStyle.Color = SteelBlue
+	anchors1.GlyphStyle.Color = Steelblue
 	anchors1.GlyphStyle.Radius = 5.0
 
 	line1, err := plotter.NewLine(model1Data)
 	if err != nil {
 		panic(err)
 	}
-	line1.LineStyle.Color = SteelBlue
+	line1.LineStyle.Color = Steelblue
 	line1.LineStyle.Width = 2.0
 
 	line2, err := plotter.NewLine(model2Data)
 	if err != nil {
 		panic(err)
 	}
-	line2.LineStyle.Color = OrangeRed
+	line2.LineStyle.Color = Orangered
 	line2.LineStyle.Width = 1.0
 
 	p, err := plot.New()

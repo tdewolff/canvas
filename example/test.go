@@ -54,23 +54,30 @@ func drawStrokedPath(c *canvas.C, x, y, d float64, path string) {
 	}
 	c.DrawPath(x, y, 0.0, p)
 
-	c.SetColor(color.RGBA{255, 0, 0, 127})
 	p = p.Stroke(d, canvas.ButtCapper, canvas.ArcsJoiner)
+	c.SetColor(color.RGBA{255, 0, 0, 127})
+	c.DrawPath(x, y, 0.0, p)
+
+	canvas.NOINTER = true
+
+	p = p.Stroke(0.2, canvas.RoundCapper, canvas.RoundJoiner)
+	c.SetColor(color.RGBA{255, 0, 0, 255})
 	c.DrawPath(x, y, 0.0, p)
 }
 
 func Draw(c *canvas.C) {
-	ellipse, _ := canvas.ParseSVG(fmt.Sprintf("A10 20 0 0 0 20 0z"))
-	c.SetColor(canvas.Red)
-	c.DrawPath(50.0, 40.0, 0.0, ellipse)
-	ps := ellipse.SplitAt(10.0)
-	ellipse = ps[0]
-	fmt.Println(ellipse)
-	ellipse = ellipse.Stroke(2.0, canvas.RoundCapper, canvas.RoundJoiner)
-	ellipse = ellipse.Flatten()
-	c.SetColor(canvas.BlackTransparent)
-	c.DrawPath(50.0, 40.0, 0.0, ellipse)
+	//ellipse, _ := canvas.ParseSVG(fmt.Sprintf("A10 20 0 0 0 20 0z"))
+	//c.SetColor(canvas.Red)
+	//c.DrawPath(50.0, 40.0, 0.0, ellipse)
+	//ps := ellipse.SplitAt(10.0)
+	//ellipse = ps[0]
+	//fmt.Println(ellipse)
+	//ellipse = ellipse.Stroke(2.0, canvas.RoundCapper, canvas.RoundJoiner)
+	//ellipse = ellipse.Flatten()
+	//c.SetColor(canvas.BlackTransparent)
+	//c.DrawPath(50.0, 40.0, 0.0, ellipse)
 
+	drawStrokedPath(c, 10, 10, 2.0, "M0 0L30 0L30 30z")
 	//drawStrokedPath(c, 30, 50, 2.0, "M0 0L50 0")
 	//drawStrokedPath(c, 30, 40, 2.0, "M0 0L50 0L50 -5")
 	//drawStrokedPath(c, 30, 30, 2.0, "M-25 -25A25 25 0 0 1 0 0A25 25 0 0 1 25 -25z")

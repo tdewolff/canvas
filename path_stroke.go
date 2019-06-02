@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -54,60 +55,61 @@ func squareCapper(p *Path, halfWidth float64, pivot, n0 Point) {
 // path elements, n0 and n1 the normals at the start and end of the path respectively.
 // The length of n0 and n1 are equal to the halfWidth.
 type Joiner interface {
-	Join(*Path, *Path, float64, Point, Point, Point, float64, float64)
+	Join(*Path, *Path, float64, Point, Point, Point, float64, float64) bool
 }
 
-type JoinerFunc func(*Path, *Path, float64, Point, Point, Point, float64, float64)
+type JoinerFunc func(*Path, *Path, float64, Point, Point, Point, float64, float64) bool
 
-func (f JoinerFunc) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
-	f(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
+func (f JoinerFunc) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) bool {
+	return f(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 }
 
 // BevelJoiner connects two path elements by a linear join.
 var BevelJoiner Joiner = JoinerFunc(bevelJoiner)
 
-func bevelJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
+func bevelJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) bool {
 	if n0.Equals(n1) {
-		return
+		return false
 	}
 
 	rEnd := pivot.Add(n1)
 	lEnd := pivot.Sub(n1)
 	rhs.LineTo(rEnd.X, rEnd.Y)
 	lhs.LineTo(lEnd.X, lEnd.Y)
+	return true
 }
 
 // RoundJoiner connects two path elements by a round join.
 var RoundJoiner Joiner = JoinerFunc(roundJoiner)
 
-func roundJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
+func roundJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) bool {
 	if n0.Equals(n1) {
-		return
+		return false
 	}
 
 	rEnd := pivot.Add(n1)
 	lEnd := pivot.Sub(n1)
-	cw := n0.Rot90CW().Dot(n1) >= 0
+	cw := n0.Rot90CW().Dot(n1) >= 0.0
 	if cw { // bend to the right, ie. CW
 		rhs.LineTo(rEnd.X, rEnd.Y)
-		lhs.ArcTo(halfWidth, halfWidth, 0, false, false, lEnd.X, lEnd.Y)
+		lhs.ArcTo(halfWidth, halfWidth, 0.0, false, false, lEnd.X, lEnd.Y)
 	} else { // bend to the left, ie. CCW
-		rhs.ArcTo(halfWidth, halfWidth, 0, false, true, rEnd.X, rEnd.Y)
+		rhs.ArcTo(halfWidth, halfWidth, 0.0, false, true, rEnd.X, rEnd.Y)
 		lhs.LineTo(lEnd.X, lEnd.Y)
 	}
+	return true
 }
 
 var MiterJoiner Joiner = JoinerFunc(miterJoiner)
 
-func miterJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
+func miterJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) bool {
 	if n0.Equals(n1) {
-		return
+		return false
 	} else if n0.Equals(n1.Neg()) {
-		bevelJoiner(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
-		return
+		return bevelJoiner(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 	}
 
-	cw := n0.Rot90CW().Dot(n1) >= 0
+	cw := n0.Rot90CW().Dot(n1) >= 0.0
 	hw := halfWidth
 	if cw {
 		hw = -hw // used to calculate |R|, when running CW then n0 and n1 point the other way, so the sign of r0 and r1 is negated
@@ -126,62 +128,21 @@ func miterJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 
 	}
 	rhs.LineTo(rEnd.X, rEnd.Y)
 	lhs.LineTo(lEnd.X, lEnd.Y)
+	return true
 }
 
 var ArcsJoiner Joiner = JoinerFunc(arcsJoiner)
 
-// https://math.stackexchange.com/questions/256100/how-can-i-find-the-points-at-which-two-circles-intersect
-// https://gist.github.com/jupdike/bfe5eb23d1c395d8a0a1a4ddd94882ac
-func circleCircleIntersection(c0 Point, r0 float64, c1 Point, r1 float64) (Point, Point, bool) {
-	R := c0.Sub(c1).Length()
-	if R < math.Abs(r0-r1) || r0+r1 < R {
-		return Point{}, Point{}, false
-	}
-	R2 := R * R
-
-	k := r0*r0 - r1*r1
-	a := 0.5
-	b := 0.5 * k / R2
-	c := 0.5 * math.Sqrt(2.0*(r0*r0+r1*r1)/R2-k*k/(R2*R2)-1.0)
-
-	i0 := c0.Add(c1).Mul(a)
-	i1 := c1.Sub(c0).Mul(b)
-	i2 := Point{c1.Y - c0.Y, c0.X - c1.X}.Mul(c)
-	return i0.Add(i1).Add(i2), i0.Add(i1).Sub(i2), true
-}
-
-// http://mathworld.wolfram.com/Circle-LineIntersection.html
-func circleLineIntersection(c Point, r float64, pivot, n Point) (Point, Point, bool) {
-	d := n.Rot90CCW().Norm(1.0) // along line direction, anchored in pivot, its length is 1
-	D := pivot.Sub(c).PerpDot(d)
-	discriminant := r*r - D*D
-	if discriminant < 0 {
-		return Point{}, Point{}, false
-	}
-	discriminant = math.Sqrt(discriminant)
-
-	ax := D * d.Y
-	bx := d.X * discriminant
-	if d.Y < 0.0 {
-		bx = -bx
-	}
-	ay := -D * d.X
-	by := math.Abs(d.Y) * discriminant
-	return c.Add(Point{ax + bx, ay + by}), c.Add(Point{ax - bx, ay - by}), true
-}
-
-func arcsJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
+func arcsJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) bool {
 	if n0.Equals(n1) {
-		return
+		return false
 	} else if n0.Equals(n1.Neg()) {
-		bevelJoiner(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
-		return
+		return bevelJoiner(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 	} else if math.IsNaN(r0) && math.IsNaN(r1) {
-		miterJoiner(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
-		return
+		return miterJoiner(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 	}
 
-	cw := n0.Rot90CW().Dot(n1) >= 0
+	cw := n0.Rot90CW().Dot(n1) >= 0.0
 	hw := halfWidth
 	if cw {
 		hw = -hw // used to calculate |R|, when running CW then n0 and n1 point the other way, so the sign of r0 and r1 is negated
@@ -192,6 +153,7 @@ func arcsJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 f
 	c1 := pivot.Add(n1.Norm(-r1))
 	R0, R1 := math.Abs(r0+hw), math.Abs(r1+hw)
 
+	// TODO: can simplify if intersection returns angles too?
 	var i0, i1 Point
 	var ok bool
 	if math.IsNaN(r0) {
@@ -199,20 +161,19 @@ func arcsJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 f
 		if cw {
 			line = pivot.Sub(n0)
 		}
-		i0, i1, ok = circleLineIntersection(c1, R1, line, n0)
+		i0, i1, ok = intersectionRayCircle(line, line.Add(n1.Rot90CCW()), c1, R1)
 	} else if math.IsNaN(r1) {
 		line := pivot.Add(n1)
 		if cw {
 			line = pivot.Sub(n1)
 		}
-		i0, i1, ok = circleLineIntersection(c0, R0, line, n1)
+		i0, i1, ok = intersectionRayCircle(line, line.Add(n1.Rot90CCW()), c0, R0)
 	} else {
-		i0, i1, ok = circleCircleIntersection(c0, R0, c1, R1)
+		i0, i1, ok = intersectionCircleCircle(c0, R0, c1, R1)
 	}
 	if !ok {
 		// no intersection, default to bevel
-		bevelJoiner(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
-		return
+		return bevelJoiner(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 	}
 
 	// find the closest intersection when following the arc (using either arc r0 or r1 with center c0 or c1 respectively)
@@ -259,10 +220,12 @@ func arcsJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 f
 		}
 		lhs.LineTo(lEnd.X, lEnd.Y)
 	}
+	return true
 }
 
 type pathState struct {
 	cmd    float64
+	size   int     // number of commands it ends up being (ie. cubic bezier becomes many linears)
 	p0, p1 Point   // position of start and end
 	n0, n1 Point   // normal of start and end
 	r0, r1 float64 // radius of start and end
@@ -270,6 +233,48 @@ type pathState struct {
 	cp1, cp2                    Point   // Béziers
 	rx, ry, rot, theta0, theta1 float64 // arcs
 	largeArc, sweep             bool    // arcs
+}
+
+var NOINTER bool
+
+func strokeIntersect(p *Path, prev, next pathState, nPrev, nNext int, closer bool) {
+	if NOINTER {
+		return
+	}
+
+	n := len(p.d)
+	var iNext, iPrev int
+	if !closer {
+		iNext = n - nNext
+		iPrev = iNext - 3 - nPrev // inside bend has extra linear segment
+	} else {
+		iNext = 3             // after first MoveTo
+		iPrev = n - 3 - nPrev // inside bend has extra linear segment
+	}
+
+	startPrev := Point{p.d[iPrev-2], p.d[iPrev-1]}
+	startNext := Point{p.d[iNext-2], p.d[iNext-1]}
+	endPrev := Point{p.d[iPrev+1], p.d[iPrev+2]}
+	endNext := Point{p.d[iNext+1], p.d[iNext+2]}
+
+	fmt.Println(startPrev, endPrev, startNext, endNext)
+
+	success := false
+	if prev.cmd == LineToCmd && next.cmd == LineToCmd {
+		if i, ok := intersectionLineLine(startPrev, endPrev, startNext, endNext); ok {
+			p.d[iPrev+1] = i.X
+			p.d[iPrev+2] = i.Y
+			success = true
+		}
+	}
+
+	if success {
+		p.d = append(p.d[:iPrev+nPrev], p.d[iPrev+nPrev+3:]...) // remove extra linear segment
+		if closer {
+			p.d[1] = p.d[iPrev+1] // set first MoveTo to the last coordinates
+			p.d[2] = p.d[iPrev+2]
+		}
+	}
 }
 
 // offsetSegment returns the rhs and lhs paths from offsetting a path segment
@@ -351,7 +356,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			if !equal(start.X, end.X) || !equal(start.Y, end.Y) {
 				n := end.Sub(start).Rot90CW().Norm(halfWidth)
 				states = append(states, pathState{
-					cmd: CloseCmd,
+					cmd: LineToCmd,
 					p0:  start,
 					p1:  end,
 					n0:  n,
@@ -376,7 +381,11 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 	lhs.MoveTo(lStart.X, lStart.Y)
 
 	// TODO: fix if there is no space for Joiner when stroke is too thick
+	joined := false
+	nRHS, nLHS, nRHSPrev, nLHSPrev, nRHSFirst, nLHSFirst := 0, 0, 0, 0, 0, 0
+	var prev pathState
 	for i, cur := range states {
+		nRHS, nLHS = len(rhs.d), len(lhs.d)
 		switch cur.cmd {
 		case LineToCmd:
 			rEnd := cur.p1.Add(cur.n1)
@@ -396,13 +405,20 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 				rhs.ArcTo(cur.rx+halfWidth, cur.ry+halfWidth, cur.rot, cur.largeArc, cur.sweep, rEnd.X, rEnd.Y)
 				lhs.ArcTo(cur.rx-halfWidth, cur.ry-halfWidth, cur.rot, cur.largeArc, cur.sweep, lEnd.X, lEnd.Y)
 			}
-		case CloseCmd:
-			rEnd := cur.p1.Add(cur.n1)
-			lEnd := cur.p1.Sub(cur.n1)
-			rhs.LineTo(rEnd.X, rEnd.Y)
-			lhs.LineTo(lEnd.X, lEnd.Y)
+		}
+		nRHS, nLHS = len(rhs.d)-nRHS, len(lhs.d)-nLHS
+
+		// join the prev and cur path segments on the inside of the bend
+		if 0 < i && joined {
+			ccw := prev.n1.Rot90CCW().Dot(cur.n0) > 0.0
+			if ccw {
+				strokeIntersect(lhs, prev, cur, nLHSPrev, nLHS, false)
+			} else {
+				strokeIntersect(rhs, prev, cur, nRHSPrev, nRHS, false)
+			}
 		}
 
+		// join the cur and next path segments on the outside of the bend
 		if i+1 < len(states) || closed {
 			var next pathState
 			if i+1 < len(states) {
@@ -410,9 +426,25 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			} else {
 				next = states[0]
 			}
-			jr.Join(rhs, lhs, halfWidth, cur.p1, cur.n1, next.n0, cur.r1, next.r0)
+			joined = jr.Join(rhs, lhs, halfWidth, cur.p1, cur.n1, next.n0, cur.r1, next.r0)
+		}
+
+		if i == 0 {
+			nRHSFirst, nLHSFirst = nRHS, nLHS
+		}
+		nRHSPrev, nLHSPrev = nRHS, nLHS
+		prev = cur
+	}
+	if closed && joined {
+		cur := states[0]
+		ccw := prev.n1.Rot90CCW().Dot(states[0].n0) > 0.0
+		if ccw {
+			strokeIntersect(lhs, prev, cur, nLHSPrev, nLHSFirst, true)
+		} else {
+			strokeIntersect(rhs, prev, cur, nRHSPrev, nRHSFirst, true)
 		}
 	}
+
 	lhs = lhs.Reverse()
 	if closed {
 		rhs.Close()

@@ -40,11 +40,11 @@ func drawStrokedPath(c *canvas.C, x, y float64, path string, cr canvas.Capper, j
 	}
 
 	outerStroke := p.Stroke(10.0, cr, jr)
-	c.SetColor(canvas.DarkGrey)
+	c.SetColor(canvas.Darkgrey)
 	c.DrawPath(x, y, 0.0, outerStroke)
 	c.SetColor(color.RGBA{150, 150, 150, 255})
 	c.DrawPath(x, y, 0.0, outerStroke.Stroke(0.2, canvas.ButtCapper, canvas.RoundJoiner))
-	c.SetColor(canvas.SteelBlue)
+	c.SetColor(canvas.Steelblue)
 	c.DrawPath(x, y, 0.0, p.Stroke(0.5, canvas.ButtCapper, canvas.BevelJoiner))
 }
 

@@ -393,7 +393,7 @@ func (t *Text) ToSVG(x, y, rot float64, color color.RGBA) string {
 		for _, ls := range line.lineSpans {
 			switch span := ls.span.(type) {
 			case textSpan:
-				name, size, style := span.ff.Info() // TODO: use faux styles and decoration
+				name, size, style := span.ff.Info() // TODO: use color, faux styles and decoration
 				glyphSpacing := span.getGlyphSpacing(ls.w)
 
 				sb.WriteString("<tspan x=\"")
