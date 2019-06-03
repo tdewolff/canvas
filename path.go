@@ -756,6 +756,42 @@ func (p *Path) Split() []*Path {
 	return ps
 }
 
+type intersection struct {
+	i int     // index into path
+	t float64 // parametric value
+}
+
+func (p *Path) SplitIntersections(q *Path) ([]*Path, []*Path) {
+	selfIntersect := p == q
+	ps := []*Path{}
+	qs := []*Path{}
+	for _, pp := range p.Split() {
+		for _, qq := range q.Split() {
+			qu := []intersection{}
+			for {
+				_ = pp
+				_ = qq
+				// add to ps
+			}
+
+			if !selfIntersect {
+				sort.Slice(qu, func(i, j int) bool {
+					return qu[i].i < qu[j].i || qu[i].i == qu[j].i && qu[i].t < qu[j].t
+				})
+
+				for _, _ = range qu {
+					// add to qs
+				}
+			}
+		}
+	}
+
+	if selfIntersect {
+		return ps, ps
+	}
+	return ps, qs
+}
+
 // SplitAt splits the path into seperate paths at the specified intervals (given in millimeters) along the path.
 func (p *Path) SplitAt(ts ...float64) []*Path {
 	if len(ts) == 0 {

@@ -54,12 +54,9 @@ func drawStrokedPath(c *canvas.C, x, y, d float64, path string) {
 	}
 	c.DrawPath(x, y, 0.0, p)
 
-	canvas.NOINTER = false
 	p = p.Stroke(d, canvas.ButtCapper, canvas.MiterClipJoiner(canvas.RoundJoiner, d))
 	c.SetColor(color.RGBA{255, 0, 0, 127})
 	c.DrawPath(x, y, 0.0, p)
-
-	canvas.NOINTER = true
 
 	p = p.Stroke(0.2, canvas.RoundCapper, canvas.RoundJoiner)
 	c.SetColor(color.RGBA{255, 0, 0, 255})
