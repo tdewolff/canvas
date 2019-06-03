@@ -416,7 +416,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 	return rhs, nil
 }
 
-// Offset offsets the path to expand by w. If w is negative it will contract (TODO: buggy).
+// Offset offsets the path to expand by w. If w is negative it will contract. TODO: buggy
 func (p *Path) Offset(w float64) *Path {
 	if w == 0.0 {
 		return p

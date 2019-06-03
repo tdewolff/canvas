@@ -60,15 +60,14 @@ Fonts
 
 Paths
 
-* Intersection function between line, Bézier and ellipse and between themselves
-* Avoid overlapping paths when offsetting in corners
-* Add function to apply mask (ie. apply a mask path onto another path)
 * Add function to apply shear transformation (hard, how do curves transform?)
 * Easier support for building paths from strings, like AppendSVG for example? (unsure)
 * Simplify polygons using the Ramer-Douglas-Peucker algorithm
+* Intersection function between line, Bézier and ellipse and between themselves (for path merge, overlap=mask, etc.)
 
 Optimization
 
+* Avoid overlapping paths when offsetting in corners (needs path intersection code)
 * Approximate Béziers by elliptic arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (unsure if worth it)
 
 Far future

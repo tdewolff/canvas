@@ -762,6 +762,7 @@ type intersection struct {
 }
 
 func (p *Path) SplitIntersections(q *Path) ([]*Path, []*Path) {
+	panic("not implemented")
 	selfIntersect := p == q
 	ps := []*Path{}
 	qs := []*Path{}
