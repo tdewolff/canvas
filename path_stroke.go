@@ -1,7 +1,6 @@
 package canvas
 
 import (
-	"fmt"
 	"math"
 )
 
@@ -100,14 +99,24 @@ func roundJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 
 	return true
 }
 
-var MiterJoiner Joiner = JoinerFunc(miterJoiner)
+var MiterJoiner Joiner = miterJoiner{BevelJoiner, math.NaN()}
 
-func miterJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) bool {
+func MiterClipJoiner(gapJoiner Joiner, limit float64) Joiner {
+	return miterJoiner{gapJoiner, limit}
+}
+
+type miterJoiner struct {
+	gapJoiner Joiner
+	limit     float64
+}
+
+func (j miterJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) bool {
 	if n0.Equals(n1) {
 		return false
 	} else if n0.Equals(n1.Neg()) {
 		return bevelJoiner(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 	}
+	limit := math.Max(j.limit, halfWidth*1.001) // otherwise nearly linear joins will also get clipped
 
 	cw := n0.Rot90CW().Dot(n1) >= 0.0
 	hw := halfWidth
@@ -117,6 +126,9 @@ func miterJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 
 
 	theta := n0.AngleBetween(n1) / 2.0
 	d := hw / math.Cos(theta)
+	if !math.IsNaN(j.limit) && math.Abs(d) > limit {
+		return j.gapJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
+	}
 	mid := pivot.Add(n0.Add(n1).Norm(d))
 
 	rEnd := pivot.Add(n1)
@@ -131,16 +143,26 @@ func miterJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 
 	return true
 }
 
-var ArcsJoiner Joiner = JoinerFunc(arcsJoiner)
+var ArcsJoiner Joiner = arcsJoiner{BevelJoiner, math.NaN()}
 
-func arcsJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) bool {
+func ArcsClipJoiner(gapJoiner Joiner, limit float64) Joiner {
+	return arcsJoiner{gapJoiner, limit}
+}
+
+type arcsJoiner struct {
+	gapJoiner Joiner
+	limit     float64
+}
+
+func (j arcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) bool {
 	if n0.Equals(n1) {
 		return false
 	} else if n0.Equals(n1.Neg()) {
 		return bevelJoiner(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 	} else if math.IsNaN(r0) && math.IsNaN(r1) {
-		return miterJoiner(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
+		return miterJoiner{j.gapJoiner, j.limit}.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 	}
+	limit := math.Max(j.limit, halfWidth*1.001) // otherwise nearly linear joins will also get clipped
 
 	cw := n0.Rot90CW().Dot(n1) >= 0.0
 	hw := halfWidth
@@ -161,7 +183,7 @@ func arcsJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 f
 		if cw {
 			line = pivot.Sub(n0)
 		}
-		i0, i1, ok = intersectionRayCircle(line, line.Add(n1.Rot90CCW()), c1, R1)
+		i0, i1, ok = intersectionRayCircle(line, line.Add(n0.Rot90CCW()), c1, R1)
 	} else if math.IsNaN(r1) {
 		line := pivot.Add(n1)
 		if cw {
@@ -172,8 +194,8 @@ func arcsJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 f
 		i0, i1, ok = intersectionCircleCircle(c0, R0, c1, R1)
 	}
 	if !ok {
-		// no intersection, default to bevel
-		return bevelJoiner(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
+		// no intersection
+		return j.gapJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 	}
 
 	// find the closest intersection when following the arc (using either arc r0 or r1 with center c0 or c1 respectively)
@@ -191,6 +213,10 @@ func arcsJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 f
 	mid := i0
 	if angleNorm(dtheta1) < angleNorm(dtheta0) {
 		mid = i1
+	}
+
+	if !math.IsNaN(limit) && mid.Sub(pivot).Length() > limit {
+		return j.gapJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 	}
 
 	rEnd := pivot.Add(n1)
@@ -242,25 +268,33 @@ func strokeIntersect(p *Path, prev, next pathState, nPrev, nNext int, closer boo
 		return
 	}
 
-	n := len(p.d)
-	var iNext, iPrev int
-	if !closer {
-		iNext = n - nNext
-		iPrev = iNext - 3 - nPrev // inside bend has extra linear segment
-	} else {
-		iNext = 3             // after first MoveTo
-		iPrev = n - 3 - nPrev // inside bend has extra linear segment
+	prevCmd := prev.cmd
+	nextCmd := next.cmd
+	if prevCmd == CubeToCmd {
+		prevCmd = LineToCmd
+	}
+	if nextCmd == CubeToCmd {
+		nextCmd = LineToCmd
 	}
 
+	n := len(p.d)
+	var iNext, iPrev, iPrevStart int
+	if !closer {
+		iNext = n - nNext
+		iPrevStart = iNext - 3 - nPrev // inside bend has extra linear segment
+	} else {
+		iNext = 3                  // after first MoveTo
+		iPrevStart = n - 3 - nPrev // inside bend has extra linear segment
+	}
+	iPrev = iPrevStart + nPrev - cmdLen(prevCmd) // if previous path consists of multiple (line) commands, start with the last
+
 	startPrev := Point{p.d[iPrev-2], p.d[iPrev-1]}
-	startNext := Point{p.d[iNext-2], p.d[iNext-1]}
 	endPrev := Point{p.d[iPrev+1], p.d[iPrev+2]}
+	startNext := Point{p.d[iNext-2], p.d[iNext-1]}
 	endNext := Point{p.d[iNext+1], p.d[iNext+2]}
 
-	fmt.Println(startPrev, endPrev, startNext, endNext)
-
 	success := false
-	if prev.cmd == LineToCmd && next.cmd == LineToCmd {
+	if prevCmd == LineToCmd && nextCmd == LineToCmd {
 		if i, ok := intersectionLineLine(startPrev, endPrev, startNext, endNext); ok {
 			p.d[iPrev+1] = i.X
 			p.d[iPrev+2] = i.Y
@@ -269,7 +303,7 @@ func strokeIntersect(p *Path, prev, next pathState, nPrev, nNext int, closer boo
 	}
 
 	if success {
-		p.d = append(p.d[:iPrev+nPrev], p.d[iPrev+nPrev+3:]...) // remove extra linear segment
+		p.d = append(p.d[:iPrev+cmdLen(prevCmd)], p.d[iPrev+cmdLen(prevCmd)+3:]...) // remove extra linear segment
 		if closer {
 			p.d[1] = p.d[iPrev+1] // set first MoveTo to the last coordinates
 			p.d[2] = p.d[iPrev+2]
@@ -280,6 +314,8 @@ func strokeIntersect(p *Path, prev, next pathState, nPrev, nNext int, closer boo
 // offsetSegment returns the rhs and lhs paths from offsetting a path segment
 // it closes rhs and lhs when p is closed as well
 func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Path) {
+	p = p.Copy().Replace(nil, nil, flattenEllipse) // TODO: remove when path intersection supports elliptic arcs
+
 	closed := false
 	states := []pathState{}
 	var start, end Point

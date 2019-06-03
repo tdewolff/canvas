@@ -35,6 +35,7 @@ func cmdLen(cmd float64) int {
 	case NullCmd:
 		return 0
 	}
+	fmt.Println("unknown", cmd)
 	panic("unknown path command")
 }
 
@@ -750,7 +751,7 @@ func (p *Path) Split() []*Path {
 		j += cmdLen(cmd)
 	}
 	if j > i {
-		ps = append(ps, &Path{p.d[i:j], 0})
+		ps = append(ps, &Path{p.d[i:], 0})
 	}
 	return ps
 }
