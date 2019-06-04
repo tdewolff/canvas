@@ -168,6 +168,11 @@ type Rect struct {
 }
 
 func (r Rect) Add(q Rect) Rect {
+	if q.W == 0.0 || q.H == 0 {
+		return r
+	} else if r.W == 0.0 || r.H == 0 {
+		return q
+	}
 	x0 := math.Min(r.X, q.X)
 	y0 := math.Min(r.Y, q.Y)
 	x1 := math.Max(r.X+r.W, q.X+q.W)

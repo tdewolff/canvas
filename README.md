@@ -13,6 +13,7 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS and raste
 * [Quadratic Bézier length](https://malczak.linuxpl.com/blog/quadratic-bezier-curve-length/)
 * [Bézier spline through open path](https://www.particleincell.com/2012/bezier-splines/)
 * [Bézier spline through closed path](http://www.jacos.nl/jacos_html/spline/circular/index.html)
+* [Point inclusion in polygon test](https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html)
 
 My own
 
@@ -63,7 +64,10 @@ Paths
 * Add function to apply shear transformation (hard, how do curves transform?)
 * Easier support for building paths from strings, like AppendSVG for example? (unsure)
 * Simplify polygons using the Ramer-Douglas-Peucker algorithm
+* Find out if path is defining interior or exterior for filling (Offset)
+* Implement Bentley-Ottmann algorithm to find all line intersections (clipping)
 * Intersection function between line, Bézier and ellipse and between themselves (for path merge, overlap=mask, etc.)
+* Implement path clipping
 
 Optimization
 
@@ -139,15 +143,16 @@ We can extract information from these paths using:
 
 ``` go
 p.Empty() bool
-p.Pos() (x, y float64)       // current pen position
-p.StartPos() (x, y float64)  // position of last MoveTo
-p.Points() []Point           // positions of all commands
-p.CW() bool                  // true if the last path segment has a clockwise direction
-p.CCW() bool                 // true if the last path segment has a counter clockwise direction
-p.Bounds() Rect              // bounding box of path
-p.Length() float64           // length of path in millimeters
-p.ToSVG() string             // to SVG
-p.ToPS() string              // to PostScript
+p.Pos() (x, y float64)         // current pen position
+p.StartPos() (x, y float64)    // position of last MoveTo
+p.Points() []Point             // positions of all commands
+p.CCW() bool                   // true if the last path segment has a counter clockwise direction
+p.Interior(x, y float64) bool  // true if (x,y) is in the interior of the path, ie. gets filled
+p.Filling() bool               // true if the last path segment is filling
+p.Bounds() Rect                // bounding box of path
+p.Length() float64             // length of path in millimeters
+p.ToSVG() string               // to SVG
+p.ToPS() string                // to PostScript
 ```
 
 These paths can be manipulated and transformed with the following commands. Each will return a pointer to the path.

@@ -263,8 +263,8 @@ type pathState struct {
 	largeArc, sweep             bool    // arcs
 }
 
-// offsetSegment returns the rhs and lhs paths from offsetting a path segment
-// it closes rhs and lhs when p is closed as well
+// offsetSegment returns the rhs and lhs paths from offsetting a path segment.
+// It closes rhs and lhs when p is closed as well.
 func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Path) {
 	closed := false
 	states := []pathState{}
@@ -403,12 +403,14 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 
 	// TODO: split at intersections and filter out overlapped parts
 
-	lhs = lhs.Reverse()
 	if closed {
 		rhs.Close()
 		lhs.Close()
 		return rhs, lhs
 	}
+
+	// default to CCW direction
+	lhs = lhs.Reverse()
 	cr.Cap(rhs, halfWidth, states[len(states)-1].p1, states[len(states)-1].n1)
 	rhs.Join(lhs)
 	cr.Cap(rhs, halfWidth, states[0].p0, states[0].n0.Neg())
@@ -416,22 +418,30 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 	return rhs, nil
 }
 
-// Offset offsets the path to expand by w. If w is negative it will contract. TODO: buggy
+// Offset offsets the path to expand by w. If w is negative it will contract.
 func (p *Path) Offset(w float64) *Path {
 	if w == 0.0 {
 		return p
 	}
 
 	q := &Path{}
-	//expand := w > 0.0
-	for _, ps := range p.Split() {
+	fillings := p.Filling()
+	for i, ps := range p.Split() {
 		if !ps.Closed() {
 			continue
 		}
-		// TODO: fix choosing rhs or lhs as we don't know if the path inverts an earlier one
-		_, lhs := offsetSegment(ps, w, ButtCapper, RoundJoiner)
-		if lhs != nil { // lhs is also nil, as path is closed
-			q.Append(lhs)
+
+		ccw := ps.CCW()
+		expand := w > 0.0 && fillings[i]
+		rhs, lhs := offsetSegment(ps, w, ButtCapper, RoundJoiner)
+		if ccw == expand {
+			if rhs != nil {
+				q.Append(rhs)
+			}
+		} else {
+			if lhs != nil {
+				q.Append(lhs)
+			}
 		}
 	}
 	return q
@@ -445,6 +455,14 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 	halfWidth := w / 2.0
 	for _, ps := range p.Split() {
 		rhs, lhs := offsetSegment(ps, halfWidth, cr, jr)
+		if rhs != nil && lhs != nil { // closed path
+			// inner path should go opposite direction to cancel the outer path
+			if ps.CCW() {
+				lhs = lhs.Reverse()
+			} else {
+				rhs = rhs.Reverse()
+			}
+		}
 		if rhs != nil {
 			sp.Append(rhs)
 		}

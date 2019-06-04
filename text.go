@@ -75,7 +75,7 @@ func NewRichText() *RichText {
 	}
 }
 
-func (rt *RichText) Add(ff FontFace, s string) *RichText {
+func (rt *RichText) Add(ff FontFace, color color.RGBA, s string) *RichText {
 	start := len(rt.text)
 	rt.text += s
 
@@ -85,13 +85,13 @@ func (rt *RichText) Add(ff FontFace, s string) *RichText {
 	for _, boundary := range boundaries {
 		j := boundary.pos - start
 		if i < j {
-			rt.spans = append(rt.spans, newTextSpan(ff, s[i:j]))
+			rt.spans = append(rt.spans, newTextSpan(ff, color, s[i:j]))
 			rt.positions = append(rt.positions, start+i)
 		}
 		i = j + boundary.size
 	}
 	if i < len(s) {
-		rt.spans = append(rt.spans, newTextSpan(ff, s[i:]))
+		rt.spans = append(rt.spans, newTextSpan(ff, color, s[i:]))
 		rt.positions = append(rt.positions, start+i)
 	}
 	rt.boundaries = mergeBoundaries(rt.boundaries, boundaries)
@@ -283,12 +283,12 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	return &Text{lines, rt.fonts}
 }
 
-func NewText(ff FontFace, s string) *Text {
+func NewText(ff FontFace, color color.RGBA, s string) *Text {
 	ss := splitNewlines(s)
 	y := 0.0
 	lines := []line{}
 	for _, s := range ss {
-		span := lineSpan{newTextSpan(ff, s), 0.0, 0.0}
+		span := lineSpan{newTextSpan(ff, color, s), 0.0, 0.0}
 		lines = append(lines, line{[]lineSpan{span}, y})
 
 		ascent, descent, spacing := span.Heights()
@@ -297,13 +297,13 @@ func NewText(ff FontFace, s string) *Text {
 	return &Text{lines, map[*Font]bool{ff.f: true}}
 }
 
-func NewTextBox(ff FontFace, s string, width, height float64, halign, valign TextAlign, indent float64) *Text {
-	return NewRichText().Add(ff, s).ToText(width, height, halign, valign, indent)
+func NewTextBox(ff FontFace, color color.RGBA, s string, width, height float64, halign, valign TextAlign, indent float64) *Text {
+	return NewRichText().Add(ff, color, s).ToText(width, height, halign, valign, indent)
 }
 
 // Bounds returns the rectangle that contains the entire text box.
 func (t *Text) Bounds() Rect {
-	if len(t.lines) == 0 {
+	if len(t.lines) == 0 || len(t.lines[0].lineSpans) == 0 {
 		return Rect{}
 	}
 	x0, y0, x1, y1 := math.Inf(1.0), math.Inf(1.0), math.Inf(-1.0), math.Inf(-1.0)
@@ -431,6 +431,7 @@ func (t *Text) ToSVG(x, y, rot float64, color color.RGBA) string {
 
 type textSpan struct {
 	ff             FontFace
+	color          color.RGBA
 	s              string
 	textWidth      float64
 	glyphSpacings  int
@@ -438,11 +439,12 @@ type textSpan struct {
 }
 
 // TODO: proper transformation of typographic elements, ie. including surrounding text
-func newTextSpan(ff FontFace, s string) textSpan {
+func newTextSpan(ff FontFace, color color.RGBA, s string) textSpan {
 	textWidth := ff.TextWidth(s)
 	wordBoundaries, glyphSpacings := calcWordBoundaries(s)
 	return textSpan{
 		ff:             ff,
+		color:          color,
 		s:              s,
 		textWidth:      textWidth,
 		glyphSpacings:  glyphSpacings,
@@ -474,7 +476,7 @@ func (ts textSpan) Split(width float64) (span, span) {
 			if boundary.pos == 0 {
 				return nil, ts
 			}
-			return newTextSpan(ts.ff, s0), newTextSpan(ts.ff, s1)
+			return newTextSpan(ts.ff, ts.color, s0), newTextSpan(ts.ff, ts.color, s1)
 		}
 	}
 	return nil, ts
@@ -489,6 +491,7 @@ func (ts textSpan) getGlyphSpacing(width float64) float64 {
 	return glyphSpacing
 }
 
+// TODO: transform to Draw to canvas
 func (ts textSpan) ToPath(width float64) *Path {
 	glyphSpacing := ts.getGlyphSpacing(width)
 	s := ts.ff.f.transform(ts.s, glyphSpacing == 0.0)

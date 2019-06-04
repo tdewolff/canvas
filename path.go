@@ -132,8 +132,8 @@ func (p *Path) StartPos() Point {
 	return Point{}
 }
 
-// Points returns all the points between the commands.
-func (p *Path) Points() []Point {
+// Coords returns all the coordinates between the commands.
+func (p *Path) Coords() []Point {
 	P := []Point{}
 	if 0 < len(p.d) && p.d[0] != MoveToCmd {
 		P = append(P, Point{0.0, 0.0})
@@ -354,49 +354,81 @@ func RegularPolygon(n int, x, y, r, rot float64) *Path {
 
 ////////////////////////////////////////////////////////////////
 
-// direction returns the angle the last path segment makes (ie. positive or negative) to determine its direction.
-// Approaches all commands to be linear, so does not incorporate the angle a path command makes.
-func (p *Path) direction() float64 {
-	theta := 0.0
-	first := true
-	var a0, a, b Point
+// CCW returns true when the path has (mostly) a counter clockwise direction.
+func (p *Path) CCW() bool {
+	// use the Shoelace formula
+	area := 0.0
 	var start, end Point
-	for i := p.i0; i < len(p.d); {
+	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		i += cmdLen(cmd)
 
 		end = Point{p.d[i-2], p.d[i-1]}
-		b = end.Sub(start)
-		if first {
-			a0 = b
-			first = false
-		} else {
-			theta += a.AngleBetween(b)
+		if cmd != MoveToCmd {
+			area += (end.X - start.X) * (start.Y + end.Y)
 		}
 		start = end
-		a = b
 	}
-	if !first {
-		theta += b.AngleBetween(a0)
-	}
-	return theta
+	return area < 0.0
 }
 
-// CW returns true when the last path segment has a clockwise direction.
-func (p *Path) CW() bool {
-	return p.direction() < 0.0
-}
+// Filling returns the filling for each path segment, which is true when its interior will be filled considering the path segments.
+// TODO: need more generic way of handling multiple path segments, or a more generic function that accepts other paths
+func (p *Path) Filling() []bool {
+	if !p.Closed() || len(p.d) < p.i0+6 {
+		return nil
+	}
 
-// CCW returns true when the last path segment has a counter clockwise direction.
-func (p *Path) CCW() bool {
-	return p.direction() > 0.0
+	testPoints := []Point{}
+	for _, ps := range p.Split() {
+		var p0, p1 Point
+		iNextCmd := cmdLen(ps.d[0])
+		if ps.d[0] != MoveToCmd {
+			p1 = Point{ps.d[iNextCmd-2], ps.d[iNextCmd-1]}
+		} else {
+			iNextCmd2 := iNextCmd + cmdLen(ps.d[iNextCmd])
+			p0 = Point{ps.d[iNextCmd-2], ps.d[iNextCmd-1]}
+			p1 = Point{ps.d[iNextCmd2-2], ps.d[iNextCmd2-1]}
+		}
+
+		offset := p1.Sub(p0).Rot90CW().Norm(Epsilon)
+		if ps.CCW() {
+			offset = offset.Neg()
+		}
+		testPoints = append(testPoints, p0.Interpolate(p1, 0.5).Add(offset))
+	}
+
+	// see https://wrf.ecse.rpi.edu//Research/Short_Notes/pnpoly.html
+	fillings := make([]bool, len(testPoints))
+	coord, prevCoord := Point{}, Point{p.d[len(p.d)-2], p.d[len(p.d)-1]}
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		i += cmdLen(cmd)
+
+		coord = Point{p.d[i-2], p.d[i-1]}
+		if cmd != MoveToCmd {
+			for i, test := range testPoints {
+				if (test.Y < coord.Y) != (test.Y < prevCoord.Y) &&
+					test.X < (prevCoord.X-coord.X)*(test.Y-coord.Y)/(prevCoord.Y-coord.Y)+coord.X {
+					fillings[i] = !fillings[i]
+				}
+			}
+		} else if cmd == CloseCmd {
+			coord = Point{}
+		}
+		prevCoord = coord
+	}
+	return fillings
 }
 
 // Bounds returns the bounding box rectangle of the path.
 func (p *Path) Bounds() Rect {
+	if len(p.d) == 0 {
+		return Rect{}
+	}
+
 	xmin, xmax := math.Inf(1), math.Inf(-1)
 	ymin, ymax := math.Inf(1), math.Inf(-1)
-
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
 		xmin = 0.0
 		xmax = 0.0
@@ -756,43 +788,6 @@ func (p *Path) Split() []*Path {
 	return ps
 }
 
-type intersection struct {
-	i int     // index into path
-	t float64 // parametric value
-}
-
-func (p *Path) SplitIntersections(q *Path) ([]*Path, []*Path) {
-	panic("not implemented")
-	selfIntersect := p == q
-	ps := []*Path{}
-	qs := []*Path{}
-	for _, pp := range p.Split() {
-		for _, qq := range q.Split() {
-			qu := []intersection{}
-			for {
-				_ = pp
-				_ = qq
-				// add to ps
-			}
-
-			if !selfIntersect {
-				sort.Slice(qu, func(i, j int) bool {
-					return qu[i].i < qu[j].i || qu[i].i == qu[j].i && qu[i].t < qu[j].t
-				})
-
-				for _, _ = range qu {
-					// add to qs
-				}
-			}
-		}
-	}
-
-	if selfIntersect {
-		return ps, ps
-	}
-	return ps, qs
-}
-
 // SplitAt splits the path into seperate paths at the specified intervals (given in millimeters) along the path.
 func (p *Path) SplitAt(ts ...float64) []*Path {
 	if len(ts) == 0 {
@@ -959,6 +954,43 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 	return qs
 }
 
+type intersection struct {
+	i int     // index into path
+	t float64 // parametric value
+}
+
+func (p *Path) SplitAtIntersections(q *Path) ([]*Path, []*Path) {
+	panic("not implemented") // TODO: implement intersections
+	selfIntersect := p == q
+	ps := []*Path{}
+	qs := []*Path{}
+	for _, pp := range p.Split() {
+		for _, qq := range q.Split() {
+			qu := []intersection{}
+			for {
+				_ = pp
+				_ = qq
+				// add to ps
+			}
+
+			if !selfIntersect {
+				sort.Slice(qu, func(i, j int) bool {
+					return qu[i].i < qu[j].i || qu[i].i == qu[j].i && qu[i].t < qu[j].t
+				})
+
+				for _, _ = range qu {
+					// add to qs
+				}
+			}
+		}
+	}
+
+	if selfIntersect {
+		return ps, ps
+	}
+	return ps, qs
+}
+
 // Dash returns a new path that consists of dashes. Each parameter represents a length in millimeters along the original path, and will be either a dash or a space alternatingly.
 func (p *Path) Dash(d ...float64) *Path {
 	length := p.Length()
@@ -992,7 +1024,7 @@ func (p *Path) Smoothen() *Path {
 		return &Path{}
 	}
 
-	K := p.Points()
+	K := p.Coords()
 	if len(K) == 2 { // there are only two coordinates, that's a straight line
 		q := &Path{}
 		q.MoveTo(K[0].X, K[0].Y)
