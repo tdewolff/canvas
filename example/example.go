@@ -74,16 +74,16 @@ func drawText(c *canvas.C, x, y float64, face canvas.FontFace, rich *canvas.Rich
 	width, height := 80.0, 25.0
 	text := rich.ToText(width, height, canvas.Justify, canvas.Top, 0.0)
 
-	c.SetColor(canvas.Orangered)
-	c.DrawPath(x, y, 0.0, text.Bounds().ToPath())
-	c.SetColor(color.RGBA{0, 0, 0, 50})
-	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, 0, width, -metrics.LineHeight))
-	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.CapHeight-metrics.Ascent, width, -metrics.CapHeight-metrics.Descent))
-	c.DrawPath(x, y, 0.0, canvas.Rectangle(0, metrics.XHeight-metrics.Ascent, width, -metrics.XHeight))
+	c.SetFill(canvas.Orangered)
+	c.DrawPath(x, y, text.Bounds().ToPath())
+	c.SetFill(color.RGBA{0, 0, 0, 50})
+	c.DrawPath(x, y, canvas.Rectangle(0, 0, width, -metrics.LineHeight))
+	c.DrawPath(x, y, canvas.Rectangle(0, metrics.CapHeight-metrics.Ascent, width, -metrics.CapHeight-metrics.Descent))
+	c.DrawPath(x, y, canvas.Rectangle(0, metrics.XHeight-metrics.Ascent, width, -metrics.XHeight))
 
-	c.SetColor(canvas.Black)
-	c.DrawPath(x, y, 0.0, canvas.Rectangle(0.0, 0.0, width, -height).Stroke(0.2, canvas.RoundCapper, canvas.RoundJoiner))
-	c.DrawText(x, y, 0.0, text)
+	c.SetFill(canvas.Black)
+	c.DrawPath(x, y, canvas.Rectangle(0.0, 0.0, width, -height).Stroke(0.2, canvas.RoundCapper, canvas.RoundJoiner))
+	c.DrawText(x, y, text)
 }
 
 func Draw(c *canvas.C) {
@@ -118,25 +118,25 @@ func Draw(c *canvas.C) {
 
 	face = dejaVuSerif.Face(80.0)
 	p := canvas.NewText(face, canvas.Black, "Stroke").ToPath()
-	c.DrawPath(5, 10, 0.0, p.Stroke(0.75, canvas.RoundCapper, canvas.RoundJoiner))
+	c.DrawPath(5, 10, p.Stroke(0.75, canvas.RoundCapper, canvas.RoundJoiner))
 
 	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
 	if err != nil {
 		panic(err)
 	}
 	latex.Rotate(-30, 0, 0)
-	c.SetColor(canvas.Black)
-	c.DrawPath(140, 65, 0.0, latex)
+	c.SetFill(canvas.Black)
+	c.DrawPath(140, 65, latex)
 
 	ellipse, err := canvas.ParseSVG(fmt.Sprintf("A10 20 30 1 0 20 0z"))
 	if err != nil {
 		panic(err)
 	}
-	c.SetColor(canvas.Whitesmoke)
-	c.DrawPath(110, 40, 0.0, ellipse)
+	c.SetFill(canvas.Whitesmoke)
+	c.DrawPath(110, 40, ellipse)
 	ellipse = ellipse.Dash(2.0, 4.0, 2.0).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner)
-	c.SetColor(canvas.Black)
-	c.DrawPath(110, 40, 0.0, ellipse)
+	c.SetFill(canvas.Black)
+	c.DrawPath(110, 40, ellipse)
 
 	p = &canvas.Path{}
 	p.LineTo(20.0, 0.0)
@@ -144,10 +144,10 @@ func Draw(c *canvas.C) {
 	p.LineTo(0.0, 20.0)
 	p.Close()
 	q := p.Smoothen()
-	c.SetColor(canvas.Seagreen)
-	c.DrawPath(170, 10, 0.0, q)
-	c.SetColor(canvas.Black)
-	c.DrawPath(170, 10, 0.0, p.Stroke(0.25, canvas.RoundCapper, canvas.RoundJoiner))
+	c.SetFill(canvas.Seagreen)
+	c.DrawPath(170, 10, q)
+	c.SetFill(canvas.Black)
+	c.DrawPath(170, 10, p.Stroke(0.25, canvas.RoundCapper, canvas.RoundJoiner))
 
 	p = &canvas.Path{}
 	p.LineTo(10.0, 5.0)
@@ -155,10 +155,10 @@ func Draw(c *canvas.C) {
 	p.LineTo(30.0, 20.0)
 	p.LineTo(40.0, 10.0)
 	q = p.Smoothen()
-	c.SetColor(canvas.Seagreen)
-	c.DrawPath(120, 5, 0.0, q.Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner))
-	c.SetColor(canvas.Black)
+	c.SetFill(canvas.Seagreen)
+	c.DrawPath(120, 5, q.Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner))
+	c.SetFill(canvas.Black)
 	for _, coord := range p.Coords() {
-		c.DrawPath(120, 5, 0.0, canvas.Circle(coord.X, coord.Y, 1.0).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner))
+		c.DrawPath(120, 5, canvas.Circle(coord.X, coord.Y, 1.0).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner))
 	}
 }

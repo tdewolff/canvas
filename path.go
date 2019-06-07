@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/tdewolff/parse/strconv"
+	"golang.org/x/image/vector"
 )
 
 // Tolerance is the maximum deviation from the original path in millimeters when e.g. flatting
@@ -399,6 +400,7 @@ func (p *Path) Filling() []bool {
 	}
 
 	// see https://wrf.ecse.rpi.edu//Research/Short_Notes/pnpoly.html
+	// TODO: implement different fill count
 	fillings := make([]bool, len(testPoints))
 	coord, prevCoord := Point{}, Point{p.d[len(p.d)-2], p.d[len(p.d)-1]}
 	for i := 0; i < len(p.d); {
@@ -413,8 +415,6 @@ func (p *Path) Filling() []bool {
 					fillings[i] = !fillings[i]
 				}
 			}
-		} else if cmd == CloseCmd {
-			coord = Point{}
 		}
 		prevCoord = coord
 	}
@@ -768,6 +768,7 @@ func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer
 }
 
 // Split splits the path into its independent path segments. The path is split on the MoveTo and/or Close commands.
+// TODO: if subpath doesn't start with MoveTo, add it from the last subpath's end position
 func (p *Path) Split() []*Path {
 	ps := []*Path{}
 	closed := false
@@ -1523,32 +1524,6 @@ func (p *Path) ToSVG() string {
 	return sb.String()
 }
 
-var psEllipseDef = `/ellipse {
-/endangle exch def
-/startangle exch def
-/yrad exch def
-/xrad exch def
-/y exch def
-/x exch def
-/savematrix matrix currentmatrix def
-x y translate
-xrad yrad scale
-0 0 1 startangle endangle arc
-savematrix setmatrix
-} def /ellipsen {
-/endangle exch def
-/startangle exch def
-/yrad exch def
-/xrad exch def
-/y exch def
-/x exch def
-/savematrix matrix currentmatrix def
-x y translate
-xrad yrad scale
-0 0 1 startangle endangle arcn
-savematrix setmatrix
-} def`
-
 // ToPS returns a string that represents the path in the PostScript data format.
 func (p *Path) ToPS() string {
 	sb := strings.Builder{}
@@ -1558,7 +1533,6 @@ func (p *Path) ToPS() string {
 
 	var cmd float64
 	x, y := 0.0, 0.0
-	ellipsesDefined := false
 	for i := 0; i < len(p.d); {
 		cmd = p.d[i]
 		switch cmd {
@@ -1586,16 +1560,11 @@ func (p *Path) ToPS() string {
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			x, y = p.d[i+5], p.d[i+6]
 
-			isEllipse := !equal(rx, ry)
-			if isEllipse && !ellipsesDefined {
-				fmt.Fprintf(&sb, " %s", psEllipseDef)
-				ellipsesDefined = true
-			}
-
 			cx, cy, theta0, theta1 := ellipseToCenter(x0, y0, rx, ry, phi, largeArc, sweep, x, y)
 			theta0 = theta0 * 180.0 / math.Pi
 			theta1 = theta1 * 180.0 / math.Pi
 			rot := phi * 180.0 / math.Pi
+			isEllipse := !equal(rx, ry)
 
 			if !equal(rot, 0.0) {
 				fmt.Fprintf(&sb, " %.5g %.5g translate %.5g rotate %.5g %.5g translate", cx, cy, rot, -cx, -cy)
@@ -1620,7 +1589,6 @@ func (p *Path) ToPS() string {
 	if cmd != CloseCmd {
 		fmt.Fprintf(&sb, " closepath")
 	}
-	fmt.Fprintf(&sb, " fill")
 	return sb.String()[1:] // remove the first space
 }
 
@@ -1667,6 +1635,35 @@ func (p *Path) ToPDF() string {
 	if cmd != CloseCmd {
 		fmt.Fprintf(&sb, " h")
 	}
-	fmt.Fprintf(&sb, " f")
 	return sb.String()[1:] // remove the first space
+}
+
+func (p *Path) ToRasterizer(ras *vector.Rasterizer, dpm, w, h float64) {
+	p = p.Copy().Replace(nil, nil, ellipseToBeziers)
+	closed := false
+	dy := h * dpm
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		closed = false
+		switch cmd {
+		case MoveToCmd:
+			ras.MoveTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm))
+		case LineToCmd:
+			ras.LineTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm))
+		case QuadToCmd:
+			ras.QuadTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm), float32(p.d[i+3]*dpm), float32(dy-p.d[i+4]*dpm))
+		case CubeToCmd:
+			ras.CubeTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm), float32(p.d[i+3]*dpm), float32(dy-p.d[i+4]*dpm), float32(p.d[i+5]*dpm), float32(dy-p.d[i+6]*dpm))
+		case ArcToCmd:
+			panic("arcs should have been replaced")
+		case CloseCmd:
+			ras.ClosePath()
+			closed = true
+		}
+		i += cmdLen(cmd)
+	}
+	if closed {
+		// implicitly close path
+		ras.ClosePath()
+	}
 }

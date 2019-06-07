@@ -5,6 +5,7 @@ import (
 	"compress/zlib"
 	"encoding/ascii85"
 	"fmt"
+	"image/color"
 	"io"
 	"strings"
 )
@@ -13,23 +14,17 @@ type PDFWriter struct {
 	w   io.Writer
 	err error
 
-	width, height float64
-	pos           int
-	objOffsets    []int
+	pos        int
+	objOffsets []int
 
-	resources      PDFDict
-	graphicsStates map[float64]PDFName
-	fonts          map[*Font]PDFName
+	fonts map[*Font]PDFRef
+	pages []*PDFPageWriter
 }
 
-func NewPDFWriter(writer io.Writer, width, height float64) *PDFWriter {
+func NewPDFWriter(writer io.Writer) *PDFWriter {
 	w := &PDFWriter{
-		w:              writer,
-		width:          width,
-		height:         height,
-		resources:      PDFDict{"ExtGState": PDFDict{}, "Font": PDFDict{}},
-		graphicsStates: map[float64]PDFName{},
-		fonts:          map[*Font]PDFName{},
+		w:     writer,
+		fonts: map[*Font]PDFRef{},
 	}
 
 	w.write("%%PDF-1.7\n")
@@ -140,45 +135,7 @@ func (w *PDFWriter) writeVal(i interface{}) {
 	}
 }
 
-func (w *PDFWriter) GetOpacityGS(a float64) PDFName {
-	if name, ok := w.graphicsStates[a]; ok {
-		return name
-	}
-	name := PDFName(fmt.Sprintf("GS%d", len(w.graphicsStates)))
-	w.graphicsStates[a] = name
-	w.resources["ExtGState"].(PDFDict)[name] = PDFDict{
-		"ca": a,
-	}
-	return name
-}
-
-func (w *PDFWriter) GetFont(f *Font) PDFName {
-	if name, ok := w.fonts[f]; ok {
-		return name
-	}
-
-	mimetype, _ := f.Raw()
-	if mimetype != "font/ttf" {
-		panic("only TTF format support for embedding fonts in PDFs")
-	}
-
-	// TODO: implement
-	baseFont := strings.ReplaceAll(f.name, " ", "_")
-	ref := w.WriteObject(PDFStream{
-		dict: PDFDict{
-			"Type":     PDFName("Font"),
-			"Subtype":  PDFName("TrueType"),
-			"BaseFont": PDFName(baseFont),
-		},
-	})
-
-	name := PDFName(fmt.Sprintf("F%d", len(w.fonts)))
-	w.fonts[f] = name
-	w.resources["Font"].(PDFDict)[name] = ref
-	return name
-}
-
-func (w *PDFWriter) WriteObject(val interface{}) PDFRef {
+func (w *PDFWriter) writeObject(val interface{}) PDFRef {
 	w.objOffsets = append(w.objOffsets, w.pos)
 	w.write("%v 0 obj\n", len(w.objOffsets))
 	w.writeVal(val)
@@ -186,27 +143,43 @@ func (w *PDFWriter) WriteObject(val interface{}) PDFRef {
 	return PDFRef(len(w.objOffsets))
 }
 
-func (w *PDFWriter) Close() error {
-	contents := PDFArray{}
-	for j := 0; j < len(w.objOffsets); j++ {
-		contents = append(contents, PDFRef(j+1))
+func (w *PDFWriter) getFont(font *Font) PDFRef {
+	if ref, ok := w.fonts[font]; ok {
+		return ref
 	}
 
-	refPage := w.WriteObject(PDFDict{
-		"Type":      PDFName("Page"),
-		"Parent":    PDFRef(len(w.objOffsets) + 2),
-		"MediaBox":  PDFArray{0.0, 0.0, w.width, w.height},
-		"Resources": w.resources,
-		"Contents":  contents,
-	})
+	mimetype, _ := font.Raw()
+	if mimetype != "font/ttf" {
+		panic("only TTF format support for embedding fonts in PDFs")
+	}
 
-	refPages := w.WriteObject(PDFDict{
+	// TODO: implement
+	baseFont := strings.ReplaceAll(font.name, " ", "_")
+	ref := w.writeObject(PDFStream{
+		dict: PDFDict{
+			"Type":     PDFName("Font"),
+			"Subtype":  PDFName("TrueType"),
+			"BaseFont": PDFName(baseFont),
+		},
+	})
+	w.fonts[font] = ref
+	return ref
+}
+
+func (w *PDFWriter) Close() error {
+	parent := PDFRef(len(w.objOffsets) + 1 + len(w.pages))
+	kids := PDFArray{}
+	for _, p := range w.pages {
+		kids = append(kids, p.writePage(parent))
+	}
+
+	refPages := w.writeObject(PDFDict{
 		"Type":  PDFName("Pages"),
-		"Kids":  PDFArray{refPage},
-		"Count": 1,
+		"Kids":  PDFArray(kids),
+		"Count": len(kids),
 	})
 
-	refCatalog := w.WriteObject(PDFDict{
+	refCatalog := w.writeObject(PDFDict{
 		"Type":  PDFName("Catalog"),
 		"Pages": refPages,
 	})
@@ -223,4 +196,88 @@ func (w *PDFWriter) Close() error {
 	})
 	w.write("\nstarxref\n%v\n%%%%EOF", xrefOffset)
 	return w.err
+}
+
+type PDFPageWriter struct {
+	*bytes.Buffer
+	pdf           *PDFWriter
+	width, height float64
+	resources     PDFDict
+
+	color          color.RGBA
+	font           *Font
+	graphicsStates map[float64]PDFName
+}
+
+func (w *PDFWriter) NewPage(width, height float64) *PDFPageWriter {
+	w.pages = append(w.pages, &PDFPageWriter{
+		Buffer:         &bytes.Buffer{},
+		pdf:            w,
+		width:          width,
+		height:         height,
+		resources:      PDFDict{},
+		color:          Black,
+		font:           nil,
+		graphicsStates: map[float64]PDFName{},
+	})
+	return w.pages[len(w.pages)-1]
+}
+
+func (w *PDFPageWriter) writePage(parent PDFRef) PDFRef {
+	b := w.Bytes()
+	if 0 < len(b) && b[0] == ' ' {
+		b = b[1:]
+	}
+	return w.pdf.writeObject(PDFDict{
+		"Type":      PDFName("Page"),
+		"Parent":    parent,
+		"MediaBox":  PDFArray{0.0, 0.0, w.width, w.height},
+		"Resources": w.resources,
+		"Contents": PDFStream{
+			filters: []PDFFilter{}, // TODO: use filter
+			b:       b,
+		},
+	})
+}
+
+func (w *PDFPageWriter) SetColor(color color.RGBA) {
+	if color != w.color {
+		if w.color.A != 255 && color.A != w.color.A {
+			fmt.Fprintf(w, " Q")
+		}
+		fmt.Fprintf(w, " %g %g %g rg", float64(color.R)/255.0, float64(color.G)/255.0, float64(color.B)/255.0)
+		if color.A != w.color.A {
+			gs := w.getOpacityGS(float64(color.A) / 255.0)
+			fmt.Fprintf(w, " q /%v gs", gs)
+		}
+		w.color = color
+	}
+}
+
+func (w *PDFPageWriter) SetFont(font *Font, size float64) {
+	if font != w.font {
+		ref := w.pdf.getFont(font)
+		if _, ok := w.resources["Font"]; !ok {
+			w.resources["Font"] = PDFDict{}
+		}
+		name := PDFName(fmt.Sprintf("F%d", len(w.resources["Font"].(PDFDict))))
+		w.resources["Font"].(PDFDict)[name] = ref
+		fmt.Fprintf(w, " /%v %g Tf", name, size)
+	}
+}
+
+func (w *PDFPageWriter) getOpacityGS(a float64) PDFName {
+	if name, ok := w.graphicsStates[a]; ok {
+		return name
+	}
+	name := PDFName(fmt.Sprintf("GS%d", len(w.graphicsStates)))
+	w.graphicsStates[a] = name
+
+	if _, ok := w.resources["ExtGState"]; !ok {
+		w.resources["ExtGState"] = PDFDict{}
+	}
+	w.resources["ExtGState"].(PDFDict)[name] = PDFDict{
+		"ca": a,
+	}
+	return name
 }

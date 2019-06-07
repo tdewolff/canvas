@@ -251,7 +251,7 @@ func (j arcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point,
 	}
 }
 
-type pathState struct {
+type pathStrokeState struct {
 	cmd    float64
 	size   int     // number of commands it ends up being (ie. cubic bezier becomes many linears)
 	p0, p1 Point   // position of start and end
@@ -267,7 +267,7 @@ type pathState struct {
 // It closes rhs and lhs when p is closed as well.
 func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Path) {
 	closed := false
-	states := []pathState{}
+	states := []pathStrokeState{}
 	var start, end Point
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
@@ -277,7 +277,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 		case LineToCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
 			n := end.Sub(start).Rot90CW().Norm(halfWidth)
-			states = append(states, pathState{
+			states = append(states, pathStrokeState{
 				cmd: LineToCmd,
 				p0:  start,
 				p1:  end,
@@ -301,7 +301,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			n1 := cubicBezierNormal(start, cp1, cp2, end, 1.0, halfWidth)
 			r0 := cubicBezierCurvatureRadius(start, cp1, cp2, end, 0.0)
 			r1 := cubicBezierCurvatureRadius(start, cp1, cp2, end, 1.0)
-			states = append(states, pathState{
+			states = append(states, pathStrokeState{
 				cmd: CubeToCmd,
 				p0:  start,
 				p1:  end,
@@ -321,7 +321,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			n1 := ellipseNormal(rx, ry, phi, sweep, theta1, halfWidth)
 			r0 := ellipseCurvatureRadius(rx, ry, phi, sweep, theta0)
 			r1 := ellipseCurvatureRadius(rx, ry, phi, sweep, theta1)
-			states = append(states, pathState{
+			states = append(states, pathStrokeState{
 				cmd:      ArcToCmd,
 				p0:       start,
 				p1:       end,
@@ -341,7 +341,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			end = Point{p.d[i+1], p.d[i+2]}
 			if !equal(start.X, end.X) || !equal(start.Y, end.Y) {
 				n := end.Sub(start).Rot90CW().Norm(halfWidth)
-				states = append(states, pathState{
+				states = append(states, pathStrokeState{
 					cmd: LineToCmd,
 					p0:  start,
 					p1:  end,
@@ -391,7 +391,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 
 		// join the cur and next path segments on the outside of the bend
 		if i+1 < len(states) || closed {
-			var next pathState
+			var next pathStrokeState
 			if i+1 < len(states) {
 				next = states[i+1]
 			} else {
