@@ -154,7 +154,7 @@ type FontFace struct {
 	color                        color.Color
 	fauxStyle                    FontStyle
 	offset, fauxBold, fauxItalic float64
-	decorations                  *[]FontDecoration // pointer to make FontFace comparable
+	decoration                   *[]FontDecorator
 }
 
 func (ff FontFace) Color(color color.Color) FontFace {
@@ -189,23 +189,24 @@ func (ff FontFace) Faux(style FontStyle) FontFace {
 	}
 	ff.fauxBold *= fromI26_6(ff.ppem)
 	ff.fauxItalic *= fromI26_6(ff.ppem)
+	ff.fauxStyle = style
 	return ff
 }
 
-func (ff FontFace) Decoration(decorations ...FontDecoration) FontFace {
-	if ff.decorations == nil {
-		ff.decorations = &[]FontDecoration{}
+func (ff FontFace) Decoration(decorators ...FontDecorator) FontFace {
+	if ff.decoration == nil {
+		ff.decoration = &[]FontDecorator{}
 	}
-	for _, deco := range decorations {
-		*ff.decorations = append(*ff.decorations, deco)
+	for _, deco := range decorators {
+		*ff.decoration = append(*ff.decoration, deco)
 	}
 	return ff
 }
 
 func (ff FontFace) Decorate(width float64) *Path {
 	p := &Path{}
-	if ff.decorations != nil {
-		for _, deco := range *ff.decorations {
+	if ff.decoration != nil {
+		for _, deco := range *ff.decoration {
 			p.Append(deco.Decorate(ff, width))
 		}
 	}
@@ -343,20 +344,20 @@ func (ff FontFace) Kerning(rPrev, rNext rune) float64 {
 
 ////////////////////////////////////////////////////////////////
 
-type FontDecorationFunc func(FontFace, float64) *Path
+type FontDecoratorFunc func(FontFace, float64) *Path
 
-func (f FontDecorationFunc) Decorate(ff FontFace, w float64) *Path {
+func (f FontDecoratorFunc) Decorate(ff FontFace, w float64) *Path {
 	return f(ff, w)
 }
 
-type FontDecoration interface {
+type FontDecorator interface {
 	Decorate(FontFace, float64) *Path
 }
 
 const underlineDistance = 0.15
 const underlineThickness = 0.075
 
-var Underline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
+var Underline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 	r := ff.Metrics().Size * underlineThickness
 	w -= r
 
@@ -368,7 +369,7 @@ var Underline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
 	return p.Stroke(r, RoundCapper, RoundJoiner)
 })
 
-var Overline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
+var Overline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 	r := ff.Metrics().Size * underlineThickness
 	dx := r
 	w -= r
@@ -383,7 +384,7 @@ var Overline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
 	return p.Stroke(r, RoundCapper, RoundJoiner)
 })
 
-var Strikethrough = FontDecorationFunc(func(ff FontFace, w float64) *Path {
+var Strikethrough = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 	r := ff.Metrics().Size * underlineThickness
 	dx := r
 	w -= r
@@ -398,7 +399,7 @@ var Strikethrough = FontDecorationFunc(func(ff FontFace, w float64) *Path {
 	return p.Stroke(r, RoundCapper, RoundJoiner)
 })
 
-var DoubleUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
+var DoubleUnderline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 	r := ff.Metrics().Size * underlineThickness
 	w -= r
 
@@ -412,7 +413,7 @@ var DoubleUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
 	return p.Stroke(r, RoundCapper, RoundJoiner)
 })
 
-var DottedUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
+var DottedUnderline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 	r := ff.Metrics().Size * underlineThickness * 0.8
 	w -= r
 
@@ -428,7 +429,7 @@ var DottedUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
 	return p
 })
 
-var DashedUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
+var DashedUnderline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 	r := ff.Metrics().Size * underlineThickness
 	w -= r
 
@@ -444,7 +445,7 @@ var DashedUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
 	return p
 })
 
-var SineUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
+var SineUnderline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 	r := ff.Metrics().Size * underlineThickness
 	w -= r
 
@@ -468,7 +469,7 @@ var SineUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
 	return p.Stroke(r, RoundCapper, RoundJoiner)
 })
 
-var SawtoothUnderline = FontDecorationFunc(func(ff FontFace, w float64) *Path {
+var SawtoothUnderline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 	r := ff.Metrics().Size * underlineThickness
 	w -= r
 

@@ -110,14 +110,13 @@ func Draw(c *canvas.C) {
 	rich.Add(face, canvas.Black, " ")
 	rich.Add(face.Decoration(canvas.DashedUnderline), canvas.Black, "dashed")
 	rich.Add(face, canvas.Black, " ")
-	rich.Add(face.Decoration(canvas.Overline), canvas.Black, "overline")
-	rich.Add(face, canvas.Black, " ")
+	rich.Add(face.Decoration(canvas.Overline), canvas.Black, "overline ")
 	rich.Add(face.Faux(canvas.Italic).Decoration(canvas.Strikethrough, canvas.SineUnderline, canvas.Overline), canvas.Black, "combi")
 	rich.Add(face, canvas.Black, ".")
 	drawText(c, 10, 70, face, rich)
 
 	face = dejaVuSerif.Face(80.0)
-	p := canvas.NewText(face, canvas.Black, "Stroke").ToPath()
+	p := canvas.NewTextLine(face, canvas.Black, "Stroke").ToPath()
 	c.DrawPath(5, 10, p.Stroke(0.75, canvas.RoundCapper, canvas.RoundJoiner))
 
 	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)

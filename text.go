@@ -1,9 +1,10 @@
 package canvas
 
 import (
+	"fmt"
 	"image/color"
+	"io"
 	"math"
-	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -30,6 +31,7 @@ type Text struct {
 
 type line struct {
 	lineSpans []lineSpan
+	decoSpans []decoSpan
 	y         float64
 }
 
@@ -42,6 +44,7 @@ func (l line) Heights() (float64, float64, float64, float64) {
 		descent = math.Max(descent, spanDescent)
 		bottom = math.Max(bottom, spanDescent+lineSpacing)
 	}
+	// TODO: add decoration bounding boxes
 	return top, ascent, descent, bottom
 }
 
@@ -51,10 +54,17 @@ type lineSpan struct {
 	w  float64
 }
 
+type decoSpan struct {
+	ff     FontFace
+	color  color.RGBA
+	x0, x1 float64
+}
+
 type span interface {
+	Color() color.RGBA
+	Bounds(float64) Rect
 	WidthRange() (float64, float64)       // min-width and max-width
 	Heights() (float64, float64, float64) // ascent, descent, line spacing
-	Bounds(float64) Rect
 	Split(float64) (span, span)
 	ToPath(float64) *Path
 }
@@ -160,7 +170,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			}
 		}
 
-		l := line{lss, 0.0}
+		l := line{lss, nil, 0.0}
 		top, ascent, descent, bottom := l.Heights()
 		lineSpacing := math.Max(top-ascent, prevLineSpacing)
 		if len(lines) != 0 {
@@ -279,22 +289,67 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		for j := range lines {
 			lines[j].y -= dy + float64(j)*extraLineSpacing
 		}
+
+		// set decorations
+		for j, line := range lines {
+			color := Black
+			ff := FontFace{}
+			x0, x1 := 0.0, 0.0
+			for _, ls := range line.lineSpans {
+				ts, ok := ls.span.(textSpan)
+				if 0.0 < x1-x0 && (!ok || ts.ff != ff || ts.color != color) {
+					if ff.decoration != nil {
+						lines[j].decoSpans = append(lines[j].decoSpans, decoSpan{ff, color, x0, x1})
+					}
+					x0 = x1
+				}
+				if ok {
+					ff = ts.ff
+					color = ts.color
+				}
+				if x0 == x1 {
+					x0 = ls.dx // skip space when starting new decoSpan
+				}
+				x1 = ls.dx + ls.w
+			}
+			if 0.0 < x1-x0 && ff.decoration != nil {
+				lines[j].decoSpans = append(lines[j].decoSpans, decoSpan{ff, color, x0, x1})
+			}
+		}
 	}
 	return &Text{lines, rt.fonts}
 }
 
-func NewText(ff FontFace, color color.RGBA, s string) *Text {
-	ss := splitNewlines(s)
-	y := 0.0
-	lines := []line{}
-	for _, s := range ss {
-		span := lineSpan{newTextSpan(ff, color, s), 0.0, 0.0}
-		lines = append(lines, line{[]lineSpan{span}, y})
+type TextLine struct {
+	*Text
+}
 
-		ascent, descent, spacing := span.Heights()
-		y -= spacing + ascent + descent + spacing
-	}
-	return &Text{lines, map[*Font]bool{ff.f: true}}
+func NewTextLine(ff FontFace, color color.RGBA, s string) TextLine {
+	//ss := splitNewlines(s)
+	//y := 0.0
+	//lines := []line{}
+	//for _, s := range ss {
+	//	span := lineSpan{newTextSpan(ff, color, s), 0.0, 0.0}
+	//	lines = append(lines, line{[]lineSpan{span}, y})
+
+	//	ascent, descent, spacing := span.Heights()
+	//	y -= spacing + ascent + descent + spacing
+	//}
+	//return &Text{lines, map[*Font]bool{ff.f: true}}
+	return TextLine{&Text{
+		lines: []line{{
+			lineSpans: []lineSpan{{
+				span: newTextSpan(ff, color, s),
+				dx:   0.0,
+				w:    0.0,
+			}},
+			y: 0.0,
+		}}, fonts: map[*Font]bool{ff.f: true},
+	}}
+}
+
+func (t TextLine) ToPath() *Path {
+	return t.lines[0].lineSpans[0].ToPath(t.lines[0].lineSpans[0].w)
 }
 
 func NewTextBox(ff FontFace, color color.RGBA, s string, width, height float64, halign, valign TextAlign, indent float64) *Text {
@@ -316,115 +371,68 @@ func (t *Text) Bounds() Rect {
 			y1 = math.Max(y1, line.y+spanBounds.H+spanBounds.Y)
 		}
 	}
-	text := Rect{x0, y0, x1 - x0, y1 - y0}
-	deco := t.ToPathDecorations().Bounds()
-	return text.Add(deco)
+	return Rect{x0, y0, x1 - x0, y1 - y0}
 }
 
 // ToPath makes a path out of the text, with x,y the top-left point of the rectangle that fits the text (ie. y is not the text base)
-func (t *Text) ToPath() *Path {
-	p := &Path{}
+func (t *Text) ToPaths() ([]*Path, []color.RGBA) {
+	paths := []*Path{}
+	colors := []color.RGBA{}
 	for _, line := range t.lines {
 		for _, ls := range line.lineSpans {
-			ps := ls.span.ToPath(ls.w)
-			ps.Translate(ls.dx, line.y)
-			p.Append(ps)
+			span := ls.span.ToPath(ls.w)
+			span.Translate(ls.dx, line.y)
+			paths = append(paths, span)
+			colors = append(colors, ls.Color())
+		}
+		for _, ds := range line.decoSpans {
+			deco := ds.ff.Decorate(ds.x1 - ds.x0)
+			deco.Translate(ds.x0, line.y)
+			paths = append(paths, deco)
+			colors = append(colors, ds.color)
 		}
 	}
-	return p
+	return paths, colors
 }
 
-func (t *Text) ToPathDecorations() *Path {
-	p := &Path{}
-	for _, line := range t.lines {
-		if 0 < len(line.lineSpans) {
-			var ff FontFace
-			x0, x1 := 0.0, 0.0
-			for i, ls := range line.lineSpans {
-				ts, ok := ls.span.(textSpan)
-				if 0.0 < x1-x0 && (!ok || ts.ff != ff || i+1 == len(line.lineSpans)) {
-					ps := ff.Decorate(x1 - x0)
-					if !ps.Empty() {
-						ps.Translate(x0, line.y)
-						p.Append(ps)
-					}
-					x0 = x1
-				}
-				ff = ts.ff
-				if x0 == x1 {
-					x0 = ls.dx
-				}
-				x1 = ls.dx + ls.w
-			}
-			if 0.0 < x1-x0 {
-				ps := ff.Decorate(x1 - x0)
-				if !ps.Empty() {
-					ps.Translate(x0, line.y)
-					p.Append(ps)
-				}
-			}
-		}
-	}
-	return p
-}
-
-func (t *Text) ToSVG(x, y, rot float64, color color.RGBA) string {
-	sb := strings.Builder{}
-	sb.WriteString("<text x=\"")
-	writeFloat64(&sb, x)
-	sb.WriteString("\" y=\"")
-	writeFloat64(&sb, y)
+func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
+	fmt.Fprintf(w, `<text x="%g" y="%g`, x, y)
 	if rot != 0.0 {
-		sb.WriteString("\" transform=\"rotate(")
-		writeFloat64(&sb, -rot)
-		sb.WriteString(",")
-		writeFloat64(&sb, x)
-		sb.WriteString(",")
-		writeFloat64(&sb, y)
-		sb.WriteString(")")
+		fmt.Fprintf(w, `" transform="rotate(%g,%g,%g)`, -rot, x, y)
 	}
-	if color != Black {
-		sb.WriteString("\" fill=\"")
-		writeCSSColor(&sb, color)
-	}
-	sb.WriteString("\">")
-
+	fmt.Fprintf(w, `">`)
 	for _, line := range t.lines {
 		for _, ls := range line.lineSpans {
 			switch span := ls.span.(type) {
 			case textSpan:
-				name, size, style := span.ff.Info() // TODO: use color, faux styles and decoration
+				name, size, style := span.ff.Info()
 				glyphSpacing := span.getGlyphSpacing(ls.w)
+				offset := span.ff.offset // supscript and superscript
+				smallScript := span.ff.fauxStyle&Subscript != 0 || span.ff.fauxStyle&Superscript != 0 || span.ff.fauxStyle&Inferior != 0 || span.ff.fauxStyle&Superior != 0
 
-				sb.WriteString("<tspan x=\"")
-				writeFloat64(&sb, x+ls.dx)
-				sb.WriteString("\" y=\"")
-				writeFloat64(&sb, y-line.y)
+				fmt.Fprintf(w, `<tspan x="%g" y="%g`, x+ls.dx, y-line.y-offset)
 				if glyphSpacing > 0.0 {
-					sb.WriteString("\" textLength=\"")
-					writeFloat64(&sb, span.textWidth+float64(utf8.RuneCountInString(span.s))*glyphSpacing)
+					fmt.Fprintf(w, `" textLength="%g`, span.textWidth+float64(utf8.RuneCountInString(span.s))*glyphSpacing)
 				}
-				sb.WriteString("\" font-family=\"")
-				sb.WriteString(name)
-				sb.WriteString("\" font-size=\"")
-				writeFloat64(&sb, size)
-				if style&Italic != 0 {
-					sb.WriteString("\" font-style=\"italic")
+				fmt.Fprintf(w, `" style="font:`)
+				if style&Italic != 0 || span.ff.fauxStyle&Italic != 0 {
+					fmt.Fprintf(w, ` italic`)
 				}
-				if style&Bold != 0 {
-					sb.WriteString("\" font-weight=\"bold")
+				if style&Bold != 0 || span.ff.fauxStyle&Bold != 0 || smallScript {
+					fmt.Fprintf(w, ` bold`) // TODO: subscript and superscript should add a second layer of boldness
 				}
-				sb.WriteString("\">")
-				span.s = span.ff.f.transform(span.s, glyphSpacing == 0.0)
-				sb.WriteString(span.s)
-				sb.WriteString("</tspan>")
+				fmt.Fprintf(w, ` %gpx %s`, size, name)
+				if span.color != Black {
+					fmt.Fprintf(w, `;fill:`)
+					writeCSSColor(w, span.color)
+				}
+				fmt.Fprintf(w, `">%s</tspan>`, span.ff.f.transform(span.s, glyphSpacing == 0.0))
 			default:
 				panic("unsupported span type")
 			}
 		}
 	}
-	sb.WriteString("</text>")
-	return sb.String()
+	fmt.Fprintf(w, `</text>`)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -450,6 +458,10 @@ func newTextSpan(ff FontFace, color color.RGBA, s string) textSpan {
 		glyphSpacings:  glyphSpacings,
 		wordBoundaries: wordBoundaries,
 	}
+}
+
+func (ts textSpan) Color() color.RGBA {
+	return ts.color
 }
 
 func (ts textSpan) Bounds(width float64) Rect {

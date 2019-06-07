@@ -79,16 +79,16 @@ func (c *C) SetDashes(dashOffset float64, dashes ...float64) {
 	c.dashes = dashes
 }
 
-func (c *C) DrawPath(x, y float64, p *Path) {
-	p = p.Copy().Translate(x, y)
-	c.layers = append(c.layers, &pathLayer{p, c.pathState})
+func (c *C) DrawPath(x, y float64, path *Path) {
+	path = path.Copy().Translate(x, y)
+	c.layers = append(c.layers, pathLayer{path, c.pathState})
 }
 
 func (c *C) DrawText(x, y float64, text *Text) {
 	for font := range text.fonts {
 		c.fonts[font] = true
 	}
-	//c.layers = append(c.layers, layer{textLayer, x, y, c.color, rot, nil, text})
+	c.layers = append(c.layers, textLayer{text, x, y, 0.0})
 }
 
 func (c *C) WriteSVG(w io.Writer) {
@@ -199,5 +199,35 @@ func (l pathLayer) WriteImage(img *image.RGBA, dpm, w, h float64) {
 
 type textLayer struct {
 	*Text
-	rot float64
+	x, y, rot float64
+}
+
+func (l textLayer) WriteSVG(w io.Writer, h float64) {
+	l.Text.WriteSVG(w, l.x, h-l.y, l.rot)
+}
+
+func (l textLayer) WritePDF(w *PDFPageWriter) {
+	// TODO
+	paths, colors := l.ToPaths()
+	for i, path := range paths {
+		path.Translate(l.x, l.y)
+		pathLayer{path, pathState{fillColor: colors[i]}}.WritePDF(w)
+	}
+}
+
+func (l textLayer) WriteEPS(w *EPSWriter) {
+	// TODO
+	paths, colors := l.ToPaths()
+	for i, path := range paths {
+		path.Translate(l.x, l.y)
+		pathLayer{path, pathState{fillColor: colors[i]}}.WriteEPS(w)
+	}
+}
+
+func (l textLayer) WriteImage(img *image.RGBA, dpm, w, h float64) {
+	paths, colors := l.ToPaths()
+	for i, path := range paths {
+		path.Translate(l.x, l.y)
+		pathLayer{path, pathState{fillColor: colors[i]}}.WriteImage(img, dpm, w, h)
+	}
 }
