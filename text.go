@@ -217,38 +217,37 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 					boundary := rt.boundaries[iBoundary]
 					minBoundaryWidth += boundary.width
 					if boundary.kind == sentenceBoundary {
-						maxBoundaryWidth += boundary.width + boundary.xheight*MaxSentenceSpacing
+						maxBoundaryWidth += boundary.width + boundary.width*MaxSentenceSpacing
 					} else if boundary.kind == wordBoundary {
-						maxBoundaryWidth += boundary.width + boundary.xheight*MaxWordSpacing
+						maxBoundaryWidth += boundary.width + boundary.width*MaxWordSpacing
 					}
 				}
 
 				// get the width range of our spans (eg. for text width can increase with extra character spacing)
-				minWidth, maxWidth := 0.0, 0.0
+				minTextWidth, maxTextWidth := 0.0, 0.0
 				for i, ls := range l.lineSpans {
 					spanWidth, spanMaxWidth := ls.span.WidthRange()
 					if i == 0 {
-						minWidth += ls.dx
-						maxWidth += ls.dx
+						minTextWidth += ls.dx
+						maxTextWidth += ls.dx
 					}
-					minWidth += spanWidth
-					maxWidth += spanMaxWidth
+					minTextWidth += spanWidth
+					maxTextWidth += spanMaxWidth
 				}
 
 				// only expand if we can reach the line width
-				expandBoundaryWidth := minWidth + maxBoundaryWidth
-				minWidth += minBoundaryWidth
-				maxWidth += maxBoundaryWidth
+				minWidth := minTextWidth + minBoundaryWidth
+				maxWidth := maxTextWidth + maxBoundaryWidth
 				if minWidth < width && width < maxWidth {
 					dx := 0.0
 
 					// see if boundary expanding alone is enough to fit the line, otherwise also expand spans
 					boundaryFactor, spanFactor := 0.0, 0.0
-					if width < expandBoundaryWidth {
-						boundaryFactor = (width - minWidth) / (expandBoundaryWidth - minWidth)
+					if width < minTextWidth+maxBoundaryWidth {
+						boundaryFactor = (width - minTextWidth - minBoundaryWidth) / (maxBoundaryWidth - minBoundaryWidth)
 					} else {
 						boundaryFactor = 1.0
-						spanFactor = (width - expandBoundaryWidth) / (maxWidth - expandBoundaryWidth)
+						spanFactor = (width - minTextWidth - maxBoundaryWidth) / (maxTextWidth - minTextWidth)
 					}
 					for i, ls := range l.lineSpans {
 						if iBoundaryLine < len(rt.boundaries) && rt.boundaries[iBoundaryLine].pos < rt.positions[kSpans[j][i]] {
@@ -256,9 +255,9 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 							iBoundaryLine++
 							var boundaryExpansion float64
 							if boundary.kind == sentenceBoundary {
-								boundaryExpansion = boundary.xheight * MaxSentenceSpacing
+								boundaryExpansion = boundary.width * MaxSentenceSpacing
 							} else if boundary.kind == wordBoundary {
-								boundaryExpansion = boundary.xheight * MaxWordSpacing
+								boundaryExpansion = boundary.width * MaxWordSpacing
 							}
 							dx += boundaryExpansion * boundaryFactor
 						}
@@ -325,31 +324,27 @@ type TextLine struct {
 }
 
 func NewTextLine(ff FontFace, color color.RGBA, s string) TextLine {
-	//ss := splitNewlines(s)
-	//y := 0.0
-	//lines := []line{}
-	//for _, s := range ss {
-	//	span := lineSpan{newTextSpan(ff, color, s), 0.0, 0.0}
-	//	lines = append(lines, line{[]lineSpan{span}, y})
+	ss := splitNewlines(s)
+	y := 0.0
+	lines := []line{}
+	for _, s := range ss {
+		span := lineSpan{newTextSpan(ff, color, s), 0.0, 0.0}
+		lines = append(lines, line{[]lineSpan{span}, nil, y}) // TODO: deco
 
-	//	ascent, descent, spacing := span.Heights()
-	//	y -= spacing + ascent + descent + spacing
-	//}
-	//return &Text{lines, map[*Font]bool{ff.f: true}}
-	return TextLine{&Text{
-		lines: []line{{
-			lineSpans: []lineSpan{{
-				span: newTextSpan(ff, color, s),
-				dx:   0.0,
-				w:    0.0,
-			}},
-			y: 0.0,
-		}}, fonts: map[*Font]bool{ff.f: true},
-	}}
+		ascent, descent, spacing := span.Heights()
+		y -= spacing + ascent + descent + spacing
+	}
+	return TextLine{&Text{lines, map[*Font]bool{ff.f: true}}}
 }
 
 func (t TextLine) ToPath() *Path {
-	return t.lines[0].lineSpans[0].ToPath(t.lines[0].lineSpans[0].w)
+	p := &Path{}
+	for _, line := range t.lines {
+		lp := line.lineSpans[0].ToPath(line.lineSpans[0].w)
+		lp.Translate(0.0, line.y)
+		p.Append(lp)
+	}
+	return p
 }
 
 func NewTextBox(ff FontFace, color color.RGBA, s string, width, height float64, halign, valign TextAlign, indent float64) *Text {
@@ -552,10 +547,10 @@ const (
 )
 
 type textBoundary struct {
-	kind           textBoundaryKind
-	pos            int
-	size           int
-	xheight, width float64
+	kind  textBoundaryKind
+	pos   int
+	size  int
+	width float64
 }
 
 func mergeBoundaries(a, b []textBoundary) []textBoundary {
@@ -564,7 +559,6 @@ func mergeBoundaries(a, b []textBoundary) []textBoundary {
 			a[len(a)-1].kind = b[0].kind
 		}
 		a[len(a)-1].size += b[0].size
-		a[len(a)-1].xheight = math.Max(a[len(a)-1].xheight, b[0].xheight)
 		a[len(a)-1].width += b[0].width
 		b = b[1:]
 	}
@@ -577,7 +571,7 @@ func calcWordBoundaries(s string) ([]textBoundary, int) {
 	for i, r := range s {
 		size := utf8.RuneLen(r)
 		if r == '\u200b' {
-			boundaries = append(boundaries, textBoundary{breakBoundary, i, size, 0.0, 0.0})
+			boundaries = append(boundaries, textBoundary{breakBoundary, i, size, 0.0})
 		} else {
 			glyphSpacings++
 		}
@@ -586,7 +580,7 @@ func calcWordBoundaries(s string) ([]textBoundary, int) {
 }
 
 func calcTextBoundaries(ff FontFace, s string, a, b int) []textBoundary {
-	xheight := ff.Metrics().XHeight
+	width := ff.TextWidth(" ")
 
 	boundaries := []textBoundary{}
 	var rPrev, rPrevPrev rune
@@ -603,14 +597,13 @@ func calcTextBoundaries(ff FontFace, s string, a, b int) []textBoundary {
 			if r == '\n' && 0 < i && s[i-1] == '\r' {
 				boundaries[len(boundaries)-1].size++
 			} else {
-				boundaries = mergeBoundaries(boundaries, []textBoundary{{lineBoundary, a + i, size, 0.0, 0.0}})
+				boundaries = mergeBoundaries(boundaries, []textBoundary{{lineBoundary, a + i, size, 0.0}})
 			}
 		} else if isWhitespace(r) {
-			width := ff.TextWidth(string(r))
 			if (rPrev == '.' && !unicode.IsUpper(rPrevPrev) && !isWhitespace(rPrevPrev)) || rPrev == '!' || rPrev == '?' {
-				boundaries = mergeBoundaries(boundaries, []textBoundary{{sentenceBoundary, a + i, size, xheight, width}})
+				boundaries = mergeBoundaries(boundaries, []textBoundary{{sentenceBoundary, a + i, size, width}})
 			} else {
-				boundaries = mergeBoundaries(boundaries, []textBoundary{{wordBoundary, a + i, size, xheight, width}})
+				boundaries = mergeBoundaries(boundaries, []textBoundary{{wordBoundary, a + i, size, width}})
 			}
 		}
 		rPrevPrev = rPrev
