@@ -44,7 +44,6 @@ func (l line) Heights() (float64, float64, float64, float64) {
 		descent = math.Max(descent, spanDescent)
 		bottom = math.Max(bottom, spanDescent+lineSpacing)
 	}
-	// TODO: add decoration bounding boxes
 	return top, ascent, descent, bottom
 }
 
@@ -296,7 +295,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			x0, x1 := 0.0, 0.0
 			for _, ls := range line.lineSpans {
 				ts, ok := ls.span.(textSpan)
-				if 0.0 < x1-x0 && (!ok || ts.ff != ff || ts.color != color) {
+				if 0.0 < x1-x0 && (!ok || ts.color != color || ts.ff != ff) {
 					if ff.decoration != nil {
 						lines[j].decoSpans = append(lines[j].decoSpans, decoSpan{ff, color, x0, x1})
 					}
@@ -329,12 +328,20 @@ func NewTextLine(ff FontFace, color color.RGBA, s string) TextLine {
 	lines := []line{}
 	for _, s := range ss {
 		span := lineSpan{newTextSpan(ff, color, s), 0.0, 0.0}
-		lines = append(lines, line{[]lineSpan{span}, nil, y}) // TODO: deco
+		line := line{[]lineSpan{span}, []decoSpan{}, y}
+		if ff.decoration != nil {
+			line.decoSpans = append(line.decoSpans, decoSpan{ff, color, 0.0, ff.TextWidth(s)})
+		}
+		lines = append(lines, line)
 
 		ascent, descent, spacing := span.Heights()
 		y -= spacing + ascent + descent + spacing
 	}
 	return TextLine{&Text{lines, map[*Font]bool{ff.f: true}}}
+}
+
+func (t TextLine) ToText() *Text {
+	return t.Text
 }
 
 func (t TextLine) ToPath() *Path {
@@ -432,7 +439,7 @@ func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
 		}
 		for _, ds := range line.decoSpans {
 			deco := ds.ff.Decorate(ds.x1 - ds.x0)
-			deco.Translate(x+ds.x0, -y+line.y)
+			deco.Translate(x+ds.x0, -y+line.y).Rotate(rot, x, -y)
 			decorations = append(decorations, pathLayer{deco, pathState{fillColor: ds.color}})
 		}
 	}

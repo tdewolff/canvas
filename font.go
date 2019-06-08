@@ -359,58 +359,50 @@ const underlineThickness = 0.075
 
 var Underline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 	r := ff.Metrics().Size * underlineThickness
-	w -= r
-
 	y := -ff.Metrics().Size * underlineDistance
 
 	p := &Path{}
-	p.MoveTo(r, y)
+	p.MoveTo(0.0, y)
 	p.LineTo(w, y)
-	return p.Stroke(r, RoundCapper, RoundJoiner)
+	return p.Stroke(r, ButtCapper, BevelJoiner)
 })
 
 var Overline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 	r := ff.Metrics().Size * underlineThickness
-	dx := r
-	w -= r
 	y := ff.Metrics().XHeight + ff.Metrics().Size*underlineDistance
 
-	dx += ff.fauxItalic * y
+	dx := ff.fauxItalic * y
 	w += ff.fauxItalic * y
 
 	p := &Path{}
 	p.MoveTo(dx, y)
 	p.LineTo(w, y)
-	return p.Stroke(r, RoundCapper, RoundJoiner)
+	return p.Stroke(r, ButtCapper, BevelJoiner)
 })
 
 var Strikethrough = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 	r := ff.Metrics().Size * underlineThickness
-	dx := r
-	w -= r
 	y := ff.Metrics().XHeight / 2.0
 
-	dx += ff.fauxItalic * y
+	dx := ff.fauxItalic * y
 	w += ff.fauxItalic * y
 
 	p := &Path{}
 	p.MoveTo(dx, y)
 	p.LineTo(w, y)
-	return p.Stroke(r, RoundCapper, RoundJoiner)
+	return p.Stroke(r, ButtCapper, BevelJoiner)
 })
 
 var DoubleUnderline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 	r := ff.Metrics().Size * underlineThickness
-	w -= r
-
 	y := -ff.Metrics().Size * underlineDistance * 0.75
 
 	p := &Path{}
-	p.MoveTo(r, y)
+	p.MoveTo(0.0, y)
 	p.LineTo(w, y)
-	p.MoveTo(r, y-r*2.0)
+	p.MoveTo(0.0, y-r*2.0)
 	p.LineTo(w, y-r*2.0)
-	return p.Stroke(r, RoundCapper, RoundJoiner)
+	return p.Stroke(r, ButtCapper, BevelJoiner)
 })
 
 var DottedUnderline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
@@ -431,17 +423,15 @@ var DottedUnderline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 
 var DashedUnderline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 	r := ff.Metrics().Size * underlineThickness
-	w -= r
-
 	y := -ff.Metrics().Size * underlineDistance
-	d := 6.0 * underlineThickness
-	n := int((w-r)/(3.0*d)) + 1
-	d = (w - r + 2.0*d) / float64(3*n-3)
+	d := 12.0 * underlineThickness
+	n := int(w / (2.0 * d))
+	d = w / float64(2*n-1)
 
 	p := &Path{}
-	p.MoveTo(r, y)
+	p.MoveTo(0.0, y)
 	p.LineTo(w, y)
-	p = p.Dash(d, d*2.0).Stroke(r, RoundCapper, RoundJoiner)
+	p = p.Dash(d).Stroke(r, ButtCapper, BevelJoiner)
 	return p
 })
 
@@ -449,13 +439,13 @@ var SineUnderline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 	r := ff.Metrics().Size * underlineThickness
 	w -= r
 
-	dh := -ff.Metrics().Size * 0.1
+	dh := -ff.Metrics().Size * 0.15
 	y := -ff.Metrics().Size * underlineDistance
-	d := 10.0 * underlineThickness
+	d := 12.0 * underlineThickness
 	n := int(0.5 + w/d)
 	d = (w - r) / float64(n)
-	dx := r
 
+	dx := r
 	p := &Path{}
 	p.MoveTo(dx, y)
 	for i := 0; i < n; i++ {
@@ -471,14 +461,14 @@ var SineUnderline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 
 var SawtoothUnderline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 	r := ff.Metrics().Size * underlineThickness
-	w -= r
+	dx := 0.707 * r
+	w -= 2.0 * dx
 
 	dh := -ff.Metrics().Size * 0.15
 	y := -ff.Metrics().Size * underlineDistance
 	d := 8.0 * underlineThickness
 	n := int(0.5 + w/d)
-	d = (w - r) / float64(n)
-	dx := r
+	d = w / float64(n)
 
 	p := &Path{}
 	p.MoveTo(dx, y)
@@ -490,7 +480,7 @@ var SawtoothUnderline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 		}
 		dx += d
 	}
-	return p.Stroke(r, RoundCapper, RoundJoiner)
+	return p.Stroke(r, ButtCapper, MiterJoiner)
 })
 
 ////////////////////////////////////////////////////////////////

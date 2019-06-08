@@ -210,7 +210,7 @@ func (l textLayer) WritePDF(w *PDFPageWriter) {
 	// TODO
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
-		path.Translate(l.x, l.y)
+		path.Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
 		pathLayer{path, pathState{fillColor: colors[i]}}.WritePDF(w)
 	}
 }
@@ -219,7 +219,7 @@ func (l textLayer) WriteEPS(w *EPSWriter) {
 	// TODO
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
-		path.Translate(l.x, l.y)
+		path.Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
 		pathLayer{path, pathState{fillColor: colors[i]}}.WriteEPS(w)
 	}
 }
@@ -227,7 +227,7 @@ func (l textLayer) WriteEPS(w *EPSWriter) {
 func (l textLayer) WriteImage(img *image.RGBA, dpm, w, h float64) {
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
-		path.Translate(l.x, l.y)
+		path.Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
 		pathLayer{path, pathState{fillColor: colors[i]}}.WriteImage(img, dpm, w, h)
 	}
 }
