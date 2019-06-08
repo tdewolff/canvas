@@ -1,12 +1,11 @@
 package canvas
 
 import (
-	"encoding/hex"
+	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
 	"io"
-	"strconv"
 
 	"golang.org/x/image/vector"
 )
@@ -15,41 +14,6 @@ const MmPerPt = 0.3527777777777778
 const PtPerMm = 2.8346456692913384
 const MmPerInch = 25.4
 const InchPerMm = 1 / 25.4
-
-func writeCSSColor(w io.Writer, color color.RGBA) {
-	if color.A == 255 {
-		buf := make([]byte, 7)
-		buf[0] = '#'
-		hex.Encode(buf[1:], []byte{color.R, color.G, color.B})
-		w.Write(buf)
-	} else {
-		buf := make([]byte, 0, 24)
-		buf = append(buf, []byte("rgba(")...)
-		buf = strconv.AppendInt(buf, int64(color.R), 10)
-		buf = append(buf, ',')
-		buf = strconv.AppendInt(buf, int64(color.G), 10)
-		buf = append(buf, ',')
-		buf = strconv.AppendInt(buf, int64(color.B), 10)
-		buf = append(buf, ',')
-		buf = strconv.AppendFloat(buf, float64(color.A)/255.0, 'g', 4, 64)
-		buf = append(buf, ')')
-		w.Write(buf)
-	}
-}
-
-func writeFloat64(w io.Writer, f float64) {
-	buf := []byte{}
-	w.Write(strconv.AppendFloat(buf, f, 'g', 5, 64))
-}
-
-////////////////////////////////////////////////////////////////
-
-type layer interface {
-	WriteSVG(io.Writer, float64)
-	WritePDF(*PDFPageWriter)
-	WriteEPS(*EPSWriter)
-	WriteImage(*image.RGBA, float64, float64, float64)
-}
 
 type C struct {
 	w, h   float64
@@ -92,30 +56,18 @@ func (c *C) DrawText(x, y float64, text *Text) {
 }
 
 func (c *C) WriteSVG(w io.Writer) {
-	w.Write([]byte("<svg xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\" shape-rendering=\"geometricPrecision\" width=\""))
-	writeFloat64(w, c.w)
-	w.Write([]byte("mm\" height=\""))
-	writeFloat64(w, c.h)
-	w.Write([]byte("mm\" viewBox=\"0 0 "))
-	writeFloat64(w, c.w)
-	w.Write([]byte(" "))
-	writeFloat64(w, c.h)
-	w.Write([]byte("\">"))
+	fmt.Fprintf(w, `<svg xmlns="http://www.w3.org/2000/svg" version="1.1" shape-rendering="geometricPrecision" width="%g" height="%g" viewBox="0 0 %g %g">`, c.w, c.h, c.w, c.h)
 	if len(c.fonts) > 0 {
-		w.Write([]byte("<defs><style>"))
+		fmt.Fprintf(w, "<defs><style>")
 		for f := range c.fonts {
-			w.Write([]byte("@font-face { font-family: '"))
-			w.Write([]byte(f.name))
-			w.Write([]byte("'; src: url('"))
-			w.Write([]byte(f.ToDataURI()))
-			w.Write([]byte("'); }\n"))
+			fmt.Fprintf(w, "\n@font-face{font-family:'%s';src:url('%s');}", f.name, f.ToDataURI())
 		}
-		w.Write([]byte("</style></defs>"))
+		fmt.Fprintf(w, "\n</style></defs>")
 	}
 	for _, l := range c.layers {
 		l.WriteSVG(w, c.h)
 	}
-	w.Write([]byte("</svg>"))
+	fmt.Fprintf(w, "</svg>")
 }
 
 func (c *C) WritePDF(w io.Writer) error {
@@ -148,6 +100,15 @@ func (c *C) WriteImage(dpi float64) *image.RGBA {
 	return img
 }
 
+////////////////////////////////////////////////////////////////
+
+type layer interface {
+	WriteSVG(io.Writer, float64)
+	WritePDF(*PDFPageWriter)
+	WriteEPS(*EPSWriter)
+	WriteImage(*image.RGBA, float64, float64, float64)
+}
+
 type pathLayer struct {
 	path *Path
 	pathState
@@ -164,13 +125,22 @@ type pathState struct {
 
 func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 	p := l.path.Copy().Scale(1.0, -1.0).Translate(0.0, h)
-	w.Write([]byte("<path d=\""))
+	w.Write([]byte(`<path d="`))
 	w.Write([]byte(p.ToSVG()))
-	if l.fillColor != Black {
-		w.Write([]byte("\" fill=\""))
-		writeCSSColor(w, l.fillColor)
+	if 0.0 < l.strokeWidth {
+		w.Write([]byte(`" style="`))
+		fmt.Fprintf(w, "stroke-width:%g", l.strokeWidth)
+		if l.strokeColor != Black {
+			fmt.Fprintf(w, ";stroke:%s", toCSSColor(l.strokeColor))
+		}
+		// TODO: cap, join, dash
+		if l.fillColor != Black {
+			fmt.Fprintf(w, ";fill:%s", toCSSColor(l.fillColor))
+		}
+	} else if l.fillColor != Black {
+		fmt.Fprintf(w, `" fill="%s`, toCSSColor(l.fillColor))
 	}
-	w.Write([]byte("\"/>"))
+	w.Write([]byte(`"/>`))
 }
 
 func (l pathLayer) WritePDF(w *PDFPageWriter) {

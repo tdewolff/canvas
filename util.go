@@ -1,6 +1,9 @@
 package canvas
 
 import (
+	"encoding/hex"
+	"fmt"
+	"image/color"
 	"math"
 
 	"golang.org/x/image/math/f32"
@@ -32,6 +35,19 @@ func angleBetween(theta, lower, upper float64) bool {
 		return true
 	}
 	return false
+}
+
+////////////////////////////////////////////////////////////////
+
+func toCSSColor(color color.RGBA) string {
+	if color.A == 255 {
+		buf := make([]byte, 7)
+		buf[0] = '#'
+		hex.Encode(buf[1:], []byte{color.R, color.G, color.B})
+		return string(buf)
+	} else {
+		return fmt.Sprintf("rgba(%d,%d,%d,%g)", color.R, color.G, color.B, float64(color.A)/255.0)
+	}
 }
 
 ////////////////////////////////////////////////////////////////

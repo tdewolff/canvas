@@ -429,8 +429,7 @@ func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
 				}
 				fmt.Fprintf(w, ` %gpx %s`, size, name)
 				if span.color != Black {
-					fmt.Fprintf(w, `;fill:`)
-					writeCSSColor(w, span.color)
+					fmt.Fprintf(w, `;fill:%s`, toCSSColor(span.color))
 				}
 				fmt.Fprintf(w, `">%s</tspan>`, span.ff.f.transform(span.s, glyphSpacing == 0.0))
 			default:
