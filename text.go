@@ -361,17 +361,20 @@ func (t *Text) Bounds() Rect {
 	if len(t.lines) == 0 || len(t.lines[0].lineSpans) == 0 {
 		return Rect{}
 	}
-	x0, y0, x1, y1 := math.Inf(1.0), math.Inf(1.0), math.Inf(-1.0), math.Inf(-1.0)
+	r := Rect{}
 	for _, line := range t.lines {
 		for _, ls := range line.lineSpans {
 			spanBounds := ls.span.Bounds(ls.w)
-			x0 = math.Min(x0, ls.dx+spanBounds.X)
-			x1 = math.Max(x1, ls.dx+spanBounds.X+spanBounds.W)
-			y0 = math.Min(y0, line.y+spanBounds.Y)
-			y1 = math.Max(y1, line.y+spanBounds.H+spanBounds.Y)
+			spanBounds = spanBounds.Move(Point{ls.dx, line.y})
+			r = r.Add(spanBounds)
+		}
+		for _, ds := range line.decoSpans {
+			spanBounds := ds.ff.Decorate(ds.x1 - ds.x0).Bounds()
+			spanBounds = spanBounds.Move(Point{ds.x0, line.y})
+			r = r.Add(spanBounds)
 		}
 	}
-	return Rect{x0, y0, x1 - x0, y1 - y0}
+	return r
 }
 
 // ToPath makes a path out of the text, with x,y the top-left point of the rectangle that fits the text (ie. y is not the text base)
@@ -401,6 +404,7 @@ func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
 		fmt.Fprintf(w, `" transform="rotate(%g,%g,%g)`, -rot, x, y)
 	}
 	fmt.Fprintf(w, `">`)
+	decorations := []pathLayer{}
 	for _, line := range t.lines {
 		for _, ls := range line.lineSpans {
 			switch span := ls.span.(type) {
@@ -431,8 +435,17 @@ func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
 				panic("unsupported span type")
 			}
 		}
+		for _, ds := range line.decoSpans {
+			deco := ds.ff.Decorate(ds.x1 - ds.x0)
+			deco.Translate(x+ds.x0, -y+line.y)
+			decorations = append(decorations, pathLayer{deco, pathState{fillColor: ds.color}})
+		}
 	}
 	fmt.Fprintf(w, `</text>`)
+
+	for _, l := range decorations {
+		l.WriteSVG(w, 0.0)
+	}
 }
 
 ////////////////////////////////////////////////////////////////

@@ -167,6 +167,12 @@ type Rect struct {
 	X, Y, W, H float64
 }
 
+func (r Rect) Move(p Point) Rect {
+	r.X += p.X
+	r.Y += p.Y
+	return r
+}
+
 func (r Rect) Add(q Rect) Rect {
 	if q.W == 0.0 || q.H == 0 {
 		return r
