@@ -439,7 +439,7 @@ func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
 		for _, ds := range line.decoSpans {
 			deco := ds.ff.Decorate(ds.x1 - ds.x0)
 			deco.Translate(x+ds.x0, -y+line.y).Rotate(rot, x, -y)
-			decorations = append(decorations, pathLayer{deco, pathState{fillColor: ds.color}})
+			decorations = append(decorations, pathLayer{deco, drawState{fillColor: ds.color}})
 		}
 	}
 	fmt.Fprintf(w, `</text>`)

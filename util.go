@@ -125,8 +125,8 @@ func (p Point) Rot90CCW() Point {
 }
 
 // Rot rotates the line OP by rot degrees CCW.
-func (p Point) Rot(rot float64, p0 Point) Point {
-	sinphi, cosphi := math.Sincos(rot * math.Pi / 180.0)
+func (p Point) Rot(phi float64, p0 Point) Point {
+	sinphi, cosphi := math.Sincos(phi)
 	return Point{
 		p0.X + cosphi*(p.X-p0.X) - sinphi*(p.Y-p0.Y),
 		p0.Y + sinphi*(p.X-p0.X) + cosphi*(p.Y-p0.Y),
@@ -177,6 +177,10 @@ func (p Point) Interpolate(q Point, t float64) Point {
 	return Point{(1-t)*p.X + t*q.X, (1-t)*p.Y + t*q.Y}
 }
 
+func (p Point) String() string {
+	return fmt.Sprintf("[%g; %g]", p.X, p.Y)
+}
+
 ////////////////////////////////////////////////////////////////
 
 type Rect struct {
@@ -204,4 +208,72 @@ func (r Rect) Add(q Rect) Rect {
 
 func (r Rect) ToPath() *Path {
 	return Rectangle(r.X, r.Y, r.W, r.H)
+}
+
+func (r Rect) String() string {
+	return fmt.Sprintf("[%g; %g]--[%g; %g]", r.X, r.Y, r.X+r.W, r.Y+r.H)
+}
+
+////////////////////////////////////////////////////////////////
+
+type Matrix [2][3]float64
+
+var Identity = Matrix{
+	{1.0, 0.0, 0.0},
+	{0.0, 1.0, 0.0},
+}
+
+func (m Matrix) Mul(q Matrix) Matrix {
+	return Matrix{{
+		m[0][0]*q[0][0] + m[0][1]*q[1][0],
+		m[0][0]*q[0][1] + m[0][1]*q[1][1],
+		m[0][0]*q[0][2] + m[0][1]*q[1][2] + m[0][2],
+	}, {
+		m[1][0]*q[0][0] + m[1][1]*q[1][0],
+		m[1][0]*q[0][1] + m[1][1]*q[1][1],
+		m[1][0]*q[0][2] + m[1][1]*q[1][2] + m[1][2],
+	}}
+}
+
+func (m Matrix) Dot(p Point) Point {
+	return Point{
+		m[0][0]*p.X + m[0][1]*p.Y + m[0][2],
+		m[1][0]*p.X + m[1][1]*p.Y + m[1][2],
+	}
+}
+
+func (m Matrix) Translate(x, y float64) Matrix {
+	return m.Mul(Matrix{
+		{1.0, 0.0, x},
+		{0.0, 1.0, y},
+	})
+}
+
+func (m Matrix) Rotate(rot float64) Matrix {
+	sintheta, costheta := math.Sincos(rot * math.Pi / 180.0)
+	return m.Mul(Matrix{
+		{costheta, -sintheta, 0.0},
+		{sintheta, costheta, 0.0},
+	})
+}
+
+func (m Matrix) Scale(x, y float64) Matrix {
+	return m.Mul(Matrix{
+		{x, 0.0, 0.0},
+		{0.0, y, 0.0},
+	})
+}
+
+func (m Matrix) theta() float64 {
+	return math.Atan2(-m[0][1], m[0][0])
+}
+
+func (m Matrix) scale() (float64, float64) {
+	x := math.Copysign(math.Sqrt(m[0][0]*m[0][0]+m[0][1]*m[0][1]), m[0][0])
+	y := math.Copysign(math.Sqrt(m[1][0]*m[1][0]+m[1][1]*m[1][1]), m[1][1])
+	return x, y
+}
+
+func (m Matrix) String() string {
+	return fmt.Sprintf("[%g, %g, %g; %g, %g, %g; 0, 0, 1]", m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2])
 }

@@ -47,25 +47,37 @@ func main() {
 
 func drawStrokedPath(c *canvas.C, x, y, d float64, path string) {
 	fmt.Println("----------")
-	c.SetColor(canvas.Black)
+	c.SetFillColor(canvas.Black)
 	p, err := canvas.ParseSVG(path)
 	if err != nil {
 		panic(err)
 	}
-	c.DrawPath(x, y, 0.0, p)
+	c.DrawPath(x, y, p)
 
 	p = p.Stroke(d, canvas.ButtCapper, canvas.MiterClipJoiner(canvas.RoundJoiner, d))
-	c.SetColor(color.RGBA{255, 0, 0, 127})
-	c.DrawPath(x, y, 0.0, p)
+	c.SetFillColor(color.RGBA{255, 0, 0, 127})
+	c.DrawPath(x, y, p)
 
 	p = p.Stroke(0.2, canvas.RoundCapper, canvas.RoundJoiner)
-	c.SetColor(color.RGBA{255, 0, 0, 255})
-	c.DrawPath(x, y, 0.0, p)
+	c.SetFillColor(color.RGBA{255, 0, 0, 255})
+	c.DrawPath(x, y, p)
 }
 
 func Draw(c *canvas.C) {
-	p, _ := canvas.ParseSVG(fmt.Sprintf("M10 0V10H-10V-10H10zM5 0V-5H-5V5H5z"))
-	p = p.Offset(1.0)
+	p, _ := canvas.ParseSVG(fmt.Sprintf("H10.0Q20.0 0.0 20.0 10.0A20.0 10.0 45.0 0 1 0.0 20.0z"))
+	pf := p.Copy().Flatten()
+
+	//p.Transform(canvas.Identity.Scale(2.0, 1.5).Rotate(-90))
+	//m := canvas.Identity.Rotate(0).Scale(2.0, 1.0)
+	//p.Transform(m)
+	//pf.Transform(m)
+
+	c.DrawPath(30.0, 30.0, p)
+	c.SetFillColor(color.RGBA{0, 255, 0, 128})
+	c.DrawPath(30.0, 30.0, pf)
+
+	//p, _ := canvas.ParseSVG(fmt.Sprintf("M10 0V10H-10V-10H10zM5 0V-5H-5V5H5z"))
+	//p = p.Offset(1.0)
 
 	//ellipse, _ := canvas.ParseSVG(fmt.Sprintf("A10 20 0 0 0 20 0z"))
 	//c.SetColor(canvas.Red)

@@ -592,96 +592,32 @@ func (p *Path) Length() float64 {
 	return d
 }
 
-// Translate translates the path by (x,y).
-func (p *Path) Translate(x, y float64) *Path {
+// Transform transform the path by the given transformation matrix.
+func (p *Path) Transform(m Matrix) *Path {
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
 		p.d = append([]float64{MoveToCmd, 0.0, 0.0}, p.d...)
 	}
+	xscale, yscale := m.scale()
+	//scale := Point{xscale, yscale}.Rot(m.theta(), Point{})
+	//fmt.Println(m.theta()*180.0/math.Pi, xscale, yscale, scale)
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
 		case MoveToCmd, LineToCmd, CloseCmd:
-			p.d[i+1] += x
-			p.d[i+2] += y
-		case QuadToCmd:
-			p.d[i+1] += x
-			p.d[i+2] += y
-			p.d[i+3] += x
-			p.d[i+4] += y
-		case CubeToCmd:
-			p.d[i+1] += x
-			p.d[i+2] += y
-			p.d[i+3] += x
-			p.d[i+4] += y
-			p.d[i+5] += x
-			p.d[i+6] += y
-		case ArcToCmd:
-			p.d[i+5] += x
-			p.d[i+6] += y
-		}
-		i += cmdLen(cmd)
-	}
-	return p
-}
-
-// Scale scales the path by (x,y).
-func (p *Path) Scale(x, y float64) *Path {
-	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
-		switch cmd {
-		case MoveToCmd, LineToCmd, CloseCmd:
-			p.d[i+1] *= x
-			p.d[i+2] *= y
-		case QuadToCmd:
-			p.d[i+1] *= x
-			p.d[i+2] *= y
-			p.d[i+3] *= x
-			p.d[i+4] *= y
-		case CubeToCmd:
-			p.d[i+1] *= x
-			p.d[i+2] *= y
-			p.d[i+3] *= x
-			p.d[i+4] *= y
-			p.d[i+5] *= x
-			p.d[i+6] *= y
-		case ArcToCmd:
-			p.d[i+1] *= math.Abs(x)
-			p.d[i+2] *= math.Abs(y)
-			largeArc, sweep := fromArcFlags(p.d[i+4])
-			if x*y < 0.0 {
-				p.d[i+3] *= -1.0
-				sweep = !sweep
-			}
-			p.d[i+4] = toArcFlags(largeArc, sweep)
-			p.d[i+5] *= x
-			p.d[i+6] *= y
-		}
-		i += cmdLen(cmd)
-	}
-	return p
-}
-
-// Rotate rotates the path by rot in degrees around point (x,y) counter clockwise.
-func (p *Path) Rotate(rot, x, y float64) *Path {
-	mid := Point{x, y}
-	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
-		switch cmd {
-		case MoveToCmd, LineToCmd, CloseCmd:
-			end := Point{p.d[i+1], p.d[i+2]}.Rot(rot, mid)
+			end := m.Dot(Point{p.d[i+1], p.d[i+2]})
 			p.d[i+1] = end.X
 			p.d[i+2] = end.Y
 		case QuadToCmd:
-			cp := Point{p.d[i+1], p.d[i+2]}.Rot(rot, mid)
-			end := Point{p.d[i+3], p.d[i+4]}.Rot(rot, mid)
+			cp := m.Dot(Point{p.d[i+1], p.d[i+2]})
+			end := m.Dot(Point{p.d[i+3], p.d[i+4]})
 			p.d[i+1] = cp.X
 			p.d[i+2] = cp.Y
 			p.d[i+3] = end.X
 			p.d[i+4] = end.Y
 		case CubeToCmd:
-			cp1 := Point{p.d[i+1], p.d[i+2]}.Rot(rot, mid)
-			cp2 := Point{p.d[i+3], p.d[i+4]}.Rot(rot, mid)
-			end := Point{p.d[i+5], p.d[i+6]}.Rot(rot, mid)
+			cp1 := m.Dot(Point{p.d[i+1], p.d[i+2]})
+			cp2 := m.Dot(Point{p.d[i+3], p.d[i+4]})
+			end := m.Dot(Point{p.d[i+5], p.d[i+6]})
 			p.d[i+1] = cp1.X
 			p.d[i+2] = cp1.Y
 			p.d[i+3] = cp2.X
@@ -689,15 +625,70 @@ func (p *Path) Rotate(rot, x, y float64) *Path {
 			p.d[i+5] = end.X
 			p.d[i+6] = end.Y
 		case ArcToCmd:
-			phi := angleNorm(p.d[i+3] + rot*math.Pi/180.0)
-			end := Point{p.d[i+5], p.d[i+6]}.Rot(rot, mid)
-			p.d[i+3] = phi
+			end := m.Dot(Point{p.d[i+5], p.d[i+6]})
+			rx := math.Abs(xscale)
+			ry := math.Abs(yscale)
+			phi := p.d[i+3]
+
+			mEllipse := m.Rotate(phi*180.0/math.Pi).Scale(rx, ry)
+			fmt.Print("theta and scale ", mEllipse.theta()*180.0/math.Pi, " ")
+			fmt.Println(mEllipse.scale())
+			mp := mEllipse.Dot(Point{1.0, 0.0})
+			fmt.Println("mp", mp, mp.Angle()*180.0/math.Pi)
+
+			// TODO
+
+			//xRadius := Point{p.d[i+1], 0.0}
+			//yRadius := Point{0.0, p.d[i+2]}
+			//fmt.Println("radius", xRadius, yRadius, "rot", phi*180.0/math.Pi)
+			//xRadius = xRadius.Rot(phi, Point{})
+			//yRadius = yRadius.Rot(phi, Point{})
+			//fmt.Println("cur radius", xRadius, yRadius)
+			//xRadius.X *= xscale
+			//xRadius.Y *= yscale
+			//yRadius.X *= xscale
+			//yRadius.Y *= yscale
+			//fmt.Println("new radius", xRadius, yRadius)
+			//xRadius = xRadius.Rot(-phi, Point{})
+			//yRadius = yRadius.Rot(-phi, Point{})
+			//fmt.Println("res radius", xRadius, yRadius)
+			//radii := Point{p.d[i+1], p.d[i+2]}
+			//radii = radii.Rot(-phi, Point{})
+			//radii.X *= xscale
+			//radii.Y *= yscale
+			//radii = radii.Rot(phi, Point{})
+			//fmt.Println("oth radius", radii, Point{xscale, yscale}.Rot(phi, Point{}))
+
+			largeArc, sweep := fromArcFlags(p.d[i+4])
+			if xscale*yscale < 0.0 {
+				phi *= -1.0 // TODO: test, maybe add m.theta() afterwards
+				sweep = !sweep
+			}
+			p.d[i+1] *= math.Abs(xscale)
+			p.d[i+2] *= math.Abs(yscale)
+			p.d[i+3] = angleNorm(phi + m.theta())
+			p.d[i+4] = toArcFlags(largeArc, sweep)
 			p.d[i+5] = end.X
 			p.d[i+6] = end.Y
 		}
 		i += cmdLen(cmd)
 	}
 	return p
+}
+
+// Translate translates the path by (x,y).
+func (p *Path) Translate(x, y float64) *Path {
+	return p.Transform(Identity.Translate(x, y))
+}
+
+// Scale scales the path by (x,y).
+func (p *Path) Scale(x, y float64) *Path {
+	return p.Transform(Identity.Scale(x, y))
+}
+
+// Rotate rotates the path by rot in degrees around point (x,y) counter clockwise.
+func (p *Path) Rotate(rot, x, y float64) *Path {
+	return p.Transform(Identity.Translate(-x, -y).Rotate(rot).Translate(x, y))
 }
 
 // Flatten flattens all Bézier and arc curves into linear segments. It uses Tolerance as the maximum deviation.
@@ -1538,10 +1529,10 @@ func (p *Path) ToPS() string {
 		switch cmd {
 		case MoveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
-			fmt.Fprintf(&sb, " %.5g %.5g moveto", x, y)
+			fmt.Fprintf(&sb, " %.5f %.5f moveto", x, y)
 		case LineToCmd:
 			x, y = p.d[i+1], p.d[i+2]
-			fmt.Fprintf(&sb, " %.5g %.5g lineto", x, y)
+			fmt.Fprintf(&sb, " %.5f %.5f lineto", x, y)
 		case QuadToCmd, CubeToCmd:
 			var start, cp1, cp2 Point
 			start = Point{x, y}
@@ -1553,7 +1544,7 @@ func (p *Path) ToPS() string {
 				cp2 = Point{p.d[i+3], p.d[i+4]}
 				x, y = p.d[i+5], p.d[i+6]
 			}
-			fmt.Fprintf(&sb, " %.5g %.5g %.5g %.5g %.5g %.5g curveto", cp1.X, cp1.Y, cp2.X, cp2.Y, x, y)
+			fmt.Fprintf(&sb, " %.5f %.5f %.5f %.5f %.5f %.5f curveto", cp1.X, cp1.Y, cp2.X, cp2.Y, x, y)
 		case ArcToCmd:
 			x0, y0 := x, y
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
@@ -1567,12 +1558,12 @@ func (p *Path) ToPS() string {
 			isEllipse := !equal(rx, ry)
 
 			if !equal(rot, 0.0) {
-				fmt.Fprintf(&sb, " %.5g %.5g translate %.5g rotate %.5g %.5g translate", cx, cy, rot, -cx, -cy)
+				fmt.Fprintf(&sb, " %.5f %.5f translate %.5f rotate %.5f %.5f translate", cx, cy, rot, -cx, -cy)
 			}
 			if isEllipse {
-				fmt.Fprintf(&sb, " %.5g %.5g %.5g %.5g %.5g %.5g ellipse", cx, cy, rx, ry, theta0, theta1)
+				fmt.Fprintf(&sb, " %.5f %.5f %.5f %.5f %.5f %.5f ellipse", cx, cy, rx, ry, theta0, theta1)
 			} else {
-				fmt.Fprintf(&sb, " %.5g %.5g %.5g %.5g %.5g arc", cx, cy, rx, theta0, theta1)
+				fmt.Fprintf(&sb, " %.5f %.5f %.5f %.5f %.5f arc", cx, cy, rx, theta0, theta1)
 			}
 			if !sweep {
 				fmt.Fprintf(&sb, "n")

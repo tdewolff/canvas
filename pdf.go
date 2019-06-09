@@ -67,8 +67,10 @@ const (
 
 func (w *PDFWriter) writeVal(i interface{}) {
 	switch v := i.(type) {
-	case int, float64:
-		w.write("%v", v)
+	case int:
+		w.write("%d", v)
+	case float64:
+		w.write("%f", v)
 	case string:
 		v = strings.Replace(v, `\`, `\\`, -1)
 		v = strings.Replace(v, `(`, `\(`, -1)
@@ -245,7 +247,7 @@ func (w *PDFPageWriter) SetColor(color color.RGBA) {
 		if w.color.A != 255 && color.A != w.color.A {
 			fmt.Fprintf(w, " Q")
 		}
-		fmt.Fprintf(w, " %g %g %g rg", float64(color.R)/255.0, float64(color.G)/255.0, float64(color.B)/255.0)
+		fmt.Fprintf(w, " %f %f %f rg", float64(color.R)/255.0, float64(color.G)/255.0, float64(color.B)/255.0)
 		if color.A != w.color.A {
 			gs := w.getOpacityGS(float64(color.A) / 255.0)
 			fmt.Fprintf(w, " q /%v gs", gs)
@@ -262,7 +264,7 @@ func (w *PDFPageWriter) SetFont(font *Font, size float64) {
 		}
 		name := PDFName(fmt.Sprintf("F%d", len(w.resources["Font"].(PDFDict))))
 		w.resources["Font"].(PDFDict)[name] = ref
-		fmt.Fprintf(w, " /%v %g Tf", name, size)
+		fmt.Fprintf(w, " /%v %f Tf", name, size)
 	}
 }
 

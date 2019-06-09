@@ -20,21 +20,35 @@ type C struct {
 	layers []layer
 	fonts  map[*Font]bool
 	// transformation matrix
-	pathState
+	drawState
 }
 
 func New(w, h float64) *C {
-	return &C{w, h, []layer{}, map[*Font]bool{}, pathState{}}
+	return &C{w, h, []layer{}, map[*Font]bool{}, drawState{
+		fillColor:    Black,
+		strokeColor:  Black,
+		strokeCapper: ButtCapper,
+		strokeJoiner: BevelJoiner,
+	}}
 }
 
-func (c *C) SetFill(color color.RGBA) {
+func (c *C) SetFillColor(color color.RGBA) {
 	c.fillColor = color
 }
 
-func (c *C) SetStroke(color color.RGBA, width float64, capper Capper, joiner Joiner) {
+func (c *C) SetStrokeColor(color color.RGBA) {
 	c.strokeColor = color
+}
+
+func (c *C) SetStrokeWidth(width float64) {
 	c.strokeWidth = width
+}
+
+func (c *C) SetStrokeCapper(capper Capper) {
 	c.strokeCapper = capper
+}
+
+func (c *C) SetStrokeJoiner(joiner Joiner) {
 	c.strokeJoiner = joiner
 }
 
@@ -45,7 +59,7 @@ func (c *C) SetDashes(dashOffset float64, dashes ...float64) {
 
 func (c *C) DrawPath(x, y float64, path *Path) {
 	path = path.Copy().Translate(x, y)
-	c.layers = append(c.layers, pathLayer{path, c.pathState})
+	c.layers = append(c.layers, pathLayer{path, c.drawState})
 }
 
 func (c *C) DrawText(x, y float64, text *Text) {
@@ -109,18 +123,18 @@ type layer interface {
 	WriteImage(*image.RGBA, float64, float64, float64)
 }
 
-type pathLayer struct {
-	path *Path
-	pathState
-}
-
-type pathState struct {
+type drawState struct {
 	fillColor, strokeColor color.RGBA
 	strokeWidth            float64
 	strokeCapper           Capper
 	strokeJoiner           Joiner
 	dashOffset             float64
 	dashes                 []float64
+}
+
+type pathLayer struct {
+	path *Path
+	drawState
 }
 
 func (l pathLayer) WriteSVG(w io.Writer, h float64) {
@@ -181,7 +195,7 @@ func (l textLayer) WritePDF(w *PDFPageWriter) {
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
 		path.Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
-		pathLayer{path, pathState{fillColor: colors[i]}}.WritePDF(w)
+		pathLayer{path, drawState{fillColor: colors[i]}}.WritePDF(w)
 	}
 }
 
@@ -190,7 +204,7 @@ func (l textLayer) WriteEPS(w *EPSWriter) {
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
 		path.Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
-		pathLayer{path, pathState{fillColor: colors[i]}}.WriteEPS(w)
+		pathLayer{path, drawState{fillColor: colors[i]}}.WriteEPS(w)
 	}
 }
 
@@ -198,6 +212,6 @@ func (l textLayer) WriteImage(img *image.RGBA, dpm, w, h float64) {
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
 		path.Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
-		pathLayer{path, pathState{fillColor: colors[i]}}.WriteImage(img, dpm, w, h)
+		pathLayer{path, drawState{fillColor: colors[i]}}.WriteImage(img, dpm, w, h)
 	}
 }
