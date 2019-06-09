@@ -597,9 +597,6 @@ func (p *Path) Transform(m Matrix) *Path {
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
 		p.d = append([]float64{MoveToCmd, 0.0, 0.0}, p.d...)
 	}
-	xscale, yscale := m.scale()
-	//scale := Point{xscale, yscale}.Rot(m.theta(), Point{})
-	//fmt.Println(m.theta()*180.0/math.Pi, xscale, yscale, scale)
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
@@ -626,47 +623,24 @@ func (p *Path) Transform(m Matrix) *Path {
 			p.d[i+6] = end.Y
 		case ArcToCmd:
 			end := m.Dot(Point{p.d[i+5], p.d[i+6]})
-			rx := math.Abs(xscale)
-			ry := math.Abs(yscale)
+			rx := p.d[i+1]
+			ry := p.d[i+2]
 			phi := p.d[i+3]
 
-			mEllipse := m.Rotate(phi*180.0/math.Pi).Scale(rx, ry)
-			fmt.Print("theta and scale ", mEllipse.theta()*180.0/math.Pi, " ")
+			mEllipse := Identity.Scale(rx, ry).Rotate(phi * 180.0 / math.Pi).Mul(m)
+			fmt.Print("theta and scale ", phi*180.0/math.Pi, " + ", m.theta()*180.0/math.Pi, " = ", mEllipse.theta()*180.0/math.Pi, " ")
+			fmt.Print(rx, " ", ry, " ")
 			fmt.Println(mEllipse.scale())
-			mp := mEllipse.Dot(Point{1.0, 0.0})
-			fmt.Println("mp", mp, mp.Angle()*180.0/math.Pi)
-
-			// TODO
-
-			//xRadius := Point{p.d[i+1], 0.0}
-			//yRadius := Point{0.0, p.d[i+2]}
-			//fmt.Println("radius", xRadius, yRadius, "rot", phi*180.0/math.Pi)
-			//xRadius = xRadius.Rot(phi, Point{})
-			//yRadius = yRadius.Rot(phi, Point{})
-			//fmt.Println("cur radius", xRadius, yRadius)
-			//xRadius.X *= xscale
-			//xRadius.Y *= yscale
-			//yRadius.X *= xscale
-			//yRadius.Y *= yscale
-			//fmt.Println("new radius", xRadius, yRadius)
-			//xRadius = xRadius.Rot(-phi, Point{})
-			//yRadius = yRadius.Rot(-phi, Point{})
-			//fmt.Println("res radius", xRadius, yRadius)
-			//radii := Point{p.d[i+1], p.d[i+2]}
-			//radii = radii.Rot(-phi, Point{})
-			//radii.X *= xscale
-			//radii.Y *= yscale
-			//radii = radii.Rot(phi, Point{})
-			//fmt.Println("oth radius", radii, Point{xscale, yscale}.Rot(phi, Point{}))
 
 			largeArc, sweep := fromArcFlags(p.d[i+4])
+			xscale, yscale := mEllipse.scale()
 			if xscale*yscale < 0.0 {
-				phi *= -1.0 // TODO: test, maybe add m.theta() afterwards
+				phi *= -1.0
 				sweep = !sweep
 			}
-			p.d[i+1] *= math.Abs(xscale)
-			p.d[i+2] *= math.Abs(yscale)
-			p.d[i+3] = angleNorm(phi + m.theta())
+			p.d[i+1] = math.Abs(xscale)
+			p.d[i+2] = math.Abs(yscale)
+			p.d[i+3] = mEllipse.theta()
 			p.d[i+4] = toArcFlags(largeArc, sweep)
 			p.d[i+5] = end.X
 			p.d[i+6] = end.Y
@@ -689,6 +663,11 @@ func (p *Path) Scale(x, y float64) *Path {
 // Rotate rotates the path by rot in degrees around point (x,y) counter clockwise.
 func (p *Path) Rotate(rot, x, y float64) *Path {
 	return p.Transform(Identity.Translate(-x, -y).Rotate(rot).Translate(x, y))
+}
+
+// Shear applies a shear transformation to the path in x and y.
+func (p *Path) Shear(x, y float64) *Path {
+	return p.Transform(Identity.Shear(x, y))
 }
 
 // Flatten flattens all Bézier and arc curves into linear segments. It uses Tolerance as the maximum deviation.

@@ -360,6 +360,7 @@ func ellipseLength(rx, ry, theta1, theta2 float64) float64 {
 // ellipseToCenter converts to the center arc format and returns (centerX, centerY, angleFrom, angleTo) with angles in radians.
 // when angleFrom with range [0, 2*PI) is bigger than angleTo with range (-2*PI, 4*PI), the ellipse runs clockwise. The angles are from before the ellipse has been stretched and rotated.
 // See https://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
+// TODO: bug, gives wrong (but close) angles for rotated (eg 45) ellipse
 func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 float64) (float64, float64, float64, float64) {
 	if x1 == x2 && y1 == y2 {
 		return x1, y1, 0.0, 0.0

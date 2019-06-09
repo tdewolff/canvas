@@ -64,17 +64,18 @@ func drawStrokedPath(c *canvas.C, x, y, d float64, path string) {
 }
 
 func Draw(c *canvas.C) {
-	p, _ := canvas.ParseSVG(fmt.Sprintf("H10.0Q20.0 0.0 20.0 10.0A20.0 10.0 45.0 0 1 0.0 20.0z"))
+	p, _ := canvas.ParseSVG(fmt.Sprintf("H10.0Q20.0 0.0 20.0 10.0A20.0 10.0 30.0 0 1 0.0 20.0z"))
+	c.DrawPath(120.0, 30.0, p)
+
 	pf := p.Copy().Flatten()
 
-	//p.Transform(canvas.Identity.Scale(2.0, 1.5).Rotate(-90))
-	//m := canvas.Identity.Rotate(0).Scale(2.0, 1.0)
-	//p.Transform(m)
-	//pf.Transform(m)
+	m := canvas.Identity.Rotate(0).Scale(2.0, 1.0)
+	p.Transform(m)
+	pf.Transform(m)
 
 	c.DrawPath(30.0, 30.0, p)
 	c.SetFillColor(color.RGBA{0, 255, 0, 128})
-	c.DrawPath(30.0, 30.0, pf)
+	c.DrawPath(30.5, 30.5, pf)
 
 	//p, _ := canvas.ParseSVG(fmt.Sprintf("M10 0V10H-10V-10H10zM5 0V-5H-5V5H5z"))
 	//p = p.Offset(1.0)

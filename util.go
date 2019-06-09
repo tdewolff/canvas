@@ -235,6 +235,19 @@ func (m Matrix) Mul(q Matrix) Matrix {
 	}}
 }
 
+func (m Matrix) Inv() Matrix {
+	det := m[0][0]*m[1][1] - m[0][1]*m[1][0]
+	return Matrix{{
+		m[1][1] / det,
+		-m[0][1] / det,
+		-(m[1][1]*m[0][2] - m[0][1]*m[1][2]) / det,
+	}, {
+		-m[1][0] / det,
+		m[0][0] / det,
+		-(-m[1][0]*m[0][2] + m[0][0]*m[1][2]) / det,
+	}}
+}
+
 func (m Matrix) Dot(p Point) Point {
 	return Point{
 		m[0][0]*p.X + m[0][1]*p.Y + m[0][2],
@@ -261,6 +274,13 @@ func (m Matrix) Scale(x, y float64) Matrix {
 	return m.Mul(Matrix{
 		{x, 0.0, 0.0},
 		{0.0, y, 0.0},
+	})
+}
+
+func (m Matrix) Shear(x, y float64) Matrix {
+	return m.Mul(Matrix{
+		{1.0, x, 0.0},
+		{y, 1.0, 0.0},
 	})
 }
 
