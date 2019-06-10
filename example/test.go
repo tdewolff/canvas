@@ -67,7 +67,7 @@ func Draw(c *canvas.C) {
 	c.SetStrokeColor(canvas.Blue)
 	c.SetDashes(-1.0, 5.0)
 
-	p, _ := canvas.ParseSVG(fmt.Sprintf("H10.0Q20.0 0.0 20.0 10.0V30z")) //A20.0 10.0 45.0 0 1 0.0 20.0z"))
+	p, _ := canvas.ParseSVG(fmt.Sprintf("H10.0Q20.0 0.0 20.0 10.0A20.0 10.0 45.0 0 1 0.0 20.0z"))
 	c.DrawPath(30.0, 30.0, p)
 
 	//p, _ := canvas.ParseSVG(fmt.Sprintf("M10 0V10H-10V-10H10zM5 0V-5H-5V5H5z"))

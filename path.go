@@ -223,8 +223,8 @@ func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x1, y1 float64) 
 	// scale ellipse if rx and ry are too small, see https://www.w3.org/TR/SVG/implnote.html#ArcCorrectionOutOfRangeRadii
 	diff := p0.Sub(p1)
 	sinphi, cosphi := math.Sincos(phi)
-	x1p := (cosphi*diff.X - sinphi*diff.Y) / 2.0
-	y1p := (sinphi*diff.X + cosphi*diff.Y) / 2.0
+	x1p := (cosphi*diff.X + sinphi*diff.Y) / 2.0
+	y1p := (-sinphi*diff.X + cosphi*diff.Y) / 2.0
 	lambda := x1p*x1p/rx/rx + y1p*y1p/ry/ry
 	if lambda > 1.0 {
 		rx = math.Sqrt(lambda) * rx
