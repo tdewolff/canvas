@@ -235,19 +235,6 @@ func (m Matrix) Mul(q Matrix) Matrix {
 	}}
 }
 
-func (m Matrix) Inv() Matrix {
-	det := m[0][0]*m[1][1] - m[0][1]*m[1][0]
-	return Matrix{{
-		m[1][1] / det,
-		-m[0][1] / det,
-		-(m[1][1]*m[0][2] - m[0][1]*m[1][2]) / det,
-	}, {
-		-m[1][0] / det,
-		m[0][0] / det,
-		-(-m[1][0]*m[0][2] + m[0][0]*m[1][2]) / det,
-	}}
-}
-
 func (m Matrix) Dot(p Point) Point {
 	return Point{
 		m[0][0]*p.X + m[0][1]*p.Y + m[0][2],
@@ -282,6 +269,44 @@ func (m Matrix) Shear(x, y float64) Matrix {
 		{1.0, x, 0.0},
 		{y, 1.0, 0.0},
 	})
+}
+
+func (m Matrix) T() Matrix {
+	m[0][1], m[1][0] = m[1][0], m[0][1]
+	return m
+}
+
+func (m Matrix) Det() float64 {
+	return m[0][0]*m[1][1] - m[0][1]*m[1][0]
+}
+
+func (m Matrix) Inv() Matrix {
+	det := m.Det()
+	// TODO: what if det is zero?
+	return Matrix{{
+		m[1][1] / det,
+		-m[0][1] / det,
+		-(m[1][1]*m[0][2] - m[0][1]*m[1][2]) / det,
+	}, {
+		-m[1][0] / det,
+		m[0][0] / det,
+		-(-m[1][0]*m[0][2] + m[0][0]*m[1][2]) / det,
+	}}
+}
+
+func (m Matrix) Eigen() (float64, float64, Point, Point) {
+	// TODO: what if returns one or two NaNs?
+	lambda1, lambda2 := solveQuadraticFormula(1.0, -m[0][0]-m[1][1], m.Det())
+	v1 := Point{1.0, 0.0}
+	v2 := Point{0.0, 1.0}
+	if m[1][0] != 0.0 {
+		v1 = Point{lambda1 - m[1][1], m[1][0]}
+		v2 = Point{lambda2 - m[1][1], m[1][0]}
+	} else if m[0][1] != 0.0 {
+		v1 = Point{m[0][1], lambda1 - m[0][0]}
+		v2 = Point{m[0][1], lambda2 - m[0][0]}
+	}
+	return lambda1, lambda2, v1, v2
 }
 
 func (m Matrix) theta() float64 {

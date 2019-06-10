@@ -209,9 +209,12 @@ func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x1, y1 float64) 
 	}
 	rx = math.Abs(rx)
 	ry = math.Abs(ry)
+	phi := angleNorm(rot * math.Pi / 180.0)
+	if math.Pi <= phi { // phi is canonical within 0 <= phi < 180
+		phi -= math.Pi
+	}
 
 	// scale ellipse if rx and ry are too small, see https://www.w3.org/TR/SVG/implnote.html#ArcCorrectionOutOfRangeRadii
-	phi := angleNorm(rot * math.Pi / 180.0)
 	diff := p0.Sub(p1)
 	sinphi, cosphi := math.Sincos(phi)
 	x1p := (cosphi*diff.X - sinphi*diff.Y) / 2.0
@@ -597,6 +600,7 @@ func (p *Path) Transform(m Matrix) *Path {
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
 		p.d = append([]float64{MoveToCmd, 0.0, 0.0}, p.d...)
 	}
+	xscale, yscale := m.scale()
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
@@ -622,25 +626,42 @@ func (p *Path) Transform(m Matrix) *Path {
 			p.d[i+5] = end.X
 			p.d[i+6] = end.Y
 		case ArcToCmd:
-			end := m.Dot(Point{p.d[i+5], p.d[i+6]})
 			rx := p.d[i+1]
 			ry := p.d[i+2]
 			phi := p.d[i+3]
-
-			mEllipse := Identity.Scale(rx, ry).Rotate(phi * 180.0 / math.Pi).Mul(m)
-			fmt.Print("theta and scale ", phi*180.0/math.Pi, " + ", m.theta()*180.0/math.Pi, " = ", mEllipse.theta()*180.0/math.Pi, " ")
-			fmt.Print(rx, " ", ry, " ")
-			fmt.Println(mEllipse.scale())
-
 			largeArc, sweep := fromArcFlags(p.d[i+4])
-			xscale, yscale := mEllipse.scale()
-			if xscale*yscale < 0.0 {
-				phi *= -1.0
+			end := m.Dot(Point{p.d[i+5], p.d[i+6]})
+
+			// For ellipses written as the conic section equation in matrix form, we have:
+			// (x, y) E (x; y) = 0, with E = (1/rx^2, 0; 0, 1/ry^2)
+			// for our transformed ellipse we have (x', y') = T (x, y), with T the affine transformation matrix
+			// so that (T^-1 (x'; y'))^T E (T^-1 (x'; y') = 0  =>  (x', y') T^(-1,T) E T^(-1) (x'; y') = 0
+			// we define Q = T^(-1,T) E T^(-1) the new ellipse equation which is typically rotated from the x-axis.
+			// That's why we find the eigenvalues and eigenvectors (the new direction and length of the major and minor axes).
+			T := m.Rotate(phi * 180.0 / math.Pi)
+			invT := T.Inv()
+			Q := Identity.Scale(1.0/rx/rx, 1.0/ry/ry)
+			Q = invT.T().Mul(Q).Mul(invT)
+
+			lambda1, lambda2, v1, v2 := Q.Eigen()
+			rx = 1 / math.Sqrt(lambda1)
+			ry = 1 / math.Sqrt(lambda2)
+			phi = v1.Angle()
+			if rx < ry {
+				rx, ry = ry, rx
+				phi = v2.Angle()
+			}
+			phi = angleNorm(phi)
+			if math.Pi <= phi { // phi is canonical within 0 <= phi < 180
+				phi -= math.Pi
+			}
+
+			if xscale*yscale < 0.0 { // flip x or y axis needs flipping of the sweep
 				sweep = !sweep
 			}
-			p.d[i+1] = math.Abs(xscale)
-			p.d[i+2] = math.Abs(yscale)
-			p.d[i+3] = mEllipse.theta()
+			p.d[i+1] = rx
+			p.d[i+2] = ry
+			p.d[i+3] = phi
 			p.d[i+4] = toArcFlags(largeArc, sweep)
 			p.d[i+5] = end.X
 			p.d[i+6] = end.Y
