@@ -17,31 +17,19 @@ func solveQuadraticFormula(a, b, c float64) (float64, float64) {
 			return math.NaN(), math.NaN()
 		}
 		// quadratic term disappears, solve linear equation
-		x1 := -c / b
-		if 1.0 <= x1 || x1 < 0.0 {
-			x1 = math.NaN()
-		}
-		return x1, math.NaN()
+		return -c / b, math.NaN()
 	}
 
 	if c == 0.0 {
 		// no constant term, one solution at zero and one from solving linearly
-		x2 := -b / a
-		if 1.0 <= x2 || x2 < 0.0 {
-			x2 = math.NaN()
-		}
-		return 0.0, x2
+		return 0.0, -b / a
 	}
 
 	discriminant := b*b - 4.0*a*c
 	if discriminant < 0.0 {
 		return math.NaN(), math.NaN()
 	} else if discriminant == 0.0 {
-		x1 := -b / (2.0 * a)
-		if 1.0 <= x1 || x1 < 0.0 {
-			x1 = math.NaN()
-		}
-		return x1, math.NaN()
+		return -b / (2.0 * a), math.NaN()
 	}
 
 	// Avoid catastrophic cancellation, which occurs when we subtract two nearly equal numbers and causes a large error
@@ -56,14 +44,6 @@ func solveQuadraticFormula(a, b, c float64) (float64, float64) {
 	x1 := -(b + q) / (2.0 * a)
 	x2 := c / (a * x1)
 	if x1 > x2 {
-		x1, x2 = x2, x1
-	}
-	if 1.0 <= x1 || x1 < 0.0 {
-		x1 = math.NaN()
-	}
-	if 1.0 <= x2 || x2 < 0.0 {
-		x2 = math.NaN()
-	} else if math.IsNaN(x1) {
 		x1, x2 = x2, x1
 	}
 	return x1, x2
@@ -702,7 +682,16 @@ func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
 	a := (ay*bx - ax*by)
 	b := (ay*cx - ax*cy)
 	c := (by*cx - bx*cy)
-	return solveQuadraticFormula(a, b, c)
+	x1, x2 := solveQuadraticFormula(a, b, c)
+	if 1.0 <= x1 || x1 < 0.0 {
+		x1 = math.NaN()
+	}
+	if 1.0 <= x2 || x2 < 0.0 {
+		x2 = math.NaN()
+	} else if math.IsNaN(x1) {
+		x1, x2 = x2, x1
+	}
+	return x1, x2
 }
 
 func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float64, float64) {

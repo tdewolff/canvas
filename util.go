@@ -258,6 +258,9 @@ func (m Matrix) Rotate(rot float64) Matrix {
 }
 
 func (m Matrix) Scale(x, y float64) Matrix {
+	if equal(x, 0.0) && equal(y, 0.0) {
+		panic("cannot scale affine transformation matrix to zero in x and y")
+	}
 	return m.Mul(Matrix{
 		{x, 0.0, 0.0},
 		{0.0, y, 0.0},
@@ -282,7 +285,9 @@ func (m Matrix) Det() float64 {
 
 func (m Matrix) Inv() Matrix {
 	det := m.Det()
-	// TODO: what if det is zero?
+	if equal(det, 0.0) {
+		panic("determinant of affine transformation matrix is zero, should be impossible!")
+	}
 	return Matrix{{
 		m[1][1] / det,
 		-m[0][1] / det,
@@ -295,14 +300,20 @@ func (m Matrix) Inv() Matrix {
 }
 
 func (m Matrix) Eigen() (float64, float64, Point, Point) {
-	// TODO: what if returns one or two NaNs?
 	lambda1, lambda2 := solveQuadraticFormula(1.0, -m[0][0]-m[1][1], m.Det())
+	if math.IsNaN(lambda1) && math.IsNaN(lambda2) {
+		// either m[0][0] or m[1][1] is NaN
+		panic("eigenvalues of affine transformation matrix do not exist, should be impossible!")
+	} else if math.IsNaN(lambda2) {
+		lambda2 = lambda1
+	}
+
 	v1 := Point{1.0, 0.0}
 	v2 := Point{0.0, 1.0}
-	if m[1][0] != 0.0 {
+	if !equal(m[1][0], 0.0) {
 		v1 = Point{lambda1 - m[1][1], m[1][0]}
 		v2 = Point{lambda2 - m[1][1], m[1][0]}
-	} else if m[0][1] != 0.0 {
+	} else if !equal(m[0][1], 0.0) {
 		v1 = Point{m[0][1], lambda1 - m[0][0]}
 		v2 = Point{m[0][1], lambda2 - m[0][0]}
 	}
