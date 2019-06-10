@@ -2,6 +2,8 @@ package canvas
 
 import "image/color"
 
+var Transparent = color.RGBA{0x00, 0x00, 0x00, 0x00} // rgba(0, 0, 0, 0)
+
 // from https://golang.org/x/image/colornames
 var (
 	Aliceblue            = color.RGBA{0xf0, 0xf8, 0xff, 0xff} // rgb(240, 248, 255)

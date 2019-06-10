@@ -49,7 +49,6 @@ General
 * Fix transparency for EPS (cannot be fixed...)
 * Support fill gradients and patterns (hard)
 * Allow embedding raster images? (unsure)
-* Implement path iterator with a callback accepting (cmd, start, data, end), also for subpaths?
 
 Fonts
 
@@ -62,15 +61,12 @@ Fonts
 
 Paths
 
-* Add function to apply shear transformation (hard, how do curves transform?)
+* Support Winding and EvenOdd fill rules
 * Easier support for building paths from strings, like AppendSVG for example? (unsure)
 * Simplify polygons using the Ramer-Douglas-Peucker algorithm
-* Find out if path is defining interior or exterior for filling (Offset)
 * Implement Bentley-Ottmann algorithm to find all line intersections (clipping)
 * Intersection function between line, Bézier and ellipse and between themselves (for path merge, overlap=mask, etc.)
 * Implement path clipping
-* Implement path subtype Polygon which has functionality only for polygons
-* Implement Transform function for all transformations (scaling, translation, rotation)
 
 Optimization
 

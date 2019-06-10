@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"reflect"
 
 	"golang.org/x/image/math/f32"
 	"golang.org/x/image/math/fixed"
@@ -48,6 +49,12 @@ func toCSSColor(color color.RGBA) string {
 	} else {
 		return fmt.Sprintf("rgba(%d,%d,%d,%g)", color.R, color.G, color.B, float64(color.A)/255.0)
 	}
+}
+
+func funcCmd(a, b interface{}) bool {
+	A := reflect.ValueOf(a)
+	B := reflect.ValueOf(b)
+	return A.Kind() == reflect.Func && B.Kind() == reflect.Func && A.Pointer() == B.Pointer()
 }
 
 ////////////////////////////////////////////////////////////////

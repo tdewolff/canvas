@@ -10,8 +10,14 @@ import (
 	"golang.org/x/image/vector"
 )
 
+const (
+	Winding = iota
+	EvenOdd
+)
+
 // Tolerance is the maximum deviation from the original path in millimeters when e.g. flatting
 var Tolerance = 0.01
+var FillRule = Winding // TODO: support EvenOdd
 
 // PathCmd specifies the path command.
 const (
@@ -403,7 +409,7 @@ func (p *Path) Filling() []bool {
 	}
 
 	// see https://wrf.ecse.rpi.edu//Research/Short_Notes/pnpoly.html
-	// TODO: implement different fill count
+	// TODO: implement Winding fill rule
 	fillings := make([]bool, len(testPoints))
 	coord, prevCoord := Point{}, Point{p.d[len(p.d)-2], p.d[len(p.d)-1]}
 	for i := 0; i < len(p.d); {
@@ -984,23 +990,35 @@ func (p *Path) SplitAtIntersections(q *Path) ([]*Path, []*Path) {
 }
 
 // Dash returns a new path that consists of dashes. Each parameter represents a length in millimeters along the original path, and will be either a dash or a space alternatingly.
-func (p *Path) Dash(d ...float64) *Path {
+func (p *Path) Dash(offset float64, d ...float64) *Path {
 	length := p.Length()
 	if len(d) == 0 || length <= d[0] {
 		return p
 	}
 
 	i := 0 // index in d
-	pos := 0.0
-	t := []float64{}
-	for pos < length {
+	for d[i] < offset {
+		offset -= d[i]
+		i++
 		if len(d) <= i {
 			i = 0
 		}
+	}
+
+	fmt.Println(offset)
+
+	pos := -offset // negative if offset is halfway into dash
+	t := []float64{}
+	for pos < length {
 		pos += d[i]
 		t = append(t, pos)
 		i++
+		if len(d) <= i {
+			i = 0
+		}
 	}
+
+	fmt.Println(t)
 
 	ps := p.SplitAt(t...)
 	q := &Path{}

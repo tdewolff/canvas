@@ -26,9 +26,10 @@ type C struct {
 func New(w, h float64) *C {
 	return &C{w, h, []layer{}, map[*Font]bool{}, drawState{
 		fillColor:    Black,
-		strokeColor:  Black,
+		strokeColor:  Transparent,
+		strokeWidth:  1.0,
 		strokeCapper: ButtCapper,
-		strokeJoiner: BevelJoiner,
+		strokeJoiner: MiterJoiner,
 	}}
 }
 
@@ -141,18 +142,50 @@ func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 	p := l.path.Copy().Scale(1.0, -1.0).Translate(0.0, h)
 	w.Write([]byte(`<path d="`))
 	w.Write([]byte(p.ToSVG()))
-	if 0.0 < l.strokeWidth {
-		w.Write([]byte(`" style="`))
-		fmt.Fprintf(w, "stroke-width:%g", l.strokeWidth)
-		if l.strokeColor != Black {
-			fmt.Fprintf(w, ";stroke:%s", toCSSColor(l.strokeColor))
+	if l.strokeColor.A != 0 && 0.0 < l.strokeWidth {
+		fmt.Fprintf(w, `" style="stroke:%s`, toCSSColor(l.strokeColor))
+		if l.strokeWidth != 1.0 {
+			fmt.Fprintf(w, ";stroke-width:%g", l.strokeWidth)
 		}
-		// TODO: cap, join, dash
+		if funcCmd(l.strokeCapper, RoundCapper) {
+			fmt.Fprintf(w, ";stroke-linecap:round")
+		} else if funcCmd(l.strokeCapper, SquareCapper) {
+			fmt.Fprintf(w, ";stroke-linecap:square")
+		}
+		if funcCmd(l.strokeJoiner, BevelJoiner) {
+			fmt.Fprintf(w, ";stroke-linejoin:bevel")
+		} else if funcCmd(l.strokeJoiner, RoundJoiner) {
+			fmt.Fprintf(w, ";stroke-linejoin:round")
+		} else if funcCmd(l.strokeJoiner, ArcsJoiner) {
+			fmt.Fprintf(w, ";stroke-linejoin:arcs")
+		} else if miter, ok := l.strokeJoiner.(miterJoiner); ok && 0.0 < miter.limit {
+			fmt.Fprintf(w, ";stroke-linejoin:miter-clip")
+			if miter.limit != 4.0 {
+				fmt.Fprintf(w, ";stroke-miterlimit:%g", miter.limit)
+			}
+		}
+		if 0 < len(l.dashes) {
+			fmt.Fprintf(w, ";stroke-dasharray:%g", l.dashes[0])
+			for _, dash := range l.dashes[1:] {
+				fmt.Fprintf(w, " %g", dash)
+			}
+			if 0.0 < l.dashOffset {
+				fmt.Fprintf(w, ";stroke-dashoffset:%g", l.dashOffset)
+			}
+		}
 		if l.fillColor != Black {
-			fmt.Fprintf(w, ";fill:%s", toCSSColor(l.fillColor))
+			if l.fillColor.A != 0 {
+				fmt.Fprintf(w, ";fill:%s", toCSSColor(l.fillColor))
+			} else {
+				fmt.Fprintf(w, ";fill:none")
+			}
 		}
 	} else if l.fillColor != Black {
-		fmt.Fprintf(w, `" fill="%s`, toCSSColor(l.fillColor))
+		if l.fillColor.A != 0 {
+			fmt.Fprintf(w, `" fill="%s`, toCSSColor(l.fillColor))
+		} else {
+			fmt.Fprintf(w, `" fill="none`)
+		}
 	}
 	w.Write([]byte(`"/>`))
 }
@@ -175,10 +208,24 @@ func (l pathLayer) WriteEPS(w *EPSWriter) {
 }
 
 func (l pathLayer) WriteImage(img *image.RGBA, dpm, w, h float64) {
-	ras := vector.NewRasterizer(int(w*dpm+0.5), int(h*dpm+0.5))
-	l.path.ToRasterizer(ras, dpm, w, h)
-	size := ras.Size()
-	ras.Draw(img, image.Rect(0, 0, size.X, size.Y), image.NewUniform(l.fillColor), image.Point{})
+	if l.fillColor.A != 0 {
+		ras := vector.NewRasterizer(int(w*dpm+0.5), int(h*dpm+0.5))
+		l.path.ToRasterizer(ras, dpm, w, h)
+		size := ras.Size()
+		ras.Draw(img, image.Rect(0, 0, size.X, size.Y), image.NewUniform(l.fillColor), image.Point{})
+	}
+	if l.strokeColor.A != 0 && 0.0 < l.strokeWidth {
+		stroke := l.path.Copy()
+		if 0 < len(l.dashes) {
+			stroke = stroke.Dash(l.dashOffset, l.dashes...)
+		}
+		stroke = stroke.Stroke(l.strokeWidth, l.strokeCapper, l.strokeJoiner)
+
+		ras := vector.NewRasterizer(int(w*dpm+0.5), int(h*dpm+0.5))
+		stroke.ToRasterizer(ras, dpm, w, h)
+		size := ras.Size()
+		ras.Draw(img, image.Rect(0, 0, size.X, size.Y), image.NewUniform(l.strokeColor), image.Point{})
+	}
 }
 
 type textLayer struct {
