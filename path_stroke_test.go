@@ -23,8 +23,8 @@ func TestPathStroke(t *testing.T) {
 		{"M100 100A50 50 0 0 1 114.64 64.645", 2.0, ButtCapper, RoundJoiner, "M99 100A51 51 0 0 1 113.93 63.938L115.35 65.352A49 49 0 0 0 101 100L99 100z"},
 		//{"M-5 -5A5 5 0 0 1 0 0A5 5 0 0 1 5 -5", 2.0, ButtCapper, ArcsJoiner, ""},
 	}
-	for _, tt := range tts {
-		t.Run(fmt.Sprintf("%s", tt.orig), func(t *testing.T) {
+	for j, tt := range tts {
+		t.Run(fmt.Sprintf("%v", j), func(t *testing.T) {
 			p, err := ParseSVG(tt.orig)
 			test.Error(t, err)
 
