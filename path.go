@@ -991,9 +991,12 @@ func (p *Path) SplitAtIntersections(q *Path) ([]*Path, []*Path) {
 
 // Dash returns a new path that consists of dashes. Each parameter represents a length in millimeters along the original path, and will be either a dash or a space alternatingly.
 func (p *Path) Dash(offset float64, d ...float64) *Path {
-	length := p.Length()
-	if len(d) == 0 || length <= d[0] {
+	if len(d) == 0 {
 		return p
+	}
+	if len(d)%2 == 1 {
+		// if d is uneven length, dash and space lengths alternate. Duplicate d so that uneven indices are always spaces
+		d = append(d, d...)
 	}
 
 	i := 0 // index in d
@@ -1004,26 +1007,57 @@ func (p *Path) Dash(offset float64, d ...float64) *Path {
 			i = 0
 		}
 	}
-
-	fmt.Println(offset)
-
 	pos := -offset // negative if offset is halfway into dash
-	t := []float64{}
-	for pos < length {
-		pos += d[i]
-		t = append(t, pos)
-		i++
-		if len(d) <= i {
-			i = 0
+	if offset < 0.0 {
+		dTotal := 0.0
+		for _, dd := range d {
+			dTotal += dd
 		}
+		pos = -(dTotal + offset) // handle negative offsets
 	}
 
-	fmt.Println(t)
-
-	ps := p.SplitAt(t...)
 	q := &Path{}
-	for j := 0; j < len(ps); j += 2 {
-		q.Append(ps[j])
+	for _, ps := range p.Split() {
+		length := ps.Length()
+		if length <= d[i] {
+			if i%2 == 0 {
+				q.Append(ps)
+			}
+			continue
+		}
+
+		t := []float64{}
+		for pos+d[i] < length {
+			pos += d[i]
+			if 0.0 < pos {
+				t = append(t, pos)
+			}
+			i++
+			if len(d) <= i {
+				i = 0
+			}
+		}
+
+		j0 := 0
+		endsInDash := i%2 == 0
+		if len(t)%2 == 1 && endsInDash || len(t)%2 == 0 && !endsInDash {
+			j0 = 1
+		}
+
+		qd := &Path{}
+		pd := ps.SplitAt(t...)
+		for j := j0; j < len(pd)-1; j += 2 {
+			qd.Append(pd[j])
+		}
+		if endsInDash {
+			if ps.Closed() {
+				qd = pd[len(pd)-1].Join(qd)
+			} else {
+				qd.Append(pd[len(pd)-1])
+			}
+		}
+		q.Append(qd)
+		pos -= length
 	}
 	return q
 }
