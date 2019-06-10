@@ -365,8 +365,8 @@ func TestPathLengthParametrization(t *testing.T) {
 	_ = os.Mkdir("test", 0755)
 
 	start := Point{0.0, 0.0}
-	cp := Point{0.0, 10.0}
-	end := Point{100.0, 0.0}
+	cp := Point{10.0, 0.0}
+	end := Point{10.0, 10.0}
 	speed := func(t float64) float64 {
 		return quadraticBezierDeriv(start, cp, end, t).Length()
 	}
@@ -377,9 +377,9 @@ func TestPathLengthParametrization(t *testing.T) {
 	plotPathLengthParametrization("test/quadratic_bezier_parametrization.png", speed, length, 0.0, 1.0)
 
 	start = Point{0.0, 0.0}
-	cp1 := Point{0.0, 10.0}
-	cp2 := Point{100.0, 10.0}
-	end = Point{100.0, 0.0}
+	cp1 := Point{6.67, 0.0}
+	cp2 := Point{10.0, 3.33}
+	end = Point{10.0, 10.0}
 	speed = func(t float64) float64 {
 		return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
 	}

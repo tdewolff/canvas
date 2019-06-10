@@ -465,7 +465,7 @@ func quadraticBezierPos(p0, p1, p2 Point, t float64) Point {
 
 func quadraticBezierDeriv(p0, p1, p2 Point, t float64) Point {
 	p0 = p0.Mul(-2.0 + 2.0*t)
-	p1 = p1.Mul(1.0 - 2.0*t)
+	p1 = p1.Mul(2.0 - 4.0*t)
 	p2 = p2.Mul(2.0 * t)
 	return p0.Add(p1).Add(p2)
 }

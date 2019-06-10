@@ -62,11 +62,10 @@ Fonts
 Paths
 
 * Support Winding and EvenOdd fill rules
-* Easier support for building paths from strings, like AppendSVG for example? (unsure)
 * Simplify polygons using the Ramer-Douglas-Peucker algorithm
+* Intersection function between line, Bézier and ellipse and between themselves (for path merge, overlap/mask, clipping, etc.)
 * Implement Bentley-Ottmann algorithm to find all line intersections (clipping)
-* Intersection function between line, Bézier and ellipse and between themselves (for path merge, overlap=mask, etc.)
-* Implement path clipping
+* Easier support for building paths from strings, like AppendSVG for example? (unsure)
 
 Optimization
 
