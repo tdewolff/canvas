@@ -115,7 +115,7 @@ func (roundJoiner) String() string {
 	return "Round"
 }
 
-var MiterJoiner Joiner = miterJoiner{BevelJoiner, math.NaN()}
+var MiterJoiner Joiner = miterJoiner{BevelJoiner, math.NaN()} // TODO: use miter-clip from SVG, ie. relative to stroke width. make sure SVG and PDF implementations use the right limits.
 
 func MiterClipJoiner(gapJoiner Joiner, limit float64) Joiner {
 	return miterJoiner{gapJoiner, limit}

@@ -20,7 +20,7 @@ type C struct {
 	w, h   float64
 	layers []layer
 	fonts  map[*Font]bool
-	// transformation matrix
+	// TODO: add transformation matrix / viewport
 	drawState
 }
 
@@ -96,7 +96,6 @@ func (c *C) WritePDF(w io.Writer) error {
 
 // WriteEPS writes out the image in the EPS file format.
 // Be aware that EPS does not support transparency of colors.
-// TODO: test ellipse, rotations etc
 func (c *C) WriteEPS(w io.Writer) {
 	eps := NewEPSWriter(w, c.w, c.h)
 	for _, l := range c.layers {
@@ -152,6 +151,7 @@ func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 	p := l.path.Copy().Scale(1.0, -1.0).Translate(0.0, h)
 	w.Write([]byte(`<path d="`))
 	w.Write([]byte(p.ToSVG()))
+	// TODO: draw explicit stroke when miter has non-bevel fallback or arcs has a limit
 	if l.strokeColor.A != 0 && 0.0 < l.strokeWidth {
 		fmt.Fprintf(w, `" style="stroke:%s`, toCSSColor(l.strokeColor))
 		if l.strokeWidth != 1.0 {
@@ -172,7 +172,7 @@ func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 			fmt.Fprintf(w, ";stroke-linejoin:arcs")
 		} else if miter, ok := l.strokeJoiner.(miterJoiner); ok && !math.IsNaN(miter.limit) {
 			// without a miter limit it becomes a 'miter' linejoin, which is the default
-			fmt.Fprintf(w, ";stroke-linejoin:miter-clip")
+			fmt.Fprintf(w, ";stroke-linejoin:miter-clip") // TODO: wrong, miter-clip only changes the resulting bevel not whether to clip at the limit or not, this happens for both
 			if miter.limit != 4.0 {
 				fmt.Fprintf(w, ";stroke-miterlimit:%g", miter.limit) // TODO: needs to be divided by 2?
 			}
@@ -224,7 +224,16 @@ func (l pathLayer) WritePDF(w *PDFPageWriter) {
 	}
 
 	differentAlpha := fill && stroke && l.fillColor.A != l.strokeColor.A
+
+	// PDFs don't support the arcs joiner, miter joiner (not clipped), or miter-clip joiner with non-bevel fallback
 	_, strokeUnsupported := l.strokeJoiner.(arcsJoiner)
+	if miter, ok := l.strokeJoiner.(miterJoiner); ok {
+		if math.IsNaN(miter.length) {
+			strokeUnsupported = true
+		} else if _, ok := miter.gapJoiner.(bevelJoiner); !ok {
+			strokeUnsupported = true
+		}
+	}
 
 	if differentAlpha || strokeUnsupported {
 		// draw both paths separately
@@ -304,15 +313,13 @@ func (l pathLayer) WritePDF(w *PDFPageWriter) {
 	}
 }
 
-// WriteEPS writes out the image in the EPS file format.
-// Be aware that EPS does not support transparency of colors.
-// TODO: test ellipse, rotations etc
 func (l pathLayer) WriteEPS(w *EPSWriter) {
+	// TODO: EPS test ellipse, rotations etc
 	w.SetColor(l.fillColor)
 	w.Write([]byte(" "))
 	w.Write([]byte(l.path.ToPS()))
 	w.Write([]byte(" fill"))
-	// TODO: add drawState support
+	// TODO: EPS add drawState support
 }
 
 func (l pathLayer) WriteImage(img *image.RGBA, dpm, w, h float64) {
@@ -346,7 +353,7 @@ func (l textLayer) WriteSVG(w io.Writer, h float64) {
 }
 
 func (l textLayer) WritePDF(w *PDFPageWriter) {
-	// TODO
+	// TODO: PDF write text
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
 		path.Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)
@@ -357,7 +364,7 @@ func (l textLayer) WritePDF(w *PDFPageWriter) {
 }
 
 func (l textLayer) WriteEPS(w *EPSWriter) {
-	// TODO
+	// TODO: EPS write text
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
 		path.Rotate(l.rot, 0.0, 0.0).Translate(l.x, l.y)

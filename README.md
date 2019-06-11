@@ -27,6 +27,17 @@ Papers
 * [Drawing and elliptical arc using polylines, quadratic or cubic Bézier curves (2003), L. Maisonobe](https://spaceroots.org/documents/ellipse/elliptical-arc.pdf)
 
 ## Status
+### Targets
+| Feature | Image | SVG | PDF | EPS |
+| ------- | ----- | --- | --- | --- |
+| Transparency | bad | yes | yes | - |
+| Draw path fill | yes | yes | yes | yes |
+| Draw path stroke | yes | yes | yes | no |
+| Draw path dash | yes | yes | yes | no |
+| Embed fonts | - | yes | no | no |
+| Draw text | - | yes | no | no |
+| Draw image | no | no | no | no |
+
 ### Path
 | Command | Flatten | Stroke | Length | SplitAt |
 | ------- | ------- | ------ | ------ | ------- |
@@ -46,9 +57,7 @@ Features that are planned to be implemented in the future. Also see the TODOs in
 General
 
 * Fix slowness, transparency and colors in the rasterizer
-* Fix transparency for EPS (cannot be fixed...)
-* Support fill gradients and patterns (hard)
-* Allow embedding raster images? (unsure)
+* Allow embedding raster images?
 
 Fonts
 
@@ -65,7 +74,6 @@ Paths
 * Simplify polygons using the Ramer-Douglas-Peucker algorithm
 * Intersection function between line, Bézier and ellipse and between themselves (for path merge, overlap/mask, clipping, etc.)
 * Implement Bentley-Ottmann algorithm to find all line intersections (clipping)
-* Easier support for building paths from strings, like AppendSVG for example? (unsure)
 
 Optimization
 
@@ -74,6 +82,7 @@ Optimization
 
 Far future
 
+* Support fill gradients and patterns (hard)
 * Load in PDFs, SVGs and EPSs and turn to paths/texts
 * Load in Markdown/HTML formatting and turn into texts
 

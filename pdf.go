@@ -220,6 +220,7 @@ type PDFPageWriter struct {
 }
 
 func (w *PDFWriter) NewPage(width, height float64) *PDFPageWriter {
+	// for defaults see https://help.adobe.com/pdfl_sdk/15/PDFL_SDK_HTMLHelp/PDFL_SDK_HTMLHelp/API_References/PDFL_API_Reference/PDFEdit_Layer/General.html#_t_PDEGraphicState
 	w.pages = append(w.pages, &PDFPageWriter{
 		Buffer:         &bytes.Buffer{},
 		pdf:            w,
@@ -229,11 +230,11 @@ func (w *PDFWriter) NewPage(width, height float64) *PDFPageWriter {
 		alpha:          1.0,
 		fillColor:      Black,
 		strokeColor:    Black,
-		lineWidth:      0.0,            // TODO: default
-		lineCap:        0,              // TODO: default
-		lineJoin:       0,              // TODO: default
-		miterLimit:     0.0,            // TODO: default
-		dashes:         []float64{0.0}, // dashArray and dashPhaseTODO: default
+		lineWidth:      1.0,
+		lineCap:        0,
+		lineJoin:       0,
+		miterLimit:     10.0,
+		dashes:         []float64{0.0}, // dashArray and dashPhase
 		font:           nil,
 		graphicsStates: map[float64]PDFName{},
 	})
