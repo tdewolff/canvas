@@ -4,11 +4,11 @@ type PolygonPath struct {
 	*Path
 }
 
-func (p *Path) ToPolygon() *PolygonPath {
-	return &PolygonPath{p.Flatten()}
+func (p *Path) ToPolygon() PolygonPath {
+	return PolygonPath{p.Flatten()}
 }
 
-func (p *Path) ToPolygonCoords() *PolygonPath {
+func (p *Path) ToPolygonCoords() PolygonPath {
 	q := &Path{}
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
@@ -24,7 +24,7 @@ func (p *Path) ToPolygonCoords() *PolygonPath {
 			q.LineTo(end.X, end.Y)
 		}
 	}
-	return &PolygonPath{q}
+	return PolygonPath{q}
 }
 
 func (p *PolygonPath) QuadTo(cpx, cpy, x1, y1 float64) *Path {

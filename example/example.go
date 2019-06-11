@@ -133,31 +133,38 @@ func Draw(c *canvas.C) {
 	}
 	c.SetFillColor(canvas.Whitesmoke)
 	c.DrawPath(110, 40, ellipse)
-	ellipse = ellipse.Dash(2.0, 4.0, 2.0).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner)
-	c.SetFillColor(canvas.Black)
+
+	c.SetFillColor(canvas.Transparent)
+	c.SetStrokeColor(canvas.Black)
+	c.SetStrokeWidth(0.5)
+	c.SetStrokeCapper(canvas.RoundCapper)
+	c.SetStrokeJoiner(canvas.RoundJoiner)
+	c.SetDashes(0.0, 2.0, 4.0, 2.0, 2.0, 4.0, 2.0)
+	//ellipse = ellipse.Dash(0.0, 2.0, 4.0, 2.0).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner)
 	c.DrawPath(110, 40, ellipse)
+	c.SetStrokeColor(canvas.Transparent)
 
-	p = &canvas.Path{}
-	p.LineTo(20.0, 0.0)
-	p.LineTo(20.0, 10.0)
-	p.LineTo(0.0, 20.0)
-	p.Close()
-	q := p.Smoothen()
+	pp := canvas.PolygonPath{&canvas.Path{}}
+	pp.LineTo(20.0, 0.0)
+	pp.LineTo(20.0, 10.0)
+	pp.LineTo(0.0, 20.0)
+	pp.Close()
+	p = pp.Smoothen()
 	c.SetFillColor(canvas.Seagreen)
-	c.DrawPath(170, 10, q)
+	c.DrawPath(170, 10, p)
 	c.SetFillColor(canvas.Black)
-	c.DrawPath(170, 10, p.Stroke(0.25, canvas.RoundCapper, canvas.RoundJoiner))
+	c.DrawPath(170, 10, pp.Stroke(0.25, canvas.RoundCapper, canvas.RoundJoiner))
 
-	p = &canvas.Path{}
-	p.LineTo(10.0, 5.0)
-	p.LineTo(20.0, 15.0)
-	p.LineTo(30.0, 20.0)
-	p.LineTo(40.0, 10.0)
-	q = p.Smoothen()
+	pp = canvas.PolygonPath{&canvas.Path{}}
+	pp.LineTo(10.0, 5.0)
+	pp.LineTo(20.0, 15.0)
+	pp.LineTo(30.0, 20.0)
+	pp.LineTo(40.0, 10.0)
+	p = pp.Smoothen()
 	c.SetFillColor(canvas.Seagreen)
-	c.DrawPath(120, 5, q.Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner))
+	c.DrawPath(120, 5, p.Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner))
 	c.SetFillColor(canvas.Black)
-	for _, coord := range p.Coords() {
+	for _, coord := range pp.Coords() {
 		c.DrawPath(120, 5, canvas.Circle(coord.X, coord.Y, 1.0).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner))
 	}
 }

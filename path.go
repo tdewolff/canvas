@@ -11,13 +11,13 @@ import (
 )
 
 const (
-	Winding = iota
+	NonZero = iota
 	EvenOdd
 )
 
 // Tolerance is the maximum deviation from the original path in millimeters when e.g. flatting
 var Tolerance = 0.01
-var FillRule = Winding // TODO: support EvenOdd
+var FillRule = NonZero // TODO: support EvenOdd
 
 // PathCmd specifies the path command.
 const (
@@ -68,12 +68,22 @@ func toArcFlags(largeArc, sweep bool) float64 {
 // Only valid commands are appended, so that LineTo has a non-zero length, QuadTo's and CubeTo's control point(s) don't (both) overlap with the start and end point, and ArcTo has non-zero radii and has non-zero length. For ArcTo we also make sure the angle is is in the range [0, 2*PI) and we scale the radii up if they appear too small to fit the arc.
 type Path struct {
 	d  []float64
-	i0 int // index of last MoveTo
+	i0 int // index of last MoveTo  TODO: or last Close too if no MoveTo follows? Perhaps better to keep slice of all segments?
 }
 
-// Empty returns true if p is an empty path.
+// Empty returns true if p is an empty path or consists of only MoveTos and Closes.
 func (p *Path) Empty() bool {
-	return len(p.d) == 0
+	if len(p.d) == 0 {
+		return true
+	}
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		if cmd != MoveToCmd && cmd != CloseCmd {
+			return false
+		}
+		i += cmdLen(cmd)
+	}
+	return true
 }
 
 // Closed returns true if the last segment in p is a closed path.
@@ -125,7 +135,7 @@ func (p *Path) Join(q *Path) *Path {
 
 // Pos returns the current position of the path, which is the end point of the last command.
 func (p *Path) Pos() Point {
-	if len(p.d) > 0 {
+	if 0 < len(p.d) {
 		return Point{p.d[len(p.d)-2], p.d[len(p.d)-1]}
 	}
 	return Point{}
@@ -706,6 +716,7 @@ type LineReplacer func(Point, Point) *Path
 type BezierReplacer func(Point, Point, Point, Point) *Path
 type ArcReplacer func(Point, float64, float64, float64, bool, bool, Point) *Path
 
+// TODO: does not maintain i0
 func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer) *Path {
 	start := Point{}
 	for i := 0; i < len(p.d); {
@@ -767,6 +778,10 @@ func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer
 // Split splits the path into its independent path segments. The path is split on the MoveTo and/or Close commands.
 // TODO: if subpath doesn't start with MoveTo, add it from the last subpath's end position
 func (p *Path) Split() []*Path {
+	//if p.i0 == 0 { // TODO: if i0 is well kept, this optimization should work
+	//	return []*Path{p}
+	//}
+
 	ps := []*Path{}
 	closed := false
 	var i, j int
@@ -1522,10 +1537,9 @@ func (p *Path) ToPDF() string {
 		fmt.Fprintf(&sb, " 0 0 m")
 	}
 
-	var cmd float64
 	x, y := 0.0, 0.0
 	for i := 0; i < len(p.d); {
-		cmd = p.d[i]
+		cmd := p.d[i]
 		switch cmd {
 		case MoveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
@@ -1552,9 +1566,6 @@ func (p *Path) ToPDF() string {
 			fmt.Fprintf(&sb, " h")
 		}
 		i += cmdLen(cmd)
-	}
-	if cmd != CloseCmd {
-		fmt.Fprintf(&sb, " h")
 	}
 	return sb.String()[1:] // remove the first space
 }

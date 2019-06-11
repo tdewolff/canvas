@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"image/color"
 	"io"
+	"math"
 	"strings"
 )
 
@@ -206,9 +207,16 @@ type PDFPageWriter struct {
 	width, height float64
 	resources     PDFDict
 
-	color          color.RGBA
-	font           *Font
 	graphicsStates map[float64]PDFName
+	alpha          float64
+	fillColor      color.RGBA
+	strokeColor    color.RGBA
+	lineWidth      float64
+	lineCap        int
+	lineJoin       int
+	miterLimit     float64
+	dashes         []float64
+	font           *Font
 }
 
 func (w *PDFWriter) NewPage(width, height float64) *PDFPageWriter {
@@ -218,7 +226,14 @@ func (w *PDFWriter) NewPage(width, height float64) *PDFPageWriter {
 		width:          width,
 		height:         height,
 		resources:      PDFDict{},
-		color:          Black,
+		alpha:          1.0,
+		fillColor:      Black,
+		strokeColor:    Black,
+		lineWidth:      0.0,            // TODO: default
+		lineCap:        0,              // TODO: default
+		lineJoin:       0,              // TODO: default
+		miterLimit:     0.0,            // TODO: default
+		dashes:         []float64{0.0}, // dashArray and dashPhaseTODO: default
 		font:           nil,
 		graphicsStates: map[float64]PDFName{},
 	})
@@ -242,17 +257,112 @@ func (w *PDFPageWriter) writePage(parent PDFRef) PDFRef {
 	})
 }
 
-func (w *PDFPageWriter) SetColor(color color.RGBA) {
-	if color != w.color {
-		if w.color.A != 255 && color.A != w.color.A {
-			fmt.Fprintf(w, " Q")
+func (w *PDFPageWriter) SetAlpha(alpha float64) {
+	if alpha != w.alpha {
+		gs := w.getOpacityGS(alpha)
+		fmt.Fprintf(w, " /%v gs", gs)
+		w.alpha = alpha
+	}
+}
+
+func (w *PDFPageWriter) SetFillColor(fillColor color.RGBA) {
+	if fillColor != w.fillColor {
+		fmt.Fprintf(w, " %f %f %f rg", float64(fillColor.R)/255.0, float64(fillColor.G)/255.0, float64(fillColor.B)/255.0)
+		w.fillColor = fillColor
+	}
+	w.SetAlpha(float64(fillColor.A) / 255.0)
+}
+
+func (w *PDFPageWriter) SetStrokeColor(strokeColor color.RGBA) {
+	if strokeColor != w.strokeColor {
+		fmt.Fprintf(w, " %f %f %f rg", float64(strokeColor.R)/255.0, float64(strokeColor.G)/255.0, float64(strokeColor.B)/255.0)
+		w.strokeColor = strokeColor
+	}
+	w.SetAlpha(float64(strokeColor.A) / 255.0)
+}
+
+func (w *PDFPageWriter) SetLineWidth(lineWidth float64) {
+	if lineWidth != w.lineWidth {
+		fmt.Fprintf(w, " %f w", lineWidth)
+		w.lineWidth = lineWidth
+	}
+}
+
+func (w *PDFPageWriter) SetLineCap(capper Capper) {
+	var lineCap int
+	if _, ok := capper.(buttCapper); ok {
+		lineCap = 0
+	} else if _, ok := capper.(roundCapper); ok {
+		lineCap = 1
+	} else if _, ok := capper.(squareCapper); ok {
+		lineCap = 2
+	} else {
+		panic("PDF: line cap not support")
+	}
+	if lineCap != w.lineCap {
+		fmt.Fprintf(w, " %d J", lineCap)
+		w.lineCap = lineCap
+	}
+}
+
+func (w *PDFPageWriter) SetLineJoin(joiner Joiner) {
+	var lineJoin int
+	var miterLimit float64
+	if _, ok := joiner.(bevelJoiner); ok {
+		lineJoin = 2
+	} else if _, ok := joiner.(roundJoiner); ok {
+		lineJoin = 1
+	} else if miter, ok := joiner.(miterJoiner); ok {
+		lineJoin = 0
+		if math.IsNaN(miter.limit) {
+			// TODO: handle NaN, ie. no limit
+		} else {
+			miterLimit = miter.limit
 		}
-		fmt.Fprintf(w, " %f %f %f rg", float64(color.R)/255.0, float64(color.G)/255.0, float64(color.B)/255.0)
-		if color.A != w.color.A {
-			gs := w.getOpacityGS(float64(color.A) / 255.0)
-			fmt.Fprintf(w, " q /%v gs", gs)
+	} else {
+		panic("PDF: line join not support")
+	}
+	if lineJoin != w.lineJoin {
+		fmt.Fprintf(w, " %d j", lineJoin)
+		w.lineJoin = lineJoin
+	}
+	if lineJoin == 0 && miterLimit != w.miterLimit {
+		fmt.Fprintf(w, " %g M", miterLimit) // TODO: divide by two? Needs testing
+		w.miterLimit = miterLimit
+	}
+}
+
+func (w *PDFPageWriter) SetDashes(dashPhase float64, dashArray []float64) {
+	// TODO: connect the first and last dash if they coincide
+	// TODO: mind that dash pattern is restarted for each path segment, in contrary to Dash()
+	if len(dashArray)%2 == 1 {
+		dashArray = append(dashArray, dashArray...)
+	}
+
+	dashes := append(dashArray, dashPhase)
+	equal := false
+	if len(dashes) == len(w.dashes) {
+		equal = true
+		for i, dash := range dashes {
+			if dash != w.dashes[i] {
+				equal = false
+				break
+			}
 		}
-		w.color = color
+	}
+
+	if !equal {
+		if len(dashes) == 1 {
+			fmt.Fprintf(w, " [] 0 d")
+			dashes[0] = 0.0
+		} else {
+			fmt.Fprintf(w, " [%f", dashes[0])
+			for _, dash := range dashes[1 : len(dashes)-1] {
+				fmt.Fprintf(w, " %f", dash)
+			}
+			fmt.Fprintf(w, "] %f d", dashes[len(dashes)-1])
+		}
+		w.dashes = dashes
 	}
 }
 

@@ -13,32 +13,40 @@ type Capper interface {
 	Cap(*Path, float64, Point, Point)
 }
 
-type CapperFunc func(*Path, float64, Point, Point)
-
-func (f CapperFunc) Cap(p *Path, halfWidth float64, pivot, n0 Point) {
-	f(p, halfWidth, pivot, n0)
-}
-
 // RoundCapper caps the start or end of a path by a round cap.
-var RoundCapper Capper = CapperFunc(roundCapper)
+var RoundCapper Capper = roundCapper{}
 
-func roundCapper(p *Path, halfWidth float64, pivot, n0 Point) {
+type roundCapper struct{}
+
+func (roundCapper) Cap(p *Path, halfWidth float64, pivot, n0 Point) {
 	end := pivot.Sub(n0)
 	p.ArcTo(halfWidth, halfWidth, 0, false, true, end.X, end.Y)
 }
 
-// ButtCapper caps the start or end of a path by a butt cap.
-var ButtCapper Capper = CapperFunc(buttCapper)
+func (roundCapper) String() string {
+	return "Round"
+}
 
-func buttCapper(p *Path, halfWidth float64, pivot, n0 Point) {
+// ButtCapper caps the start or end of a path by a butt cap.
+var ButtCapper Capper = buttCapper{}
+
+type buttCapper struct{}
+
+func (buttCapper) Cap(p *Path, halfWidth float64, pivot, n0 Point) {
 	end := pivot.Sub(n0)
 	p.LineTo(end.X, end.Y)
 }
 
-// SquareCapper caps the start or end of a path by a square cap.
-var SquareCapper Capper = CapperFunc(squareCapper)
+func (buttCapper) String() string {
+	return "Butt"
+}
 
-func squareCapper(p *Path, halfWidth float64, pivot, n0 Point) {
+// SquareCapper caps the start or end of a path by a square cap.
+var SquareCapper Capper = squareCapper{}
+
+type squareCapper struct{}
+
+func (squareCapper) Cap(p *Path, halfWidth float64, pivot, n0 Point) {
 	e := n0.Rot90CCW()
 	corner1 := pivot.Add(e).Add(n0)
 	corner2 := pivot.Add(e).Sub(n0)
@@ -46,6 +54,10 @@ func squareCapper(p *Path, halfWidth float64, pivot, n0 Point) {
 	p.LineTo(corner1.X, corner1.Y)
 	p.LineTo(corner2.X, corner2.Y)
 	p.LineTo(end.X, end.Y)
+}
+
+func (squareCapper) String() string {
+	return "Square"
 }
 
 ////////////////
@@ -57,16 +69,12 @@ type Joiner interface {
 	Join(*Path, *Path, float64, Point, Point, Point, float64, float64)
 }
 
-type JoinerFunc func(*Path, *Path, float64, Point, Point, Point, float64, float64)
-
-func (f JoinerFunc) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
-	f(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
-}
-
 // BevelJoiner connects two path elements by a linear join.
-var BevelJoiner Joiner = JoinerFunc(bevelJoiner)
+var BevelJoiner Joiner = bevelJoiner{}
 
-func bevelJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
+type bevelJoiner struct{}
+
+func (bevelJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
 	if n0.Equals(n1) {
 		return
 	}
@@ -77,10 +85,16 @@ func bevelJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 
 	lhs.LineTo(lEnd.X, lEnd.Y)
 }
 
-// RoundJoiner connects two path elements by a round join.
-var RoundJoiner Joiner = JoinerFunc(roundJoiner)
+func (bevelJoiner) String() string {
+	return "Bevel"
+}
 
-func roundJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
+// RoundJoiner connects two path elements by a round join.
+var RoundJoiner Joiner = roundJoiner{}
+
+type roundJoiner struct{}
+
+func (roundJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
 	if n0.Equals(n1) {
 		return
 	}
@@ -95,6 +109,10 @@ func roundJoiner(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 
 		rhs.ArcTo(halfWidth, halfWidth, 0.0, false, true, rEnd.X, rEnd.Y)
 		lhs.LineTo(lEnd.X, lEnd.Y)
 	}
+}
+
+func (roundJoiner) String() string {
+	return "Round"
 }
 
 var MiterJoiner Joiner = miterJoiner{BevelJoiner, math.NaN()}
@@ -112,7 +130,7 @@ func (j miterJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point
 	if n0.Equals(n1) {
 		return
 	} else if n0.Equals(n1.Neg()) {
-		bevelJoiner(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
+		BevelJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	}
 	limit := math.Max(j.limit, halfWidth*1.001) // otherwise nearly linear joins will also get clipped
@@ -142,6 +160,14 @@ func (j miterJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point
 	lhs.LineTo(lEnd.X, lEnd.Y)
 }
 
+func (j miterJoiner) String() string {
+	if math.IsNaN(j.limit) {
+		return "Miter"
+	} else {
+		return "MiterClip"
+	}
+}
+
 var ArcsJoiner Joiner = arcsJoiner{BevelJoiner, math.NaN()}
 
 func ArcsClipJoiner(gapJoiner Joiner, limit float64) Joiner {
@@ -157,7 +183,7 @@ func (j arcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point,
 	if n0.Equals(n1) {
 		return
 	} else if n0.Equals(n1.Neg()) {
-		bevelJoiner(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
+		BevelJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	} else if math.IsNaN(r0) && math.IsNaN(r1) {
 		miterJoiner{j.gapJoiner, j.limit}.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
@@ -248,6 +274,14 @@ func (j arcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point,
 			rhs.ArcTo(R1, R1, 0.0, false, r1 > 0.0, rEnd.X, rEnd.Y)
 		}
 		lhs.LineTo(lEnd.X, lEnd.Y)
+	}
+}
+
+func (j arcsJoiner) String() string {
+	if math.IsNaN(j.limit) {
+		return "Arcs"
+	} else {
+		return "ArcsClip"
 	}
 }
 
