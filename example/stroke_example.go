@@ -40,18 +40,18 @@ func drawStrokedPath(c *canvas.C, x, y float64, path string, cr canvas.Capper, j
 	}
 
 	outerStroke := p.Stroke(10.0, cr, jr)
-	c.SetColor(canvas.Darkgrey)
-	c.DrawPath(x, y, 0.0, outerStroke)
-	c.SetColor(color.RGBA{150, 150, 150, 255})
-	c.DrawPath(x, y, 0.0, outerStroke.Stroke(0.2, canvas.ButtCapper, canvas.RoundJoiner))
-	c.SetColor(canvas.Steelblue)
-	c.DrawPath(x, y, 0.0, p.Stroke(0.5, canvas.ButtCapper, canvas.BevelJoiner))
+	c.SetFillColor(canvas.Darkgrey)
+	c.DrawPath(x, y, outerStroke)
+	c.SetFillColor(color.RGBA{150, 150, 150, 255})
+	c.DrawPath(x, y, outerStroke.Stroke(0.2, canvas.ButtCapper, canvas.RoundJoiner))
+	c.SetFillColor(canvas.Steelblue)
+	c.DrawPath(x, y, p.Stroke(0.5, canvas.ButtCapper, canvas.BevelJoiner))
 }
 
 func drawText(c *canvas.C, x, y float64, text string) {
 	face := dejaVuSerif.Face(18.0)
-	c.SetColor(canvas.Black)
-	c.DrawText(x, y, 0.0, canvas.NewTextBox(face, text, 0.0, 0.0, canvas.Center, canvas.Top, 0.0))
+	c.SetFillColor(canvas.Black)
+	c.DrawText(x, y, canvas.NewTextBox(face, canvas.Black, text, 0.0, 0.0, canvas.Center, canvas.Top, 0.0))
 }
 
 func Draw(c *canvas.C) {

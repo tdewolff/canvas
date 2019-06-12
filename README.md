@@ -30,13 +30,15 @@ Papers
 ### Targets
 | Feature | Image | SVG | PDF | EPS |
 | ------- | ----- | --- | --- | --- |
-| Transparency | yes | yes | yes | - |
 | Draw path fill | yes | yes | yes | yes |
 | Draw path stroke | yes | yes | yes | no |
 | Draw path dash | yes | yes | yes | no |
 | Embed fonts | - | yes | no | no |
 | Draw text | - | yes | no | no |
 | Draw image | no | no | no | no |
+
+* EPS does not support transparency
+* PDF and EPS do not support line joins for last and first dash for dashed and closed path
 
 ### Path
 | Command | Flatten | Stroke | Length | SplitAt |
@@ -56,7 +58,7 @@ Features that are planned to be implemented in the future. Also see the TODOs in
 
 General
 
-* Fix slowness, transparency and colors in the rasterizer
+* Fix slowness, transparency and colors in the rasterizer (text_example.go is slow!)
 * Allow embedding raster images?
 
 Fonts
@@ -114,14 +116,18 @@ ff.Metrics() Metrics                          // font metrics such as line heigh
 ff.ToPath(r rune) (p *Path, advance float64)  // convert rune to path and return advance
 ff.Kerning(r0, r1 rune) float64               // return kerning between runes
 
-text := NewText(ff, "string")                                            // simple text with newlines
-text := NewTextBox(ff, "string", width, height, halign, valign, indent)  // split on word boundaries and specify text alignment
+// regular text fitted to a box
+text := NewTextBox(ff, color, "string", width, height, halign, valign, indent)  // split on word boundaries and specify text alignment
 text.Bounds() Rect
-text.ToPath() *Path
-text.ToSVG(x, y, rot, color) string  // convert to series of <tspan>
 
+// specialization for just a text line, can be converted to a path
+textLine := NewTextLine(ff, color, "string")  // simple text with newlines
+path := textLine.ToPath() *Path
+text = textLine.ToText() *Text
+
+// specialization for rich text, different styles of text or paths (LaTeX) in one box
 richText := NewRichText()                        // allow different FontFaces in the same text block
-richText.Add(ff, "string")
+richText.Add(ff, color, "string")
 text = richText.ToText(width, height, halign, valign, indent)
 ```
 
@@ -136,6 +142,7 @@ p.LineTo(x, y float64)                                            // straight li
 p.QuadTo(cpx, cpy, x, y float64)                                  // a quadratic Bézier with control point (cpx,cpy) and end point (x,y)
 p.CubeTo(cp1x, cp1y, cp2x, cp2y, x, y float64)                    // a cubic Bézier with control points (cp1x,cp1y), (cp2x,cp2y) and end point (x,y)
 p.ArcTo(rx, ry, rot float64, largeArc, sweep bool, x, y float64)  // an arc of an ellipse with radii (rx,ry), rotated by rot (in degrees CCW), with flags largeArc and sweep (booleans, see https://www.w3.org/TR/SVG/paths.html#PathDataEllipticalArcCommands)
+p.Arc(rx, ry, rot float64, theta0, theta1 float64)  // an arc of an ellipse with radii (rx,ry), rotated by rot (in degrees CCW), beginning at angle theta0 and ending at angle theta1
 p.Close()                                                         // close the path, essentially a LineTo to the last MoveTo location
 
 p = Rectangle(x, y, w, h float64)
@@ -149,17 +156,20 @@ p = Ellipse(x, y, rx, ry float64)
 We can extract information from these paths using:
 
 ``` go
-p.Empty() bool
+p.Empty() bool                 // true if path contains no commands other than MoveTo or Close
 p.Pos() (x, y float64)         // current pen position
 p.StartPos() (x, y float64)    // position of last MoveTo
-p.Points() []Point             // positions of all commands
+p.Coords() []Point             // (start) positions of all commands
 p.CCW() bool                   // true if the last path segment has a counter clockwise direction
-p.Interior(x, y float64) bool  // true if (x,y) is in the interior of the path, ie. gets filled
-p.Filling() bool               // true if the last path segment is filling
+p.Interior(x, y float64) bool  // true if (x,y) is in the interior of the path, ie. gets filled (depends on FillRule)
+p.Filling() bool               // true if the last path segment is filling (depends on FillRule)
 p.Bounds() Rect                // bounding box of path
 p.Length() float64             // length of path in millimeters
-p.ToSVG() string               // to SVG
-p.ToPS() string                // to PostScript
+
+p.ToImage(*image.RGBA, dpm, w, h float64)  // rasterize
+p.ToSVG(w, h float64) string               // to SVG
+p.ToPDF() string                           // to PDF
+p.ToPS() string                            // to PostScript
 ```
 
 These paths can be manipulated and transformed with the following commands. Each will return a pointer to the path.
@@ -168,20 +178,32 @@ These paths can be manipulated and transformed with the following commands. Each
 p.Copy()
 p.Append(q *Path)        // append path q to p
 p.Join(q *Path)          // join path q to p
+p.Reverse()              // reverse the direction of the path
 p.Split()                // split the path segments, ie. at Close/MoveTo
 p.SplitAt(d ...float64)  // split the path at certain lengths d
-p.Reverse()              // reverse the direction of the path
 
+p.Transform(Matrix)          // multiple transformations at once
 p.Translate(x, y float64)
 p.Scale(x, y float64)
 p.Rotate(rot, x, y float64)  // with the rotation rot in degrees, around point (x,y)
+p.Shear(x, y float64)
 
 p.Flatten()                                            // flatten Bézier and arc commands to straight lines
-p.Smoothen()                                           // treat path as a polygon and smoothen it by cubic Béziers
+p.Offset(width float64)                                // offset the path outwards (width > 0) or inwards (width < 0), depends on FillRule
 p.Stroke(width float64, capper Capper, joiner Joiner)  // create a stroke from a path of certain width, using capper and joiner for caps and joins
-p.Dash(d ...float64)                                   // create dashed path with lengths d which are alternating the dash and the space
+p.Dash(offset float64, d ...float64)                   // create dashed path with lengths d which are alternating the dash and the space, start at an offset into the given pattern (can be negative)
 
 p.Optimize()  // optimize and shorten path
+```
+
+### Polygon paths
+Some operations on paths only work when it consists of line elements only. We can either flatten an existing path or use the command coordinates only in creating a polygon path.
+
+``` go
+pp := p.ToPolygon()       // create by flattening p
+pp = p.ToPolygonCoords()  // create from the command coordinates of p
+
+pp.Smoothen()  // smoothen it by cubic Béziers
 ```
 
 

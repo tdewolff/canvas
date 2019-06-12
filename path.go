@@ -393,7 +393,6 @@ func (p *Path) CCW() bool {
 }
 
 // Filling returns the filling for each path segment, which is true when its interior will be filled considering the path segments.
-// TODO: need more generic way of handling multiple path segments, or a more generic function that accepts other paths
 func (p *Path) Filling() []bool {
 	if !p.Closed() || len(p.d) < p.i0+6 {
 		return nil
@@ -419,7 +418,7 @@ func (p *Path) Filling() []bool {
 	}
 
 	// see https://wrf.ecse.rpi.edu//Research/Short_Notes/pnpoly.html
-	// TODO: implement Winding fill rule
+	// TODO: implement EvenOdd fill rule
 	fillings := make([]bool, len(testPoints))
 	coord, prevCoord := Point{}, Point{p.d[len(p.d)-2], p.d[len(p.d)-1]}
 	for i := 0; i < len(p.d); {
@@ -439,6 +438,8 @@ func (p *Path) Filling() []bool {
 	}
 	return fillings
 }
+
+// TODO: Interior function
 
 // Bounds returns the bounding box rectangle of the path.
 func (p *Path) Bounds() Rect {
