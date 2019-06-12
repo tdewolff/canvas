@@ -30,7 +30,7 @@ Papers
 ### Targets
 | Feature | Image | SVG | PDF | EPS |
 | ------- | ----- | --- | --- | --- |
-| Transparency | bad | yes | yes | - |
+| Transparency | yes | yes | yes | - |
 | Draw path fill | yes | yes | yes | yes |
 | Draw path stroke | yes | yes | yes | no |
 | Draw path dash | yes | yes | yes | no |

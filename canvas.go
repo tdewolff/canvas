@@ -7,6 +7,7 @@ import (
 	"image/draw"
 	"io"
 	"math"
+	"strings"
 
 	"golang.org/x/image/vector"
 )
@@ -54,6 +55,9 @@ func (c *C) SetDashes(dashOffset float64, dashes ...float64) {
 }
 
 func (c *C) DrawPath(x, y float64, path *Path) {
+	if c.fillColor.A == 0 && (c.strokeColor.A == 0 || c.strokeWidth == 0.0) {
+		return
+	}
 	if !path.Empty() {
 		path = path.Copy().Translate(x, y)
 		c.layers = append(c.layers, pathLayer{path, c.drawState})
@@ -71,7 +75,7 @@ func (c *C) DrawText(x, y float64, text *Text) {
 // TODO: add DrawImage(x,y,image.RGBA)
 
 func (c *C) WriteSVG(w io.Writer) {
-	fmt.Fprintf(w, `<svg xmlns="http://www.w3.org/2000/svg" version="1.1" shape-rendering="geometricPrecision" width="%g" height="%g" viewBox="0 0 %g %g">`, c.w, c.h, c.w, c.h)
+	fmt.Fprintf(w, `<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="%g" height="%g" viewBox="0 0 %g %g">`, c.w, c.h, c.w, c.h)
 	if len(c.fonts) > 0 {
 		fmt.Fprintf(w, "<defs><style>")
 		for f := range c.fonts {
@@ -148,73 +152,112 @@ type pathLayer struct {
 }
 
 func (l pathLayer) WriteSVG(w io.Writer, h float64) {
-	p := l.path.Copy().Scale(1.0, -1.0).Translate(0.0, h)
-	w.Write([]byte(`<path d="`))
-	w.Write([]byte(p.ToSVG()))
-	// TODO: draw explicit stroke when miter has non-bevel fallback or arcs has a limit
-	if l.strokeColor.A != 0 && 0.0 < l.strokeWidth {
-		fmt.Fprintf(w, `" style="stroke:%s`, toCSSColor(l.strokeColor))
-		if l.strokeWidth != 1.0 {
-			fmt.Fprintf(w, ";stroke-width:%g", l.strokeWidth)
-		}
-		if _, ok := l.strokeCapper.(roundCapper); ok {
-			fmt.Fprintf(w, ";stroke-linecap:round")
-		} else if _, ok := l.strokeCapper.(squareCapper); ok {
-			fmt.Fprintf(w, ";stroke-linecap:square")
-		} else if _, ok := l.strokeCapper.(buttCapper); !ok {
-			panic("SVG: line cap not support")
-		}
-		if _, ok := l.strokeJoiner.(bevelJoiner); ok {
-			fmt.Fprintf(w, ";stroke-linejoin:bevel")
-		} else if _, ok := l.strokeJoiner.(roundJoiner); ok {
-			fmt.Fprintf(w, ";stroke-linejoin:round")
-		} else if _, ok := l.strokeJoiner.(arcsJoiner); ok {
-			fmt.Fprintf(w, ";stroke-linejoin:arcs")
-		} else if miter, ok := l.strokeJoiner.(miterJoiner); ok && !math.IsNaN(miter.limit) {
-			// without a miter limit it becomes a 'miter' linejoin, which is the default
-			fmt.Fprintf(w, ";stroke-linejoin:miter-clip") // TODO: wrong, miter-clip only changes the resulting bevel not whether to clip at the limit or not, this happens for both
-			if miter.limit != 4.0 {
-				fmt.Fprintf(w, ";stroke-miterlimit:%g", miter.limit) // TODO: needs to be divided by 2?
-			}
-		} else if _, ok := l.strokeJoiner.(miterJoiner); !ok {
-			panic("SVG: line join not support")
-		}
+	fill := l.fillColor.A != 0
+	stroke := l.strokeColor.A != 0 && 0.0 < l.strokeWidth
 
-		if 0 < len(l.dashes) {
-			fmt.Fprintf(w, ";stroke-dasharray:%g", l.dashes[0])
-			for _, dash := range l.dashes[1:] {
-				fmt.Fprintf(w, " %g", dash)
-			}
-			if 0.0 < l.dashOffset {
-				fmt.Fprintf(w, ";stroke-dashoffset:%g", l.dashOffset)
-			}
+	p := l.path.Copy().Scale(1.0, -1.0).Translate(0.0, h)
+	fmt.Fprintf(w, `<path d="%s`, p.ToSVG())
+
+	strokeUnsupported := false
+	if arcs, ok := l.strokeJoiner.(arcsJoiner); ok && math.IsNaN(arcs.limit) {
+		strokeUnsupported = true
+	} else if miter, ok := l.strokeJoiner.(miterJoiner); ok {
+		if math.IsNaN(miter.limit) {
+			strokeUnsupported = true
+		} else if _, ok := miter.gapJoiner.(bevelJoiner); !ok {
+			strokeUnsupported = true
 		}
-		if l.fillColor != Black {
-			if l.fillColor.A != 0 {
-				fmt.Fprintf(w, ";fill:%s", toCSSColor(l.fillColor))
-			} else {
-				fmt.Fprintf(w, ";fill:none")
+	}
+
+	if !stroke {
+		if fill {
+			if l.fillColor != Black {
+				fmt.Fprintf(w, `" fill="%s`, toCSSColor(l.fillColor))
 			}
-		}
-		if FillRule == EvenOdd {
-			fmt.Fprintf(w, ";fill-rule:evenodd")
-		}
-	} else if l.fillColor != Black {
-		if l.fillColor.A != 0 {
-			fmt.Fprintf(w, `" fill="%s`, toCSSColor(l.fillColor))
+			if FillRule == EvenOdd {
+				fmt.Fprintf(w, `" fill-rule="evenodd`)
+			}
 		} else {
 			fmt.Fprintf(w, `" fill="none`)
 		}
+	} else {
+		style := &strings.Builder{}
+		if fill {
+			if l.fillColor != Black {
+				fmt.Fprintf(style, ";fill:%s", toCSSColor(l.fillColor))
+			}
+			if FillRule == EvenOdd {
+				fmt.Fprintf(style, ";fill-rule:evenodd")
+			}
+		} else {
+			fmt.Fprintf(style, ";fill:none")
+		}
+		if stroke && !strokeUnsupported {
+			fmt.Fprintf(style, `;stroke:%s`, toCSSColor(l.strokeColor))
+			if l.strokeWidth != 1.0 {
+				fmt.Fprintf(style, ";stroke-width:%g", l.strokeWidth)
+			}
+			if _, ok := l.strokeCapper.(roundCapper); ok {
+				fmt.Fprintf(style, ";stroke-linecap:round")
+			} else if _, ok := l.strokeCapper.(squareCapper); ok {
+				fmt.Fprintf(style, ";stroke-linecap:square")
+			} else if _, ok := l.strokeCapper.(buttCapper); !ok {
+				panic("SVG: line cap not support")
+			}
+			if _, ok := l.strokeJoiner.(bevelJoiner); ok {
+				fmt.Fprintf(style, ";stroke-linejoin:bevel")
+			} else if _, ok := l.strokeJoiner.(roundJoiner); ok {
+				fmt.Fprintf(style, ";stroke-linejoin:round")
+			} else if arcs, ok := l.strokeJoiner.(arcsJoiner); ok && !math.IsNaN(arcs.limit) {
+				fmt.Fprintf(style, ";stroke-linejoin:arcs")
+				if arcs.limit != 4.0 {
+					fmt.Fprintf(style, ";stroke-miterlimit:%g", arcs.limit)
+				}
+			} else if miter, ok := l.strokeJoiner.(miterJoiner); ok && !math.IsNaN(miter.limit) {
+				// a miter line join is the default
+				if miter.limit != 4.0 {
+					fmt.Fprintf(style, ";stroke-miterlimit:%g", miter.limit)
+				}
+			} else {
+				panic("SVG: line join not support")
+			}
+
+			if 0 < len(l.dashes) {
+				fmt.Fprintf(style, ";stroke-dasharray:%g", l.dashes[0])
+				for _, dash := range l.dashes[1:] {
+					fmt.Fprintf(style, " %g", dash)
+				}
+				if 0.0 != l.dashOffset {
+					fmt.Fprintf(style, ";stroke-dashoffset:%g", l.dashOffset)
+				}
+			}
+		}
+		if 0 < style.Len() {
+			fmt.Fprintf(w, `" style="%s`, style.String()[1:])
+		}
 	}
-	w.Write([]byte(`"/>`))
+	fmt.Fprintf(w, `"/>`)
+
+	if stroke && strokeUnsupported {
+		// stroke settings unsupported by PDF, draw stroke explicitly
+		if 0 < len(l.dashes) {
+			p = p.Dash(l.dashOffset, l.dashes...)
+		}
+		p = p.Stroke(l.strokeWidth, l.strokeCapper, l.strokeJoiner)
+		fmt.Fprintf(w, `<path d="%s`, p.ToSVG())
+		if l.strokeColor != Black {
+			fmt.Fprintf(w, `" fill="%s`, toCSSColor(l.strokeColor))
+		}
+		if FillRule == EvenOdd {
+			fmt.Fprintf(w, `" fill-rule="evenodd`)
+		}
+		fmt.Fprintf(w, `"/>`)
+	}
 }
 
 func (l pathLayer) WritePDF(w *PDFPageWriter) {
 	fill := l.fillColor.A != 0
 	stroke := l.strokeColor.A != 0 && 0.0 < l.strokeWidth
-	if !fill && !stroke {
-		return
-	}
 
 	closed := false
 	data := l.path.ToPDF()
@@ -226,42 +269,28 @@ func (l pathLayer) WritePDF(w *PDFPageWriter) {
 	differentAlpha := fill && stroke && l.fillColor.A != l.strokeColor.A
 
 	// PDFs don't support the arcs joiner, miter joiner (not clipped), or miter-clip joiner with non-bevel fallback
-	_, strokeUnsupported := l.strokeJoiner.(arcsJoiner)
-	if miter, ok := l.strokeJoiner.(miterJoiner); ok {
-		if math.IsNaN(miter.length) {
+	// TODO: PDF does not support connecting first and last dashes if path is closed
+	strokeUnsupported := false
+	if _, ok := l.strokeJoiner.(arcsJoiner); ok {
+		strokeUnsupported = true
+	} else if miter, ok := l.strokeJoiner.(miterJoiner); ok {
+		if math.IsNaN(miter.limit) {
 			strokeUnsupported = true
 		} else if _, ok := miter.gapJoiner.(bevelJoiner); !ok {
 			strokeUnsupported = true
 		}
 	}
 
-	if differentAlpha || strokeUnsupported {
-		// draw both paths separately
-		w.SetFillColor(l.fillColor)
-		w.Write([]byte(" "))
-		w.Write([]byte(data))
-		w.Write([]byte(" f"))
-		if FillRule == EvenOdd {
-			w.Write([]byte("*"))
-		}
-
-		if strokeUnsupported {
-			// stroke settings unsupported by PDF, draw stroke explicitly
-			strokePath := l.path.Copy()
-			if 0 < len(l.dashes) {
-				strokePath = strokePath.Dash(l.dashOffset, l.dashes...)
-			}
-			strokePath = strokePath.Stroke(l.strokeWidth, l.strokeCapper, l.strokeJoiner)
-
-			w.SetFillColor(l.strokeColor)
+	if !stroke || !strokeUnsupported {
+		if fill && !stroke {
+			w.SetFillColor(l.fillColor)
 			w.Write([]byte(" "))
-			w.Write([]byte(strokePath.ToPDF()))
+			w.Write([]byte(data))
 			w.Write([]byte(" f"))
 			if FillRule == EvenOdd {
 				w.Write([]byte("*"))
 			}
-		} else {
-			// setting alpha would otherwise interfere between fill and stroke
+		} else if !fill && stroke {
 			w.SetStrokeColor(l.strokeColor)
 			w.SetLineWidth(l.strokeWidth)
 			w.SetLineCap(l.strokeCapper)
@@ -277,37 +306,74 @@ func (l pathLayer) WritePDF(w *PDFPageWriter) {
 			if FillRule == EvenOdd {
 				w.Write([]byte("*"))
 			}
+		} else if fill && stroke {
+			if !differentAlpha {
+				w.SetFillColor(l.fillColor)
+				w.SetStrokeColor(l.strokeColor)
+				w.SetLineWidth(l.strokeWidth)
+				w.SetLineCap(l.strokeCapper)
+				w.SetLineJoin(l.strokeJoiner)
+				w.SetDashes(l.dashOffset, l.dashes)
+				w.Write([]byte(" "))
+				w.Write([]byte(data))
+				if closed {
+					w.Write([]byte(" b"))
+				} else {
+					w.Write([]byte(" B"))
+				}
+				if FillRule == EvenOdd {
+					w.Write([]byte("*"))
+				}
+			} else {
+				w.SetFillColor(l.fillColor)
+				w.Write([]byte(" "))
+				w.Write([]byte(data))
+				w.Write([]byte(" f"))
+				if FillRule == EvenOdd {
+					w.Write([]byte("*"))
+				}
+
+				w.SetStrokeColor(l.strokeColor)
+				w.SetLineWidth(l.strokeWidth)
+				w.SetLineCap(l.strokeCapper)
+				w.SetLineJoin(l.strokeJoiner)
+				w.SetDashes(l.dashOffset, l.dashes)
+				w.Write([]byte(" "))
+				w.Write([]byte(data))
+				if closed {
+					w.Write([]byte(" s"))
+				} else {
+					w.Write([]byte(" S"))
+				}
+				if FillRule == EvenOdd {
+					w.Write([]byte("*"))
+				}
+			}
 		}
 	} else {
+		// stroke && strokeUnsupported
 		if fill {
 			w.SetFillColor(l.fillColor)
-		}
-		if stroke {
-			w.SetStrokeColor(l.strokeColor)
-			w.SetLineWidth(l.strokeWidth)
-			w.SetLineCap(l.strokeCapper)
-			w.SetLineJoin(l.strokeJoiner)
-			w.SetDashes(l.dashOffset, l.dashes)
+			w.Write([]byte(" "))
+			w.Write([]byte(data))
+			w.Write([]byte(" f"))
+			if FillRule == EvenOdd {
+				w.Write([]byte("*"))
+			}
 		}
 
-		w.Write([]byte(" "))
-		w.Write([]byte(l.path.ToPDF()))
-		if fill && stroke {
-			if closed {
-				w.Write([]byte(" b"))
-			} else {
-				w.Write([]byte(" B"))
-			}
-		} else if fill {
-			w.Write([]byte(" f"))
-		} else {
-			if closed {
-				w.Write([]byte(" s"))
-			} else {
-				w.Write([]byte(" S"))
-			}
+		// stroke settings unsupported by PDF, draw stroke explicitly
+		strokePath := l.path.Copy()
+		if 0 < len(l.dashes) {
+			strokePath = strokePath.Dash(l.dashOffset, l.dashes...)
 		}
-		if fill && FillRule == EvenOdd {
+		strokePath = strokePath.Stroke(l.strokeWidth, l.strokeCapper, l.strokeJoiner)
+
+		w.SetFillColor(l.strokeColor)
+		w.Write([]byte(" "))
+		w.Write([]byte(strokePath.ToPDF()))
+		w.Write([]byte(" f"))
+		if FillRule == EvenOdd {
 			w.Write([]byte("*"))
 		}
 	}

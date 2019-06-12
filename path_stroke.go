@@ -115,7 +115,7 @@ func (roundJoiner) String() string {
 	return "Round"
 }
 
-var MiterJoiner Joiner = miterJoiner{BevelJoiner, math.NaN()} // TODO: use miter-clip from SVG, ie. relative to stroke width. make sure SVG and PDF implementations use the right limits.
+var MiterJoiner Joiner = miterJoiner{BevelJoiner, 4.0} // TODO: use miter-clip from SVG, ie. relative to stroke width. make sure SVG and PDF implementations use the right limits.
 
 func MiterClipJoiner(gapJoiner Joiner, limit float64) Joiner {
 	return miterJoiner{gapJoiner, limit}
@@ -133,7 +133,7 @@ func (j miterJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point
 		BevelJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	}
-	limit := math.Max(j.limit, halfWidth*1.001) // otherwise nearly linear joins will also get clipped
+	limit := math.Max(j.limit/2.0, halfWidth*1.001) // otherwise nearly linear joins will also get clipped
 
 	cw := n0.Rot90CW().Dot(n1) >= 0.0
 	hw := halfWidth
@@ -143,7 +143,7 @@ func (j miterJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point
 
 	theta := n0.AngleBetween(n1) / 2.0
 	d := hw / math.Cos(theta)
-	if !math.IsNaN(j.limit) && math.Abs(d) > limit {
+	if !math.IsNaN(limit) && math.Abs(d) > limit {
 		j.gapJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	}
@@ -168,7 +168,7 @@ func (j miterJoiner) String() string {
 	}
 }
 
-var ArcsJoiner Joiner = arcsJoiner{BevelJoiner, math.NaN()}
+var ArcsJoiner Joiner = arcsJoiner{BevelJoiner, 4.0}
 
 func ArcsClipJoiner(gapJoiner Joiner, limit float64) Joiner {
 	return arcsJoiner{gapJoiner, limit}
@@ -189,7 +189,7 @@ func (j arcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point,
 		miterJoiner{j.gapJoiner, j.limit}.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	}
-	limit := math.Max(j.limit, halfWidth*1.001) // otherwise nearly linear joins will also get clipped
+	limit := math.Max(j.limit/2.0, halfWidth*1.001) // 1.001 so that nearly linear joins will not get clipped
 
 	cw := n0.Rot90CW().Dot(n1) >= 0.0
 	hw := halfWidth
@@ -347,6 +347,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 				cp2: cp2,
 			})
 		case ArcToCmd:
+			// TODO: results seems bad, stroke too thick in the middle for rotated arcs
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}

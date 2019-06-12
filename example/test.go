@@ -38,8 +38,19 @@ func main() {
 	}
 	defer pngFile.Close()
 
-	img := c.WriteImage(144.0)
+	img := c.WriteImage(288.0)
 	err = png.Encode(pngFile, img)
+	if err != nil {
+		panic(err)
+	}
+
+	pdfFile, err := os.Create("test.pdf")
+	if err != nil {
+		panic(err)
+	}
+	defer pdfFile.Close()
+
+	err = c.WritePDF(pdfFile)
 	if err != nil {
 		panic(err)
 	}
@@ -64,11 +75,20 @@ func drawStrokedPath(c *canvas.C, x, y, d float64, path string) {
 }
 
 func Draw(c *canvas.C) {
-	c.SetStrokeColor(canvas.Blue)
-	c.SetDashes(-1.0, 5.0)
+	p, _ := canvas.ParseSVG(fmt.Sprintf("H10.0Q20.0 0.0 20.0 10.0A20.0 10.0 45.0 0 1 0.0 20.0A15.0 10.0 45.0 0 0 10.0 5.0z"))
+	c.DrawPath(10.0, 10.0, p)
 
-	p, _ := canvas.ParseSVG(fmt.Sprintf("H10.0Q20.0 0.0 20.0 10.0A20.0 10.0 45.0 0 1 0.0 20.0z"))
-	c.DrawPath(30.0, 30.0, p)
+	c.SetStrokeJoiner(canvas.MiterJoiner)
+	c.SetStrokeColor(canvas.Blue)
+	c.SetDashes(-4.0, 5.0, 1.0)
+	c.DrawPath(40.0, 10.0, p)
+
+	c.SetFillColor(canvas.Transparent)
+	c.SetDashes(0.0)
+	c.DrawPath(70.0, 10.0, p)
+
+	c.SetStrokeColor(canvas.Transparent)
+	c.DrawPath(110.0, 10.0, p)
 
 	//p, _ := canvas.ParseSVG(fmt.Sprintf("M10 0V10H-10V-10H10zM5 0V-5H-5V5H5z"))
 	//p = p.Offset(1.0)

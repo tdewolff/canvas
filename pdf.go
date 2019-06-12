@@ -268,7 +268,11 @@ func (w *PDFPageWriter) SetAlpha(alpha float64) {
 
 func (w *PDFPageWriter) SetFillColor(fillColor color.RGBA) {
 	if fillColor != w.fillColor {
-		fmt.Fprintf(w, " %f %f %f rg", float64(fillColor.R)/255.0, float64(fillColor.G)/255.0, float64(fillColor.B)/255.0)
+		if fillColor.R == fillColor.G && fillColor.R == fillColor.B {
+			fmt.Fprintf(w, " %f g", float64(fillColor.R)/255.0)
+		} else {
+			fmt.Fprintf(w, " %f %f %f rg", float64(fillColor.R)/255.0, float64(fillColor.G)/255.0, float64(fillColor.B)/255.0)
+		}
 		w.fillColor = fillColor
 	}
 	w.SetAlpha(float64(fillColor.A) / 255.0)
@@ -276,7 +280,11 @@ func (w *PDFPageWriter) SetFillColor(fillColor color.RGBA) {
 
 func (w *PDFPageWriter) SetStrokeColor(strokeColor color.RGBA) {
 	if strokeColor != w.strokeColor {
-		fmt.Fprintf(w, " %f %f %f rg", float64(strokeColor.R)/255.0, float64(strokeColor.G)/255.0, float64(strokeColor.B)/255.0)
+		if strokeColor.R == strokeColor.G && strokeColor.R == strokeColor.B {
+			fmt.Fprintf(w, " %f G", float64(strokeColor.R)/255.0)
+		} else {
+			fmt.Fprintf(w, " %f %f %f RG", float64(strokeColor.R)/255.0, float64(strokeColor.G)/255.0, float64(strokeColor.B)/255.0)
+		}
 		w.strokeColor = strokeColor
 	}
 	w.SetAlpha(float64(strokeColor.A) / 255.0)
@@ -338,6 +346,17 @@ func (w *PDFPageWriter) SetDashes(dashPhase float64, dashArray []float64) {
 	// TODO: mind that dash pattern is restarted for each path segment, in contrary to Dash()
 	if len(dashArray)%2 == 1 {
 		dashArray = append(dashArray, dashArray...)
+	}
+
+	// PDF can't handle negative dash phases
+	if dashPhase < 0.0 {
+		totalLength := 0.0
+		for _, dash := range dashArray {
+			totalLength += dash
+		}
+		for dashPhase < 0.0 {
+			dashPhase += totalLength
+		}
 	}
 
 	dashes := append(dashArray, dashPhase)
