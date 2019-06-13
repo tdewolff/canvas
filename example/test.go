@@ -18,7 +18,7 @@ func main() {
 		panic(err)
 	}
 
-	c := canvas.New(200, 80)
+	c := canvas.New(220, 220)
 	Draw(c)
 
 	////////////////
@@ -75,23 +75,29 @@ func drawStrokedPath(c *canvas.C, x, y, d float64, path string) {
 }
 
 func Draw(c *canvas.C) {
-	p, _ := canvas.ParseSVG(fmt.Sprintf("H10.0Q20.0 0.0 20.0 10.0A20.0 10.0 45.0 0 1 0.0 20.0A15.0 10.0 45.0 0 0 10.0 5.0z"))
-	c.DrawPath(10.0, 10.0, p)
+	// test SVG, PDF and EPS implementations
+	//p, _ := canvas.ParseSVG(fmt.Sprintf("H10.0Q20.0 0.0 20.0 10.0A20.0 10.0 45.0 0 1 0.0 20.0A15.0 10.0 45.0 0 0 10.0 5.0z"))
+	//c.DrawPath(10.0, 10.0, p)
 
-	c.SetStrokeJoiner(canvas.MiterJoiner)
-	c.SetStrokeColor(canvas.Blue)
-	c.SetDashes(-4.0, 5.0, 1.0)
-	c.DrawPath(40.0, 10.0, p)
+	//c.SetStrokeJoiner(canvas.MiterJoiner)
+	//c.SetStrokeColor(canvas.Blue)
+	//c.SetDashes(-4.0, 5.0, 1.0)
+	//c.DrawPath(40.0, 10.0, p)
 
-	c.SetFillColor(canvas.Transparent)
-	c.SetDashes(0.0)
-	c.DrawPath(70.0, 10.0, p)
+	//c.SetFillColor(canvas.Transparent)
+	//c.SetDashes(0.0)
+	//c.DrawPath(70.0, 10.0, p)
 
-	c.SetStrokeColor(canvas.Transparent)
-	c.DrawPath(110.0, 10.0, p)
+	//c.SetStrokeColor(canvas.Transparent)
+	//c.DrawPath(110.0, 10.0, p)
 
-	//p, _ := canvas.ParseSVG(fmt.Sprintf("M10 0V10H-10V-10H10zM5 0V-5H-5V5H5z"))
-	//p = p.Offset(1.0)
+	// test Filling
+	//canvas.FillRule = canvas.EvenOdd
+	p, _ := canvas.ParseSVG(fmt.Sprintf("M100 0V100H-100V-100H100zM50 0V-50H-50V50H50z"))
+	p, _ = canvas.ParseSVG(fmt.Sprintf("M100 0V100H-100V-100H100zM50 0V50H-50V-50H50z"))
+	fmt.Println(p.Filling())
+	p = p.Offset(1.0)
+	c.DrawPath(110, 110, p)
 
 	//ellipse, _ := canvas.ParseSVG(fmt.Sprintf("A10 20 0 0 0 20 0z"))
 	//c.SetColor(canvas.Red)

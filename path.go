@@ -10,14 +10,16 @@ import (
 	"golang.org/x/image/vector"
 )
 
-const (
-	NonZero = iota
-	EvenOdd
-)
-
 // Tolerance is the maximum deviation from the original path in millimeters when e.g. flatting
 var Tolerance = 0.01
-var FillRule = NonZero // TODO: support EvenOdd
+var FillRule = NonZero
+
+type FillRuleType int
+
+const (
+	NonZero FillRuleType = iota
+	EvenOdd
+)
 
 // PathCmd specifies the path command.
 const (
@@ -418,8 +420,7 @@ func (p *Path) Filling() []bool {
 	}
 
 	// see https://wrf.ecse.rpi.edu//Research/Short_Notes/pnpoly.html
-	// TODO: implement EvenOdd fill rule
-	fillings := make([]bool, len(testPoints))
+	crossings := make([]int, len(testPoints))
 	coord, prevCoord := Point{}, Point{p.d[len(p.d)-2], p.d[len(p.d)-1]}
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
@@ -430,11 +431,24 @@ func (p *Path) Filling() []bool {
 			for i, test := range testPoints {
 				if (test.Y < coord.Y) != (test.Y < prevCoord.Y) &&
 					test.X < (prevCoord.X-coord.X)*(test.Y-coord.Y)/(prevCoord.Y-coord.Y)+coord.X {
-					fillings[i] = !fillings[i]
+					if prevCoord.Y < coord.Y {
+						crossings[i] -= 1
+					} else {
+						crossings[i] += 1
+					}
 				}
 			}
 		}
 		prevCoord = coord
+	}
+
+	fillings := make([]bool, len(testPoints))
+	for i := range crossings {
+		if FillRule == NonZero {
+			fillings[i] = crossings[i] != 0
+		} else {
+			fillings[i] = crossings[i]%2 != 0
+		}
 	}
 	return fillings
 }
