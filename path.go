@@ -771,7 +771,10 @@ func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer
 
 		if q != nil {
 			if 0 < len(q.d) && q.d[0] == MoveToCmd {
-				x0, y0 := p.d[i-2], p.d[i-1]
+				x0, y0 := 0.0, 0.0
+				if 0 < i {
+					x0, y0 = p.d[i-2], p.d[i-1]
+				}
 				x1, y1 := q.d[1], q.d[2]
 				if equal(x0, x1) && equal(y0, y1) {
 					q.d = q.d[3:]

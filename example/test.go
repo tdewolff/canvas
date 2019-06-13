@@ -18,7 +18,7 @@ func main() {
 		panic(err)
 	}
 
-	c := canvas.New(220, 220)
+	c := canvas.New(220, 100)
 	Draw(c)
 
 	////////////////
@@ -93,22 +93,23 @@ func Draw(c *canvas.C) {
 
 	// test Filling
 	//canvas.FillRule = canvas.EvenOdd
-	p, _ := canvas.ParseSVG(fmt.Sprintf("M100 0V100H-100V-100H100zM50 0V-50H-50V50H50z"))
-	p, _ = canvas.ParseSVG(fmt.Sprintf("M100 0V100H-100V-100H100zM50 0V50H-50V-50H50z"))
-	fmt.Println(p.Filling())
-	p = p.Offset(1.0)
-	c.DrawPath(110, 110, p)
+	//p, _ := canvas.ParseSVG(fmt.Sprintf("M100 0V100H-100V-100H100zM50 0V-50H-50V50H50z"))
+	//p, _ = canvas.ParseSVG(fmt.Sprintf("M100 0V100H-100V-100H100zM50 0V50H-50V-50H50z"))
+	//fmt.Println(p.Filling())
+	//p = p.Offset(1.0)
+	//c.DrawPath(110, 110, p)
 
-	//ellipse, _ := canvas.ParseSVG(fmt.Sprintf("A10 20 0 0 0 20 0z"))
-	//c.SetColor(canvas.Red)
-	//c.DrawPath(50.0, 40.0, 0.0, ellipse)
-	//ps := ellipse.SplitAt(10.0)
-	//ellipse = ps[0]
-	//fmt.Println(ellipse)
-	//ellipse = ellipse.Stroke(2.0, canvas.RoundCapper, canvas.RoundJoiner)
-	//ellipse = ellipse.Flatten()
-	//c.SetColor(canvas.BlackTransparent)
-	//c.DrawPath(50.0, 40.0, 0.0, ellipse)
+	ellipse, _ := canvas.ParseSVG(fmt.Sprintf("A20 40 0 0 0 40 0z"))
+	c.SetFillColor(canvas.Red)
+	c.DrawPath(10.0, 10.0, ellipse)
+
+	ellipse = ellipse.Flatten()
+	ps := ellipse.SplitAt(10.0)
+	ellipse = ps[0]
+	fmt.Println(ellipse)
+	ellipse = ellipse.Stroke(2.0, canvas.RoundCapper, canvas.RoundJoiner)
+	c.SetFillColor(color.RGBA{0, 0, 0, 128})
+	c.DrawPath(10.0, 10.0, ellipse)
 
 	//drawStrokedPath(c, 30, 40, 2.0, "M0 0L50 0L50 -5")
 	//drawStrokedPath(c, 30, 30, 2.0, "M-25 -25A25 25 0 0 1 0 0A25 25 0 0 1 25 -25z")
