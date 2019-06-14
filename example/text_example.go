@@ -2,9 +2,7 @@ package main
 
 import (
 	"image/png"
-	"log"
 	"os"
-	"runtime/pprof"
 
 	"github.com/tdewolff/canvas"
 )
@@ -12,13 +10,6 @@ import (
 var dejaVuSerif canvas.Font
 
 func main() {
-	f, err := os.Create("cpu")
-	if err != nil {
-		log.Fatal(err)
-	}
-	pprof.StartCPUProfile(f)
-	defer pprof.StopCPUProfile()
-
 	dejaVuSerif, err = canvas.LoadFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.woff")
 	if err != nil {
 		panic(err)
