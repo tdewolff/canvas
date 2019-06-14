@@ -108,7 +108,7 @@ func (rt *RichText) Add(ff FontFace, color color.RGBA, s string) *RichText {
 	return rt
 }
 
-func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, indent float64) *Text {
+func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, indent, lineStretch float64) *Text {
 	var span0, span1 span
 	if 0 < len(rt.spans) {
 		span1 = rt.spans[0]
@@ -173,11 +173,12 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		top, ascent, descent, bottom := l.Heights()
 		lineSpacing := math.Max(top-ascent, prevLineSpacing)
 		if len(lines) != 0 {
-			y -= lineSpacing
+			y -= lineSpacing * (1.0 + lineStretch)
+			y -= ascent * lineStretch
 		}
 		y -= ascent
 		l.y = y
-		y -= descent
+		y -= descent * (1.0 + lineStretch)
 		prevLineSpacing = bottom - descent
 
 		if height != 0.0 && y < -height {
@@ -354,9 +355,8 @@ func (t TextLine) ToPath() *Path {
 	return p
 }
 
-// TODO: add line spacing option (for when valign is not Justify)
-func NewTextBox(ff FontFace, color color.RGBA, s string, width, height float64, halign, valign TextAlign, indent float64) *Text {
-	return NewRichText().Add(ff, color, s).ToText(width, height, halign, valign, indent)
+func NewTextBox(ff FontFace, color color.RGBA, s string, width, height float64, halign, valign TextAlign, indent, lineStretch float64) *Text {
+	return NewRichText().Add(ff, color, s).ToText(width, height, halign, valign, indent, lineStretch)
 }
 
 // Bounds returns the rectangle that contains the entire text box.

@@ -696,6 +696,18 @@ func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer
 	return p
 }
 
+//type Marker func(Point, Point) *Path
+//
+//// TODO: implement markers function
+//func (p *Path) Markers(start, mid, end Marker) *Path {
+//	for i := 0; i < len(p.d); {
+//		cmd := p.d[i]
+//		i += cmdLen(cmd)
+//		//coord := Point{p.d[i-2], p.d[i-1]}
+//	}
+//	return p
+//}
+
 // Split splits the path into its independent path segments. The path is split on the MoveTo and/or Close commands.
 func (p *Path) Split() []*Path {
 	ps := []*Path{}

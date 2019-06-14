@@ -72,6 +72,7 @@ Fonts
 
 Paths
 
+* Draw markers on path (start, end, and each coordinate) taking position, direction and glyph (path)
 * Simplify polygons using the Ramer-Douglas-Peucker algorithm
 * Intersection function between line, Bézier and ellipse and between themselves (for path merge, overlap/mask, clipping, etc.)
 * Implement Bentley-Ottmann algorithm to find all line intersections (clipping)
