@@ -96,7 +96,7 @@ func ParseLaTeX(s string) (*Path, error) {
 			}
 			if !p.Empty() {
 				_ = width
-				p = p.Scale(1.0, -1.0).Translate(-x0, y0+height)
+				p = p.Transform(Identity.ReflectY().Translate(-x0, y0+height))
 			}
 			_ = ioutil.WriteFile(path.Join(tmpDir, hash), []byte(p.String()), 0644)
 			return p, nil

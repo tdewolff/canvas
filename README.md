@@ -148,9 +148,11 @@ p.Close()                                                         // close the p
 p = Rectangle(x, y, w, h float64)
 p = RoundedRectangle(x, y, w, h, r float64)
 p = BeveledRectangle(x, y, w, h, r float64)
-p = RegularPolygon(n int, x, y, r, rot float64)
-p = Circle(x, y, r float64)
-p = Ellipse(x, y, rx, ry float64)
+p = Circle(r float64)
+p = Ellipse(rx, ry float64)
+p = RegularPolygon(n int, r float64, up bool)
+p = RegularStarPolygon(n, d int, r float64, up bool)
+p = StarPolygon(n int, R, r float64, up bool)
 ```
 
 We can extract information from these paths using:
@@ -182,11 +184,8 @@ p.Reverse()              // reverse the direction of the path
 p.Split()                // split the path segments, ie. at Close/MoveTo
 p.SplitAt(d ...float64)  // split the path at certain lengths d
 
-p.Transform(Matrix)          // multiple transformations at once
+p.Transform(Matrix)  // multiple transformations at once
 p.Translate(x, y float64)
-p.Scale(x, y float64)
-p.Rotate(rot, x, y float64)  // with the rotation rot in degrees, around point (x,y)
-p.Shear(x, y float64)
 
 p.Flatten()                                            // flatten Bézier and arc commands to straight lines
 p.Offset(width float64)                                // offset the path outwards (width > 0) or inwards (width < 0), depends on FillRule
@@ -203,7 +202,8 @@ Some operations on paths only work when it consists of line elements only. We ca
 pp := p.ToPolygon()       // create by flattening p
 pp = p.ToPolygonCoords()  // create from the command coordinates of p
 
-pp.Smoothen()  // smoothen it by cubic Béziers
+pp.Smoothen()              // smoothen it by cubic Béziers
+pp.Interior(x, y float64)  // TODO: replace code in Path in Filling
 ```
 
 

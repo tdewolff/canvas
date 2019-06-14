@@ -612,21 +612,6 @@ func (p *Path) Translate(x, y float64) *Path {
 	return p.Transform(Identity.Translate(x, y))
 }
 
-// Scale scales the path by (x,y).
-func (p *Path) Scale(x, y float64) *Path {
-	return p.Transform(Identity.Scale(x, y))
-}
-
-// Rotate rotates the path by rot in degrees around point (x,y) counter clockwise.
-func (p *Path) Rotate(rot, x, y float64) *Path {
-	return p.Transform(Identity.Translate(-x, -y).Rotate(rot).Translate(x, y))
-}
-
-// Shear applies a shear transformation to the path in x and y.
-func (p *Path) Shear(x, y float64) *Path {
-	return p.Transform(Identity.Shear(x, y))
-}
-
 // Flatten flattens all Bézier and arc curves into linear segments. It uses Tolerance as the maximum deviation.
 func (p *Path) Flatten() *Path {
 	return p.Replace(nil, flattenCubicBezier, flattenEllipse)

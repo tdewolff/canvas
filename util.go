@@ -274,6 +274,26 @@ func (m Matrix) Shear(x, y float64) Matrix {
 	})
 }
 
+func (m Matrix) RotateAt(rot, x, y float64) Matrix {
+	return m.Translate(-x, -y).Rotate(rot).Translate(x, y)
+}
+
+func (m Matrix) ReflectX() Matrix {
+	return m.Scale(-1.0, 1.0)
+}
+
+func (m Matrix) ReflectY() Matrix {
+	return m.Scale(1.0, -1.0)
+}
+
+func (m Matrix) ReflectXAt(x float64) Matrix {
+	return m.Translate(-x, 0.0).Scale(-1.0, 1.0).Translate(x, 0.0)
+}
+
+func (m Matrix) ReflectYAt(y float64) Matrix {
+	return m.Translate(0.0, -y).Scale(1.0, -1.0).Translate(0.0, y)
+}
+
 func (m Matrix) T() Matrix {
 	m[0][1], m[1][0] = m[1][0], m[0][1]
 	return m
