@@ -155,7 +155,7 @@ func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 	fill := l.fillColor.A != 0
 	stroke := l.strokeColor.A != 0 && 0.0 < l.strokeWidth
 
-	p := l.path.Transform(Identity.ReflectYAt(h / 2.0))
+	p := l.path.Transform(Identity.Translate(0.0, h).ReflectY())
 	fmt.Fprintf(w, `<path d="%s`, p.ToSVG())
 
 	strokeUnsupported := false
@@ -422,7 +422,7 @@ func (l textLayer) WritePDF(w *PDFPageWriter) {
 	// TODO: PDF write text
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
-		path.Transform(Identity.Rotate(l.rot).Translate(l.x, l.y))
+		path = path.Transform(Identity.Translate(l.x, l.y).Rotate(l.rot))
 		state := defaultDrawState
 		state.fillColor = colors[i]
 		pathLayer{path, state}.WritePDF(w)
@@ -433,7 +433,7 @@ func (l textLayer) WriteEPS(w *EPSWriter) {
 	// TODO: EPS write text
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
-		path.Transform(Identity.Rotate(l.rot).Translate(l.x, l.y))
+		path = path.Transform(Identity.Translate(l.x, l.y).Rotate(l.rot))
 		state := defaultDrawState
 		state.fillColor = colors[i]
 		pathLayer{path, state}.WriteEPS(w)
@@ -443,7 +443,7 @@ func (l textLayer) WriteEPS(w *EPSWriter) {
 func (l textLayer) WriteImage(img *image.RGBA, dpm, w, h float64) {
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
-		path.Transform(Identity.Rotate(l.rot).Translate(l.x, l.y))
+		path = path.Transform(Identity.Translate(l.x, l.y).Rotate(l.rot))
 		state := defaultDrawState
 		state.fillColor = colors[i]
 		pathLayer{path, state}.WriteImage(img, dpm, w, h)

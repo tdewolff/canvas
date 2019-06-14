@@ -216,6 +216,7 @@ func (r Rect) String() string {
 
 ////////////////////////////////////////////////////////////////
 
+// Matrix is used for affine transformations. Be aware that concatenating transformation function will be evaluated right-to-left! So in Identity.Rotate(30).Translate(20,0) will first translate 20 points horizontally and then rotate 30 degrees counter clockwise.
 type Matrix [2][3]float64
 
 var Identity = Matrix{

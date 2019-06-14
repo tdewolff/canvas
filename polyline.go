@@ -12,6 +12,15 @@ func PolylineFromPathCoords(p *Path) *Polyline {
 	return &Polyline{p.Coords()}
 }
 
+func (p *Polyline) Add(x, y float64) *Polyline {
+	p.coords = append(p.coords, Point{x, y})
+	return p
+}
+
+func (p *Polyline) Coords() []Point {
+	return p.coords
+}
+
 func (p *Polyline) ToPath() *Path {
 	if len(p.coords) < 2 {
 		return &Path{}
@@ -23,21 +32,50 @@ func (p *Polyline) ToPath() *Path {
 		q.LineTo(coord.X, coord.Y)
 	}
 	if p.coords[0].Equals(p.coords[len(p.coords)-1]) {
-		p.Close()
+		q.Close()
 	} else {
 		q.LineTo(p.coords[len(p.coords)-1].X, p.coords[len(p.coords)-1].Y)
 	}
 	return q
 }
 
+func (p *Polyline) FillCount(test Point) int {
+	count := 0
+	prevCoord := p.coords[0]
+	for _, coord := range p.coords[1:] {
+		// see https://wrf.ecse.rpi.edu//Research/Short_Notes/pnpoly.html
+		if (test.Y < coord.Y) != (test.Y < prevCoord.Y) &&
+			test.X < (prevCoord.X-coord.X)*(test.Y-coord.Y)/(prevCoord.Y-coord.Y)+coord.X {
+			if prevCoord.Y < coord.Y {
+				count -= 1
+			} else {
+				count += 1
+			}
+		}
+		prevCoord = coord
+	}
+	return count
+}
+
+// Interior is true when the point (x,y) is in the interior of the path, ie. gets filled. This depends on the FillRule.
+func (p *Polyline) Interior(x, y float64) bool {
+	fillCount := p.FillCount(Point{x, y})
+	if FillRule == NonZero {
+		return fillCount != 0
+	} else {
+		return fillCount%2 != 0
+	}
+}
+
+//.TODO: write functions when they appear to be needed: Bounds, ConvexHull, Centeroid? IsSimple (ie. non-intersecting)?
+// TODO: write function to simplify polyline using Ramer-Douglas-Peucker algorithm
+
 // Smoothen returns a new path that smoothens out a path using cubic Béziers between all the path points. This is equivalent of saying all path commands are linear and are replaced by cubic Béziers so that the curvature at is smooth along the whole path.
 func (p *Polyline) Smoothen() *Path {
-	if len(p.d) == 0 {
+	K := p.coords
+	if len(K) < 2 {
 		return &Path{}
-	}
-
-	K := p.Coords()
-	if len(K) == 2 { // there are only two coordinates, that's a straight line
+	} else if len(K) == 2 { // there are only two coordinates, that's a straight line
 		q := &Path{}
 		q.MoveTo(K[0].X, K[0].Y)
 		q.LineTo(K[1].X, K[1].Y)
@@ -45,7 +83,8 @@ func (p *Polyline) Smoothen() *Path {
 	}
 
 	var p1, p2 []Point
-	if p.Closed() {
+	closed := K[0].Equals(K[len(K)-1])
+	if closed {
 		// see http://www.jacos.nl/jacos_html/spline/circular/index.html
 		n := len(K) - 1
 		p1 = make([]Point, n+1)
@@ -146,7 +185,7 @@ func (p *Polyline) Smoothen() *Path {
 	for i := 0; i < len(K)-1; i++ {
 		q.CubeTo(p1[i].X, p1[i].Y, p2[i].X, p2[i].Y, K[i+1].X, K[i+1].Y)
 	}
-	if p.Closed() {
+	if closed {
 		q.Close()
 	}
 	return q

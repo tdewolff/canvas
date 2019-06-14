@@ -85,7 +85,7 @@ func Draw(c *canvas.C) {
 	//c.DrawPath(40.0, 10.0, p)
 
 	//c.SetFillColor(canvas.Transparent)
-	f := p.Copy().Flatten()
+	f := p.Flatten()
 	p = p.Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
 	f = f.Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
 	//c.SetDashes(0.0)

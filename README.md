@@ -72,7 +72,6 @@ Fonts
 
 Paths
 
-* Support Winding and EvenOdd fill rules
 * Simplify polygons using the Ramer-Douglas-Peucker algorithm
 * Intersection function between line, Bézier and ellipse and between themselves (for path merge, overlap/mask, clipping, etc.)
 * Implement Bentley-Ottmann algorithm to find all line intersections (clipping)
@@ -177,33 +176,34 @@ p.ToPS() string                            // to PostScript
 These paths can be manipulated and transformed with the following commands. Each will return a pointer to the path.
 
 ``` go
-p.Copy()
-p.Append(q *Path)        // append path q to p
-p.Join(q *Path)          // join path q to p
-p.Reverse()              // reverse the direction of the path
-p.Split()                // split the path segments, ie. at Close/MoveTo
-p.SplitAt(d ...float64)  // split the path at certain lengths d
+p = p.Copy()
+p = p.Append(q *Path)                 // append path q to p
+p = p.Join(q *Path)                   // join path q to p
+p = p.Reverse()                       // reverse the direction of the path
+ps = p.Split() []*Path                // split the path segments, ie. at Close/MoveTo
+ps = p.SplitAt(d ...float64) []*Path  // split the path at certain lengths d
 
-p.Transform(Matrix)  // multiple transformations at once
-p.Translate(x, y float64)
+p = p.Transform(Matrix)  // multiple transformations at once
+p = p.Translate(x, y float64)
 
-p.Flatten()                                            // flatten Bézier and arc commands to straight lines
-p.Offset(width float64)                                // offset the path outwards (width > 0) or inwards (width < 0), depends on FillRule
-p.Stroke(width float64, capper Capper, joiner Joiner)  // create a stroke from a path of certain width, using capper and joiner for caps and joins
-p.Dash(offset float64, d ...float64)                   // create dashed path with lengths d which are alternating the dash and the space, start at an offset into the given pattern (can be negative)
+p = p.Flatten()                                            // flatten Bézier and arc commands to straight lines
+p = p.Offset(width float64)                                // offset the path outwards (width > 0) or inwards (width < 0), depends on FillRule
+p = p.Stroke(width float64, capper Capper, joiner Joiner)  // create a stroke from a path of certain width, using capper and joiner for caps and joins
+p = p.Dash(offset float64, d ...float64)                   // create dashed path with lengths d which are alternating the dash and the space, start at an offset into the given pattern (can be negative)
 
-p.Optimize()  // optimize and shorten path
+p = p.Optimize()  // optimize and shorten path
 ```
 
-### Polygon paths
-Some operations on paths only work when it consists of line elements only. We can either flatten an existing path or use the command coordinates only in creating a polygon path.
+### Polylines
+Some operations on paths only work when it consists of line elements only. We can either flatten an existing path or use the command coordinates to create a polyline.
 
 ``` go
-pp := p.ToPolygon()       // create by flattening p
-pp = p.ToPolygonCoords()  // create from the command coordinates of p
+polyline := PolylineFromPath(p)       // create by flattening p
+polyline = PolylineFromPathCoords(p)  // create from the command coordinates of p
 
-pp.Smoothen()              // smoothen it by cubic Béziers
-pp.Interior(x, y float64)  // TODO: replace code in Path in Filling
+polyline.Smoothen()              // smoothen it by cubic Béziers
+polyline.FillCount() int         // returns the fill count as dictated by the FillRule
+polyline.Interior(x, y float64)  // returns true if (x,y) is in the interior of the polyline
 ```
 
 

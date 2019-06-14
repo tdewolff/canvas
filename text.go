@@ -348,8 +348,8 @@ func (t TextLine) ToPath() *Path {
 	p := &Path{}
 	for _, line := range t.lines {
 		lp := line.lineSpans[0].ToPath(line.lineSpans[0].w)
-		lp.Translate(0.0, line.y)
-		p.Append(lp)
+		lp = lp.Translate(0.0, line.y)
+		p = p.Append(lp)
 	}
 	return p
 }
@@ -387,13 +387,13 @@ func (t *Text) ToPaths() ([]*Path, []color.RGBA) {
 	for _, line := range t.lines {
 		for _, ls := range line.lineSpans {
 			span := ls.span.ToPath(ls.w)
-			span.Translate(ls.dx, line.y)
+			span = span.Translate(ls.dx, line.y)
 			paths = append(paths, span)
 			colors = append(colors, ls.Color())
 		}
 		for _, ds := range line.decoSpans {
 			deco := ds.ff.Decorate(ds.x1 - ds.x0)
-			deco.Translate(ds.x0, line.y)
+			deco = deco.Translate(ds.x0, line.y)
 			paths = append(paths, deco)
 			colors = append(colors, ds.color)
 		}
@@ -439,7 +439,7 @@ func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
 		}
 		for _, ds := range line.decoSpans {
 			deco := ds.ff.Decorate(ds.x1 - ds.x0)
-			deco.Transform(Identity.Translate(x+ds.x0, -y+line.y).RotateAt(rot, x, -y))
+			deco = deco.Transform(Identity.Translate(x+ds.x0, -y+line.y).RotateAt(rot, x, -y))
 			decorations = append(decorations, pathLayer{deco, drawState{fillColor: ds.color}})
 		}
 	}
@@ -532,8 +532,8 @@ func (ts textSpan) ToPath(width float64) *Path {
 		}
 
 		pr, advance := ts.ff.ToPath(r)
-		pr.Translate(x, 0.0)
-		p.Append(pr)
+		pr = pr.Translate(x, 0.0)
+		p = p.Append(pr)
 		x += advance
 
 		x += glyphSpacing

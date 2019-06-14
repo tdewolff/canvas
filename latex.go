@@ -96,7 +96,7 @@ func ParseLaTeX(s string) (*Path, error) {
 			}
 			if !p.Empty() {
 				_ = width
-				p = p.Transform(Identity.ReflectY().Translate(-x0, y0+height))
+				p = p.Transform(Identity.Translate(-x0, y0+height).ReflectY())
 			}
 			_ = ioutil.WriteFile(path.Join(tmpDir, hash), []byte(p.String()), 0644)
 			return p, nil
@@ -163,7 +163,7 @@ func ParseLaTeX(s string) (*Path, error) {
 					return nil, errors.New("unexpected SVG format: xlink:href does not point to existing path")
 				}
 
-				p.Append(svgPath.Translate(x, y))
+				p = p.Append(svgPath.Translate(x, y))
 				x0 = math.Min(x0, x)
 				y0 = math.Min(y0, y)
 			} else if tag == "rect" {
@@ -186,7 +186,7 @@ func ParseLaTeX(s string) (*Path, error) {
 				if n == 0 {
 					return nil, errors.New("unexpected SVG format: expected valid height attribute on rect tag")
 				}
-				p.Append(Rectangle(x, y, w, h))
+				p = p.Append(Rectangle(x, y, w, h))
 				x0 = math.Min(x0, x)
 				y0 = math.Min(y0, y)
 			}
@@ -194,101 +194,3 @@ func ParseLaTeX(s string) (*Path, error) {
 	}
 	return nil, nil
 }
-
-// func valueKind(vk pdf.ValueKind) string {
-// 	switch vk {
-// 	case pdf.Null:
-// 		return "Null"
-// 	case pdf.Bool:
-// 		return "Bool"
-// 	case pdf.Integer:
-// 		return "Integer"
-// 	case pdf.Real:
-// 		return "Real"
-// 	case pdf.String:
-// 		return "String"
-// 	case pdf.Name:
-// 		return "Name"
-// 	case pdf.Dict:
-// 		return "Dict"
-// 	case pdf.Array:
-// 		return "Array"
-// 	case pdf.Stream:
-// 		return "Stream"
-// 	}
-// 	return "?"
-// }
-//
-// func printValue(indent, key string, v pdf.Value) {
-// 	fmt.Println(indent, key+": ", valueKind(v.Kind()), v)
-// 	if v.Kind() == pdf.Dict || v.Kind() == pdf.Stream {
-// 		for _, key := range v.Keys() {
-// 			printValue(indent+"  ", key, v.Key(key))
-// 		}
-// 	}
-// 	if v.Kind() == pdf.Stream {
-// 		s, _ := ioutil.ReadAll(v.Reader())
-// 		fmt.Println(indent+"  stream", len(s))
-//
-// 	}
-// }
-//
-// func parseLaTeX2(s string) (*Path, error) {
-// 	document := `\documentclass{article}
-// \begin{document}
-// \thispagestyle{empty}
-// $` + s + `$
-// \end{document}`
-//
-// 	tmpDir := "."
-// 	//tmpDir, err := ioutil.TempDir("", "tdewolff-")
-// 	//if err != nil {
-// 	//	return nil, err
-// 	//}
-// 	//defer os.RemoveAll(tmpDir)
-//
-// 	stdout := &bytes.Buffer{}
-//
-// 	cmd := exec.Command("pdflatex", "-jobname=canvas", "-halt-on-error")
-// 	cmd.Dir = tmpDir
-// 	cmd.Stdin = strings.NewReader(document)
-// 	cmd.Stdout = stdout
-// 	if err := cmd.Start(); err != nil {
-// 		fmt.Println(stdout.String())
-// 		return nil, err
-// 	}
-// 	if err := cmd.Wait(); err != nil {
-// 		fmt.Println(stdout.String())
-// 		return nil, err
-// 	}
-//
-// 	r, err := pdf.Open(path.Join(tmpDir, "canvas.pdf"))
-// 	if err != nil {
-// 		return nil, err
-// 	}
-//
-// 	if r.NumPage() != 1 {
-// 		return nil, fmt.Errorf("bad PDF")
-// 	}
-//
-// 	content := r.Page(1).Content()
-// 	res := r.Page(1).Resources()
-// 	if res.Kind() != pdf.Dict {
-// 		return nil, fmt.Errorf("bad PDF")
-// 	}
-//
-// 	fmt.Println("Content:", content.Text)
-// 	fmt.Println(content.Text[0])
-// 	printValue("", "", res)
-//
-// 	b, err := ioutil.ReadAll(res.Key("Font").Key("F11").Key("FontDescriptor").Key("FontFile").Reader())
-// 	fmt.Println(err)
-// 	font, err := conradSFNT.Parse(bytes.NewReader(b))
-// 	fmt.Println(font, err)
-//
-// 	f, err := os.Open("cmmi10.pfb")
-// 	fmt.Println(err)
-// 	font, err = conradSFNT.Parse(f)
-// 	fmt.Println(font, err)
-// 	return nil, nil
-// }

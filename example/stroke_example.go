@@ -3,6 +3,7 @@ package main
 import (
 	"image/color"
 	"image/png"
+	"math"
 	"os"
 
 	"github.com/tdewolff/canvas"
@@ -74,8 +75,8 @@ func Draw(c *canvas.C) {
 	drawStrokedPath(c, 80.0, 25.0, pathJoiner, canvas.ButtCapper, canvas.BevelJoiner)
 
 	drawText(c, 123.0, 42.0, "MiterJoiner")
-	drawStrokedPath(c, 130.0, 25.0, pathJoiner, canvas.ButtCapper, canvas.MiterJoiner)
+	drawStrokedPath(c, 130.0, 25.0, pathJoiner, canvas.ButtCapper, canvas.MiterClipJoiner(canvas.BevelJoiner, math.NaN()))
 
 	drawText(c, 173.0, 42.0, "ArcsJoiner")
-	drawStrokedPath(c, 180.0, 25.0, pathJoiner, canvas.ButtCapper, canvas.ArcsJoiner)
+	drawStrokedPath(c, 180.0, 25.0, pathJoiner, canvas.ButtCapper, canvas.ArcsClipJoiner(canvas.BevelJoiner, math.NaN()))
 }

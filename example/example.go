@@ -123,7 +123,7 @@ func Draw(c *canvas.C) {
 	if err != nil {
 		panic(err)
 	}
-	latex.Rotate(-30, 0, 0)
+	latex = latex.Transform(canvas.Identity.Rotate(-30))
 	c.SetFillColor(canvas.Black)
 	c.DrawPath(140, 65, latex)
 
@@ -144,27 +144,27 @@ func Draw(c *canvas.C) {
 	c.DrawPath(110, 40, ellipse)
 	c.SetStrokeColor(canvas.Transparent)
 
-	pp := canvas.PolygonPath{&canvas.Path{}}
-	pp.LineTo(20.0, 0.0)
-	pp.LineTo(20.0, 10.0)
-	pp.LineTo(0.0, 20.0)
-	pp.Close()
-	p = pp.Smoothen()
+	polyline := &canvas.Polyline{}
+	polyline.Add(0.0, 0.0)
+	polyline.Add(20.0, 0.0)
+	polyline.Add(20.0, 10.0)
+	polyline.Add(0.0, 20.0)
+	polyline.Add(0.0, 0.0)
 	c.SetFillColor(canvas.Seagreen)
-	c.DrawPath(170, 10, p)
+	c.DrawPath(170, 10, polyline.Smoothen())
 	c.SetFillColor(canvas.Black)
-	c.DrawPath(170, 10, pp.Stroke(0.25, canvas.RoundCapper, canvas.RoundJoiner))
+	c.DrawPath(170, 10, polyline.ToPath().Stroke(0.25, canvas.RoundCapper, canvas.RoundJoiner))
 
-	pp = canvas.PolygonPath{&canvas.Path{}}
-	pp.LineTo(10.0, 5.0)
-	pp.LineTo(20.0, 15.0)
-	pp.LineTo(30.0, 20.0)
-	pp.LineTo(40.0, 10.0)
-	p = pp.Smoothen()
+	polyline = &canvas.Polyline{}
+	polyline.Add(0.0, 0.0)
+	polyline.Add(10.0, 5.0)
+	polyline.Add(20.0, 15.0)
+	polyline.Add(30.0, 20.0)
+	polyline.Add(40.0, 10.0)
 	c.SetFillColor(canvas.Seagreen)
-	c.DrawPath(120, 5, p.Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner))
+	c.DrawPath(120, 5, polyline.Smoothen().Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner))
 	c.SetFillColor(canvas.Black)
-	for _, coord := range pp.Coords() {
-		c.DrawPath(120, 5, canvas.Circle(coord.X, coord.Y, 1.0).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner))
+	for _, coord := range polyline.Coords() {
+		c.DrawPath(120, 5, canvas.Circle(1.0).Translate(coord.X, coord.Y).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner))
 	}
 }

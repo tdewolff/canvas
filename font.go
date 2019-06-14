@@ -207,7 +207,7 @@ func (ff FontFace) Decorate(width float64) *Path {
 	p := &Path{}
 	if ff.decoration != nil {
 		for _, deco := range *ff.decoration {
-			p.Append(deco.Decorate(ff, width))
+			p = p.Append(deco.Decorate(ff, width))
 		}
 	}
 	return p
@@ -344,6 +344,7 @@ func (ff FontFace) Kerning(rPrev, rNext rune) float64 {
 
 ////////////////////////////////////////////////////////////////
 
+// TODO: use similar system as stroke cappers and joiners
 type FontDecoratorFunc func(FontFace, float64) *Path
 
 func (f FontDecoratorFunc) Decorate(ff FontFace, w float64) *Path {
@@ -416,7 +417,7 @@ var DottedUnderline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 
 	p := &Path{}
 	for i := 0; i < n; i++ {
-		p.Append(Circle(r).Translate(r+float64(i)*d, y))
+		p = p.Append(Circle(r).Translate(r+float64(i)*d, y))
 	}
 	return p
 })

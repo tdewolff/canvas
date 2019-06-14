@@ -410,8 +410,8 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			rhs.LineTo(rEnd.X, rEnd.Y)
 			lhs.LineTo(lEnd.X, lEnd.Y)
 		case CubeToCmd:
-			rhs.Join(strokeCubicBezier(cur.p0, cur.cp1, cur.cp2, cur.p1, halfWidth, Tolerance))
-			lhs.Join(strokeCubicBezier(cur.p0, cur.cp1, cur.cp2, cur.p1, -halfWidth, Tolerance))
+			rhs = rhs.Join(strokeCubicBezier(cur.p0, cur.cp1, cur.cp2, cur.p1, halfWidth, Tolerance))
+			lhs = lhs.Join(strokeCubicBezier(cur.p0, cur.cp1, cur.cp2, cur.p1, -halfWidth, Tolerance))
 		case ArcToCmd:
 			rEnd := cur.p1.Add(cur.n1)
 			lEnd := cur.p1.Sub(cur.n1)
@@ -447,7 +447,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 	// default to CCW direction
 	lhs = lhs.Reverse()
 	cr.Cap(rhs, halfWidth, states[len(states)-1].p1, states[len(states)-1].n1)
-	rhs.Join(lhs)
+	rhs = rhs.Join(lhs)
 	cr.Cap(rhs, halfWidth, states[0].p0, states[0].n0.Neg())
 	rhs.Close()
 	return rhs, nil
@@ -471,11 +471,11 @@ func (p *Path) Offset(w float64) *Path {
 		rhs, lhs := offsetSegment(ps, w, ButtCapper, RoundJoiner)
 		if ccw == expand {
 			if rhs != nil {
-				q.Append(rhs)
+				q = q.Append(rhs)
 			}
 		} else {
 			if lhs != nil {
-				q.Append(lhs)
+				q = q.Append(lhs)
 			}
 		}
 	}
@@ -486,7 +486,7 @@ func (p *Path) Offset(w float64) *Path {
 // jr to join all path elemtents. If the path closes itself, it will use a join between the start and end instead of capping them.
 // The tolerance is the maximum deviation from the original path when flattening Béziers and optimizing the stroke.
 func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
-	sp := &Path{}
+	q := &Path{}
 	halfWidth := w / 2.0
 	for _, ps := range p.Split() {
 		rhs, lhs := offsetSegment(ps, halfWidth, cr, jr)
@@ -499,11 +499,11 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 			}
 		}
 		if rhs != nil {
-			sp.Append(rhs)
+			q = q.Append(rhs)
 		}
 		if lhs != nil {
-			sp.Append(lhs)
+			q = q.Append(lhs)
 		}
 	}
-	return sp
+	return q
 }

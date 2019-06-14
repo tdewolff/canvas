@@ -295,14 +295,15 @@ func (p *Path) CCW() bool {
 	return area < 0.0
 }
 
-// Filling returns the filling for each path segment, which is true when its interior will be filled considering the path segments.
+// Filling returns whether the path segments get filled or not. A path may not be filling when it negates another path, depending on the FillRule.
 func (p *Path) Filling() []bool {
 	if !p.Closed() || len(p.d) < p.i0+6 {
 		return nil
 	}
 
-	testPoints := []Point{}
-	for _, ps := range p.Split() {
+	Ps := p.Split()
+	testPoints := make([]Point, len(Ps))
+	for i, ps := range Ps {
 		var p0, p1 Point
 		iNextCmd := cmdLen(ps.d[0])
 		if ps.d[0] != MoveToCmd {
@@ -317,44 +318,41 @@ func (p *Path) Filling() []bool {
 		if ps.CCW() {
 			offset = offset.Neg()
 		}
-		testPoints = append(testPoints, p0.Interpolate(p1, 0.5).Add(offset))
+		testPoints[i] = p0.Interpolate(p1, 0.5).Add(offset)
 	}
 
-	// see https://wrf.ecse.rpi.edu//Research/Short_Notes/pnpoly.html
-	crossings := make([]int, len(testPoints))
-	coord, prevCoord := Point{}, Point{p.d[len(p.d)-2], p.d[len(p.d)-1]}
-	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
-		i += cmdLen(cmd)
-
-		coord = Point{p.d[i-2], p.d[i-1]}
-		if cmd != MoveToCmd {
-			for i, test := range testPoints {
-				if (test.Y < coord.Y) != (test.Y < prevCoord.Y) &&
-					test.X < (prevCoord.X-coord.X)*(test.Y-coord.Y)/(prevCoord.Y-coord.Y)+coord.X {
-					if prevCoord.Y < coord.Y {
-						crossings[i] -= 1
-					} else {
-						crossings[i] += 1
-					}
-				}
-			}
+	fillCounts := make([]int, len(testPoints))
+	for _, ps := range Ps {
+		polyline := PolylineFromPathCoords(ps) // no need for flattening as we pick our test point to be inside the polyline
+		for i, test := range testPoints {
+			fillCounts[i] += polyline.FillCount(test)
 		}
-		prevCoord = coord
 	}
 
-	fillings := make([]bool, len(testPoints))
-	for i := range crossings {
+	fillings := make([]bool, len(fillCounts))
+	for i := range fillCounts {
 		if FillRule == NonZero {
-			fillings[i] = crossings[i] != 0
+			fillings[i] = fillCounts[i] != 0
 		} else {
-			fillings[i] = crossings[i]%2 != 0
+			fillings[i] = fillCounts[i]%2 != 0
 		}
 	}
 	return fillings
 }
 
-// TODO: Interior function
+// Interior is true when the point (x,y) is in the interior of the path, ie. gets filled. This depends on the FillRule.
+func (p *Path) Interior(x, y float64) bool {
+	fillCount := 0
+	test := Point{x, y}
+	for _, ps := range p.Split() {
+		fillCount += PolylineFromPath(ps).FillCount(test) // use flattening
+	}
+	if FillRule == NonZero {
+		return fillCount != 0
+	} else {
+		return fillCount%2 != 0
+	}
+}
 
 // Bounds returns the bounding box rectangle of the path.
 func (p *Path) Bounds() Rect {
@@ -704,6 +702,9 @@ func (p *Path) Split() []*Path {
 	if j > i {
 		ps = append(ps, &Path{p.d[i:], 0})
 	}
+	if len(ps) == 1 && p.i0 != 0 {
+		panic("TODO: fix i0") // TODO: remove when fixed
+	}
 	return ps
 }
 
@@ -942,7 +943,7 @@ func (p *Path) Dash(offset float64, d ...float64) *Path {
 		length := ps.Length()
 		if length <= d[i] {
 			if i%2 == 0 {
-				q.Append(ps)
+				q = q.Append(ps)
 			}
 			continue
 		}
@@ -968,16 +969,16 @@ func (p *Path) Dash(offset float64, d ...float64) *Path {
 		qd := &Path{}
 		pd := ps.SplitAt(t...)
 		for j := j0; j < len(pd)-1; j += 2 {
-			qd.Append(pd[j])
+			qd = qd.Append(pd[j])
 		}
 		if endsInDash {
 			if ps.Closed() {
 				qd = pd[len(pd)-1].Join(qd)
 			} else {
-				qd.Append(pd[len(pd)-1])
+				qd = qd.Append(pd[len(pd)-1])
 			}
 		}
-		q.Append(qd)
+		q = q.Append(qd)
 		pos -= length
 	}
 	return q
