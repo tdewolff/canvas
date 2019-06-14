@@ -453,7 +453,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 	return rhs, nil
 }
 
-// Offset offsets the path to expand by w. If w is negative it will contract.
+// Offset offsets the path to expand by w and returns a new path. If w is negative it will contract.
 func (p *Path) Offset(w float64) *Path {
 	if w == 0.0 {
 		return p
@@ -482,8 +482,8 @@ func (p *Path) Offset(w float64) *Path {
 	return q
 }
 
-// Stroke converts a path into a stroke of width w. It uses cr to cap the start and end of the path, and jr to
-// join all path elemtents. If the path closes itself, it will use a join between the start and end instead of capping them.
+// Stroke converts a path into a stroke of width w and returns a new path. It uses cr to cap the start and end of the path, and
+// jr to join all path elemtents. If the path closes itself, it will use a join between the start and end instead of capping them.
 // The tolerance is the maximum deviation from the original path when flattening Béziers and optimizing the stroke.
 func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 	sp := &Path{}

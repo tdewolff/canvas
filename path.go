@@ -106,19 +106,17 @@ func (p *Path) Copy() *Path {
 	return q
 }
 
-// Append appends path q to p.
+// Append appends path q to p and returns a new path.
 func (p *Path) Append(q *Path) *Path {
 	if q == nil || len(q.d) == 0 {
 		return p
 	} else if len(p.d) > 0 && q.d[0] != MoveToCmd {
 		p.MoveTo(0.0, 0.0)
 	}
-	p.d = append(p.d, q.d...)
-	p.i0 = q.i0
-	return p
+	return &Path{append(p.d, q.d...), q.i0}
 }
 
-// Join joins path q to p.
+// Join joins path q to p and returns a new path.
 func (p *Path) Join(q *Path) *Path {
 	if q == nil || len(q.d) == 0 {
 		return p
@@ -130,9 +128,7 @@ func (p *Path) Join(q *Path) *Path {
 			q.i0 = p.i0
 		}
 	}
-	p.d = append(p.d, q.d...)
-	p.i0 = q.i0
-	return p
+	return &Path{append(p.d, q.d...), q.i0}
 }
 
 // Pos returns the current position of the path, which is the end point of the last command.
@@ -531,8 +527,9 @@ func (p *Path) Length() float64 {
 	return d
 }
 
-// Transform transform the path by the given transformation matrix.
+// Transform transform the path by the given transformation matrix and returns a new path.
 func (p *Path) Transform(m Matrix) *Path {
+	p = p.Copy()
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
 		p.d = append([]float64{MoveToCmd, 0.0, 0.0}, p.d...)
 	}
@@ -607,20 +604,21 @@ func (p *Path) Transform(m Matrix) *Path {
 	return p
 }
 
-// Translate translates the path by (x,y).
+// Translate translates the path by (x,y) and returns a new path.
 func (p *Path) Translate(x, y float64) *Path {
 	return p.Transform(Identity.Translate(x, y))
 }
 
-// Flatten flattens all Bézier and arc curves into linear segments. It uses Tolerance as the maximum deviation.
+// Flatten flattens all Bézier and arc curves into linear segments and returns a new path. It uses Tolerance as the maximum deviation.
 func (p *Path) Flatten() *Path {
-	return p.Replace(nil, flattenCubicBezier, flattenEllipse)
+	return p.Copy().Replace(nil, flattenCubicBezier, flattenEllipse)
 }
 
 type LineReplacer func(Point, Point) *Path
 type BezierReplacer func(Point, Point, Point, Point) *Path
 type ArcReplacer func(Point, float64, float64, float64, bool, bool, Point) *Path
 
+// Replace replaces path commands by their respective functions. Be aware this will change the path inplace.
 // TODO: does not maintain i0
 func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer) *Path {
 	start := Point{}
@@ -670,7 +668,7 @@ func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer
 					q.d = q.d[3:]
 				}
 			}
-			p.d = append(p.d[:i], append(q.d, p.d[i+cmdLen(cmd):]...)...)
+			p.d = append(p.d[:i:i], append(q.d, p.d[i+cmdLen(cmd):]...)...)
 			i += len(q.d)
 			if q.Empty() {
 				continue
@@ -696,7 +694,7 @@ func (p *Path) Split() []*Path {
 	for j < len(p.d) {
 		cmd := p.d[j]
 		if j > i && cmd == MoveToCmd || closed {
-			ps = append(ps, &Path{p.d[i:j], 0})
+			ps = append(ps, &Path{p.d[i:j:j], 0})
 			closed = false
 			i = j
 		}
@@ -1055,6 +1053,7 @@ func (p *Path) Reverse() *Path {
 	return ip
 }
 
+// Optimize returns the same path but with superfluous commands removed (such as multiple colinear LineTos). Be aware this changes the path inplace.
 func (p *Path) Optimize() *Path {
 	cmds := []float64{}
 	for i := 0; i < len(p.d); {

@@ -59,7 +59,7 @@ func (c *C) DrawPath(x, y float64, path *Path) {
 		return
 	}
 	if !path.Empty() {
-		path = path.Copy().Translate(x, y)
+		path = path.Translate(x, y)
 		c.layers = append(c.layers, pathLayer{path, c.drawState})
 	}
 }
@@ -155,7 +155,7 @@ func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 	fill := l.fillColor.A != 0
 	stroke := l.strokeColor.A != 0 && 0.0 < l.strokeWidth
 
-	p := l.path.Copy().Transform(Identity.ReflectYAt(h / 2.0))
+	p := l.path.Transform(Identity.ReflectYAt(h / 2.0))
 	fmt.Fprintf(w, `<path d="%s`, p.ToSVG())
 
 	strokeUnsupported := false
@@ -363,7 +363,7 @@ func (l pathLayer) WritePDF(w *PDFPageWriter) {
 		}
 
 		// stroke settings unsupported by PDF, draw stroke explicitly
-		strokePath := l.path.Copy()
+		strokePath := l.path
 		if 0 < len(l.dashes) {
 			strokePath = strokePath.Dash(l.dashOffset, l.dashes...)
 		}
@@ -396,14 +396,14 @@ func (l pathLayer) WriteImage(img *image.RGBA, dpm, w, h float64) {
 		ras.Draw(img, image.Rect(0, 0, size.X, size.Y), image.NewUniform(l.fillColor), image.Point{})
 	}
 	if l.strokeColor.A != 0 && 0.0 < l.strokeWidth {
-		stroke := l.path.Copy()
+		strokePath := l.path
 		if 0 < len(l.dashes) {
-			stroke = stroke.Dash(l.dashOffset, l.dashes...)
+			strokePath = strokePath.Dash(l.dashOffset, l.dashes...)
 		}
-		stroke = stroke.Stroke(l.strokeWidth, l.strokeCapper, l.strokeJoiner)
+		strokePath = strokePath.Stroke(l.strokeWidth, l.strokeCapper, l.strokeJoiner)
 
 		ras := vector.NewRasterizer(int(w*dpm+0.5), int(h*dpm+0.5))
-		stroke.ToRasterizer(ras, dpm, w, h)
+		strokePath.ToRasterizer(ras, dpm, w, h)
 		size := ras.Size()
 		ras.Draw(img, image.Rect(0, 0, size.X, size.Y), image.NewUniform(l.strokeColor), image.Point{})
 	}

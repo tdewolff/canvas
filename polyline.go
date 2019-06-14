@@ -1,67 +1,37 @@
 package canvas
 
-type PolygonPath struct {
-	*Path
+type Polyline struct {
+	coords []Point
 }
 
-func (p *Path) ToPolygon() PolygonPath {
-	return PolygonPath{p.Flatten()}
+func PolylineFromPath(p *Path) *Polyline {
+	return &Polyline{p.Flatten().Coords()}
 }
 
-func (p *Path) ToPolygonCoords() PolygonPath {
-	q := &Path{}
-	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
-		i += cmdLen(cmd)
+func PolylineFromPathCoords(p *Path) *Polyline {
+	return &Polyline{p.Coords()}
+}
 
-		end := Point{p.d[i-2], p.d[i-1]}
-		switch cmd {
-		case MoveToCmd:
-			q.MoveTo(end.X, end.Y)
-		case CloseCmd:
-			q.Close()
-		case LineToCmd, QuadToCmd, CubeToCmd, ArcToCmd:
-			q.LineTo(end.X, end.Y)
-		}
+func (p *Polyline) ToPath() *Path {
+	if len(p.coords) < 2 {
+		return &Path{}
 	}
-	return PolygonPath{q}
-}
 
-func (p *PolygonPath) QuadTo(cpx, cpy, x1, y1 float64) *Path {
-	panic("not allowed on polygon")
-}
-
-func (p *PolygonPath) CubeTo(cpx1, cpy1, cpx2, cpy2, x1, y1 float64) *Path {
-	panic("not allowed on polygon")
-}
-
-func (p *PolygonPath) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x1, y1 float64) *Path {
-	panic("not allowed on polygon")
-}
-
-func (p *PolygonPath) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
-	panic("not allowed on polygon")
-}
-
-func (p *PolygonPath) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer) *Path {
-	q := p.Path.Replace(line, nil, nil)
-	for i := 0; i < len(q.d); {
-		cmd := q.d[i]
-		i += cmdLen(cmd)
-
-		if cmd != MoveToCmd && cmd != CloseCmd && cmd != LineToCmd {
-			panic("not allowed on polygon")
-		}
+	q := &Path{}
+	q.MoveTo(p.coords[0].X, p.coords[0].Y)
+	for _, coord := range p.coords[1 : len(p.coords)-1] {
+		q.LineTo(coord.X, coord.Y)
+	}
+	if p.coords[0].Equals(p.coords[len(p.coords)-1]) {
+		p.Close()
+	} else {
+		q.LineTo(p.coords[len(p.coords)-1].X, p.coords[len(p.coords)-1].Y)
 	}
 	return q
 }
 
-func (p *PolygonPath) ToPath() *Path {
-	return p.Path
-}
-
 // Smoothen returns a new path that smoothens out a path using cubic Béziers between all the path points. This is equivalent of saying all path commands are linear and are replaced by cubic Béziers so that the curvature at is smooth along the whole path.
-func (p *PolygonPath) Smoothen() *Path {
+func (p *Polyline) Smoothen() *Path {
 	if len(p.d) == 0 {
 		return &Path{}
 	}
