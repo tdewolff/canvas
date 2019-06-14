@@ -11,6 +11,8 @@ import (
 	"strings"
 )
 
+// TODO: PDF colors seem different
+
 type PDFWriter struct {
 	w   io.Writer
 	err error
