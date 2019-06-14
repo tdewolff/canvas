@@ -1,6 +1,6 @@
 # Canvas <a name="canvas"></a> [![GoDoc](http://godoc.org/github.com/tdewolff/canvas?status.svg)](http://godoc.org/github.com/tdewolff/canvas)
 
-Canvas is a common vector drawing target that can output SVG, PDF, EPS and raster images (which can be saved as PNG, JPG, ...). It can parse SVG path data or LaTeX into paths and has a wide range of path manipulation functionality (such as flattening, stroking and dashing). Text can be displayed using embedded fonts (TTF, OTF or WOFF) or by converting them to outlines and can be aligned and indenting within a rectangle.
+Canvas is a common vector drawing target that can output SVG, PDF, EPS and raster images (which can be saved as PNG, JPG, ...). It can parse SVG path data or LaTeX into paths and has a wide range of path manipulation functionality (such as flattening, stroking and dashing). Text can be displayed using embedded fonts (TTF, OTF or WOFF) or by converting them to outlines and can be aligned and indented within a rectangle (see Fig. 1 below).
 
 ![Example](https://raw.githubusercontent.com/tdewolff/canvas/master/example/example.png)
 
@@ -23,7 +23,7 @@ Papers
 
 * [M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI (1996), p. 143--150](https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf)
 * [T.F. Hain, A.L. Ahmad, S.V.R. Racherla, D.D. Langan, Fast, precise flattening of cubic Bézier path and offset curves, Computers & Graphics 29 (2005). p. 656--666](https://www.sciencedirect.com/science/article/pii/S0097849305001287?via%3Dihub)
-* [M. Goldapp, Approximation of circular arcs by cibic polynomials, Computer Aided Geometric Design 8 (1991), p. 227--238](https://www.sciencedirect.com/science/article/abs/pii/016783969190007X)
+* [M. Goldapp, Approximation of circular arcs by cubic polynomials, Computer Aided Geometric Design 8 (1991), p. 227--238](https://www.sciencedirect.com/science/article/abs/pii/016783969190007X)
 * [Drawing and elliptical arc using polylines, quadratic or cubic Bézier curves (2003), L. Maisonobe](https://spaceroots.org/documents/ellipse/elliptical-arc.pdf)
 
 ## Status
@@ -33,8 +33,8 @@ Papers
 | Draw path fill | yes | yes | yes | yes |
 | Draw path stroke | yes | yes | yes | no |
 | Draw path dash | yes | yes | yes | no |
-| Embed fonts | - | yes | no | no |
-| Draw text | - | yes | no | no |
+| Embed fonts | | yes | no | no |
+| Draw text | | yes | no | no |
 | Draw image | no | no | no | no |
 
 * EPS does not support transparency
@@ -48,7 +48,7 @@ Papers
 | CubeTo  | yes     | yes    | yes (GL5) | yes (GL5 + Chebyshev10) |
 | ArcTo   | yes | yes | yes (GL5) | yes (GL5 + Chebyshev10) |
 
-* Ellipse => Cubic Bézier: used by rasterizer and PDF targets (Maisonobe)
+* Ellipse => Cubic Bézier: used by rasterizer and PDF targets (see Maisonobe paper)
 
 NB: GL5 means a Gauss-Legendre n=5, which is an numerical approximation as there is no analytical solution. Chebyshev is a converging way to approximate a function by an n=10 degree polynomial. It uses the bisection method as well to determine the polynomial points.
 
@@ -58,8 +58,8 @@ Features that are planned to be implemented in the future. Also see the TODOs in
 
 General
 
-* Fix slowness, transparency and colors in the rasterizer (text_example.go is slow!)
-* Allow embedding raster images?
+* Fix slowness, transparency and colors in the rasterizer (text_example.go is slow! use rasterized cache for each glyph)
+* Allow embedding raster images
 
 Fonts
 
@@ -141,7 +141,7 @@ p.LineTo(x, y float64)                                            // straight li
 p.QuadTo(cpx, cpy, x, y float64)                                  // a quadratic Bézier with control point (cpx,cpy) and end point (x,y)
 p.CubeTo(cp1x, cp1y, cp2x, cp2y, x, y float64)                    // a cubic Bézier with control points (cp1x,cp1y), (cp2x,cp2y) and end point (x,y)
 p.ArcTo(rx, ry, rot float64, largeArc, sweep bool, x, y float64)  // an arc of an ellipse with radii (rx,ry), rotated by rot (in degrees CCW), with flags largeArc and sweep (booleans, see https://www.w3.org/TR/SVG/paths.html#PathDataEllipticalArcCommands)
-p.Arc(rx, ry, rot float64, theta0, theta1 float64)  // an arc of an ellipse with radii (rx,ry), rotated by rot (in degrees CCW), beginning at angle theta0 and ending at angle theta1
+p.Arc(rx, ry, rot float64, theta0, theta1 float64)                // an arc of an ellipse with radii (rx,ry), rotated by rot (in degrees CCW), beginning at angle theta0 and ending at angle theta1
 p.Close()                                                         // close the path, essentially a LineTo to the last MoveTo location
 
 p = Rectangle(x, y, w, h float64)
@@ -161,13 +161,13 @@ p.Empty() bool                 // true if path contains no commands other than M
 p.Pos() (x, y float64)         // current pen position
 p.StartPos() (x, y float64)    // position of last MoveTo
 p.Coords() []Point             // (start) positions of all commands
-p.CCW() bool                   // true if the last path segment has a counter clockwise direction
+p.CCW() bool                   // true if the path is (mostly) counter clockwise
 p.Interior(x, y float64) bool  // true if (x,y) is in the interior of the path, ie. gets filled (depends on FillRule)
-p.Filling() bool               // true if the last path segment is filling (depends on FillRule)
+p.Filling() []bool             // for all path segments, true if the path segment is filling (depends on FillRule)
 p.Bounds() Rect                // bounding box of path
 p.Length() float64             // length of path in millimeters
 
-p.ToImage(*image.RGBA, dpm, w, h float64)  // rasterize
+p.ToImage(*image.RGBA, dpm, w, h float64)  // rasterize, TODO: function takes rasterizer now
 p.ToSVG(w, h float64) string               // to SVG
 p.ToPDF() string                           // to PDF
 p.ToPS() string                            // to PostScript
@@ -177,13 +177,13 @@ These paths can be manipulated and transformed with the following commands. Each
 
 ``` go
 p = p.Copy()
-p = p.Append(q *Path)                 // append path q to p
-p = p.Join(q *Path)                   // join path q to p
+p = p.Append(q *Path)                 // append path q to p and return a new path
+p = p.Join(q *Path)                   // join path q to p and return a new path
 p = p.Reverse()                       // reverse the direction of the path
 ps = p.Split() []*Path                // split the path segments, ie. at Close/MoveTo
 ps = p.SplitAt(d ...float64) []*Path  // split the path at certain lengths d
 
-p = p.Transform(Matrix)  // multiple transformations at once
+p = p.Transform(Matrix)               // apply multiple transformations at once and return a new path
 p = p.Translate(x, y float64)
 
 p = p.Flatten()                                            // flatten Bézier and arc commands to straight lines
