@@ -416,7 +416,7 @@ var DottedUnderline = FontDecoratorFunc(func(ff FontFace, w float64) *Path {
 
 	p := &Path{}
 	for i := 0; i < n; i++ {
-		p.Append(Circle(r+float64(i)*d, y, r))
+		p.Append(Circle(r).Translate(r+float64(i)*d, y))
 	}
 	return p
 })

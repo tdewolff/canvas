@@ -354,6 +354,7 @@ func (t TextLine) ToPath() *Path {
 	return p
 }
 
+// TODO: add line spacing option (for when valign is not Justify)
 func NewTextBox(ff FontFace, color color.RGBA, s string, width, height float64, halign, valign TextAlign, indent float64) *Text {
 	return NewRichText().Add(ff, color, s).ToText(width, height, halign, valign, indent)
 }

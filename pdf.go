@@ -324,7 +324,7 @@ func (w *PDFPageWriter) SetLineJoin(joiner Joiner) {
 	} else if miter, ok := joiner.(miterJoiner); ok {
 		lineJoin = 0
 		if math.IsNaN(miter.limit) {
-			// TODO: handle NaN, ie. no limit
+			panic("PDF: line join not support")
 		} else {
 			miterLimit = miter.limit
 		}
@@ -336,7 +336,7 @@ func (w *PDFPageWriter) SetLineJoin(joiner Joiner) {
 		w.lineJoin = lineJoin
 	}
 	if lineJoin == 0 && miterLimit != w.miterLimit {
-		fmt.Fprintf(w, " %g M", miterLimit) // TODO: divide by two? Needs testing
+		fmt.Fprintf(w, " %g M", miterLimit)
 		w.miterLimit = miterLimit
 	}
 }

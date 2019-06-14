@@ -239,6 +239,7 @@ func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x1, y1 float64) 
 	y1p := (-sinphi*diff.X + cosphi*diff.Y) / 2.0
 	lambda := x1p*x1p/rx/rx + y1p*y1p/ry/ry
 	if lambda > 1.0 {
+		fmt.Println("scale ell", rx, ry, "=>", math.Sqrt(lambda)*rx, math.Sqrt(lambda)*ry)
 		rx = math.Sqrt(lambda) * rx
 		ry = math.Sqrt(lambda) * ry
 	}
@@ -275,102 +276,6 @@ func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
 func (p *Path) Close() *Path {
 	start := p.StartPos()
 	p.d = append(p.d, CloseCmd, start.X, start.Y)
-	return p
-}
-
-////////////////////////////////////////////////////////////////
-
-// Rectangle returns a rectangle at x,y with width and height of w and h respectively.
-func Rectangle(x, y, w, h float64) *Path {
-	p := &Path{}
-	p.MoveTo(x, y)
-	p.LineTo(x+w, y)
-	p.LineTo(x+w, y+h)
-	p.LineTo(x, y+h)
-	p.Close()
-	return p
-}
-
-// RoundedRectangle returns a rectangle at x,y with width w and height h with rounded corners of radius r. A negative radius will cast the corners inwards (ie. concave).
-func RoundedRectangle(x, y, w, h, r float64) *Path {
-	sweep := true
-	if r < 0.0 {
-		sweep = false
-		r = -r
-	}
-	r = math.Min(r, w/2.0)
-	r = math.Min(r, h/2.0)
-
-	p := &Path{}
-	p.MoveTo(x, y+r)
-	p.ArcTo(r, r, 0.0, false, sweep, x+r, y)
-	p.LineTo(x+w-r, y)
-	p.ArcTo(r, r, 0.0, false, sweep, x+w, y+r)
-	p.LineTo(x+w, y+h-r)
-	p.ArcTo(r, r, 0.0, false, sweep, x+w-r, y+h)
-	p.LineTo(x+r, y+h)
-	p.ArcTo(r, r, 0.0, false, sweep, x, y+h-r)
-	p.Close()
-	return p
-}
-
-// BeveledRectangle returns a rectangle at x,y with width w and height h with beveled corners at distance r from the corner.
-func BeveledRectangle(x, y, w, h, r float64) *Path {
-	r = math.Abs(r)
-	r = math.Min(r, w/2.0)
-	r = math.Min(r, h/2.0)
-
-	p := &Path{}
-	p.MoveTo(x, y+r)
-	p.LineTo(x+r, y)
-	p.LineTo(x+w-r, y)
-	p.LineTo(x+w, y+r)
-	p.LineTo(x+w, y+h-r)
-	p.LineTo(x+w-r, y+h)
-	p.LineTo(x+r, y+h)
-	p.LineTo(x, y+h-r)
-	p.Close()
-	return p
-}
-
-// Circle returns a circle at x,y with radius r.
-func Circle(x, y, r float64) *Path {
-	return Ellipse(x, y, r, r)
-}
-
-// Ellipse returns an ellipse at x,y with radii rx,ry.
-func Ellipse(x, y, rx, ry float64) *Path {
-	p := &Path{}
-	p.MoveTo(x+rx, y)
-	p.ArcTo(rx, ry, 0, false, false, x-rx, y)
-	p.ArcTo(rx, ry, 0, false, false, x+rx, y)
-	p.Close()
-	return p
-}
-
-// RegularPolygon returns a regular polygon at x,y with radius r and rotation rot in degrees. It uses n vertices/edges, so when n approaches infinity this will return a path that approximates a circle.
-func RegularPolygon(n int, x, y, r, rot float64) *Path {
-	if n < 2 {
-		return &Path{}
-	}
-
-	dtheta := 2.0 * math.Pi / float64(n)
-	theta := (rot + 90.0) * math.Pi / 180.0
-	if n%2 == 0 {
-		theta += dtheta / 2.0
-	}
-
-	p := &Path{}
-	for i := 0; i < n; i++ {
-		sintheta, costheta := math.Sincos(theta)
-		if i == 0 {
-			p.MoveTo(x+r*costheta, y+r*sintheta)
-		} else {
-			p.LineTo(x+r*costheta, y+r*sintheta)
-		}
-		theta += dtheta
-	}
-	p.Close()
 	return p
 }
 

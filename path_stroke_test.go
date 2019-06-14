@@ -1,8 +1,12 @@
 package canvas
 
-import "testing"
-import "fmt"
-import "github.com/tdewolff/test"
+import (
+	"fmt"
+	"math"
+	"testing"
+
+	"github.com/tdewolff/test"
+)
 
 func TestPathStroke(t *testing.T) {
 	var tts = []struct {
@@ -31,5 +35,20 @@ func TestPathStroke(t *testing.T) {
 			sp := p.Stroke(tt.w, tt.cp, tt.jr)
 			test.T(t, sp.String(), tt.stroke)
 		})
+	}
+}
+
+func TestPathStrokeEllipse(t *testing.T) {
+	rx, ry := 20.0, 10.0
+	nphi := 12
+	ntheta := 120
+	for iphi := 0; iphi < nphi; iphi++ {
+		phi := float64(iphi) / float64(nphi) * math.Pi
+		for itheta := 0; itheta < ntheta; itheta++ {
+			theta := float64(itheta) / float64(ntheta) * 2.0 * math.Pi
+			outer := ellipsePos(rx+1.0, ry+1.0, phi, 0.0, 0.0, theta)
+			inner := ellipsePos(rx-1.0, ry-1.0, phi, 0.0, 0.0, theta)
+			test.Float(t, outer.Sub(inner).Length(), 2.0, fmt.Sprintf("phi=%g theta=%g", phi, theta))
+		}
 	}
 }

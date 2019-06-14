@@ -77,7 +77,7 @@ func drawStrokedPath(c *canvas.C, x, y, d float64, path string) {
 func Draw(c *canvas.C) {
 	// test SVG, PDF and EPS implementations
 	//p, _ := canvas.ParseSVG(fmt.Sprintf("H10.0Q20.0 0.0 20.0 10.0A20.0 10.0 45.0 0 1 0.0 20.0A15.0 10.0 45.0 0 0 10.0 5.0z"))
-	//c.DrawPath(10.0, 10.0, p)
+	p, _ := canvas.ParseSVG(fmt.Sprintf("A60.0 30.0 30.0 0 0 120.0 0.0"))
 
 	//c.SetStrokeJoiner(canvas.MiterJoiner)
 	//c.SetStrokeColor(canvas.Blue)
@@ -85,11 +85,18 @@ func Draw(c *canvas.C) {
 	//c.DrawPath(40.0, 10.0, p)
 
 	//c.SetFillColor(canvas.Transparent)
+	f := p.Copy().Flatten()
+	p = p.Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
+	f = f.Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
 	//c.SetDashes(0.0)
-	//c.DrawPath(70.0, 10.0, p)
+	c.DrawPath(10.0, 10.0, p)
 
-	//c.SetStrokeColor(canvas.Transparent)
-	//c.DrawPath(110.0, 10.0, p)
+	c.SetFillColor(color.RGBA{255, 0, 0, 128})
+	c.DrawPath(10.0, 10.0, f)
+
+	c.DrawPath(40.0, 70.0, canvas.RegularStarPolygon(10, 3, 10.0, false))
+	c.DrawPath(60.0, 70.0, canvas.RegularPolygon(4, 10.0, false))
+	c.DrawPath(20.0, 70.0, canvas.StarPolygon(4, 10.0, 3.0, false))
 
 	// test Filling
 	//canvas.FillRule = canvas.EvenOdd
@@ -99,17 +106,17 @@ func Draw(c *canvas.C) {
 	//p = p.Offset(1.0)
 	//c.DrawPath(110, 110, p)
 
-	ellipse, _ := canvas.ParseSVG(fmt.Sprintf("A20 40 0 0 0 40 0z"))
-	c.SetFillColor(canvas.Red)
-	c.DrawPath(10.0, 10.0, ellipse)
+	//ellipse, _ := canvas.ParseSVG(fmt.Sprintf("A20 40 0 0 0 40 0z"))
+	//c.SetFillColor(canvas.Red)
+	//c.DrawPath(10.0, 10.0, ellipse)
 
-	ellipse = ellipse.Flatten()
-	ps := ellipse.SplitAt(10.0)
-	ellipse = ps[0]
-	fmt.Println(ellipse)
-	ellipse = ellipse.Stroke(2.0, canvas.RoundCapper, canvas.RoundJoiner)
-	c.SetFillColor(color.RGBA{0, 0, 0, 128})
-	c.DrawPath(10.0, 10.0, ellipse)
+	//ellipse = ellipse.Flatten()
+	//ps := ellipse.SplitAt(10.0)
+	//ellipse = ps[0]
+	//fmt.Println(ellipse)
+	//ellipse = ellipse.Stroke(2.0, canvas.RoundCapper, canvas.RoundJoiner)
+	//c.SetFillColor(color.RGBA{0, 0, 0, 128})
+	//c.DrawPath(10.0, 10.0, ellipse)
 
 	//drawStrokedPath(c, 30, 40, 2.0, "M0 0L50 0L50 -5")
 	//drawStrokedPath(c, 30, 30, 2.0, "M-25 -25A25 25 0 0 1 0 0A25 25 0 0 1 25 -25z")
