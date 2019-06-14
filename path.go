@@ -70,7 +70,7 @@ func toArcFlags(largeArc, sweep bool) float64 {
 // Only valid commands are appended, so that LineTo has a non-zero length, QuadTo's and CubeTo's control point(s) don't (both) overlap with the start and end point, and ArcTo has non-zero radii and has non-zero length. For ArcTo we also make sure the angle is is in the range [0, 2*PI) and we scale the radii up if they appear too small to fit the arc.
 type Path struct {
 	d  []float64
-	i0 int // index of last MoveTo  TODO: or last Close too if no MoveTo follows? Perhaps better to keep slice of all segments?
+	i0 int // index of last MoveTo command
 }
 
 // Empty returns true if p is an empty path or consists of only MoveTos and Closes.
@@ -88,7 +88,7 @@ func (p *Path) Empty() bool {
 	return true
 }
 
-// Closed returns true if the last segment in p is a closed path.
+// Closed returns true if the last segment of p is a closed path.
 func (p *Path) Closed() bool {
 	var cmd float64
 	for i := p.i0; i < len(p.d); {
@@ -110,25 +110,41 @@ func (p *Path) Copy() *Path {
 func (p *Path) Append(q *Path) *Path {
 	if q == nil || len(q.d) == 0 {
 		return p
-	} else if len(p.d) > 0 && q.d[0] != MoveToCmd {
-		p.MoveTo(0.0, 0.0)
+	} else if len(p.d) == 0 {
+		return q
 	}
-	return &Path{append(p.d, q.d...), q.i0}
+	i0 := len(p.d) + q.i0
+	if q.d[0] != MoveToCmd {
+		p.MoveTo(0.0, 0.0)
+		if q.i0 != 0 {
+			i0 += cmdLen(MoveToCmd)
+		}
+	}
+	return &Path{append(p.d, q.d...), i0}
 }
 
 // Join joins path q to p and returns a new path.
 func (p *Path) Join(q *Path) *Path {
 	if q == nil || len(q.d) == 0 {
 		return p
-	} else if len(p.d) > 0 && q.d[0] == MoveToCmd {
+	} else if len(p.d) == 0 {
+		return q
+	}
+	i0 := len(p.d) + q.i0
+	if q.d[0] == MoveToCmd {
 		x0, y0 := p.d[len(p.d)-2], p.d[len(p.d)-1]
 		x1, y1 := q.d[1], q.d[2]
 		if equal(x0, x1) && equal(y0, y1) {
 			q.d = q.d[3:]
-			q.i0 = p.i0
+			i0 -= 3
+			if q.i0 == 0 {
+				i0 = p.i0
+			}
 		}
+	} else if q.i0 == 0 {
+		i0 = p.i0
 	}
-	return &Path{append(p.d, q.d...), q.i0}
+	return &Path{append(p.d, q.d...), i0}
 }
 
 // Pos returns the current position of the path, which is the end point of the last command.
@@ -297,13 +313,13 @@ func (p *Path) CCW() bool {
 
 // Filling returns whether the path segments get filled or not. A path may not be filling when it negates another path, depending on the FillRule.
 func (p *Path) Filling() []bool {
-	if !p.Closed() || len(p.d) < p.i0+6 {
-		return nil
-	}
-
 	Ps := p.Split()
-	testPoints := make([]Point, len(Ps))
-	for i, ps := range Ps {
+	testPoints := make([]Point, 0, len(Ps))
+	for _, ps := range Ps {
+		if !ps.Closed() || ps.Empty() {
+			continue
+		}
+
 		var p0, p1 Point
 		iNextCmd := cmdLen(ps.d[0])
 		if ps.d[0] != MoveToCmd {
@@ -318,7 +334,7 @@ func (p *Path) Filling() []bool {
 		if ps.CCW() {
 			offset = offset.Neg()
 		}
-		testPoints[i] = p0.Interpolate(p1, 0.5).Add(offset)
+		testPoints = append(testPoints, p0.Interpolate(p1, 0.5).Add(offset))
 	}
 
 	fillCounts := make([]int, len(testPoints))
@@ -617,13 +633,14 @@ type BezierReplacer func(Point, Point, Point, Point) *Path
 type ArcReplacer func(Point, float64, float64, float64, bool, bool, Point) *Path
 
 // Replace replaces path commands by their respective functions. Be aware this will change the path inplace.
-// TODO: does not maintain i0
 func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer) *Path {
 	start := Point{}
 	for i := 0; i < len(p.d); {
 		var q *Path
 		cmd := p.d[i]
 		switch cmd {
+		case MoveToCmd:
+			p.i0 = i
 		case LineToCmd, CloseCmd:
 			if line != nil {
 				end := Point{p.d[i+1], p.d[i+2]}
@@ -669,7 +686,7 @@ func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer
 			p.d = append(p.d[:i:i], append(q.d, p.d[i+cmdLen(cmd):]...)...)
 			i += len(q.d)
 			if q.Empty() {
-				continue
+				continue // don't update start variable
 			}
 		} else {
 			i += cmdLen(cmd)
@@ -680,19 +697,20 @@ func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer
 }
 
 // Split splits the path into its independent path segments. The path is split on the MoveTo and/or Close commands.
-// TODO: if subpath doesn't start with MoveTo, add it from the last subpath's end position
 func (p *Path) Split() []*Path {
-	//if p.i0 == 0 { // TODO: if i0 is well kept, this optimization should work
-	//	return []*Path{p}
-	//}
-
 	ps := []*Path{}
+	start := Point{}
 	closed := false
 	var i, j int
 	for j < len(p.d) {
 		cmd := p.d[j]
 		if j > i && cmd == MoveToCmd || closed {
-			ps = append(ps, &Path{p.d[i:j:j], 0})
+			d := p.d[i:j:j]
+			if d[0] != MoveToCmd && !start.IsZero() {
+				d = append([]float64{MoveToCmd, start.X, start.Y}, d...)
+			}
+			ps = append(ps, &Path{d, 0})
+			start = Point{p.d[j-2], p.d[j-1]}
 			closed = false
 			i = j
 		}
@@ -700,10 +718,11 @@ func (p *Path) Split() []*Path {
 		j += cmdLen(cmd)
 	}
 	if j > i {
-		ps = append(ps, &Path{p.d[i:], 0})
-	}
-	if len(ps) == 1 && p.i0 != 0 {
-		panic("TODO: fix i0") // TODO: remove when fixed
+		d := p.d[i:j:j]
+		if d[0] != MoveToCmd && !start.IsZero() {
+			d = append([]float64{MoveToCmd, start.X, start.Y}, d...)
+		}
+		ps = append(ps, &Path{d, 0})
 	}
 	return ps
 }
@@ -1062,33 +1081,39 @@ func (p *Path) Optimize() *Path {
 		i += cmdLen(p.d[i])
 	}
 
-	var start, end Point
+	p.i0 = 0
 	i := len(p.d)
+	end := Point{}
+	if 0 < i {
+		end = Point{p.d[i-2], p.d[i-1]}
+	}
 	for icmd := len(cmds) - 1; icmd >= 0; icmd-- {
 		cmd := cmds[icmd]
 		i -= cmdLen(cmd)
+		start := Point{}
+		if 0 < i {
+			start = Point{p.d[i-2], p.d[i-1]}
+		}
 		switch cmd {
 		case MoveToCmd:
-			end = Point{p.d[i+1], p.d[i+2]}
-			if len(p.d) > i+3 && p.d[i+3] == MoveToCmd || i == 0 && end.X == 0.0 && end.Y == 0.0 {
+			if i+3 < len(p.d) && p.d[i+3] == MoveToCmd || i == 0 && end.IsZero() {
 				p.d = append(p.d[:i], p.d[i+3:]...)
-			} else if len(p.d) > i+3 && p.d[i+3] == CloseCmd {
+			} else if i+3 < len(p.d) && p.d[i+3] == CloseCmd {
 				p.d = append(p.d[:i], p.d[i+6:]...)
+			} else if p.i0 == 0 {
+				p.i0 = i
 			}
 		case LineToCmd:
-			end = Point{p.d[i+1], p.d[i+2]}
 			if start == end {
 				p.d = append(p.d[:i], p.d[i+3:]...)
 				cmd = NullCmd
 			}
 		case CloseCmd:
-			end = Point{p.d[i+1], p.d[i+2]}
-			if len(p.d) > i+3 && p.d[i+3] == CloseCmd {
+			if i+3 < len(p.d) && p.d[i+3] == CloseCmd {
 				p.d = append(p.d[:i+3], p.d[i+6:]...) // remove last CloseCmd to ensure x,y values are valid
 			}
 		case QuadToCmd:
 			cp := Point{p.d[i+1], p.d[i+2]}
-			end = Point{p.d[i+3], p.d[i+4]}
 			if cp == start || cp == end {
 				p.d = append(p.d[:i+1], p.d[i+3:]...)
 				p.d[i] = LineToCmd
@@ -1097,27 +1122,29 @@ func (p *Path) Optimize() *Path {
 		case CubeToCmd:
 			cp1 := Point{p.d[i+1], p.d[i+2]}
 			cp2 := Point{p.d[i+3], p.d[i+4]}
-			end := Point{p.d[i+5], p.d[i+6]}
 			if (cp1 == start || cp1 == end) && (cp2 == start || cp2 == end) {
 				p.d = append(p.d[:i+1], p.d[i+5:]...)
 				p.d[i] = LineToCmd
 				cmd = LineToCmd
 			}
 		case ArcToCmd:
-			end = Point{p.d[i+5], p.d[i+6]}
 			if start == end {
 				p.d = append(p.d[:i], p.d[i+7:]...)
 			}
 		}
-		if cmd == LineToCmd && len(p.d) > i+3 {
+
+		// remove adjacent lines if they are collinear
+		if cmd == LineToCmd && i+3 < len(p.d) && (p.d[i+3] == LineToCmd || p.d[i+3] == CloseCmd) {
 			nextEnd := Point{p.d[i+4], p.d[i+5]}
+			fmt.Println(start, end, nextEnd)
 			if p.d[i+3] == CloseCmd && end == nextEnd {
 				p.d = append(p.d[:i], p.d[i+3:]...)
-			} else if p.d[i+3] == LineToCmd && end.AngleBetween(nextEnd) == 0.0 {
+				p.d[i] = CloseCmd
+			} else if end.Sub(start).AngleBetween(nextEnd.Sub(end)) == 0.0 {
 				p.d = append(p.d[:i], p.d[i+3:]...)
 			}
 		}
-		start = end
+		end = start
 	}
 	return p
 }

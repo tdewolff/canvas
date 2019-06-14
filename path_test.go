@@ -46,6 +46,30 @@ func TestPath(t *testing.T) {
 	}
 }
 
+func TestPathReplace(t *testing.T) {
+	var tts = []struct {
+		orig   string
+		res    string
+		i0Orig int
+		i0Res  int
+	}{
+		{"C0 10 10 10 10 0M20 0L30 0", "L10 0M20 0L30 0", 7, 3},
+	}
+	for _, tt := range tts {
+		t.Run(tt.orig, func(t *testing.T) {
+			p, err := ParseSVG(tt.orig)
+			test.Error(t, err)
+			test.T(t, p.i0, tt.i0Orig)
+
+			p.Replace(nil, func(p0, p1, p2, p3 Point) *Path {
+				return (&Path{}).MoveTo(p0.X, p0.Y).LineTo(p3.X, p3.Y)
+			}, nil)
+			test.T(t, p.String(), tt.res)
+			test.T(t, p.i0, tt.i0Res)
+		})
+	}
+}
+
 //func TestPathDirection(t *testing.T) {
 //	var tts = []struct {
 //		orig      string
