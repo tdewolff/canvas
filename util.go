@@ -345,6 +345,10 @@ func (m Matrix) Eigen() (float64, float64, Point, Point) {
 	return lambda1, lambda2, v1, v2
 }
 
+func (m Matrix) pos() (float64, float64) {
+	return m[0][2], m[1][2]
+}
+
 func (m Matrix) theta() float64 {
 	return math.Atan2(-m[0][1], m[0][0])
 }

@@ -18,15 +18,19 @@ const MmPerInch = 25.4
 const InchPerMm = 1 / 25.4
 
 type C struct {
-	w, h   float64
-	layers []layer
-	fonts  map[*Font]bool
-	// TODO: add transformation matrix / viewport
+	w, h     float64
+	layers   []layer
+	fonts    map[*Font]bool
+	viewport Matrix
 	drawState
 }
 
 func New(w, h float64) *C {
-	return &C{w, h, []layer{}, map[*Font]bool{}, defaultDrawState}
+	return &C{w, h, []layer{}, map[*Font]bool{}, Identity, defaultDrawState}
+}
+
+func (c *C) SetViewport(viewport Matrix) {
+	c.viewport = viewport
 }
 
 func (c *C) SetFillColor(color color.RGBA) {
@@ -59,7 +63,7 @@ func (c *C) DrawPath(x, y float64, path *Path) {
 		return
 	}
 	if !path.Empty() {
-		path = path.Translate(x, y)
+		path = path.Transform(c.viewport.Translate(x, y))
 		c.layers = append(c.layers, pathLayer{path, c.drawState})
 	}
 }
@@ -69,7 +73,7 @@ func (c *C) DrawText(x, y float64, text *Text) {
 		c.fonts[font] = true
 	}
 	// TODO: skip if empty
-	c.layers = append(c.layers, textLayer{text, x, y, 0.0})
+	c.layers = append(c.layers, textLayer{text, c.viewport.Translate(x, y)})
 }
 
 // TODO: add DrawImage(x,y,image.RGBA)
@@ -411,21 +415,22 @@ func (l pathLayer) WriteImage(img *image.RGBA, dpm, w, h float64) {
 
 type textLayer struct {
 	*Text
-	x, y, rot float64
+	viewport Matrix
 }
 
 func (l textLayer) WriteSVG(w io.Writer, h float64) {
-	l.Text.WriteSVG(w, l.x, h-l.y, l.rot)
+	x, y := l.viewport.pos()
+	rot := l.viewport.theta() * 180.0 / math.Pi
+	l.Text.WriteSVG(w, x, h-y, rot)
 }
 
 func (l textLayer) WritePDF(w *PDFPageWriter) {
 	// TODO: PDF write text
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
-		path = path.Transform(Identity.Translate(l.x, l.y).Rotate(l.rot))
 		state := defaultDrawState
 		state.fillColor = colors[i]
-		pathLayer{path, state}.WritePDF(w)
+		pathLayer{path.Transform(l.viewport), state}.WritePDF(w)
 	}
 }
 
@@ -433,19 +438,17 @@ func (l textLayer) WriteEPS(w *EPSWriter) {
 	// TODO: EPS write text
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
-		path = path.Transform(Identity.Translate(l.x, l.y).Rotate(l.rot))
 		state := defaultDrawState
 		state.fillColor = colors[i]
-		pathLayer{path, state}.WriteEPS(w)
+		pathLayer{path.Transform(l.viewport), state}.WriteEPS(w)
 	}
 }
 
 func (l textLayer) WriteImage(img *image.RGBA, dpm, w, h float64) {
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
-		path = path.Transform(Identity.Translate(l.x, l.y).Rotate(l.rot))
 		state := defaultDrawState
 		state.fillColor = colors[i]
-		pathLayer{path, state}.WriteImage(img, dpm, w, h)
+		pathLayer{path.Transform(l.viewport), state}.WriteImage(img, dpm, w, h)
 	}
 }
