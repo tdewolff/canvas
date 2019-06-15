@@ -244,16 +244,11 @@ func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x1, y1 float64) 
 		phi -= math.Pi
 	}
 
-	// scale ellipse if rx and ry are too small, see https://www.w3.org/TR/SVG/implnote.html#ArcCorrectionOutOfRangeRadii
-	diff := p0.Sub(p1)
-	sinphi, cosphi := math.Sincos(phi)
-	x1p := (cosphi*diff.X + sinphi*diff.Y) / 2.0
-	y1p := (-sinphi*diff.X + cosphi*diff.Y) / 2.0
-	lambda := x1p*x1p/rx/rx + y1p*y1p/ry/ry
+	// scale ellipse if rx and ry are too small
+	lambda := ellipseRadiiCorrection(p0, rx, ry, phi, p1)
 	if lambda > 1.0 {
-		fmt.Println("scale ell", rx, ry, "=>", math.Sqrt(lambda)*rx, math.Sqrt(lambda)*ry)
-		rx = math.Sqrt(lambda) * rx
-		ry = math.Sqrt(lambda) * ry
+		rx *= lambda
+		ry *= lambda
 	}
 
 	p.d = append(p.d, ArcToCmd, rx, ry, phi, toArcFlags(largeArc, sweep), p1.X, p1.Y)

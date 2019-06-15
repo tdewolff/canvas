@@ -72,7 +72,7 @@ func main() {
 func drawText(c *canvas.C, x, y float64, face canvas.FontFace, rich *canvas.RichText) {
 	metrics := face.Metrics()
 	width, height := 80.0, 25.0
-	text := rich.ToText(width, height, canvas.Justify, canvas.Top, 0.0)
+	text := rich.ToText(width, height, canvas.Justify, canvas.Top, 0.0, 0.0)
 
 	c.SetFillColor(canvas.Orangered)
 	c.DrawPath(x, y, text.Bounds().ToPath())
@@ -167,4 +167,14 @@ func Draw(c *canvas.C) {
 	for _, coord := range polyline.Coords() {
 		c.DrawPath(120, 5, canvas.Circle(1.0).Translate(coord.X, coord.Y).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner))
 	}
+
+	lenna, err := os.Open("lenna.png")
+	if err != nil {
+		panic(err)
+	}
+	img, err := png.Decode(lenna)
+	if err != nil {
+		panic(err)
+	}
+	c.DrawImage(105.0, 15.0, 20.0, 20.0, img)
 }

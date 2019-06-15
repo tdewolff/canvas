@@ -347,7 +347,6 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 				cp2: cp2,
 			})
 		case ArcToCmd:
-			// TODO: results seems bad, stroke too thick in the middle for rotated arcs
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
@@ -401,28 +400,32 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 	rhs.MoveTo(rStart.X, rStart.Y)
 	lhs.MoveTo(lStart.X, lStart.Y)
 
-	// TODO: fix if there is no space for Joiner when stroke is too thick
 	for i, cur := range states {
+		rEnd := cur.p1.Add(cur.n1)
+		lEnd := cur.p1.Sub(cur.n1)
 		switch cur.cmd {
 		case LineToCmd:
-			rEnd := cur.p1.Add(cur.n1)
-			lEnd := cur.p1.Sub(cur.n1)
 			rhs.LineTo(rEnd.X, rEnd.Y)
 			lhs.LineTo(lEnd.X, lEnd.Y)
 		case CubeToCmd:
 			rhs = rhs.Join(strokeCubicBezier(cur.p0, cur.cp1, cur.cp2, cur.p1, halfWidth, Tolerance))
 			lhs = lhs.Join(strokeCubicBezier(cur.p0, cur.cp1, cur.cp2, cur.p1, -halfWidth, Tolerance))
 		case ArcToCmd:
-			rEnd := cur.p1.Add(cur.n1)
-			lEnd := cur.p1.Sub(cur.n1)
+			dr := halfWidth
 			if !cur.sweep { // bend to the right, ie. CW
-				rhs.ArcTo(cur.rx-halfWidth, cur.ry-halfWidth, cur.rot, cur.largeArc, cur.sweep, rEnd.X, rEnd.Y)
-				lhs.ArcTo(cur.rx+halfWidth, cur.ry+halfWidth, cur.rot, cur.largeArc, cur.sweep, lEnd.X, lEnd.Y)
-			} else { // bend to the left, ie. CCW
-				rhs.ArcTo(cur.rx+halfWidth, cur.ry+halfWidth, cur.rot, cur.largeArc, cur.sweep, rEnd.X, rEnd.Y)
-				lhs.ArcTo(cur.rx-halfWidth, cur.ry-halfWidth, cur.rot, cur.largeArc, cur.sweep, lEnd.X, lEnd.Y)
+				dr = -dr
 			}
+
+			rLambda := ellipseRadiiCorrection(rStart, cur.rx+dr, cur.ry+dr, cur.rot*math.Pi/180.0, rEnd)
+			lLambda := ellipseRadiiCorrection(lStart, cur.rx-dr, cur.ry-dr, cur.rot*math.Pi/180.0, lEnd)
+			if rLambda <= 1.0 && lLambda <= 1.0 {
+				rLambda, lLambda = 1.0, 1.0
+			}
+			rhs.ArcTo(rLambda*(cur.rx+dr), rLambda*(cur.ry+dr), cur.rot, cur.largeArc, cur.sweep, rEnd.X, rEnd.Y)
+			lhs.ArcTo(lLambda*(cur.rx-dr), lLambda*(cur.ry-dr), cur.rot, cur.largeArc, cur.sweep, lEnd.X, lEnd.Y)
 		}
+		rStart = rEnd
+		lStart = lEnd
 
 		// join the cur and next path segments on the outside of the bend
 		if i+1 < len(states) || closed {

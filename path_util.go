@@ -176,6 +176,15 @@ func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 floa
 	return cx, cy, theta, theta + delta
 }
 
+// scale ellipse if rx and ry are too small, see https://www.w3.org/TR/SVG/implnote.html#ArcCorrectionOutOfRangeRadii
+func ellipseRadiiCorrection(start Point, rx, ry, phi float64, end Point) float64 {
+	diff := start.Sub(end)
+	sinphi, cosphi := math.Sincos(phi)
+	x1p := (cosphi*diff.X + sinphi*diff.Y) / 2.0
+	y1p := (-sinphi*diff.X + cosphi*diff.Y) / 2.0
+	return math.Sqrt(x1p*x1p/rx/rx + y1p*y1p/ry/ry)
+}
+
 // splitEllipse returns the new mid point, the two largeArc parameters and the ok bool, the rest stays the same
 func splitEllipse(rx, ry, phi, cx, cy, theta1, theta2, theta float64) (Point, bool, bool, bool) {
 	if !angleBetween(theta, theta1, theta2) {

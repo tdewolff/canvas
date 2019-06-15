@@ -75,39 +75,23 @@ func drawStrokedPath(c *canvas.C, x, y, d float64, path string) {
 }
 
 func Draw(c *canvas.C) {
-	// test SVG, PDF and EPS implementations
-	//p, _ := canvas.ParseSVG(fmt.Sprintf("H10.0Q20.0 0.0 20.0 10.0A20.0 10.0 45.0 0 1 0.0 20.0A15.0 10.0 45.0 0 0 10.0 5.0z"))
 	p, _ := canvas.ParseSVG(fmt.Sprintf("A60.0 30.0 30.0 0 0 120.0 0.0"))
-
-	//c.SetStrokeJoiner(canvas.MiterJoiner)
-	//c.SetStrokeColor(canvas.Blue)
-	//c.SetDashes(-4.0, 5.0, 1.0)
-	//c.DrawPath(40.0, 10.0, p)
-
-	//c.SetFillColor(canvas.Transparent)
-	f := p.Flatten()
-	p = p.Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
-	f = f.Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
-	//c.SetDashes(0.0)
-	c.DrawPath(10.0, 10.0, p)
-
-	c.SetFillColor(color.RGBA{128, 0, 0, 128})
+	f := p.Flatten().Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
+	c.SetFillColor(color.RGBA{0, 0, 128, 128})
 	c.DrawPath(10.0, 10.0, f)
 
-	c.DrawPath(40.0, 70.0, canvas.RegularStarPolygon(10, 3, 10.0, false))
-	c.DrawPath(60.0, 70.0, canvas.RegularPolygon(4, 10.0, false))
-	c.DrawPath(20.0, 70.0, canvas.StarPolygon(4, 10.0, 3.0, false))
+	p = p.Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
+	c.SetFillColor(color.RGBA{128, 0, 0, 128})
+	c.DrawPath(10.0, 10.0, p)
 
-	lenna, err := os.Open("lenna.png")
-	if err != nil {
-		panic(err)
-	}
-	img, err := png.Decode(lenna)
-	if err != nil {
-		panic(err)
-	}
-	c.SetViewport(canvas.Identity.Rotate(45))
-	c.DrawImage(130.0, 10.0, 10.0, 10.0, img)
+	p, _ = canvas.ParseSVG(fmt.Sprintf("A60.0 30.0 45.0 1 0 80.0 0.0"))
+	f = p.Flatten().Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
+	c.SetFillColor(color.RGBA{0, 0, 128, 128})
+	c.DrawPath(30.0, 10.0, f)
+
+	p = p.Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
+	c.SetFillColor(color.RGBA{128, 0, 0, 128})
+	c.DrawPath(30.0, 10.0, p)
 
 	// test Filling
 	//canvas.FillRule = canvas.EvenOdd
