@@ -12,8 +12,6 @@ import (
 	"strings"
 )
 
-// TODO: PDF colors seem different
-
 type PDFWriter struct {
 	w   io.Writer
 	err error
@@ -59,9 +57,8 @@ type PDFArray []interface{}
 type PDFDict map[PDFName]interface{}
 type PDFFilter string
 type PDFStream struct {
-	dict    PDFDict
-	filters []PDFFilter
-	b       []byte
+	dict   PDFDict
+	stream []byte
 }
 
 const (
@@ -88,7 +85,7 @@ func (w *PDFWriter) writeVal(i interface{}) {
 		w.write("(%v)", v)
 	case PDFRef:
 		w.write("%v 0 R", v)
-	case PDFName:
+	case PDFName, PDFFilter:
 		w.write("/%v", v)
 	case PDFArray:
 		w.write("[")
@@ -109,13 +106,23 @@ func (w *PDFWriter) writeVal(i interface{}) {
 		}
 		w.write(">>")
 	case PDFStream:
-		filters := PDFArray{}
-		for j := len(v.filters) - 1; j >= 0; j-- {
-			filters = append(filters, PDFName(v.filters[j]))
+		if v.dict == nil {
+			v.dict = PDFDict{}
 		}
 
-		b := v.b
-		for _, filter := range v.filters {
+		filters := []PDFFilter{}
+		if filter, ok := v.dict["Filter"].(PDFFilter); ok {
+			filters = append(filters, filter)
+		} else if filterArray, ok := v.dict["Filter"].(PDFArray); ok {
+			for i := len(filterArray) - 1; i >= 0; i-- {
+				if filter, ok := filterArray[i].(PDFFilter); ok {
+					filters = append(filters, filter)
+				}
+			}
+		}
+
+		b := v.stream
+		for _, filter := range filters {
 			var b2 bytes.Buffer
 			switch filter {
 			case PDFFilterASCII85:
@@ -130,17 +137,8 @@ func (w *PDFWriter) writeVal(i interface{}) {
 			b = b2.Bytes()
 		}
 
-		dict := v.dict
-		if dict == nil {
-			dict = PDFDict{}
-		}
-		if len(filters) == 1 {
-			dict["Filter"] = filters[0]
-		} else if len(filters) > 1 {
-			dict["Filter"] = filters
-		}
-		dict["Length"] = len(b)
-		w.writeVal(dict)
+		v.dict["Length"] = len(b)
+		w.writeVal(v.dict)
 		w.write("\nstream\n")
 		w.writeBytes(b)
 		w.write("\nendstream")
@@ -261,8 +259,10 @@ func (w *PDFPageWriter) writePage(parent PDFRef) PDFRef {
 		"MediaBox":  PDFArray{0.0, 0.0, w.width, w.height},
 		"Resources": w.resources,
 		"Contents": PDFStream{
-			filters: []PDFFilter{}, // TODO: use filter
-			b:       b,
+			dict: PDFDict{
+				"Filter": PDFFilterFlate,
+			},
+			stream: b,
 		},
 	})
 }
@@ -430,7 +430,6 @@ func (w *PDFPageWriter) embedImage(img image.Image) PDFName {
 	}
 
 	ref := w.pdf.writeObject(PDFStream{
-		filters: []PDFFilter{PDFFilterASCII85},
 		dict: PDFDict{
 			"Type":             PDFName("XObject"),
 			"Subtype":          PDFName("Image"),
@@ -439,8 +438,9 @@ func (w *PDFPageWriter) embedImage(img image.Image) PDFName {
 			"ColorSpace":       PDFName("DeviceRGB"),
 			"BitsPerComponent": 8,
 			"Interpolation":    true,
+			"Filter":           PDFFilterFlate,
 		},
-		b: b,
+		stream: b,
 	})
 
 	if _, ok := w.resources["XObject"]; !ok {
@@ -461,6 +461,7 @@ func (w *PDFPageWriter) getOpacityGS(a float64) PDFName {
 	if _, ok := w.resources["ExtGState"]; !ok {
 		w.resources["ExtGState"] = PDFDict{}
 	}
+	// TODO: RGB colors look dull when using transparency
 	w.resources["ExtGState"].(PDFDict)[name] = PDFDict{
 		"ca": a,
 	}
