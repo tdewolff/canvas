@@ -360,7 +360,7 @@ func (m Matrix) scale() (float64, float64) {
 }
 
 func (m Matrix) String() string {
-	return fmt.Sprintf("[%g, %g, %g; %g, %g, %g; 0, 0, 1]", m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2])
+	return fmt.Sprintf("%g %g %g %g %g %g", m[0][0], m[0][1], m[1][0], m[1][1], m[0][2], m[1][2])
 }
 
 ////////////////////////////////////////////////////////////////

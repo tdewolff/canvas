@@ -66,7 +66,7 @@ func drawStrokedPath(c *canvas.C, x, y, d float64, path string) {
 	c.DrawPath(x, y, p)
 
 	p = p.Stroke(d, canvas.ButtCapper, canvas.MiterClipJoiner(canvas.RoundJoiner, d))
-	c.SetFillColor(color.RGBA{255, 0, 0, 127})
+	c.SetFillColor(color.RGBA{128, 0, 0, 128})
 	c.DrawPath(x, y, p)
 
 	p = p.Stroke(0.2, canvas.RoundCapper, canvas.RoundJoiner)
@@ -91,12 +91,23 @@ func Draw(c *canvas.C) {
 	//c.SetDashes(0.0)
 	c.DrawPath(10.0, 10.0, p)
 
-	c.SetFillColor(color.RGBA{255, 0, 0, 128})
+	c.SetFillColor(color.RGBA{128, 0, 0, 128})
 	c.DrawPath(10.0, 10.0, f)
 
 	c.DrawPath(40.0, 70.0, canvas.RegularStarPolygon(10, 3, 10.0, false))
 	c.DrawPath(60.0, 70.0, canvas.RegularPolygon(4, 10.0, false))
 	c.DrawPath(20.0, 70.0, canvas.StarPolygon(4, 10.0, 3.0, false))
+
+	lenna, err := os.Open("lenna.png")
+	if err != nil {
+		panic(err)
+	}
+	img, err := png.Decode(lenna)
+	if err != nil {
+		panic(err)
+	}
+	c.SetViewport(canvas.Identity.Rotate(45))
+	c.DrawImage(130.0, 10.0, 10.0, 10.0, img)
 
 	// test Filling
 	//canvas.FillRule = canvas.EvenOdd

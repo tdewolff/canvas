@@ -34,8 +34,8 @@ Papers
 | Draw path stroke | yes | yes | yes | no |
 | Draw path dash | yes | yes | yes | no |
 | Embed fonts | | yes | no | no |
-| Draw text | | yes | no | no |
-| Draw image | no | no | no | no |
+| Draw text | | yes | as path | as path |
+| Draw image | yes | no | yes | no |
 
 * EPS does not support transparency
 * PDF and EPS do not support line joins for last and first dash for dashed and closed path
@@ -117,7 +117,7 @@ ff.ToPath(r rune) (p *Path, advance float64)  // convert rune to path and return
 ff.Kerning(r0, r1 rune) float64               // return kerning between runes
 
 // regular text fitted to a box
-text := NewTextBox(ff, color, "string", width, height, halign, valign, indent)  // split on word boundaries and specify text alignment
+text := NewTextBox(ff, color, "string", width, height, halign, valign, indent, lineStretch)  // split on word boundaries and specify text alignment
 text.Bounds() Rect
 
 // specialization for just a text line, can be converted to a path
@@ -128,7 +128,7 @@ text = textLine.ToText() *Text
 // specialization for rich text, different styles of text or paths (LaTeX) in one box
 richText := NewRichText()                        // allow different FontFaces in the same text block
 richText.Add(ff, color, "string")
-text = richText.ToText(width, height, halign, valign, indent)
+text = richText.ToText(width, height, halign, valign, indent, lineStretch)
 ```
 
 

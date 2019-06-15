@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/draw"
 	"io"
 	"math"
 	"strings"
 
+	"golang.org/x/image/draw"
+	"golang.org/x/image/math/f64"
 	"golang.org/x/image/vector"
 )
 
@@ -76,7 +77,14 @@ func (c *C) DrawText(x, y float64, text *Text) {
 	c.layers = append(c.layers, textLayer{text, c.viewport.Translate(x, y)})
 }
 
-// TODO: add DrawImage(x,y,image.RGBA)
+func (c *C) DrawImage(x, y, w, h float64, img image.Image) {
+	if img.Bounds().Size().Eq(image.Point{}) {
+		return
+	}
+	wOrig := float64(img.Bounds().Size().X)
+	hOrig := float64(img.Bounds().Size().Y)
+	c.layers = append(c.layers, imageLayer{img, Identity.Translate(x, y).Mul(c.viewport).Scale(w/wOrig, h/hOrig)})
+}
 
 func (c *C) WriteSVG(w io.Writer) {
 	fmt.Fprintf(w, `<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="%g" height="%g" viewBox="0 0 %g %g">`, c.w, c.h, c.w, c.h)
@@ -117,7 +125,7 @@ func (c *C) WriteImage(dpi float64) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0.0, 0.0, int(c.w*dpm+0.5), int(c.h*dpm+0.5)))
 	draw.Draw(img, img.Bounds(), image.NewUniform(White), image.Point{}, draw.Src)
 	for _, l := range c.layers {
-		l.WriteImage(img, dpm, c.w, c.h)
+		l.WriteImage(img, dpm)
 	}
 	return img
 }
@@ -128,7 +136,7 @@ type layer interface {
 	WriteSVG(io.Writer, float64)
 	WritePDF(*PDFPageWriter)
 	WriteEPS(*EPSWriter)
-	WriteImage(*image.RGBA, float64, float64, float64)
+	WriteImage(*image.RGBA, float64)
 }
 
 type drawState struct {
@@ -392,10 +400,11 @@ func (l pathLayer) WriteEPS(w *EPSWriter) {
 	// TODO: EPS add drawState support
 }
 
-func (l pathLayer) WriteImage(img *image.RGBA, dpm, w, h float64) {
+func (l pathLayer) WriteImage(img *image.RGBA, dpm float64) {
+	w, h := img.Bounds().Size().X, img.Bounds().Size().Y
 	if l.fillColor.A != 0 {
-		ras := vector.NewRasterizer(int(w*dpm+0.5), int(h*dpm+0.5))
-		l.path.ToRasterizer(ras, dpm, w, h)
+		ras := vector.NewRasterizer(w, h)
+		l.path.ToRasterizer(ras, dpm)
 		size := ras.Size()
 		ras.Draw(img, image.Rect(0, 0, size.X, size.Y), image.NewUniform(l.fillColor), image.Point{})
 	}
@@ -406,8 +415,8 @@ func (l pathLayer) WriteImage(img *image.RGBA, dpm, w, h float64) {
 		}
 		strokePath = strokePath.Stroke(l.strokeWidth, l.strokeCapper, l.strokeJoiner)
 
-		ras := vector.NewRasterizer(int(w*dpm+0.5), int(h*dpm+0.5))
-		strokePath.ToRasterizer(ras, dpm, w, h)
+		ras := vector.NewRasterizer(w, h)
+		strokePath.ToRasterizer(ras, dpm)
 		size := ras.Size()
 		ras.Draw(img, image.Rect(0, 0, size.X, size.Y), image.NewUniform(l.strokeColor), image.Point{})
 	}
@@ -444,11 +453,38 @@ func (l textLayer) WriteEPS(w *EPSWriter) {
 	}
 }
 
-func (l textLayer) WriteImage(img *image.RGBA, dpm, w, h float64) {
+func (l textLayer) WriteImage(img *image.RGBA, dpm float64) {
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
 		state := defaultDrawState
 		state.fillColor = colors[i]
-		pathLayer{path.Transform(l.viewport), state}.WriteImage(img, dpm, w, h)
+		pathLayer{path.Transform(l.viewport), state}.WriteImage(img, dpm)
 	}
+}
+
+type imageLayer struct {
+	img      image.Image
+	viewport Matrix
+}
+
+func (l imageLayer) WriteSVG(w io.Writer, h float64) {
+	// TODO: SVG write image
+}
+
+func (l imageLayer) WritePDF(w *PDFPageWriter) {
+	w.DrawImage(l.img, l.viewport)
+}
+
+func (l imageLayer) WriteEPS(w *EPSWriter) {
+	// TODO: EPS write image
+}
+
+func (l imageLayer) WriteImage(img *image.RGBA, dpm float64) {
+	viewport := l.viewport.Scale(dpm, dpm)
+	x, y := viewport.pos()
+	bl := viewport.Dot(Point{0, float64(l.img.Bounds().Size().Y)})
+	dx := bl.X - x
+	dy := float64(img.Bounds().Size().Y) - (bl.Y - y)
+	m := f64.Aff3{viewport[0][0], -viewport[0][1], dx + viewport[0][2]*dpm, -viewport[1][0], viewport[1][1], dy - viewport[1][2]*dpm}
+	draw.CatmullRom.Transform(img, m, l.img, l.img.Bounds(), draw.Over, nil)
 }

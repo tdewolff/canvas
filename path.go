@@ -1517,10 +1517,10 @@ func (p *Path) ToPDF() string {
 	return sb.String()[1:] // remove the first space
 }
 
-func (p *Path) ToRasterizer(ras *vector.Rasterizer, dpm, w, h float64) {
+func (p *Path) ToRasterizer(ras *vector.Rasterizer, dpm float64) {
 	p = p.Copy().Replace(nil, nil, ellipseToBeziers)
 	closed := false
-	dy := h * dpm
+	dy := float64(ras.Bounds().Size().Y)
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		closed = false

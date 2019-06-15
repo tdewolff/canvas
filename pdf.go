@@ -5,6 +5,7 @@ import (
 	"compress/zlib"
 	"encoding/ascii85"
 	"fmt"
+	"image"
 	"image/color"
 	"io"
 	"math"
@@ -70,6 +71,12 @@ const (
 
 func (w *PDFWriter) writeVal(i interface{}) {
 	switch v := i.(type) {
+	case bool:
+		if v {
+			w.write("1")
+		} else {
+			w.write("0")
+		}
 	case int:
 		w.write("%d", v)
 	case float64:
@@ -398,6 +405,50 @@ func (w *PDFPageWriter) SetFont(font *Font, size float64) {
 		w.resources["Font"].(PDFDict)[name] = ref
 		fmt.Fprintf(w, " /%v %f Tf", name, size)
 	}
+}
+
+func (w *PDFPageWriter) DrawImage(img image.Image, m Matrix) {
+	name := w.embedImage(img)
+	size := img.Bounds().Size()
+	m = m.Scale(float64(size.X), float64(size.Y))
+	w.SetAlpha(1.0)
+	fmt.Fprintf(w, " q %f %f %f %f %f %f cm /%v Do Q", m[0][0], -m[0][1], -m[1][0], m[1][1], m[0][2], m[1][2], name)
+}
+
+func (w *PDFPageWriter) embedImage(img image.Image) PDFName {
+	size := img.Bounds().Size()
+	b := make([]byte, size.X*size.Y*3)
+	for y := 0; y < size.Y; y++ {
+		for x := 0; x < size.X; x++ {
+			i := (y*size.X + x) * 3
+			R, G, B, _ := img.At(x, y).RGBA()
+			b[i+0] = byte(R >> 8)
+			b[i+1] = byte(G >> 8)
+			b[i+2] = byte(B >> 8)
+			// TODO: handle alpha channel
+		}
+	}
+
+	ref := w.pdf.writeObject(PDFStream{
+		filters: []PDFFilter{PDFFilterASCII85},
+		dict: PDFDict{
+			"Type":             PDFName("XObject"),
+			"Subtype":          PDFName("Image"),
+			"Width":            size.X,
+			"Height":           size.Y,
+			"ColorSpace":       PDFName("DeviceRGB"),
+			"BitsPerComponent": 8,
+			"Interpolation":    true,
+		},
+		b: b,
+	})
+
+	if _, ok := w.resources["XObject"]; !ok {
+		w.resources["XObject"] = PDFDict{}
+	}
+	name := PDFName(fmt.Sprintf("Im%d", len(w.resources["XObject"].(PDFDict))))
+	w.resources["XObject"].(PDFDict)[name] = ref
+	return name
 }
 
 func (w *PDFPageWriter) getOpacityGS(a float64) PDFName {
