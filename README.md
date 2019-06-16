@@ -4,7 +4,7 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS and raste
 
 ![Example](https://raw.githubusercontent.com/tdewolff/canvas/master/example/example.png)
 
-**Figure 1**: top-left you can see text being fitted into a box and their bounding box (orange-red), the spaces between the words on the first row are being stretched to fill the whole width. You can see all the possible styles and text decorations applied. Also note the typographic substitutions (the quotes) and ligature support (fi, ffi, ffl, ...). Below the text box, the word "stroke" is being stroked and drawn as a path. Top-right we see a LaTeX formula that has been converted to a path. Left of that we see ellipse support showcasing precise dashing, notably the length of e.g. the short dash is equal wherever it is (approximated through arc length parametrization) on the curve. It also shows support for alternating dash lengths, in this case (2.0, 4.0, 2.0) for dashes and for spaces. Note that the dashes themselves are elliptical arcs as well (thus exactly precise even if magnified greatly). In the bottom-right we see a closed polygon of four points being smoothed by cubic Béziers that are smooth along the whole path, and next to it on the left an open path.
+**Figure 1**: top-left you can see text being fitted into a box and their bounding box (orange-red), the spaces between the words on the first row are being stretched to fill the whole width. You can see all the possible styles and text decorations applied. Also note the typographic substitutions (the quotes) and ligature support (fi, ffi, ffl, ...). Below the text box, the word "stroke" is being stroked and drawn as a path. Top-right we see a LaTeX formula that has been converted to a path. Left of that we see ellipse support showcasing precise dashing, notably the length of e.g. the short dash is equal wherever it is (approximated through arc length parametrization) on the curve. It also shows support for alternating dash lengths, in this case (2.0, 4.0, 2.0) for dashes and for spaces. Note that the dashes themselves are elliptical arcs as well (thus exactly precise even if magnified greatly). In the bottom-right we see a closed polygon of four points being smoothed by cubic Béziers that are smooth along the whole path, and next to it on the left an open path. In the middle you can see a rasterized image painted.
 
 **Terminology**: a path is a sequence of drawing commands (MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close) that completely describe a path. QuadTo and CubeTo are quadratic and cubic Béziers respectively, ArcTo is an elliptical arc, and Close is a LineTo to the last MoveTo command and closes the path (sometimes this has a special meaning such as when stroking). A path can consist of several path segments by having multiple MoveTos, Closes, or the pair of Close and MoveTo. Flattening is the action of converting the QuadTo, CubeTo and ArcTo commands into LineTos.
 
@@ -58,8 +58,7 @@ Features that are planned to be implemented in the future. Also see the TODOs in
 
 General
 
-* Fix slowness, transparency and colors in the rasterizer (text_example.go is slow! use rasterized cache for each glyph)
-* Allow embedding raster images
+* Fix slowness in the rasterizer (text_example.go is slow! use rasterized cache for each glyph)
 
 Fonts
 
@@ -93,9 +92,19 @@ Far future
 ## Canvas
 ``` go
 c := canvas.New(width, height float64)
-c.SetColor(color color.Color)
-c.DrawPath(x, y, rot float64, path *Path)
-c.DrawText(x, y, rot float64, text *Text)
+c.PushState()
+c.PopState()
+c.SetView(Matrix)
+c.ComposeView(Matrix)
+c.SetFillColor(color.RGBA)
+c.SetStrokeColor(color.RGBA)
+c.SetStrokeCapper(Capper)
+c.SetStrokeJoiner(Joiner)
+c.SetStrokeWidth(width float64)
+c.SetDashes(offset float64, lengths ...float64)
+c.DrawPath(x, y float64, *Path)
+c.DrawText(x, y float64, *Text)
+c.DrawImage(x, y float64, image.Image, ImageEncoding, dpi float64)
 
 c.WriteSVG(w io.Writer)
 c.WriteEPS(w io.Writer)

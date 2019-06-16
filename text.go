@@ -296,7 +296,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			x0, x1 := 0.0, 0.0
 			for _, ls := range line.lineSpans {
 				ts, ok := ls.span.(textSpan)
-				if 0.0 < x1-x0 && (!ok || ts.color != color || ts.ff != ff) {
+				if 0.0 < x1-x0 && (!ok || ts.color != color || !ts.ff.Equals(ff)) {
 					if ff.decoration != nil {
 						lines[j].decoSpans = append(lines[j].decoSpans, decoSpan{ff, color, x0, x1})
 					}
