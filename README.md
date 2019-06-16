@@ -35,7 +35,7 @@ Papers
 | Draw path dash | yes | yes | yes | no |
 | Embed fonts | | yes | no | no |
 | Draw text | | yes | as path | as path |
-| Draw image | yes | no | yes | no |
+| Draw image | yes | yes | yes | no |
 
 * EPS does not support transparency
 * PDF and EPS do not support line joins for last and first dash for dashed and closed path
@@ -69,6 +69,7 @@ Fonts
 * Support WOFF2 font format
 * Support Type1 font format?
 * Support font hinting (for the rasterizer)
+* Support LaTeX and other paths as text spans
 
 Paths
 
