@@ -176,5 +176,5 @@ func Draw(c *canvas.C) {
 	if err != nil {
 		panic(err)
 	}
-	c.DrawImage(105.0, 15.0, 20.0, 20.0, img)
+	c.DrawImage(105.0, 15.0, img, canvas.Lossy, 650.24)
 }

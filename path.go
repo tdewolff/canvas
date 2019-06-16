@@ -1143,7 +1143,6 @@ func (p *Path) Optimize() *Path {
 		// remove adjacent lines if they are collinear
 		if cmd == LineToCmd && i+3 < len(p.d) && (p.d[i+3] == LineToCmd || p.d[i+3] == CloseCmd) {
 			nextEnd := Point{p.d[i+4], p.d[i+5]}
-			fmt.Println(start, end, nextEnd)
 			if p.d[i+3] == CloseCmd && end == nextEnd {
 				p.d = append(p.d[:i], p.d[i+3:]...)
 				p.d[i] = CloseCmd

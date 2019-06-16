@@ -407,15 +407,15 @@ func (w *PDFPageWriter) SetFont(font *Font, size float64) {
 	}
 }
 
-func (w *PDFPageWriter) DrawImage(img image.Image, m Matrix) {
-	name := w.embedImage(img)
+func (w *PDFPageWriter) DrawImage(img image.Image, enc ImageEncoding, m Matrix) {
+	name := w.embedImage(img, enc)
 	size := img.Bounds().Size()
 	m = m.Scale(float64(size.X), float64(size.Y))
 	w.SetAlpha(1.0)
 	fmt.Fprintf(w, " q %f %f %f %f %f %f cm /%v Do Q", m[0][0], -m[0][1], -m[1][0], m[1][1], m[0][2], m[1][2], name)
 }
 
-func (w *PDFPageWriter) embedImage(img image.Image) PDFName {
+func (w *PDFPageWriter) embedImage(img image.Image, enc ImageEncoding) PDFName {
 	size := img.Bounds().Size()
 	b := make([]byte, size.X*size.Y*3)
 	for y := 0; y < size.Y; y++ {
@@ -429,6 +429,7 @@ func (w *PDFPageWriter) embedImage(img image.Image) PDFName {
 		}
 	}
 
+	// TODO: implement JPXFilter for Lossy image compression
 	ref := w.pdf.writeObject(PDFStream{
 		dict: PDFDict{
 			"Type":             PDFName("XObject"),

@@ -1,9 +1,12 @@
 package canvas
 
 import (
+	"encoding/base64"
 	"fmt"
 	"image"
 	"image/color"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"math"
 	"strings"
@@ -19,19 +22,32 @@ const MmPerInch = 25.4
 const InchPerMm = 1 / 25.4
 
 type C struct {
-	w, h     float64
-	layers   []layer
-	fonts    map[*Font]bool
-	viewport Matrix
+	w, h   float64
+	layers []layer
+	fonts  map[*Font]bool
 	drawState
+	stack []drawState
 }
 
 func New(w, h float64) *C {
-	return &C{w, h, []layer{}, map[*Font]bool{}, Identity, defaultDrawState}
+	return &C{w, h, []layer{}, map[*Font]bool{}, defaultDrawState, nil}
 }
 
-func (c *C) SetViewport(viewport Matrix) {
-	c.viewport = viewport
+func (c *C) PushState() {
+	c.stack = append(c.stack, c.drawState)
+}
+
+func (c *C) PopState() {
+	c.drawState = c.stack[len(c.stack)-1]
+	c.stack = c.stack[:len(c.stack)-1]
+}
+
+func (c *C) SetView(m Matrix) {
+	c.m = m
+}
+
+func (c *C) ComposeView(m Matrix) {
+	c.m = c.m.Mul(m)
 }
 
 func (c *C) SetFillColor(color color.RGBA) {
@@ -64,7 +80,7 @@ func (c *C) DrawPath(x, y float64, path *Path) {
 		return
 	}
 	if !path.Empty() {
-		path = path.Transform(c.viewport.Translate(x, y))
+		path = path.Transform(Identity.Translate(x, y).Mul(c.m))
 		c.layers = append(c.layers, pathLayer{path, c.drawState})
 	}
 }
@@ -74,20 +90,29 @@ func (c *C) DrawText(x, y float64, text *Text) {
 		c.fonts[font] = true
 	}
 	// TODO: skip if empty
-	c.layers = append(c.layers, textLayer{text, c.viewport.Translate(x, y)})
+	c.layers = append(c.layers, textLayer{text, Identity.Translate(x, y).Mul(c.m)})
 }
 
-func (c *C) DrawImage(x, y, w, h float64, img image.Image) {
+type ImageEncoding int
+
+const (
+	Lossless ImageEncoding = iota
+	Lossy
+)
+
+func (c *C) DrawImage(x, y float64, img image.Image, enc ImageEncoding, dpi float64) {
 	if img.Bounds().Size().Eq(image.Point{}) {
 		return
 	}
-	wOrig := float64(img.Bounds().Size().X)
-	hOrig := float64(img.Bounds().Size().Y)
-	c.layers = append(c.layers, imageLayer{img, Identity.Translate(x, y).Mul(c.viewport).Scale(w/wOrig, h/hOrig)})
+	dpm := dpi * InchPerMm
+	m := Identity.Translate(x, y).Mul(c.m).Scale(1/dpm, 1/dpm)
+	c.layers = append(c.layers, imageLayer{img, enc, m})
 }
 
+////////////////////////////////////////////////////////////////
+
 func (c *C) WriteSVG(w io.Writer) {
-	fmt.Fprintf(w, `<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="%g" height="%g" viewBox="0 0 %g %g">`, c.w, c.h, c.w, c.h)
+	fmt.Fprintf(w, `<svg version="1.1" width="%g" height="%g" viewBox="0 0 %g %g" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, c.w, c.h, c.w, c.h)
 	if len(c.fonts) > 0 {
 		fmt.Fprintf(w, "<defs><style>")
 		for f := range c.fonts {
@@ -140,6 +165,7 @@ type layer interface {
 }
 
 type drawState struct {
+	m                      Matrix
 	fillColor, strokeColor color.RGBA
 	strokeWidth            float64
 	strokeCapper           Capper
@@ -149,6 +175,7 @@ type drawState struct {
 }
 
 var defaultDrawState = drawState{
+	m:            Identity,
 	fillColor:    Black,
 	strokeColor:  Transparent,
 	strokeWidth:  1.0,
@@ -157,6 +184,8 @@ var defaultDrawState = drawState{
 	dashOffset:   0.0,
 	dashes:       []float64{},
 }
+
+////////////////////////////////////////////////////////////////
 
 type pathLayer struct {
 	path *Path
@@ -422,6 +451,8 @@ func (l pathLayer) WriteImage(img *image.RGBA, dpm float64) {
 	}
 }
 
+////////////////////////////////////////////////////////////////
+
 type textLayer struct {
 	*Text
 	viewport Matrix
@@ -462,17 +493,44 @@ func (l textLayer) WriteImage(img *image.RGBA, dpm float64) {
 	}
 }
 
+////////////////////////////////////////////////////////////////
+
 type imageLayer struct {
-	img      image.Image
-	viewport Matrix
+	img image.Image
+	enc ImageEncoding
+	m   Matrix
 }
 
 func (l imageLayer) WriteSVG(w io.Writer, h float64) {
-	// TODO: SVG write image
+	mimetype := "image/png"
+	if l.enc == Lossy {
+		mimetype = "image/jpg"
+	}
+
+	origin := l.m.Dot(Point{0, float64(l.img.Bounds().Size().Y)})
+	fmt.Fprintf(w, `<image transform="matrix(%g,%g,%g,%g,%g,%g)" width="%d" height="%d" xlink:href="data:%s;base64,`,
+		l.m[0][0], -l.m[1][0], -l.m[0][1], l.m[1][1], origin.X, h-origin.Y,
+		l.img.Bounds().Size().X, l.img.Bounds().Size().Y, mimetype)
+
+	encoder := base64.NewEncoder(base64.StdEncoding, w)
+	if l.enc == Lossy {
+		if err := jpeg.Encode(encoder, l.img, nil); err != nil {
+			panic(err)
+		}
+	} else {
+		if err := png.Encode(encoder, l.img); err != nil {
+			panic(err)
+		}
+	}
+	if err := encoder.Close(); err != nil {
+		panic(err)
+	}
+
+	fmt.Fprintf(w, `"/>`)
 }
 
 func (l imageLayer) WritePDF(w *PDFPageWriter) {
-	w.DrawImage(l.img, l.viewport)
+	w.DrawImage(l.img, l.enc, l.m)
 }
 
 func (l imageLayer) WriteEPS(w *EPSWriter) {
@@ -480,11 +538,9 @@ func (l imageLayer) WriteEPS(w *EPSWriter) {
 }
 
 func (l imageLayer) WriteImage(img *image.RGBA, dpm float64) {
-	viewport := l.viewport.Scale(dpm, dpm)
-	x, y := viewport.pos()
-	bl := viewport.Dot(Point{0, float64(l.img.Bounds().Size().Y)})
-	dx := bl.X - x
-	dy := float64(img.Bounds().Size().Y) - (bl.Y - y)
-	m := f64.Aff3{viewport[0][0], -viewport[0][1], dx + viewport[0][2]*dpm, -viewport[1][0], viewport[1][1], dy - viewport[1][2]*dpm}
-	draw.CatmullRom.Transform(img, m, l.img, l.img.Bounds(), draw.Over, nil)
+	m := l.m.Scale(dpm, dpm)
+	h := float64(img.Bounds().Size().Y)
+	origin := l.m.Dot(Point{0, float64(l.img.Bounds().Size().Y)})
+	aff3 := f64.Aff3{m[0][0], -m[0][1], origin.X * dpm, -m[1][0], m[1][1], h - origin.Y*dpm}
+	draw.CatmullRom.Transform(img, aff3, l.img, l.img.Bounds(), draw.Over, nil)
 }
