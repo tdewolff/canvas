@@ -2,7 +2,7 @@ package canvas
 
 import "image/color"
 
-// Transparent when used ad fill or stroke color will indicate that the fill or stroke will not be drawn.
+// Transparent when used as a fill or stroke color will indicate that the fill or stroke will not be drawn.
 var Transparent = color.RGBA{0x00, 0x00, 0x00, 0x00} // rgba(0, 0, 0, 0)
 
 // from https://golang.org/x/image/colornames

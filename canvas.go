@@ -62,13 +62,13 @@ func (c *Canvas) ComposeView(m Matrix) {
 // SetFillColor sets the color to be used for filling operations.
 func (c *Canvas) SetFillColor(col color.Color) {
 	r, g, b, a := col.RGBA()
-	c.fillColor = color.RGBA{uint8(r >> 8), uint8(b >> 8), uint8(g >> 8), uint8(a >> 8)}
+	c.fillColor = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
 }
 
 // SetStrokeColor sets the color to be used for stroking operations.
 func (c *Canvas) SetStrokeColor(col color.Color) {
 	r, g, b, a := col.RGBA()
-	c.strokeColor = color.RGBA{uint8(r >> 8), uint8(b >> 8), uint8(g >> 8), uint8(a >> 8)}
+	c.strokeColor = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
 }
 
 // SetStrokeWidth sets the width in mm for stroking operations.

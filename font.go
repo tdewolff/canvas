@@ -139,7 +139,6 @@ func (f *Font) Raw() (string, []byte) {
 }
 
 // FontFace defines a font face from a given font. It allows setting the font size, its color, faux styles and font decorations.
-// TODO: use font provided subscript etc, or use suggested values for subscript position and size
 type FontFace struct {
 	f              *Font
 	ppemOrig, ppem fixed.Int26_6
@@ -159,12 +158,13 @@ func (ff FontFace) Equals(other FontFace) bool {
 // Color sets the color to be used and returns a new FontFace.
 func (ff FontFace) Color(col color.Color) FontFace {
 	r, g, b, a := col.RGBA()
-	ff.color = color.RGBA{uint8(r >> 8), uint8(b >> 8), uint8(g >> 8), uint8(a >> 8)}
+	ff.color = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
 	return ff
 }
 
 // Faux sets the faux styles to be used and returns a new FontFace.
 func (ff FontFace) Faux(style FontStyle) FontFace {
+	// TODO: use font provided subscript etc, or use suggested values for subscript position and size
 	metricsOrig := ff.Metrics()
 	ff.offset = 0.0
 	ff.fauxBold = 0.0
