@@ -163,7 +163,7 @@ func (w *PDFWriter) getFont(font *Font) PDFRef {
 		panic("only TTF format support for embedding fonts in PDFs")
 	}
 
-	// TODO: implement
+	// TODO: implement font embedding
 	baseFont := strings.ReplaceAll(font.name, " ", "_")
 	ref := w.writeObject(PDFStream{
 		dict: PDFDict{

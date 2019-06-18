@@ -12,8 +12,11 @@ import (
 
 // Tolerance is the maximum deviation from the original path in millimeters when e.g. flatting
 var Tolerance = 0.01
+
+// FillRule defines the FillRuleType used by the path.
 var FillRule = NonZero
 
+// FillRuleType is the algorithm to specify which area is to be filled and which not, in particular when multiple path segments overlap. The NonZero rule is the default and will fill any point that is being enclosed by an unequal number of paths winding clockwise and counter clockwise, otherwise it will not be filled. The EvenOdd rule will fill any point that is being enclosed by an uneven number of path, whichever their direction.
 type FillRuleType int
 
 const (
@@ -21,7 +24,6 @@ const (
 	EvenOdd
 )
 
-// PathCmd specifies the path command.
 const (
 	MoveToCmd = 1.0 << iota
 	LineToCmd
@@ -251,6 +253,8 @@ func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x1, y1 float64) 
 		ry *= lambda
 	}
 
+	// TODO: ensure rx is the major axis and ry the minor one, otherwise switch them and adjust phi
+
 	p.d = append(p.d, ArcToCmd, rx, ry, phi, toArcFlags(largeArc, sweep), p1.X, p1.Y)
 	return p
 }
@@ -336,7 +340,7 @@ func (p *Path) Filling() []bool {
 	for _, ps := range Ps {
 		polyline := PolylineFromPathCoords(ps) // no need for flattening as we pick our test point to be inside the polyline
 		for i, test := range testPoints {
-			fillCounts[i] += polyline.FillCount(test)
+			fillCounts[i] += polyline.FillCount(test.X, test.Y)
 		}
 	}
 
@@ -356,7 +360,7 @@ func (p *Path) Interior(x, y float64) bool {
 	fillCount := 0
 	test := Point{x, y}
 	for _, ps := range p.Split() {
-		fillCount += PolylineFromPath(ps).FillCount(test) // use flattening
+		fillCount += PolylineFromPath(ps).FillCount(test.X, test.Y) // uses flattening
 	}
 	if FillRule == NonZero {
 		return fillCount != 0
@@ -542,7 +546,7 @@ func (p *Path) Transform(m Matrix) *Path {
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
 		p.d = append([]float64{MoveToCmd, 0.0, 0.0}, p.d...)
 	}
-	xscale, yscale := m.scale()
+	xscale, yscale := m.DecomposeScale()
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
@@ -623,12 +627,12 @@ func (p *Path) Flatten() *Path {
 	return p.Copy().Replace(nil, flattenCubicBezier, flattenEllipse)
 }
 
-type LineReplacer func(Point, Point) *Path
-type BezierReplacer func(Point, Point, Point, Point) *Path
-type ArcReplacer func(Point, float64, float64, float64, bool, bool, Point) *Path
-
-// Replace replaces path commands by their respective functions. Be aware this will change the path inplace.
-func (p *Path) Replace(line LineReplacer, bezier BezierReplacer, arc ArcReplacer) *Path {
+// Replace replaces path commands by their respective functions, each returning the path that will replace the command or nil if no replacement is to be performed. The line function will take the start and end points. The bezier function will take the start point, control point 1 and 2, and the end point (ie. a cubic Bézier, quadratic Béziers will be implicitly converted to cubic ones). The arc function will take a start point, the major and minor radii, the radial rotaton counter clockwise, the largeArc and sweep booleans, and the end point. Be aware this will change the path inplace.
+func (p *Path) Replace(
+	line func(Point, Point) *Path,
+	bezier func(Point, Point, Point, Point) *Path,
+	arc func(Point, float64, float64, float64, bool, bool, Point) *Path,
+) *Path {
 	start := Point{}
 	for i := 0; i < len(p.d); {
 		var q *Path

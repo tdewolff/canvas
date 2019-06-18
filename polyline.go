@@ -1,26 +1,32 @@
 package canvas
 
+// Polyline defines a list of points in 2D space that form a polyline. If the last coordinate equals the first coordinate, we assume the polyline to close itself.
 type Polyline struct {
 	coords []Point
 }
 
+// PolylineFromPath returns a polyline from the given path by approximating it by linear line segments (ie. flattening).
 func PolylineFromPath(p *Path) *Polyline {
 	return &Polyline{p.Flatten().Coords()}
 }
 
+// PolylineFromPathCoords returns a polyline from the given path from each of the start/end coordinates of the path commands, ie. converting all non-linear path commands to linear ones.
 func PolylineFromPathCoords(p *Path) *Polyline {
 	return &Polyline{p.Coords()}
 }
 
+// Add adds a new point to the polyline.
 func (p *Polyline) Add(x, y float64) *Polyline {
 	p.coords = append(p.coords, Point{x, y})
 	return p
 }
 
+// Coords returns the list of coordinates of the polyline.
 func (p *Polyline) Coords() []Point {
 	return p.coords
 }
 
+// ToPath convertes the polyline to a path. If the last coordinate equals the first one, we close the path.
 func (p *Polyline) ToPath() *Path {
 	if len(p.coords) < 2 {
 		return &Path{}
@@ -39,7 +45,9 @@ func (p *Polyline) ToPath() *Path {
 	return q
 }
 
-func (p *Polyline) FillCount(test Point) int {
+// FillCount returns the number of times the test point is enclosed by the polyline. Counter clockwise enclosures are counted positively and clockwise enclosures negatively.
+func (p *Polyline) FillCount(x, y float64) int {
+	test := Point{x, y}
 	count := 0
 	prevCoord := p.coords[0]
 	for _, coord := range p.coords[1:] {
@@ -59,7 +67,7 @@ func (p *Polyline) FillCount(test Point) int {
 
 // Interior is true when the point (x,y) is in the interior of the path, ie. gets filled. This depends on the FillRule.
 func (p *Polyline) Interior(x, y float64) bool {
-	fillCount := p.FillCount(Point{x, y})
+	fillCount := p.FillCount(x, y)
 	if FillRule == NonZero {
 		return fillCount != 0
 	} else {

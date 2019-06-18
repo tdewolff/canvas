@@ -532,7 +532,6 @@ func flattenCubicBezier(p0, p1, p2, p3 Point) *Path {
 // or https://docs.rs/crate/lyon_bezier/0.4.1/source/src/flatten_cubic.rs
 // p0, p1, p2, p3 are the start points, two control points and the end points respectively. With flatness defined as
 // the maximum error from the orinal curve, and d the half width of the curve used for stroking (positive is to the right).
-// TODO: use ellipse arcs for better results?
 func strokeCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 	p := &Path{}
 	// 0 <= t1 <= 1 if t1 exists

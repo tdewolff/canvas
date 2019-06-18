@@ -10,6 +10,7 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
+// Epsilon is the smallest number below which we assume the value to be zero. This is to avoid numerical floating point issues.
 const Epsilon = 1e-10
 
 // equal returns true if a and b are equal with tolerance Epsilon.
@@ -163,7 +164,7 @@ func (p Point) AngleBetween(q Point) float64 {
 	return math.Atan2(p.PerpDot(q), p.Dot(q))
 }
 
-// Norm normalized OP to be of certain length.
+// Norm normalized OP to be of given length.
 func (p Point) Norm(length float64) Point {
 	d := p.Length()
 	if equal(d, 0.0) {
@@ -172,27 +173,31 @@ func (p Point) Norm(length float64) Point {
 	return Point{p.X / d * length, p.Y / d * length}
 }
 
-// Interpolate returns a point on PQ that is linearly interpolated by t, ie. t=0 returns P and t=1 returns Q.
+// Interpolate returns a point on PQ that is linearly interpolated by t in [0,1], ie. t=0 returns P and t=1 returns Q.
 func (p Point) Interpolate(q Point, t float64) Point {
 	return Point{(1-t)*p.X + t*q.X, (1-t)*p.Y + t*q.Y}
 }
 
+// String returns the string representation of a point, such as "(x,y)".
 func (p Point) String() string {
-	return fmt.Sprintf("[%g; %g]", p.X, p.Y)
+	return fmt.Sprintf("(%g,%g)", p.X, p.Y)
 }
 
 ////////////////////////////////////////////////////////////////
 
+// Rect is a rectangle in 2D defined by a position and its width and height.
 type Rect struct {
 	X, Y, W, H float64
 }
 
+// Move translates the rect.
 func (r Rect) Move(p Point) Rect {
 	r.X += p.X
 	r.Y += p.Y
 	return r
 }
 
+// Add returns a rect that encompasses both the current rect and the given rect.
 func (r Rect) Add(q Rect) Rect {
 	if q.W == 0.0 || q.H == 0 {
 		return r
@@ -206,24 +211,28 @@ func (r Rect) Add(q Rect) Rect {
 	return Rect{x0, y0, x1 - x0, y1 - y0}
 }
 
+// ToPath converts the rectangle to a *Path.
 func (r Rect) ToPath() *Path {
 	return Rectangle(r.X, r.Y, r.W, r.H)
 }
 
+// String returns a string representation of r such as "(xmin,ymin)-(xmax,ymax)".
 func (r Rect) String() string {
-	return fmt.Sprintf("[%g; %g]--[%g; %g]", r.X, r.Y, r.X+r.W, r.Y+r.H)
+	return fmt.Sprintf("(%g,%g)-(%g,%g)", r.X, r.Y, r.X+r.W, r.Y+r.H)
 }
 
 ////////////////////////////////////////////////////////////////
 
-// Matrix is used for affine transformations. Be aware that concatenating transformation function will be evaluated right-to-left! So in Identity.Rotate(30).Translate(20,0) will first translate 20 points horizontally and then rotate 30 degrees counter clockwise.
+// Matrix is used for affine transformations. Be aware that concatenating transformation function will be evaluated right-to-left! So that Identity.Rotate(30).Translate(20,0) will first translate 20 points horizontally and then rotate 30 degrees counter clockwise.
 type Matrix [2][3]float64
 
+// Identity is the identity affine transformation matrix, ie. transforms any point to itself.
 var Identity = Matrix{
 	{1.0, 0.0, 0.0},
 	{0.0, 1.0, 0.0},
 }
 
+// Mul multiplies the current matrix by the given matrix (ie. combine transformations).
 func (m Matrix) Mul(q Matrix) Matrix {
 	return Matrix{{
 		m[0][0]*q[0][0] + m[0][1]*q[1][0],
@@ -236,6 +245,7 @@ func (m Matrix) Mul(q Matrix) Matrix {
 	}}
 }
 
+// Dot returns the dot product between the matrix and the given vector (ie. apply transformation).
 func (m Matrix) Dot(p Point) Point {
 	return Point{
 		m[0][0]*p.X + m[0][1]*p.Y + m[0][2],
@@ -243,6 +253,7 @@ func (m Matrix) Dot(p Point) Point {
 	}
 }
 
+// Translate adds a translation in x and y.
 func (m Matrix) Translate(x, y float64) Matrix {
 	return m.Mul(Matrix{
 		{1.0, 0.0, x},
@@ -250,6 +261,7 @@ func (m Matrix) Translate(x, y float64) Matrix {
 	})
 }
 
+// Rotate adds a rotation transformation with rot in degree counter clockwise.
 func (m Matrix) Rotate(rot float64) Matrix {
 	sintheta, costheta := math.Sincos(rot * math.Pi / 180.0)
 	return m.Mul(Matrix{
@@ -258,6 +270,7 @@ func (m Matrix) Rotate(rot float64) Matrix {
 	})
 }
 
+// Scale adds a scaling transformation in x and y. When scale is negative it will flip those axes.
 func (m Matrix) Scale(x, y float64) Matrix {
 	if equal(x, 0.0) && equal(y, 0.0) {
 		panic("cannot scale affine transformation matrix to zero in x and y")
@@ -268,6 +281,7 @@ func (m Matrix) Scale(x, y float64) Matrix {
 	})
 }
 
+// Shear adds a shear transformation with x the horizontal shear and y the vertical shear.
 func (m Matrix) Shear(x, y float64) Matrix {
 	return m.Mul(Matrix{
 		{1.0, x, 0.0},
@@ -275,35 +289,43 @@ func (m Matrix) Shear(x, y float64) Matrix {
 	})
 }
 
+// RotateAt adds a rotation transformation around point (x,y) with rot in degrees counter clockwise.
 func (m Matrix) RotateAt(rot, x, y float64) Matrix {
 	return m.Translate(-x, -y).Rotate(rot).Translate(x, y)
 }
 
+// ReflectX adds a horizontal reflection transformation (ie. Scale(-1,1)).
 func (m Matrix) ReflectX() Matrix {
 	return m.Scale(-1.0, 1.0)
 }
 
+// ReflectY adds a vertical reflection transformation (ie. Scale(1,-1)).
 func (m Matrix) ReflectY() Matrix {
 	return m.Scale(1.0, -1.0)
 }
 
+// ReflectXAt adds a horizontal reflection transformation around position x.
 func (m Matrix) ReflectXAt(x float64) Matrix {
 	return m.Translate(-x, 0.0).Scale(-1.0, 1.0).Translate(x, 0.0)
 }
 
+// ReflectYAt adds a vertical reflection transformation around position y.
 func (m Matrix) ReflectYAt(y float64) Matrix {
 	return m.Translate(0.0, -y).Scale(1.0, -1.0).Translate(0.0, y)
 }
 
+// T returns the matrix transpose.
 func (m Matrix) T() Matrix {
 	m[0][1], m[1][0] = m[1][0], m[0][1]
 	return m
 }
 
+// Det returns the matrix determinant.
 func (m Matrix) Det() float64 {
 	return m[0][0]*m[1][1] - m[0][1]*m[1][0]
 }
 
+// Inv returns the matrix inverse.
 func (m Matrix) Inv() Matrix {
 	det := m.Det()
 	if equal(det, 0.0) {
@@ -320,6 +342,7 @@ func (m Matrix) Inv() Matrix {
 	}}
 }
 
+// Eigen returns the matrix eigenvalues and eigenvectors. The first eigenvalue is related to the first eigenvector, and so for the second pair. Eigenvectors are normalized.
 func (m Matrix) Eigen() (float64, float64, Point, Point) {
 	if equal(m[1][0], 0.0) && equal(m[0][1], 0.0) {
 		return m[0][0], m[1][1], Point{1.0, 0.0}, Point{0.0, 1.0}
@@ -336,29 +359,33 @@ func (m Matrix) Eigen() (float64, float64, Point, Point) {
 	// see http://www.math.harvard.edu/archive/21b_fall_04/exhibits/2dmatrices/index.html
 	var v1, v2 Point
 	if !equal(m[1][0], 0.0) {
-		v1 = Point{lambda1 - m[1][1], m[1][0]}
-		v2 = Point{lambda2 - m[1][1], m[1][0]}
+		v1 = Point{lambda1 - m[1][1], m[1][0]}.Norm(1.0)
+		v2 = Point{lambda2 - m[1][1], m[1][0]}.Norm(1.0)
 	} else if !equal(m[0][1], 0.0) {
-		v1 = Point{m[0][1], lambda1 - m[0][0]}
-		v2 = Point{m[0][1], lambda2 - m[0][0]}
+		v1 = Point{m[0][1], lambda1 - m[0][0]}.Norm(1.0)
+		v2 = Point{m[0][1], lambda2 - m[0][0]}.Norm(1.0)
 	}
 	return lambda1, lambda2, v1, v2
 }
 
-func (m Matrix) pos() (float64, float64) {
+// DecomposePos extracts the translation parameters of the matrix.
+func (m Matrix) DecomposePos() (float64, float64) {
 	return m[0][2], m[1][2]
 }
 
-func (m Matrix) theta() float64 {
-	return math.Atan2(-m[0][1], m[0][0])
+// DecomposeRot extracts the counter clockwise rotation parameter of the matrix in degrees.
+func (m Matrix) DecomposeRot() float64 {
+	return math.Atan2(-m[0][1], m[0][0]) * 180.0 / math.Pi
 }
 
-func (m Matrix) scale() (float64, float64) {
+// DecomposeScale extracts the scale parameters of the matrix.
+func (m Matrix) DecomposeScale() (float64, float64) {
 	x := math.Copysign(math.Sqrt(m[0][0]*m[0][0]+m[0][1]*m[0][1]), m[0][0])
 	y := math.Copysign(math.Sqrt(m[1][0]*m[1][0]+m[1][1]*m[1][1]), m[1][1])
 	return x, y
 }
 
+// String returns a string representation of the affine transformation matrix as six values, where [a b c; d e f; g h i] will be written as "a b d e c f" as g, h and i have fixed values (0, 0 and 1 respectively).
 func (m Matrix) String() string {
 	return fmt.Sprintf("%g %g %g %g %g %g", m[0][0], m[0][1], m[1][0], m[1][1], m[0][2], m[1][2])
 }

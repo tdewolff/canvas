@@ -69,7 +69,7 @@ func main() {
 	c.WriteEPS(epsFile)
 }
 
-func drawText(c *canvas.C, x, y float64, face canvas.FontFace, rich *canvas.RichText) {
+func drawText(c *canvas.Canvas, x, y float64, face canvas.FontFace, rich *canvas.RichText) {
 	metrics := face.Metrics()
 	width, height := 80.0, 25.0
 	text := rich.ToText(width, height, canvas.Justify, canvas.Top, 0.0, 0.0)
@@ -86,7 +86,7 @@ func drawText(c *canvas.C, x, y float64, face canvas.FontFace, rich *canvas.Rich
 	c.DrawText(x, y, text)
 }
 
-func Draw(c *canvas.C) {
+func Draw(c *canvas.Canvas) {
 	face := dejaVuSerif.Face(12.0)
 	rich := canvas.NewRichText()
 	rich.Add(face, canvas.Black, "\"Lorem ")
@@ -116,8 +116,8 @@ func Draw(c *canvas.C) {
 	drawText(c, 10, 70, face, rich)
 
 	face = dejaVuSerif.Face(80.0)
-	p := canvas.NewTextLine(face, canvas.Black, "Stroke").ToPath()
-	c.DrawPath(5, 10, p.Stroke(0.75, canvas.RoundCapper, canvas.RoundJoiner))
+	//p := canvas.NewTextLine(face, canvas.Black, "Stroke").ToPath()
+	//c.DrawPath(5, 10, p.Stroke(0.75, canvas.RoundCapper, canvas.RoundJoiner))
 
 	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
 	if err != nil {

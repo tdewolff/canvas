@@ -115,8 +115,10 @@ func (roundJoiner) String() string {
 	return "Round"
 }
 
+// MiterJoiner connects two path elements by extending the ends of the paths as lines until they meet. If this point is further than 4 mm away, this will result in a bevel join.
 var MiterJoiner Joiner = miterJoiner{BevelJoiner, 4.0} // TODO: use miter-clip from SVG, ie. relative to stroke width. make sure SVG and PDF implementations use the right limits.
 
+// MiterClipJoiner returns a MiterJoiner with given limit in mm upon which the gapJoiner function will be used. Limit can be NaN so that the gapJoiner is never used.
 func MiterClipJoiner(gapJoiner Joiner, limit float64) Joiner {
 	return miterJoiner{gapJoiner, limit}
 }
@@ -168,8 +170,10 @@ func (j miterJoiner) String() string {
 	}
 }
 
+// ArcsJoiner connects two path elements by extending the ends of the paths as circle arcs until they meet. If this point is further than 4 mm away, this will result in a bevel join.
 var ArcsJoiner Joiner = arcsJoiner{BevelJoiner, 4.0}
 
+// ArcsClipJoiner returns an ArcsJoiner with given limit in mm upon which the gapJoiner function will be used. Limit can be NaN so that the gapJoiner is never used.
 func ArcsClipJoiner(gapJoiner Joiner, limit float64) Joiner {
 	return arcsJoiner{gapJoiner, limit}
 }

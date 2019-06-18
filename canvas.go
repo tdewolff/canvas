@@ -21,61 +21,79 @@ const PtPerMm = 2.8346456692913384
 const MmPerInch = 25.4
 const InchPerMm = 1 / 25.4
 
-type C struct {
-	w, h   float64
+// Canvas holds the intermediate drawing state, accumulating all the layers (draw actions) and keeping track of the draw state. It allows for exporting to various target formats and using their native stroking and text features.
+type Canvas struct {
+	w, h   float64 // TODO: allow to set later on? Automatic fitting of entire canvas?
 	layers []layer
 	fonts  map[*Font]bool
 	drawState
 	stack []drawState
 }
 
-func New(w, h float64) *C {
-	return &C{w, h, []layer{}, map[*Font]bool{}, defaultDrawState, nil}
+// New returns a new Canvas of given width and height in mm.
+func New(w, h float64) *Canvas {
+	return &Canvas{w, h, []layer{}, map[*Font]bool{}, defaultDrawState, nil}
 }
 
-func (c *C) PushState() {
+// PushState saves the current draw state, so that it can be popped later on.
+func (c *Canvas) PushState() {
 	c.stack = append(c.stack, c.drawState)
 }
 
-func (c *C) PopState() {
+// PopState pops the last pushed draw state and uses that as the current draw state. If there are no states on the stack, this will do nothing.
+func (c *Canvas) PopState() {
+	if len(c.stack) == 0 {
+		return
+	}
 	c.drawState = c.stack[len(c.stack)-1]
 	c.stack = c.stack[:len(c.stack)-1]
 }
 
-func (c *C) SetView(m Matrix) {
+// SetView sets the current affine transformation matrix through which all operations will be transformed.
+func (c *Canvas) SetView(m Matrix) {
 	c.m = m
 }
 
-func (c *C) ComposeView(m Matrix) {
+// ComposeView multiplies the current affine transformation matrix by the given one.
+func (c *Canvas) ComposeView(m Matrix) {
 	c.m = c.m.Mul(m)
 }
 
-func (c *C) SetFillColor(color color.RGBA) {
-	c.fillColor = color
+// SetFillColor sets the color to be used for filling operations.
+func (c *Canvas) SetFillColor(col color.Color) {
+	r, g, b, a := col.RGBA()
+	c.fillColor = color.RGBA{uint8(r >> 8), uint8(b >> 8), uint8(g >> 8), uint8(a >> 8)}
 }
 
-func (c *C) SetStrokeColor(color color.RGBA) {
-	c.strokeColor = color
+// SetStrokeColor sets the color to be used for stroking operations.
+func (c *Canvas) SetStrokeColor(col color.Color) {
+	r, g, b, a := col.RGBA()
+	c.strokeColor = color.RGBA{uint8(r >> 8), uint8(b >> 8), uint8(g >> 8), uint8(a >> 8)}
 }
 
-func (c *C) SetStrokeWidth(width float64) {
+// SetStrokeWidth sets the width in mm for stroking operations.
+func (c *Canvas) SetStrokeWidth(width float64) {
 	c.strokeWidth = width
 }
 
-func (c *C) SetStrokeCapper(capper Capper) {
+// SetStrokeCapper sets the line cap function to be used for stroke endpoints.
+func (c *Canvas) SetStrokeCapper(capper Capper) {
 	c.strokeCapper = capper
 }
 
-func (c *C) SetStrokeJoiner(joiner Joiner) {
+// SetStrokeJoiner sets the line join function to be used for stroke midpoints.
+func (c *Canvas) SetStrokeJoiner(joiner Joiner) {
 	c.strokeJoiner = joiner
 }
 
-func (c *C) SetDashes(dashOffset float64, dashes ...float64) {
+// SetDashes sets the dash pattern to be used for stroking operations. The dash offset denotes the offset into the dash array in mm from where to start. Negative values are allowed.
+func (c *Canvas) SetDashes(dashOffset float64, dashes ...float64) {
 	c.dashOffset = dashOffset
 	c.dashes = dashes
 }
 
-func (c *C) DrawPath(x, y float64, path *Path) {
+// DrawPath draws a path at position (x,y) using the current draw state.
+func (c *Canvas) DrawPath(x, y float64, path *Path) {
 	if c.fillColor.A == 0 && (c.strokeColor.A == 0 || c.strokeWidth == 0.0) {
 		return
 	}
@@ -85,7 +103,8 @@ func (c *C) DrawPath(x, y float64, path *Path) {
 	}
 }
 
-func (c *C) DrawText(x, y float64, text *Text) {
+// DrawText draws text at position (x,y) using the current draw state. In particular, it only uses the current affine transformation matrix.
+func (c *Canvas) DrawText(x, y float64, text *Text) {
 	for font := range text.fonts {
 		c.fonts[font] = true
 	}
@@ -93,6 +112,7 @@ func (c *C) DrawText(x, y float64, text *Text) {
 	c.layers = append(c.layers, textLayer{text, Identity.Translate(x, y).Mul(c.m)})
 }
 
+// ImageEncoding defines whether the embedded image shall be embedded as Lossless (typically PNG) or Lossy (typically JPG).
 type ImageEncoding int
 
 const (
@@ -100,7 +120,8 @@ const (
 	Lossy
 )
 
-func (c *C) DrawImage(x, y float64, img image.Image, enc ImageEncoding, dpi float64) {
+// DrawImage draws an image at position (x,y), using an image encoding (Lossy or Lossless) and DPI (dots-per-inch). A higher DPI will draw a smaller image.
+func (c *Canvas) DrawImage(x, y float64, img image.Image, enc ImageEncoding, dpi float64) {
 	if img.Bounds().Size().Eq(image.Point{}) {
 		return
 	}
@@ -111,12 +132,18 @@ func (c *C) DrawImage(x, y float64, img image.Image, enc ImageEncoding, dpi floa
 
 ////////////////////////////////////////////////////////////////
 
-func (c *C) WriteSVG(w io.Writer) {
+// WriteSVG writes the stored drawing operations in Canvas in the SVG file format.
+func (c *Canvas) WriteSVG(w io.Writer) {
 	fmt.Fprintf(w, `<svg version="1.1" width="%g" height="%g" viewBox="0 0 %g %g" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, c.w, c.h, c.w, c.h)
 	if len(c.fonts) > 0 {
 		fmt.Fprintf(w, "<defs><style>")
 		for f := range c.fonts {
-			fmt.Fprintf(w, "\n@font-face{font-family:'%s';src:url('%s');}", f.name, f.ToDataURI())
+			mimetype, raw := f.Raw()
+			fmt.Fprintf(w, "\n@font-face{font-family:'%s';src:url('data:%s;base64,", f.name, mimetype)
+			encoder := base64.NewEncoder(base64.StdEncoding, w)
+			encoder.Write(raw)
+			encoder.Close()
+			fmt.Fprintf(w, "');}")
 		}
 		fmt.Fprintf(w, "\n</style></defs>")
 	}
@@ -126,7 +153,8 @@ func (c *C) WriteSVG(w io.Writer) {
 	fmt.Fprintf(w, "</svg>")
 }
 
-func (c *C) WritePDF(w io.Writer) error {
+// WritePDF writes the stored drawing operations in Canvas in the PDF file format.
+func (c *Canvas) WritePDF(w io.Writer) error {
 	pdf := NewPDFWriter(w)
 	pdfpage := pdf.NewPage(c.w, c.h)
 	for _, l := range c.layers {
@@ -135,9 +163,9 @@ func (c *C) WritePDF(w io.Writer) error {
 	return pdf.Close()
 }
 
-// WriteEPS writes out the image in the EPS file format.
+// WriteEPS writes the stored drawing operations in Canvas in the EPS file format.
 // Be aware that EPS does not support transparency of colors.
-func (c *C) WriteEPS(w io.Writer) {
+func (c *Canvas) WriteEPS(w io.Writer) {
 	eps := NewEPSWriter(w, c.w, c.h)
 	for _, l := range c.layers {
 		eps.Write([]byte("\n"))
@@ -145,7 +173,8 @@ func (c *C) WriteEPS(w io.Writer) {
 	}
 }
 
-func (c *C) WriteImage(dpi float64) *image.RGBA {
+// WriteImage writes the stored drawing operations in Canvas as a rasterized image with given DPI. Higher DPI will result in bigger images.
+func (c *Canvas) WriteImage(dpi float64) *image.RGBA {
 	dpm := dpi * InchPerMm
 	img := image.NewRGBA(image.Rect(0.0, 0.0, int(c.w*dpm+0.5), int(c.h*dpm+0.5)))
 	draw.Draw(img, img.Bounds(), image.NewUniform(White), image.Point{}, draw.Src)
@@ -459,8 +488,8 @@ type textLayer struct {
 }
 
 func (l textLayer) WriteSVG(w io.Writer, h float64) {
-	x, y := l.viewport.pos()
-	rot := l.viewport.theta() * 180.0 / math.Pi
+	x, y := l.viewport.DecomposePos()
+	rot := l.viewport.DecomposeRot()
 	l.Text.WriteSVG(w, x, h-y, rot)
 }
 

@@ -34,7 +34,7 @@ func main() {
 	}
 }
 
-func drawStrokedPath(c *canvas.C, x, y float64, path string, cr canvas.Capper, jr canvas.Joiner) {
+func drawStrokedPath(c *canvas.Canvas, x, y float64, path string, cr canvas.Capper, jr canvas.Joiner) {
 	p, err := canvas.ParseSVG(path)
 	if err != nil {
 		panic(err)
@@ -49,13 +49,13 @@ func drawStrokedPath(c *canvas.C, x, y float64, path string, cr canvas.Capper, j
 	c.DrawPath(x, y, p.Stroke(0.5, canvas.ButtCapper, canvas.BevelJoiner))
 }
 
-func drawText(c *canvas.C, x, y float64, text string) {
+func drawText(c *canvas.Canvas, x, y float64, text string) {
 	face := dejaVuSerif.Face(18.0)
 	c.SetFillColor(canvas.Black)
-	c.DrawText(x, y, canvas.NewTextBox(face, canvas.Black, text, 0.0, 0.0, canvas.Center, canvas.Top, 0.0))
+	c.DrawText(x, y, canvas.NewTextBox(face, canvas.Black, text, 0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0))
 }
 
-func Draw(c *canvas.C) {
+func Draw(c *canvas.Canvas) {
 	pathCapper := "M-20 0L0 0"
 	pathJoiner := "M-20 -10A25 25 0 0 0 0 0A20 20 0 0 1 -5 -15"
 

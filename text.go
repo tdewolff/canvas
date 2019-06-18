@@ -13,6 +13,7 @@ const MaxSentenceSpacing = 3.0 // times width of space
 const MaxWordSpacing = 2.5     // times width of space
 const MaxGlyphSpacing = 0.5    // times x-height
 
+// TextAlign specifies how the text should align or whether it should be justified.
 type TextAlign int
 
 const (
@@ -23,11 +24,6 @@ const (
 	Bottom
 	Justify
 )
-
-type Text struct {
-	lines []line
-	fonts map[*Font]bool
-}
 
 type line struct {
 	lineSpans []lineSpan
@@ -70,6 +66,47 @@ type span interface {
 
 ////////////////////////////////////////////////////////////////
 
+// Text holds the representation of text using lines and text spans.
+type Text struct {
+	lines []line
+	fonts map[*Font]bool
+}
+
+func NewTextLine(ff FontFace, color color.RGBA, s string, halign TextAlign) *Text {
+	// TODO: use halign
+	ss := splitNewlines(s)
+	y := 0.0
+	lines := []line{}
+	for _, s := range ss {
+		span := lineSpan{newTextSpan(ff, color, s), 0.0, 0.0}
+		line := line{[]lineSpan{span}, []decoSpan{}, y}
+		if ff.decoration != nil {
+			line.decoSpans = append(line.decoSpans, decoSpan{ff, color, 0.0, ff.TextWidth(s)})
+		}
+		lines = append(lines, line)
+
+		ascent, descent, spacing := span.Heights()
+		y -= spacing + ascent + descent + spacing
+	}
+	return &Text{lines, map[*Font]bool{ff.f: true}}
+}
+
+// TODO: incorporate into FontFace?
+//func (t TextLine) ToPath() *Path {
+//	p := &Path{}
+//	for _, line := range t.lines {
+//		lp := line.lineSpans[0].ToPath(line.lineSpans[0].w)
+//		lp = lp.Translate(0.0, line.y)
+//		p = p.Append(lp)
+//	}
+//	return p
+//}
+
+func NewTextBox(ff FontFace, color color.RGBA, s string, width, height float64, halign, valign TextAlign, indent, lineStretch float64) *Text {
+	return NewRichText().Add(ff, color, s).ToText(width, height, halign, valign, indent, lineStretch)
+}
+
+// RichText allows to build up a rich text with text spans of different font faces and by fitting that into a box.
 type RichText struct {
 	spans      []span
 	positions  []int
@@ -84,6 +121,7 @@ func NewRichText() *RichText {
 	}
 }
 
+// Add adds a new text span element.
 func (rt *RichText) Add(ff FontFace, color color.RGBA, s string) *RichText {
 	start := len(rt.text)
 	rt.text += s
@@ -108,6 +146,7 @@ func (rt *RichText) Add(ff FontFace, color color.RGBA, s string) *RichText {
 	return rt
 }
 
+// ToText takes the added text spans and fits them within a given box of certain width and height.
 func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, indent, lineStretch float64) *Text {
 	var span0, span1 span
 	if 0 < len(rt.spans) {
@@ -319,46 +358,6 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	return &Text{lines, rt.fonts}
 }
 
-type TextLine struct {
-	*Text
-}
-
-func NewTextLine(ff FontFace, color color.RGBA, s string) TextLine {
-	ss := splitNewlines(s)
-	y := 0.0
-	lines := []line{}
-	for _, s := range ss {
-		span := lineSpan{newTextSpan(ff, color, s), 0.0, 0.0}
-		line := line{[]lineSpan{span}, []decoSpan{}, y}
-		if ff.decoration != nil {
-			line.decoSpans = append(line.decoSpans, decoSpan{ff, color, 0.0, ff.TextWidth(s)})
-		}
-		lines = append(lines, line)
-
-		ascent, descent, spacing := span.Heights()
-		y -= spacing + ascent + descent + spacing
-	}
-	return TextLine{&Text{lines, map[*Font]bool{ff.f: true}}}
-}
-
-func (t TextLine) ToText() *Text {
-	return t.Text
-}
-
-func (t TextLine) ToPath() *Path {
-	p := &Path{}
-	for _, line := range t.lines {
-		lp := line.lineSpans[0].ToPath(line.lineSpans[0].w)
-		lp = lp.Translate(0.0, line.y)
-		p = p.Append(lp)
-	}
-	return p
-}
-
-func NewTextBox(ff FontFace, color color.RGBA, s string, width, height float64, halign, valign TextAlign, indent, lineStretch float64) *Text {
-	return NewRichText().Add(ff, color, s).ToText(width, height, halign, valign, indent, lineStretch)
-}
-
 // Bounds returns the rectangle that contains the entire text box.
 func (t *Text) Bounds() Rect {
 	if len(t.lines) == 0 || len(t.lines[0].lineSpans) == 0 {
@@ -401,6 +400,7 @@ func (t *Text) ToPaths() ([]*Path, []color.RGBA) {
 	return paths, colors
 }
 
+// WriteSVG will write out the text in the SVG file format.
 func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
 	fmt.Fprintf(w, `<text x="%g" y="%g`, x, y)
 	if rot != 0.0 {
@@ -449,6 +449,14 @@ func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
 		l.WriteSVG(w, 0.0)
 	}
 }
+
+// WritePDF will write out the text in the PDF file format.
+func (t *Text) WritePDF(w *PDFPageWriter) {
+	// TODO: Text.WritePDF
+}
+
+// TODO: Text.WriteEPS
+// TODO: Text.WriteImage
 
 ////////////////////////////////////////////////////////////////
 

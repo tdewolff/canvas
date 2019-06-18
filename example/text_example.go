@@ -32,7 +32,7 @@ func main() {
 	}
 }
 
-func drawText(c *canvas.C, x, y float64, halign, valign canvas.TextAlign, indent float64) {
+func drawText(c *canvas.Canvas, x, y float64, halign, valign canvas.TextAlign, indent float64) {
 	face := dejaVuSerif.Face(6.0)
 	phrase := "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi egestas, augue eget blandit laoreet, dolor lorem interdum ante, quis consectetur lorem massa vitae nulla. Sed cursus tellus id venenatis suscipit. Nunc volutpat imperdiet ipsum vel varius. Pellentesque mattis viverra odio, ullamcorper iaculis massa tristique imperdiet. Aliquam posuere nisl tortor, in scelerisque elit eleifend sed."
 
@@ -46,7 +46,7 @@ func drawText(c *canvas.C, x, y float64, halign, valign canvas.TextAlign, indent
 	c.DrawText(x, y, text)
 }
 
-func Draw(c *canvas.C) {
+func Draw(c *canvas.Canvas) {
 	face := dejaVuSerif.Face(14.0)
 	c.SetFillColor(canvas.Black)
 	c.DrawText(132.5, 90.0, canvas.NewTextBox(face, canvas.Black, "Different horizontal and vertical alignments with indent", 0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0))

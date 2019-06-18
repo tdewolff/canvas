@@ -1,7 +1,6 @@
 package canvas
 
 import (
-	"encoding/base64"
 	"image/color"
 	"io/ioutil"
 	"math"
@@ -18,10 +17,11 @@ import (
 
 var sfntBuffer sfnt.Buffer
 
-type TransformationOptions int
+// TypographicOptions are the options that can be enabled to make typographic or ligature substitutions automatically.
+type TypographicOptions int
 
 const (
-	NoTypography TransformationOptions = 2 << iota
+	NoTypography TypographicOptions = 2 << iota
 	NoRequiredLigatures
 	CommonLigatures
 	DiscretionaryLigatures
@@ -37,6 +37,7 @@ var commonLigatures = [][2]string{
 	{"fl", "\uFB02"},
 }
 
+// FontStyle defines the font style to be used for the font. Note that Subscript/Inferior and Superscript/Superior might be the same for a given font.
 type FontStyle int
 
 const (
@@ -49,6 +50,7 @@ const (
 	Superior
 )
 
+// Font defines a font of type TTF or OTF which which a FontFace can be generated for use in text drawing operations.
 type Font struct {
 	mimetype string
 	raw      []byte
@@ -57,7 +59,7 @@ type Font struct {
 	name  string
 	style FontStyle
 
-	transformationOptions  TransformationOptions
+	typographicOptions     TypographicOptions
 	requiredLigatures      [][2]string
 	commonLigatures        [][2]string
 	discretionaryLigatures [][2]string
@@ -114,11 +116,12 @@ func LoadFont(name string, style FontStyle, b []byte) (Font, error) {
 	}, nil
 }
 
-func (f *Font) Use(transformationOptions TransformationOptions) {
-	f.transformationOptions = transformationOptions
+// Use specifies which typographic options shall be used, ie. whether to use common typographic substitutions and which ligatures classes to use.
+func (f *Font) Use(typographicOptions TypographicOptions) {
+	f.typographicOptions = typographicOptions
 }
 
-// Face gets the font face associated with the give font name and font size (in pt).
+// Face gets the font face given by the font size (in pt).
 func (f *Font) Face(size float64) FontFace {
 	// TODO: add hinting
 	return FontFace{
@@ -129,44 +132,38 @@ func (f *Font) Face(size float64) FontFace {
 	}
 }
 
-func (f *Font) ToDataURI() string {
-	sb := strings.Builder{}
-	sb.WriteString("data:")
-	sb.WriteString(f.mimetype)
-	sb.WriteString(";base64,")
-	encoder := base64.NewEncoder(base64.StdEncoding, &sb)
-	encoder.Write(f.raw)
-	encoder.Close()
-	return sb.String()
-}
-
-// TODO: generate new raw with only used characters
+// Raw returns the mimetype and raw binary data of the font.
 func (f *Font) Raw() (string, []byte) {
+	// TODO: generate new raw with only used characters
 	return f.mimetype, f.raw
 }
 
+// FontFace defines a font face from a given font. It allows setting the font size, its color, faux styles and font decorations.
 // TODO: use font provided subscript etc, or use suggested values for subscript position and size
-// same for underlining
 type FontFace struct {
 	f              *Font
 	ppemOrig, ppem fixed.Int26_6
 	hinting        font.Hinting
 
-	color                        color.Color
+	color                        color.RGBA
 	fauxStyle                    FontStyle
 	offset, fauxBold, fauxItalic float64
 	decoration                   []FontDecorator
 }
 
+// Equals returns true when two font face are equal. In particular this allows two adjacent text spans that use the same decoration to allow the decoration to span both elements instead of two separately.
 func (ff FontFace) Equals(other FontFace) bool {
 	return ff.f == other.f && ff.ppemOrig == other.ppemOrig && ff.color == other.color && ff.fauxStyle == other.fauxStyle && reflect.DeepEqual(ff.decoration, other.decoration)
 }
 
-func (ff FontFace) Color(color color.Color) FontFace {
-	ff.color = color
+// Color sets the color to be used and returns a new FontFace.
+func (ff FontFace) Color(col color.Color) FontFace {
+	r, g, b, a := col.RGBA()
+	ff.color = color.RGBA{uint8(r >> 8), uint8(b >> 8), uint8(g >> 8), uint8(a >> 8)}
 	return ff
 }
 
+// Faux sets the faux styles to be used and returns a new FontFace.
 func (ff FontFace) Faux(style FontStyle) FontFace {
 	metricsOrig := ff.Metrics()
 	ff.offset = 0.0
@@ -198,6 +195,7 @@ func (ff FontFace) Faux(style FontStyle) FontFace {
 	return ff
 }
 
+// Decoration sets the decorations to be used and returns a new FontFace.
 func (ff FontFace) Decoration(decorators ...FontDecorator) FontFace {
 	if ff.decoration == nil {
 		ff.decoration = []FontDecorator{}
@@ -208,6 +206,7 @@ func (ff FontFace) Decoration(decorators ...FontDecorator) FontFace {
 	return ff
 }
 
+// Decorate will return a path from the decorations specified in the FontFace over a given width in mm.
 func (ff FontFace) Decorate(width float64) *Path {
 	p := &Path{}
 	if ff.decoration != nil {
@@ -218,11 +217,12 @@ func (ff FontFace) Decorate(width float64) *Path {
 	return p
 }
 
-// Info returns the font name, style and size.
+// Info returns the font name, size and style.
 func (ff FontFace) Info() (name string, size float64, style FontStyle) {
 	return ff.f.name, fromI26_6(ff.ppem), ff.f.style
 }
 
+// FontMetrics contains a number of metrics that define a font face.
 type FontMetrics struct {
 	Size       float64
 	LineHeight float64
@@ -245,7 +245,7 @@ func (ff FontFace) Metrics() FontMetrics {
 	}
 }
 
-// textWidth returns the width of a given string in mm.
+// TextWidth returns the width of a given string in mm.
 func (ff FontFace) TextWidth(s string) float64 {
 	w := 0.0
 	var prevIndex sfnt.GlyphIndex
@@ -270,8 +270,9 @@ func (ff FontFace) TextWidth(s string) float64 {
 	return w
 }
 
-// ToPath converts a rune to a path and its advance.
+// ToPath converts a rune to a path and also returns its advance in mm.
 func (ff FontFace) ToPath(r rune) (*Path, float64) {
+	// TODO: use caching if performance suffers
 	p := &Path{}
 	index, err := ff.f.sfnt.GlyphIndex(&sfntBuffer, r)
 	if err != nil {
@@ -329,6 +330,7 @@ func (ff FontFace) ToPath(r rune) (*Path, float64) {
 	return p, dx
 }
 
+// Kerning returns the kerning between two runes in mm (ie. the adjustment on the advance).
 func (ff FontFace) Kerning(rPrev, rNext rune) float64 {
 	prevIndex, err := ff.f.sfnt.GlyphIndex(&sfntBuffer, rPrev)
 	if err != nil {
@@ -349,6 +351,7 @@ func (ff FontFace) Kerning(rPrev, rNext rune) float64 {
 
 ////////////////////////////////////////////////////////////////
 
+// FontDecorator is an interface that returns a path given a font face and a width in mm.
 type FontDecorator interface {
 	Decorate(FontFace, float64) *Path
 }
@@ -356,6 +359,7 @@ type FontDecorator interface {
 const underlineDistance = 0.15
 const underlineThickness = 0.075
 
+// Underline is a font decoration that draws a line under the text at the base line.
 var Underline FontDecorator = underline{}
 
 type underline struct{}
@@ -370,6 +374,7 @@ func (underline) Decorate(ff FontFace, w float64) *Path {
 	return p.Stroke(r, ButtCapper, BevelJoiner)
 }
 
+// Overline is a font decoration that draws a line over the text at the X-Height line.
 var Overline FontDecorator = overline{}
 
 type overline struct{}
@@ -387,6 +392,7 @@ func (overline) Decorate(ff FontFace, w float64) *Path {
 	return p.Stroke(r, ButtCapper, BevelJoiner)
 }
 
+// Strikethrough is a font decoration that draws a line through the text in the middle between the base and X-Height line.
 var Strikethrough FontDecorator = strikethrough{}
 
 type strikethrough struct{}
@@ -404,6 +410,7 @@ func (strikethrough) Decorate(ff FontFace, w float64) *Path {
 	return p.Stroke(r, ButtCapper, BevelJoiner)
 }
 
+// DoubleUnderline is a font decoration that draws two lines at the base line.
 var DoubleUnderline FontDecorator = doubleUnderline{}
 
 type doubleUnderline struct{}
@@ -420,6 +427,7 @@ func (doubleUnderline) Decorate(ff FontFace, w float64) *Path {
 	return p.Stroke(r, ButtCapper, BevelJoiner)
 }
 
+// DottedUnderline is a font decoration that draws a dotted line at the base line.
 var DottedUnderline FontDecorator = dottedUnderline{}
 
 type dottedUnderline struct{}
@@ -440,6 +448,7 @@ func (dottedUnderline) Decorate(ff FontFace, w float64) *Path {
 	return p
 }
 
+// DashedUnderline is a font decoration that draws a dashed line at the base line.
 var DashedUnderline FontDecorator = dashedUnderline{}
 
 type dashedUnderline struct{}
@@ -458,6 +467,7 @@ func (dashedUnderline) Decorate(ff FontFace, w float64) *Path {
 	return p
 }
 
+// SineUnderline is a font decoration that draws a wavy sine path at the base line.
 var SineUnderline FontDecorator = sineUnderline{}
 
 type sineUnderline struct{}
@@ -486,6 +496,7 @@ func (sineUnderline) Decorate(ff FontFace, w float64) *Path {
 	return p.Stroke(r, RoundCapper, RoundJoiner)
 }
 
+// Sawtooth is a font decoration that draws a wavy sawtooth path at the base line.
 var SawtoothUnderline FontDecorator = sawtoothUnderline{}
 
 type sawtoothUnderline struct{}
@@ -609,26 +620,26 @@ func quoteReplace(s string, i int, prev, quote, next rune, isOpen *bool) (string
 
 func (f *Font) transform(s string, replaceCombinations bool) string {
 	s = strings.ReplaceAll(s, "\u200b", "")
-	if f.transformationOptions&NoRequiredLigatures == 0 {
+	if f.typographicOptions&NoRequiredLigatures == 0 {
 		for _, transformation := range f.requiredLigatures {
 			s = strings.ReplaceAll(s, transformation[0], transformation[1])
 		}
 	}
-	if f.transformationOptions&CommonLigatures != 0 {
+	if f.typographicOptions&CommonLigatures != 0 {
 		for _, transformation := range f.commonLigatures {
 			if replaceCombinations || utf8.RuneCountInString(transformation[0]) == 1 {
 				s = strings.ReplaceAll(s, transformation[0], transformation[1])
 			}
 		}
 	}
-	if f.transformationOptions&DiscretionaryLigatures != 0 {
+	if f.typographicOptions&DiscretionaryLigatures != 0 {
 		for _, transformation := range f.discretionaryLigatures {
 			if replaceCombinations || utf8.RuneCountInString(transformation[0]) == 1 {
 				s = strings.ReplaceAll(s, transformation[0], transformation[1])
 			}
 		}
 	}
-	if f.transformationOptions&HistoricalLigatures != 0 {
+	if f.typographicOptions&HistoricalLigatures != 0 {
 		for _, transformation := range f.historicalLigatures {
 			if replaceCombinations || utf8.RuneCountInString(transformation[0]) == 1 {
 				s = strings.ReplaceAll(s, transformation[0], transformation[1])
@@ -636,7 +647,7 @@ func (f *Font) transform(s string, replaceCombinations bool) string {
 		}
 	}
 	// TODO: make sure unicode points exist in font
-	if f.transformationOptions&NoTypography == 0 {
+	if f.typographicOptions&NoTypography == 0 {
 		var inSingleQuote, inDoubleQuote bool
 		var rPrev, r rune
 		var i, size int
