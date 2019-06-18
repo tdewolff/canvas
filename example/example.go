@@ -87,6 +87,7 @@ func drawText(c *canvas.Canvas, x, y float64, face canvas.FontFace, rich *canvas
 }
 
 func Draw(c *canvas.Canvas) {
+	// Draw a comprehensive text box
 	face := dejaVuSerif.Face(12.0)
 	rich := canvas.NewRichText()
 	rich.Add(face, canvas.Black, "\"Lorem ")
@@ -115,10 +116,12 @@ func Draw(c *canvas.Canvas) {
 	rich.Add(face, canvas.Black, ".")
 	drawText(c, 10, 70, face, rich)
 
+	// Draw the word Stroke being stroked
 	face = dejaVuSerif.Face(80.0)
-	//p := canvas.NewTextLine(face, canvas.Black, "Stroke").ToPath()
-	//c.DrawPath(5, 10, p.Stroke(0.75, canvas.RoundCapper, canvas.RoundJoiner))
+	p, _ := face.ToPath("Stroke")
+	c.DrawPath(5, 10, p.Stroke(0.75, canvas.RoundCapper, canvas.RoundJoiner))
 
+	// Draw a LaTeX formula
 	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
 	if err != nil {
 		panic(err)
@@ -127,6 +130,7 @@ func Draw(c *canvas.Canvas) {
 	c.SetFillColor(canvas.Black)
 	c.DrawPath(140, 65, latex)
 
+	// Draw an elliptic arc being dashed
 	ellipse, err := canvas.ParseSVG(fmt.Sprintf("A10 20 30 1 0 20 0z"))
 	if err != nil {
 		panic(err)
@@ -144,6 +148,7 @@ func Draw(c *canvas.Canvas) {
 	c.DrawPath(110, 40, ellipse)
 	c.SetStrokeColor(canvas.Transparent)
 
+	// Draw an open set of points being smoothed
 	polyline := &canvas.Polyline{}
 	polyline.Add(0.0, 0.0)
 	polyline.Add(20.0, 0.0)
@@ -155,6 +160,7 @@ func Draw(c *canvas.Canvas) {
 	c.SetFillColor(canvas.Black)
 	c.DrawPath(170, 10, polyline.ToPath().Stroke(0.25, canvas.RoundCapper, canvas.RoundJoiner))
 
+	// Draw a closed set of points being smoothed
 	polyline = &canvas.Polyline{}
 	polyline.Add(0.0, 0.0)
 	polyline.Add(10.0, 5.0)
@@ -168,6 +174,7 @@ func Draw(c *canvas.Canvas) {
 		c.DrawPath(120, 5, canvas.Circle(1.0).Translate(coord.X, coord.Y).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner))
 	}
 
+	// Draw a raster image
 	lenna, err := os.Open("lenna.png")
 	if err != nil {
 		panic(err)

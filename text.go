@@ -526,7 +526,7 @@ func (ts textSpan) getGlyphSpacing(width float64) float64 {
 	return glyphSpacing
 }
 
-// TODO: transform to Draw to canvas
+// TODO: transform to Draw to canvas and cache the glyph rasterizations?
 func (ts textSpan) ToPath(width float64) *Path {
 	glyphSpacing := ts.getGlyphSpacing(width)
 	s := ts.ff.f.transform(ts.s, glyphSpacing == 0.0)
@@ -539,7 +539,7 @@ func (ts textSpan) ToPath(width float64) *Path {
 			x += ts.ff.Kerning(rPrev, r)
 		}
 
-		pr, advance := ts.ff.ToPath(r)
+		pr, advance := ts.ff.ToPath(string(r))
 		pr = pr.Translate(x, 0.0)
 		p = p.Append(pr)
 		x += advance

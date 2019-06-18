@@ -270,64 +270,66 @@ func (ff FontFace) TextWidth(s string) float64 {
 	return w
 }
 
-// ToPath converts a rune to a path and also returns its advance in mm.
-func (ff FontFace) ToPath(r rune) (*Path, float64) {
+// ToPath converts a string to a path and also returns its advance in mm.
+func (ff FontFace) ToPath(s string) (*Path, float64) {
 	// TODO: use caching if performance suffers
 	p := &Path{}
-	index, err := ff.f.sfnt.GlyphIndex(&sfntBuffer, r)
-	if err != nil {
-		return p, 0.0
-	}
+	x := 0.0
+	for _, r := range s {
+		index, err := ff.f.sfnt.GlyphIndex(&sfntBuffer, r)
+		if err != nil {
+			return p, 0.0
+		}
 
-	segments, err := ff.f.sfnt.LoadGlyph(&sfntBuffer, index, ff.ppem, nil)
-	if err != nil {
-		return p, 0.0
-	}
+		segments, err := ff.f.sfnt.LoadGlyph(&sfntBuffer, index, ff.ppem, nil)
+		if err != nil {
+			return p, 0.0
+		}
 
-	var start0, end Point
-	for i, segment := range segments {
-		switch segment.Op {
-		case sfnt.SegmentOpMoveTo:
-			if i != 0 && start0.Equals(end) {
-				p.Close()
+		var start0, end Point
+		for i, segment := range segments {
+			switch segment.Op {
+			case sfnt.SegmentOpMoveTo:
+				if i != 0 && start0.Equals(end) {
+					p.Close()
+				}
+				end = fromP26_6(segment.Args[0])
+				end.X += ff.fauxItalic * -end.Y
+				p.MoveTo(x+end.X, ff.offset-end.Y)
+				start0 = end
+			case sfnt.SegmentOpLineTo:
+				end = fromP26_6(segment.Args[0])
+				end.X += ff.fauxItalic * -end.Y
+				p.LineTo(x+end.X, ff.offset-end.Y)
+			case sfnt.SegmentOpQuadTo:
+				cp := fromP26_6(segment.Args[0])
+				end = fromP26_6(segment.Args[1])
+				cp.X += ff.fauxItalic * -cp.Y
+				end.X += ff.fauxItalic * -end.Y
+				p.QuadTo(x+cp.X, ff.offset-cp.Y, x+end.X, ff.offset-end.Y)
+			case sfnt.SegmentOpCubeTo:
+				cp1 := fromP26_6(segment.Args[0])
+				cp2 := fromP26_6(segment.Args[1])
+				end = fromP26_6(segment.Args[2])
+				cp1.X += ff.fauxItalic * -cp1.Y
+				cp2.X += ff.fauxItalic * -cp2.Y
+				end.X += ff.fauxItalic * -end.Y
+				p.CubeTo(x+cp1.X, ff.offset-cp1.Y, x+cp2.X, ff.offset-cp2.Y, x+end.X, ff.offset-end.Y)
 			}
-			end = fromP26_6(segment.Args[0])
-			end.X += ff.fauxItalic * -end.Y
-			p.MoveTo(end.X, ff.offset-end.Y)
-			start0 = end
-		case sfnt.SegmentOpLineTo:
-			end = fromP26_6(segment.Args[0])
-			end.X += ff.fauxItalic * -end.Y
-			p.LineTo(end.X, ff.offset-end.Y)
-		case sfnt.SegmentOpQuadTo:
-			cp := fromP26_6(segment.Args[0])
-			end = fromP26_6(segment.Args[1])
-			cp.X += ff.fauxItalic * -cp.Y
-			end.X += ff.fauxItalic * -end.Y
-			p.QuadTo(cp.X, ff.offset-cp.Y, end.X, ff.offset-end.Y)
-		case sfnt.SegmentOpCubeTo:
-			cp1 := fromP26_6(segment.Args[0])
-			cp2 := fromP26_6(segment.Args[1])
-			end = fromP26_6(segment.Args[2])
-			cp1.X += ff.fauxItalic * -cp1.Y
-			cp2.X += ff.fauxItalic * -cp2.Y
-			end.X += ff.fauxItalic * -end.Y
-			p.CubeTo(cp1.X, ff.offset-cp1.Y, cp2.X, ff.offset-cp2.Y, end.X, ff.offset-end.Y)
+		}
+		if !p.Empty() && start0.Equals(end) {
+			p.Close()
+		}
+		if ff.fauxBold != 0.0 {
+			p = p.Offset(ff.fauxBold)
+		}
+
+		advance, err := ff.f.sfnt.GlyphAdvance(&sfntBuffer, index, ff.ppem, ff.hinting)
+		if err == nil {
+			x += fromI26_6(advance)
 		}
 	}
-	if !p.Empty() && start0.Equals(end) {
-		p.Close()
-	}
-	if ff.fauxBold != 0.0 {
-		p = p.Offset(ff.fauxBold)
-	}
-
-	dx := 0.0
-	advance, err := ff.f.sfnt.GlyphAdvance(&sfntBuffer, index, ff.ppem, ff.hinting)
-	if err == nil {
-		dx = fromI26_6(advance)
-	}
-	return p, dx
+	return p, x
 }
 
 // Kerning returns the kerning between two runes in mm (ie. the adjustment on the advance).
