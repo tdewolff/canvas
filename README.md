@@ -1,5 +1,7 @@
 # Canvas <a name="canvas"></a> [![GoDoc](http://godoc.org/github.com/tdewolff/canvas?status.svg)](http://godoc.org/github.com/tdewolff/canvas)
 
+TODO: make title image
+
 Canvas is a common vector drawing target that can output SVG, PDF, EPS and raster images (which can be saved as PNG, JPG, ...). It can parse SVG path data or LaTeX into paths and has a wide range of path manipulation functionality (such as flattening, stroking and dashing). Text can be displayed using embedded fonts (TTF, OTF or WOFF) or by converting them to outlines and can be aligned and indented within a rectangle (see Fig. 1 below).
 
 ![Example](https://raw.githubusercontent.com/tdewolff/canvas/master/example/example.png)
@@ -58,7 +60,7 @@ Features that are planned to be implemented in the future. Also see the TODOs in
 
 General
 
-* Fix slowness in the rasterizer (text_example.go is slow! use rasterized cache for each glyph)
+* Fix slowness in the rasterizer (text_example.go is slow! use rasterized cache for each glyph/path)
 
 Fonts
 
@@ -72,7 +74,7 @@ Fonts
 
 Paths
 
-* Draw markers on path (start, end, and each coordinate) taking position, direction and glyph (path)
+* Get position and derivative/normal at length L along the path
 * Simplify polygons using the Ramer-Douglas-Peucker algorithm
 * Intersection function between line, Bézier and ellipse and between themselves (for path merge, overlap/mask, clipping, etc.)
 * Implement Bentley-Ottmann algorithm to find all line intersections (clipping)

@@ -239,8 +239,14 @@ func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x1, y1 float64) 
 	if equal(rx, 0.0) || equal(ry, 0.0) {
 		return p.LineTo(p1.X, p1.Y)
 	}
+
 	rx = math.Abs(rx)
 	ry = math.Abs(ry)
+	if rx < ry {
+		rx, ry = ry, rx
+		rot += 90.0
+	}
+
 	phi := angleNorm(rot * math.Pi / 180.0)
 	if math.Pi <= phi { // phi is canonical within 0 <= phi < 180
 		phi -= math.Pi
@@ -252,8 +258,6 @@ func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x1, y1 float64) 
 		rx *= lambda
 		ry *= lambda
 	}
-
-	// TODO: ensure rx is the major axis and ry the minor one, otherwise switch them and adjust phi
 
 	p.d = append(p.d, ArcToCmd, rx, ry, phi, toArcFlags(largeArc, sweep), p1.X, p1.Y)
 	return p
@@ -695,17 +699,33 @@ func (p *Path) Replace(
 	return p
 }
 
-//type Marker func(Point, Point) *Path
-//
-//// TODO: implement markers function
-//func (p *Path) Markers(start, mid, end Marker) *Path {
-//	for i := 0; i < len(p.d); {
-//		cmd := p.d[i]
-//		i += cmdLen(cmd)
-//		//coord := Point{p.d[i-2], p.d[i-1]}
-//	}
-//	return p
-//}
+// Markers returns an array of start, mid and end markers along the path at the path coordinates between commands. Align will align the markers with the path direction.
+func (p *Path) Markers(start, mid, end *Path, align bool) []*Path {
+	coord := Point{}
+	markers := []*Path{}
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		if len(markers) != 0 || cmd == MoveToCmd {
+			i += cmdLen(cmd)
+			coord = Point{p.d[i-2], p.d[i-1]}
+		}
+		if cmd != MoveToCmd {
+			q := mid
+			if len(markers) == 0 {
+				q = start
+			} else if i == len(p.d) {
+				q = end
+			}
+
+			m := Identity.Translate(coord.X, coord.Y)
+			if align {
+				// TODO: marker alignment
+			}
+			markers = append(markers, q.Copy().Transform(m))
+		}
+	}
+	return markers
+}
 
 // Split splits the path into its independent path segments. The path is split on the MoveTo and/or Close commands.
 func (p *Path) Split() []*Path {
@@ -832,7 +852,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 				if j == len(ts) {
 					q.CubeTo(cp1.X, cp1.Y, cp2.X, cp2.Y, end.X, end.Y)
 				} else {
-					// TODO: handle inflection points
+					// TODO: handle inflection points (not sure if really needed)
 					speed := func(t float64) float64 {
 						return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
 					}

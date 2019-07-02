@@ -9,15 +9,14 @@ import (
 	"github.com/tdewolff/canvas"
 )
 
-var dejaVuSerif canvas.Font
+var dejaVuSerif *canvas.FontFamily
 
 func main() {
-	var err error
-	dejaVuSerif, err = canvas.LoadFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.woff")
-	if err != nil {
+	dejaVuSerif = canvas.NewFontFamily("dejavu-serif")
+	dejaVuSerif.Use(canvas.CommonLigatures)
+	if err := dejaVuSerif.LoadFontFile("DejaVuSerif.woff", canvas.FontRegular); err != nil {
 		panic(err)
 	}
-	dejaVuSerif.Use(canvas.CommonLigatures)
 
 	c := canvas.New(200, 80)
 	Draw(c)
@@ -72,52 +71,56 @@ func main() {
 func drawText(c *canvas.Canvas, x, y float64, face canvas.FontFace, rich *canvas.RichText) {
 	metrics := face.Metrics()
 	width, height := 80.0, 25.0
+
 	text := rich.ToText(width, height, canvas.Justify, canvas.Top, 0.0, 0.0)
 
 	c.SetFillColor(canvas.Orangered)
+	fmt.Println("-")
 	c.DrawPath(x, y, text.Bounds().ToPath())
+	fmt.Println("=")
 	c.SetFillColor(color.RGBA{0, 0, 0, 50})
 	c.DrawPath(x, y, canvas.Rectangle(0, 0, width, -metrics.LineHeight))
 	c.DrawPath(x, y, canvas.Rectangle(0, metrics.CapHeight-metrics.Ascent, width, -metrics.CapHeight-metrics.Descent))
 	c.DrawPath(x, y, canvas.Rectangle(0, metrics.XHeight-metrics.Ascent, width, -metrics.XHeight))
 
 	c.SetFillColor(canvas.Black)
+	fmt.Println("-")
 	c.DrawPath(x, y, canvas.Rectangle(0.0, 0.0, width, -height).Stroke(0.2, canvas.RoundCapper, canvas.RoundJoiner))
+	fmt.Println("a")
 	c.DrawText(x, y, text)
+	fmt.Println("b")
 }
 
 func Draw(c *canvas.Canvas) {
 	// Draw a comprehensive text box
-	face := dejaVuSerif.Face(12.0)
-	rich := canvas.NewRichText()
-	rich.Add(face, canvas.Black, "\"Lorem ")
-	rich.Add(face, canvas.Teal, "ipsum ")
-	rich.Add(face.Faux(canvas.Subscript), canvas.Black, "1")
-	rich.Add(face.Faux(canvas.Inferior), canvas.Black, "2")
-	rich.Add(face.Faux(canvas.Superior), canvas.Black, "3")
-	rich.Add(face.Faux(canvas.Superscript), canvas.Black, "4")
-	rich.Add(face, canvas.Black, " dolor\", confis\u200bcatur. ")
-	rich.Add(face.Faux(canvas.Bold), canvas.Black, "faux bold ")
-	rich.Add(face.Faux(canvas.Italic), canvas.Black, "faux\titalic ")
-	rich.Add(face.Decoration(canvas.Underline), canvas.Black, "underline")
-	rich.Add(face, canvas.Black, " ")
-	rich.Add(face.Decoration(canvas.DoubleUnderline), canvas.Black, "double underline")
-	rich.Add(face, canvas.Black, " ")
-	rich.Add(face.Decoration(canvas.SineUnderline), canvas.Black, "sine")
-	rich.Add(face, canvas.Black, " ")
-	rich.Add(face.Decoration(canvas.SawtoothUnderline), canvas.Black, "sawtooth")
-	rich.Add(face, canvas.Black, " ")
-	rich.Add(face.Decoration(canvas.DottedUnderline), canvas.Black, "dotted")
-	rich.Add(face, canvas.Black, " ")
-	rich.Add(face.Decoration(canvas.DashedUnderline), canvas.Black, "dashed")
-	rich.Add(face, canvas.Black, " ")
-	rich.Add(face.Decoration(canvas.Overline), canvas.Black, "overline ")
-	rich.Add(face.Faux(canvas.Italic).Decoration(canvas.Strikethrough, canvas.SineUnderline, canvas.Overline), canvas.Black, "combi")
-	rich.Add(face, canvas.Black, ".")
+	face := dejaVuSerif.Face(12.0, canvas.FontRegular, canvas.FontNormal, canvas.Black)
+	rich := canvas.NewRichText(face)
+	rich.Add(face, "\"Lorem ")
+	rich.Add(dejaVuSerif.Face(12.0, canvas.FontRegular, canvas.FontNormal, canvas.Teal), "ipsum ")
+	rich.Add(dejaVuSerif.Face(12.0, canvas.FontRegular, canvas.FontSubscript, canvas.Black), "1")
+	rich.Add(dejaVuSerif.Face(12.0, canvas.FontRegular, canvas.FontSuperscript, canvas.Black), "2")
+	rich.Add(face, " dolor\", confis\u200bcatur. ")
+	rich.Add(dejaVuSerif.Face(12.0, canvas.FontBold, canvas.FontNormal, canvas.Black), "faux bold")
+	rich.Add(dejaVuSerif.Face(12.0, canvas.FontItalic, canvas.FontNormal, canvas.Black), "faux italic")
+	rich.Add(dejaVuSerif.Face(12.0, canvas.FontRegular, canvas.FontNormal, canvas.Black, canvas.FontUnderline), "underline")
+	rich.Add(face, " ")
+	rich.Add(dejaVuSerif.Face(12.0, canvas.FontRegular, canvas.FontNormal, canvas.Black, canvas.FontDoubleUnderline), "double underline")
+	rich.Add(face, " ")
+	rich.Add(dejaVuSerif.Face(12.0, canvas.FontRegular, canvas.FontNormal, canvas.Black, canvas.FontSineUnderline), "sine")
+	rich.Add(face, " ")
+	rich.Add(dejaVuSerif.Face(12.0, canvas.FontRegular, canvas.FontNormal, canvas.Black, canvas.FontSawtoothUnderline), "sawtooth")
+	rich.Add(face, " ")
+	rich.Add(dejaVuSerif.Face(12.0, canvas.FontRegular, canvas.FontNormal, canvas.Black, canvas.FontDottedUnderline), "dotted")
+	rich.Add(face, " ")
+	rich.Add(dejaVuSerif.Face(12.0, canvas.FontRegular, canvas.FontNormal, canvas.Black, canvas.FontDashedUnderline), "dashed")
+	rich.Add(face, " ")
+	rich.Add(dejaVuSerif.Face(12.0, canvas.FontRegular, canvas.FontNormal, canvas.Black, canvas.FontOverline), "overline ")
+	rich.Add(dejaVuSerif.Face(12.0, canvas.FontItalic, canvas.FontNormal, canvas.Black, canvas.FontStrikethrough, canvas.FontSineUnderline, canvas.FontOverline), "combi ")
+	rich.Add(face, ".")
 	drawText(c, 10, 70, face, rich)
 
 	// Draw the word Stroke being stroked
-	face = dejaVuSerif.Face(80.0)
+	face = dejaVuSerif.Face(80.0, canvas.FontRegular, canvas.FontNormal, canvas.Black)
 	p, _ := face.ToPath("Stroke")
 	c.DrawPath(5, 10, p.Stroke(0.75, canvas.RoundCapper, canvas.RoundJoiner))
 

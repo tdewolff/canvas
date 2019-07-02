@@ -5,5 +5,6 @@ import (
 )
 
 func TestParseWOFF(t *testing.T) {
-	LoadFontFile("DejaVuSerif", Regular, "example/DejaVuSerif.woff")
+	family := NewFontFamily("dejavu-serif")
+	family.LoadFontFile("example/DejaVuSerif.woff", FontRegular)
 }

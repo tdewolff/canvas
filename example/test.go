@@ -9,12 +9,12 @@ import (
 	"github.com/tdewolff/canvas"
 )
 
-var dejaVuSerif canvas.Font
+var dejaVuSerif *canvas.FontFamily
 
 func main() {
-	var err error
-	dejaVuSerif, err = canvas.LoadFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.woff")
-	if err != nil {
+	dejaVuSerif = canvas.NewFontFamily("dejavu-serif")
+	dejaVuSerif.Use(canvas.CommonLigatures)
+	if err := dejaVuSerif.LoadFontFile("DejaVuSerif.woff", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 
@@ -56,7 +56,7 @@ func main() {
 	}
 }
 
-func drawStrokedPath(c *canvas.C, x, y, d float64, path string) {
+func drawStrokedPath(c *canvas.Canvas, x, y, d float64, path string) {
 	fmt.Println("----------")
 	c.SetFillColor(canvas.Black)
 	p, err := canvas.ParseSVG(path)
@@ -74,11 +74,16 @@ func drawStrokedPath(c *canvas.C, x, y, d float64, path string) {
 	c.DrawPath(x, y, p)
 }
 
-func Draw(c *canvas.C) {
-	p, _ := canvas.ParseSVG(fmt.Sprintf("A60.0 30.0 30.0 0 0 120.0 0.0"))
+func Draw(c *canvas.Canvas) {
+	p, _ := canvas.ParseSVG(fmt.Sprintf("A30.0 60.0 120.0 0 0 120.0 0.0H60"))
 	f := p.Flatten().Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
 	c.SetFillColor(color.RGBA{0, 0, 128, 128})
 	c.DrawPath(10.0, 10.0, f)
+
+	c.SetFillColor(color.RGBA{0, 128, 0, 128})
+	for _, marker := range p.Markers(canvas.Rectangle(-2, -2, 4, 4), canvas.Circle(2), canvas.RegularPolygon(6, 2, true), true) {
+		c.DrawPath(10.0, 10.0, marker)
+	}
 
 	p = p.Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
 	c.SetFillColor(color.RGBA{128, 0, 0, 128})

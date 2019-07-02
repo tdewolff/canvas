@@ -99,6 +99,7 @@ func (c *Canvas) DrawPath(x, y float64, path *Path) {
 	}
 	if !path.Empty() {
 		path = path.Transform(Identity.Translate(x, y).Mul(c.m))
+		c.drawState.fillRule = FillRule
 		c.layers = append(c.layers, pathLayer{path, c.drawState})
 	}
 }
@@ -201,6 +202,7 @@ type drawState struct {
 	strokeJoiner           Joiner
 	dashOffset             float64
 	dashes                 []float64
+	fillRule               FillRuleType
 }
 
 var defaultDrawState = drawState{
@@ -212,6 +214,7 @@ var defaultDrawState = drawState{
 	strokeJoiner: MiterJoiner,
 	dashOffset:   0.0,
 	dashes:       []float64{},
+	fillRule:     NonZero,
 }
 
 ////////////////////////////////////////////////////////////////
@@ -244,7 +247,7 @@ func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 			if l.fillColor != Black {
 				fmt.Fprintf(w, `" fill="%s`, toCSSColor(l.fillColor))
 			}
-			if FillRule == EvenOdd {
+			if l.fillRule == EvenOdd {
 				fmt.Fprintf(w, `" fill-rule="evenodd`)
 			}
 		} else {
@@ -256,7 +259,7 @@ func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 			if l.fillColor != Black {
 				fmt.Fprintf(style, ";fill:%s", toCSSColor(l.fillColor))
 			}
-			if FillRule == EvenOdd {
+			if l.fillRule == EvenOdd {
 				fmt.Fprintf(style, ";fill-rule:evenodd")
 			}
 		} else {
@@ -318,7 +321,7 @@ func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 		if l.strokeColor != Black {
 			fmt.Fprintf(w, `" fill="%s`, toCSSColor(l.strokeColor))
 		}
-		if FillRule == EvenOdd {
+		if l.fillRule == EvenOdd {
 			fmt.Fprintf(w, `" fill-rule="evenodd`)
 		}
 		fmt.Fprintf(w, `"/>`)
@@ -357,7 +360,7 @@ func (l pathLayer) WritePDF(w *PDFPageWriter) {
 			w.Write([]byte(" "))
 			w.Write([]byte(data))
 			w.Write([]byte(" f"))
-			if FillRule == EvenOdd {
+			if l.fillRule == EvenOdd {
 				w.Write([]byte("*"))
 			}
 		} else if !fill && stroke {
@@ -373,7 +376,7 @@ func (l pathLayer) WritePDF(w *PDFPageWriter) {
 			} else {
 				w.Write([]byte(" S"))
 			}
-			if FillRule == EvenOdd {
+			if l.fillRule == EvenOdd {
 				w.Write([]byte("*"))
 			}
 		} else if fill && stroke {
@@ -391,7 +394,7 @@ func (l pathLayer) WritePDF(w *PDFPageWriter) {
 				} else {
 					w.Write([]byte(" B"))
 				}
-				if FillRule == EvenOdd {
+				if l.fillRule == EvenOdd {
 					w.Write([]byte("*"))
 				}
 			} else {
@@ -399,7 +402,7 @@ func (l pathLayer) WritePDF(w *PDFPageWriter) {
 				w.Write([]byte(" "))
 				w.Write([]byte(data))
 				w.Write([]byte(" f"))
-				if FillRule == EvenOdd {
+				if l.fillRule == EvenOdd {
 					w.Write([]byte("*"))
 				}
 
@@ -415,7 +418,7 @@ func (l pathLayer) WritePDF(w *PDFPageWriter) {
 				} else {
 					w.Write([]byte(" S"))
 				}
-				if FillRule == EvenOdd {
+				if l.fillRule == EvenOdd {
 					w.Write([]byte("*"))
 				}
 			}
@@ -427,7 +430,7 @@ func (l pathLayer) WritePDF(w *PDFPageWriter) {
 			w.Write([]byte(" "))
 			w.Write([]byte(data))
 			w.Write([]byte(" f"))
-			if FillRule == EvenOdd {
+			if l.fillRule == EvenOdd {
 				w.Write([]byte("*"))
 			}
 		}
@@ -443,7 +446,7 @@ func (l pathLayer) WritePDF(w *PDFPageWriter) {
 		w.Write([]byte(" "))
 		w.Write([]byte(strokePath.ToPDF()))
 		w.Write([]byte(" f"))
-		if FillRule == EvenOdd {
+		if l.fillRule == EvenOdd {
 			w.Write([]byte("*"))
 		}
 	}
@@ -459,6 +462,7 @@ func (l pathLayer) WriteEPS(w *EPSWriter) {
 }
 
 func (l pathLayer) WriteImage(img *image.RGBA, dpm float64) {
+	// TODO: use fillRule
 	w, h := img.Bounds().Size().X, img.Bounds().Size().Y
 	if l.fillColor.A != 0 {
 		ras := vector.NewRasterizer(w, h)
