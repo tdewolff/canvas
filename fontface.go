@@ -113,7 +113,7 @@ func (family *FontFamily) Face(size float64, style FontStyle, variant FontVarian
 			panic("requested font style not found")
 		}
 		if style&FontItalic != 0 {
-			fauxItalic = 0.07
+			fauxItalic = 0.3
 		}
 		if style&FontExtraLight == FontExtraLight {
 			fauxBold = -0.02
