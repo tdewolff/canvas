@@ -186,6 +186,8 @@ func (f *Font) substitute(s string, combinations bool) string {
 				break
 			}
 
+			r, size = utf8.DecodeRuneInString(s[i:])
+
 			// quotes
 			if f.substituteQuotes && (s[i] == '"' || s[i] == '\'') {
 				var rNext rune

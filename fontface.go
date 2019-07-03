@@ -41,7 +41,7 @@ const (
 type FontVariant int
 
 const (
-	FontNormal FontVariant = iota
+	FontNormal FontVariant = 2 << iota
 	FontSubscript
 	FontSuperscript
 	FontSmallcaps
@@ -147,6 +147,7 @@ func (family *FontFamily) Face(size float64, style FontStyle, variant FontVarian
 
 	r, g, b, a := col.RGBA()
 	return FontFace{
+		family:     family,
 		font:       font,
 		size:       size,
 		style:      style,
@@ -162,7 +163,8 @@ func (family *FontFamily) Face(size float64, style FontStyle, variant FontVarian
 
 // FontFace defines a font face from a given font. It allows setting the font size, its color, faux styles and font decorations.
 type FontFace struct {
-	font *Font
+	family *FontFamily
+	font   *Font
 	// TODO: font hinting when rasterizing
 
 	size    float64
@@ -322,6 +324,34 @@ func (ff FontFace) ToPath(s string) (*Path, float64) {
 		}
 	}
 	return p, x
+}
+
+func (ff FontFace) boldness() int {
+	boldness := 400
+	if ff.style&FontExtraLight == FontExtraLight {
+		boldness = 100
+	} else if ff.style&FontLight == FontLight {
+		boldness = 200
+	} else if ff.style&FontBook == FontBook {
+		boldness = 300
+	} else if ff.style&FontMedium == FontMedium {
+		boldness = 500
+	} else if ff.style&FontSemibold == FontSemibold {
+		boldness = 600
+	} else if ff.style&FontBold == FontBold {
+		boldness = 700
+	} else if ff.style&FontBlack == FontBlack {
+		boldness = 800
+	} else if ff.style&FontExtraBlack == FontExtraBlack {
+		boldness = 900
+	}
+	if ff.variant&FontSubscript != 0 || ff.variant&FontSuperscript != 0 {
+		boldness += 300
+		if 1000 < boldness {
+			boldness = 1000
+		}
+	}
+	return boldness
 }
 
 ////////////////////////////////////////////////////////////////

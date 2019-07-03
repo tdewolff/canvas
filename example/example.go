@@ -75,20 +75,15 @@ func drawText(c *canvas.Canvas, x, y float64, face canvas.FontFace, rich *canvas
 	text := rich.ToText(width, height, canvas.Justify, canvas.Top, 0.0, 0.0)
 
 	c.SetFillColor(canvas.Orangered)
-	fmt.Println("-")
 	c.DrawPath(x, y, text.Bounds().ToPath())
-	fmt.Println("=")
 	c.SetFillColor(color.RGBA{0, 0, 0, 50})
 	c.DrawPath(x, y, canvas.Rectangle(0, 0, width, -metrics.LineHeight))
 	c.DrawPath(x, y, canvas.Rectangle(0, metrics.CapHeight-metrics.Ascent, width, -metrics.CapHeight-metrics.Descent))
 	c.DrawPath(x, y, canvas.Rectangle(0, metrics.XHeight-metrics.Ascent, width, -metrics.XHeight))
 
 	c.SetFillColor(canvas.Black)
-	fmt.Println("-")
 	c.DrawPath(x, y, canvas.Rectangle(0.0, 0.0, width, -height).Stroke(0.2, canvas.RoundCapper, canvas.RoundJoiner))
-	fmt.Println("a")
 	c.DrawText(x, y, text)
-	fmt.Println("b")
 }
 
 func Draw(c *canvas.Canvas) {
@@ -101,7 +96,9 @@ func Draw(c *canvas.Canvas) {
 	rich.Add(dejaVuSerif.Face(12.0, canvas.FontRegular, canvas.FontSuperscript, canvas.Black), "2")
 	rich.Add(face, " dolor\", confis\u200bcatur. ")
 	rich.Add(dejaVuSerif.Face(12.0, canvas.FontBold, canvas.FontNormal, canvas.Black), "faux bold")
+	rich.Add(face, " ")
 	rich.Add(dejaVuSerif.Face(12.0, canvas.FontItalic, canvas.FontNormal, canvas.Black), "faux italic")
+	rich.Add(face, " ")
 	rich.Add(dejaVuSerif.Face(12.0, canvas.FontRegular, canvas.FontNormal, canvas.Black, canvas.FontUnderline), "underline")
 	rich.Add(face, " ")
 	rich.Add(dejaVuSerif.Face(12.0, canvas.FontRegular, canvas.FontNormal, canvas.Black, canvas.FontDoubleUnderline), "double underline")

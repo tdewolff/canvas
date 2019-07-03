@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"bytes"
 	"fmt"
 	"image/color"
 	"io"
@@ -26,15 +27,15 @@ const (
 )
 
 type line struct {
-	lineSpans []lineSpan
-	decoSpans []decoSpan
-	y         float64
+	spans []span
+	//decoSpans []decoSpan
+	y float64
 }
 
 func (l line) Heights() (float64, float64, float64, float64) {
 	top, ascent, descent, bottom := 0.0, 0.0, 0.0, 0.0
-	for _, ls := range l.lineSpans {
-		spanAscent, spanDescent, lineSpacing := ls.span.Heights()
+	for _, s := range l.spans {
+		spanAscent, spanDescent, lineSpacing := s.Heights()
 		top = math.Max(top, spanAscent+lineSpacing)
 		ascent = math.Max(ascent, spanAscent)
 		descent = math.Max(descent, spanDescent)
@@ -43,25 +44,24 @@ func (l line) Heights() (float64, float64, float64, float64) {
 	return top, ascent, descent, bottom
 }
 
-type lineSpan struct {
-	span
-	dx float64
-	w  float64
-}
+//type lineSpan struct {
+//	span
+//	dx float64
+//	w  float64
+//}
+//
+//type decoSpan struct {
+//	ff     FontFace
+//	x0, x1 float64
+//}
 
-type decoSpan struct {
-	ff     FontFace
-	x0, x1 float64
-}
-
-type span interface {
-	Color() color.RGBA // TODO: incorporate with ToPath? Or remove when replace ToPath with Rasterize
-	Bounds(float64) Rect
-	WidthRange() (float64, float64)       // min-width and max-width
-	Heights() (float64, float64, float64) // ascent, descent, line spacing
-	Split(float64) (span, span)
-	ToPath(float64) *Path
-}
+//type span interface {
+//	Bounds(float64) Rect
+//	WidthRange() (float64, float64)       // min-width and max-width
+//	Heights() (float64, float64, float64) // ascent, descent, line spacing
+//	Split(float64) (span, span)
+//	ToPath(float64) (*Path, color.RGBA)
+//}
 
 ////////////////////////////////////////////////////////////////
 
@@ -80,9 +80,9 @@ func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 	for _, s := range ss {
 		span := lineSpan{newTextSpan(ff, s), 0.0, 0.0}
 		line := line{[]lineSpan{span}, []decoSpan{}, y}
-		if ff.deco != nil {
-			line.decoSpans = append(line.decoSpans, decoSpan{ff, 0.0, ff.TextWidth(s)})
-		}
+		//if ff.deco != nil {
+		//	line.decoSpans = append(line.decoSpans, decoSpan{ff, 0.0, ff.TextWidth(s)})
+		//}
 		lines = append(lines, line)
 
 		ascent, descent, spacing := span.Heights()
@@ -322,12 +322,11 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 		// set decorations
 		for j, line := range lines {
-			color := Black
 			ff := FontFace{}
 			x0, x1 := 0.0, 0.0
 			for _, ls := range line.lineSpans {
 				ts, ok := ls.span.(textSpan)
-				if 0.0 < x1-x0 && (!ok || ts.color != color || !ts.ff.Equals(ff)) {
+				if 0.0 < x1-x0 && (!ok || !ts.ff.Equals(ff)) {
 					if ff.deco != nil {
 						lines[j].decoSpans = append(lines[j].decoSpans, decoSpan{ff, x0, x1})
 					}
@@ -335,7 +334,6 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 				}
 				if ok {
 					ff = ts.ff
-					color = ts.color
 				}
 				if x0 == x1 {
 					x0 = ls.dx // skip space when starting new decoSpan
@@ -356,16 +354,12 @@ func (t *Text) Bounds() Rect {
 		return Rect{}
 	}
 	r := Rect{}
-	fmt.Println(len(t.lines))
 	for _, line := range t.lines {
-		fmt.Println(len(line.lineSpans))
 		for _, ls := range line.lineSpans {
-			fmt.Println(len(line.lineSpans))
 			spanBounds := ls.span.Bounds(ls.w)
 			spanBounds = spanBounds.Move(Point{ls.dx, line.y})
 			r = r.Add(spanBounds)
 		}
-		fmt.Println(len(line.decoSpans))
 		for _, ds := range line.decoSpans {
 			spanBounds := ds.ff.Decorate(ds.x1 - ds.x0).Bounds()
 			spanBounds = spanBounds.Move(Point{ds.x0, line.y})
@@ -375,8 +369,70 @@ func (t *Text) Bounds() Rect {
 	return r
 }
 
+func (t *Text) mostCommonFontFace() FontFace {
+	families := map[*FontFamily]int{}
+	sizes := map[float64]int{}
+	styles := map[FontStyle]int{}
+	variants := map[FontVariant]int{}
+	colors := map[color.RGBA]int{}
+	for _, line := range t.lines {
+		for _, ls := range line.lineSpans {
+			if ts, ok := ls.span.(textSpan); ok {
+				families[ts.ff.family]++
+				sizes[ts.ff.size]++
+				styles[ts.ff.style]++
+				variants[ts.ff.variant]++
+				colors[ts.ff.color]++
+			}
+		}
+	}
+	if len(families) == 0 {
+		return FontFace{}
+	}
+
+	family, size, style, variant, col := (*FontFamily)(nil), 0.0, FontRegular, FontNormal, Black
+	for key, val := range families {
+		if families[family] < val {
+			family = key
+		}
+	}
+	for key, val := range sizes {
+		if sizes[size] < val {
+			size = key
+		}
+	}
+	for key, val := range styles {
+		if styles[style] < val {
+			style = key
+		}
+	}
+	for key, val := range variants {
+		if variants[variant] < val {
+			variant = key
+		}
+	}
+	for key, val := range colors {
+		if colors[col] < val {
+			col = key
+		}
+	}
+	return family.Face(size*PtPerMm, style, variant, col)
+}
+
 // iterateSpans groups by type and then equality of spans. It also splits on (larger) sentence spacings.
-func (t *Text) iterateSpans(cb func([]span)) {
+func (t *Text) iterateTextSpans(cb func(FontFace, string, float64, float64, float64, float64)) {
+	//for _, line := range t.lines {
+	//	if len(line.lineSpans) == 0 {
+	//		continue
+	//	}
+
+	//	i := 0
+	//	for iSpan, ls := range line.lineSpans[1:] {
+
+	//		if
+
+	//		switch span := ls.span.(type) {
+
 }
 
 // ToPath makes a path out of the text, with x,y the top-left point of the rectangle that fits the text (ie. y is not the text base)
@@ -385,10 +441,10 @@ func (t *Text) ToPaths() ([]*Path, []color.RGBA) {
 	colors := []color.RGBA{}
 	for _, line := range t.lines {
 		for _, ls := range line.lineSpans {
-			span := ls.span.ToPath(ls.w)
+			span, col := ls.span.ToPath(ls.w)
 			span = span.Translate(ls.dx, line.y)
 			paths = append(paths, span)
-			colors = append(colors, ls.Color())
+			colors = append(colors, col)
 		}
 		for _, ds := range line.decoSpans {
 			deco := ds.ff.Decorate(ds.x1 - ds.x0)
@@ -402,67 +458,96 @@ func (t *Text) ToPaths() ([]*Path, []color.RGBA) {
 
 // WriteSVG will write out the text in the SVG file format.
 func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
+	writeStyle := func(ff, ffMain FontFace) {
+		boldness := ff.boldness()
+		differences := 0
+		if ff.style&FontItalic != ffMain.style&FontItalic {
+			differences++
+		}
+		if boldness != ffMain.boldness() {
+			differences++
+		}
+		if ff.variant&FontSmallcaps != ffMain.variant&FontSmallcaps {
+			differences++
+		}
+		if ff.color != ffMain.color {
+			differences++
+		}
+		if ff.font.name != ffMain.font.name || ff.size*ff.scale != ffMain.size || differences == 3 {
+			fmt.Fprintf(w, `" style="font:`)
+			if ff.style&FontItalic != ffMain.style&FontItalic {
+				fmt.Fprintf(w, ` italic`)
+			}
+
+			boldness := ff.boldness()
+			if boldness != ffMain.boldness() {
+				fmt.Fprintf(w, ` %d`, boldness)
+			}
+
+			if ff.variant&FontSmallcaps != ffMain.variant&FontSmallcaps {
+				fmt.Fprintf(w, ` small-caps`)
+			}
+
+			fmt.Fprintf(w, ` %gpx %s`, ff.size*ff.scale, ff.font.name)
+			if ff.color != ffMain.color {
+				fmt.Fprintf(w, `;fill:%s`, toCSSColor(ff.color))
+			}
+		} else if differences == 1 && ff.color != ffMain.color {
+			fmt.Fprintf(w, `" fill="%s`, toCSSColor(ff.color))
+		} else if 0 < differences {
+			fmt.Fprintf(w, `" style="`)
+			buf := &bytes.Buffer{}
+			if ff.style&FontItalic != ffMain.style&FontItalic {
+				fmt.Fprintf(buf, `;font-style:italic`)
+			}
+			if boldness != ffMain.boldness() {
+				fmt.Fprintf(buf, `;font-weight:%d`, boldness)
+			}
+			if ff.variant&FontSmallcaps != ffMain.variant&FontSmallcaps {
+				fmt.Fprintf(buf, `;font-variant:small-caps`)
+			}
+			if ff.color != ffMain.color {
+				fmt.Fprintf(buf, `;fill:%s`, toCSSColor(ff.color))
+			}
+			buf.ReadByte()
+			buf.WriteTo(w)
+		}
+	}
+
+	ffMain := t.mostCommonFontFace()
+
 	fmt.Fprintf(w, `<text x="%g" y="%g`, x, y)
 	if rot != 0.0 {
 		fmt.Fprintf(w, `" transform="rotate(%g,%g,%g)`, -rot, x, y)
 	}
-	// TODO: use default font
+	fmt.Fprintf(w, `" style="font:`)
+	if ffMain.style&FontItalic != 0 {
+		fmt.Fprintf(w, ` italic`)
+	}
+	if boldness := ffMain.boldness(); boldness != 400 {
+		fmt.Fprintf(w, ` %d`, boldness)
+	}
+	if ffMain.variant&FontSmallcaps != 0 {
+		fmt.Fprintf(w, ` small-caps`)
+	}
+	fmt.Fprintf(w, ` %gpx %s`, ffMain.size*ffMain.scale, ffMain.font.name)
+	if ffMain.color != Black {
+		fmt.Fprintf(w, `;fill:%s`, toCSSColor(ffMain.color))
+	}
 	fmt.Fprintf(w, `">`)
+
 	decorations := []pathLayer{}
 	for _, line := range t.lines {
 		for _, ls := range line.lineSpans {
 			switch span := ls.span.(type) {
 			case textSpan:
-				name, size, style, variant := span.ff.Info()
 				glyphSpacing := span.getGlyphSpacing(ls.w)
-				offset := span.ff.voffset // supscript and superscript
-				smallScript := span.ff.variant&FontSubscript != 0 || span.ff.variant&FontSuperscript != 0
 
-				fmt.Fprintf(w, `<tspan x="%g" y="%g`, x+ls.dx, y-line.y-offset)
+				fmt.Fprintf(w, `<tspan x="%g" y="%g`, x+ls.dx, y-line.y-span.ff.voffset)
 				if glyphSpacing > 0.0 {
 					fmt.Fprintf(w, `" textLength="%g`, span.textWidth+float64(utf8.RuneCountInString(span.s))*glyphSpacing)
 				}
-				fmt.Fprintf(w, `" style="font:`)
-				if style&FontItalic != 0 {
-					fmt.Fprintf(w, ` italic`)
-				}
-
-				boldness := 400
-				if style&FontExtraLight == FontExtraLight {
-					boldness = 100
-				} else if style&FontLight == FontLight {
-					boldness = 200
-				} else if style&FontBook == FontBook {
-					boldness = 300
-				} else if style&FontMedium == FontMedium {
-					boldness = 500
-				} else if style&FontSemibold == FontSemibold {
-					boldness = 600
-				} else if style&FontBold == FontBold {
-					boldness = 700
-				} else if style&FontBlack == FontBlack {
-					boldness = 800
-				} else if style&FontExtraBlack == FontExtraBlack {
-					boldness = 900
-				}
-				if smallScript {
-					boldness += 300
-					if 1000 < boldness {
-						boldness = 1000
-					}
-				}
-				if boldness != 400 {
-					fmt.Fprintf(w, ` %d`, boldness)
-				}
-
-				if variant&FontSmallcaps != 0 {
-					fmt.Fprintf(w, ` small-caps`)
-				}
-
-				fmt.Fprintf(w, ` %gpx %s`, size, name)
-				if span.color != Black {
-					fmt.Fprintf(w, `;fill:%s`, toCSSColor(span.color))
-				}
+				writeStyle(span.ff, ffMain)
 				fmt.Fprintf(w, `">%s</tspan>`, span.ff.font.substitute(span.s, glyphSpacing == 0.0))
 			default:
 				panic("unsupported span type")
@@ -491,9 +576,9 @@ func (t *Text) WritePDF(w *PDFPageWriter) {
 
 ////////////////////////////////////////////////////////////////
 
-type textSpan struct {
+type span struct {
+	dx, w          float64
 	ff             FontFace
-	color          color.RGBA
 	s              string
 	textWidth      float64
 	glyphSpacings  int
@@ -513,12 +598,9 @@ func newTextSpan(ff FontFace, s string) textSpan {
 	}
 }
 
-func (ts textSpan) Color() color.RGBA {
-	return ts.ff.color
-}
-
 func (ts textSpan) Bounds(width float64) Rect {
-	return ts.ToPath(width).Bounds() // TODO: make more efficient?
+	p, _ := ts.ToPath(width)
+	return p.Bounds() // TODO: make more efficient?
 }
 
 func (ts textSpan) WidthRange() (float64, float64) {
@@ -557,7 +639,7 @@ func (ts textSpan) getGlyphSpacing(width float64) float64 {
 }
 
 // TODO: transform to Draw to canvas and cache the glyph rasterizations?
-func (ts textSpan) ToPath(width float64) *Path {
+func (ts textSpan) ToPath(width float64) (*Path, color.RGBA) {
 	glyphSpacing := ts.getGlyphSpacing(width)
 	s := ts.ff.font.substitute(ts.s, glyphSpacing == 0.0)
 
@@ -577,7 +659,7 @@ func (ts textSpan) ToPath(width float64) *Path {
 		x += glyphSpacing
 		rPrev = r
 	}
-	return p
+	return p, ts.ff.color
 }
 
 ////////////////////////////////////////////////////////////////
