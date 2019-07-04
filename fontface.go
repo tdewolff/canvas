@@ -11,17 +11,6 @@ import (
 	"golang.org/x/image/font/sfnt"
 )
 
-// TypographicOptions are the options that can be enabled to make typographic or ligature substitutions automatically.
-type TypographicOptions int
-
-const (
-	NoTypography TypographicOptions = 2 << iota
-	NoRequiredLigatures
-	CommonLigatures
-	DiscretionaryLigatures
-	HistoricalLigatures
-)
-
 // FontStyle defines the font style to be used for the font.
 type FontStyle int
 
@@ -48,9 +37,9 @@ const (
 )
 
 type FontFamily struct {
-	name               string
-	fonts              map[FontStyle]*Font
-	typographicOptions TypographicOptions
+	name    string
+	fonts   map[FontStyle]*Font
+	options TypographicOptions
 }
 
 func NewFontFamily(name string) *FontFamily {
@@ -84,15 +73,16 @@ func (family *FontFamily) LoadFont(b []byte, style FontStyle) error {
 	if err != nil {
 		return err
 	}
+	font.Use(family.options)
 	family.fonts[style] = font
 	return nil
 }
 
 // Use specifies which typographic options shall be used, ie. whether to use common typographic substitutions and which ligatures classes to use.
-func (family *FontFamily) Use(typographicOptions TypographicOptions) {
-	family.typographicOptions = typographicOptions
+func (family *FontFamily) Use(options TypographicOptions) {
+	family.options = options
 	for _, font := range family.fonts {
-		font.Use(typographicOptions)
+		font.Use(options)
 	}
 }
 

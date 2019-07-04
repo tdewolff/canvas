@@ -15,6 +15,17 @@ import (
 
 var sfntBuffer sfnt.Buffer
 
+// TypographicOptions are the options that can be enabled to make typographic or ligature substitutions automatically.
+type TypographicOptions int
+
+const (
+	NoTypography TypographicOptions = 2 << iota
+	NoRequiredLigatures
+	CommonLigatures
+	DiscretionaryLigatures
+	HistoricalLigatures
+)
+
 // Font defines a font of type TTF or OTF which which a FontFace can be generated for use in text drawing operations.
 type Font struct {
 	// TODO: extend to fully read in sfnt data and read liga tables, generate Raw font data (base on used glyphs), etc
@@ -24,10 +35,10 @@ type Font struct {
 	sfnt     *sfnt.Font
 
 	// TODO: use sub/superscript Unicode transformations in ToPath etc. if they exist
-	substitutions                         []textSubstitution
-	substituteQuotes, substituteFractions bool
-	superscript                           []textSubstitution
-	subscript                             []textSubstitution
+	typography  bool
+	ligatures   []textSubstitution
+	superscript []textSubstitution
+	subscript   []textSubstitution
 }
 
 func parseFont(name string, b []byte) (*Font, error) {
@@ -64,16 +75,6 @@ var commonLigatures = []textSubstitution{
 	{"ff", '\uFB00'},
 	{"fi", '\uFB01'},
 	{"fl", '\uFB02'},
-}
-
-var typographicSubstitutes = []textSubstitution{
-	{"...", '\u2026'},
-	{". . .", '\u2026'},
-	{"--", '\u2013'},
-	{"---", '\u2014'},
-	{"(c)", '\u00A9'},
-	{"(r)", '\u00AE'},
-	{"(tm)", '\u2122'},
 }
 
 var superscriptSubstitutes = []textSubstitution{
@@ -135,48 +136,26 @@ func (f *Font) supportedSubstitutions(substitutions []textSubstitution) []textSu
 	return supported
 }
 
-func (f *Font) Use(typographicOptions TypographicOptions) {
-	f.substitutions = []textSubstitution{}
-	if typographicOptions&NoTypography == 0 {
-		f.substitutions = append(f.substitutions, f.supportedSubstitutions(typographicSubstitutes)...)
-
-		f.substituteQuotes = false
-		if _, err := f.sfnt.GlyphIndex(&sfntBuffer, '\u201C'); err == nil {
-			if _, err := f.sfnt.GlyphIndex(&sfntBuffer, '\u201D'); err == nil {
-				if _, err := f.sfnt.GlyphIndex(&sfntBuffer, '\u2018'); err == nil {
-					if _, err := f.sfnt.GlyphIndex(&sfntBuffer, '\u2019'); err == nil {
-						f.substituteQuotes = true
-					}
-				}
-			}
-		}
-
-		f.substituteFractions = false
-		if _, err := f.sfnt.GlyphIndex(&sfntBuffer, '\u00BD'); err == nil {
-			if _, err := f.sfnt.GlyphIndex(&sfntBuffer, '\u00BC'); err == nil {
-				if _, err := f.sfnt.GlyphIndex(&sfntBuffer, '\u00BE'); err == nil {
-					if _, err := f.sfnt.GlyphIndex(&sfntBuffer, '\u00B1'); err == nil {
-						f.substituteFractions = true
-					}
-				}
-			}
-		}
+func (f *Font) Use(options TypographicOptions) {
+	if options&NoTypography == 0 {
+		f.typography = true
 	}
-	if typographicOptions&CommonLigatures != 0 {
-		f.substitutions = append(f.substitutions, f.supportedSubstitutions(commonLigatures)...)
+
+	f.ligatures = []textSubstitution{}
+	if options&CommonLigatures != 0 {
+		f.ligatures = append(f.ligatures, f.supportedSubstitutions(commonLigatures)...)
 	}
 }
 
-func (f *Font) substitute(s string, combinations bool) string {
-	//s = strings.ReplaceAll(s, "\u200b", "") // zero-width space
-	for _, stn := range f.substitutions {
-		if combinations || utf8.RuneCountInString(stn.src) == 1 {
-			s = strings.ReplaceAll(s, stn.src, string(stn.dst))
-		}
+func (f *Font) substituteLigatures(s string) string {
+	for _, stn := range f.ligatures {
+		s = strings.ReplaceAll(s, stn.src, string(stn.dst))
 	}
+	return s
+}
 
-	if f.substituteQuotes || (combinations && f.substituteFractions) {
-		var inSingleQuote, inDoubleQuote bool
+func (f *Font) substituteTypography(s string, inSingleQuote, inDoubleQuote bool) (string, bool, bool) {
+	if f.typography {
 		var rPrev, r rune
 		var i, size int
 		for {
@@ -187,9 +166,31 @@ func (f *Font) substitute(s string, combinations bool) string {
 			}
 
 			r, size = utf8.DecodeRuneInString(s[i:])
+			if i+2 < len(s) && s[i] == '.' && s[i+1] == '.' && s[i+2] == '.' {
+				s, size = stringReplace(s, i, 3, "\u2026") // ellipsis
+				continue
+			} else if i+4 < len(s) && s[i] == '.' && s[i+1] == ' ' && s[i+2] == '.' && s[i+3] == ' ' && s[i+4] == '.' {
+				s, size = stringReplace(s, i, 5, "\u2026") // ellipsis
+				continue
+			} else if i+2 < len(s) && s[i] == '-' && s[i+1] == '-' && s[i+2] == '-' {
+				s, size = stringReplace(s, i, 3, "\u2014") // em-dash
+				continue
+			} else if i+1 < len(s) && s[i] == '-' && s[i+1] == '-' {
+				s, size = stringReplace(s, i, 2, "\u2013") // en-dash
+				continue
+			} else if i+2 < len(s) && s[i] == '(' && s[i+1] == 'c' && s[i+2] == ')' {
+				s, size = stringReplace(s, i, 3, "\u00A9") // copyright
+				continue
+			} else if i+2 < len(s) && s[i] == '(' && s[i+1] == 'r' && s[i+2] == ')' {
+				s, size = stringReplace(s, i, 3, "\u00AE") // registered
+				continue
+			} else if i+3 < len(s) && s[i] == '(' && s[i+1] == 't' && s[i+2] == 'm' && s[i+3] == ')' {
+				s, size = stringReplace(s, i, 4, "\u2122") // trademark
+				continue
+			}
 
 			// quotes
-			if f.substituteQuotes && (s[i] == '"' || s[i] == '\'') {
+			if s[i] == '"' || s[i] == '\'' {
 				var rNext rune
 				if i+1 < len(s) {
 					rNext, _ = utf8.DecodeRuneInString(s[i+1:])
@@ -204,7 +205,7 @@ func (f *Font) substitute(s string, combinations bool) string {
 			}
 
 			// fractions
-			if combinations && f.substituteFractions && i+2 < len(s) && s[i+1] == '/' && isWordBoundary(rPrev) && rPrev != '/' {
+			if i+2 < len(s) && s[i+1] == '/' && isWordBoundary(rPrev) && rPrev != '/' {
 				var rNext rune
 				if i+3 < len(s) {
 					rNext, _ = utf8.DecodeRuneInString(s[i+3:])
@@ -227,7 +228,7 @@ func (f *Font) substitute(s string, combinations bool) string {
 			}
 		}
 	}
-	return s
+	return s, inSingleQuote, inDoubleQuote
 }
 
 ////////////////////////////////////////////////////////////////
