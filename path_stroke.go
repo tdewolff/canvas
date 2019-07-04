@@ -473,10 +473,19 @@ func (p *Path) Offset(w float64) *Path {
 			continue
 		}
 
-		ccw := ps.CCW()
-		expand := w > 0.0 && fillings[i]
-		rhs, lhs := offsetSegment(ps, w, ButtCapper, RoundJoiner)
-		if ccw == expand {
+		useRHS := false
+		if ps.CCW() {
+			useRHS = !useRHS
+		}
+		if w > 0.0 {
+			useRHS = !useRHS
+		}
+		if fillings[i] {
+			useRHS = !useRHS
+		}
+
+		rhs, lhs := offsetSegment(ps, math.Abs(w), ButtCapper, RoundJoiner)
+		if useRHS {
 			if rhs != nil {
 				q = q.Append(rhs)
 			}

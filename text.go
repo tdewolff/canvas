@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"io"
 	"math"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -44,32 +45,12 @@ func (l line) Heights() (float64, float64, float64, float64) {
 	return top, ascent, descent, bottom
 }
 
-//type lineSpan struct {
-//	span
-//	dx float64
-//	w  float64
-//}
-//
-//type decoSpan struct {
-//	ff     FontFace
-//	x0, x1 float64
-//}
-
-//type span interface {
-//	Bounds(float64) Rect
-//	WidthRange() (float64, float64)       // min-width and max-width
-//	Heights() (float64, float64, float64) // ascent, descent, line spacing
-//	Split(float64) (span, span)
-//	ToPath(float64) (*Path, color.RGBA)
-//}
-
 ////////////////////////////////////////////////////////////////
 
 // Text holds the representation of text using lines and text spans.
 type Text struct {
 	lines []line
 	fonts map[*Font]bool
-	ff    FontFace
 }
 
 func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
@@ -80,19 +61,16 @@ func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 	for _, s := range ss {
 		span := newTextSpan(ff, s)
 		line := line{[]textSpan{span}, y}
-		//if ff.deco != nil {
-		//	line.decoSpans = append(line.decoSpans, decoSpan{ff, 0.0, ff.TextWidth(s)})
-		//}
 		lines = append(lines, line)
 
 		ascent, descent, spacing := span.Heights()
 		y -= spacing + ascent + descent + spacing
 	}
-	return &Text{lines, map[*Font]bool{ff.font: true}, ff}
+	return &Text{lines, map[*Font]bool{ff.font: true}}
 }
 
 func NewTextBox(ff FontFace, s string, width, height float64, halign, valign TextAlign, indent, lineStretch float64) *Text {
-	return NewRichText(ff).Add(ff, s).ToText(width, height, halign, valign, indent, lineStretch)
+	return NewRichText().Add(ff, s).ToText(width, height, halign, valign, indent, lineStretch)
 }
 
 // RichText allows to build up a rich text with text spans of different font faces and by fitting that into a box.
@@ -101,15 +79,13 @@ type RichText struct {
 	positions  []int
 	boundaries []textBoundary
 	fonts      map[*Font]bool
-	ff         FontFace
 	text       string
 }
 
-func NewRichText(ff FontFace) *RichText {
+func NewRichText() *RichText {
 	// TODO: allow for default font and use font face modifiers (color, style, faux style, decorations)
 	return &RichText{
 		fonts: map[*Font]bool{},
-		ff:    ff,
 	}
 }
 
@@ -344,7 +320,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		//	}
 		//}
 	}
-	return &Text{lines, rt.fonts, rt.ff}
+	return &Text{lines, rt.fonts}
 }
 
 // Bounds returns the rectangle that contains the entire text box.
@@ -359,11 +335,6 @@ func (t *Text) Bounds() Rect {
 			spanBounds = spanBounds.Move(Point{span.dx, line.y})
 			r = r.Add(spanBounds)
 		}
-		//for _, ds := range line.decoSpans {
-		//	spanBounds := ds.ff.Decorate(ds.x1 - ds.x0).Bounds()
-		//	spanBounds = spanBounds.Move(Point{ds.x0, line.y})
-		//	r = r.Add(spanBounds)
-		//}
 	}
 	return r
 }
@@ -413,23 +384,40 @@ func (t *Text) mostCommonFontFace() FontFace {
 			col = key
 		}
 	}
-	return family.Face(size*PtPerMm, style, variant, col)
+	return family.Face(size*PtPerMm, col, style, variant)
 }
 
-// iterateSpans groups by type and then equality of spans. It also splits on (larger) sentence spacings.
-func (t *Text) iterateTextSpans(cb func(FontFace, string, float64, float64, float64, float64)) {
-	//for _, line := range t.lines {
-	//	if len(line.lineSpans) == 0 {
-	//		continue
-	//	}
+// iterateSpans groups by equality of font face. It also splits on (larger) sentence spacings.
+func (t *Text) iterate(callback func(textSpan, float64)) {
+	callbackGroup := func(spans []textSpan, y float64) {
+		ff := spans[0].ff
+		dx := spans[0].dx
+		w := spans[len(spans)-1].dx + spans[len(spans)-1].w - dx
 
-	//	i := 0
-	//	for iSpan, ls := range line.lineSpans[1:] {
+		s := ""
+		textWidth := 0.0
+		glyphSpacings := 0
+		wordBoundaries := []textBoundary{}
+		for _, span := range spans {
+			s += span.text
+			textWidth += span.textWidth
+			glyphSpacings += span.glyphSpacings
+			wordBoundaries = mergeBoundaries(wordBoundaries, span.wordBoundaries)
+		}
+		callback(textSpan{dx, w, nil, s, ff, textWidth, glyphSpacings, wordBoundaries}, y)
+	}
 
-	//		if
-
-	//		switch span := ls.span.(type) {
-
+	for _, line := range t.lines {
+		i := 0
+		for j, span := range line.spans {
+			// TODO: path span elements
+			if i < j && !span.ff.Equals(line.spans[i].ff) {
+				callbackGroup(line.spans[i:j], line.y)
+				i = j
+			}
+		}
+		callbackGroup(line.spans[i:], line.y)
+	}
 }
 
 // ToPath makes a path out of the text, with x,y the top-left point of the rectangle that fits the text (ie. y is not the text base)
@@ -438,17 +426,12 @@ func (t *Text) ToPaths() ([]*Path, []color.RGBA) {
 	colors := []color.RGBA{}
 	for _, line := range t.lines {
 		for _, span := range line.spans {
-			p, col := span.ToPath(span.w)
+			p, deco, col := span.ToPath(span.w)
 			p = p.Translate(span.dx, line.y)
-			paths = append(paths, p)
-			colors = append(colors, col)
+			deco = deco.Translate(span.dx, line.y)
+			paths = append(paths, p, deco)
+			colors = append(colors, col, col)
 		}
-		//for _, ds := range line.decoSpans {
-		//	deco := ds.ff.Decorate(ds.x1 - ds.x0)
-		//	deco = deco.Translate(ds.x0, line.y)
-		//	paths = append(paths, deco)
-		//	colors = append(colors, ds.ff.color)
-		//}
 	}
 	return paths, colors
 }
@@ -476,7 +459,6 @@ func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
 				fmt.Fprintf(w, ` italic`)
 			}
 
-			boldness := ff.boldness()
 			if boldness != ffMain.boldness() {
 				fmt.Fprintf(w, ` %d`, boldness)
 			}
@@ -537,22 +519,20 @@ func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
 	for _, line := range t.lines {
 		for _, span := range line.spans {
 			glyphSpacing := span.getGlyphSpacing(span.w)
+			width := span.textWidth + float64(span.glyphSpacings)*glyphSpacing
 
 			fmt.Fprintf(w, `<tspan x="%g" y="%g`, x+span.dx, y-line.y-span.ff.voffset)
 			if glyphSpacing > 0.0 {
-				fmt.Fprintf(w, `" textLength="%g`, span.textWidth+float64(utf8.RuneCountInString(span.s))*glyphSpacing)
+				fmt.Fprintf(w, `" textLength="%g`, width)
 			}
 			writeStyle(span.ff, ffMain)
-			fmt.Fprintf(w, `">%s</tspan>`, span.ff.font.substitute(span.s, glyphSpacing == 0.0))
+			fmt.Fprintf(w, `">%s</tspan>`, span.text)
+
+			deco := span.ff.Decorate(width).Transform(Identity.Translate(x+span.dx, -y+line.y+span.ff.voffset).RotateAt(rot, x, -y))
+			decorations = append(decorations, pathLayer{deco, drawState{fillColor: span.ff.color}})
 		}
-		//for _, ds := range line.decoSpans {
-		//	deco := ds.ff.Decorate(ds.x1 - ds.x0)
-		//	deco = deco.Transform(Identity.Translate(x+ds.x0, -y+line.y).RotateAt(rot, x, -y))
-		//	decorations = append(decorations, pathLayer{deco, drawState{fillColor: ds.ff.color}})
-		//}
 	}
 	fmt.Fprintf(w, `</text>`)
-
 	for _, l := range decorations {
 		l.WriteSVG(w, 0.0)
 	}
@@ -570,9 +550,9 @@ func (t *Text) WritePDF(w *PDFPageWriter) {
 
 type textSpan struct {
 	dx, w          float64
-	p              *Path // either path is set, or the text related attributes below
+	path           *Path // either path is set, or the text related attributes below
+	text           string
 	ff             FontFace
-	s              string
 	textWidth      float64
 	glyphSpacings  int
 	wordBoundaries []textBoundary
@@ -582,13 +562,15 @@ type textSpan struct {
 
 // TODO: proper transformation of typographic elements, ie. including surrounding text
 func newTextSpan(ff FontFace, s string) textSpan {
-	textWidth := ff.TextWidth(s)
 	wordBoundaries, glyphSpacings := calcWordBoundaries(s)
+	s = strings.ReplaceAll(s, "\u200b", "") // zero-width space
+	textWidth := ff.TextWidth(s)
 	return textSpan{
 		dx:             0.0,
 		w:              0.0,
+		path:           nil,
+		text:           s,
 		ff:             ff,
-		s:              s,
 		textWidth:      textWidth,
 		glyphSpacings:  glyphSpacings,
 		wordBoundaries: wordBoundaries,
@@ -596,9 +578,8 @@ func newTextSpan(ff FontFace, s string) textSpan {
 }
 
 func (span textSpan) Bounds(width float64) Rect {
-	p, _ := span.ToPath(width)
-	// TODO: include decoration
-	return p.Bounds() // TODO: make more efficient?
+	p, deco, _ := span.ToPath(width)
+	return p.Bounds().Add(deco.Bounds()) // TODO: make more efficient?
 }
 
 func (span textSpan) WidthRange() (float64, float64) {
@@ -615,9 +596,9 @@ func (span textSpan) Split(width float64) ([]textSpan, bool) {
 	}
 	for i := len(span.wordBoundaries) - 1; i >= 0; i-- {
 		boundary := span.wordBoundaries[i]
-		s0 := span.s[:boundary.pos] + "-"
+		s0 := span.text[:boundary.pos] + "-"
 		if span.ff.TextWidth(s0) <= width {
-			s1 := span.s[boundary.pos+boundary.size:]
+			s1 := span.text[boundary.pos+boundary.size:]
 			if boundary.pos == 0 {
 				return []textSpan{span}, false
 			}
@@ -637,14 +618,15 @@ func (span textSpan) getGlyphSpacing(width float64) float64 {
 }
 
 // TODO: transform to Draw to canvas and cache the glyph rasterizations?
-func (span textSpan) ToPath(width float64) (*Path, color.RGBA) {
+func (span textSpan) ToPath(width float64) (*Path, *Path, color.RGBA) {
 	glyphSpacing := span.getGlyphSpacing(width)
-	s := span.ff.font.substitute(span.s, glyphSpacing == 0.0)
+	s := span.text
 
 	x := 0.0
 	p := &Path{}
 	var rPrev rune
 	for i, r := range s {
+
 		if i > 0 {
 			x += span.ff.Kerning(rPrev, r)
 		}
@@ -657,7 +639,7 @@ func (span textSpan) ToPath(width float64) (*Path, color.RGBA) {
 		x += glyphSpacing
 		rPrev = r
 	}
-	return p, span.ff.color
+	return p, span.ff.Decorate(width), span.ff.color
 }
 
 ////////////////////////////////////////////////////////////////

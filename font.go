@@ -168,7 +168,7 @@ func (f *Font) Use(typographicOptions TypographicOptions) {
 }
 
 func (f *Font) substitute(s string, combinations bool) string {
-	s = strings.ReplaceAll(s, "\u200b", "") // zero-width space
+	//s = strings.ReplaceAll(s, "\u200b", "") // zero-width space
 	for _, stn := range f.substitutions {
 		if combinations || utf8.RuneCountInString(stn.src) == 1 {
 			s = strings.ReplaceAll(s, stn.src, string(stn.dst))

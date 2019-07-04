@@ -28,7 +28,7 @@ type FontStyle int
 const (
 	FontRegular    FontStyle = 0 // 400
 	FontItalic     FontStyle = 1
-	FontExtraLight FontStyle = iota << 1 // 100
+	FontExtraLight FontStyle = 2 << iota // 100
 	FontLight                            // 200
 	FontBook                             // 300
 	FontMedium                           // 500
@@ -97,7 +97,7 @@ func (family *FontFamily) Use(typographicOptions TypographicOptions) {
 }
 
 // Face gets the font face given by the font size (in pt).
-func (family *FontFamily) Face(size float64, style FontStyle, variant FontVariant, col color.Color, deco ...FontDecorator) FontFace {
+func (family *FontFamily) Face(size float64, col color.Color, style FontStyle, variant FontVariant, deco ...FontDecorator) FontFace {
 	// TODO: add hinting
 	size *= MmPerPt
 
@@ -269,7 +269,8 @@ func (ff FontFace) ToPath(s string) (*Path, float64) {
 	// TODO: use caching if performance suffers
 	p := &Path{}
 	x := 0.0
-	for _, r := range s {
+	var prevIndex sfnt.GlyphIndex
+	for i, r := range s {
 		index, err := ff.font.sfnt.GlyphIndex(&sfntBuffer, r)
 		if err != nil {
 			return p, 0.0
@@ -318,10 +319,17 @@ func (ff FontFace) ToPath(s string) (*Path, float64) {
 			p = p.Offset(ff.fauxBold)
 		}
 
+		if i != 0 {
+			kern, err := ff.font.sfnt.Kern(&sfntBuffer, prevIndex, index, toI26_6(ff.size*ff.scale), font.HintingNone)
+			if err == nil {
+				x += fromI26_6(kern)
+			}
+		}
 		advance, err := ff.font.sfnt.GlyphAdvance(&sfntBuffer, index, toI26_6(ff.size*ff.scale), font.HintingNone)
 		if err == nil {
 			x += fromI26_6(advance)
 		}
+		prevIndex = index
 	}
 	return p, x
 }

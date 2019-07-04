@@ -1427,6 +1427,10 @@ func (p *Path) ToSVG() string {
 
 // ToPS returns a string that represents the path in the PostScript data format.
 func (p *Path) ToPS() string {
+	if p.Empty() {
+		return ""
+	}
+
 	sb := strings.Builder{}
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
 		fmt.Fprintf(&sb, " 0 0 moveto")
@@ -1495,6 +1499,9 @@ func (p *Path) ToPS() string {
 
 // ToPDF returns a string that represents the path in the PDF data format.
 func (p *Path) ToPDF() string {
+	if p.Empty() {
+		return ""
+	}
 	p = p.Copy().Replace(nil, nil, ellipseToBeziers)
 
 	sb := strings.Builder{}
@@ -1537,6 +1544,7 @@ func (p *Path) ToPDF() string {
 
 func (p *Path) ToRasterizer(ras *vector.Rasterizer, dpm float64) {
 	p = p.Copy().Replace(nil, nil, ellipseToBeziers)
+
 	closed := false
 	dy := float64(ras.Bounds().Size().Y)
 	for i := 0; i < len(p.d); {
