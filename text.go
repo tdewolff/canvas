@@ -6,8 +6,11 @@ import (
 	"image/color"
 	"io"
 	"math"
+	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"golang.org/x/text/encoding/charmap"
 )
 
 const MaxSentenceSpacing = 3.0 // times width of space
@@ -159,7 +162,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 	k := 0 // index into rt.spans and rt.positions
 	lines := []line{}
-	kSpans := [][]int{} // indices (k) per line, per span
+	yoverflow := false
 	y, prevLineSpacing := 0.0, 0.0
 	for k < len(rt.spans) {
 		dx := indent
@@ -178,7 +181,6 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 		// accumulate line spans for a full line, ie. either split span1 to fit or if it fits retrieve the next span1 and repeat
 		ss := []textSpan{}
-		kSpans = append(kSpans, []int{})
 		for {
 			// space or inter-word splitting
 			var ok bool
@@ -194,7 +196,6 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 			spans[0].dx = dx
 			ss = append(ss, spans[0])
-			kSpans[len(lines)] = append(kSpans[len(lines)], k)
 			dx += spans[0].width
 
 			spans = spans[1:]
@@ -232,6 +233,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		prevLineSpacing = bottom - descent
 
 		if height != 0.0 && y < -height {
+			yoverflow = true
 			break
 		}
 		lines = append(lines, l)
@@ -255,7 +257,11 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			}
 		}
 	} else if 0.0 < width && halign == Justify {
-		for _, l := range lines[:len(lines)-1] {
+		n := len(lines) - 1
+		if yoverflow {
+			n++
+		}
+		for _, l := range lines[:n] {
 			// get the width range of our spans (eg. for text width can increase with extra character spacing)
 			textWidth, maxSentenceSpacing, maxWordSpacing, maxGlyphSpacing := 0.0, 0.0, 0.0, 0.0
 			for i, span := range l.spans {
@@ -562,7 +568,9 @@ func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
 				fmt.Fprintf(w, `" letter-spacing="%g`, span.glyphSpacing)
 			}
 			writeStyle(span.ff, ffMain)
-			fmt.Fprintf(w, `">%s</tspan>`, span.text)
+			s := span.text
+			s = strings.ReplaceAll(s, `"`, `&quot;`)
+			fmt.Fprintf(w, `">%s</tspan>`, s)
 		}
 		for _, deco := range line.decos {
 			p := deco.ff.Decorate(deco.x1 - deco.x0)
@@ -577,8 +585,29 @@ func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
 }
 
 // WritePDF will write out the text in the PDF file format.
-func (t *Text) WritePDF(w *PDFPageWriter) {
-	// TODO: Text.WritePDF
+func (t *Text) WritePDF(w *PDFPageWriter, m Matrix) {
+	x0, y0 := m.DecomposePos()
+	fmt.Fprintf(w, `BT`)
+	fmt.Fprintf(w, " %g %g Td", x0, y0)
+
+	x, y := 0.0, 0.0
+	for _, line := range t.lines {
+		for _, span := range line.spans {
+			s, _ := charmap.Windows1252.NewEncoder().String(span.text)
+			//s := utf8toutf16(span.text)
+			s = strings.ReplaceAll(s, `\`, `\\`)
+			s = strings.ReplaceAll(s, `(`, `\(`)
+			s = strings.ReplaceAll(s, `)`, `\)`)
+			w.SetTextColor(span.ff.color)
+			w.SetFont(span.ff.font, span.ff.size*span.ff.scale)
+			fmt.Fprintf(w, " %g Tw", span.wordSpacing)
+			fmt.Fprintf(w, " %g Tc", span.glyphSpacing)
+			fmt.Fprintf(w, " %g %g Td (%s)Tj", span.dx-x, line.y-y, s)
+			x = span.dx
+			y = line.y
+		}
+	}
+	fmt.Fprintf(w, `ET`)
 }
 
 // TODO: Text.WriteEPS
@@ -847,4 +876,36 @@ func isWhitespace(r rune) bool {
 	// TODO: add breaking spaces such as en quad, em space, hair space, ...
 	// see https://unicode.org/reports/tr14/#Properties
 	return r == ' ' || r == '\t' || isNewline(r)
+}
+
+// utf8toutf16 converts UTF-8 to UTF-16BE; from http://www.fpdf.org/
+func utf8toutf16(s string) string {
+	res := make([]byte, 0, 8)
+	res = append(res, 0xFE, 0xFF)
+	nb := len(s)
+	i := 0
+	for i < nb {
+		c1 := byte(s[i])
+		i++
+		switch {
+		case c1 >= 224:
+			// 3-byte character
+			c2 := byte(s[i])
+			i++
+			c3 := byte(s[i])
+			i++
+			res = append(res, ((c1&0x0F)<<4)+((c2&0x3C)>>2),
+				((c2&0x03)<<6)+(c3&0x3F))
+		case c1 >= 192:
+			// 2-byte character
+			c2 := byte(s[i])
+			i++
+			res = append(res, ((c1 & 0x1C) >> 2),
+				((c1&0x03)<<6)+(c2&0x3F))
+		default:
+			// Single-byte character
+			res = append(res, 0, c1)
+		}
+	}
+	return string(res)
 }

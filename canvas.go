@@ -498,13 +498,7 @@ func (l textLayer) WriteSVG(w io.Writer, h float64) {
 }
 
 func (l textLayer) WritePDF(w *PDFPageWriter) {
-	// TODO: PDF write text
-	paths, colors := l.ToPaths()
-	for i, path := range paths {
-		state := defaultDrawState
-		state.fillColor = colors[i]
-		pathLayer{path.Transform(l.viewport), state}.WritePDF(w)
-	}
+	l.Text.WritePDF(w, l.viewport)
 }
 
 func (l textLayer) WriteEPS(w *EPSWriter) {

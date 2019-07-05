@@ -158,18 +158,28 @@ func (w *PDFWriter) getFont(font *Font) PDFRef {
 		return ref
 	}
 
-	mimetype, _ := font.Raw()
-	if mimetype != "font/ttf" {
+	mimetype, b := font.Raw()
+	if mimetype != "font/truetype" {
 		panic("only TTF format support for embedding fonts in PDFs")
 	}
 
 	// TODO: implement font embedding
 	baseFont := strings.ReplaceAll(font.name, " ", "_")
-	ref := w.writeObject(PDFStream{
-		dict: PDFDict{
-			"Type":     PDFName("Font"),
-			"Subtype":  PDFName("TrueType"),
-			"BaseFont": PDFName(baseFont),
+	ref := w.writeObject(PDFDict{
+		"Type":     PDFName("Font"),
+		"Subtype":  PDFName("TrueType"),
+		"BaseFont": PDFName(baseFont),
+		"FontDescriptor": PDFDict{
+			"Type":        PDFName("FontDescriptor"),
+			"FontName":    PDFName(baseFont),
+			"Flags":       0,
+			"FontBBox":    []float64{0, 0, 0, 0},
+			"ItalicAngle": 0,
+			"Ascent":      0,
+			"Descent":     0,
+			"CapHeight":   0,
+			"StemV":       0,
+			"FontFile3":   PDFStream{stream: b},
 		},
 	})
 	w.fonts[font] = ref
@@ -218,6 +228,7 @@ type PDFPageWriter struct {
 	alpha          float64
 	fillColor      color.RGBA
 	strokeColor    color.RGBA
+	textColor      color.RGBA
 	lineWidth      float64
 	lineCap        int
 	lineJoin       int
@@ -237,6 +248,7 @@ func (w *PDFWriter) NewPage(width, height float64) *PDFPageWriter {
 		alpha:          1.0,
 		fillColor:      Black,
 		strokeColor:    Black,
+		textColor:      Black,
 		lineWidth:      1.0,
 		lineCap:        0,
 		lineJoin:       0,
@@ -297,6 +309,18 @@ func (w *PDFPageWriter) SetStrokeColor(strokeColor color.RGBA) {
 		w.strokeColor = strokeColor
 	}
 	w.SetAlpha(float64(strokeColor.A) / 255.0)
+}
+
+func (w *PDFPageWriter) SetTextColor(textColor color.RGBA) {
+	if textColor != w.textColor {
+		if textColor.R == textColor.G && textColor.R == textColor.B {
+			fmt.Fprintf(w, " %f g", float64(textColor.R)/255.0)
+		} else {
+			fmt.Fprintf(w, " %f %f %f rg", float64(textColor.R)/255.0, float64(textColor.G)/255.0, float64(textColor.B)/255.0)
+		}
+		w.textColor = textColor
+	}
+	w.SetAlpha(float64(textColor.A) / 255.0)
 }
 
 func (w *PDFPageWriter) SetLineWidth(lineWidth float64) {
