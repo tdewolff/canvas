@@ -47,16 +47,16 @@ func main() {
 
 	////////////////
 
-	//pdfFile, err := os.Create("example.pdf")
-	//if err != nil {
-	//	panic(err)
-	//}
-	//defer pdfFile.Close()
+	pdfFile, err := os.Create("example.pdf")
+	if err != nil {
+		panic(err)
+	}
+	defer pdfFile.Close()
 
-	//err = c.WritePDF(pdfFile)
-	//if err != nil {
-	//	panic(err)
-	//}
+	err = c.WritePDF(pdfFile)
+	if err != nil {
+		panic(err)
+	}
 
 	////////////////
 
