@@ -54,6 +54,7 @@ type Text struct {
 
 func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 	// TODO: use halign
+	s = replaceMultipleWhitespace(s)
 	s, _, _ = ff.font.substituteTypography(s, false, false)
 
 	ascent, descent, spacing := ff.Metrics().Ascent, ff.Metrics().Descent, ff.Metrics().LineHeight-ff.Metrics().Ascent-ff.Metrics().Descent
@@ -100,6 +101,18 @@ func NewRichText() *RichText {
 
 // Add adds a new text span element.
 func (rt *RichText) Add(ff FontFace, s string) *RichText {
+	s = replaceMultipleWhitespace(s)
+	if 0 < len(s) {
+		rPrev := ' '
+		rNext, size := utf8.DecodeRuneInString(s)
+		if 0 < len(rt.text) {
+			rPrev, _ = utf8.DecodeLastRuneInString(rt.text)
+		}
+		if isWhitespace(rPrev) && isWhitespace(rNext) {
+			s = s[size:]
+		}
+	}
+
 	s, rt.inSingleQuote, rt.inDoubleQuote = ff.font.substituteTypography(s, rt.inSingleQuote, rt.inDoubleQuote)
 	start := len(rt.text)
 	rt.text += s
@@ -109,7 +122,26 @@ func (rt *RichText) Add(ff FontFace, s string) *RichText {
 		if boundary.kind == lineBoundary || boundary.kind == sentenceBoundary || boundary.kind == eofBoundary {
 			j := boundary.pos + boundary.size
 			if i < j {
-				rt.spans = append(rt.spans, newTextSpan(ff, rt.text[:start+j], start+i))
+				extend := false
+				if i == 0 && 0 < len(rt.spans) && rt.spans[len(rt.spans)-1].ff.Equals(ff) {
+					prevSpan := rt.spans[len(rt.spans)-1]
+					prevBoundaryKind := eofBoundary
+					if 1 < len(prevSpan.boundaries) {
+						prevBoundaryKind = prevSpan.boundaries[len(prevSpan.boundaries)-2].kind
+						if prevBoundaryKind != lineBoundary && prevBoundaryKind != sentenceBoundary {
+							extend = true
+						}
+					} else {
+						extend = true
+					}
+				}
+
+				if extend {
+					diff := len(rt.spans[len(rt.spans)-1].altText)
+					rt.spans[len(rt.spans)-1] = newTextSpan(ff, rt.text[:start+j], start+i-diff)
+				} else {
+					rt.spans = append(rt.spans, newTextSpan(ff, rt.text[:start+j], start+i))
+				}
 			}
 			i = j
 		}
@@ -766,6 +798,45 @@ func calcTextBoundaries(s string, a, b int) []textBoundary {
 	}
 	boundaries = append(boundaries, textBoundary{eofBoundary, i, 0})
 	return boundaries
+}
+
+// replaceMultipleWhitespace replaces character series of space, \n, \t, \f, \r into a single space or newline (when the serie contained a \n or \r).
+func replaceMultipleWhitespace(s string) string {
+	// works online on single byte whitespace
+	b := []byte(s)
+	j := 0
+	prevWS := false
+	hasNewline := false
+	for i, c := range b {
+		if isWhitespace(rune(c)) {
+			prevWS = true
+			if isNewline(rune(c)) {
+				hasNewline = true
+			}
+		} else {
+			if prevWS {
+				prevWS = false
+				if hasNewline {
+					hasNewline = false
+					b[j] = '\n'
+				} else {
+					b[j] = ' '
+				}
+				j++
+			}
+			b[j] = b[i]
+			j++
+		}
+	}
+	if prevWS {
+		if hasNewline {
+			b[j] = '\n'
+		} else {
+			b[j] = ' '
+		}
+		j++
+	}
+	return string(b[:j])
 }
 
 func isNewline(r rune) bool {
