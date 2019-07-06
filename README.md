@@ -35,8 +35,8 @@ Papers
 | Draw path fill | yes | yes | yes | yes |
 | Draw path stroke | yes | yes | yes | no |
 | Draw path dash | yes | yes | yes | no |
-| Embed fonts | | yes | no | no |
-| Draw text | | yes | as path | as path |
+| Embed fonts | | yes | yes (TTF) | no |
+| Draw text | | yes | yes | as path |
 | Draw image | yes | yes | yes | no |
 
 * EPS does not support transparency
