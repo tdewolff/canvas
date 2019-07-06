@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dsnet/compress/brotli"
+	"golang.org/x/image/font"
 	"golang.org/x/image/font/sfnt"
 )
 
@@ -61,6 +62,32 @@ func parseFont(name string, b []byte) (*Font, error) {
 // Raw returns the mimetype and raw binary data of the font.
 func (f *Font) Raw() (string, []byte) {
 	return f.mimetype, f.raw
+}
+
+func (f *Font) Widths() []interface{} {
+	units := float64(f.sfnt.UnitsPerEm())
+	widths := []interface{}{}
+	for i := 0; i < f.sfnt.NumGlyphs(); i++ {
+		index := sfnt.GlyphIndex(i)
+		advance, err := f.sfnt.GlyphAdvance(&sfntBuffer, index, toI26_6(units), font.HintingNone)
+		w := fromI26_6(advance)
+		if err == nil {
+			widths = append(widths, int(w*1000.0/units))
+		}
+	}
+	return widths
+}
+
+func (f *Font) ToIndices(s string) []uint16 {
+	runes := []rune(s)
+	indices := make([]uint16, len(runes))
+	for i, r := range runes {
+		index, err := f.sfnt.GlyphIndex(&sfntBuffer, r)
+		if err == nil {
+			indices[i] = uint16(index)
+		}
+	}
+	return indices
 }
 
 type textSubstitution struct {

@@ -2,6 +2,7 @@ package canvas
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"image/color"
 	"io"
@@ -9,8 +10,6 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
-
-	"golang.org/x/text/encoding/charmap"
 )
 
 const MaxSentenceSpacing = 3.0 // times width of space
@@ -587,27 +586,61 @@ func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
 // WritePDF will write out the text in the PDF file format.
 func (t *Text) WritePDF(w *PDFPageWriter, m Matrix) {
 	x0, y0 := m.DecomposePos()
-	fmt.Fprintf(w, `BT`)
+	rot := m.DecomposeRot()
+
+	fmt.Fprintf(w, ` BT`)
 	fmt.Fprintf(w, " %g %g Td", x0, y0)
 
 	x, y := 0.0, 0.0
+	decorations := []pathLayer{}
 	for _, line := range t.lines {
 		for _, span := range line.spans {
-			s, _ := charmap.Windows1252.NewEncoder().String(span.text)
-			//s := utf8toutf16(span.text)
-			s = strings.ReplaceAll(s, `\`, `\\`)
-			s = strings.ReplaceAll(s, `(`, `\(`)
-			s = strings.ReplaceAll(s, `)`, `\)`)
 			w.SetTextColor(span.ff.color)
 			w.SetFont(span.ff.font, span.ff.size*span.ff.scale)
-			fmt.Fprintf(w, " %g Tw", span.wordSpacing)
 			fmt.Fprintf(w, " %g Tc", span.glyphSpacing)
-			fmt.Fprintf(w, " %g %g Td (%s)Tj", span.dx-x, line.y-y, s)
+			fmt.Fprintf(w, " %g %g Td", span.dx-x, line.y-y)
+
+			if span.wordSpacing == 0.0 {
+				fmt.Fprintf(w, " (")
+				indices := span.ff.font.ToIndices(span.text)
+				binary.Write(w, binary.BigEndian, indices)
+				fmt.Fprintf(w, ") Tj")
+			} else {
+				i := 0
+				fmt.Fprintf(w, " [")
+				for _, boundary := range span.boundaries {
+					if boundary.kind == wordBoundary || boundary.kind == eofBoundary {
+						j := boundary.pos + boundary.size
+						if i != 0 {
+							fmt.Fprintf(w, " (")
+						} else {
+							fmt.Fprintf(w, "(")
+						}
+						indices := span.ff.font.ToIndices(span.text[i:j])
+						binary.Write(w, binary.BigEndian, indices)
+						fmt.Fprintf(w, ")")
+						if boundary.kind != eofBoundary {
+							fmt.Fprintf(w, " -%g", span.wordSpacing*1000*0.24) // TODO: PDF word spacing 0.24 is a magic number, not sure why this number works...
+						}
+						i = j
+					}
+				}
+				fmt.Fprintf(w, "] TJ")
+			}
+
 			x = span.dx
 			y = line.y
 		}
+		for _, deco := range line.decos {
+			p := deco.ff.Decorate(deco.x1 - deco.x0)
+			p = p.Transform(Identity.Translate(x0+deco.x0, y0+line.y+deco.ff.voffset).RotateAt(rot, x0, y0))
+			decorations = append(decorations, pathLayer{p, drawState{fillColor: deco.ff.color}})
+		}
 	}
-	fmt.Fprintf(w, `ET`)
+	fmt.Fprintf(w, ` ET`)
+	for _, l := range decorations {
+		l.WritePDF(w)
+	}
 }
 
 // TODO: Text.WriteEPS
@@ -694,20 +727,22 @@ func (span textSpan) split(i int) (textSpan, textSpan) {
 	span0.ff = span.ff
 	span0.text = span.text[:span.boundaries[i].pos] + dash
 	span0.width = span.ff.TextWidth(span0.text)
-	span0.boundaries = span.boundaries[:i]
+	span0.boundaries = append(span.boundaries[:i:i], textBoundary{eofBoundary, len(span0.text), 0})
 	span0.altText = span.altText[:span.altBoundaries[i].pos] + dash
 	span0.altWidth = span.ff.TextWidth(span0.altText)
-	span0.altBoundaries = span.altBoundaries[:i]
+	span0.altBoundaries = append(span.altBoundaries[:i:i], textBoundary{eofBoundary, len(span0.altText), 0})
 	span0.dx = span.dx
 
 	span1 := textSpan{}
 	span1.ff = span.ff
 	span1.text = span.text[span.boundaries[i].pos+span.boundaries[i].size:]
 	span1.width = span.ff.TextWidth(span1.text)
-	span1.boundaries = span.boundaries[i+1:]
+	span1.boundaries = make([]textBoundary, len(span.boundaries)-i-1)
+	copy(span1.boundaries, span.boundaries[i+1:])
 	span1.altText = span.altText[span.altBoundaries[i].pos+span.altBoundaries[i].size:]
 	span1.altWidth = span.ff.TextWidth(span1.altText)
-	span1.altBoundaries = span.altBoundaries[i+1:]
+	span1.altBoundaries = make([]textBoundary, len(span.altBoundaries)-i-1)
+	copy(span1.altBoundaries, span.altBoundaries[i+1:])
 	span1.dx = span.dx
 	for j := range span1.boundaries {
 		span1.boundaries[j].pos -= span.boundaries[i].pos + span.boundaries[i].size
@@ -720,7 +755,7 @@ func (span textSpan) Split(width float64) ([]textSpan, bool) {
 	if width == 0.0 || span.width <= width {
 		return []textSpan{span}, true
 	}
-	for i := len(span.boundaries) - 1; i >= 0; i-- {
+	for i := len(span.boundaries) - 2; i >= 0; i-- {
 		if span.boundaries[i].pos == 0 {
 			return []textSpan{span}, false
 		}
@@ -876,36 +911,4 @@ func isWhitespace(r rune) bool {
 	// TODO: add breaking spaces such as en quad, em space, hair space, ...
 	// see https://unicode.org/reports/tr14/#Properties
 	return r == ' ' || r == '\t' || isNewline(r)
-}
-
-// utf8toutf16 converts UTF-8 to UTF-16BE; from http://www.fpdf.org/
-func utf8toutf16(s string) string {
-	res := make([]byte, 0, 8)
-	res = append(res, 0xFE, 0xFF)
-	nb := len(s)
-	i := 0
-	for i < nb {
-		c1 := byte(s[i])
-		i++
-		switch {
-		case c1 >= 224:
-			// 3-byte character
-			c2 := byte(s[i])
-			i++
-			c3 := byte(s[i])
-			i++
-			res = append(res, ((c1&0x0F)<<4)+((c2&0x3C)>>2),
-				((c2&0x03)<<6)+(c3&0x3F))
-		case c1 >= 192:
-			// 2-byte character
-			c2 := byte(s[i])
-			i++
-			res = append(res, ((c1 & 0x1C) >> 2),
-				((c1&0x03)<<6)+(c2&0x3F))
-		default:
-			// Single-byte character
-			res = append(res, 0, c1)
-		}
-	}
-	return string(res)
 }

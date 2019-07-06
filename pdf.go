@@ -163,24 +163,43 @@ func (w *PDFWriter) getFont(font *Font) PDFRef {
 		panic("only TTF format support for embedding fonts in PDFs")
 	}
 
+	widths := font.Widths()
+
 	// TODO: implement font embedding
 	baseFont := strings.ReplaceAll(font.name, " ", "_")
 	ref := w.writeObject(PDFDict{
 		"Type":     PDFName("Font"),
-		"Subtype":  PDFName("TrueType"),
+		"Subtype":  PDFName("Type0"),
 		"BaseFont": PDFName(baseFont),
-		"FontDescriptor": PDFDict{
-			"Type":        PDFName("FontDescriptor"),
-			"FontName":    PDFName(baseFont),
-			"Flags":       0,
-			"FontBBox":    []float64{0, 0, 0, 0},
-			"ItalicAngle": 0,
-			"Ascent":      0,
-			"Descent":     0,
-			"CapHeight":   0,
-			"StemV":       0,
-			"FontFile3":   PDFStream{stream: b},
-		},
+		"Encoding": PDFName("Identity-H"),
+		"DescendantFonts": PDFArray{PDFDict{
+			"Type":        PDFName("Font"),
+			"Subtype":     PDFName("CIDFontType2"),
+			"BaseFont":    PDFName(baseFont),
+			"CIDToGIDMap": PDFName("Identity"),
+			"DW":          widths[0],
+			"W":           PDFArray{0, PDFArray(widths)},
+			"CIDSystemInfo": PDFDict{
+				"Registry":   "Adobe",
+				"Ordering":   "Identity",
+				"Supplement": 0,
+			},
+			"FontDescriptor": PDFDict{
+				"Type":        PDFName("FontDescriptor"),
+				"FontName":    PDFName(baseFont),
+				"Flags":       4,
+				"FontBBox":    []float64{0, 0, 0, 0},
+				"ItalicAngle": 0,
+				"Ascent":      0,
+				"Descent":     0,
+				"CapHeight":   0,
+				"StemV":       0,
+				"FontFile2": PDFStream{
+					dict:   PDFDict{"Filter": PDFFilterFlate},
+					stream: b,
+				},
+			},
+		}},
 	})
 	w.fonts[font] = ref
 	return ref
