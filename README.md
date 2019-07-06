@@ -35,7 +35,7 @@ Papers
 | Draw path fill | yes | yes | yes | yes |
 | Draw path stroke | yes | yes | yes | no |
 | Draw path dash | yes | yes | yes | no |
-| Embed fonts | | yes | yes (TTF) | no |
+| Embed fonts | | yes | yes (TTF & OTF) | no |
 | Draw text | | yes | yes | as path |
 | Draw image | yes | yes | yes | no |
 
@@ -64,7 +64,7 @@ General
 
 Fonts
 
-* **Font embedding for PDFs and EPSs**
+* Font embedding for EPSs
 * Compressing fonts and embedding only used characters
 * Use ligature tables
 * Support WOFF2 font format

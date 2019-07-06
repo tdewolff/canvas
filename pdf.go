@@ -159,8 +159,18 @@ func (w *PDFWriter) getFont(font *Font) PDFRef {
 	}
 
 	mimetype, b := font.Raw()
-	if mimetype != "font/truetype" {
-		panic("only TTF format support for embedding fonts in PDFs")
+	if mimetype != "font/truetype" && mimetype != "font/opentype" {
+		panic("only TTF and OTF formats supported for embedding fonts in PDFs")
+	}
+
+	ffSubtype := ""
+	cidSubtype := ""
+	if mimetype == "font/truetype" {
+		ffSubtype = "TrueType"
+		cidSubtype = "CIDFontType2"
+	} else if mimetype == "font/opentype" {
+		ffSubtype = "OpenType"
+		cidSubtype = "CIDFontType0"
 	}
 
 	widths := font.Widths()
@@ -174,7 +184,7 @@ func (w *PDFWriter) getFont(font *Font) PDFRef {
 		"Encoding": PDFName("Identity-H"),
 		"DescendantFonts": PDFArray{PDFDict{
 			"Type":        PDFName("Font"),
-			"Subtype":     PDFName("CIDFontType2"),
+			"Subtype":     PDFName(cidSubtype),
 			"BaseFont":    PDFName(baseFont),
 			"CIDToGIDMap": PDFName("Identity"),
 			"DW":          widths[0],
@@ -194,8 +204,11 @@ func (w *PDFWriter) getFont(font *Font) PDFRef {
 				"Descent":     0,
 				"CapHeight":   0,
 				"StemV":       0,
-				"FontFile2": PDFStream{
-					dict:   PDFDict{"Filter": PDFFilterFlate},
+				"FontFile3": PDFStream{
+					dict: PDFDict{
+						"Subtype": PDFName(ffSubtype),
+						"Filter":  PDFFilterFlate,
+					},
 					stream: b,
 				},
 			},
