@@ -586,11 +586,13 @@ func (t *Text) WritePDF(w *PDFPageWriter, m Matrix) {
 	x0, y0 := m.DecomposePos()
 	rot := m.DecomposeRot()
 
+	// TODO: use PDF functions to keep track of current state (different from state outsite BT)
+
 	fmt.Fprintf(w, ` BT`)
-	fmt.Fprintf(w, " %g %g Td", x0, y0)
+	fmt.Fprintf(w, " 0 Tr %g %g Td", x0, y0)
 
 	modifiedTm := false
-	renderingStroke := false
+	renderingMode := 0
 
 	x, y := 0.0, 0.0
 	decorations := []pathLayer{}
@@ -611,14 +613,14 @@ func (t *Text) WritePDF(w *PDFPageWriter, m Matrix) {
 			}
 
 			if 0.0 < span.ff.fauxBold {
-				if !renderingStroke {
+				if renderingMode != 2 {
 					fmt.Fprintf(w, " 2 Tr")
-					renderingStroke = true
+					renderingMode = 2
 				}
 				fmt.Fprintf(w, " %g w", span.ff.fauxBold*2.0)
-			} else if renderingStroke {
+			} else if renderingMode != 0 {
 				fmt.Fprintf(w, " 0 Tr")
-				renderingStroke = false
+				renderingMode = 0
 			}
 
 			if span.wordSpacing == 0.0 {

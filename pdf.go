@@ -195,7 +195,6 @@ func (w *PDFWriter) getFont(font *Font) PDFRef {
 
 	widths := font.Widths()
 
-	// TODO: implement font embedding
 	baseFont := strings.ReplaceAll(font.name, " ", "_")
 	fontfileRef := w.writeObject(PDFStream{
 		dict: PDFDict{
@@ -230,7 +229,7 @@ func (w *PDFWriter) getFont(font *Font) PDFRef {
 				"Ascent":      0,
 				"Descent":     0,
 				"CapHeight":   0,
-				"StemV":       0,
+				"StemV":       0, // TODO: set value, sometimes the i or b look ugly
 				"FontFile3":   fontfileRef,
 			},
 		}},
@@ -329,7 +328,13 @@ func (w *PDFPageWriter) writePage(parent PDFRef) PDFRef {
 		"Parent":    parent,
 		"MediaBox":  PDFArray{0.0, 0.0, w.width, w.height},
 		"Resources": w.resources,
-		"Contents":  contents,
+		"Group": PDFDict{
+			"Type": PDFName("Group"),
+			"S":    PDFName("Transparency"),
+			"I":    true,
+			"CS":   PDFName("DeviceRGB"),
+		},
+		"Contents": contents,
 	})
 }
 
@@ -548,8 +553,8 @@ func (w *PDFPageWriter) getOpacityGS(a float64) PDFName {
 	if _, ok := w.resources["ExtGState"]; !ok {
 		w.resources["ExtGState"] = PDFDict{}
 	}
-	// TODO: RGB colors look dull when using transparency
 	w.resources["ExtGState"].(PDFDict)[name] = PDFDict{
+		"CA": a,
 		"ca": a,
 	}
 	return name
