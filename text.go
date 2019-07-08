@@ -589,6 +589,8 @@ func (t *Text) WritePDF(w *PDFPageWriter, m Matrix) {
 	fmt.Fprintf(w, ` BT`)
 	fmt.Fprintf(w, " %g %g Td", x0, y0)
 
+	modifiedTm := false
+
 	x, y := 0.0, 0.0
 	decorations := []pathLayer{}
 	for _, line := range t.lines {
@@ -596,7 +598,16 @@ func (t *Text) WritePDF(w *PDFPageWriter, m Matrix) {
 			w.SetTextColor(span.ff.color)
 			w.SetFont(span.ff.font, span.ff.size*span.ff.scale)
 			fmt.Fprintf(w, " %g Tc", span.glyphSpacing)
-			fmt.Fprintf(w, " %g %g Td", span.dx-x, line.y-y)
+
+			if span.ff.fauxItalic != 0.0 {
+				fmt.Fprintf(w, " 1 0 %g 1 %g %g Tm", span.ff.fauxItalic, x0+span.dx, y0+line.y)
+				modifiedTm = true
+			} else if modifiedTm {
+				fmt.Fprintf(w, " 1 0 0 1 %g %g Tm", x0+span.dx, y0+line.y)
+				modifiedTm = false
+			} else {
+				fmt.Fprintf(w, " %g %g Td", span.dx-x, line.y-y)
+			}
 
 			if span.wordSpacing == 0.0 {
 				fmt.Fprintf(w, " (")

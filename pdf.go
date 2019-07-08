@@ -9,6 +9,7 @@ import (
 	"image/color"
 	"io"
 	"math"
+	"sort"
 	"strings"
 )
 
@@ -98,10 +99,27 @@ func (w *PDFWriter) writeVal(i interface{}) {
 		w.write("]")
 	case PDFDict:
 		w.write("<< ")
-		for key, val := range v {
-			w.writeVal(key)
-			w.write(" ")
+		if val, ok := v["Type"]; ok {
+			w.write("/Type ")
 			w.writeVal(val)
+			w.write(" ")
+		}
+		if val, ok := v["Subtype"]; ok {
+			w.write("/Subtype ")
+			w.writeVal(val)
+			w.write(" ")
+		}
+		keys := []string{}
+		for key := range v {
+			if key != "Type" && key != "Subtype" {
+				keys = append(keys, string(key))
+			}
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			w.writeVal(PDFName(key))
+			w.write(" ")
+			w.writeVal(v[PDFName(key)])
 			w.write(" ")
 		}
 		w.write(">>")
@@ -139,9 +157,11 @@ func (w *PDFWriter) writeVal(i interface{}) {
 
 		v.dict["Length"] = len(b)
 		w.writeVal(v.dict)
-		w.write("\nstream\n")
+		w.write(" stream\n")
 		w.writeBytes(b)
 		w.write("\nendstream")
+	default:
+		panic(fmt.Sprintf("unknown PDF type %T", i))
 	}
 }
 
@@ -177,6 +197,13 @@ func (w *PDFWriter) getFont(font *Font) PDFRef {
 
 	// TODO: implement font embedding
 	baseFont := strings.ReplaceAll(font.name, " ", "_")
+	fontfileRef := w.writeObject(PDFStream{
+		dict: PDFDict{
+			"Subtype": PDFName(ffSubtype),
+			"Filter":  PDFFilterFlate,
+		},
+		stream: b,
+	})
 	ref := w.writeObject(PDFDict{
 		"Type":     PDFName("Font"),
 		"Subtype":  PDFName("Type0"),
@@ -198,19 +225,13 @@ func (w *PDFWriter) getFont(font *Font) PDFRef {
 				"Type":        PDFName("FontDescriptor"),
 				"FontName":    PDFName(baseFont),
 				"Flags":       4,
-				"FontBBox":    []float64{0, 0, 0, 0},
+				"FontBBox":    PDFArray{0.0, 0.0, 0.0, 0.0},
 				"ItalicAngle": 0,
 				"Ascent":      0,
 				"Descent":     0,
 				"CapHeight":   0,
 				"StemV":       0,
-				"FontFile3": PDFStream{
-					dict: PDFDict{
-						"Subtype": PDFName(ffSubtype),
-						"Filter":  PDFFilterFlate,
-					},
-					stream: b,
-				},
+				"FontFile3":   fontfileRef,
 			},
 		}},
 	})
@@ -297,17 +318,18 @@ func (w *PDFPageWriter) writePage(parent PDFRef) PDFRef {
 	if 0 < len(b) && b[0] == ' ' {
 		b = b[1:]
 	}
+	contents := w.pdf.writeObject(PDFStream{
+		dict: PDFDict{
+			"Filter": PDFFilterFlate,
+		},
+		stream: b,
+	})
 	return w.pdf.writeObject(PDFDict{
 		"Type":      PDFName("Page"),
 		"Parent":    parent,
 		"MediaBox":  PDFArray{0.0, 0.0, w.width, w.height},
 		"Resources": w.resources,
-		"Contents": PDFStream{
-			dict: PDFDict{
-				"Filter": PDFFilterFlate,
-			},
-			stream: b,
-		},
+		"Contents":  contents,
 	})
 }
 
@@ -456,7 +478,15 @@ func (w *PDFPageWriter) SetFont(font *Font, size float64) {
 		ref := w.pdf.getFont(font)
 		if _, ok := w.resources["Font"]; !ok {
 			w.resources["Font"] = PDFDict{}
+		} else {
+			for name, fontRef := range w.resources["Font"].(PDFDict) {
+				if ref == fontRef {
+					fmt.Fprintf(w, " /%v %f Tf", name, size)
+					return
+				}
+			}
 		}
+
 		name := PDFName(fmt.Sprintf("F%d", len(w.resources["Font"].(PDFDict))))
 		w.resources["Font"].(PDFDict)[name] = ref
 		fmt.Fprintf(w, " /%v %f Tf", name, size)
