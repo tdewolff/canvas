@@ -411,7 +411,7 @@ func (p *Path) Bounds() Rect {
 			xmin = math.Min(xmin, end.X)
 			xmax = math.Max(xmax, end.X)
 			if tdenom := (start.X - 2*cp.X + end.X); tdenom != 0.0 {
-				if t := (start.X - cp.X) / tdenom; t > 0.0 && t < 1.0 {
+				if t := (start.X - cp.X) / tdenom; 0.0 < t && t < 1.0 {
 					x := quadraticBezierPos(start, cp, end, t)
 					xmin = math.Min(xmin, x.X)
 					xmax = math.Max(xmax, x.X)
@@ -421,7 +421,7 @@ func (p *Path) Bounds() Rect {
 			ymin = math.Min(ymin, end.Y)
 			ymax = math.Max(ymax, end.Y)
 			if tdenom := (start.Y - 2*cp.Y + end.Y); tdenom != 0.0 {
-				if t := (start.Y - cp.Y) / tdenom; t > 0.0 && t < 1.0 {
+				if t := (start.Y - cp.Y) / tdenom; 0.0 < t && t < 1.0 {
 					y := quadraticBezierPos(start, cp, end, t)
 					ymin = math.Min(ymin, y.Y)
 					ymax = math.Max(ymax, y.Y)
@@ -439,12 +439,12 @@ func (p *Path) Bounds() Rect {
 
 			xmin = math.Min(xmin, end.X)
 			xmax = math.Max(xmax, end.X)
-			if !math.IsNaN(t1) {
+			if !math.IsNaN(t1) && 0.0 < t1 && t1 < 1.0 {
 				x1 := cubicBezierPos(start, cp1, cp2, end, t1)
 				xmin = math.Min(xmin, x1.X)
 				xmax = math.Max(xmax, x1.X)
 			}
-			if !math.IsNaN(t2) {
+			if !math.IsNaN(t2) && 0.0 < t2 && t2 < 1.0 {
 				x2 := cubicBezierPos(start, cp1, cp2, end, t2)
 				xmin = math.Min(xmin, x2.X)
 				xmax = math.Max(xmax, x2.X)
@@ -457,12 +457,12 @@ func (p *Path) Bounds() Rect {
 
 			ymin = math.Min(ymin, end.Y)
 			ymax = math.Max(ymax, end.Y)
-			if !math.IsNaN(t1) {
+			if !math.IsNaN(t1) && 0.0 < t1 && t1 < 1.0 {
 				y1 := cubicBezierPos(start, cp1, cp2, end, t1)
 				ymin = math.Min(ymin, y1.Y)
 				ymax = math.Max(ymax, y1.Y)
 			}
-			if !math.IsNaN(t2) {
+			if !math.IsNaN(t2) && 0.0 < t2 && t2 < 1.0 {
 				y2 := cubicBezierPos(start, cp1, cp2, end, t2)
 				ymin = math.Min(ymin, y2.Y)
 				ymax = math.Max(ymax, y2.Y)
@@ -1404,6 +1404,7 @@ func (p *Path) ToSVG() string {
 			x, y = p.d[i+5], p.d[i+6]
 			fmt.Fprintf(&sb, "C%.5g %.5g %.5g %.5g %.5g %.5g", p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4], x, y)
 		case ArcToCmd:
+			rx, ry := p.d[i+1], p.d[i+2]
 			rot := p.d[i+3] * 180.0 / math.Pi
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			x, y = p.d[i+5], p.d[i+6]
@@ -1415,7 +1416,11 @@ func (p *Path) ToSVG() string {
 			if sweep {
 				sSweep = "1"
 			}
-			fmt.Fprintf(&sb, "A%.5g %.5g %.5g %s %s %.5g %.5g", p.d[i+1], p.d[i+2], rot, sLargeArc, sSweep, p.d[i+5], p.d[i+6])
+			if 90.0 <= rot {
+				rx, ry = ry, rx
+				rot -= 90.0
+			}
+			fmt.Fprintf(&sb, "A%.5g %.5g %.5g %s %s %.5g %.5g", rx, ry, rot, sLargeArc, sSweep, p.d[i+5], p.d[i+6])
 		case CloseCmd:
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, "z")

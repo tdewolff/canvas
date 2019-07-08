@@ -712,8 +712,7 @@ func (span textSpan) TrimRight() textSpan {
 
 func (span textSpan) Bounds(width float64) Rect {
 	p, deco, _ := span.ToPath(width)
-	fmt.Println(span.text, p.Bounds(), deco.Bounds()) // TODO: buggy!
-	return p.Bounds().Add(deco.Bounds())              // TODO: make more efficient?
+	return p.Bounds().Add(deco.Bounds()) // TODO: make more efficient?
 }
 
 func (span textSpan) split(i int) (textSpan, textSpan) {
