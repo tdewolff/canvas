@@ -95,7 +95,7 @@ func Draw(c *canvas.Canvas) {
 	rich.Add(face, " dolor\"")
 	rich.Add(dejaVuSerif.Face(12.0, canvas.Teal, canvas.FontRegular, canvas.FontNormal), "ipsum")
 	rich.Add(face, " dolor\"")
-	rich.Add(face, ". Confiscatur")
+	rich.Add(face, ". Confiscator")
 	rich.Add(dejaVuSerif.Face(12.0, canvas.Black, canvas.FontBold, canvas.FontNormal), " faux bold")
 	rich.Add(face, " ")
 	rich.Add(dejaVuSerif.Face(12.0, canvas.Black, canvas.FontItalic, canvas.FontNormal), "faux italic")

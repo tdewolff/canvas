@@ -12,7 +12,7 @@ import (
 	"unicode/utf8"
 )
 
-const MaxSentenceSpacing = 3.0 // times width of space
+const MaxSentenceSpacing = 3.5 // times width of space
 const MaxWordSpacing = 2.5     // times width of space
 const MaxGlyphSpacing = 0.5    // times x-height
 
@@ -302,16 +302,13 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			if textWidth < width && width <= textWidth+maxSentenceSpacing+maxWordSpacing+maxGlyphSpacing {
 				widthLeft := width - textWidth
 				sentenceFactor, wordFactor, glyphFactor := 0.0, 0.0, 0.0
-				// TODO: scale sentence and words equally, not just sentence first, and only then increase sentence beyond word
-				if Epsilon < widthLeft && maxSentenceSpacing > 0 {
-					sentenceFactor = math.Min(widthLeft/maxSentenceSpacing, 1.0)
+				if Epsilon < widthLeft && (0 < maxWordSpacing || 0 < maxSentenceSpacing) {
+					sentenceFactor = math.Min(widthLeft/(maxWordSpacing+maxSentenceSpacing), 1.0)
+					wordFactor = sentenceFactor
 					widthLeft -= sentenceFactor * maxSentenceSpacing
-				}
-				if Epsilon < widthLeft && maxWordSpacing > 0 {
-					wordFactor = math.Min(widthLeft/maxWordSpacing, 1.0)
 					widthLeft -= wordFactor * maxWordSpacing
 				}
-				if Epsilon < widthLeft && maxGlyphSpacing > 0 {
+				if Epsilon < widthLeft && 0 < maxGlyphSpacing {
 					glyphFactor = math.Min(widthLeft/maxGlyphSpacing, 1.0)
 				}
 
@@ -596,7 +593,6 @@ func (t *Text) WritePDF(w *PDFPageWriter, m Matrix) {
 	decorations := []pathLayer{}
 	for _, line := range t.lines {
 		for _, span := range line.spans {
-			fmt.Println(span.text, span.boundaries)
 			w.SetTextColor(span.ff.color)
 			w.SetFont(span.ff.font, span.ff.size*span.ff.scale)
 			fmt.Fprintf(w, " %g Tc", span.glyphSpacing)
@@ -716,8 +712,8 @@ func (span textSpan) TrimRight() textSpan {
 
 func (span textSpan) Bounds(width float64) Rect {
 	p, deco, _ := span.ToPath(width)
-	fmt.Println(p.Bounds(), deco.Bounds()) // TODO: buggy!
-	return p.Bounds().Add(deco.Bounds())   // TODO: make more efficient?
+	fmt.Println(span.text, p.Bounds(), deco.Bounds()) // TODO: buggy!
+	return p.Bounds().Add(deco.Bounds())              // TODO: make more efficient?
 }
 
 func (span textSpan) split(i int) (textSpan, textSpan) {
