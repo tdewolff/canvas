@@ -590,6 +590,7 @@ func (t *Text) WritePDF(w *PDFPageWriter, m Matrix) {
 	fmt.Fprintf(w, " %g %g Td", x0, y0)
 
 	modifiedTm := false
+	renderingStroke := false
 
 	x, y := 0.0, 0.0
 	decorations := []pathLayer{}
@@ -607,6 +608,17 @@ func (t *Text) WritePDF(w *PDFPageWriter, m Matrix) {
 				modifiedTm = false
 			} else {
 				fmt.Fprintf(w, " %g %g Td", span.dx-x, line.y-y)
+			}
+
+			if 0.0 < span.ff.fauxBold {
+				if !renderingStroke {
+					fmt.Fprintf(w, " 2 Tr")
+					renderingStroke = true
+				}
+				fmt.Fprintf(w, " %g w", span.ff.fauxBold*2.0)
+			} else if renderingStroke {
+				fmt.Fprintf(w, " 0 Tr")
+				renderingStroke = false
 			}
 
 			if span.wordSpacing == 0.0 {
