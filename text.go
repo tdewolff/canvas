@@ -55,7 +55,6 @@ type Text struct {
 }
 
 func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
-	// TODO: use halign
 	s = replaceMultipleWhitespace(s)
 	s, _, _ = ff.font.substituteTypography(s, false, false)
 
@@ -69,9 +68,16 @@ func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 			j := boundary.pos + boundary.size
 			if i < j {
 				l := line{y: y}
-				l.spans = append(l.spans, newTextSpan(ff, s, i))
+				span := newTextSpan(ff, s, i)
+				if halign == Center {
+					span.dx = -span.width / 2.0
+				} else if halign == Right {
+					span.dx = -span.width
+				}
+
+				l.spans = append(l.spans, span)
 				if len(ff.deco) != 0 {
-					l.decos = append(l.decos, decoSpan{ff, 0.0, l.spans[0].width})
+					l.decos = append(l.decos, decoSpan{ff, span.dx, span.dx + span.width})
 				}
 				lines = append(lines, l)
 			}
@@ -95,7 +101,6 @@ type RichText struct {
 }
 
 func NewRichText() *RichText {
-	// TODO: allow for default font and use font face modifiers (color, style, faux style, decorations)
 	return &RichText{
 		fonts: map[*Font]bool{},
 	}
@@ -556,7 +561,6 @@ func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
 	decorations := []pathLayer{}
 	for _, line := range t.lines {
 		for _, span := range line.spans {
-			// TODO: sentence spacing
 			fmt.Fprintf(w, `<tspan x="%g" y="%g`, x+span.dx, y-line.y-span.ff.voffset)
 			if span.wordSpacing > 0.0 {
 				fmt.Fprintf(w, `" word-spacing="%g`, span.wordSpacing)
@@ -582,10 +586,7 @@ func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
 }
 
 // WritePDF will write out the text in the PDF file format.
-func (t *Text) WritePDF(w *PDFPageWriter, m Matrix) {
-	x0, y0 := m.DecomposePos()
-	rot := m.DecomposeRot()
-
+func (t *Text) WritePDF(w *PDFPageWriter, x0, y0, rot float64) {
 	// TODO: use PDF functions to keep track of current state (different from state outsite BT)
 
 	fmt.Fprintf(w, ` BT`)
@@ -667,7 +668,6 @@ func (t *Text) WritePDF(w *PDFPageWriter, m Matrix) {
 }
 
 // TODO: Text.WriteEPS
-// TODO: Text.WriteImage
 
 ////////////////////////////////////////////////////////////////
 
@@ -695,7 +695,6 @@ type textSpan struct {
 
 // TODO: add newPathSpan
 
-// TODO: proper transformation of typographic elements, ie. including surrounding text
 func newTextSpan(ff FontFace, text string, i int) textSpan {
 	altText := text[i:]
 	altWidth := ff.TextWidth(text[i:])
@@ -931,7 +930,6 @@ func isNewline(r rune) bool {
 }
 
 func isWhitespace(r rune) bool {
-	// TODO: add breaking spaces such as en quad, em space, hair space, ...
 	// see https://unicode.org/reports/tr14/#Properties
-	return r == ' ' || r == '\t' || isNewline(r)
+	return unicode.IsSpace(r) || r == '\t' || r == '\u2028' || r == '\u2029'
 }

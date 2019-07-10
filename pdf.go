@@ -226,10 +226,10 @@ func (w *PDFWriter) getFont(font *Font) PDFRef {
 				"Flags":       4,
 				"FontBBox":    PDFArray{0.0, 0.0, 0.0, 0.0},
 				"ItalicAngle": 0,
-				"Ascent":      0,
+				"Ascent":      0, // not used since it's embedded in a Type 1 font?
 				"Descent":     0,
 				"CapHeight":   0,
-				"StemV":       0, // TODO: set value, sometimes the i or b look ugly
+				"StemV":       0,
 				"FontFile3":   fontfileRef,
 			},
 		}},

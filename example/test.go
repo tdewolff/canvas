@@ -14,7 +14,7 @@ var dejaVuSerif *canvas.FontFamily
 func main() {
 	dejaVuSerif = canvas.NewFontFamily("dejavu-serif")
 	dejaVuSerif.Use(canvas.CommonLigatures)
-	if err := dejaVuSerif.LoadFontFile("DejaVuSerif.woff", canvas.FontRegular); err != nil {
+	if err := dejaVuSerif.LoadFontFile("DejaVuSerif.ttf", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 
@@ -75,10 +75,10 @@ func drawStrokedPath(c *canvas.Canvas, x, y, d float64, path string) {
 }
 
 func Draw(c *canvas.Canvas) {
-	p, _ := canvas.ParseSVG(fmt.Sprintf("A30.0 60.0 120.0 0 0 120.0 0.0H60"))
-	f := p.Flatten().Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
-	c.SetFillColor(color.RGBA{0, 0, 128, 128})
-	c.DrawPath(10.0, 10.0, f)
+	//p, _ := canvas.ParseSVG(fmt.Sprintf("A30.0 60.0 120.0 0 0 120.0 0.0H60"))
+	//f := p.Flatten().Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
+	//c.SetFillColor(color.RGBA{0, 0, 128, 128})
+	//c.DrawPath(10.0, 10.0, f)
 
 	//c.SetFillColor(color.RGBA{0, 128, 0, 128})
 	//for _, marker := range p.Markers(canvas.Rectangle(-2, -2, 4, 4), canvas.Circle(2), canvas.RegularPolygon(6, 2, true), true) {
@@ -182,8 +182,8 @@ func Draw(c *canvas.Canvas) {
 	//c.DrawPath(10, 70, 0.0, text.ToPath().Scale(2.0, 2.0))
 	//c.DrawPath(10, 70, 0.0, text.ToPathDecorations().Scale(2.0, 2.0))
 
-	//face := dejaVuSerif.Face(12.0, canvas.Black, canvas.FontBook, canvas.FontNormal)
-	//c.DrawText(10, 10, canvas.NewTextLine(face, "oops", canvas.Left))
-	//face = dejaVuSerif.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
-	//c.DrawText(40, 10, canvas.NewTextLine(face, "oops", canvas.Left))
+	face := dejaVuSerif.Face(12.0, canvas.Black, canvas.FontBook, canvas.FontNormal, canvas.FontUnderline)
+	c.DrawText(40, 15, canvas.NewTextLine(face, "oops", canvas.Left))
+	face = dejaVuSerif.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontUnderline)
+	c.DrawText(40, 10, canvas.NewTextLine(face, "oops", canvas.Center))
 }

@@ -498,7 +498,9 @@ func (l textLayer) WriteSVG(w io.Writer, h float64) {
 }
 
 func (l textLayer) WritePDF(w *PDFPageWriter) {
-	l.Text.WritePDF(w, l.viewport)
+	x, y := l.viewport.DecomposePos()
+	rot := l.viewport.DecomposeRot()
+	l.Text.WritePDF(w, x, y, rot)
 }
 
 func (l textLayer) WriteEPS(w *EPSWriter) {
@@ -512,6 +514,7 @@ func (l textLayer) WriteEPS(w *EPSWriter) {
 }
 
 func (l textLayer) WriteImage(img *image.RGBA, dpm float64) {
+	//l.Text.WriteImage(img, dpm)
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
 		state := defaultDrawState

@@ -88,7 +88,6 @@ func (family *FontFamily) Use(options TypographicOptions) {
 
 // Face gets the font face given by the font size (in pt).
 func (family *FontFamily) Face(size float64, col color.Color, style FontStyle, variant FontVariant, deco ...FontDecorator) FontFace {
-	// TODO: add hinting
 	size *= MmPerPt
 
 	scale := 1.0
@@ -155,7 +154,6 @@ func (family *FontFamily) Face(size float64, col color.Color, style FontStyle, v
 type FontFace struct {
 	family *FontFamily
 	font   *Font
-	// TODO: font hinting when rasterizing
 
 	size    float64
 	style   FontStyle
@@ -256,7 +254,6 @@ func (ff FontFace) Decorate(width float64) *Path {
 
 // ToPath converts a string to a path and also returns its advance in mm.
 func (ff FontFace) ToPath(s string) (*Path, float64) {
-	// TODO: use caching if performance suffers
 	p := &Path{}
 	x := 0.0
 	var prevIndex sfnt.GlyphIndex
