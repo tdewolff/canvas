@@ -390,7 +390,17 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	return &Text{lines, rt.fonts}
 }
 
-// Bounds returns the rectangle that contains the entire text box.
+// Height returns the height of the text using the font metrics, this is usually more than the bounds of the glyph outlines.
+func (t *Text) Height() float64 {
+	if len(t.lines) == 0 {
+		return 0.0
+	}
+	lastLine := t.lines[len(t.lines)-1]
+	_, _, descent, _ := lastLine.Heights()
+	return -lastLine.y + descent
+}
+
+// Bounds returns the rectangle that contains the entire text box, ie. the glyph outlines.
 func (t *Text) Bounds() Rect {
 	if len(t.lines) == 0 || len(t.lines[0].spans) == 0 {
 		return Rect{}

@@ -54,6 +54,11 @@ func (c *Canvas) SetView(m Matrix) {
 	c.m = m
 }
 
+// ResetView resets the current affine transformation matrix to the Identity matrix, ie. no transformations.
+func (c *Canvas) ResetView() {
+	c.m = Identity
+}
+
 // ComposeView multiplies the current affine transformation matrix by the given one.
 func (c *Canvas) ComposeView(m Matrix) {
 	c.m = c.m.Mul(m)
@@ -98,7 +103,7 @@ func (c *Canvas) DrawPath(x, y float64, path *Path) {
 		return
 	}
 	if !path.Empty() {
-		path = path.Transform(Identity.Translate(x, y).Mul(c.m))
+		path = path.Transform(Identity.Mul(c.m).Translate(x, y))
 		c.drawState.fillRule = FillRule
 		c.layers = append(c.layers, pathLayer{path, c.drawState})
 	}
@@ -110,7 +115,7 @@ func (c *Canvas) DrawText(x, y float64, text *Text) {
 		c.fonts[font] = true
 	}
 	// TODO: skip if empty
-	c.layers = append(c.layers, textLayer{text, Identity.Translate(x, y).Mul(c.m)})
+	c.layers = append(c.layers, textLayer{text, Identity.Mul(c.m).Translate(x, y)})
 }
 
 // ImageEncoding defines whether the embedded image shall be embedded as Lossless (typically PNG) or Lossy (typically JPG).
@@ -121,13 +126,12 @@ const (
 	Lossy
 )
 
-// DrawImage draws an image at position (x,y), using an image encoding (Lossy or Lossless) and DPI (dots-per-inch). A higher DPI will draw a smaller image.
-func (c *Canvas) DrawImage(x, y float64, img image.Image, enc ImageEncoding, dpi float64) {
+// DrawImage draws an image at position (x,y), using an image encoding (Lossy or Lossless) and DPM (dots-per-millimeter). A higher DPM will draw a smaller image.
+func (c *Canvas) DrawImage(x, y float64, img image.Image, enc ImageEncoding, dpm float64) {
 	if img.Bounds().Size().Eq(image.Point{}) {
 		return
 	}
-	dpm := dpi * InchPerMm
-	m := Identity.Translate(x, y).Mul(c.m).Scale(1/dpm, 1/dpm)
+	m := Identity.Mul(c.m).Translate(x, y).Scale(1/dpm, 1/dpm)
 	c.layers = append(c.layers, imageLayer{img, enc, m})
 }
 
@@ -505,21 +509,27 @@ func (l textLayer) WritePDF(w *PDFPageWriter) {
 
 func (l textLayer) WriteEPS(w *EPSWriter) {
 	// TODO: EPS write text
+	x, y := l.viewport.DecomposePos()
+	rot := l.viewport.DecomposeRot()
+	m := Identity.Translate(x, y).Rotate(rot)
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
 		state := defaultDrawState
 		state.fillColor = colors[i]
-		pathLayer{path.Transform(l.viewport), state}.WriteEPS(w)
+		pathLayer{path.Transform(m), state}.WriteEPS(w)
 	}
 }
 
 func (l textLayer) WriteImage(img *image.RGBA, dpm float64) {
 	//l.Text.WriteImage(img, dpm)
+	x, y := l.viewport.DecomposePos()
+	rot := l.viewport.DecomposeRot()
+	m := Identity.Translate(x, y).Rotate(rot)
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
 		state := defaultDrawState
 		state.fillColor = colors[i]
-		pathLayer{path.Transform(l.viewport), state}.WriteImage(img, dpm)
+		pathLayer{path.Transform(m), state}.WriteImage(img, dpm)
 	}
 }
 

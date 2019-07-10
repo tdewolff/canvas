@@ -14,8 +14,7 @@ var dejaVuSerif *canvas.FontFamily
 func main() {
 	dejaVuSerif = canvas.NewFontFamily("dejavu-serif")
 	dejaVuSerif.Use(canvas.CommonLigatures)
-	//if err := dejaVuSerif.LoadFontFile("DejaVuSerif.ttf", canvas.FontRegular); err != nil {
-	if err := dejaVuSerif.LoadFontFile("Cantarell-Regular.otf", canvas.FontRegular); err != nil {
+	if err := dejaVuSerif.LoadFontFile("DejaVuSerif.ttf", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 
@@ -77,8 +76,9 @@ func drawText(c *canvas.Canvas, x, y float64, face canvas.FontFace, rich *canvas
 
 	c.SetFillColor(color.RGBA{192, 0, 64, 255})
 	c.DrawPath(x, y, text.Bounds().ToPath())
-	c.SetFillColor(color.RGBA{0, 0, 0, 50})
+	c.SetFillColor(color.RGBA{50, 50, 50, 50})
 	c.DrawPath(x, y, canvas.Rectangle(0, 0, width, -metrics.LineHeight))
+	c.SetFillColor(color.RGBA{0, 0, 0, 50})
 	c.DrawPath(x, y, canvas.Rectangle(0, metrics.CapHeight-metrics.Ascent, width, -metrics.CapHeight-metrics.Descent))
 	c.DrawPath(x, y, canvas.Rectangle(0, metrics.XHeight-metrics.Ascent, width, -metrics.XHeight))
 
@@ -92,18 +92,16 @@ func Draw(c *canvas.Canvas) {
 	face := dejaVuSerif.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	rich := canvas.NewRichText()
 	rich.Add(face, "\"Lorem ")
-	rich.Add(face, " dolor\"")
-	rich.Add(dejaVuSerif.Face(12.0, canvas.White, canvas.FontRegular, canvas.FontNormal), "ipsum")
-	rich.Add(face, " dolor\"")
-	rich.Add(face, ". Confiscator")
-	rich.Add(dejaVuSerif.Face(12.0, canvas.Black, canvas.FontBold, canvas.FontNormal), "\u2003faux\u2003bold")
+	rich.Add(face, " dolor ")
+	rich.Add(face, "ipsum")
+	rich.Add(face, "\". Confiscator")
+	rich.Add(dejaVuSerif.Face(12.0, canvas.Black, canvas.FontBold, canvas.FontNormal), " faux bold")
 	rich.Add(face, " ")
 	rich.Add(dejaVuSerif.Face(12.0, canvas.Black, canvas.FontItalic, canvas.FontNormal), "faux italic")
 	rich.Add(face, " ")
 	rich.Add(dejaVuSerif.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontUnderline), "underline")
 	rich.Add(face, " ")
-	rich.Add(dejaVuSerif.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontDoubleUnderline), "double ")
-	rich.Add(dejaVuSerif.Face(12.0, canvas.White, canvas.FontRegular, canvas.FontNormal, canvas.FontDoubleUnderline), "underline")
+	rich.Add(dejaVuSerif.Face(12.0, canvas.White, canvas.FontRegular, canvas.FontNormal, canvas.FontDoubleUnderline), "double underline")
 	rich.Add(face, " ")
 	rich.Add(dejaVuSerif.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontSineUnderline), "sine")
 	rich.Add(face, " ")
@@ -150,7 +148,7 @@ func Draw(c *canvas.Canvas) {
 	c.DrawPath(110, 40, ellipse)
 	c.SetStrokeColor(canvas.Transparent)
 
-	// Draw an open set of points being smoothed
+	// Draw an closed set of points being smoothed
 	polyline := &canvas.Polyline{}
 	polyline.Add(0.0, 0.0)
 	polyline.Add(20.0, 0.0)
@@ -159,10 +157,10 @@ func Draw(c *canvas.Canvas) {
 	polyline.Add(0.0, 0.0)
 	c.SetFillColor(canvas.Seagreen)
 	c.DrawPath(170, 10, polyline.Smoothen())
-	c.SetFillColor(canvas.Black)
+	c.SetFillColor(color.RGBA{0, 0, 0, 255})
 	c.DrawPath(170, 10, polyline.ToPath().Stroke(0.25, canvas.RoundCapper, canvas.RoundJoiner))
 
-	// Draw a closed set of points being smoothed
+	// Draw a open set of points being smoothed
 	polyline = &canvas.Polyline{}
 	polyline.Add(0.0, 0.0)
 	polyline.Add(10.0, 5.0)
@@ -185,5 +183,5 @@ func Draw(c *canvas.Canvas) {
 	if err != nil {
 		panic(err)
 	}
-	c.DrawImage(105.0, 15.0, img, canvas.Lossy, 650.24)
+	c.DrawImage(105.0, 15.0, img, canvas.Lossy, 25.6)
 }

@@ -368,6 +368,14 @@ func (m Matrix) Eigen() (float64, float64, Point, Point) {
 	return lambda1, lambda2, v1, v2
 }
 
+// ToRigid removes scaling transformations
+func (m Matrix) ToRigid() Matrix {
+	// TODO: make more efficient, use Det?
+	x, y := m.DecomposePos()
+	rot := m.DecomposeRot()
+	return Identity.Translate(x, y).Rotate(rot)
+}
+
 // DecomposePos extracts the translation parameters of the matrix.
 func (m Matrix) DecomposePos() (float64, float64) {
 	return m[0][2], m[1][2]

@@ -9,12 +9,12 @@ import (
 	"github.com/tdewolff/canvas"
 )
 
-var dejaVuSerif canvas.Font
+var dejaVuSerif *canvas.FontFamily
 
 func main() {
-	var err error
-	dejaVuSerif, err = canvas.LoadFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.woff")
-	if err != nil {
+	dejaVuSerif = canvas.NewFontFamily("dejavu-serif")
+	dejaVuSerif.Use(canvas.CommonLigatures)
+	if err := dejaVuSerif.LoadFontFile("DejaVuSerif.ttf", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 
@@ -44,15 +44,15 @@ func drawStrokedPath(c *canvas.Canvas, x, y float64, path string, cr canvas.Capp
 	c.SetFillColor(canvas.Darkgrey)
 	c.DrawPath(x, y, outerStroke)
 	c.SetFillColor(color.RGBA{150, 150, 150, 255})
-	c.DrawPath(x, y, outerStroke.Stroke(0.2, canvas.ButtCapper, canvas.RoundJoiner))
-	c.SetFillColor(canvas.Steelblue)
+	c.DrawPath(x, y, outerStroke.Stroke(0.3, canvas.ButtCapper, canvas.RoundJoiner))
+	c.SetFillColor(color.RGBA{192, 0, 64, 255})
 	c.DrawPath(x, y, p.Stroke(0.5, canvas.ButtCapper, canvas.BevelJoiner))
 }
 
 func drawText(c *canvas.Canvas, x, y float64, text string) {
-	face := dejaVuSerif.Face(18.0)
+	face := dejaVuSerif.Face(18.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	c.SetFillColor(canvas.Black)
-	c.DrawText(x, y, canvas.NewTextBox(face, canvas.Black, text, 0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0))
+	c.DrawText(x, y, canvas.NewTextBox(face, text, 0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0))
 }
 
 func Draw(c *canvas.Canvas) {
