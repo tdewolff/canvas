@@ -16,7 +16,7 @@ func main() {
 		panic(err)
 	}
 
-	c := canvas.New(160, 230)
+	c := canvas.New(200, 230)
 	Draw(c)
 
 	pngFile, err := os.Create("document_example.png")
@@ -53,8 +53,8 @@ func Draw(c *canvas.Canvas) {
 	headerFace := dejaVuSerif.Face(28.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	textFace := dejaVuSerif.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 
-	drawText(c, 10.0, canvas.NewTextBox(headerFace, "Document Example", 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
-	drawText(c, 10.0, canvas.NewTextBox(textFace, lorem[0], 140.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0))
+	drawText(c, 30.0, canvas.NewTextBox(headerFace, "Document Example", 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
+	drawText(c, 30.0, canvas.NewTextBox(textFace, lorem[0], 140.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0))
 
 	lenna, err := os.Open("lenna.png")
 	if err != nil {
@@ -67,9 +67,9 @@ func Draw(c *canvas.Canvas) {
 	imgDPM := 15.0
 	imgWidth := float64(img.Bounds().Max.X) / imgDPM
 	imgHeight := float64(img.Bounds().Max.Y) / imgDPM
-	c.DrawImage(150.0-imgWidth, y-imgHeight, img, canvas.Lossy, imgDPM)
+	c.DrawImage(170.0-imgWidth, y-imgHeight, img, canvas.Lossy, imgDPM)
 
-	drawText(c, 10.0, canvas.NewTextBox(textFace, lorem[1], 140.0-imgWidth-10.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0))
-	drawText(c, 10.0, canvas.NewTextBox(textFace, lorem[2], 140.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0))
-	drawText(c, 10.0, canvas.NewTextBox(textFace, lorem[3], 140.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0))
+	drawText(c, 30.0, canvas.NewTextBox(textFace, lorem[1], 140.0-imgWidth-10.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0))
+	drawText(c, 30.0, canvas.NewTextBox(textFace, lorem[2], 140.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0))
+	drawText(c, 30.0, canvas.NewTextBox(textFace, lorem[3], 140.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0))
 }
