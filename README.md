@@ -2,7 +2,7 @@
 
 [![GoDoc](http://godoc.org/github.com/tdewolff/canvas?status.svg)](http://godoc.org/github.com/tdewolff/canvas)
 
-Canvas is a common vector drawing target that can output SVG, PDF, EPS and raster images (which can be saved as PNG, JPG, ...). It can parse SVG path data or LaTeX into paths and has a wide range of path manipulation functionality (such as flattening, stroking and dashing). Text can be displayed using embedded fonts (TTF, OTF or WOFF) or by converting them to outlines and can be aligned and indented within a rectangle (see Fig. 1 below).
+Canvas is a common vector drawing target that can output SVG, PDF, EPS and raster images (which can be saved as PNG, JPG, ...). It has a wide range of path manipulation functionality such as flattening, stroking and dashing implemented. Additionally, it has a good text formatter and embeds fonts (TTF, OTF or WOFF) or converts them to outlines. See the example below in Fig. 1 and Fig. 2 for an overview of the functionality.
 
 ![Example](https://raw.githubusercontent.com/tdewolff/canvas/master/example/example.png)
 
@@ -11,6 +11,8 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS and raste
 <a href="https://raw.githubusercontent.com/tdewolff/canvas/master/example/graph_example.png"><img src="https://raw.githubusercontent.com/tdewolff/canvas/master/example/graph_example.png" height="250"></a>
 <a href="https://raw.githubusercontent.com/tdewolff/canvas/master/example/map_example.png"><img src="https://raw.githubusercontent.com/tdewolff/canvas/master/example/map_example.png" height="250"></a>
 <a href="https://raw.githubusercontent.com/tdewolff/canvas/master/example/document_example.png"><img src="https://raw.githubusercontent.com/tdewolff/canvas/master/example/document_example.png" height="250"></a>
+
+**Figure 2abc**: Three examples of what is possible with this library, for example the plotting of graphs, maps and documents.
 
 **Terminology**: a path is a sequence of drawing commands (MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close) that completely describe a path. QuadTo and CubeTo are quadratic and cubic Béziers respectively, ArcTo is an elliptical arc, and Close is a LineTo to the last MoveTo command and closes the path (sometimes this has a special meaning such as when stroking). A path can consist of several path segments by having multiple MoveTos, Closes, or the pair of Close and MoveTo. Flattening is the action of converting the QuadTo, CubeTo and ArcTo commands into LineTos.
 
