@@ -1572,7 +1572,7 @@ func (p *Path) ToRasterizer(ras *vector.Rasterizer, dpm float64) {
 		}
 		i += cmdLen(cmd)
 	}
-	if closed {
+	if !closed {
 		// implicitly close path
 		ras.ClosePath()
 	}

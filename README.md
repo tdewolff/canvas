@@ -9,6 +9,7 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS and raste
 
 <a href="https://raw.githubusercontent.com/tdewolff/canvas/master/example/document_example.png"><img src="https://raw.githubusercontent.com/tdewolff/canvas/master/example/document_example.png" height="300"></a>
 <a href="https://raw.githubusercontent.com/tdewolff/canvas/master/example/graph_example.png"><img src="https://raw.githubusercontent.com/tdewolff/canvas/master/example/graph_example.png" height="300"></a>
+<a href="https://raw.githubusercontent.com/tdewolff/canvas/master/example/map_example.png"><img src="https://raw.githubusercontent.com/tdewolff/canvas/master/example/map_example.png" height="300"></a>
 
 **Terminology**: a path is a sequence of drawing commands (MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close) that completely describe a path. QuadTo and CubeTo are quadratic and cubic Béziers respectively, ArcTo is an elliptical arc, and Close is a LineTo to the last MoveTo command and closes the path (sometimes this has a special meaning such as when stroking). A path can consist of several path segments by having multiple MoveTos, Closes, or the pair of Close and MoveTo. Flattening is the action of converting the QuadTo, CubeTo and ArcTo commands into LineTos.
 
