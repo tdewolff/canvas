@@ -84,7 +84,8 @@ func Draw(c *canvas.Canvas) {
 	yscale := 80.0 / (ymax - ymin)
 
 	c.PushState()
-	c.SetView(canvas.Identity.Translate(15.0, 15.0).Scale(xscale, yscale).Translate(-xmin, -ymin))
+	c.SetView(canvas.Identity.Translate(15.0, 15.0))
+	viewport := canvas.Identity.Scale(xscale, yscale).Translate(-xmin, -ymin)
 
 	// Draw the function
 	co2Line := &canvas.Polyline{}
@@ -95,12 +96,12 @@ func Draw(c *canvas.Canvas) {
 	}
 
 	c.SetFillColor(canvas.Seagreen)
-	c.DrawPath(0, 0, trendLine.ToPath().Stroke(0.4, canvas.RoundCapper, canvas.RoundJoiner))
+	c.DrawPath(0, 0, trendLine.ToPath().Transform(viewport).Stroke(0.4, canvas.RoundCapper, canvas.RoundJoiner))
 
 	c.SetFillColor(color.RGBA{192, 0, 64, 255})
-	c.DrawPath(0, 0, co2Line.ToPath().Stroke(0.1, canvas.RoundCapper, canvas.RoundJoiner))
-	marker := canvas.Ellipse(0.3/xscale, 0.3/yscale)
-	for _, m := range co2Line.ToPath().Markers(marker, marker, marker, false) {
+	c.DrawPath(0, 0, co2Line.ToPath().Transform(viewport).Stroke(0.1, canvas.RoundCapper, canvas.RoundJoiner))
+	marker := canvas.Ellipse(0.3, 0.3)
+	for _, m := range co2Line.ToPath().Transform(viewport).Markers(marker, marker, marker, false) {
 		c.DrawPath(0, 0, m)
 	}
 
@@ -120,9 +121,7 @@ func Draw(c *canvas.Canvas) {
 		frame.MoveTo(xmin, y).LineTo(xmin+2.0/xscale, y)
 		c.DrawText(xmin, y-(tickFace.Metrics().CapHeight/2.0)/yscale, canvas.NewTextLine(tickFace, fmt.Sprintf("%g ", y), canvas.Right))
 	}
-	c.DrawPath(0.0, 0.0, frame)
-
-	c.PopState()
+	c.DrawPath(0.0, 0.0, frame.Transform(viewport))
 
 	// Draw the labels
 	c.SetFillColor(canvas.Black)
@@ -133,11 +132,12 @@ func Draw(c *canvas.Canvas) {
 	rt.Add(labelFace, "CO")
 	rt.Add(labelSubFace, "2")
 	rt.Add(labelFace, " (ppm)")
-	c.SetView(canvas.Identity.Rotate(90))
+	c.PushState()
+	c.ComposeView(canvas.Identity.Rotate(90))
 	text := rt.ToText(0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0)
-	c.DrawText(55.0, 0.0, text)
-	c.ResetView()
-	c.DrawText(70.0, 5.0, canvas.NewTextLine(labelFace, "Year", canvas.Center))
+	c.DrawText(40.0, 10.0, text)
+	c.PopState()
+	c.DrawText(55.0, -10.0, canvas.NewTextLine(labelFace, "Year", canvas.Center))
 
 	titleFace := dejaVuSerif.Face(16.0, color.Black, canvas.FontRegular, canvas.FontNormal)
 	titleSubFace := dejaVuSerif.Face(16.0, color.Black, canvas.FontRegular, canvas.FontSubscript)
@@ -145,5 +145,5 @@ func Draw(c *canvas.Canvas) {
 	rt.Add(titleFace, "Atmospheric CO")
 	rt.Add(titleSubFace, "2")
 	rt.Add(titleFace, " at Mauna Loa Observatory")
-	c.DrawText(70.0, 106.0, rt.ToText(0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0))
+	c.DrawText(55.0, 91.0, rt.ToText(0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0))
 }

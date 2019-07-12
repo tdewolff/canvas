@@ -64,6 +64,7 @@ Features that are planned to be implemented in the future. Also see the TODOs in
 General
 
 * Fix slowness in the rasterizer (text_example.go is slow! use rasterized cache for each glyph/path)
+* Rethink viewport functionality
 
 Fonts
 
