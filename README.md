@@ -1,4 +1,5 @@
 ![Canvas](https://raw.githubusercontent.com/tdewolff/canvas/master/example/title.png)
+
 [![GoDoc](http://godoc.org/github.com/tdewolff/canvas?status.svg)](http://godoc.org/github.com/tdewolff/canvas)
 
 Canvas is a common vector drawing target that can output SVG, PDF, EPS and raster images (which can be saved as PNG, JPG, ...). It can parse SVG path data or LaTeX into paths and has a wide range of path manipulation functionality (such as flattening, stroking and dashing). Text can be displayed using embedded fonts (TTF, OTF or WOFF) or by converting them to outlines and can be aligned and indented within a rectangle (see Fig. 1 below).
