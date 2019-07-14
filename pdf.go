@@ -344,6 +344,7 @@ func (w *PDFPageWriter) writePage(parent PDFRef) PDFRef {
 }
 
 func (w *PDFPageWriter) SetAlpha(alpha float64) {
+	// TODO: colors are off when using alpha (need premultiplied alpha on rgb?)
 	if alpha != w.alpha {
 		gs := w.getOpacityGS(alpha)
 		fmt.Fprintf(w, " /%v gs", gs)

@@ -65,7 +65,7 @@ func Draw(c *canvas.Canvas) {
 	}
 
 	c.SetFillColor(color.RGBA{235, 227, 205, 255})
-	c.DrawPath(0.0, 0.0, canvas.Rectangle(0.0, 0.0, 141.0, 111.0))
+	c.DrawPath(0.0, 0.0, canvas.Rectangle(141.0, 111.0))
 
 	lines := map[string]*canvas.Path{}
 	rings := map[string]*canvas.Path{}

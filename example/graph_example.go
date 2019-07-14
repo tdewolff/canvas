@@ -112,7 +112,7 @@ func Draw(c *canvas.Canvas) {
 	c.SetStrokeCapper(canvas.RoundCapper)
 	c.SetStrokeJoiner(canvas.RoundJoiner)
 
-	frame := canvas.Rectangle(xmin, ymin, xmax-xmin, ymax-ymin)
+	frame := canvas.Rectangle(xmax-xmin, ymax-ymin).Translate(xmin, ymin)
 	for x := 10.0 * float64(int(xmin/10.0)+1); x < xmax; x += 10.0 {
 		frame.MoveTo(x, ymin).LineTo(x, ymin+2.0/yscale)
 		c.DrawText(x, ymin-tickFace.Metrics().LineHeight/yscale, canvas.NewTextLine(tickFace, fmt.Sprintf("%g", x), canvas.Center))
@@ -135,7 +135,7 @@ func Draw(c *canvas.Canvas) {
 	c.PushState()
 	c.ComposeView(canvas.Identity.Rotate(90))
 	text := rt.ToText(0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0)
-	c.DrawText(40.0, 10.0, text)
+	c.DrawText(20.0, 40.0, text)
 	c.PopState()
 	c.DrawText(55.0, -10.0, canvas.NewTextLine(labelFace, "Year", canvas.Center))
 

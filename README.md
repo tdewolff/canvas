@@ -67,7 +67,6 @@ Features that are planned to be implemented in the future. Also see the TODOs in
 General
 
 * Fix slowness in the rasterizer (text_example.go is slow! use rasterized cache for each glyph/path)
-* Rethink viewport functionality
 
 Fonts
 
@@ -76,8 +75,8 @@ Fonts
 * Use ligature tables
 * Support WOFF2 font format
 * Support Type1 font format?
-* Support font hinting (for the rasterizer)
-* Support LaTeX and other paths as text spans
+* Support font hinting (for the rasterizer)?
+* Support LaTeX and other paths as text spans?
 
 Paths
 

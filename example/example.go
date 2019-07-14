@@ -77,13 +77,13 @@ func drawText(c *canvas.Canvas, x, y float64, face canvas.FontFace, rich *canvas
 	c.SetFillColor(color.RGBA{192, 0, 64, 255})
 	c.DrawPath(x, y, text.Bounds().ToPath())
 	c.SetFillColor(color.RGBA{50, 50, 50, 50})
-	c.DrawPath(x, y, canvas.Rectangle(0, 0, width, -metrics.LineHeight))
+	c.DrawPath(x, y, canvas.Rectangle(width, -metrics.LineHeight))
 	c.SetFillColor(color.RGBA{0, 0, 0, 50})
-	c.DrawPath(x, y, canvas.Rectangle(0, metrics.CapHeight-metrics.Ascent, width, -metrics.CapHeight-metrics.Descent))
-	c.DrawPath(x, y, canvas.Rectangle(0, metrics.XHeight-metrics.Ascent, width, -metrics.XHeight))
+	c.DrawPath(x, y+metrics.CapHeight-metrics.Ascent, canvas.Rectangle(width, -metrics.CapHeight-metrics.Descent))
+	c.DrawPath(x, y+metrics.XHeight-metrics.Ascent, canvas.Rectangle(width, -metrics.XHeight))
 
 	c.SetFillColor(canvas.Black)
-	c.DrawPath(x, y, canvas.Rectangle(0.0, 0.0, width, -height).Stroke(0.2, canvas.RoundCapper, canvas.RoundJoiner))
+	c.DrawPath(x, y, canvas.Rectangle(width, -height).Stroke(0.2, canvas.RoundCapper, canvas.RoundJoiner))
 	c.DrawText(x, y, text)
 }
 
