@@ -195,6 +195,7 @@ func (w *PDFWriter) getFont(font *Font) PDFRef {
 
 	widths := font.Widths()
 
+	// TODO: glyph width seem to be _slightly_ off, just a tad too wide
 	baseFont := strings.ReplaceAll(font.name, " ", "_")
 	fontfileRef := w.writeObject(PDFStream{
 		dict: PDFDict{
@@ -280,13 +281,15 @@ type PDFPageWriter struct {
 	alpha          float64
 	fillColor      color.RGBA
 	strokeColor    color.RGBA
-	textColor      color.RGBA
 	lineWidth      float64
 	lineCap        int
 	lineJoin       int
 	miterLimit     float64
 	dashes         []float64
 	font           *Font
+	textPosition   Matrix
+	textCharSpace  float64
+	textRenderMode int
 }
 
 func (w *PDFWriter) NewPage(width, height float64) *PDFPageWriter {
@@ -300,13 +303,15 @@ func (w *PDFWriter) NewPage(width, height float64) *PDFPageWriter {
 		alpha:          1.0,
 		fillColor:      Black,
 		strokeColor:    Black,
-		textColor:      Black,
 		lineWidth:      1.0,
 		lineCap:        0,
 		lineJoin:       0,
 		miterLimit:     10.0,
 		dashes:         []float64{0.0}, // dashArray and dashPhase
 		font:           nil,
+		textPosition:   Identity,
+		textCharSpace:  0.0,
+		textRenderMode: 0,
 		graphicsStates: map[float64]PDFName{},
 	})
 	return w.pages[len(w.pages)-1]
@@ -347,6 +352,7 @@ func (w *PDFPageWriter) SetAlpha(alpha float64) {
 }
 
 func (w *PDFPageWriter) SetFillColor(fillColor color.RGBA) {
+	a := float64(fillColor.A) / 255.0
 	if fillColor != w.fillColor {
 		if fillColor.R == fillColor.G && fillColor.R == fillColor.B {
 			fmt.Fprintf(w, " %f g", float64(fillColor.R)/255.0)
@@ -355,7 +361,7 @@ func (w *PDFPageWriter) SetFillColor(fillColor color.RGBA) {
 		}
 		w.fillColor = fillColor
 	}
-	w.SetAlpha(float64(fillColor.A) / 255.0)
+	w.SetAlpha(a)
 }
 
 func (w *PDFPageWriter) SetStrokeColor(strokeColor color.RGBA) {
@@ -368,18 +374,6 @@ func (w *PDFPageWriter) SetStrokeColor(strokeColor color.RGBA) {
 		w.strokeColor = strokeColor
 	}
 	w.SetAlpha(float64(strokeColor.A) / 255.0)
-}
-
-func (w *PDFPageWriter) SetTextColor(textColor color.RGBA) {
-	if textColor != w.textColor {
-		if textColor.R == textColor.G && textColor.R == textColor.B {
-			fmt.Fprintf(w, " %f g", float64(textColor.R)/255.0)
-		} else {
-			fmt.Fprintf(w, " %f %f %f rg", float64(textColor.R)/255.0, float64(textColor.G)/255.0, float64(textColor.B)/255.0)
-		}
-		w.textColor = textColor
-	}
-	w.SetAlpha(float64(textColor.A) / 255.0)
 }
 
 func (w *PDFPageWriter) SetLineWidth(lineWidth float64) {
@@ -495,6 +489,34 @@ func (w *PDFPageWriter) SetFont(font *Font, size float64) {
 		name := PDFName(fmt.Sprintf("F%d", len(w.resources["Font"].(PDFDict))))
 		w.resources["Font"].(PDFDict)[name] = ref
 		fmt.Fprintf(w, " /%v %f Tf", name, size)
+	}
+}
+
+func (w *PDFPageWriter) SetTextPosition(m Matrix) {
+	if m.Equals(w.textPosition) {
+		return
+	}
+
+	if equal(m[0][0], w.textPosition[0][0]) && equal(m[0][1], w.textPosition[0][1]) && equal(m[1][0], w.textPosition[1][0]) && equal(m[1][1], w.textPosition[1][1]) {
+		d := w.textPosition.Inv().Dot(Point{m[0][2], m[1][2]})
+		fmt.Fprintf(w, " %g %g Td", d.X, d.Y)
+	} else {
+		fmt.Fprintf(w, " %g %g %g %g %g %g Tm", m[0][0], m[1][0], m[0][1], m[1][1], m[0][2], m[1][2])
+	}
+	w.textPosition = m
+}
+
+func (w *PDFPageWriter) SetTextRenderMode(mode int) {
+	if w.textRenderMode != mode {
+		fmt.Fprintf(w, " %d Tr", mode)
+		w.textRenderMode = mode
+	}
+}
+
+func (w *PDFPageWriter) SetTextCharSpace(space float64) {
+	if !equal(w.textCharSpace, space) {
+		fmt.Fprintf(w, " %g Tc", space)
+		w.textCharSpace = space
 	}
 }
 

@@ -75,10 +75,28 @@ func drawStrokedPath(c *canvas.Canvas, x, y, d float64, path string) {
 }
 
 func Draw(c *canvas.Canvas) {
-	//p, _ := canvas.ParseSVG(fmt.Sprintf("A30.0 60.0 120.0 0 0 120.0 0.0H60"))
-	//f := p.Flatten().Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
-	//c.SetFillColor(color.RGBA{0, 0, 128, 128})
-	//c.DrawPath(10.0, 10.0, f)
+	face := dejaVuSerif.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	frame := canvas.Rectangle(17.0, -10.0)
+	rt := canvas.NewRichText()
+	rt.Add(face, "Texttext\n")
+	rt.Add(face, "mies. ")
+	rt.Add(dejaVuSerif.Face(12.0, canvas.Black, canvas.FontItalic, canvas.FontNormal, canvas.FontUnderline), "teun")
+	rt.Add(face, "noot. ")
+	text := rt.ToText(25.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0)
+
+	p, _ := canvas.ParseSVG(fmt.Sprintf("A20.0 10.0 0.0 0 0 40.0 0.0z"))
+	f := p.Flatten().Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
+	c.SetFillColor(color.RGBA{0, 0, 128, 128})
+
+	c.DrawPath(10.0, 10.0, f)
+	c.DrawPath(10.0, 10.0, frame)
+	c.DrawText(10.0, 10.0, text)
+
+	c.SetView(canvas.Identity.Rotate(45).Scale(2.0, 1.0))
+
+	c.DrawPath(20.0, 20.0, f)
+	c.DrawPath(20.0, 20.0, frame)
+	c.DrawText(20.0, 20.0, text)
 
 	//c.SetFillColor(color.RGBA{0, 128, 0, 128})
 	//for _, marker := range p.Markers(canvas.Rectangle(-2, -2, 4, 4), canvas.Circle(2), canvas.RegularPolygon(6, 2, true), true) {
@@ -154,36 +172,4 @@ func Draw(c *canvas.Canvas) {
 	//c.DrawPath(105, 40, 0, ps[0])
 	//c.DrawPath(105, 40, 0, ps[1])
 	//c.DrawPath(105, 50, 0, p.Dash(1.0, 1.0).Stroke(1.0, canvas.ButtCapper, canvas.RoundJoiner))
-
-	//c.SetColor(canvas.LightGrey)
-	////c.DrawPath(20.0, 60.0, 0.0, canvas.Rectangle(0.0, 0.0, 50.0, -20.0))
-	//c.SetColor(canvas.Black)
-	//rich := canvas.NewRichText()
-	//rich.Add(dejaVuSerif.Face(8.0), "Lorem ")
-	//rich.Add(dejaVuSerif.Face(8.0).FauxBold(), "ipsum ")
-	//rich.Add(dejaVuSerif.Face(8.0).FauxItalic(), "dolor ")
-	//rich.Add(dejaVuSerif.Face(8.0), "sit am\u200bet, ")
-	//rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.DoubleUnderline), "confiscatur")
-	//rich.Add(dejaVuSerif.Face(8.0), " ")
-	//rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.SineUnderline), "patria")
-	//rich.Add(dejaVuSerif.Face(8.0), " ")
-	//rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.SawtoothUnderline), "est")
-	//rich.Add(dejaVuSerif.Face(8.0), " ")
-	//rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.DottedUnderline), "gravus")
-	//rich.Add(dejaVuSerif.Face(8.0), " ")
-	//rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.DashedUnderline), "instantum")
-	//rich.Add(dejaVuSerif.Face(8.0), " ")
-	//rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.Underline), "norpe")
-	//rich.Add(dejaVuSerif.Face(8.0), " ")
-	//rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.Strikethrough), "targe")
-	//rich.Add(dejaVuSerif.Face(8.0), " ")
-	//rich.Add(dejaVuSerif.Face(8.0).Decoration(canvas.Overline), "yatum")
-	//text := rich.ToText(50.0, 20.0, canvas.Left, canvas.Top, 0.0)
-	//c.DrawPath(10, 70, 0.0, text.ToPath().Scale(2.0, 2.0))
-	//c.DrawPath(10, 70, 0.0, text.ToPathDecorations().Scale(2.0, 2.0))
-
-	face := dejaVuSerif.Face(12.0, canvas.Black, canvas.FontBook, canvas.FontNormal, canvas.FontUnderline)
-	c.DrawText(40, 15, canvas.NewTextLine(face, "oops", canvas.Left))
-	face = dejaVuSerif.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontUnderline)
-	c.DrawText(40, 10, canvas.NewTextLine(face, "oops", canvas.Center))
 }

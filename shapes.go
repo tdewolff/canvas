@@ -4,27 +4,26 @@ import (
 	"math"
 )
 
-// Rectangle returns a rectangle at x,y with width and height of w and h respectively.
-func Rectangle(x, y, w, h float64) *Path {
+// Rectangle returns a rectangle with width w and height h.
+func Rectangle(w, h float64) *Path {
 	if equal(w, 0.0) || equal(h, 0.0) {
 		return &Path{}
 	}
 
 	p := &Path{}
-	p.MoveTo(x, y)
-	p.LineTo(x+w, y)
-	p.LineTo(x+w, y+h)
-	p.LineTo(x, y+h)
+	p.LineTo(w, 0.0)
+	p.LineTo(w, h)
+	p.LineTo(0.0, h)
 	p.Close()
 	return p
 }
 
-// RoundedRectangle returns a rectangle at x,y with width w and height h with rounded corners of radius r. A negative radius will cast the corners inwards (ie. concave).
-func RoundedRectangle(x, y, w, h, r float64) *Path {
+// RoundedRectangle returns a rectangle with width w and height h with rounded corners of radius r. A negative radius will cast the corners inwards (ie. concave).
+func RoundedRectangle(w, h, r float64) *Path {
 	if equal(w, 0.0) || equal(h, 0.0) {
 		return &Path{}
 	} else if equal(r, 0.0) {
-		return Rectangle(x, y, w, h)
+		return Rectangle(w, h)
 	}
 
 	sweep := true
@@ -36,24 +35,24 @@ func RoundedRectangle(x, y, w, h, r float64) *Path {
 	r = math.Min(r, h/2.0)
 
 	p := &Path{}
-	p.MoveTo(x, y+r)
-	p.ArcTo(r, r, 0.0, false, sweep, x+r, y)
-	p.LineTo(x+w-r, y)
-	p.ArcTo(r, r, 0.0, false, sweep, x+w, y+r)
-	p.LineTo(x+w, y+h-r)
-	p.ArcTo(r, r, 0.0, false, sweep, x+w-r, y+h)
-	p.LineTo(x+r, y+h)
-	p.ArcTo(r, r, 0.0, false, sweep, x, y+h-r)
+	p.MoveTo(0.0, r)
+	p.ArcTo(r, r, 0.0, false, sweep, r, 0.0)
+	p.LineTo(w-r, 0.0)
+	p.ArcTo(r, r, 0.0, false, sweep, w, r)
+	p.LineTo(w, h-r)
+	p.ArcTo(r, r, 0.0, false, sweep, w-r, h)
+	p.LineTo(r, h)
+	p.ArcTo(r, r, 0.0, false, sweep, 0.0, h-r)
 	p.Close()
 	return p
 }
 
-// BeveledRectangle returns a rectangle at x,y with width w and height h with beveled corners at distance r from the corner.
-func BeveledRectangle(x, y, w, h, r float64) *Path {
+// BeveledRectangle returns a rectangle with width w and height h with beveled corners at distance r from the corner.
+func BeveledRectangle(w, h, r float64) *Path {
 	if equal(w, 0.0) || equal(h, 0.0) {
 		return &Path{}
 	} else if equal(r, 0.0) {
-		return Rectangle(x, y, w, h)
+		return Rectangle(w, h)
 	}
 
 	r = math.Abs(r)
@@ -61,14 +60,14 @@ func BeveledRectangle(x, y, w, h, r float64) *Path {
 	r = math.Min(r, h/2.0)
 
 	p := &Path{}
-	p.MoveTo(x, y+r)
-	p.LineTo(x+r, y)
-	p.LineTo(x+w-r, y)
-	p.LineTo(x+w, y+r)
-	p.LineTo(x+w, y+h-r)
-	p.LineTo(x+w-r, y+h)
-	p.LineTo(x+r, y+h)
-	p.LineTo(x, y+h-r)
+	p.MoveTo(0.0, r)
+	p.LineTo(r, 0.0)
+	p.LineTo(w-r, 0.0)
+	p.LineTo(w, r)
+	p.LineTo(w, h-r)
+	p.LineTo(w-r, h)
+	p.LineTo(r, h)
+	p.LineTo(0.0, h-r)
 	p.Close()
 	return p
 }

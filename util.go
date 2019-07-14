@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"strings"
 
 	"golang.org/x/image/math/f32"
 	"golang.org/x/image/math/fixed"
@@ -47,7 +48,8 @@ func toCSSColor(color color.RGBA) string {
 		hex.Encode(buf[1:], []byte{color.R, color.G, color.B})
 		return string(buf)
 	} else {
-		return fmt.Sprintf("rgba(%d,%d,%d,%g)", color.R, color.G, color.B, float64(color.A)/255.0)
+		a := float64(color.A) / 255.0
+		return fmt.Sprintf("rgba(%d,%d,%d,%g)", int(float64(color.R)/a), int(float64(color.G)/a), int(float64(color.B)/a), a)
 	}
 }
 
@@ -213,7 +215,7 @@ func (r Rect) Add(q Rect) Rect {
 
 // ToPath converts the rectangle to a *Path.
 func (r Rect) ToPath() *Path {
-	return Rectangle(r.X, r.Y, r.W, r.H)
+	return Rectangle(r.W, r.H).Translate(r.X, r.Y)
 }
 
 // String returns a string representation of r such as "(xmin,ymin)-(xmax,ymax)".
@@ -368,34 +370,68 @@ func (m Matrix) Eigen() (float64, float64, Point, Point) {
 	return lambda1, lambda2, v1, v2
 }
 
-// ToRigid removes scaling transformations
-func (m Matrix) ToRigid() Matrix {
-	// TODO: make more efficient, use Det?
-	x, y := m.DecomposePos()
-	rot := m.DecomposeRot()
-	return Identity.Translate(x, y).Rotate(rot)
+// Decompose extracts the translation, rotation, scaling and rotation components (applied in the reverse order) as (tx, ty, theta, sx, sy, phi) with rotation counter clockwise. This corresponds to Identity.Translate(tx, ty).Rotate(theta).Scale(sx, sy).Rotate(phi).
+func (m Matrix) Decompose() (float64, float64, float64, float64, float64, float64) {
+	// see https://math.stackexchange.com/questions/861674/decompose-a-2d-arbitrary-transform-into-only-scaling-and-rotation
+	E := (m[0][0] + m[1][1]) / 2.0
+	F := (m[0][0] - m[1][1]) / 2.0
+	G := (m[0][1] + m[1][0]) / 2.0
+	H := (m[0][1] - m[1][0]) / 2.0
+
+	Q, R := math.Sqrt(E*E+H*H), math.Sqrt(F*F+G*G)
+	sx, sy := Q+R, Q-R
+
+	a1, a2 := math.Atan2(G, F), math.Atan2(H, E)
+	theta := (a2 - a1) / 2.0 * 180.0 / math.Pi
+	phi := (a2 + a1) / 2.0 * 180.0 / math.Pi
+	if equal(sx, 1.0) && equal(sy, 1.0) {
+		theta += phi
+		phi = 0.0
+	}
+	return m[0][2], m[1][2], theta, sx, sy, phi
 }
 
-// DecomposePos extracts the translation parameters of the matrix.
-func (m Matrix) DecomposePos() (float64, float64) {
-	return m[0][2], m[1][2]
+// IsTranslation is true if the matrix consists of only translational components, ie. no rotation, scaling or skew.
+func (m Matrix) IsTranslation() bool {
+	return equal(m[0][0], 1.0) && equal(m[0][1], 0.0) && equal(m[1][0], 0.0) && equal(m[1][1], 1.0)
 }
 
-// DecomposeRot extracts the counter clockwise rotation parameter of the matrix in degrees.
-func (m Matrix) DecomposeRot() float64 {
-	return math.Atan2(-m[0][1], m[0][0]) * 180.0 / math.Pi
+// IsRigid is true if the matrix consists of only rigid transformations, ie. no scaling or skew.
+func (m Matrix) IsRigid() bool {
+	return equal(m.Det(), 1.0)
 }
 
-// DecomposeScale extracts the scale parameters of the matrix.
-func (m Matrix) DecomposeScale() (float64, float64) {
-	x := math.Copysign(math.Sqrt(m[0][0]*m[0][0]+m[0][1]*m[0][1]), m[0][0])
-	y := math.Copysign(math.Sqrt(m[1][0]*m[1][0]+m[1][1]*m[1][1]), m[1][1])
-	return x, y
+// Equals returns true if both matrices are equal with a tolerance of Epsilon.
+func (m Matrix) Equals(q Matrix) bool {
+	return equal(m[0][0], q[0][0]) && equal(m[0][1], q[0][1]) && equal(m[1][0], q[1][0]) && equal(m[1][1], q[1][1]) && equal(m[0][2], q[0][2]) && equal(m[1][2], q[1][2])
 }
 
 // String returns a string representation of the affine transformation matrix as six values, where [a b c; d e f; g h i] will be written as "a b d e c f" as g, h and i have fixed values (0, 0 and 1 respectively).
 func (m Matrix) String() string {
-	return fmt.Sprintf("%g %g %g %g %g %g", m[0][0], m[0][1], m[1][0], m[1][1], m[0][2], m[1][2])
+	return fmt.Sprintf("[%g %g; %g %g] + [%g %g]", m[0][0], m[0][1], m[1][0], m[1][1], m[0][2], m[1][2])
+}
+
+func (m Matrix) ToSVG(h float64) string {
+	tx, ty, theta, sx, sy, phi := m.Decompose()
+
+	s := &strings.Builder{}
+	if !equal(m[0][2], 0.0) || !equal(m[1][2], 0.0) {
+		fmt.Fprintf(s, " translate(%g,%g)", tx, h-ty)
+	}
+	if !equal(theta, 0.0) {
+		fmt.Fprintf(s, " rotate(%g)", theta)
+	}
+	if !equal(sx, 0.0) && !equal(sy, 0.0) {
+		fmt.Fprintf(s, " scale(%g,%g)", sx, sy)
+	}
+	if !equal(phi, 0.0) {
+		fmt.Fprintf(s, " rotate(%g)", phi)
+	}
+
+	if s.Len() == 0 {
+		return ""
+	}
+	return s.String()[1:]
 }
 
 ////////////////////////////////////////////////////////////////

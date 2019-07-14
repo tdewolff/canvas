@@ -68,7 +68,7 @@ func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 			j := boundary.pos + boundary.size
 			if i < j {
 				l := line{y: y}
-				span := newTextSpan(ff, s, i)
+				span := newTextSpan(ff, s[:j], i)
 				if halign == Center {
 					span.dx = -span.width / 2.0
 				} else if halign == Right {
@@ -129,21 +129,21 @@ func (rt *RichText) Add(ff FontFace, s string) *RichText {
 		if boundary.kind == lineBoundary || boundary.kind == sentenceBoundary || boundary.kind == eofBoundary {
 			j := boundary.pos + boundary.size
 			if i < j {
-				extend := false
-				if i == 0 && 0 < len(rt.spans) && rt.spans[len(rt.spans)-1].ff.Equals(ff) {
+				extendPrev := false
+				if i == 0 && boundary.kind != lineBoundary && 0 < len(rt.spans) && rt.spans[len(rt.spans)-1].ff.Equals(ff) {
 					prevSpan := rt.spans[len(rt.spans)-1]
 					prevBoundaryKind := eofBoundary
 					if 1 < len(prevSpan.boundaries) {
 						prevBoundaryKind = prevSpan.boundaries[len(prevSpan.boundaries)-2].kind
 						if prevBoundaryKind != lineBoundary && prevBoundaryKind != sentenceBoundary {
-							extend = true
+							extendPrev = true
 						}
 					} else {
-						extend = true
+						extendPrev = true
 					}
 				}
 
-				if extend {
+				if extendPrev {
 					diff := len(rt.spans[len(rt.spans)-1].altText)
 					rt.spans[len(rt.spans)-1] = newTextSpan(ff, rt.text[:start+j], start+i-diff)
 				} else {
@@ -198,6 +198,11 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 				break
 			}
 
+			newline := 1 < len(spans[0].boundaries) && spans[0].boundaries[len(spans[0].boundaries)-2].kind == lineBoundary
+			if newline {
+				spans[0], _ = spans[0].split(len(spans[0].boundaries) - 2)
+			}
+
 			spans[0].dx = dx
 			ss = append(ss, spans[0])
 			dx += spans[0].width
@@ -211,6 +216,9 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 				spans = []textSpan{rt.spans[k]}
 			} else {
 				break // span couldn't fully fit, we have a full line
+			}
+			if newline {
+				break
 			}
 		}
 
@@ -486,7 +494,7 @@ func (t *Text) ToPaths() ([]*Path, []color.RGBA) {
 }
 
 // WriteSVG will write out the text in the SVG file format.
-func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
+func (t *Text) WriteSVG(w io.Writer, h float64, m Matrix) {
 	if len(t.lines) == 0 || len(t.lines[0].spans) == 0 {
 		return
 	}
@@ -548,10 +556,7 @@ func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
 
 	ffMain := t.mostCommonFontFace()
 
-	fmt.Fprintf(w, `<text x="%g" y="%g`, x, y)
-	if rot != 0.0 {
-		fmt.Fprintf(w, `" transform="rotate(%g,%g,%g)`, -rot, x, y)
-	}
+	fmt.Fprintf(w, `<text transform="%s`, m.ToSVG(h)) // TODO: optimize if only translational
 	fmt.Fprintf(w, `" style="font:`)
 	if ffMain.style&FontItalic != 0 {
 		fmt.Fprintf(w, ` italic`)
@@ -571,7 +576,7 @@ func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
 	decorations := []pathLayer{}
 	for _, line := range t.lines {
 		for _, span := range line.spans {
-			fmt.Fprintf(w, `<tspan x="%g" y="%g`, x+span.dx, y-line.y-span.ff.voffset)
+			fmt.Fprintf(w, `<tspan x="%g" y="%g`, span.dx, -line.y-span.ff.voffset)
 			if span.wordSpacing > 0.0 {
 				fmt.Fprintf(w, `" word-spacing="%g`, span.wordSpacing)
 			}
@@ -585,53 +590,34 @@ func (t *Text) WriteSVG(w io.Writer, x, y, rot float64) {
 		}
 		for _, deco := range line.decos {
 			p := deco.ff.Decorate(deco.x1 - deco.x0)
-			p = p.Transform(Identity.Translate(x+deco.x0, -y+line.y+deco.ff.voffset).RotateAt(rot, x, -y))
+			p = p.Transform(Identity.Mul(m).Translate(deco.x0, line.y+deco.ff.voffset))
 			decorations = append(decorations, pathLayer{p, drawState{fillColor: deco.ff.color}})
 		}
 	}
 	fmt.Fprintf(w, `</text>`)
 	for _, l := range decorations {
-		l.WriteSVG(w, 0.0)
+		l.WriteSVG(w, h)
 	}
 }
 
 // WritePDF will write out the text in the PDF file format.
-func (t *Text) WritePDF(w *PDFPageWriter, x0, y0, rot float64) {
+func (t *Text) WritePDF(w *PDFPageWriter, m Matrix) {
 	// TODO: use PDF functions to keep track of current state (different from state outsite BT)
 
 	fmt.Fprintf(w, ` BT`)
-	fmt.Fprintf(w, " 0 Tr %g %g Td", x0, y0)
-
-	modifiedTm := false
-	renderingMode := 0
-
-	x, y := 0.0, 0.0
 	decorations := []pathLayer{}
 	for _, line := range t.lines {
 		for _, span := range line.spans {
-			w.SetTextColor(span.ff.color)
+			w.SetFillColor(span.ff.color)
 			w.SetFont(span.ff.font, span.ff.size*span.ff.scale)
-			fmt.Fprintf(w, " %g Tc", span.glyphSpacing)
-
-			if span.ff.fauxItalic != 0.0 {
-				fmt.Fprintf(w, " 1 0 %g 1 %g %g Tm", span.ff.fauxItalic, x0+span.dx, y0+line.y)
-				modifiedTm = true
-			} else if modifiedTm {
-				fmt.Fprintf(w, " 1 0 0 1 %g %g Tm", x0+span.dx, y0+line.y)
-				modifiedTm = false
-			} else {
-				fmt.Fprintf(w, " %g %g Td", span.dx-x, line.y-y)
-			}
+			w.SetTextPosition(m.Translate(span.dx, line.y).Shear(span.ff.fauxItalic, 0.0))
+			w.SetTextCharSpace(span.glyphSpacing)
 
 			if 0.0 < span.ff.fauxBold {
-				if renderingMode != 2 {
-					fmt.Fprintf(w, " 2 Tr")
-					renderingMode = 2
-				}
+				w.SetTextRenderMode(2)
 				fmt.Fprintf(w, " %g w", span.ff.fauxBold*2.0)
-			} else if renderingMode != 0 {
-				fmt.Fprintf(w, " 0 Tr")
-				renderingMode = 0
+			} else {
+				w.SetTextRenderMode(0)
 			}
 
 			if span.wordSpacing == 0.0 {
@@ -661,13 +647,10 @@ func (t *Text) WritePDF(w *PDFPageWriter, x0, y0, rot float64) {
 				}
 				fmt.Fprintf(w, "] TJ")
 			}
-
-			x = span.dx
-			y = line.y
 		}
 		for _, deco := range line.decos {
 			p := deco.ff.Decorate(deco.x1 - deco.x0)
-			p = p.Transform(Identity.Translate(x0+deco.x0, y0+line.y+deco.ff.voffset).RotateAt(rot, x0, y0))
+			p = p.Transform(Identity.Mul(m).Translate(deco.x0, line.y+deco.ff.voffset))
 			decorations = append(decorations, pathLayer{p, drawState{fillColor: deco.ff.color}})
 		}
 	}

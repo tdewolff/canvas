@@ -186,7 +186,7 @@ func ParseLaTeX(s string) (*Path, error) {
 				if n == 0 {
 					return nil, errors.New("unexpected SVG format: expected valid height attribute on rect tag")
 				}
-				p = p.Append(Rectangle(x, y, w, h))
+				p = p.Append(Rectangle(w, h).Translate(x, y))
 				x0 = math.Min(x0, x)
 				y0 = math.Min(y0, y)
 			}

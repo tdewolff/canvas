@@ -550,7 +550,7 @@ func (p *Path) Transform(m Matrix) *Path {
 	if len(p.d) > 0 && p.d[0] != MoveToCmd {
 		p.d = append([]float64{MoveToCmd, 0.0, 0.0}, p.d...)
 	}
-	xscale, yscale := m.DecomposeScale()
+	_, _, _, xscale, yscale, _ := m.Decompose()
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {

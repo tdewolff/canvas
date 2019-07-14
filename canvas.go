@@ -61,7 +61,7 @@ func (c *Canvas) ResetView() {
 
 // ComposeView multiplies the current affine transformation matrix by the given one.
 func (c *Canvas) ComposeView(m Matrix) {
-	c.m = c.m.Mul(m)
+	c.m = m.Mul(c.m)
 }
 
 // SetFillColor sets the color to be used for filling operations.
@@ -103,7 +103,7 @@ func (c *Canvas) DrawPath(x, y float64, path *Path) {
 		return
 	}
 	if !path.Empty() {
-		path = path.Transform(Identity.Mul(c.m).Translate(x, y))
+		path = path.Transform(Identity.Translate(x, y).Mul(c.m))
 		c.drawState.fillRule = FillRule
 		c.layers = append(c.layers, pathLayer{path, c.drawState})
 	}
@@ -115,7 +115,7 @@ func (c *Canvas) DrawText(x, y float64, text *Text) {
 		c.fonts[font] = true
 	}
 	// TODO: skip if empty
-	c.layers = append(c.layers, textLayer{text, Identity.Mul(c.m).Translate(x, y)})
+	c.layers = append(c.layers, textLayer{text, Identity.Translate(x, y).Mul(c.m)})
 }
 
 // ImageEncoding defines whether the embedded image shall be embedded as Lossless (typically PNG) or Lossy (typically JPG).
@@ -496,40 +496,30 @@ type textLayer struct {
 }
 
 func (l textLayer) WriteSVG(w io.Writer, h float64) {
-	x, y := l.viewport.DecomposePos()
-	rot := l.viewport.DecomposeRot()
-	l.Text.WriteSVG(w, x, h-y, rot)
+	l.Text.WriteSVG(w, h, l.viewport)
 }
 
 func (l textLayer) WritePDF(w *PDFPageWriter) {
-	x, y := l.viewport.DecomposePos()
-	rot := l.viewport.DecomposeRot()
-	l.Text.WritePDF(w, x, y, rot)
+	l.Text.WritePDF(w, l.viewport)
 }
 
 func (l textLayer) WriteEPS(w *EPSWriter) {
 	// TODO: EPS write text
-	x, y := l.viewport.DecomposePos()
-	rot := l.viewport.DecomposeRot()
-	m := Identity.Translate(x, y).Rotate(rot)
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
 		state := defaultDrawState
 		state.fillColor = colors[i]
-		pathLayer{path.Transform(m), state}.WriteEPS(w)
+		pathLayer{path.Transform(l.viewport), state}.WriteEPS(w)
 	}
 }
 
 func (l textLayer) WriteImage(img *image.RGBA, dpm float64) {
 	//l.Text.WriteImage(img, dpm)
-	x, y := l.viewport.DecomposePos()
-	rot := l.viewport.DecomposeRot()
-	m := Identity.Translate(x, y).Rotate(rot)
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
 		state := defaultDrawState
 		state.fillColor = colors[i]
-		pathLayer{path.Transform(m), state}.WriteImage(img, dpm)
+		pathLayer{path.Transform(l.viewport), state}.WriteImage(img, dpm)
 	}
 }
 
