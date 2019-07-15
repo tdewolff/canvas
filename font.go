@@ -64,18 +64,39 @@ func (f *Font) Raw() (string, []byte) {
 	return f.mimetype, f.raw
 }
 
-func (f *Font) Widths() []interface{} {
+func (f *Font) PDFInfo() (Rect, float64, float64, float64, float64, []int) {
 	units := float64(f.sfnt.UnitsPerEm())
-	widths := []interface{}{}
+
+	bounds := Rect{}
+	rect, err := f.sfnt.Bounds(&sfntBuffer, toI26_6(units), font.HintingNone)
+	if err == nil {
+		x0, y0 := fromI26_6(rect.Min.X)*1000.0/units, fromI26_6(rect.Min.Y)*1000.0/units
+		x1, y1 := fromI26_6(rect.Max.X)*1000.0/units, fromI26_6(rect.Max.Y)*1000.0/units
+		bounds = Rect{x0, y0, x1 - x0, y1 - y0}
+	}
+
+	italicAngle := 0.0
+	if f.sfnt.PostTable() != nil {
+		italicAngle = f.sfnt.PostTable().ItalicAngle
+	}
+
+	ascent, descent, capHeight := 0.0, 0.0, 0.0
+	metrics, err := f.sfnt.Metrics(&sfntBuffer, toI26_6(units), font.HintingNone)
+	if err == nil {
+		ascent = fromI26_6(metrics.Ascent) * 1000.0 / units
+		descent = fromI26_6(metrics.Descent) * 1000.0 / units
+		capHeight = fromI26_6(metrics.CapHeight) * 1000.0 / units
+	}
+
+	widths := []int{}
 	for i := 0; i < f.sfnt.NumGlyphs(); i++ {
 		index := sfnt.GlyphIndex(i)
 		advance, err := f.sfnt.GlyphAdvance(&sfntBuffer, index, toI26_6(units), font.HintingNone)
-		w := fromI26_6(advance)
 		if err == nil {
-			widths = append(widths, int(w*1000.0/units))
+			widths = append(widths, int(fromI26_6(advance)*1000.0/units+0.5))
 		}
 	}
-	return widths
+	return bounds, italicAngle, ascent, descent, capHeight, widths
 }
 
 func (f *Font) ToIndices(s string) []uint16 {

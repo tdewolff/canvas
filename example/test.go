@@ -76,13 +76,14 @@ func drawStrokedPath(c *canvas.Canvas, x, y, d float64, path string) {
 
 func Draw(c *canvas.Canvas) {
 	face := dejaVuSerif.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
-	frame := canvas.Rectangle(17.0, -10.0)
+	frame := canvas.Rectangle(28.0, -10.0)
 	rt := canvas.NewRichText()
-	rt.Add(face, "Texttext\n")
+	rt.Add(face, "VAVA VAVA\n")
+	rt.Add(face, "lllllllll lllllllll\n")
 	rt.Add(face, "mies. ")
 	rt.Add(dejaVuSerif.Face(12.0, canvas.Black, canvas.FontItalic, canvas.FontNormal, canvas.FontUnderline), "teun")
 	rt.Add(face, "noot. ")
-	text := rt.ToText(25.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0)
+	text := rt.ToText(28.0, 0.0, canvas.Justify, canvas.Top, 0.0, 0.0)
 
 	p, _ := canvas.ParseSVG(fmt.Sprintf("A20.0 10.0 0.0 0 0 40.0 0.0z"))
 	f := p.Flatten().Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)

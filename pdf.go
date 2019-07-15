@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"encoding/ascii85"
+	"encoding/binary"
 	"fmt"
 	"image"
 	"image/color"
@@ -11,6 +12,9 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"unicode/utf8"
+
+	"golang.org/x/image/font"
 )
 
 type PDFWriter struct {
@@ -71,14 +75,14 @@ func (w *PDFWriter) writeVal(i interface{}) {
 	switch v := i.(type) {
 	case bool:
 		if v {
-			w.write("1")
+			w.write("true")
 		} else {
-			w.write("0")
+			w.write("false")
 		}
 	case int:
 		w.write("%d", v)
 	case float64:
-		w.write("%f", v)
+		w.write("%.5f", v)
 	case string:
 		v = strings.Replace(v, `\`, `\\`, -1)
 		v = strings.Replace(v, `(`, `\(`, -1)
@@ -193,9 +197,39 @@ func (w *PDFWriter) getFont(font *Font) PDFRef {
 		cidSubtype = "CIDFontType0"
 	}
 
-	widths := font.Widths()
+	bounds, italicAngle, ascent, descent, capHeight, widths := font.PDFInfo()
 
-	// TODO: glyph width seem to be _slightly_ off, just a tad too wide
+	// shorten glyph widths array
+	DW := widths[0]
+	W := PDFArray{}
+	i, j := 1, 1
+	for k, width := range widths {
+		if k != 0 && width != widths[j] {
+			if 4 < k-j { // at about 5 equal widths, it would be shorter using the other notation format
+				if i < j {
+					arr := PDFArray{}
+					for _, w := range widths[i:j] {
+						arr = append(arr, w)
+					}
+					W = append(W, i, arr)
+				}
+				if widths[j] != DW {
+					W = append(W, j, k-1, widths[j])
+				}
+				i = k
+				j = k
+			}
+			j = k
+		}
+	}
+	if i < len(widths) {
+		arr := PDFArray{}
+		for _, w := range widths[i:] {
+			arr = append(arr, w)
+		}
+		W = append(W, i, arr)
+	}
+
 	baseFont := strings.ReplaceAll(font.name, " ", "_")
 	fontfileRef := w.writeObject(PDFStream{
 		dict: PDFDict{
@@ -214,8 +248,8 @@ func (w *PDFWriter) getFont(font *Font) PDFRef {
 			"Subtype":     PDFName(cidSubtype),
 			"BaseFont":    PDFName(baseFont),
 			"CIDToGIDMap": PDFName("Identity"),
-			"DW":          widths[0],
-			"W":           PDFArray{0, PDFArray(widths)},
+			"DW":          DW,
+			"W":           W,
 			"CIDSystemInfo": PDFDict{
 				"Registry":   "Adobe",
 				"Ordering":   "Identity",
@@ -225,12 +259,13 @@ func (w *PDFWriter) getFont(font *Font) PDFRef {
 				"Type":        PDFName("FontDescriptor"),
 				"FontName":    PDFName(baseFont),
 				"Flags":       4,
-				"FontBBox":    PDFArray{0.0, 0.0, 0.0, 0.0},
-				"ItalicAngle": 0,
-				"Ascent":      0, // not used since it's embedded in a Type 1 font?
-				"Descent":     0,
-				"CapHeight":   0,
-				"StemV":       0,
+				"FontBBox":    PDFArray{int(bounds.X), -int(bounds.Y + bounds.H), int(bounds.X + bounds.W), -int(bounds.Y)},
+				"ItalicAngle": italicAngle,
+				"Ascent":      int(ascent),
+				"Descent":     -int(descent),
+				"CapHeight":   -int(capHeight),
+				"StemV":       80, // taken from Inkscape, should be calculated somehow
+				"StemH":       80,
 				"FontFile3":   fontfileRef,
 			},
 		}},
@@ -287,6 +322,7 @@ type PDFPageWriter struct {
 	miterLimit     float64
 	dashes         []float64
 	font           *Font
+	fontSize       float64
 	textPosition   Matrix
 	textCharSpace  float64
 	textRenderMode int
@@ -309,6 +345,7 @@ func (w *PDFWriter) NewPage(width, height float64) *PDFPageWriter {
 		miterLimit:     10.0,
 		dashes:         []float64{0.0}, // dashArray and dashPhase
 		font:           nil,
+		fontSize:       0.0,
 		textPosition:   Identity,
 		textCharSpace:  0.0,
 		textRenderMode: 0,
@@ -344,7 +381,6 @@ func (w *PDFPageWriter) writePage(parent PDFRef) PDFRef {
 }
 
 func (w *PDFPageWriter) SetAlpha(alpha float64) {
-	// TODO: colors are off when using alpha (need premultiplied alpha on rgb?)
 	if alpha != w.alpha {
 		gs := w.getOpacityGS(alpha)
 		fmt.Fprintf(w, " /%v gs", gs)
@@ -356,9 +392,9 @@ func (w *PDFPageWriter) SetFillColor(fillColor color.RGBA) {
 	a := float64(fillColor.A) / 255.0
 	if fillColor != w.fillColor {
 		if fillColor.R == fillColor.G && fillColor.R == fillColor.B {
-			fmt.Fprintf(w, " %f g", float64(fillColor.R)/255.0)
+			fmt.Fprintf(w, " %.5f g", float64(fillColor.R)/255.0/a)
 		} else {
-			fmt.Fprintf(w, " %f %f %f rg", float64(fillColor.R)/255.0, float64(fillColor.G)/255.0, float64(fillColor.B)/255.0)
+			fmt.Fprintf(w, " %.5f %.5f %.5f rg", float64(fillColor.R)/255.0/a, float64(fillColor.G)/255.0/a, float64(fillColor.B)/255.0/a)
 		}
 		w.fillColor = fillColor
 	}
@@ -366,20 +402,21 @@ func (w *PDFPageWriter) SetFillColor(fillColor color.RGBA) {
 }
 
 func (w *PDFPageWriter) SetStrokeColor(strokeColor color.RGBA) {
+	a := float64(strokeColor.A) / 255.0
 	if strokeColor != w.strokeColor {
 		if strokeColor.R == strokeColor.G && strokeColor.R == strokeColor.B {
-			fmt.Fprintf(w, " %f G", float64(strokeColor.R)/255.0)
+			fmt.Fprintf(w, " %.5f G", float64(strokeColor.R)/255.0/a)
 		} else {
-			fmt.Fprintf(w, " %f %f %f RG", float64(strokeColor.R)/255.0, float64(strokeColor.G)/255.0, float64(strokeColor.B)/255.0)
+			fmt.Fprintf(w, " %.5f %.5f %.5f RG", float64(strokeColor.R)/255.0/a, float64(strokeColor.G)/255.0/a, float64(strokeColor.B)/255.0/a)
 		}
 		w.strokeColor = strokeColor
 	}
-	w.SetAlpha(float64(strokeColor.A) / 255.0)
+	w.SetAlpha(a)
 }
 
 func (w *PDFPageWriter) SetLineWidth(lineWidth float64) {
 	if lineWidth != w.lineWidth {
-		fmt.Fprintf(w, " %f w", lineWidth)
+		fmt.Fprintf(w, " %.5f w", lineWidth)
 		w.lineWidth = lineWidth
 	}
 }
@@ -423,7 +460,7 @@ func (w *PDFPageWriter) SetLineJoin(joiner Joiner) {
 		w.lineJoin = lineJoin
 	}
 	if lineJoin == 0 && miterLimit != w.miterLimit {
-		fmt.Fprintf(w, " %g M", miterLimit)
+		fmt.Fprintf(w, " %.5f M", miterLimit)
 		w.miterLimit = miterLimit
 	}
 }
@@ -475,13 +512,16 @@ func (w *PDFPageWriter) SetDashes(dashPhase float64, dashArray []float64) {
 
 func (w *PDFPageWriter) SetFont(font *Font, size float64) {
 	if font != w.font {
+		w.font = font
+		w.fontSize = size
+
 		ref := w.pdf.getFont(font)
 		if _, ok := w.resources["Font"]; !ok {
 			w.resources["Font"] = PDFDict{}
 		} else {
 			for name, fontRef := range w.resources["Font"].(PDFDict) {
 				if ref == fontRef {
-					fmt.Fprintf(w, " /%v %f Tf", name, size)
+					fmt.Fprintf(w, " /%v %.5f Tf", name, size)
 					return
 				}
 			}
@@ -489,7 +529,7 @@ func (w *PDFPageWriter) SetFont(font *Font, size float64) {
 
 		name := PDFName(fmt.Sprintf("F%d", len(w.resources["Font"].(PDFDict))))
 		w.resources["Font"].(PDFDict)[name] = ref
-		fmt.Fprintf(w, " /%v %f Tf", name, size)
+		fmt.Fprintf(w, " /%v %.5f Tf", name, size)
 	}
 }
 
@@ -500,9 +540,9 @@ func (w *PDFPageWriter) SetTextPosition(m Matrix) {
 
 	if equal(m[0][0], w.textPosition[0][0]) && equal(m[0][1], w.textPosition[0][1]) && equal(m[1][0], w.textPosition[1][0]) && equal(m[1][1], w.textPosition[1][1]) {
 		d := w.textPosition.Inv().Dot(Point{m[0][2], m[1][2]})
-		fmt.Fprintf(w, " %g %g Td", d.X, d.Y)
+		fmt.Fprintf(w, " %.5f %.5f Td", d.X, d.Y)
 	} else {
-		fmt.Fprintf(w, " %g %g %g %g %g %g Tm", m[0][0], m[1][0], m[0][1], m[1][1], m[0][2], m[1][2])
+		fmt.Fprintf(w, " %.5f %.5f %.5f %.5f %.5f %.5f Tm", m[0][0], m[1][0], m[0][1], m[1][1], m[0][2], m[1][2])
 	}
 	w.textPosition = m
 }
@@ -516,9 +556,59 @@ func (w *PDFPageWriter) SetTextRenderMode(mode int) {
 
 func (w *PDFPageWriter) SetTextCharSpace(space float64) {
 	if !equal(w.textCharSpace, space) {
-		fmt.Fprintf(w, " %g Tc", space)
+		fmt.Fprintf(w, " %.5f Tc", space)
 		w.textCharSpace = space
 	}
+}
+
+func (w *PDFPageWriter) WriteText(TJ ...interface{}) {
+	if len(TJ) == 0 || w.font == nil {
+		return
+	}
+
+	units := float64(w.font.sfnt.UnitsPerEm())
+
+	first := false
+	write := func(s string) {
+		if first {
+			fmt.Fprintf(w, "(")
+			first = false
+		} else {
+			fmt.Fprintf(w, " (")
+		}
+		indices := w.font.ToIndices(s)
+		binary.Write(w, binary.BigEndian, indices)
+		fmt.Fprintf(w, ")")
+	}
+
+	fmt.Fprintf(w, "[")
+	for _, tj := range TJ {
+		switch val := tj.(type) {
+		case string:
+			i, j := 0, 0
+			var rPrev rune
+			for _, r := range val {
+				if i < j {
+					i0, err0 := w.font.sfnt.GlyphIndex(&sfntBuffer, rPrev)
+					i1, err1 := w.font.sfnt.GlyphIndex(&sfntBuffer, r)
+					if err0 == nil && err1 == nil {
+						kern, err := w.font.sfnt.Kern(&sfntBuffer, i0, i1, toI26_6(units), font.HintingNone)
+						if err == nil && kern != 0.0 {
+							write(val[i:j])
+							fmt.Fprintf(w, " %d", -int(fromI26_6(kern)*1000.0/units+0.5))
+							i = j
+						}
+					}
+				}
+				j += utf8.RuneLen(r)
+				rPrev = r
+			}
+			write(val[i:])
+		case float64:
+			fmt.Fprintf(w, " %d", -int(val*1000.0/w.fontSize+0.5))
+		}
+	}
+	fmt.Fprintf(w, "]TJ")
 }
 
 func (w *PDFPageWriter) DrawImage(img image.Image, enc ImageEncoding, m Matrix) {
@@ -526,7 +616,7 @@ func (w *PDFPageWriter) DrawImage(img image.Image, enc ImageEncoding, m Matrix) 
 	size := img.Bounds().Size()
 	m = m.Scale(float64(size.X), float64(size.Y))
 	w.SetAlpha(1.0)
-	fmt.Fprintf(w, " q %f %f %f %f %f %f cm /%v Do Q", m[0][0], -m[0][1], -m[1][0], m[1][1], m[0][2], m[1][2], name)
+	fmt.Fprintf(w, " q %.5f %.5f %.5f %.5f %.5f %.5f cm /%v Do Q", m[0][0], -m[0][1], -m[1][0], m[1][1], m[0][2], m[1][2], name)
 }
 
 func (w *PDFPageWriter) embedImage(img image.Image, enc ImageEncoding) PDFName {
@@ -570,7 +660,7 @@ func (w *PDFPageWriter) getOpacityGS(a float64) PDFName {
 	if name, ok := w.graphicsStates[a]; ok {
 		return name
 	}
-	name := PDFName(fmt.Sprintf("GS%d", len(w.graphicsStates)))
+	name := PDFName(fmt.Sprintf("A%d", len(w.graphicsStates)))
 	w.graphicsStates[a] = name
 
 	if _, ok := w.resources["ExtGState"]; !ok {

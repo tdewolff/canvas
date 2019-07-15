@@ -2,7 +2,6 @@ package canvas
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"image/color"
 	"io"
@@ -620,33 +619,19 @@ func (t *Text) WritePDF(w *PDFPageWriter, m Matrix) {
 				w.SetTextRenderMode(0)
 			}
 
-			if span.wordSpacing == 0.0 {
-				fmt.Fprintf(w, " (")
-				indices := span.ff.font.ToIndices(span.text)
-				binary.Write(w, binary.BigEndian, indices)
-				fmt.Fprintf(w, ") Tj")
-			} else {
-				i := 0
-				fmt.Fprintf(w, " [")
-				for _, boundary := range span.boundaries {
-					if boundary.kind == wordBoundary || boundary.kind == eofBoundary {
-						j := boundary.pos + boundary.size
-						if i != 0 {
-							fmt.Fprintf(w, " (")
-						} else {
-							fmt.Fprintf(w, "(")
-						}
-						indices := span.ff.font.ToIndices(span.text[i:j])
-						binary.Write(w, binary.BigEndian, indices)
-						fmt.Fprintf(w, ")")
-						if boundary.kind != eofBoundary {
-							fmt.Fprintf(w, " -%g", span.wordSpacing*1000*0.24) // TODO: PDF word spacing 0.24 is a magic number, not sure why this number works...
-						}
-						i = j
+			i := 0
+			TJ := []interface{}{}
+			for _, boundary := range span.boundaries {
+				if boundary.kind == wordBoundary || boundary.kind == eofBoundary {
+					j := boundary.pos + boundary.size
+					TJ = append(TJ, span.text[i:j])
+					if boundary.kind == wordBoundary {
+						TJ = append(TJ, span.wordSpacing)
 					}
+					i = j
 				}
-				fmt.Fprintf(w, "] TJ")
 			}
+			w.WriteText(TJ...)
 		}
 		for _, deco := range line.decos {
 			p := deco.ff.Decorate(deco.x1 - deco.x0)
