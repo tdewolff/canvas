@@ -104,20 +104,22 @@ c.PushState()
 c.PopState()
 c.SetView(Matrix)
 c.ComposeView(Matrix)
-c.SetFillColor(color.RGBA)
-c.SetStrokeColor(color.RGBA)
+c.ResetView()
+c.SetFillColor(color.Color)
+c.SetStrokeColor(color.Color)
 c.SetStrokeCapper(Capper)
 c.SetStrokeJoiner(Joiner)
 c.SetStrokeWidth(width float64)
 c.SetDashes(offset float64, lengths ...float64)
+
 c.DrawPath(x, y float64, *Path)
 c.DrawText(x, y float64, *Text)
-c.DrawImage(x, y float64, image.Image, ImageEncoding, dpi float64)
+c.DrawImage(x, y float64, image.Image, ImageEncoding, dpm float64)
 
 c.WriteSVG(w io.Writer)
 c.WriteEPS(w io.Writer)
 c.WritePDF(w io.Writer)
-c.WriteImage(dpi float64) *image.RGBA
+c.WriteImage(dpm float64) *image.RGBA
 ```
 
 Canvas allows to draw either paths or text. All positions and sizes are given in millimeters.
@@ -126,27 +128,19 @@ Canvas allows to draw either paths or text. All positions and sizes are given in
 ![Text Example](https://raw.githubusercontent.com/tdewolff/canvas/master/example/text_example.png)
 
 ``` go
-dejaVuSerif, err := canvas.LoadFontFile("DejaVuSerif", canvas.Regular, "DejaVuSerif.ttf")  // TTF, OTF or WOFF
+dejaVuSerif := NewFontFamily("dejavu-serif")
+err := dejaVuSerif.LoadFontFile("DejaVuSerif.ttf", canvas.FontRegular)  // TTF, OTF or WOFF
+ff := dejaVuSerif.Face(size float64, color.Color, FontStyle, FontVariant, ...FontDecorator)
 
-ff := dejaVuSerif.Face(size float64)
-ff.Info() (name string, style FontStyle, size float64)
-ff.Metrics() Metrics                          // font metrics such as line height
-ff.ToPath(r rune) (p *Path, advance float64)  // convert rune to path and return advance
-ff.Kerning(r0, r1 rune) float64               // return kerning between runes
+text = NewTextLine(ff, "string\nsecond line", halign) // simple text line
+text = NewTextBox(ff, "string", width, height, halign, valign, indent, lineStretch)  // split on word boundaries and specify text alignment
 
-// regular text fitted to a box
-text := NewTextBox(ff, color, "string", width, height, halign, valign, indent, lineStretch)  // split on word boundaries and specify text alignment
-text.Bounds() Rect
-
-// specialization for just a text line, can be converted to a path
-textLine := NewTextLine(ff, color, "string")  // simple text with newlines
-path := textLine.ToPath() *Path
-text = textLine.ToText() *Text
-
-// specialization for rich text, different styles of text or paths (LaTeX) in one box
-richText := NewRichText()                        // allow different FontFaces in the same text block
-richText.Add(ff, color, "string")
+// rich text allowing different styles of text in one box
+richText := NewRichText()  // allow different FontFaces in the same text block
+richText.Add(ff, "string")
 text = richText.ToText(width, height, halign, valign, indent, lineStretch)
+
+c.DrawText(0.0, 0.0, text)
 ```
 
 
@@ -163,9 +157,9 @@ p.ArcTo(rx, ry, rot float64, largeArc, sweep bool, x, y float64)  // an arc of a
 p.Arc(rx, ry, rot float64, theta0, theta1 float64)                // an arc of an ellipse with radii (rx,ry), rotated by rot (in degrees CCW), beginning at angle theta0 and ending at angle theta1
 p.Close()                                                         // close the path, essentially a LineTo to the last MoveTo location
 
-p = Rectangle(x, y, w, h float64)
-p = RoundedRectangle(x, y, w, h, r float64)
-p = BeveledRectangle(x, y, w, h, r float64)
+p = Rectangle(w, h float64)
+p = RoundedRectangle(w, h, r float64)
+p = BeveledRectangle(w, h, r float64)
 p = Circle(r float64)
 p = Ellipse(rx, ry float64)
 p = RegularPolygon(n int, r float64, up bool)
@@ -185,11 +179,6 @@ p.Interior(x, y float64) bool  // true if (x,y) is in the interior of the path, 
 p.Filling() []bool             // for all path segments, true if the path segment is filling (depends on FillRule)
 p.Bounds() Rect                // bounding box of path
 p.Length() float64             // length of path in millimeters
-
-p.ToImage(*image.RGBA, dpm, w, h float64)  // rasterize, TODO: function takes rasterizer now
-p.ToSVG(w, h float64) string               // to SVG
-p.ToPDF() string                           // to PDF
-p.ToPS() string                            // to PostScript
 ```
 
 These paths can be manipulated and transformed with the following commands. Each will return a pointer to the path.

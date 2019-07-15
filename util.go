@@ -49,7 +49,7 @@ func toCSSColor(color color.RGBA) string {
 		return string(buf)
 	} else {
 		a := float64(color.A) / 255.0
-		return fmt.Sprintf("rgba(%d,%d,%d,%g)", int(float64(color.R)/a), int(float64(color.G)/a), int(float64(color.B)/a), a)
+		return fmt.Sprintf("rgba(%d,%d,%d,%.5g)", int(float64(color.R)/a), int(float64(color.G)/a), int(float64(color.B)/a), a)
 	}
 }
 
@@ -416,16 +416,16 @@ func (m Matrix) ToSVG(h float64) string {
 
 	s := &strings.Builder{}
 	if !equal(m[0][2], 0.0) || !equal(m[1][2], 0.0) {
-		fmt.Fprintf(s, " translate(%g,%g)", tx, h-ty)
+		fmt.Fprintf(s, " translate(%.5g,%.5g)", tx, h-ty)
 	}
 	if !equal(theta, 0.0) {
-		fmt.Fprintf(s, " rotate(%g)", theta)
+		fmt.Fprintf(s, " rotate(%.5g)", theta)
 	}
 	if !equal(sx, 0.0) && !equal(sy, 0.0) {
-		fmt.Fprintf(s, " scale(%g,%g)", sx, sy)
+		fmt.Fprintf(s, " scale(%.5g,%.5g)", sx, sy)
 	}
 	if !equal(phi, 0.0) {
-		fmt.Fprintf(s, " rotate(%g)", phi)
+		fmt.Fprintf(s, " rotate(%.5g)", phi)
 	}
 
 	if s.Len() == 0 {

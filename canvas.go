@@ -139,7 +139,7 @@ func (c *Canvas) DrawImage(x, y float64, img image.Image, enc ImageEncoding, dpm
 
 // WriteSVG writes the stored drawing operations in Canvas in the SVG file format.
 func (c *Canvas) WriteSVG(w io.Writer) {
-	fmt.Fprintf(w, `<svg version="1.1" width="%g" height="%g" viewBox="0 0 %g %g" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, c.w, c.h, c.w, c.h)
+	fmt.Fprintf(w, `<svg version="1.1" width="%.5g" height="%.5g" viewBox="0 0 %.5g %.5g" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, c.w, c.h, c.w, c.h)
 	if len(c.fonts) > 0 {
 		fmt.Fprintf(w, "<defs><style>")
 		for f := range c.fonts {
@@ -178,9 +178,8 @@ func (c *Canvas) WriteEPS(w io.Writer) {
 	}
 }
 
-// WriteImage writes the stored drawing operations in Canvas as a rasterized image with given DPI. Higher DPI will result in bigger images.
-func (c *Canvas) WriteImage(dpi float64) *image.RGBA {
-	dpm := dpi * InchPerMm
+// WriteImage writes the stored drawing operations in Canvas as a rasterized image with given DPM (dots-per-millimeter). Higher DPM will result in bigger images.
+func (c *Canvas) WriteImage(dpm float64) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0.0, 0.0, int(c.w*dpm+0.5), int(c.h*dpm+0.5)))
 	draw.Draw(img, img.Bounds(), image.NewUniform(White), image.Point{}, draw.Src)
 	for _, l := range c.layers {
@@ -272,7 +271,7 @@ func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 		if stroke && !strokeUnsupported {
 			fmt.Fprintf(style, `;stroke:%s`, toCSSColor(l.strokeColor))
 			if l.strokeWidth != 1.0 {
-				fmt.Fprintf(style, ";stroke-width:%g", l.strokeWidth)
+				fmt.Fprintf(style, ";stroke-width:%.5g", l.strokeWidth)
 			}
 			if _, ok := l.strokeCapper.(roundCapper); ok {
 				fmt.Fprintf(style, ";stroke-linecap:round")
@@ -288,24 +287,24 @@ func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 			} else if arcs, ok := l.strokeJoiner.(arcsJoiner); ok && !math.IsNaN(arcs.limit) {
 				fmt.Fprintf(style, ";stroke-linejoin:arcs")
 				if arcs.limit != 4.0 {
-					fmt.Fprintf(style, ";stroke-miterlimit:%g", arcs.limit)
+					fmt.Fprintf(style, ";stroke-miterlimit:%.5g", arcs.limit)
 				}
 			} else if miter, ok := l.strokeJoiner.(miterJoiner); ok && !math.IsNaN(miter.limit) {
 				// a miter line join is the default
 				if miter.limit != 4.0 {
-					fmt.Fprintf(style, ";stroke-miterlimit:%g", miter.limit)
+					fmt.Fprintf(style, ";stroke-miterlimit:%.5g", miter.limit)
 				}
 			} else {
 				panic("SVG: line join not support")
 			}
 
 			if 0 < len(l.dashes) {
-				fmt.Fprintf(style, ";stroke-dasharray:%g", l.dashes[0])
+				fmt.Fprintf(style, ";stroke-dasharray:%.5g", l.dashes[0])
 				for _, dash := range l.dashes[1:] {
-					fmt.Fprintf(style, " %g", dash)
+					fmt.Fprintf(style, " %.5g", dash)
 				}
 				if 0.0 != l.dashOffset {
-					fmt.Fprintf(style, ";stroke-dashoffset:%g", l.dashOffset)
+					fmt.Fprintf(style, ";stroke-dashoffset:%.5g", l.dashOffset)
 				}
 			}
 		}
@@ -537,10 +536,9 @@ func (l imageLayer) WriteSVG(w io.Writer, h float64) {
 		mimetype = "image/jpg"
 	}
 
-	origin := l.m.Dot(Point{0, float64(l.img.Bounds().Size().Y)})
-	fmt.Fprintf(w, `<image transform="matrix(%g,%g,%g,%g,%g,%g)" width="%d" height="%d" xlink:href="data:%s;base64,`,
-		l.m[0][0], -l.m[1][0], -l.m[0][1], l.m[1][1], origin.X, h-origin.Y,
-		l.img.Bounds().Size().X, l.img.Bounds().Size().Y, mimetype)
+	m := l.m.Translate(0.0, float64(l.img.Bounds().Size().Y))
+	fmt.Fprintf(w, `<image transform="%v" width="%d" height="%d" xlink:href="data:%s;base64,`,
+		m.ToSVG(h), l.img.Bounds().Size().X, l.img.Bounds().Size().Y, mimetype)
 
 	encoder := base64.NewEncoder(base64.StdEncoding, w)
 	if l.enc == Lossy {

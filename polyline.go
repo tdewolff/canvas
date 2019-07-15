@@ -75,7 +75,7 @@ func (p *Polyline) Interior(x, y float64) bool {
 	}
 }
 
-//.TODO: write functions when they appear to be needed: Bounds, ConvexHull, Centeroid? IsSimple (ie. non-intersecting)?
+// TODO: write functions when they appear to be needed: Bounds, ConvexHull, Centeroid? IsSimple (ie. non-intersecting)?
 // TODO: write function to simplify polyline using Ramer-Douglas-Peucker algorithm
 
 // Smoothen returns a new path that smoothens out a path using cubic Béziers between all the path points. This is equivalent of saying all path commands are linear and are replaced by cubic Béziers so that the curvature at is smooth along the whole path.

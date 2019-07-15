@@ -527,7 +527,7 @@ func (t *Text) WriteSVG(w io.Writer, h float64, m Matrix) {
 				fmt.Fprintf(w, ` small-caps`)
 			}
 
-			fmt.Fprintf(w, ` %gpx %s`, ff.size*ff.scale, ff.font.name)
+			fmt.Fprintf(w, ` %.5gpx %s`, ff.size*ff.scale, ff.font.name)
 			if ff.color != ffMain.color {
 				fmt.Fprintf(w, `;fill:%s`, toCSSColor(ff.color))
 			}
@@ -555,7 +555,14 @@ func (t *Text) WriteSVG(w io.Writer, h float64, m Matrix) {
 
 	ffMain := t.mostCommonFontFace()
 
-	fmt.Fprintf(w, `<text transform="%s`, m.ToSVG(h)) // TODO: optimize if only translational
+	x0, y0 := 0.0, 0.0
+	if m.IsTranslation() {
+		x0, y0, _, _, _, _ = m.Decompose()
+		y0 = h - y0
+		fmt.Fprintf(w, `<text x="%.5g" y="%.5g`, x0, y0)
+	} else {
+		fmt.Fprintf(w, `<text transform="%s`, m.ToSVG(h))
+	}
 	fmt.Fprintf(w, `" style="font:`)
 	if ffMain.style&FontItalic != 0 {
 		fmt.Fprintf(w, ` italic`)
@@ -566,7 +573,7 @@ func (t *Text) WriteSVG(w io.Writer, h float64, m Matrix) {
 	if ffMain.variant&FontSmallcaps != 0 {
 		fmt.Fprintf(w, ` small-caps`)
 	}
-	fmt.Fprintf(w, ` %gpx %s`, ffMain.size*ffMain.scale, ffMain.font.name)
+	fmt.Fprintf(w, ` %.5gpx %s`, ffMain.size*ffMain.scale, ffMain.font.name)
 	if ffMain.color != Black {
 		fmt.Fprintf(w, `;fill:%s`, toCSSColor(ffMain.color))
 	}
@@ -575,12 +582,12 @@ func (t *Text) WriteSVG(w io.Writer, h float64, m Matrix) {
 	decorations := []pathLayer{}
 	for _, line := range t.lines {
 		for _, span := range line.spans {
-			fmt.Fprintf(w, `<tspan x="%g" y="%g`, span.dx, -line.y-span.ff.voffset)
+			fmt.Fprintf(w, `<tspan x="%.5g" y="%.5g`, x0+span.dx, y0-line.y-span.ff.voffset)
 			if span.wordSpacing > 0.0 {
-				fmt.Fprintf(w, `" word-spacing="%g`, span.wordSpacing)
+				fmt.Fprintf(w, `" word-spacing="%.5g`, span.wordSpacing)
 			}
 			if span.glyphSpacing > 0.0 {
-				fmt.Fprintf(w, `" letter-spacing="%g`, span.glyphSpacing)
+				fmt.Fprintf(w, `" letter-spacing="%.5g`, span.glyphSpacing)
 			}
 			writeStyle(span.ff, ffMain)
 			s := span.text
@@ -601,8 +608,6 @@ func (t *Text) WriteSVG(w io.Writer, h float64, m Matrix) {
 
 // WritePDF will write out the text in the PDF file format.
 func (t *Text) WritePDF(w *PDFPageWriter, m Matrix) {
-	// TODO: use PDF functions to keep track of current state (different from state outsite BT)
-
 	fmt.Fprintf(w, ` BT`)
 	decorations := []pathLayer{}
 	for _, line := range t.lines {
@@ -614,7 +619,7 @@ func (t *Text) WritePDF(w *PDFPageWriter, m Matrix) {
 
 			if 0.0 < span.ff.fauxBold {
 				w.SetTextRenderMode(2)
-				fmt.Fprintf(w, " %g w", span.ff.fauxBold*2.0)
+				fmt.Fprintf(w, " %.5g w", span.ff.fauxBold*2.0)
 			} else {
 				w.SetTextRenderMode(0)
 			}
@@ -663,15 +668,11 @@ type textSpan struct {
 	altWidth      float64
 	altBoundaries []textBoundary
 
-	path *Path // either path is set, or the text related attributes below
-
 	dx              float64
 	sentenceSpacing float64
 	wordSpacing     float64
 	glyphSpacing    float64
 }
-
-// TODO: add newPathSpan
 
 func newTextSpan(ff FontFace, text string, i int) textSpan {
 	altText := text[i:]
@@ -687,7 +688,6 @@ func newTextSpan(ff FontFace, text string, i int) textSpan {
 		altText:         altText,
 		altWidth:        altWidth,
 		altBoundaries:   altBoundaries,
-		path:            nil,
 		dx:              0.0,
 		sentenceSpacing: 0.0,
 		wordSpacing:     0.0,

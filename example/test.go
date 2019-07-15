@@ -38,7 +38,7 @@ func main() {
 	}
 	defer pngFile.Close()
 
-	img := c.WriteImage(288.0)
+	img := c.WriteImage(10.0)
 	err = png.Encode(pngFile, img)
 	if err != nil {
 		panic(err)
