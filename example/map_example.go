@@ -178,8 +178,10 @@ func Draw(c *canvas.Canvas) {
 				width /= 1.5
 			} else if cat == "route_primary" {
 				width *= 1.5
-			} else if cat == "route_pedestrian" || cat == "route_transit" {
+			} else if cat == "route_pedestrian" {
 				width /= 2.5
+			} else if cat == "route_transit" {
+				width /= 8.0
 			}
 			c.DrawPath(0.0, 0.0, lines[cat].Stroke(width, canvas.RoundCapper, canvas.RoundJoiner))
 		}
