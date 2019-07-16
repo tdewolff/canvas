@@ -310,11 +310,11 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 		switch cmd {
 		case moveToCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
-		case LineToCmd:
+		case lineToCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
 			n := end.Sub(start).Rot90CW().Norm(halfWidth)
 			states = append(states, pathStrokeState{
-				cmd: LineToCmd,
+				cmd: lineToCmd,
 				p0:  start,
 				p1:  end,
 				n0:  n,
@@ -322,9 +322,9 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 				r0:  math.NaN(),
 				r1:  math.NaN(),
 			})
-		case QuadToCmd, CubeToCmd:
+		case quadToCmd, cubeToCmd:
 			var cp1, cp2 Point
-			if cmd == QuadToCmd {
+			if cmd == quadToCmd {
 				cp := Point{p.d[i+1], p.d[i+2]}
 				end = Point{p.d[i+3], p.d[i+4]}
 				cp1, cp2 = quadraticToCubicBezier(start, cp, end)
@@ -338,7 +338,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			r0 := cubicBezierCurvatureRadius(start, cp1, cp2, end, 0.0)
 			r1 := cubicBezierCurvatureRadius(start, cp1, cp2, end, 1.0)
 			states = append(states, pathStrokeState{
-				cmd: CubeToCmd,
+				cmd: cubeToCmd,
 				p0:  start,
 				p1:  end,
 				n0:  n0,
@@ -348,7 +348,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 				cp1: cp1,
 				cp2: cp2,
 			})
-		case ArcToCmd:
+		case arcToCmd:
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
@@ -358,7 +358,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			r0 := ellipseCurvatureRadius(rx, ry, phi, sweep, theta0)
 			r1 := ellipseCurvatureRadius(rx, ry, phi, sweep, theta1)
 			states = append(states, pathStrokeState{
-				cmd:      ArcToCmd,
+				cmd:      arcToCmd,
 				p0:       start,
 				p1:       end,
 				n0:       n0,
@@ -373,12 +373,12 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 				largeArc: largeArc,
 				sweep:    sweep,
 			})
-		case CloseCmd:
+		case closeCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
 			if !equal(start.X, end.X) || !equal(start.Y, end.Y) {
 				n := end.Sub(start).Rot90CW().Norm(halfWidth)
 				states = append(states, pathStrokeState{
-					cmd: LineToCmd,
+					cmd: lineToCmd,
 					p0:  start,
 					p1:  end,
 					n0:  n,
@@ -392,7 +392,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 		start = end
 		i += cmdLen(cmd)
 	}
-	if len(states) == 0 || len(states) == 1 && states[0].cmd == CloseCmd {
+	if len(states) == 0 || len(states) == 1 && states[0].cmd == closeCmd {
 		return nil, nil
 	}
 
@@ -406,13 +406,13 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 		rEnd := cur.p1.Add(cur.n1)
 		lEnd := cur.p1.Sub(cur.n1)
 		switch cur.cmd {
-		case LineToCmd:
+		case lineToCmd:
 			rhs.LineTo(rEnd.X, rEnd.Y)
 			lhs.LineTo(lEnd.X, lEnd.Y)
-		case CubeToCmd:
+		case cubeToCmd:
 			rhs = rhs.Join(strokeCubicBezier(cur.p0, cur.cp1, cur.cp2, cur.p1, halfWidth, Tolerance))
 			lhs = lhs.Join(strokeCubicBezier(cur.p0, cur.cp1, cur.cp2, cur.p1, -halfWidth, Tolerance))
-		case ArcToCmd:
+		case arcToCmd:
 			dr := halfWidth
 			if !cur.sweep { // bend to the right, ie. CW
 				dr = -dr

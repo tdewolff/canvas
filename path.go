@@ -27,24 +27,24 @@ const (
 
 const (
 	moveToCmd = 1.0 << iota
-	LineToCmd
-	QuadToCmd
-	CubeToCmd
-	ArcToCmd
-	CloseCmd
-	NullCmd = 0.0
+	lineToCmd
+	quadToCmd
+	cubeToCmd
+	arcToCmd
+	closeCmd
+	nullCmd = 0.0
 )
 
 // cmdLen returns the number of numbers the path command contains.
 func cmdLen(cmd float64) int {
 	switch cmd {
-	case moveToCmd, LineToCmd, CloseCmd:
+	case moveToCmd, lineToCmd, closeCmd:
 		return 3
-	case QuadToCmd:
+	case quadToCmd:
 		return 5
-	case CubeToCmd, ArcToCmd:
+	case cubeToCmd, arcToCmd:
 		return 7
-	case NullCmd:
+	case nullCmd:
 		return 0
 	}
 	fmt.Println("unknown", cmd)
@@ -83,7 +83,7 @@ func (p *Path) Empty() bool {
 	}
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
-		if cmd != moveToCmd && cmd != CloseCmd {
+		if cmd != moveToCmd && cmd != closeCmd {
 			return false
 		}
 		i += cmdLen(cmd)
@@ -98,7 +98,7 @@ func (p *Path) Closed() bool {
 		cmd = p.d[i]
 		i += cmdLen(cmd)
 	}
-	return cmd == CloseCmd
+	return cmd == closeCmd
 }
 
 // Copy returns a copy of p.
@@ -198,7 +198,7 @@ func (p *Path) LineTo(x1, y1 float64) *Path {
 	if p0.Equals(p1) {
 		return p
 	}
-	p.d = append(p.d, LineToCmd, p1.X, p1.Y)
+	p.d = append(p.d, lineToCmd, p1.X, p1.Y)
 	return p
 }
 
@@ -210,7 +210,7 @@ func (p *Path) QuadTo(cpx, cpy, x1, y1 float64) *Path {
 	if cp.Equals(p0) || cp.Equals(p1) {
 		return p.LineTo(p1.X, p1.Y)
 	}
-	p.d = append(p.d, QuadToCmd, cp.X, cp.Y, p1.X, p1.Y)
+	p.d = append(p.d, quadToCmd, cp.X, cp.Y, p1.X, p1.Y)
 	return p
 }
 
@@ -223,7 +223,7 @@ func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x1, y1 float64) *Path {
 	if (cp1.Equals(p0) || cp1.Equals(p1)) && (cp2.Equals(p0) || cp2.Equals(p1)) {
 		return p.LineTo(p1.X, p1.Y)
 	}
-	p.d = append(p.d, CubeToCmd, cp1.X, cp1.Y, cp2.X, cp2.Y, p1.X, p1.Y)
+	p.d = append(p.d, cubeToCmd, cp1.X, cp1.Y, cp2.X, cp2.Y, p1.X, p1.Y)
 	return p
 }
 
@@ -260,7 +260,7 @@ func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x1, y1 float64) 
 		ry *= lambda
 	}
 
-	p.d = append(p.d, ArcToCmd, rx, ry, phi, toArcFlags(largeArc, sweep), p1.X, p1.Y)
+	p.d = append(p.d, arcToCmd, rx, ry, phi, toArcFlags(largeArc, sweep), p1.X, p1.Y)
 	return p
 }
 
@@ -291,7 +291,7 @@ func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
 // It also signals the path closes, as opposed to being just a LineTo command.
 func (p *Path) Close() *Path {
 	start := p.StartPos()
-	p.d = append(p.d, CloseCmd, start.X, start.Y)
+	p.d = append(p.d, closeCmd, start.X, start.Y)
 	return p
 }
 
@@ -398,13 +398,13 @@ func (p *Path) Bounds() Rect {
 			xmax = math.Max(xmax, end.X)
 			ymin = math.Min(ymin, end.Y)
 			ymax = math.Max(ymax, end.Y)
-		case LineToCmd, CloseCmd:
+		case lineToCmd, closeCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
 			xmin = math.Min(xmin, end.X)
 			xmax = math.Max(xmax, end.X)
 			ymin = math.Min(ymin, end.Y)
 			ymax = math.Max(ymax, end.Y)
-		case QuadToCmd:
+		case quadToCmd:
 			cp := Point{p.d[i+1], p.d[i+2]}
 			end = Point{p.d[i+3], p.d[i+4]}
 
@@ -427,7 +427,7 @@ func (p *Path) Bounds() Rect {
 					ymax = math.Max(ymax, y.Y)
 				}
 			}
-		case CubeToCmd:
+		case cubeToCmd:
 			cp1 := Point{p.d[i+1], p.d[i+2]}
 			cp2 := Point{p.d[i+3], p.d[i+4]}
 			end = Point{p.d[i+5], p.d[i+6]}
@@ -467,7 +467,7 @@ func (p *Path) Bounds() Rect {
 				ymin = math.Min(ymin, y2.Y)
 				ymax = math.Max(ymax, y2.Y)
 			}
-		case ArcToCmd:
+		case arcToCmd:
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
@@ -519,19 +519,19 @@ func (p *Path) Length() float64 {
 		switch cmd {
 		case moveToCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
-		case LineToCmd, CloseCmd:
+		case lineToCmd, closeCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
 			d += end.Sub(start).Length()
-		case QuadToCmd:
+		case quadToCmd:
 			cp := Point{p.d[i+1], p.d[i+2]}
 			end = Point{p.d[i+3], p.d[i+4]}
 			d += quadraticBezierLength(start, cp, end)
-		case CubeToCmd:
+		case cubeToCmd:
 			cp1 := Point{p.d[i+1], p.d[i+2]}
 			cp2 := Point{p.d[i+3], p.d[i+4]}
 			end = Point{p.d[i+5], p.d[i+6]}
 			d += cubicBezierLength(start, cp1, cp2, end)
-		case ArcToCmd:
+		case arcToCmd:
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
@@ -554,18 +554,18 @@ func (p *Path) Transform(m Matrix) *Path {
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
-		case moveToCmd, LineToCmd, CloseCmd:
+		case moveToCmd, lineToCmd, closeCmd:
 			end := m.Dot(Point{p.d[i+1], p.d[i+2]})
 			p.d[i+1] = end.X
 			p.d[i+2] = end.Y
-		case QuadToCmd:
+		case quadToCmd:
 			cp := m.Dot(Point{p.d[i+1], p.d[i+2]})
 			end := m.Dot(Point{p.d[i+3], p.d[i+4]})
 			p.d[i+1] = cp.X
 			p.d[i+2] = cp.Y
 			p.d[i+3] = end.X
 			p.d[i+4] = end.Y
-		case CubeToCmd:
+		case cubeToCmd:
 			cp1 := m.Dot(Point{p.d[i+1], p.d[i+2]})
 			cp2 := m.Dot(Point{p.d[i+3], p.d[i+4]})
 			end := m.Dot(Point{p.d[i+5], p.d[i+6]})
@@ -575,7 +575,7 @@ func (p *Path) Transform(m Matrix) *Path {
 			p.d[i+4] = cp2.Y
 			p.d[i+5] = end.X
 			p.d[i+6] = end.Y
-		case ArcToCmd:
+		case arcToCmd:
 			rx := p.d[i+1]
 			ry := p.d[i+2]
 			phi := p.d[i+3]
@@ -644,29 +644,29 @@ func (p *Path) Replace(
 		switch cmd {
 		case moveToCmd:
 			p.i0 = i
-		case LineToCmd, CloseCmd:
+		case lineToCmd, closeCmd:
 			if line != nil {
 				end := Point{p.d[i+1], p.d[i+2]}
 				q = line(start, end)
-				if cmd == CloseCmd {
+				if cmd == closeCmd {
 					q.Close()
 				}
 			}
-		case QuadToCmd:
+		case quadToCmd:
 			if bezier != nil {
 				cp := Point{p.d[i+1], p.d[i+2]}
 				end := Point{p.d[i+3], p.d[i+4]}
 				cp1, cp2 := quadraticToCubicBezier(start, cp, end)
 				q = bezier(start, cp1, cp2, end)
 			}
-		case CubeToCmd:
+		case cubeToCmd:
 			if bezier != nil {
 				cp1 := Point{p.d[i+1], p.d[i+2]}
 				cp2 := Point{p.d[i+3], p.d[i+4]}
 				end := Point{p.d[i+5], p.d[i+6]}
 				q = bezier(start, cp1, cp2, end)
 			}
-		case ArcToCmd:
+		case arcToCmd:
 			if arc != nil {
 				rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 				largeArc, sweep := fromArcFlags(p.d[i+4])
@@ -744,7 +744,7 @@ func (p *Path) Split() []*Path {
 			start = Point{p.d[j-2], p.d[j-1]}
 			i = j
 		}
-		closed = cmd == CloseCmd
+		closed = cmd == closeCmd
 		j += cmdLen(cmd)
 	}
 	if j > i {
@@ -788,7 +788,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 			switch cmd {
 			case moveToCmd:
 				end = Point{p.d[i+1], p.d[i+2]}
-			case LineToCmd, CloseCmd:
+			case lineToCmd, closeCmd:
 				end = Point{p.d[i+1], p.d[i+2]}
 
 				if j == len(ts) {
@@ -811,7 +811,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 					}
 					T += dT
 				}
-			case QuadToCmd:
+			case quadToCmd:
 				cp := Point{p.d[i+1], p.d[i+2]}
 				end = Point{p.d[i+3], p.d[i+4]}
 
@@ -843,7 +843,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 					}
 					T += dT
 				}
-			case CubeToCmd:
+			case cubeToCmd:
 				cp1 := Point{p.d[i+1], p.d[i+2]}
 				cp2 := Point{p.d[i+3], p.d[i+4]}
 				end = Point{p.d[i+5], p.d[i+6]}
@@ -877,7 +877,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 					}
 					T += dT
 				}
-			case ArcToCmd:
+			case arcToCmd:
 				rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 				largeArc, sweep := fromArcFlags(p.d[i+4])
 				end = Point{p.d[i+5], p.d[i+6]}
@@ -1063,7 +1063,7 @@ func (p *Path) Reverse() *Path {
 		}
 
 		switch cmd {
-		case CloseCmd:
+		case closeCmd:
 			if !start.Equals(end) {
 				ip.LineTo(end.X, end.Y)
 			}
@@ -1076,21 +1076,21 @@ func (p *Path) Reverse() *Path {
 			if !end.IsZero() {
 				ip.MoveTo(end.X, end.Y)
 			}
-		case LineToCmd:
+		case lineToCmd:
 			if closed && (icmd == 0 || cmds[icmd-1] == moveToCmd) {
 				ip.Close()
 				closed = false
 			} else {
 				ip.LineTo(end.X, end.Y)
 			}
-		case QuadToCmd:
+		case quadToCmd:
 			cx, cy := p.d[i+1], p.d[i+2]
 			ip.QuadTo(cx, cy, end.X, end.Y)
-		case CubeToCmd:
+		case cubeToCmd:
 			cx1, cy1 := p.d[i+3], p.d[i+4]
 			cx2, cy2 := p.d[i+1], p.d[i+2]
 			ip.CubeTo(cx1, cy1, cx2, cy2, end.X, end.Y)
-		case ArcToCmd:
+		case arcToCmd:
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			ip.ArcTo(rx, ry, phi*180.0/math.Pi, largeArc, !sweep, end.X, end.Y)
@@ -1128,47 +1128,47 @@ func (p *Path) Optimize() *Path {
 		case moveToCmd:
 			if i+3 < len(p.d) && p.d[i+3] == moveToCmd || i == 0 && end.IsZero() {
 				p.d = append(p.d[:i], p.d[i+3:]...)
-			} else if i+3 < len(p.d) && p.d[i+3] == CloseCmd {
+			} else if i+3 < len(p.d) && p.d[i+3] == closeCmd {
 				p.d = append(p.d[:i], p.d[i+6:]...)
 			} else if p.i0 == 0 {
 				p.i0 = i
 			}
-		case LineToCmd:
+		case lineToCmd:
 			if start == end {
 				p.d = append(p.d[:i], p.d[i+3:]...)
-				cmd = NullCmd
+				cmd = nullCmd
 			}
-		case CloseCmd:
-			if i+3 < len(p.d) && p.d[i+3] == CloseCmd {
-				p.d = append(p.d[:i+3], p.d[i+6:]...) // remove last CloseCmd to ensure x,y values are valid
+		case closeCmd:
+			if i+3 < len(p.d) && p.d[i+3] == closeCmd {
+				p.d = append(p.d[:i+3], p.d[i+6:]...) // remove last closeCmd to ensure x,y values are valid
 			}
-		case QuadToCmd:
+		case quadToCmd:
 			cp := Point{p.d[i+1], p.d[i+2]}
 			if cp == start || cp == end {
 				p.d = append(p.d[:i+1], p.d[i+3:]...)
-				p.d[i] = LineToCmd
-				cmd = LineToCmd
+				p.d[i] = lineToCmd
+				cmd = lineToCmd
 			}
-		case CubeToCmd:
+		case cubeToCmd:
 			cp1 := Point{p.d[i+1], p.d[i+2]}
 			cp2 := Point{p.d[i+3], p.d[i+4]}
 			if (cp1 == start || cp1 == end) && (cp2 == start || cp2 == end) {
 				p.d = append(p.d[:i+1], p.d[i+5:]...)
-				p.d[i] = LineToCmd
-				cmd = LineToCmd
+				p.d[i] = lineToCmd
+				cmd = lineToCmd
 			}
-		case ArcToCmd:
+		case arcToCmd:
 			if start == end {
 				p.d = append(p.d[:i], p.d[i+7:]...)
 			}
 		}
 
 		// remove adjacent lines if they are collinear
-		if cmd == LineToCmd && i+3 < len(p.d) && (p.d[i+3] == LineToCmd || p.d[i+3] == CloseCmd) {
+		if cmd == lineToCmd && i+3 < len(p.d) && (p.d[i+3] == lineToCmd || p.d[i+3] == closeCmd) {
 			nextEnd := Point{p.d[i+4], p.d[i+5]}
-			if p.d[i+3] == CloseCmd && end == nextEnd {
+			if p.d[i+3] == closeCmd && end == nextEnd {
 				p.d = append(p.d[:i], p.d[i+3:]...)
-				p.d[i] = CloseCmd
+				p.d[i] = closeCmd
 			} else if end.Sub(start).AngleBetween(nextEnd.Sub(end)) == 0.0 {
 				p.d = append(p.d[:i], p.d[i+3:]...)
 			}
@@ -1345,13 +1345,13 @@ func (p *Path) String() string {
 		switch cmd {
 		case moveToCmd:
 			fmt.Fprintf(&sb, "M%.5g %.5g", p.d[i+1], p.d[i+2])
-		case LineToCmd:
+		case lineToCmd:
 			fmt.Fprintf(&sb, "L%.5g %.5g", p.d[i+1], p.d[i+2])
-		case QuadToCmd:
+		case quadToCmd:
 			fmt.Fprintf(&sb, "Q%.5g %.5g %.5g %.5g", p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4])
-		case CubeToCmd:
+		case cubeToCmd:
 			fmt.Fprintf(&sb, "C%.5g %.5g %.5g %.5g %.5g %.5g", p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4], p.d[i+5], p.d[i+6])
-		case ArcToCmd:
+		case arcToCmd:
 			rot := p.d[i+3] * 180.0 / math.Pi
 			largeArc, sweep := fromArcFlags(p.d[i+4])
 			sLargeArc := "0"
@@ -1363,7 +1363,7 @@ func (p *Path) String() string {
 				sSweep = "1"
 			}
 			fmt.Fprintf(&sb, "A%.5g %.5g %.5g %s %s %.5g %.5g", p.d[i+1], p.d[i+2], rot, sLargeArc, sSweep, p.d[i+5], p.d[i+6])
-		case CloseCmd:
+		case closeCmd:
 			fmt.Fprintf(&sb, "z")
 		}
 		i += cmdLen(cmd)
@@ -1384,7 +1384,7 @@ func (p *Path) ToSVG() string {
 		case moveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, "M%.5g %.5g", x, y)
-		case LineToCmd:
+		case lineToCmd:
 			xStart, yStart := x, y
 			x, y = p.d[i+1], p.d[i+2]
 			if equal(x, xStart) && equal(y, yStart) {
@@ -1396,13 +1396,13 @@ func (p *Path) ToSVG() string {
 			} else {
 				fmt.Fprintf(&sb, "L%.5g %.5g", x, y)
 			}
-		case QuadToCmd:
+		case quadToCmd:
 			x, y = p.d[i+3], p.d[i+4]
 			fmt.Fprintf(&sb, "Q%.5g %.5g %.5g %.5g", p.d[i+1], p.d[i+2], x, y)
-		case CubeToCmd:
+		case cubeToCmd:
 			x, y = p.d[i+5], p.d[i+6]
 			fmt.Fprintf(&sb, "C%.5g %.5g %.5g %.5g %.5g %.5g", p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4], x, y)
-		case ArcToCmd:
+		case arcToCmd:
 			rx, ry := p.d[i+1], p.d[i+2]
 			rot := p.d[i+3] * 180.0 / math.Pi
 			largeArc, sweep := fromArcFlags(p.d[i+4])
@@ -1420,7 +1420,7 @@ func (p *Path) ToSVG() string {
 				rot -= 90.0
 			}
 			fmt.Fprintf(&sb, "A%.5g %.5g %.5g %s %s %.5g %.5g", rx, ry, rot, sLargeArc, sSweep, p.d[i+5], p.d[i+6])
-		case CloseCmd:
+		case closeCmd:
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, "z")
 		}
@@ -1448,13 +1448,13 @@ func (p *Path) ToPS() string {
 		case moveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, " %.5f %.5f moveto", x, y)
-		case LineToCmd:
+		case lineToCmd:
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, " %.5f %.5f lineto", x, y)
-		case QuadToCmd, CubeToCmd:
+		case quadToCmd, cubeToCmd:
 			var start, cp1, cp2 Point
 			start = Point{x, y}
-			if cmd == QuadToCmd {
+			if cmd == quadToCmd {
 				x, y = p.d[i+3], p.d[i+4]
 				cp1, cp2 = quadraticToCubicBezier(start, Point{p.d[i+1], p.d[i+2]}, Point{x, y})
 			} else {
@@ -1463,7 +1463,7 @@ func (p *Path) ToPS() string {
 				x, y = p.d[i+5], p.d[i+6]
 			}
 			fmt.Fprintf(&sb, " %.5f %.5f %.5f %.5f %.5f %.5f curveto", cp1.X, cp1.Y, cp2.X, cp2.Y, x, y)
-		case ArcToCmd:
+		case arcToCmd:
 			x0, y0 := x, y
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			largeArc, sweep := fromArcFlags(p.d[i+4])
@@ -1489,13 +1489,13 @@ func (p *Path) ToPS() string {
 			if !equal(rot, 0.0) {
 				fmt.Fprintf(&sb, " initmatrix")
 			}
-		case CloseCmd:
+		case closeCmd:
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, " closepath")
 		}
 		i += cmdLen(cmd)
 	}
-	if cmd != CloseCmd {
+	if cmd != closeCmd {
 		fmt.Fprintf(&sb, " closepath")
 	}
 	return sb.String()[1:] // remove the first space
@@ -1520,13 +1520,13 @@ func (p *Path) ToPDF() string {
 		case moveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, " %.5f %.5f m", x, y)
-		case LineToCmd:
+		case lineToCmd:
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, " %.5f %.5f l", x, y)
-		case QuadToCmd, CubeToCmd:
+		case quadToCmd, cubeToCmd:
 			var start, cp1, cp2 Point
 			start = Point{x, y}
-			if cmd == QuadToCmd {
+			if cmd == quadToCmd {
 				x, y = p.d[i+3], p.d[i+4]
 				cp1, cp2 = quadraticToCubicBezier(start, Point{p.d[i+1], p.d[i+2]}, Point{x, y})
 			} else {
@@ -1535,9 +1535,9 @@ func (p *Path) ToPDF() string {
 				x, y = p.d[i+5], p.d[i+6]
 			}
 			fmt.Fprintf(&sb, " %.5f %.5f %.5f %.5f %.5f %.5f c", cp1.X, cp1.Y, cp2.X, cp2.Y, x, y)
-		case ArcToCmd:
+		case arcToCmd:
 			panic("arcs should have been replaced")
-		case CloseCmd:
+		case closeCmd:
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, " h")
 		}
@@ -1558,15 +1558,15 @@ func (p *Path) ToRasterizer(ras *vector.Rasterizer, dpm float64) {
 		switch cmd {
 		case moveToCmd:
 			ras.MoveTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm))
-		case LineToCmd:
+		case lineToCmd:
 			ras.LineTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm))
-		case QuadToCmd:
+		case quadToCmd:
 			ras.QuadTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm), float32(p.d[i+3]*dpm), float32(dy-p.d[i+4]*dpm))
-		case CubeToCmd:
+		case cubeToCmd:
 			ras.CubeTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm), float32(p.d[i+3]*dpm), float32(dy-p.d[i+4]*dpm), float32(p.d[i+5]*dpm), float32(dy-p.d[i+6]*dpm))
-		case ArcToCmd:
+		case arcToCmd:
 			panic("arcs should have been replaced")
-		case CloseCmd:
+		case closeCmd:
 			ras.ClosePath()
 			closed = true
 		}
