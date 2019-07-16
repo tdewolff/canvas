@@ -25,7 +25,7 @@ const (
 )
 
 const (
-	MoveToCmd = 1.0 << iota
+	moveToCmd = 1.0 << iota
 	LineToCmd
 	QuadToCmd
 	CubeToCmd
@@ -37,7 +37,7 @@ const (
 // cmdLen returns the number of numbers the path command contains.
 func cmdLen(cmd float64) int {
 	switch cmd {
-	case MoveToCmd, LineToCmd, CloseCmd:
+	case moveToCmd, LineToCmd, CloseCmd:
 		return 3
 	case QuadToCmd:
 		return 5
@@ -82,7 +82,7 @@ func (p *Path) Empty() bool {
 	}
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
-		if cmd != MoveToCmd && cmd != CloseCmd {
+		if cmd != moveToCmd && cmd != CloseCmd {
 			return false
 		}
 		i += cmdLen(cmd)
@@ -116,10 +116,10 @@ func (p *Path) Append(q *Path) *Path {
 		return q
 	}
 	i0 := len(p.d) + q.i0
-	if q.d[0] != MoveToCmd {
+	if q.d[0] != moveToCmd {
 		p.MoveTo(0.0, 0.0)
 		if q.i0 != 0 {
-			i0 += cmdLen(MoveToCmd)
+			i0 += cmdLen(moveToCmd)
 		}
 	}
 	return &Path{append(p.d, q.d...), i0}
@@ -133,7 +133,7 @@ func (p *Path) Join(q *Path) *Path {
 		return q
 	}
 	i0 := len(p.d) + q.i0
-	if q.d[0] == MoveToCmd {
+	if q.d[0] == moveToCmd {
 		x0, y0 := p.d[len(p.d)-2], p.d[len(p.d)-1]
 		x1, y1 := q.d[1], q.d[2]
 		if equal(x0, x1) && equal(y0, y1) {
@@ -159,7 +159,7 @@ func (p *Path) Pos() Point {
 
 // StartPos returns the start point of the current path segment, ie. it returns the position of the last MoveTo command.
 func (p *Path) StartPos() Point {
-	if len(p.d) > 0 && p.d[p.i0] == MoveToCmd {
+	if len(p.d) > 0 && p.d[p.i0] == moveToCmd {
 		return Point{p.d[p.i0+1], p.d[p.i0+2]}
 	}
 	return Point{}
@@ -168,7 +168,7 @@ func (p *Path) StartPos() Point {
 // Coords returns all the coordinates between the commands.
 func (p *Path) Coords() []Point {
 	P := []Point{}
-	if 0 < len(p.d) && p.d[0] != MoveToCmd {
+	if 0 < len(p.d) && p.d[0] != moveToCmd {
 		P = append(P, Point{0.0, 0.0})
 	}
 	for i := 0; i < len(p.d); {
@@ -186,7 +186,7 @@ func (p *Path) Coords() []Point {
 // with a path in the opposite direction.
 func (p *Path) MoveTo(x, y float64) *Path {
 	p.i0 = len(p.d)
-	p.d = append(p.d, MoveToCmd, x, y)
+	p.d = append(p.d, moveToCmd, x, y)
 	return p
 }
 
@@ -306,7 +306,7 @@ func (p *Path) CCW() bool {
 		i += cmdLen(cmd)
 
 		end = Point{p.d[i-2], p.d[i-1]}
-		if cmd != MoveToCmd {
+		if cmd != moveToCmd {
 			area += (end.X - start.X) * (start.Y + end.Y)
 		}
 		start = end
@@ -325,7 +325,7 @@ func (p *Path) Filling() []bool {
 
 		var p0, p1 Point
 		iNextCmd := cmdLen(ps.d[0])
-		if ps.d[0] != MoveToCmd {
+		if ps.d[0] != moveToCmd {
 			p1 = Point{ps.d[iNextCmd-2], ps.d[iNextCmd-1]}
 		} else {
 			iNextCmd2 := iNextCmd + cmdLen(ps.d[iNextCmd])
@@ -380,7 +380,7 @@ func (p *Path) Bounds() Rect {
 
 	xmin, xmax := math.Inf(1), math.Inf(-1)
 	ymin, ymax := math.Inf(1), math.Inf(-1)
-	if len(p.d) > 0 && p.d[0] != MoveToCmd {
+	if len(p.d) > 0 && p.d[0] != moveToCmd {
 		xmin = 0.0
 		xmax = 0.0
 		ymin = 0.0
@@ -391,7 +391,7 @@ func (p *Path) Bounds() Rect {
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
-		case MoveToCmd:
+		case moveToCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
 			xmin = math.Min(xmin, end.X)
 			xmax = math.Max(xmax, end.X)
@@ -516,7 +516,7 @@ func (p *Path) Length() float64 {
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
-		case MoveToCmd:
+		case moveToCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
 		case LineToCmd, CloseCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
@@ -546,14 +546,14 @@ func (p *Path) Length() float64 {
 // Transform transform the path by the given transformation matrix and returns a new path.
 func (p *Path) Transform(m Matrix) *Path {
 	p = p.Copy()
-	if len(p.d) > 0 && p.d[0] != MoveToCmd {
-		p.d = append([]float64{MoveToCmd, 0.0, 0.0}, p.d...)
+	if len(p.d) > 0 && p.d[0] != moveToCmd {
+		p.d = append([]float64{moveToCmd, 0.0, 0.0}, p.d...)
 	}
 	_, _, _, xscale, yscale, _ := m.Decompose()
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
-		case MoveToCmd, LineToCmd, CloseCmd:
+		case moveToCmd, LineToCmd, CloseCmd:
 			end := m.Dot(Point{p.d[i+1], p.d[i+2]})
 			p.d[i+1] = end.X
 			p.d[i+2] = end.Y
@@ -641,7 +641,7 @@ func (p *Path) Replace(
 		var q *Path
 		cmd := p.d[i]
 		switch cmd {
-		case MoveToCmd:
+		case moveToCmd:
 			p.i0 = i
 		case LineToCmd, CloseCmd:
 			if line != nil {
@@ -675,7 +675,7 @@ func (p *Path) Replace(
 		}
 
 		if q != nil {
-			if 0 < len(q.d) && q.d[0] == MoveToCmd {
+			if 0 < len(q.d) && q.d[0] == moveToCmd {
 				x0, y0 := 0.0, 0.0
 				if 0 < i {
 					x0, y0 = p.d[i-2], p.d[i-1]
@@ -704,11 +704,11 @@ func (p *Path) Markers(start, mid, end *Path, align bool) []*Path {
 	markers := []*Path{}
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
-		if len(markers) != 0 || cmd == MoveToCmd {
+		if len(markers) != 0 || cmd == moveToCmd {
 			i += cmdLen(cmd)
 			coord = Point{p.d[i-2], p.d[i-1]}
 		}
-		if cmd != MoveToCmd {
+		if cmd != moveToCmd {
 			q := mid
 			if len(markers) == 0 {
 				q = start
@@ -734,10 +734,10 @@ func (p *Path) Split() []*Path {
 	var i, j int
 	for j < len(p.d) {
 		cmd := p.d[j]
-		if j > i && cmd == MoveToCmd || closed {
+		if j > i && cmd == moveToCmd || closed {
 			d := p.d[i:j:j]
-			if d[0] != MoveToCmd && !start.IsZero() {
-				d = append([]float64{MoveToCmd, start.X, start.Y}, d...)
+			if d[0] != moveToCmd && !start.IsZero() {
+				d = append([]float64{moveToCmd, start.X, start.Y}, d...)
 			}
 			ps = append(ps, &Path{d, 0})
 			start = Point{p.d[j-2], p.d[j-1]}
@@ -748,8 +748,8 @@ func (p *Path) Split() []*Path {
 	}
 	if j > i {
 		d := p.d[i:j:j]
-		if d[0] != MoveToCmd && !start.IsZero() {
-			d = append([]float64{MoveToCmd, start.X, start.Y}, d...)
+		if d[0] != moveToCmd && !start.IsZero() {
+			d = append([]float64{moveToCmd, start.X, start.Y}, d...)
 		}
 		ps = append(ps, &Path{d, 0})
 	}
@@ -777,7 +777,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 		q = &Path{}
 	}
 
-	if len(p.d) > 0 && p.d[0] == MoveToCmd {
+	if len(p.d) > 0 && p.d[0] == moveToCmd {
 		q.MoveTo(p.d[1], p.d[2])
 	}
 	for _, ps := range p.Split() {
@@ -785,7 +785,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 		for i := 0; i < len(ps.d); {
 			cmd := ps.d[i]
 			switch cmd {
-			case MoveToCmd:
+			case moveToCmd:
 				end = Point{p.d[i+1], p.d[i+2]}
 			case LineToCmd, CloseCmd:
 				end = Point{p.d[i+1], p.d[i+2]}
@@ -1067,7 +1067,7 @@ func (p *Path) Reverse() *Path {
 				ip.LineTo(end.X, end.Y)
 			}
 			closed = true
-		case MoveToCmd:
+		case moveToCmd:
 			if closed {
 				ip.Close()
 				closed = false
@@ -1076,7 +1076,7 @@ func (p *Path) Reverse() *Path {
 				ip.MoveTo(end.X, end.Y)
 			}
 		case LineToCmd:
-			if closed && (icmd == 0 || cmds[icmd-1] == MoveToCmd) {
+			if closed && (icmd == 0 || cmds[icmd-1] == moveToCmd) {
 				ip.Close()
 				closed = false
 			} else {
@@ -1124,8 +1124,8 @@ func (p *Path) Optimize() *Path {
 			start = Point{p.d[i-2], p.d[i-1]}
 		}
 		switch cmd {
-		case MoveToCmd:
-			if i+3 < len(p.d) && p.d[i+3] == MoveToCmd || i == 0 && end.IsZero() {
+		case moveToCmd:
+			if i+3 < len(p.d) && p.d[i+3] == moveToCmd || i == 0 && end.IsZero() {
 				p.d = append(p.d[:i], p.d[i+3:]...)
 			} else if i+3 < len(p.d) && p.d[i+3] == CloseCmd {
 				p.d = append(p.d[:i], p.d[i+6:]...)
@@ -1342,7 +1342,7 @@ func (p *Path) String() string {
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
-		case MoveToCmd:
+		case moveToCmd:
 			fmt.Fprintf(&sb, "M%.5g %.5g", p.d[i+1], p.d[i+2])
 		case LineToCmd:
 			fmt.Fprintf(&sb, "L%.5g %.5g", p.d[i+1], p.d[i+2])
@@ -1374,13 +1374,13 @@ func (p *Path) String() string {
 func (p *Path) ToSVG() string {
 	sb := strings.Builder{}
 	x, y := 0.0, 0.0
-	if len(p.d) > 0 && p.d[0] != MoveToCmd {
+	if len(p.d) > 0 && p.d[0] != moveToCmd {
 		fmt.Fprintf(&sb, "M0 0")
 	}
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
-		case MoveToCmd:
+		case moveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, "M%.5g %.5g", x, y)
 		case LineToCmd:
@@ -1435,7 +1435,7 @@ func (p *Path) ToPS() string {
 	}
 
 	sb := strings.Builder{}
-	if len(p.d) > 0 && p.d[0] != MoveToCmd {
+	if len(p.d) > 0 && p.d[0] != moveToCmd {
 		fmt.Fprintf(&sb, " 0 0 moveto")
 	}
 
@@ -1444,7 +1444,7 @@ func (p *Path) ToPS() string {
 	for i := 0; i < len(p.d); {
 		cmd = p.d[i]
 		switch cmd {
-		case MoveToCmd:
+		case moveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, " %.5f %.5f moveto", x, y)
 		case LineToCmd:
@@ -1508,7 +1508,7 @@ func (p *Path) ToPDF() string {
 	p = p.Copy().Replace(nil, nil, ellipseToBeziers)
 
 	sb := strings.Builder{}
-	if len(p.d) > 0 && p.d[0] != MoveToCmd {
+	if len(p.d) > 0 && p.d[0] != moveToCmd {
 		fmt.Fprintf(&sb, " 0 0 m")
 	}
 
@@ -1516,7 +1516,7 @@ func (p *Path) ToPDF() string {
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
-		case MoveToCmd:
+		case moveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, " %.5f %.5f m", x, y)
 		case LineToCmd:
@@ -1555,7 +1555,7 @@ func (p *Path) ToRasterizer(ras *vector.Rasterizer, dpm float64) {
 		cmd := p.d[i]
 		closed = false
 		switch cmd {
-		case MoveToCmd:
+		case moveToCmd:
 			ras.MoveTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm))
 		case LineToCmd:
 			ras.LineTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm))

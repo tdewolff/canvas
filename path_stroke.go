@@ -308,7 +308,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
-		case MoveToCmd:
+		case moveToCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
 		case LineToCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
