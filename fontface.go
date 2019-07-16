@@ -14,6 +14,7 @@ import (
 // FontStyle defines the font style to be used for the font.
 type FontStyle int
 
+// see FontStyle
 const (
 	FontRegular    FontStyle = 0 // 400
 	FontItalic     FontStyle = 1
@@ -30,6 +31,7 @@ const (
 // FontVariant defines the font variant to be used for the font, such as subscript or smallcaps.
 type FontVariant int
 
+// see FontVariant
 const (
 	FontNormal FontVariant = 2 << iota
 	FontSubscript

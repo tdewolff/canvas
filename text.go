@@ -23,8 +23,9 @@ const MaxGlyphSpacing = 0.5
 // TextAlign specifies how the text should align or whether it should be justified.
 type TextAlign int
 
+// see TextAlign
 const (
-	Left TextAlign = iota // see TextAlign
+	Left TextAlign = iota
 	Right
 	Center
 	Top

@@ -121,8 +121,9 @@ func (c *Canvas) DrawText(x, y float64, text *Text) {
 // ImageEncoding defines whether the embedded image shall be embedded as Lossless (typically PNG) or Lossy (typically JPG).
 type ImageEncoding int
 
+// see ImageEncoding
 const (
-	Lossless ImageEncoding = iota // see ImageEncoding
+	Lossless ImageEncoding = iota
 	Lossy
 )
 

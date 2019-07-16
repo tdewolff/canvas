@@ -19,8 +19,9 @@ var FillRule = NonZero
 // FillRuleType is the algorithm to specify which area is to be filled and which not, in particular when multiple path segments overlap. The NonZero rule is the default and will fill any point that is being enclosed by an unequal number of paths winding clockwise and counter clockwise, otherwise it will not be filled. The EvenOdd rule will fill any point that is being enclosed by an uneven number of path, whichever their direction.
 type FillRuleType int
 
+// see FillRuleType
 const (
-	NonZero FillRuleType = iota // see FillRuleType
+	NonZero FillRuleType = iota
 	EvenOdd
 )
 

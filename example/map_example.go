@@ -91,7 +91,7 @@ func draw(c *canvas.Canvas) {
 						hw = "residential"
 					}
 					category = "route_" + hw
-				} else if man_made, ok := tags["man_made"]; ok && man_made == "bridge" {
+				} else if manMade, ok := tags["man_made"]; ok && manMade == "bridge" {
 					category = "route_residential"
 				} else if _, ok := tags["natural"]; ok {
 					category = "water"

@@ -19,8 +19,9 @@ var sfntBuffer sfnt.Buffer
 // TypographicOptions are the options that can be enabled to make typographic or ligature substitutions automatically.
 type TypographicOptions int
 
+// see TypographicOptions
 const (
-	NoTypography TypographicOptions = 2 << iota // see TypographicOptions
+	NoTypography TypographicOptions = 2 << iota
 	NoRequiredLigatures
 	CommonLigatures
 	DiscretionaryLigatures
