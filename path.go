@@ -20,7 +20,7 @@ var FillRule = NonZero
 type FillRuleType int
 
 const (
-	NonZero FillRuleType = iota
+	NonZero FillRuleType = iota // see FillRuleType
 	EvenOdd
 )
 
@@ -201,7 +201,7 @@ func (p *Path) LineTo(x1, y1 float64) *Path {
 	return p
 }
 
-// Quadto adds a quadratic Bézier path with control point cpx,cpy and end point x1,y1.
+// QuadTo adds a quadratic Bézier path with control point cpx,cpy and end point x1,y1.
 func (p *Path) QuadTo(cpx, cpy, x1, y1 float64) *Path {
 	p0 := p.Pos()
 	cp := Point{cpx, cpy}
@@ -368,9 +368,8 @@ func (p *Path) Interior(x, y float64) bool {
 	}
 	if FillRule == NonZero {
 		return fillCount != 0
-	} else {
-		return fillCount%2 != 0
 	}
+	return fillCount%2 != 0
 }
 
 // Bounds returns the bounding box rectangle of the path.
@@ -742,7 +741,6 @@ func (p *Path) Split() []*Path {
 			}
 			ps = append(ps, &Path{d, 0})
 			start = Point{p.d[j-2], p.d[j-1]}
-			closed = false
 			i = j
 		}
 		closed = cmd == CloseCmd
@@ -758,7 +756,7 @@ func (p *Path) Split() []*Path {
 	return ps
 }
 
-// SplitAt splits the path into seperate paths at the specified intervals (given in millimeters) along the path.
+// SplitAt splits the path into separate paths at the specified intervals (given in millimeters) along the path.
 func (p *Path) SplitAt(ts ...float64) []*Path {
 	if len(ts) == 0 {
 		return []*Path{}
@@ -1547,6 +1545,7 @@ func (p *Path) ToPDF() string {
 	return sb.String()[1:] // remove the first space
 }
 
+// ToRasterizer rasterizes the path using the given rasterizer with dpm the dots-per-millimeter.
 func (p *Path) ToRasterizer(ras *vector.Rasterizer, dpm float64) {
 	p = p.Copy().Replace(nil, nil, ellipseToBeziers)
 

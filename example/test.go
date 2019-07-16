@@ -19,7 +19,7 @@ func main() {
 	}
 
 	c := canvas.New(220, 100)
-	Draw(c)
+	draw(c)
 
 	////////////////
 
@@ -74,7 +74,7 @@ func drawStrokedPath(c *canvas.Canvas, x, y, d float64, path string) {
 	c.DrawPath(x, y, p)
 }
 
-func Draw(c *canvas.Canvas) {
+func draw(c *canvas.Canvas) {
 	face := dejaVuSerif.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	frame := canvas.Rectangle(28.0, -10.0)
 	rt := canvas.NewRichText()

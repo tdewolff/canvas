@@ -17,7 +17,7 @@ func main() {
 	}
 
 	c := canvas.New(200, 230)
-	Draw(c)
+	draw(c)
 
 	pngFile, err := os.Create("document_example.png")
 	if err != nil {
@@ -47,7 +47,7 @@ func drawText(c *canvas.Canvas, x float64, text *canvas.Text) {
 	y -= h + 10.0
 }
 
-func Draw(c *canvas.Canvas) {
+func draw(c *canvas.Canvas) {
 	c.SetFillColor(canvas.Black)
 
 	headerFace := dejaVuSerif.Face(28.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)

@@ -27,6 +27,7 @@ const (
 	FontExtraBlack                       // 900
 )
 
+// FontVariant defines the font variant to be used for the font, such as subscript or smallcaps.
 type FontVariant int
 
 const (
@@ -36,12 +37,14 @@ const (
 	FontSmallcaps
 )
 
+// FontFamily contains a family of fonts (bold, italic, ...). Selecting an italic style will pick the native italic font or use faux italic if not present.
 type FontFamily struct {
 	name    string
 	fonts   map[FontStyle]*Font
 	options TypographicOptions
 }
 
+// NewFontFamily returns a new FontFamily.
 func NewFontFamily(name string) *FontFamily {
 	return &FontFamily{
 		name:  name,
@@ -88,7 +91,7 @@ func (family *FontFamily) Use(options TypographicOptions) {
 
 // Face gets the font face given by the font size (in pt).
 func (family *FontFamily) Face(size float64, col color.Color, style FontStyle, variant FontVariant, deco ...FontDecorator) FontFace {
-	size *= MmPerPt
+	size *= mmPerPt
 
 	scale := 1.0
 	voffset := 0.0
@@ -184,7 +187,7 @@ type FontMetrics struct {
 	CapHeight  float64
 }
 
-// Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explaination of the different metrics.
+// Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explanation of the different metrics.
 func (ff FontFace) Metrics() FontMetrics {
 	m, _ := ff.font.sfnt.Metrics(&sfntBuffer, toI26_6(ff.size*ff.scale), font.HintingNone)
 	return FontMetrics{
@@ -496,7 +499,7 @@ func (sineUnderline) Decorate(ff FontFace, w float64) *Path {
 	return p.Stroke(r, RoundCapper, RoundJoiner)
 }
 
-// FontSawtooth is a font decoration that draws a wavy sawtooth path at the base line.
+// FontSawtoothUnderline is a font decoration that draws a wavy sawtooth path at the base line.
 var FontSawtoothUnderline FontDecorator = sawtoothUnderline{}
 
 type sawtoothUnderline struct{}

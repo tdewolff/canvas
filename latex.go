@@ -192,5 +192,4 @@ func ParseLaTeX(s string) (*Path, error) {
 			}
 		}
 	}
-	return nil, nil
 }

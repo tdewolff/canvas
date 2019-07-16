@@ -271,11 +271,11 @@ func quadraticBezierLength(p0, p1, p2 Point) float64 {
 	}
 
 	Sabc := 2.0 * math.Sqrt(A+B+C)
-	A_2 := math.Sqrt(A)
-	A_32 := 2.0 * A * A_2
-	C_2 := 2.0 * math.Sqrt(C)
-	BA := B / A_2
-	return (A_32*Sabc + A_2*B*(Sabc-C_2) + (4.0*C*A-B*B)*math.Log((2.0*A_2+BA+Sabc)/(BA+C_2))) / (4.0 * A_32)
+	A2 := math.Sqrt(A)
+	A32 := 2.0 * A * A2
+	C2 := 2.0 * math.Sqrt(C)
+	BA := B / A2
+	return (A32*Sabc + A2*B*(Sabc-C2) + (4.0*C*A-B*B)*math.Log((2.0*A2+BA+Sabc)/(BA+C2))) / (4.0 * A32)
 }
 
 func splitQuadraticBezier(p0, p1, p2 Point, t float64) (Point, Point, Point, Point, Point, Point) {
@@ -356,7 +356,7 @@ func cubicBezierNormal(p0, p1, p2, p3 Point, t, d float64) Point {
 }
 
 // cubicBezierLength calculates the length of the Bézier, taking care of inflection points
-// it uses Gauss-Legendre (n=5) and has an error of ~1% or less (emperical)
+// it uses Gauss-Legendre (n=5) and has an error of ~1% or less (empirical)
 func cubicBezierLength(p0, p1, p2, p3 Point) float64 {
 	length := 0.0
 	beziers := splitCubicBezierAtInflections(p0, p1, p2, p3)

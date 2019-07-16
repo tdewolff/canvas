@@ -165,9 +165,8 @@ func (j miterJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point
 func (j miterJoiner) String() string {
 	if math.IsNaN(j.limit) {
 		return "Miter"
-	} else {
-		return "MiterClip"
 	}
+	return "MiterClip"
 }
 
 // ArcsJoiner connects two path elements by extending the ends of the paths as circle arcs until they meet. If this point is further than 4 mm away, this will result in a bevel join.
@@ -284,9 +283,8 @@ func (j arcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point,
 func (j arcsJoiner) String() string {
 	if math.IsNaN(j.limit) {
 		return "Arcs"
-	} else {
-		return "ArcsClip"
 	}
+	return "ArcsClip"
 }
 
 type pathStrokeState struct {

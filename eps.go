@@ -32,13 +32,13 @@ xrad yrad scale
 savematrix setmatrix
 } def`
 
-type EPSWriter struct {
+type epsWriter struct {
 	io.Writer
 	color color.RGBA
 }
 
-func NewEPSWriter(writer io.Writer, width, height float64) *EPSWriter {
-	w := &EPSWriter{
+func newEPSWriter(writer io.Writer, width, height float64) *epsWriter {
+	w := &epsWriter{
 		Writer: writer,
 		color:  Black,
 	}
@@ -51,7 +51,7 @@ func NewEPSWriter(writer io.Writer, width, height float64) *EPSWriter {
 	return w
 }
 
-func (w *EPSWriter) SetColor(color color.RGBA) {
+func (w *epsWriter) SetColor(color color.RGBA) {
 	if color != w.color {
 		// TODO: transparency
 		fmt.Fprintf(w, " %f %f %f setrgbcolor", float64(color.R)/255.0, float64(color.G)/255.0, float64(color.B)/255.0)

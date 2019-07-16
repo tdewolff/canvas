@@ -70,9 +70,8 @@ func (p *Polyline) Interior(x, y float64) bool {
 	fillCount := p.FillCount(x, y)
 	if FillRule == NonZero {
 		return fillCount != 0
-	} else {
-		return fillCount%2 != 0
 	}
+	return fillCount%2 != 0
 }
 
 // TODO: write functions when they appear to be needed: Bounds, ConvexHull, Centeroid? IsSimple (ie. non-intersecting)?

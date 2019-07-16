@@ -23,7 +23,7 @@ func main() {
 	}
 
 	c := canvas.New(140, 110)
-	Draw(c)
+	draw(c)
 
 	pngFile, err := os.Create("graph_example.png")
 	if err != nil {
@@ -38,7 +38,7 @@ func main() {
 	}
 }
 
-func Draw(c *canvas.Canvas) {
+func draw(c *canvas.Canvas) {
 	tickFace := dejaVuSerif.Face(8.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 
 	datafile, err := os.Open("co2-mm-mlo.csv")

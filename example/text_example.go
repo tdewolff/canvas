@@ -18,7 +18,7 @@ func main() {
 	}
 
 	c := canvas.New(265, 90)
-	Draw(c)
+	draw(c)
 
 	pngFile, err := os.Create("text_example.png")
 	if err != nil {
@@ -47,7 +47,7 @@ func drawText(c *canvas.Canvas, x, y float64, halign, valign canvas.TextAlign, i
 	c.DrawText(x, y, text)
 }
 
-func Draw(c *canvas.Canvas) {
+func draw(c *canvas.Canvas) {
 	face := dejaVuSerif.Face(14.0, color.Black, canvas.FontRegular, canvas.FontNormal)
 	c.SetFillColor(canvas.Black)
 	c.DrawText(132.5, 90.0, canvas.NewTextBox(face, "Different horizontal and vertical alignments with indent", 0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0))

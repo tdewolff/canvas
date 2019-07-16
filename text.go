@@ -11,15 +11,20 @@ import (
 	"unicode/utf8"
 )
 
-const MaxSentenceSpacing = 3.5 // times width of space
-const MaxWordSpacing = 2.5     // times width of space
-const MaxGlyphSpacing = 0.5    // times x-height
+// MaxSentenceSpacing is the maximum amount times the x-height of the font that sentence spaces can expand.
+const MaxSentenceSpacing = 3.5
+
+// MaxWordSpacing is the maximum amount times the x-height of the font that word spaces can expand.
+const MaxWordSpacing = 2.5
+
+// MaxGlyphSpacing is the maximum amount times the x-height of the font that glyphs can be spaced.
+const MaxGlyphSpacing = 0.5
 
 // TextAlign specifies how the text should align or whether it should be justified.
 type TextAlign int
 
 const (
-	Left TextAlign = iota
+	Left TextAlign = iota // see TextAlign
 	Right
 	Center
 	Top
@@ -53,6 +58,7 @@ type Text struct {
 	fonts map[*Font]bool
 }
 
+// NewTextLine is a simple text line using a font face, a string (supporting new lines) and horizontal alignment (Left, Center, Right).
 func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 	s = replaceMultipleWhitespace(s)
 	s, _, _ = ff.font.substituteTypography(s, false, false)
@@ -87,6 +93,7 @@ func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 	return &Text{lines, map[*Font]bool{ff.font: true}}
 }
 
+// NewTextBox is an advanced text formatter that will calculate text placement based on the setteings. It takes a font face, a string, the width or height of the box (can be zero for no limit), horizontal and vertical alignment (Left, Center, Right, Top, Bottom or Justify), text indentation for the first line and line stretch (percentage to stretch the line based on the line height).
 func NewTextBox(ff FontFace, s string, width, height float64, halign, valign TextAlign, indent, lineStretch float64) *Text {
 	return NewRichText().Add(ff, s).ToText(width, height, halign, valign, indent, lineStretch)
 }
@@ -99,6 +106,7 @@ type RichText struct {
 	text                         string
 }
 
+// NewRichText returns a new RichText.
 func NewRichText() *RichText {
 	return &RichText{
 		fonts: map[*Font]bool{},
@@ -131,9 +139,8 @@ func (rt *RichText) Add(ff FontFace, s string) *RichText {
 				extendPrev := false
 				if i == 0 && boundary.kind != lineBoundary && 0 < len(rt.spans) && rt.spans[len(rt.spans)-1].ff.Equals(ff) {
 					prevSpan := rt.spans[len(rt.spans)-1]
-					prevBoundaryKind := eofBoundary
 					if 1 < len(prevSpan.boundaries) {
-						prevBoundaryKind = prevSpan.boundaries[len(prevSpan.boundaries)-2].kind
+						prevBoundaryKind := prevSpan.boundaries[len(prevSpan.boundaries)-2].kind
 						if prevBoundaryKind != lineBoundary && prevBoundaryKind != sentenceBoundary {
 							extendPrev = true
 						}
@@ -468,10 +475,10 @@ func (t *Text) mostCommonFontFace() FontFace {
 			col = key
 		}
 	}
-	return family.Face(size*PtPerMm, col, style, variant)
+	return family.Face(size*ptPerMm, col, style, variant)
 }
 
-// ToPath makes a path out of the text, with x,y the top-left point of the rectangle that fits the text (ie. y is not the text base)
+// ToPaths makes a path out of the text, with x,y the top-left point of the rectangle that fits the text (ie. y is not the text base)
 func (t *Text) ToPaths() ([]*Path, []color.RGBA) {
 	paths := []*Path{}
 	colors := []color.RGBA{}
@@ -607,7 +614,7 @@ func (t *Text) WriteSVG(w io.Writer, h float64, m Matrix) {
 }
 
 // WritePDF will write out the text in the PDF file format.
-func (t *Text) WritePDF(w *PDFPageWriter, m Matrix) {
+func (t *Text) WritePDF(w *pdfPageWriter, m Matrix) {
 	fmt.Fprintf(w, ` BT`)
 	decorations := []pathLayer{}
 	for _, line := range t.lines {

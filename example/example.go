@@ -19,7 +19,7 @@ func main() {
 	}
 
 	c := canvas.New(200, 80)
-	Draw(c)
+	draw(c)
 
 	////////////////
 
@@ -87,7 +87,7 @@ func drawText(c *canvas.Canvas, x, y float64, face canvas.FontFace, rich *canvas
 	c.DrawText(x, y, text)
 }
 
-func Draw(c *canvas.Canvas) {
+func draw(c *canvas.Canvas) {
 	// Draw a comprehensive text box
 	face := dejaVuSerif.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	rich := canvas.NewRichText()

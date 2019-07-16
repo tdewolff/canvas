@@ -144,15 +144,13 @@ func quoteReplace(s string, i int, prev, quote, next rune, isOpen *bool) (string
 	if quote == '"' {
 		if *isOpen {
 			return stringReplace(s, i, 1, "\u201C")
-		} else {
-			return stringReplace(s, i, 1, "\u201D")
 		}
+		return stringReplace(s, i, 1, "\u201D")
 	} else if quote == '\'' {
 		if *isOpen {
 			return stringReplace(s, i, 1, "\u2018")
-		} else {
-			return stringReplace(s, i, 1, "\u2019")
 		}
+		return stringReplace(s, i, 1, "\u2019")
 	}
 	return s, 1
 }

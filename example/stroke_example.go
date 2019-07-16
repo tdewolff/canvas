@@ -19,7 +19,7 @@ func main() {
 	}
 
 	c := canvas.New(200, 80)
-	Draw(c)
+	draw(c)
 
 	pngFile, err := os.Create("stroke_example.png")
 	if err != nil {
@@ -55,7 +55,7 @@ func drawText(c *canvas.Canvas, x, y float64, text string) {
 	c.DrawText(x, y, canvas.NewTextBox(face, text, 0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0))
 }
 
-func Draw(c *canvas.Canvas) {
+func draw(c *canvas.Canvas) {
 	pathCapper := "M-20 0L0 0"
 	pathJoiner := "M-20 -10A25 25 0 0 0 0 0A20 20 0 0 1 -5 -15"
 

@@ -47,10 +47,9 @@ func toCSSColor(color color.RGBA) string {
 		buf[0] = '#'
 		hex.Encode(buf[1:], []byte{color.R, color.G, color.B})
 		return string(buf)
-	} else {
-		a := float64(color.A) / 255.0
-		return fmt.Sprintf("rgba(%d,%d,%d,%.5g)", int(float64(color.R)/a), int(float64(color.G)/a), int(float64(color.B)/a), a)
 	}
+	a := float64(color.A) / 255.0
+	return fmt.Sprintf("rgba(%d,%d,%d,%.5g)", int(float64(color.R)/a), int(float64(color.G)/a), int(float64(color.B)/a), a)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -411,6 +410,7 @@ func (m Matrix) String() string {
 	return fmt.Sprintf("[%g %g; %g %g] + [%g %g]", m[0][0], m[0][1], m[1][0], m[1][1], m[0][2], m[1][2])
 }
 
+// ToSVG writes out the matrix in SVG notation, taking care of the proper order of transformations.
 func (m Matrix) ToSVG(h float64) string {
 	tx, ty, theta, sx, sy, phi := m.Decompose()
 
@@ -546,7 +546,6 @@ func bisectionMethod(f func(float64) float64, y, xmin, xmax float64) float64 {
 		}
 		n++
 	}
-	return x // MaxIterations reached
 }
 
 // polynomialApprox returns a function y(x) that maps the parameter x [xmin,xmax] to the integral of fp. For a circle tmin and tmax would be 0 and 2PI respectively for example. It also returns the total length of the curve.

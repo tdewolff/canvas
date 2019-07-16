@@ -24,7 +24,7 @@ func main() {
 	}
 
 	c := canvas.New(100, 100)
-	Draw(c)
+	draw(c)
 
 	pngFile, err := os.Create("map_example.png")
 	if err != nil {
@@ -39,7 +39,7 @@ func main() {
 	}
 }
 
-func Draw(c *canvas.Canvas) {
+func draw(c *canvas.Canvas) {
 	xmin, xmax := 4.8884, 4.9090
 	ymin, ymax := 52.3659, 52.3779
 
@@ -54,14 +54,14 @@ func Draw(c *canvas.Canvas) {
 	}
 
 	categories := map[string]color.RGBA{
-		"route_primary":     color.RGBA{248, 201, 103, 255},
-		"route_secondary":   color.RGBA{253, 252, 248, 255},
-		"route_residential": color.RGBA{245, 241, 230, 255},
-		"route_pedestrian":  color.RGBA{245, 241, 230, 255},
-		"route_transit":     color.RGBA{223, 210, 174, 255},
-		"water":             color.RGBA{185, 211, 194, 255},
-		"park":              color.RGBA{165, 176, 118, 255},
-		"building":          color.RGBA{201, 178, 166, 255},
+		"route_primary":     {248, 201, 103, 255},
+		"route_secondary":   {253, 252, 248, 255},
+		"route_residential": {245, 241, 230, 255},
+		"route_pedestrian":  {245, 241, 230, 255},
+		"route_transit":     {223, 210, 174, 255},
+		"water":             {185, 211, 194, 255},
+		"park":              {165, 176, 118, 255},
+		"building":          {201, 178, 166, 255},
 	}
 
 	c.SetFillColor(color.RGBA{235, 227, 205, 255})

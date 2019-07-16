@@ -16,10 +16,10 @@ import (
 	"golang.org/x/image/vector"
 )
 
-const MmPerPt = 0.3527777777777778
-const PtPerMm = 2.8346456692913384
-const MmPerInch = 25.4
-const InchPerMm = 1 / 25.4
+const mmPerPt = 0.3527777777777778
+const ptPerMm = 2.8346456692913384
+const mmPerInch = 25.4
+const inchPerMm = 1 / 25.4
 
 // Canvas holds the intermediate drawing state, accumulating all the layers (draw actions) and keeping track of the draw state. It allows for exporting to various target formats and using their native stroking and text features.
 type Canvas struct {
@@ -122,7 +122,7 @@ func (c *Canvas) DrawText(x, y float64, text *Text) {
 type ImageEncoding int
 
 const (
-	Lossless ImageEncoding = iota
+	Lossless ImageEncoding = iota // see ImageEncoding
 	Lossy
 )
 
@@ -160,7 +160,7 @@ func (c *Canvas) WriteSVG(w io.Writer) {
 
 // WritePDF writes the stored drawing operations in Canvas in the PDF file format.
 func (c *Canvas) WritePDF(w io.Writer) error {
-	pdf := NewPDFWriter(w)
+	pdf := newPDFWriter(w)
 	pdfpage := pdf.NewPage(c.w, c.h)
 	for _, l := range c.layers {
 		l.WritePDF(pdfpage)
@@ -171,7 +171,7 @@ func (c *Canvas) WritePDF(w io.Writer) error {
 // WriteEPS writes the stored drawing operations in Canvas in the EPS file format.
 // Be aware that EPS does not support transparency of colors.
 func (c *Canvas) WriteEPS(w io.Writer) {
-	eps := NewEPSWriter(w, c.w, c.h)
+	eps := newEPSWriter(w, c.w, c.h)
 	for _, l := range c.layers {
 		eps.Write([]byte("\n"))
 		l.WriteEPS(eps)
@@ -192,8 +192,8 @@ func (c *Canvas) WriteImage(dpm float64) *image.RGBA {
 
 type layer interface {
 	WriteSVG(io.Writer, float64)
-	WritePDF(*PDFPageWriter)
-	WriteEPS(*EPSWriter)
+	WritePDF(*pdfPageWriter)
+	WriteEPS(*epsWriter)
 	WriteImage(*image.RGBA, float64)
 }
 
@@ -331,7 +331,7 @@ func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 	}
 }
 
-func (l pathLayer) WritePDF(w *PDFPageWriter) {
+func (l pathLayer) WritePDF(w *pdfPageWriter) {
 	fill := l.fillColor.A != 0
 	stroke := l.strokeColor.A != 0 && 0.0 < l.strokeWidth
 
@@ -455,7 +455,7 @@ func (l pathLayer) WritePDF(w *PDFPageWriter) {
 	}
 }
 
-func (l pathLayer) WriteEPS(w *EPSWriter) {
+func (l pathLayer) WriteEPS(w *epsWriter) {
 	// TODO: EPS test ellipse, rotations etc
 	w.SetColor(l.fillColor)
 	w.Write([]byte(" "))
@@ -498,11 +498,11 @@ func (l textLayer) WriteSVG(w io.Writer, h float64) {
 	l.Text.WriteSVG(w, h, l.viewport)
 }
 
-func (l textLayer) WritePDF(w *PDFPageWriter) {
+func (l textLayer) WritePDF(w *pdfPageWriter) {
 	l.Text.WritePDF(w, l.viewport)
 }
 
-func (l textLayer) WriteEPS(w *EPSWriter) {
+func (l textLayer) WriteEPS(w *epsWriter) {
 	// TODO: EPS write text
 	paths, colors := l.ToPaths()
 	for i, path := range paths {
@@ -557,11 +557,11 @@ func (l imageLayer) WriteSVG(w io.Writer, h float64) {
 	fmt.Fprintf(w, `"/>`)
 }
 
-func (l imageLayer) WritePDF(w *PDFPageWriter) {
+func (l imageLayer) WritePDF(w *pdfPageWriter) {
 	w.DrawImage(l.img, l.enc, l.m)
 }
 
-func (l imageLayer) WriteEPS(w *EPSWriter) {
+func (l imageLayer) WriteEPS(w *epsWriter) {
 	// TODO: EPS write image
 }
 

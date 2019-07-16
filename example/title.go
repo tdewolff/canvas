@@ -20,7 +20,7 @@ func main() {
 	}
 
 	c := canvas.New(65, 27)
-	Draw(c)
+	draw(c)
 
 	////////////////
 
@@ -37,7 +37,7 @@ func main() {
 	}
 }
 
-func Draw(c *canvas.Canvas) {
+func draw(c *canvas.Canvas) {
 	x := 2.0
 	face := font.Face(80.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 

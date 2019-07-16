@@ -20,7 +20,7 @@ var sfntBuffer sfnt.Buffer
 type TypographicOptions int
 
 const (
-	NoTypography TypographicOptions = 2 << iota
+	NoTypography TypographicOptions = 2 << iota // see TypographicOptions
 	NoRequiredLigatures
 	CommonLigatures
 	DiscretionaryLigatures
@@ -64,7 +64,7 @@ func (f *Font) Raw() (string, []byte) {
 	return f.mimetype, f.raw
 }
 
-func (f *Font) PDFInfo() (Rect, float64, float64, float64, float64, []int) {
+func (f *Font) pdfInfo() (Rect, float64, float64, float64, float64, []int) {
 	units := float64(f.sfnt.UnitsPerEm())
 
 	bounds := Rect{}
@@ -99,7 +99,7 @@ func (f *Font) PDFInfo() (Rect, float64, float64, float64, float64, []int) {
 	return bounds, italicAngle, ascent, descent, capHeight, widths
 }
 
-func (f *Font) ToIndices(s string) []uint16 {
+func (f *Font) toIndices(s string) []uint16 {
 	runes := []rune(s)
 	indices := make([]uint16, len(runes))
 	for i, r := range runes {
@@ -184,6 +184,7 @@ func (f *Font) supportedSubstitutions(substitutions []textSubstitution) []textSu
 	return supported
 }
 
+// Use enables typographic options on the font such as ligatures.
 func (f *Font) Use(options TypographicOptions) {
 	if options&NoTypography == 0 {
 		f.typography = true
