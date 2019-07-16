@@ -13,8 +13,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/tdewolff/parse/xml"
-	"github.com/tdewolff/strconv"
+	"github.com/tdewolff/parse/v2/strconv"
+	"github.com/tdewolff/parse/v2/xml"
 )
 
 // ParseLaTeX parses a LaTeX formatted string into a path. It requires latex and dvisvgm to be installed on the machine.
