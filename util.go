@@ -212,6 +212,19 @@ func (r Rect) Add(q Rect) Rect {
 	return Rect{x0, y0, x1 - x0, y1 - y0}
 }
 
+// Transform transforms the rectangle by affine transformation matrix m and returns the new bounds of that rectangle.
+func (r Rect) Transform(m Matrix) Rect {
+	p0 := m.Dot(Point{r.X, r.Y})
+	p1 := m.Dot(Point{r.X + r.W, r.Y})
+	p2 := m.Dot(Point{r.X + r.W, r.Y + r.H})
+	p3 := m.Dot(Point{r.X, r.Y + r.H})
+	xmin := math.Min(p0.X, math.Min(p1.X, math.Min(p2.X, p3.X)))
+	xmax := math.Max(p0.X, math.Max(p1.X, math.Max(p2.X, p3.X)))
+	ymin := math.Min(p0.Y, math.Min(p1.Y, math.Min(p2.Y, p3.Y)))
+	ymax := math.Max(p0.Y, math.Max(p1.Y, math.Max(p2.Y, p3.Y)))
+	return Rect{xmin, ymin, xmax - xmin, ymax - ymin}
+}
+
 // ToPath converts the rectangle to a *Path.
 func (r Rect) ToPath() *Path {
 	return Rectangle(r.W, r.H).Translate(r.X, r.Y)
@@ -367,6 +380,11 @@ func (m Matrix) Eigen() (float64, float64, Point, Point) {
 		v2 = Point{m[0][1], lambda2 - m[0][0]}.Norm(1.0)
 	}
 	return lambda1, lambda2, v1, v2
+}
+
+// Pos extracts the translation component as (tx, ty).
+func (m Matrix) Pos() (float64, float64) {
+	return m[0][2], m[1][2]
 }
 
 // Decompose extracts the translation, rotation, scaling and rotation components (applied in the reverse order) as (tx, ty, theta, sx, sy, phi) with rotation counter clockwise. This corresponds to Identity.Translate(tx, ty).Rotate(theta).Scale(sx, sy).Rotate(phi).

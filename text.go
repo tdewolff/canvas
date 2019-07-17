@@ -565,7 +565,7 @@ func (t *Text) WriteSVG(w io.Writer, h float64, m Matrix) {
 
 	x0, y0 := 0.0, 0.0
 	if m.IsTranslation() {
-		x0, y0, _, _, _, _ = m.Decompose()
+		x0, y0 = m.Pos()
 		y0 = h - y0
 		fmt.Fprintf(w, `<text x="%.5g" y="%.5g`, x0, y0)
 	} else {

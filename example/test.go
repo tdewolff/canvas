@@ -20,6 +20,7 @@ func main() {
 
 	c := canvas.New(220, 100)
 	draw(c)
+	c.Fit(1.0)
 
 	////////////////
 

@@ -23,7 +23,7 @@ const inchPerMm = 1 / 25.4
 
 // Canvas holds the intermediate drawing state, accumulating all the layers (draw actions) and keeping track of the draw state. It allows for exporting to various target formats and using their native stroking and text features.
 type Canvas struct {
-	w, h   float64 // TODO: allow to set later on? Automatic fitting of entire canvas?
+	W, H   float64
 	layers []layer
 	fonts  map[*Font]bool
 	drawState
@@ -59,9 +59,9 @@ func (c *Canvas) ResetView() {
 	c.m = Identity
 }
 
-// ComposeView multiplies the current affine transformation matrix by the given one.
+// ComposeView post-multiplies the current affine transformation matrix by the given one.
 func (c *Canvas) ComposeView(m Matrix) {
-	c.m = m.Mul(c.m)
+	c.m = c.m.Mul(m)
 }
 
 // SetFillColor sets the color to be used for filling operations.
@@ -138,9 +138,34 @@ func (c *Canvas) DrawImage(x, y float64, img image.Image, enc ImageEncoding, dpm
 
 ////////////////////////////////////////////////////////////////
 
+// Fit shrinks the canvas size so all elements fit. The elements are translated towards the origin when any left/bottom margins exist and the canvas size is decreased if any margins exist. It will maintain a given margin.
+func (c *Canvas) Fit(margin float64) {
+	if len(c.layers) == 0 {
+		c.W = 0.0
+		c.H = 0.0
+	}
+
+	rect := c.layers[0].Bounds()
+	for _, layer := range c.layers[1:] {
+		rect = rect.Add(layer.Bounds())
+	}
+	for i, layer := range c.layers {
+		switch l := layer.(type) {
+		case pathLayer:
+			c.layers[i] = pathLayer{l.path.Translate(-rect.X+margin, -rect.Y+margin), l.drawState}
+		case textLayer:
+			c.layers[i] = textLayer{l.text, Identity.Translate(-rect.X+margin, -rect.Y+margin).Mul(l.m)}
+		case imageLayer:
+			c.layers[i] = imageLayer{l.img, l.enc, Identity.Translate(-rect.X+margin, -rect.Y+margin).Mul(l.m)}
+		}
+	}
+	c.W = rect.W + 2*margin
+	c.H = rect.H + 2*margin
+}
+
 // WriteSVG writes the stored drawing operations in Canvas in the SVG file format.
 func (c *Canvas) WriteSVG(w io.Writer) {
-	fmt.Fprintf(w, `<svg version="1.1" width="%.5g" height="%.5g" viewBox="0 0 %.5g %.5g" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, c.w, c.h, c.w, c.h)
+	fmt.Fprintf(w, `<svg version="1.1" width="%.5g" height="%.5g" viewBox="0 0 %.5g %.5g" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, c.W, c.H, c.W, c.H)
 	if len(c.fonts) > 0 {
 		fmt.Fprintf(w, "<defs><style>")
 		for f := range c.fonts {
@@ -154,7 +179,7 @@ func (c *Canvas) WriteSVG(w io.Writer) {
 		fmt.Fprintf(w, "\n</style></defs>")
 	}
 	for _, l := range c.layers {
-		l.WriteSVG(w, c.h)
+		l.WriteSVG(w, c.H)
 	}
 	fmt.Fprintf(w, "</svg>")
 }
@@ -162,7 +187,7 @@ func (c *Canvas) WriteSVG(w io.Writer) {
 // WritePDF writes the stored drawing operations in Canvas in the PDF file format.
 func (c *Canvas) WritePDF(w io.Writer) error {
 	pdf := newPDFWriter(w)
-	pdfpage := pdf.NewPage(c.w, c.h)
+	pdfpage := pdf.NewPage(c.W, c.H)
 	for _, l := range c.layers {
 		l.WritePDF(pdfpage)
 	}
@@ -172,7 +197,7 @@ func (c *Canvas) WritePDF(w io.Writer) error {
 // WriteEPS writes the stored drawing operations in Canvas in the EPS file format.
 // Be aware that EPS does not support transparency of colors.
 func (c *Canvas) WriteEPS(w io.Writer) {
-	eps := newEPSWriter(w, c.w, c.h)
+	eps := newEPSWriter(w, c.W, c.H)
 	for _, l := range c.layers {
 		eps.Write([]byte("\n"))
 		l.WriteEPS(eps)
@@ -181,7 +206,7 @@ func (c *Canvas) WriteEPS(w io.Writer) {
 
 // WriteImage writes the stored drawing operations in Canvas as a rasterized image with given DPM (dots-per-millimeter). Higher DPM will result in bigger images.
 func (c *Canvas) WriteImage(dpm float64) *image.RGBA {
-	img := image.NewRGBA(image.Rect(0.0, 0.0, int(c.w*dpm+0.5), int(c.h*dpm+0.5)))
+	img := image.NewRGBA(image.Rect(0.0, 0.0, int(c.W*dpm+0.5), int(c.H*dpm+0.5)))
 	draw.Draw(img, img.Bounds(), image.NewUniform(White), image.Point{}, draw.Src)
 	for _, l := range c.layers {
 		l.WriteImage(img, dpm)
@@ -192,6 +217,7 @@ func (c *Canvas) WriteImage(dpm float64) *image.RGBA {
 ////////////////////////////////////////////////////////////////
 
 type layer interface {
+	Bounds() Rect
 	WriteSVG(io.Writer, float64)
 	WritePDF(*pdfPageWriter)
 	WriteEPS(*epsWriter)
@@ -224,8 +250,12 @@ var defaultDrawState = drawState{
 ////////////////////////////////////////////////////////////////
 
 type pathLayer struct {
-	path *Path
-	drawState
+	path      *Path
+	drawState // view matrix has already been applied
+}
+
+func (l pathLayer) Bounds() Rect {
+	return l.path.Bounds()
 }
 
 func (l pathLayer) WriteSVG(w io.Writer, h float64) {
@@ -491,35 +521,39 @@ func (l pathLayer) WriteImage(img *image.RGBA, dpm float64) {
 ////////////////////////////////////////////////////////////////
 
 type textLayer struct {
-	*Text
-	viewport Matrix
+	text *Text
+	m    Matrix
+}
+
+func (l textLayer) Bounds() Rect {
+	return l.text.Bounds().Transform(l.m)
 }
 
 func (l textLayer) WriteSVG(w io.Writer, h float64) {
-	l.Text.WriteSVG(w, h, l.viewport)
+	l.text.WriteSVG(w, h, l.m)
 }
 
 func (l textLayer) WritePDF(w *pdfPageWriter) {
-	l.Text.WritePDF(w, l.viewport)
+	l.text.WritePDF(w, l.m)
 }
 
 func (l textLayer) WriteEPS(w *epsWriter) {
 	// TODO: EPS write text
-	paths, colors := l.ToPaths()
+	paths, colors := l.text.ToPaths()
 	for i, path := range paths {
 		state := defaultDrawState
 		state.fillColor = colors[i]
-		pathLayer{path.Transform(l.viewport), state}.WriteEPS(w)
+		pathLayer{path.Transform(l.m), state}.WriteEPS(w)
 	}
 }
 
 func (l textLayer) WriteImage(img *image.RGBA, dpm float64) {
 	//l.Text.WriteImage(img, dpm)
-	paths, colors := l.ToPaths()
+	paths, colors := l.text.ToPaths()
 	for i, path := range paths {
 		state := defaultDrawState
 		state.fillColor = colors[i]
-		pathLayer{path.Transform(l.viewport), state}.WriteImage(img, dpm)
+		pathLayer{path.Transform(l.m), state}.WriteImage(img, dpm)
 	}
 }
 
@@ -529,6 +563,11 @@ type imageLayer struct {
 	img image.Image
 	enc ImageEncoding
 	m   Matrix
+}
+
+func (l imageLayer) Bounds() Rect {
+	size := l.img.Bounds().Size()
+	return Rect{0.0, 0.0, float64(size.X), float64(size.Y)}.Transform(l.m)
 }
 
 func (l imageLayer) WriteSVG(w io.Writer, h float64) {

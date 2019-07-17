@@ -1,6 +1,6 @@
 ![Canvas](https://raw.githubusercontent.com/tdewolff/canvas/master/example/title.png)
 
-[![GoDoc](http://godoc.org/github.com/tdewolff/canvas?status.svg)](http://godoc.org/github.com/tdewolff/canvas) [![Coverage Status](https://coveralls.io/repos/github/tdewolff/canvas/badge.svg?branch=master)](https://coveralls.io/github/tdewolff/canvas?branch=master) [![Go Report Card](https://goreportcard.com/badge/github.com/tdewolff/canvas)](https://goreportcard.com/report/github.com/tdewolff/canvas)
+[![GoDoc](http://godoc.org/github.com/tdewolff/canvas?status.svg)](http://godoc.org/github.com/tdewolff/canvas) [![Go Report Card](https://goreportcard.com/badge/github.com/tdewolff/canvas)](https://goreportcard.com/report/github.com/tdewolff/canvas)
 
 Canvas is a common vector drawing target that can output SVG, PDF, EPS and raster images (which can be saved as PNG, JPG, ...). It has a wide range of path manipulation functionality such as flattening, stroking and dashing implemented. Additionally, it has a good text formatter and embeds fonts (TTF, OTF or WOFF) or converts them to outlines. See the example below in Fig. 1 and Fig. 2 for an overview of the functionality.
 
@@ -100,11 +100,11 @@ Far future
 ## Canvas
 ``` go
 c := canvas.New(width, height float64)
-c.PushState()
-c.PopState()
-c.SetView(Matrix)
-c.ComposeView(Matrix)
-c.ResetView()
+c.PushState()          // save state set by function below on the stack
+c.PopState()           // pop state from the stack
+c.SetView(Matrix)      // set view transformation, all drawn elements are transformed by this matrix
+c.ComposeView(Matrix)  // add transformation after the current view transformation
+c.ResetView()          // use identity transformation matrix
 c.SetFillColor(color.Color)
 c.SetStrokeColor(color.Color)
 c.SetStrokeCapper(Capper)
@@ -116,13 +116,14 @@ c.DrawPath(x, y float64, *Path)
 c.DrawText(x, y float64, *Text)
 c.DrawImage(x, y float64, image.Image, ImageEncoding, dpm float64)
 
+c.Fit(margin float64)  // resize canvas to fit all elements with a given margin
 c.WriteSVG(w io.Writer)
 c.WriteEPS(w io.Writer)
 c.WritePDF(w io.Writer)
 c.WriteImage(dpm float64) *image.RGBA
 ```
 
-Canvas allows to draw either paths or text. All positions and sizes are given in millimeters.
+Canvas allows to draw either paths, text or images. All positions and sizes are given in millimeters.
 
 ## Text
 ![Text Example](https://raw.githubusercontent.com/tdewolff/canvas/master/example/text_example.png)
