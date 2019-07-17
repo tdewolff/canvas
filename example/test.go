@@ -14,7 +14,7 @@ var dejaVuSerif *canvas.FontFamily
 func main() {
 	dejaVuSerif = canvas.NewFontFamily("dejavu-serif")
 	dejaVuSerif.Use(canvas.CommonLigatures)
-	if err := dejaVuSerif.LoadFontFile("DejaVuSerif.ttf", canvas.FontRegular); err != nil {
+	if err := dejaVuSerif.LoadLocalFont("Amiri", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 
@@ -76,14 +76,12 @@ func drawStrokedPath(c *canvas.Canvas, x, y, d float64, path string) {
 }
 
 func draw(c *canvas.Canvas) {
+	s := "ﻙﺎﻨﺗ ﺎﻠﺴﻣﺍﺀ ﺹ \n\n ﺎﻔﻳﺓ ﻢﻧ"
+
 	face := dejaVuSerif.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	frame := canvas.Rectangle(28.0, -10.0)
 	rt := canvas.NewRichText()
-	rt.Add(face, "VAVA VAVA\n")
-	rt.Add(face, "lllllllll lllllllll\n")
-	rt.Add(face, "mies. ")
-	rt.Add(dejaVuSerif.Face(12.0, canvas.Black, canvas.FontItalic, canvas.FontNormal, canvas.FontUnderline), "teun")
-	rt.Add(face, "noot. ")
+	rt.Add(face, s)
 	text := rt.ToText(28.0, 0.0, canvas.Justify, canvas.Top, 0.0, 0.0)
 
 	p, _ := canvas.ParseSVG(fmt.Sprintf("A20.0 10.0 0.0 0 0 40.0 0.0z"))

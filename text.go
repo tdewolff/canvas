@@ -61,7 +61,6 @@ type Text struct {
 
 // NewTextLine is a simple text line using a font face, a string (supporting new lines) and horizontal alignment (Left, Center, Right).
 func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
-	s = replaceMultipleWhitespace(s)
 	s, _, _ = ff.font.substituteTypography(s, false, false)
 
 	ascent, descent, spacing := ff.Metrics().Ascent, ff.Metrics().Descent, ff.Metrics().LineHeight-ff.Metrics().Ascent-ff.Metrics().Descent
@@ -116,7 +115,6 @@ func NewRichText() *RichText {
 
 // Add adds a new text span element.
 func (rt *RichText) Add(ff FontFace, s string) *RichText {
-	s = replaceMultipleWhitespace(s)
 	if 0 < len(s) {
 		rPrev := ' '
 		rNext, size := utf8.DecodeRuneInString(s)
@@ -232,7 +230,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		// trim right spaces
 		for 0 < len(ss) {
 			ss[len(ss)-1] = ss[len(ss)-1].TrimRight()
-			if ss[len(ss)-1].text == "" {
+			if 1 < len(ss) && ss[len(ss)-1].text == "" {
 				ss = ss[:len(ss)-1]
 			} else {
 				break
@@ -704,7 +702,7 @@ func newTextSpan(ff FontFace, text string, i int) textSpan {
 }
 
 func (span textSpan) TrimLeft() textSpan {
-	if 0 < len(span.boundaries) && span.boundaries[0].pos == 0 {
+	if 0 < len(span.boundaries) && span.boundaries[0].pos == 0 && span.boundaries[0].kind != lineBoundary {
 		_, span1 := span.split(0)
 		return span1
 	}
@@ -713,7 +711,7 @@ func (span textSpan) TrimLeft() textSpan {
 
 func (span textSpan) TrimRight() textSpan {
 	i := len(span.boundaries) - 2 // the last one is EOF
-	if 1 < len(span.boundaries) && span.boundaries[i].pos+span.boundaries[i].size == len(span.text) {
+	if 1 < len(span.boundaries) && span.boundaries[i].pos+span.boundaries[i].size == len(span.text) && span.boundaries[i].kind != lineBoundary {
 		span0, _ := span.split(i)
 		return span0
 	}
@@ -827,11 +825,15 @@ type textBoundary struct {
 
 func mergeBoundaries(a, b []textBoundary) []textBoundary {
 	if 0 < len(a) && 0 < len(b) && a[len(a)-1].pos+a[len(a)-1].size == b[0].pos {
-		if b[0].kind < a[len(a)-1].kind {
-			a[len(a)-1].kind = b[0].kind
+		if a[len(a)-1].kind != lineBoundary || b[0].kind != lineBoundary {
+			if b[0].kind < a[len(a)-1].kind {
+				a[len(a)-1].kind = b[0].kind
+			} else if a[len(a)-1].kind < b[0].kind {
+				b[0].kind = a[len(a)-1].kind
+			}
+			a[len(a)-1].size += b[0].size
+			b = b[1:]
 		}
-		a[len(a)-1].size += b[0].size
-		b = b[1:]
 	}
 	return append(a, b...)
 }
@@ -846,8 +848,7 @@ func calcTextBoundaries(s string, a, b int) []textBoundary {
 			rPrevPrev, _ = utf8.DecodeLastRuneInString(s[:a-size])
 		}
 	}
-	i := 0
-	for _, r := range s[a:b] {
+	for i, r := range s[a:b] {
 		size := utf8.RuneLen(r)
 		if isNewline(r) {
 			if r == '\n' && 0 < i && s[i-1] == '\r' {
@@ -866,49 +867,9 @@ func calcTextBoundaries(s string, a, b int) []textBoundary {
 		}
 		rPrevPrev = rPrev
 		rPrev = r
-		i += size
 	}
-	boundaries = append(boundaries, textBoundary{eofBoundary, i, 0})
+	boundaries = append(boundaries, textBoundary{eofBoundary, b - a, 0})
 	return boundaries
-}
-
-// replaceMultipleWhitespace replaces character series of space, \n, \t, \f, \r into a single space or newline (when the serie contained a \n or \r).
-func replaceMultipleWhitespace(s string) string {
-	// works online on single byte whitespace
-	b := []byte(s)
-	j := 0
-	prevWS := false
-	hasNewline := false
-	for i, c := range b {
-		if isWhitespace(rune(c)) {
-			prevWS = true
-			if isNewline(rune(c)) {
-				hasNewline = true
-			}
-		} else {
-			if prevWS {
-				prevWS = false
-				if hasNewline {
-					hasNewline = false
-					b[j] = '\n'
-				} else {
-					b[j] = ' '
-				}
-				j++
-			}
-			b[j] = b[i]
-			j++
-		}
-	}
-	if prevWS {
-		if hasNewline {
-			b[j] = '\n'
-		} else {
-			b[j] = ' '
-		}
-		j++
-	}
-	return string(b[:j])
 }
 
 func isNewline(r rune) bool {

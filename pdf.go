@@ -12,7 +12,6 @@ import (
 	"math"
 	"sort"
 	"strings"
-	"unicode/utf8"
 
 	"golang.org/x/image/font"
 )
@@ -584,9 +583,9 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 	for _, tj := range TJ {
 		switch val := tj.(type) {
 		case string:
-			i, j := 0, 0
+			i := 0
 			var rPrev rune
-			for _, r := range val {
+			for j, r := range val {
 				if i < j {
 					i0, err0 := w.font.sfnt.GlyphIndex(&sfntBuffer, rPrev)
 					i1, err1 := w.font.sfnt.GlyphIndex(&sfntBuffer, r)
@@ -599,7 +598,6 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 						}
 					}
 				}
-				j += utf8.RuneLen(r)
 				rPrev = r
 			}
 			write(val[i:])
