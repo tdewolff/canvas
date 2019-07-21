@@ -13,8 +13,6 @@ var font *canvas.FontFamily
 func main() {
 	font = canvas.NewFontFamily("font")
 	font.Use(canvas.CommonLigatures)
-	//if err := font.LoadLocalFont("Monoton", canvas.FontRegular); err != nil {
-	//if err := font.LoadLocalFont("Rye", canvas.FontRegular); err != nil {
 	if err := font.LoadLocalFont("Dynalight", canvas.FontRegular); err != nil {
 		panic(err)
 	}
@@ -24,7 +22,7 @@ func main() {
 
 	////////////////
 
-	pngFile, err := os.Create("title.png")
+	pngFile, err := os.Create("out.png")
 	if err != nil {
 		panic(err)
 	}

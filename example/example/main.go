@@ -14,7 +14,7 @@ var dejaVuSerif *canvas.FontFamily
 func main() {
 	dejaVuSerif = canvas.NewFontFamily("dejavu-serif")
 	dejaVuSerif.Use(canvas.CommonLigatures)
-	if err := dejaVuSerif.LoadFontFile("DejaVuSerif.ttf", canvas.FontRegular); err != nil {
+	if err := dejaVuSerif.LoadFontFile("../DejaVuSerif.ttf", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 
@@ -23,7 +23,7 @@ func main() {
 
 	////////////////
 
-	svgFile, err := os.Create("example.svg")
+	svgFile, err := os.Create("out.svg")
 	if err != nil {
 		panic(err)
 	}
@@ -33,7 +33,7 @@ func main() {
 	////////////////
 
 	// SLOW
-	pngFile, err := os.Create("example.png")
+	pngFile, err := os.Create("out.png")
 	if err != nil {
 		panic(err)
 	}
@@ -47,7 +47,7 @@ func main() {
 
 	////////////////
 
-	pdfFile, err := os.Create("example.pdf")
+	pdfFile, err := os.Create("out.pdf")
 	if err != nil {
 		panic(err)
 	}
@@ -60,7 +60,7 @@ func main() {
 
 	////////////////
 
-	epsFile, err := os.Create("example.eps")
+	epsFile, err := os.Create("out.eps")
 	if err != nil {
 		panic(err)
 	}
@@ -175,7 +175,7 @@ func draw(c *canvas.Canvas) {
 	}
 
 	// Draw a raster image
-	lenna, err := os.Open("lenna.png")
+	lenna, err := os.Open("../lenna.png")
 	if err != nil {
 		panic(err)
 	}

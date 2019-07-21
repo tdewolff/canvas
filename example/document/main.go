@@ -12,14 +12,14 @@ var dejaVuSerif *canvas.FontFamily
 func main() {
 	dejaVuSerif = canvas.NewFontFamily("dejavu-serif")
 	dejaVuSerif.Use(canvas.CommonLigatures)
-	if err := dejaVuSerif.LoadFontFile("DejaVuSerif.ttf", canvas.FontRegular); err != nil {
+	if err := dejaVuSerif.LoadFontFile("../DejaVuSerif.ttf", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 
 	c := canvas.New(200, 230)
 	draw(c)
 
-	pngFile, err := os.Create("document_example.png")
+	pngFile, err := os.Create("out.png")
 	if err != nil {
 		panic(err)
 	}
@@ -56,7 +56,7 @@ func draw(c *canvas.Canvas) {
 	drawText(c, 30.0, canvas.NewTextBox(headerFace, "Document Example", 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
 	drawText(c, 30.0, canvas.NewTextBox(textFace, lorem[0], 140.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0))
 
-	lenna, err := os.Open("lenna.png")
+	lenna, err := os.Open("../lenna.png")
 	if err != nil {
 		panic(err)
 	}
