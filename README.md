@@ -1,16 +1,16 @@
-![Canvas](https://raw.githubusercontent.com/tdewolff/canvas/master/example/title.png)
+![Canvas](https://raw.githubusercontent.com/tdewolff/canvas/master/examples/title/out.png)
 
 [![GoDoc](http://godoc.org/github.com/tdewolff/canvas?status.svg)](http://godoc.org/github.com/tdewolff/canvas) [![Go Report Card](https://goreportcard.com/badge/github.com/tdewolff/canvas)](https://goreportcard.com/report/github.com/tdewolff/canvas)
 
 Canvas is a common vector drawing target that can output SVG, PDF, EPS and raster images (which can be saved as PNG, JPG, ...). It has a wide range of path manipulation functionality such as flattening, stroking and dashing implemented. Additionally, it has a good text formatter and embeds fonts (TTF, OTF or WOFF) or converts them to outlines. See the example below in Fig. 1 and Fig. 2 for an overview of the functionality.
 
-![Example](https://raw.githubusercontent.com/tdewolff/canvas/master/example/example.png)
+![Preview](https://raw.githubusercontent.com/tdewolff/canvas/master/examples/preview/out.png)
 
 **Figure 1**: top-left you can see text being fitted into a box and their bounding box (orange-red), the spaces between the words on the first row are being stretched to fill the whole width. You can see all the possible styles and text decorations applied. Also note the typographic substitutions (the quotes) and ligature support (fi, ffi, ffl, ...). Below the text box, the word "stroke" is being stroked and drawn as a path. Top-right we see a LaTeX formula that has been converted to a path. Left of that we see ellipse support showcasing precise dashing, notably the length of e.g. the short dash is equal wherever it is (approximated through arc length parametrization) on the curve. It also shows support for alternating dash lengths, in this case (2.0, 4.0, 2.0) for dashes and for spaces. Note that the dashes themselves are elliptical arcs as well (thus exactly precise even if magnified greatly). In the bottom-right we see a closed polygon of four points being smoothed by cubic Béziers that are smooth along the whole path, and next to it on the left an open path. In the middle you can see a rasterized image painted.
 
-<a href="https://raw.githubusercontent.com/tdewolff/canvas/master/example/graph_example.png"><img src="https://raw.githubusercontent.com/tdewolff/canvas/master/example/graph_example.png" height="250"></a>
-<a href="https://raw.githubusercontent.com/tdewolff/canvas/master/example/map_example.png"><img src="https://raw.githubusercontent.com/tdewolff/canvas/master/example/map_example.png" height="250"></a>
-<a href="https://raw.githubusercontent.com/tdewolff/canvas/master/example/document_example.png"><img src="https://raw.githubusercontent.com/tdewolff/canvas/master/example/document_example.png" height="250"></a>
+<a href="https://raw.githubusercontent.com/tdewolff/canvas/master/examples/graph/out.png"><img src="https://raw.githubusercontent.com/tdewolff/canvas/master/examples/graph/out.png" height="250"></a>
+<a href="https://raw.githubusercontent.com/tdewolff/canvas/master/examples/map/out.png"><img src="https://raw.githubusercontent.com/tdewolff/canvas/master/examples/map/out.png" height="250"></a>
+<a href="https://raw.githubusercontent.com/tdewolff/canvas/master/examples/document/out.png"><img src="https://raw.githubusercontent.com/tdewolff/canvas/master/examples/document/out.png" height="250"></a>
 
 **Figure 2abc**: Three examples of what is possible with this library, for example the plotting of graphs, maps and documents.
 
@@ -126,7 +126,7 @@ c.WriteImage(dpm float64) *image.RGBA
 Canvas allows to draw either paths, text or images. All positions and sizes are given in millimeters.
 
 ## Text
-![Text Example](https://raw.githubusercontent.com/tdewolff/canvas/master/example/text_example.png)
+![Text Example](https://raw.githubusercontent.com/tdewolff/canvas/master/examples/text/out.png)
 
 ``` go
 dejaVuSerif := NewFontFamily("dejavu-serif")
@@ -219,7 +219,7 @@ polyline.Interior(x, y float64)  // returns true if (x,y) is in the interior of 
 ### Path stroke
 Below is an illustration of the different types of Cappers and Joiners you can use when creating a stroke of a path:
 
-![Stroke example](https://raw.githubusercontent.com/tdewolff/canvas/master/example/stroke_example.png)
+![Stroke example](https://raw.githubusercontent.com/tdewolff/canvas/master/examples/stroke/out.png)
 
 
 ## LaTeX
