@@ -91,6 +91,27 @@ func (p *Path) Empty() bool {
 	return true
 }
 
+// Equals returns true if p and q are equal within tolerance Epsilon.
+func (p *Path) Equals(q *Path) bool {
+	if len(p.d) != len(q.d) || p.i0 != q.i0 {
+		return false
+	}
+	for i := p.i0; i < len(p.d); {
+		if p.d[i] != q.d[i] {
+			return false
+		}
+
+		n := cmdLen(p.d[i])
+		for j := i + 1; j < i+n; j++ {
+			if !equal(p.d[j], q.d[j]) {
+				return false
+			}
+		}
+		i += n
+	}
+	return true
+}
+
 // Closed returns true if the last segment of p is a closed path.
 func (p *Path) Closed() bool {
 	var cmd float64
@@ -593,7 +614,10 @@ func (p *Path) Transform(m Matrix) *Path {
 			Q := Identity.Scale(1.0/rx/rx, 1.0/ry/ry)
 			Q = invT.T().Mul(Q).Mul(invT)
 
-			lambda1, lambda2, v1, v2 := Q.Eigen()
+			lambda1, lambda2, v1, v2, ok := Q.Eigen()
+			if !ok {
+				panic("no real eigen values and eigen vectors for affine transformation matrix " + Q.String())
+			}
 			rx = 1 / math.Sqrt(lambda1)
 			ry = 1 / math.Sqrt(lambda2)
 			phi = v1.Angle()

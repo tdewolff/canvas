@@ -76,27 +76,31 @@ func drawStrokedPath(c *canvas.Canvas, x, y, d float64, path string) {
 }
 
 func draw(c *canvas.Canvas) {
-	s := "ﻙﺎﻨﺗ ﺎﻠﺴﻣﺍﺀ ﺹ \n\n ﺎﻔﻳﺓ ﻢﻧ"
-
-	face := dejaVuSerif.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
-	frame := canvas.Rectangle(28.0, -10.0)
-	rt := canvas.NewRichText()
-	rt.Add(face, s)
-	text := rt.ToText(28.0, 0.0, canvas.Justify, canvas.Top, 0.0, 0.0)
-
-	p, _ := canvas.ParseSVG(fmt.Sprintf("A20.0 10.0 0.0 0 0 40.0 0.0z"))
-	f := p.Flatten().Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
 	c.SetFillColor(color.RGBA{0, 0, 128, 128})
+	p := canvas.Rectangle(4.0, 2.0)
+	c.DrawPath(10.0, 10.0, p)
+	c.DrawPath(10.0, 10.0, p.Transform(canvas.Identity.Shear(2.0, -1.0)))
+	//s := "ﻙﺎﻨﺗ ﺎﻠﺴﻣﺍﺀ ﺹ \n\n ﺎﻔﻳﺓ ﻢﻧ"
 
-	c.DrawPath(10.0, 10.0, f)
-	c.DrawPath(10.0, 10.0, frame)
-	c.DrawText(10.0, 10.0, text)
+	//face := dejaVuSerif.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	//frame := canvas.Rectangle(28.0, -10.0)
+	//rt := canvas.NewRichText()
+	//rt.Add(face, s)
+	//text := rt.ToText(28.0, 0.0, canvas.Justify, canvas.Top, 0.0, 0.0)
 
-	c.SetView(canvas.Identity.Rotate(45).Scale(2.0, 1.0))
+	//p, _ := canvas.ParseSVG(fmt.Sprintf("A20.0 10.0 0.0 0 0 40.0 0.0z"))
+	//f := p.Flatten().Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
+	//c.SetFillColor(color.RGBA{0, 0, 128, 128})
 
-	c.DrawPath(20.0, 20.0, f)
-	c.DrawPath(20.0, 20.0, frame)
-	c.DrawText(20.0, 20.0, text)
+	//c.DrawPath(10.0, 10.0, f)
+	//c.DrawPath(10.0, 10.0, frame)
+	//c.DrawText(10.0, 10.0, text)
+
+	//c.SetView(canvas.Identity.Rotate(45).Scale(2.0, 1.0))
+
+	//c.DrawPath(20.0, 20.0, f)
+	//c.DrawPath(20.0, 20.0, frame)
+	//c.DrawText(20.0, 20.0, text)
 
 	//c.SetFillColor(color.RGBA{0, 128, 0, 128})
 	//for _, marker := range p.Markers(canvas.Rectangle(-2, -2, 4, 4), canvas.Circle(2), canvas.RegularPolygon(6, 2, true), true) {

@@ -12,7 +12,7 @@ import (
 )
 
 // Epsilon is the smallest number below which we assume the value to be zero. This is to avoid numerical floating point issues.
-const Epsilon = 1e-10
+var Epsilon = 1e-10
 
 // equal returns true if a and b are equal with tolerance Epsilon.
 func equal(a, b float64) bool {
@@ -46,7 +46,14 @@ func toCSSColor(color color.RGBA) string {
 		buf := make([]byte, 7)
 		buf[0] = '#'
 		hex.Encode(buf[1:], []byte{color.R, color.G, color.B})
+		if buf[1] == buf[2] && buf[3] == buf[4] && buf[5] == buf[6] {
+			buf[2] = buf[3]
+			buf[3] = buf[5]
+			buf = buf[:4]
+		}
 		return string(buf)
+	} else if color.A == 0 {
+		return "rgba(0,0,0,0)"
 	}
 	a := float64(color.A) / 255.0
 	return fmt.Sprintf("rgba(%d,%d,%d,%.5g)", int(float64(color.R)/a), int(float64(color.G)/a), int(float64(color.B)/a), a)
@@ -126,7 +133,7 @@ func (p Point) Rot90CCW() Point {
 	return Point{-p.Y, p.X}
 }
 
-// Rot rotates the line OP by rot degrees CCW.
+// Rot rotates the line OP by phi radians CCW.
 func (p Point) Rot(phi float64, p0 Point) Point {
 	sinphi, cosphi := math.Sincos(phi)
 	return Point{
@@ -189,6 +196,11 @@ func (p Point) String() string {
 // Rect is a rectangle in 2D defined by a position and its width and height.
 type Rect struct {
 	X, Y, W, H float64
+}
+
+// Equals returns true if rectangles are equal with tolerance Epsilon.
+func (r Rect) Equals(q Rect) bool {
+	return equal(r.X, q.X) && equal(r.Y, q.Y) && equal(r.W, q.W) && equal(r.H, q.H)
 }
 
 // Move translates the rect.
@@ -286,9 +298,6 @@ func (m Matrix) Rotate(rot float64) Matrix {
 
 // Scale adds a scaling transformation in x and y. When scale is negative it will flip those axes.
 func (m Matrix) Scale(x, y float64) Matrix {
-	if equal(x, 0.0) && equal(y, 0.0) {
-		panic("cannot scale affine transformation matrix to zero in x and y")
-	}
 	return m.Mul(Matrix{
 		{x, 0.0, 0.0},
 		{0.0, y, 0.0},
@@ -305,7 +314,7 @@ func (m Matrix) Shear(x, y float64) Matrix {
 
 // RotateAt adds a rotation transformation around point (x,y) with rot in degrees counter clockwise.
 func (m Matrix) RotateAt(rot, x, y float64) Matrix {
-	return m.Translate(-x, -y).Rotate(rot).Translate(x, y)
+	return m.Translate(x, y).Rotate(rot).Translate(-x, -y)
 }
 
 // ReflectX adds a horizontal reflection transformation (ie. Scale(-1,1)).
@@ -320,12 +329,12 @@ func (m Matrix) ReflectY() Matrix {
 
 // ReflectXAt adds a horizontal reflection transformation around position x.
 func (m Matrix) ReflectXAt(x float64) Matrix {
-	return m.Translate(-x, 0.0).Scale(-1.0, 1.0).Translate(x, 0.0)
+	return m.Translate(x, 0.0).Scale(-1.0, 1.0).Translate(-x, 0.0)
 }
 
 // ReflectYAt adds a vertical reflection transformation around position y.
 func (m Matrix) ReflectYAt(y float64) Matrix {
-	return m.Translate(0.0, -y).Scale(1.0, -1.0).Translate(0.0, y)
+	return m.Translate(0.0, y).Scale(1.0, -1.0).Translate(0.0, -y)
 }
 
 // T returns the matrix transpose.
@@ -343,7 +352,7 @@ func (m Matrix) Det() float64 {
 func (m Matrix) Inv() Matrix {
 	det := m.Det()
 	if equal(det, 0.0) {
-		panic("determinant of affine transformation matrix is zero, should be impossible!")
+		panic("determinant of affine transformation matrix is zero")
 	}
 	return Matrix{{
 		m[1][1] / det,
@@ -357,15 +366,15 @@ func (m Matrix) Inv() Matrix {
 }
 
 // Eigen returns the matrix eigenvalues and eigenvectors. The first eigenvalue is related to the first eigenvector, and so for the second pair. Eigenvectors are normalized.
-func (m Matrix) Eigen() (float64, float64, Point, Point) {
+func (m Matrix) Eigen() (float64, float64, Point, Point, bool) {
 	if equal(m[1][0], 0.0) && equal(m[0][1], 0.0) {
-		return m[0][0], m[1][1], Point{1.0, 0.0}, Point{0.0, 1.0}
+		return m[0][0], m[1][1], Point{1.0, 0.0}, Point{0.0, 1.0}, true
 	}
 
 	lambda1, lambda2 := solveQuadraticFormula(1.0, -m[0][0]-m[1][1], m.Det())
 	if math.IsNaN(lambda1) && math.IsNaN(lambda2) {
-		// either m[0][0] or m[1][1] is NaN
-		panic("eigenvalues of affine transformation matrix do not exist, should be impossible!")
+		// either m[0][0] or m[1][1] is NaN or the the affine matrix has no real eigenvalues
+		return 0.0, 0.0, Point{}, Point{}, false
 	} else if math.IsNaN(lambda2) {
 		lambda2 = lambda1
 	}
@@ -379,7 +388,7 @@ func (m Matrix) Eigen() (float64, float64, Point, Point) {
 		v1 = Point{m[0][1], lambda1 - m[0][0]}.Norm(1.0)
 		v2 = Point{m[0][1], lambda2 - m[0][0]}.Norm(1.0)
 	}
-	return lambda1, lambda2, v1, v2
+	return lambda1, lambda2, v1, v2, true
 }
 
 // Pos extracts the translation component as (tx, ty).
@@ -413,9 +422,15 @@ func (m Matrix) IsTranslation() bool {
 	return equal(m[0][0], 1.0) && equal(m[0][1], 0.0) && equal(m[1][0], 0.0) && equal(m[1][1], 1.0)
 }
 
-// IsRigid is true if the matrix consists of only rigid transformations, ie. no scaling or skew.
+// IsRigid is true if the matrix consists of only (proper) rigid transformations, ie. no scaling or skew.
 func (m Matrix) IsRigid() bool {
-	return equal(m.Det(), 1.0)
+	if !equal(m.Det(), 1.0) {
+		return false
+	}
+	invM := m.Inv()
+	invM[0][2] = m[0][2]
+	invM[1][2] = m[1][2]
+	return m.T().Equals(invM)
 }
 
 // Equals returns true if both matrices are equal with a tolerance of Epsilon.
