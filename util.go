@@ -366,15 +366,15 @@ func (m Matrix) Inv() Matrix {
 }
 
 // Eigen returns the matrix eigenvalues and eigenvectors. The first eigenvalue is related to the first eigenvector, and so for the second pair. Eigenvectors are normalized.
-func (m Matrix) Eigen() (float64, float64, Point, Point, bool) {
+func (m Matrix) Eigen() (float64, float64, Point, Point) {
 	if equal(m[1][0], 0.0) && equal(m[0][1], 0.0) {
-		return m[0][0], m[1][1], Point{1.0, 0.0}, Point{0.0, 1.0}, true
+		return m[0][0], m[1][1], Point{1.0, 0.0}, Point{0.0, 1.0}
 	}
 
 	lambda1, lambda2 := solveQuadraticFormula(1.0, -m[0][0]-m[1][1], m.Det())
 	if math.IsNaN(lambda1) && math.IsNaN(lambda2) {
 		// either m[0][0] or m[1][1] is NaN or the the affine matrix has no real eigenvalues
-		return 0.0, 0.0, Point{}, Point{}, false
+		return lambda1, lambda2, Point{}, Point{}
 	} else if math.IsNaN(lambda2) {
 		lambda2 = lambda1
 	}
@@ -388,7 +388,7 @@ func (m Matrix) Eigen() (float64, float64, Point, Point, bool) {
 		v1 = Point{m[0][1], lambda1 - m[0][0]}.Norm(1.0)
 		v2 = Point{m[0][1], lambda2 - m[0][0]}.Norm(1.0)
 	}
-	return lambda1, lambda2, v1, v2, true
+	return lambda1, lambda2, v1, v2
 }
 
 // Pos extracts the translation component as (tx, ty).
@@ -440,7 +440,7 @@ func (m Matrix) Equals(q Matrix) bool {
 
 // String returns a string representation of the affine transformation matrix as six values, where [a b c; d e f; g h i] will be written as "a b d e c f" as g, h and i have fixed values (0, 0 and 1 respectively).
 func (m Matrix) String() string {
-	return fmt.Sprintf("[%g %g; %g %g] + [%g %g]", m[0][0], m[0][1], m[1][0], m[1][1], m[0][2], m[1][2])
+	return fmt.Sprintf("(%g %g; %g %g) + (%g,%g)", m[0][0], m[0][1], m[1][0], m[1][1], m[0][2], m[1][2])
 }
 
 // ToSVG writes out the matrix in SVG notation, taking care of the proper order of transformations.
@@ -454,7 +454,7 @@ func (m Matrix) ToSVG(h float64) string {
 	if !equal(theta, 0.0) {
 		fmt.Fprintf(s, " rotate(%.5g)", theta)
 	}
-	if !equal(sx, 0.0) && !equal(sy, 0.0) {
+	if !equal(sx, 1.0) || !equal(sy, 1.0) {
 		fmt.Fprintf(s, " scale(%.5g,%.5g)", sx, sy)
 	}
 	if !equal(phi, 0.0) {
@@ -584,32 +584,32 @@ func bisectionMethod(f func(float64) float64, y, xmin, xmax float64) float64 {
 // polynomialApprox returns a function y(x) that maps the parameter x [xmin,xmax] to the integral of fp. For a circle tmin and tmax would be 0 and 2PI respectively for example. It also returns the total length of the curve.
 // Implemented using M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI, p. 143--150, 1996
 // see https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf
-func polynomialApprox3(gaussLegendre gaussLegendreFunc, fp func(float64) float64, xmin, xmax float64) (func(float64) float64, float64) {
-	y1 := gaussLegendre(fp, xmin, xmin+(xmax-xmin)*1.0/3.0)
-	y2 := gaussLegendre(fp, xmin, xmin+(xmax-xmin)*2.0/3.0)
-	y3 := gaussLegendre(fp, xmin, xmax)
-
-	// We have four points on the y(x) curve at x0=0, x1=1/3, x2=2/3 and x3=1
-	// now obtain a polynomial that goes through these four points by solving the system of linear equations
-	// y(x) = a*x^3 + b*x^2 + c*x + d  (NB: y0 = d = 0)
-	// [y1; y2; y3] = [1/27, 1/9, 1/3;
-	//                 8/27, 4/9, 2/3;
-	//                    1,   1,   1] * [a; b; c]
-	//
-	// After inverting:
-	// [a; b; c] = 0.5 * [ 27, -27,  9;
-	//                    -45,  36, -9;
-	//                     18,  -9,  2] * [y1; y2; y3]
-	// NB: y0 = d = 0
-
-	a := 13.5*y1 - 13.5*y2 + 4.5*y3
-	b := -22.5*y1 + 18.0*y2 - 4.5*y3
-	c := 9.0*y1 - 4.5*y2 + y3
-	return func(x float64) float64 {
-		x = (x - xmin) / (xmax - xmin)
-		return a*x*x*x + b*x*x + c*x
-	}, math.Abs(y3)
-}
+//func polynomialApprox3(gaussLegendre gaussLegendreFunc, fp func(float64) float64, xmin, xmax float64) (func(float64) float64, float64) {
+//	y1 := gaussLegendre(fp, xmin, xmin+(xmax-xmin)*1.0/3.0)
+//	y2 := gaussLegendre(fp, xmin, xmin+(xmax-xmin)*2.0/3.0)
+//	y3 := gaussLegendre(fp, xmin, xmax)
+//
+//	// We have four points on the y(x) curve at x0=0, x1=1/3, x2=2/3 and x3=1
+//	// now obtain a polynomial that goes through these four points by solving the system of linear equations
+//	// y(x) = a*x^3 + b*x^2 + c*x + d  (NB: y0 = d = 0)
+//	// [y1; y2; y3] = [1/27, 1/9, 1/3;
+//	//                 8/27, 4/9, 2/3;
+//	//                    1,   1,   1] * [a; b; c]
+//	//
+//	// After inverting:
+//	// [a; b; c] = 0.5 * [ 27, -27,  9;
+//	//                    -45,  36, -9;
+//	//                     18,  -9,  2] * [y1; y2; y3]
+//	// NB: y0 = d = 0
+//
+//	a := 13.5*y1 - 13.5*y2 + 4.5*y3
+//	b := -22.5*y1 + 18.0*y2 - 4.5*y3
+//	c := 9.0*y1 - 4.5*y2 + y3
+//	return func(x float64) float64 {
+//		x = (x - xmin) / (xmax - xmin)
+//		return a*x*x*x + b*x*x + c*x
+//	}, math.Abs(y3)
+//}
 
 // invPolynomialApprox does the opposite of polynomialApprox, it returns a function x(y) that maps the parameter y [f(xmin),f(xmax)] to x [xmin,xmax]
 func invPolynomialApprox3(gaussLegendre gaussLegendreFunc, fp func(float64) float64, xmin, xmax float64) (func(float64) float64, float64) {

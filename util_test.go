@@ -53,7 +53,9 @@ func TestPoint(t *testing.T) {
 	test.Float(t, p.AngleBetween(p.Rot90CCW()), 90.0*math.Pi/180.0)
 	test.T(t, p.Norm(3.0), Point{1.8, 2.4})
 	test.T(t, p.Norm(0.0), Point{0.0, 0.0})
+	test.T(t, Point{}.Norm(1.0), Point{0.0, 0.0})
 	test.T(t, Point{}.Interpolate(p, 0.5), Point{1.5, 2.0})
+	test.String(t, p.String(), "(3,4)")
 }
 
 func TestRect(t *testing.T) {
@@ -61,10 +63,12 @@ func TestRect(t *testing.T) {
 	r := Rect{0, 0, 5, 5}
 	test.T(t, r.Move(Point{3, 3}), Rect{3, 3, 5, 5})
 	test.T(t, r.Add(Rect{5, 5, 5, 5}), Rect{0, 0, 10, 10})
+	test.T(t, r.Add(Rect{5, 5, 0, 5}), r)
+	test.T(t, Rect{5, 5, 0, 5}.Add(r), r)
 	test.T(t, r.Transform(Identity.Rotate(90)), Rect{-5, 0, 5, 5})
 	test.T(t, r.Transform(Identity.Rotate(45)), Rect{-3.53, 0.0, 7.07, 7.07})
-	p, _ := ParseSVG("M0,0H5V5H0z")
-	test.T(t, r.ToPath(), p)
+	test.T(t, r.ToPath(), MustParseSVG("M0,0H5V5H0z"))
+	test.String(t, r.String(), "(0,0)-(5,5)")
 }
 
 func TestMatrix(t *testing.T) {
@@ -85,23 +89,29 @@ func TestMatrix(t *testing.T) {
 	test.T(t, Identity.Rotate(90.0).Inv(), Identity.Rotate(-90.0))
 	test.T(t, Identity.Rotate(90.0).Scale(2.0, 1.0), Identity.Scale(1.0, 2.0).Rotate(90.0))
 
-	lambda1, lambda2, v1, v2, _ := Identity.Rotate(-90.0).Scale(2.0, 1.0).Rotate(90.0).Eigen()
+	lambda1, lambda2, v1, v2 := Identity.Rotate(-90.0).Scale(2.0, 1.0).Rotate(90.0).Eigen()
 	test.Float(t, lambda1, 1.0)
 	test.Float(t, lambda2, 2.0)
 	test.T(t, v1, Point{1.0, 0.0})
 	test.T(t, v2, Point{0.0, 1.0})
 
-	lambda1, lambda2, v1, v2, _ = Identity.Shear(1.0, 1.0).Eigen()
+	lambda1, lambda2, v1, v2 = Identity.Shear(1.0, 1.0).Eigen()
 	test.Float(t, lambda1, 0.0)
 	test.Float(t, lambda2, 2.0)
 	test.T(t, v1, Point{-0.707, 0.707})
 	test.T(t, v2, Point{0.707, 0.707})
 
-	lambda1, lambda2, v1, v2, _ = Identity.Shear(1.0, 0.0).Eigen()
+	lambda1, lambda2, v1, v2 = Identity.Shear(1.0, 0.0).Eigen()
 	test.Float(t, lambda1, 1.0)
 	test.Float(t, lambda2, 1.0)
 	test.T(t, v1, Point{1.0, 0.0})
 	test.T(t, v2, Point{1.0, 0.0})
+
+	lambda1, lambda2, v1, v2 = Identity.Scale(math.NaN(), math.NaN()).Eigen()
+	test.That(t, math.IsNaN(lambda1))
+	test.That(t, math.IsNaN(lambda2))
+	test.T(t, v1, Point{0.0, 0.0})
+	test.T(t, v2, Point{0.0, 0.0})
 
 	tx, ty, theta, sx, sy, phi := Identity.Rotate(-90.0).Scale(2.0, 1.0).Rotate(90.0).Translate(0.0, 10.0).Decompose()
 	test.Float(t, tx, 0.0)
@@ -118,4 +128,50 @@ func TestMatrix(t *testing.T) {
 	test.T(t, Identity.Shear(2.0, -1.0).IsRigid(), false)
 	test.T(t, Identity.Translate(1.0, 1.0).IsTranslation(), true)
 	test.T(t, Identity.Rotate(90.0).IsTranslation(), false)
+
+	x, y := Identity.Translate(p.X, p.Y).Pos()
+	test.Float(t, x, p.X)
+	test.Float(t, y, p.Y)
+
+	test.String(t, Identity.Shear(2.0, 3.0).String(), "(1 2; 3 1) + (0,0)")
+
+	test.T(t, Identity.Shear(1.0, 1.0), Identity.Rotate(45).Scale(2.0, 0.0).Rotate(-45))
+	test.String(t, Identity.Shear(1.0, 1.0).ToSVG(10.0), "rotate(-45) scale(2,0) rotate(45)")
+	test.String(t, Identity.Rotate(45).Scale(2.0, 0.0).Rotate(-45).ToSVG(10.0), "rotate(-45) scale(2,0) rotate(45)")
+}
+
+func TestSolveQuadraticFormula(t *testing.T) {
+	x1, x2 := solveQuadraticFormula(0.0, 0.0, 0.0)
+	test.Float(t, x1, 0.0)
+	test.That(t, math.IsNaN(x2))
+
+	x1, x2 = solveQuadraticFormula(0.0, 0.0, 1.0)
+	test.That(t, math.IsNaN(x1))
+	test.That(t, math.IsNaN(x2))
+
+	x1, x2 = solveQuadraticFormula(0.0, 1.0, 1.0)
+	test.Float(t, x1, -1.0)
+	test.That(t, math.IsNaN(x2))
+
+	x1, x2 = solveQuadraticFormula(1.0, 1.0, 0.0)
+	test.Float(t, x1, 0.0)
+	test.Float(t, x2, -1.0)
+
+	x1, x2 = solveQuadraticFormula(1.0, 1.0, 1.0) // discriminant negative
+	test.That(t, math.IsNaN(x1))
+	test.That(t, math.IsNaN(x2))
+
+	x1, x2 = solveQuadraticFormula(1.0, 1.0, 0.5) // discriminant zero
+	test.Float(t, x1, -0.5)
+	test.That(t, math.IsNaN(x2))
+
+	x1, x2 = solveQuadraticFormula(1.0, -2.0, 1.0)
+	test.Float(t, x1, 1.0)
+	test.Float(t, x2, 1.0)
+}
+
+func TestGaussLegendre(t *testing.T) {
+	test.Float(t, gaussLegendre3(math.Log, 0.0, 1.0), -0.947672)
+	test.Float(t, gaussLegendre5(math.Log, 0.0, 1.0), -0.979001)
+	test.Float(t, gaussLegendre7(math.Log, 0.0, 1.0), -0.988738)
 }

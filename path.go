@@ -614,10 +614,7 @@ func (p *Path) Transform(m Matrix) *Path {
 			Q := Identity.Scale(1.0/rx/rx, 1.0/ry/ry)
 			Q = invT.T().Mul(Q).Mul(invT)
 
-			lambda1, lambda2, v1, v2, ok := Q.Eigen()
-			if !ok {
-				panic("no real eigen values and eigen vectors for affine transformation matrix " + Q.String())
-			}
+			lambda1, lambda2, v1, v2 := Q.Eigen()
 			rx = 1 / math.Sqrt(lambda1)
 			ry = 1 / math.Sqrt(lambda2)
 			phi = v1.Angle()
@@ -1218,6 +1215,15 @@ func parseNum(path []byte) (float64, int) {
 	return f, i + n
 }
 
+// MustParseSVG parses an SVG path data string and panics if it fails.
+func MustParseSVG(s string) *Path {
+	p, err := ParseSVG(s)
+	if err != nil {
+		panic(err)
+	}
+	return p
+}
+
 // ParseSVG parses an SVG path data string.
 func ParseSVG(s string) (*Path, error) {
 	if len(s) == 0 {
@@ -1274,6 +1280,9 @@ func ParseSVG(s string) (*Path, error) {
 			p1 = Point{f[0], f[1]}
 			if cmd == 'm' {
 				p1 = p1.Add(p0)
+				cmd = 'l'
+			} else {
+				cmd = 'L'
 			}
 			p.MoveTo(p1.X, p1.Y)
 		case 'Z', 'z':

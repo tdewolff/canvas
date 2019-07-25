@@ -85,8 +85,8 @@ func Ellipse(rx, ry float64) *Path {
 
 	p := &Path{}
 	p.MoveTo(rx, 0.0)
-	p.ArcTo(rx, ry, 0.0, false, false, -rx, 0.0)
-	p.ArcTo(rx, ry, 0.0, false, false, rx, 0.0)
+	p.ArcTo(rx, ry, 0.0, false, true, -rx, 0.0)
+	p.ArcTo(rx, ry, 0.0, false, true, rx, 0.0)
 	p.Close()
 	return p
 }
