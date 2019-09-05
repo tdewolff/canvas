@@ -47,8 +47,7 @@ func cmdLen(cmd float64) int {
 	case nullCmd:
 		return 0
 	}
-	fmt.Println("unknown", cmd)
-	panic("unknown path command")
+	panic(fmt.Sprintf("unknown path command '%f'", cmd))
 }
 
 func fromArcFlags(f float64) (bool, bool) {
@@ -1253,11 +1252,11 @@ func ParseSVG(s string) (*Path, error) {
 	p := &Path{}
 	var q, c Point
 	var p0, p1 Point
-	var prevCmd byte
+	prevCmd := byte('z')
 	for i < len(path) {
 		i += skipCommaWhitespace(path[i:])
 		cmd := prevCmd
-		if path[i] >= 'A' {
+		if cmd == 'z' || cmd == 'Z' || !(path[i] >= '0' && path[i] <= '9' || path[i] == '.' || path[i] == '-' || path[i] == '+') {
 			cmd = path[i]
 			i++
 		}

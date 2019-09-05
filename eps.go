@@ -43,7 +43,7 @@ func newEPSWriter(writer io.Writer, width, height float64) *epsWriter {
 		color:  Black,
 	}
 
-	fmt.Fprintf(w, "%%!PS-Adobe-3.0 EPSF-3.0\n%%%%BoundingBox: 0 0 %.5f %.5f\n", width, height)
+	fmt.Fprintf(w, "%%!PS-Adobe-3.0 EPSF-3.0\n%%%%BoundingBox: 0 0 %.5g %.5g\n", width, height)
 	fmt.Fprintf(w, psEllipseDef)
 
 	// TODO: generate preview
@@ -54,7 +54,7 @@ func newEPSWriter(writer io.Writer, width, height float64) *epsWriter {
 func (w *epsWriter) SetColor(color color.RGBA) {
 	if color != w.color {
 		// TODO: transparency
-		fmt.Fprintf(w, " %f %f %f setrgbcolor", float64(color.R)/255.0, float64(color.G)/255.0, float64(color.B)/255.0)
+		fmt.Fprintf(w, " %.5g %.5g %.5g setrgbcolor", float64(color.R)/255.0, float64(color.G)/255.0, float64(color.B)/255.0)
 		w.color = color
 	}
 }

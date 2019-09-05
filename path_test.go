@@ -20,6 +20,9 @@ func TestParse(t *testing.T) {
 	}{
 		{"5", "bad path: path should start with command"},
 		{"MM", "bad path: 2 numbers should follow command 'M' at position 1"},
+
+		// go-fuzz
+		{"V4-z\n0ìGßIzØ", "bad path: unknown command '0' at position 6"},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
