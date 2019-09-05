@@ -22,11 +22,12 @@ func TestParse(t *testing.T) {
 		{"MM", "bad path: 2 numbers should follow command 'M' at position 1"},
 
 		// go-fuzz
-		{"V4-z\n0ìGßIzØ", "bad path: unknown command '0' at position 6"},
+		{"V4-z\n0ìGßIzØ", "bad path: unknown command '0' at position 6"},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
 			_, err := ParseSVG(tt.orig)
+			test.That(t, err != nil)
 			test.T(t, err.Error(), tt.err)
 		})
 	}
@@ -39,6 +40,9 @@ func TestPath(t *testing.T) {
 	}{
 		{"A10 10 0 0 0 40 0", "A20 20 0 0 0 40 0"},  // scale ellipse
 		{"A10 5 90 0 0 40 0", "A40 20 90 0 0 40 0"}, // scale ellipse
+
+		// go-fuzz
+		{"V0 ", ""},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {

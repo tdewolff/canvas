@@ -1253,8 +1253,12 @@ func ParseSVG(s string) (*Path, error) {
 	var q, c Point
 	var p0, p1 Point
 	prevCmd := byte('z')
-	for i < len(path) {
+	for {
 		i += skipCommaWhitespace(path[i:])
+		if len(path) <= i {
+			break
+		}
+
 		cmd := prevCmd
 		if cmd == 'z' || cmd == 'Z' || !(path[i] >= '0' && path[i] <= '9' || path[i] == '.' || path[i] == '-' || path[i] == '+') {
 			cmd = path[i]
