@@ -3,7 +3,6 @@ package canvas
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"hash/fnv"
 	"io"
 	"io/ioutil"
@@ -24,10 +23,10 @@ import (
 //   \thispagestyle{empty}
 //   {{input}}
 //   \end{document}
-func ParseLaTeX(s string) (*Path, error) {
+func ParseLaTeX(s string) (*Path, string, error) {
 	tmpDir, err := ioutil.TempDir("", "tdewolff-")
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer os.RemoveAll(tmpDir)
 
@@ -37,7 +36,7 @@ func ParseLaTeX(s string) (*Path, error) {
 	if err == nil {
 		p, err := ParseSVG(string(b))
 		if err == nil {
-			return p, nil
+			return p, "", nil
 		}
 	}
 
@@ -53,12 +52,10 @@ func ParseLaTeX(s string) (*Path, error) {
 	cmd.Stdin = strings.NewReader(document)
 	cmd.Stdout = stdout
 	if err := cmd.Start(); err != nil {
-		fmt.Println(stdout.String())
-		return nil, err
+		return nil, stdout.String(), err
 	}
 	if err := cmd.Wait(); err != nil {
-		fmt.Println(stdout.String())
-		return nil, err
+		return nil, stdout.String(), err
 	}
 
 	stdout.Reset()
@@ -67,17 +64,15 @@ func ParseLaTeX(s string) (*Path, error) {
 	cmd.Dir = tmpDir
 	cmd.Stdout = stdout
 	if err := cmd.Start(); err != nil {
-		fmt.Println(stdout.String())
-		return nil, err
+		return nil, stdout.String(), err
 	}
 	if err := cmd.Wait(); err != nil {
-		fmt.Println(stdout.String())
-		return nil, err
+		return nil, stdout.String(), err
 	}
 
 	r, err := os.Open(path.Join(tmpDir, "canvas.svg"))
 	if err != nil {
-		return nil, err
+		return nil, stdout.String(), err
 	}
 	defer r.Close()
 
@@ -92,14 +87,14 @@ func ParseLaTeX(s string) (*Path, error) {
 		switch tt {
 		case xml.ErrorToken:
 			if l.Err() != io.EOF {
-				return nil, l.Err()
+				return nil, stdout.String(), l.Err()
 			}
 			if !p.Empty() {
 				_ = width
 				p = p.Transform(Identity.Translate(-x0, y0+height).ReflectY())
 			}
 			_ = ioutil.WriteFile(path.Join(tmpDir, hash), []byte(p.String()), 0644)
-			return p, nil
+			return p, stdout.String(), nil
 		case xml.StartTagToken:
 			tag := string(l.Text())
 			attrs := map[string][]byte{}
@@ -119,48 +114,48 @@ func ParseLaTeX(s string) (*Path, error) {
 				var n int
 				width, n = strconv.ParseFloat(attrs["width"])
 				if n == 0 {
-					return nil, errors.New("unexpected SVG format: expected valid width attribute on svg tag")
+					return nil, stdout.String(), errors.New("unexpected SVG format: expected valid width attribute on svg tag")
 				}
 
 				height, n = strconv.ParseFloat(attrs["height"])
 				if n == 0 {
-					return nil, errors.New("unexpected SVG format: expected valid height attribute on svg tag")
+					return nil, stdout.String(), errors.New("unexpected SVG format: expected valid height attribute on svg tag")
 				}
 			} else if tag == "path" {
 				id, ok := attrs["id"]
 				if !ok {
-					return nil, errors.New("unexpected SVG format: expected id attribute on path tag")
+					return nil, stdout.String(), errors.New("unexpected SVG format: expected id attribute on path tag")
 				}
 
 				d, ok := attrs["d"]
 				if !ok {
-					return nil, errors.New("unexpected SVG format: expected d attribute on path tag")
+					return nil, stdout.String(), errors.New("unexpected SVG format: expected d attribute on path tag")
 				}
 
 				svgPath, err := ParseSVG(string(d))
 				if err != nil {
-					return nil, err
+					return nil, stdout.String(), err
 				}
 				svgPaths[string(id)] = svgPath
 			} else if tag == "use" {
 				x, n := strconv.ParseFloat(attrs["x"])
 				if n == 0 {
-					return nil, errors.New("unexpected SVG format: expected valid x attribute on use tag")
+					return nil, stdout.String(), errors.New("unexpected SVG format: expected valid x attribute on use tag")
 				}
 
 				y, n := strconv.ParseFloat(attrs["y"])
 				if n == 0 {
-					return nil, errors.New("unexpected SVG format: expected valid y attribute on use tag")
+					return nil, stdout.String(), errors.New("unexpected SVG format: expected valid y attribute on use tag")
 				}
 
 				id, ok := attrs["xlink:href"]
 				if !ok || len(id) == 0 || id[0] != '#' {
-					return nil, errors.New("unexpected SVG format: expected valid xlink:href attribute on use tag")
+					return nil, stdout.String(), errors.New("unexpected SVG format: expected valid xlink:href attribute on use tag")
 				}
 
 				svgPath, ok := svgPaths[string(id[1:])]
 				if !ok {
-					return nil, errors.New("unexpected SVG format: xlink:href does not point to existing path")
+					return nil, stdout.String(), errors.New("unexpected SVG format: xlink:href does not point to existing path")
 				}
 
 				p = p.Append(svgPath.Translate(x, y))
@@ -169,22 +164,22 @@ func ParseLaTeX(s string) (*Path, error) {
 			} else if tag == "rect" {
 				x, n := strconv.ParseFloat(attrs["x"])
 				if n == 0 {
-					return nil, errors.New("unexpected SVG format: expected valid x attribute on rect tag")
+					return nil, stdout.String(), errors.New("unexpected SVG format: expected valid x attribute on rect tag")
 				}
 
 				y, n := strconv.ParseFloat(attrs["y"])
 				if n == 0 {
-					return nil, errors.New("unexpected SVG format: expected valid y attribute on rect tag")
+					return nil, stdout.String(), errors.New("unexpected SVG format: expected valid y attribute on rect tag")
 				}
 
 				w, n := strconv.ParseFloat(attrs["width"])
 				if n == 0 {
-					return nil, errors.New("unexpected SVG format: expected valid width attribute on rect tag")
+					return nil, stdout.String(), errors.New("unexpected SVG format: expected valid width attribute on rect tag")
 				}
 
 				h, n := strconv.ParseFloat(attrs["height"])
 				if n == 0 {
-					return nil, errors.New("unexpected SVG format: expected valid height attribute on rect tag")
+					return nil, stdout.String(), errors.New("unexpected SVG format: expected valid height attribute on rect tag")
 				}
 				p = p.Append(Rectangle(w, h).Translate(x, y))
 				x0 = math.Min(x0, x)

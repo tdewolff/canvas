@@ -46,7 +46,7 @@ func intersectionRayCircle(l0, l1, c Point, r float64) (Point, Point, bool) {
 // https://gist.github.com/jupdike/bfe5eb23d1c395d8a0a1a4ddd94882ac
 func intersectionCircleCircle(c0 Point, r0 float64, c1 Point, r1 float64) (Point, Point, bool) {
 	R := c0.Sub(c1).Length()
-	if R < math.Abs(r0-r1) || r0+r1 < R {
+	if R < math.Abs(r0-r1) || r0+r1 < R || c0.Equals(c1) {
 		return Point{}, Point{}, false
 	}
 	R2 := R * R
@@ -91,9 +91,10 @@ func ellipseDeriv2(rx, ry, phi float64, sweep bool, theta float64) Point {
 	return Point{ddx, ddy}
 }
 
-func ellipseCurvatureRadius(rx, ry, phi float64, sweep bool, theta float64) float64 {
-	dp := ellipseDeriv(rx, ry, phi, sweep, theta)
-	ddp := ellipseDeriv2(rx, ry, phi, sweep, theta)
+func ellipseCurvatureRadius(rx, ry float64, sweep bool, theta float64) float64 {
+	// phi has no influence on the curvature
+	dp := ellipseDeriv(rx, ry, 0.0, sweep, theta)
+	ddp := ellipseDeriv2(rx, ry, 0.0, sweep, theta)
 	a := dp.PerpDot(ddp)
 	if equal(a, 0.0) {
 		return math.NaN()
@@ -122,7 +123,7 @@ func ellipseLength(rx, ry, theta1, theta2 float64) float64 {
 // when angleFrom with range [0, 2*PI) is bigger than angleTo with range (-2*PI, 4*PI), the ellipse runs clockwise. The angles are from before the ellipse has been stretched and rotated.
 // See https://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
 func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 float64) (float64, float64, float64, float64) {
-	if x1 == x2 && y1 == y2 {
+	if equal(x1, x2) && equal(y1, y2) {
 		return x1, y1, 0.0, 0.0
 	}
 

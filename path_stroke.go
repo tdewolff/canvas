@@ -355,8 +355,8 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
 			n0 := ellipseNormal(rx, ry, phi, sweep, theta0, halfWidth)
 			n1 := ellipseNormal(rx, ry, phi, sweep, theta1, halfWidth)
-			r0 := ellipseCurvatureRadius(rx, ry, phi, sweep, theta0)
-			r1 := ellipseCurvatureRadius(rx, ry, phi, sweep, theta1)
+			r0 := ellipseCurvatureRadius(rx, ry, sweep, theta0)
+			r1 := ellipseCurvatureRadius(rx, ry, sweep, theta1)
 			states = append(states, pathStrokeState{
 				cmd:      arcToCmd,
 				p0:       start,

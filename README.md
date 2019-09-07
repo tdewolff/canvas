@@ -62,7 +62,7 @@ NB: GL5 means a Gauss-Legendre n=5, which is an numerical approximation as there
 
 
 ## Planning
-Features that are planned to be implemented in the future. Also see the TODOs in the code.
+Features that are planned to be implemented in the future, with important issues in bold. Also see the TODOs in the code.
 
 General
 
@@ -70,9 +70,9 @@ General
 
 Fonts
 
+* **Compressing fonts and embedding only used characters**
+* **Use ligature tables**
 * Font embedding for EPSs
-* Compressing fonts and embedding only used characters
-* Use ligature tables
 * Support WOFF2 font format
 * Support Type1 font format?
 * Support font hinting (for the rasterizer)?
@@ -80,14 +80,14 @@ Fonts
 
 Paths
 
+* **Intersection function between line, Bézier and ellipse and between themselves (for path merge, overlap/mask, clipping, etc.)**
+* **Implement Bentley-Ottmann algorithm to find all line intersections (clipping)**
 * Get position and derivative/normal at length L along the path
 * Simplify polygons using the Ramer-Douglas-Peucker algorithm
-* Intersection function between line, Bézier and ellipse and between themselves (for path merge, overlap/mask, clipping, etc.)
-* Implement Bentley-Ottmann algorithm to find all line intersections (clipping)
 
 Optimization
 
-* Avoid overlapping paths when offsetting in corners (needs path intersection code)
+* **Avoid overlapping paths when offsetting in corners (needs path intersection code)**
 * Approximate Béziers by elliptic arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (unsure if worth it)
 
 Far future
