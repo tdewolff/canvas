@@ -122,7 +122,7 @@ func draw(c *canvas.Canvas) {
 	c.DrawPath(5, 10, p.Stroke(0.75, canvas.RoundCapper, canvas.RoundJoiner))
 
 	// Draw a LaTeX formula
-	latex, _, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
+	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
 	if err != nil {
 		panic(err)
 	}
