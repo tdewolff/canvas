@@ -194,25 +194,33 @@ func TestQuadraticBezier(t *testing.T) {
 }
 
 func TestCubicBezier(t *testing.T) {
-	test.T(t, cubicBezierPos(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.0), Point{0.0, 0.0})
-	test.T(t, cubicBezierPos(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.5), Point{0.75, 0.25})
-	test.T(t, cubicBezierPos(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 1.0), Point{1.0, 1.0})
-	test.T(t, cubicBezierDeriv(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.0), Point{2.0, 0.0})
-	test.T(t, cubicBezierDeriv(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.5), Point{1.0, 1.0})
-	test.T(t, cubicBezierDeriv(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 1.0), Point{0.0, 2.0})
-	test.T(t, cubicBezierDeriv2(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.0), Point{-2.0, 2.0})
-	test.T(t, cubicBezierDeriv2(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.5), Point{-2.0, 2.0})
-	test.T(t, cubicBezierDeriv2(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 1.0), Point{-2.0, 2.0})
-	test.Float(t, cubicBezierCurvatureRadius(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.0), 2.000004)
-	test.Float(t, cubicBezierCurvatureRadius(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.5), 0.707107)
-	test.Float(t, cubicBezierCurvatureRadius(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 1.0), 2.000004)
-	test.T(t, cubicBezierNormal(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.0, 1.0), Point{0.0, -1.0})
-	test.T(t, cubicBezierNormal(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 1.0, 1.0), Point{1.0, 0.0})
+	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}
+	test.T(t, cubicBezierPos(p0, p1, p2, p3, 0.0), Point{0.0, 0.0})
+	test.T(t, cubicBezierPos(p0, p1, p2, p3, 0.5), Point{0.75, 0.25})
+	test.T(t, cubicBezierPos(p0, p1, p2, p3, 1.0), Point{1.0, 1.0})
+	test.T(t, cubicBezierDeriv(p0, p1, p2, p3, 0.0), Point{2.0, 0.0})
+	test.T(t, cubicBezierDeriv(p0, p1, p2, p3, 0.5), Point{1.0, 1.0})
+	test.T(t, cubicBezierDeriv(p0, p1, p2, p3, 1.0), Point{0.0, 2.0})
+	test.T(t, cubicBezierDeriv2(p0, p1, p2, p3, 0.0), Point{-2.0, 2.0})
+	test.T(t, cubicBezierDeriv2(p0, p1, p2, p3, 0.5), Point{-2.0, 2.0})
+	test.T(t, cubicBezierDeriv2(p0, p1, p2, p3, 1.0), Point{-2.0, 2.0})
+	test.Float(t, cubicBezierCurvatureRadius(p0, p1, p2, p3, 0.0), 2.000004)
+	test.Float(t, cubicBezierCurvatureRadius(p0, p1, p2, p3, 0.5), 0.707107)
+	test.Float(t, cubicBezierCurvatureRadius(p0, p1, p2, p3, 1.0), 2.000004)
+	test.Float(t, cubicBezierCurvatureRadius(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{2.0, 0.0}, Point{3.0, 0.0}, 0.0), math.NaN())
+	test.T(t, cubicBezierNormal(p0, p1, p2, p3, 0.0, 1.0), Point{0.0, -1.0})
+	test.T(t, cubicBezierNormal(p0, p0, p1, p3, 0.0, 1.0), Point{0.0, -1.0})
+	test.T(t, cubicBezierNormal(p0, p0, p0, p1, 0.0, 1.0), Point{0.0, -1.0})
+	test.T(t, cubicBezierNormal(p0, p0, p0, p0, 0.0, 1.0), Point{})
+	test.T(t, cubicBezierNormal(p0, p1, p2, p3, 1.0, 1.0), Point{1.0, 0.0})
+	test.T(t, cubicBezierNormal(p0, p2, p3, p3, 1.0, 1.0), Point{1.0, 0.0})
+	test.T(t, cubicBezierNormal(p2, p3, p3, p3, 1.0, 1.0), Point{1.0, 0.0})
+	test.T(t, cubicBezierNormal(p3, p3, p3, p3, 1.0, 1.0), Point{})
 
 	// https://www.wolframalpha.com/input/?i=length+of+the+curve+%7Bx%3D3*%281-t%29%5E2*t*0.666667+%2B+3*%281-t%29*t%5E2*1.00+%2B+t%5E3*1.00%2C+y%3D3*%281-t%29*t%5E2*0.333333+%2B+t%5E3*1.00%7D+from+0+to+1
-	test.Float(t, cubicBezierLength(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}), 1.623214)
+	test.Float(t, cubicBezierLength(p0, p1, p2, p3), 1.623214)
 
-	p0, p1, p2, p3, q0, q1, q2, q3 := splitCubicBezier(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.5)
+	p0, p1, p2, p3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, 0.5)
 	test.T(t, p0, Point{0.0, 0.0})
 	test.T(t, p1, Point{0.333333, 0.0})
 	test.T(t, p2, Point{0.583333, 0.083333})
@@ -221,4 +229,62 @@ func TestCubicBezier(t *testing.T) {
 	test.T(t, q1, Point{0.916667, 0.416667})
 	test.T(t, q2, Point{1.0, 0.666667})
 	test.T(t, q3, Point{1.0, 1.0})
+}
+
+func TestCubicBezierStrokeHelpers(t *testing.T) {
+	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}
+
+	p := &Path{}
+	addCubicBezierLine(p, p0, p1, p0, p0, 0.0, 0.5)
+	test.That(t, p.Empty())
+
+	p = &Path{}
+	addCubicBezierLine(p, p0, p1, p2, p3, 0.0, 0.5)
+	test.T(t, p.String(), "L0 -0.5")
+
+	p = &Path{}
+	addCubicBezierLine(p, p0, p1, p2, p3, 1.0, 0.5)
+	test.T(t, p.String(), "L1.5 1")
+
+	p = &Path{}
+	flattenSmoothCubicBezier(p, p0, p1, p2, p3, 0.5, 0.5)
+	test.T(t, p.String(), "L1.5 1")
+
+	p = &Path{}
+	flattenSmoothCubicBezier(p, p0, p1, p2, p3, 0.5, 0.125)
+	test.T(t, p.String(), "L1.4542 0.55703L1.5 1")
+
+	p = &Path{}
+	flattenSmoothCubicBezier(p, p0, p0, p2, p3, 0.5, 0.125) // denom == 0
+	test.T(t, p.String(), "L1.5 1")
+
+	x1, x2 := findInflectionPointsCubicBezier(Point{0.0, 0.0}, Point{0.0, 1.0}, Point{1.0, 1.0}, Point{1.0, 0.0})
+	test.Float(t, x1, math.NaN())
+	test.Float(t, x2, math.NaN())
+
+	x1, x2 = findInflectionPointsCubicBezier(Point{0.0, 0.0}, Point{1.0, 1.0}, Point{0.0, 1.0}, Point{1.0, 0.0})
+	test.Float(t, x1, 0.5)
+	test.Float(t, x2, math.NaN())
+
+	// see "Analysis of Inflection Points for Planar Cubic Bezier Curve" by Z.Zhang et al. from 2009
+	// https://cie.nwsuaf.edu.cn/docs/20170614173651207557.pdf
+	x1, x2 = findInflectionPointsCubicBezier(Point{16, 467}, Point{185, 95}, Point{673, 545}, Point{810, 17})
+	test.Float(t, x1, 0.456590)
+	test.Float(t, x2, math.NaN())
+
+	x1, x2 = findInflectionPointsCubicBezier(Point{859, 676}, Point{13, 422}, Point{781, 12}, Point{266, 425})
+	test.Float(t, x1, 0.681076)
+	test.Float(t, x2, 0.705299)
+
+	x1, x2 = findInflectionPointsCubicBezier(Point{872, 686}, Point{11, 423}, Point{779, 13}, Point{220, 376})
+	test.Float(t, x1, 0.588071)
+	test.Float(t, x2, 0.886863)
+
+	x1, x2 = findInflectionPointsCubicBezier(Point{819, 566}, Point{43, 18}, Point{826, 18}, Point{25, 533})
+	test.Float(t, x1, 0.476169)
+	test.Float(t, x2, 0.539295)
+
+	x1, x2 = findInflectionPointsCubicBezier(Point{884, 574}, Point{135, 14}, Point{678, 14}, Point{14, 566})
+	test.Float(t, x1, 0.320836)
+	test.Float(t, x2, 0.682291)
 }

@@ -154,7 +154,7 @@ func (p Point) PerpDot(q Point) float64 {
 
 // Length returns the length of OP.
 func (p Point) Length() float64 {
-	return math.Sqrt(p.X*p.X + p.Y*p.Y)
+	return math.Hypot(p.X, p.Y)
 }
 
 // Slope returns the slope between OP, ie. y/x.

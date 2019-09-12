@@ -108,8 +108,8 @@ func TestMatrix(t *testing.T) {
 	test.T(t, v2, Point{1.0, 0.0})
 
 	lambda1, lambda2, v1, v2 = Identity.Scale(math.NaN(), math.NaN()).Eigen()
-	test.That(t, math.IsNaN(lambda1))
-	test.That(t, math.IsNaN(lambda2))
+	test.Float(t, lambda1, math.NaN())
+	test.Float(t, lambda2, math.NaN())
 	test.T(t, v1, Point{0.0, 0.0})
 	test.T(t, v2, Point{0.0, 0.0})
 
@@ -143,31 +143,31 @@ func TestMatrix(t *testing.T) {
 func TestSolveQuadraticFormula(t *testing.T) {
 	x1, x2 := solveQuadraticFormula(0.0, 0.0, 0.0)
 	test.Float(t, x1, 0.0)
-	test.That(t, math.IsNaN(x2))
+	test.Float(t, x2, math.NaN())
 
 	x1, x2 = solveQuadraticFormula(0.0, 0.0, 1.0)
-	test.That(t, math.IsNaN(x1))
-	test.That(t, math.IsNaN(x2))
+	test.Float(t, x1, math.NaN())
+	test.Float(t, x2, math.NaN())
 
 	x1, x2 = solveQuadraticFormula(0.0, 1.0, 1.0)
 	test.Float(t, x1, -1.0)
-	test.That(t, math.IsNaN(x2))
+	test.Float(t, x2, math.NaN())
 
 	x1, x2 = solveQuadraticFormula(1.0, 1.0, 0.0)
 	test.Float(t, x1, 0.0)
 	test.Float(t, x2, -1.0)
 
 	x1, x2 = solveQuadraticFormula(1.0, 1.0, 1.0) // discriminant negative
-	test.That(t, math.IsNaN(x1))
-	test.That(t, math.IsNaN(x2))
+	test.Float(t, x1, math.NaN())
+	test.Float(t, x2, math.NaN())
 
-	x1, x2 = solveQuadraticFormula(1.0, 1.0, 0.5) // discriminant zero
+	x1, x2 = solveQuadraticFormula(1.0, 1.0, 0.25) // discriminant zero
 	test.Float(t, x1, -0.5)
-	test.That(t, math.IsNaN(x2))
+	test.Float(t, x2, math.NaN())
 
-	x1, x2 = solveQuadraticFormula(1.0, -2.0, 1.0)
-	test.Float(t, x1, 1.0)
-	test.Float(t, x2, 1.0)
+	x1, x2 = solveQuadraticFormula(2.0, -5.0, 2.0) // negative b, flip x1 and x2
+	test.Float(t, x1, 0.5)
+	test.Float(t, x2, 2.0)
 }
 
 func TestGaussLegendre(t *testing.T) {

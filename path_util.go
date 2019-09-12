@@ -389,7 +389,7 @@ func splitCubicBezier(p0, p1, p2, p3 Point, t float64) (Point, Point, Point, Poi
 
 func addCubicBezierLine(p *Path, p0, p1, p2, p3 Point, t, d float64) {
 	if p0.X == p3.X && p0.Y == p3.X && (p0.X == p1.X && p0.Y == p1.Y || p0.X == p2.X && p0.Y == p2.Y) {
-		// Bézier has p0=p1=p3 or p0=p2=p3 and thus has no surface
+		// Bézier has p0=p1=p3 or p0=p2=p3 and thus has no surface or length
 		return
 	}
 
@@ -416,6 +416,8 @@ func addCubicBezierLine(p *Path, p0, p1, p2, p3 Point, t, d float64) {
 
 // split the curve and replace it by lines as long as maximum deviation = flatness is maintained
 func flattenSmoothCubicBezier(p *Path, p0, p1, p2, p3 Point, d, flatness float64) {
+	// TODO: by also iterating in the reverse direction, we can take the t half way between the t's found one direction and t's found the reverse direction
+	//       this will improve smoothness without add points, it will distribute the points equally along the curve (and not close to the end points)
 	t := 0.0
 	for t < 1.0 {
 		s2nom := (p2.X-p0.X)*(p1.Y-p0.Y) - (p2.Y-p0.Y)*(p1.X-p0.X)
@@ -438,6 +440,7 @@ func flattenSmoothCubicBezier(p *Path, p0, p1, p2, p3 Point, d, flatness float64
 }
 
 func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
+	// see www.faculty.idc.ac.il/arik/quality/appendixa.html
 	// we omit multiplying bx,by,cx,cy with 3.0, so there is no need for divisions when calculating a,b,c
 	ax := -p0.X + 3.0*p1.X - 3.0*p2.X + p3.X
 	ay := -p0.Y + 3.0*p1.Y - 3.0*p2.Y + p3.Y
@@ -450,10 +453,10 @@ func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
 	b := (ay*cx - ax*cy)
 	c := (by*cx - bx*cy)
 	x1, x2 := solveQuadraticFormula(a, b, c)
-	if 1.0 <= x1 || x1 < 0.0 {
+	if x1 < 0.0 || 1.0 <= x1 {
 		x1 = math.NaN()
 	}
-	if 1.0 <= x2 || x2 < 0.0 {
+	if x2 < 0.0 || 1.0 <= x2 {
 		x2 = math.NaN()
 	} else if math.IsNaN(x1) {
 		x1, x2 = x2, x1
