@@ -371,30 +371,6 @@ func cubicBezierLength(p0, p1, p2, p3 Point) float64 {
 	return length
 }
 
-func splitCubicBezierAtInflections(p0, p1, p2, p3 Point) [][4]Point {
-	t1, t2 := findInflectionPointsCubicBezier(p0, p1, p2, p3)
-	var beziers [][4]Point
-	if t1 > 0.0 && t1 < 1.0 && t2 > 0.0 && t2 < 1.0 {
-		p0, p1, p2, p3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1)
-		t2 = (t2 - t1) / (1.0 - t1)
-		q0, q1, q2, q3, r0, r1, r2, r3 := splitCubicBezier(q0, q1, q2, q3, t2)
-		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
-		beziers = append(beziers, [4]Point{q0, q1, q2, q3})
-		beziers = append(beziers, [4]Point{r0, r1, r2, r3})
-	} else if t1 > 0.0 && t1 < 1.0 || t2 > 0.0 && t2 < 1.0 {
-		t := t1
-		if t2 > 0.0 && t2 < 1.0 {
-			t = t2
-		}
-		p0, p1, p2, p3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t)
-		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
-		beziers = append(beziers, [4]Point{q0, q1, q2, q3})
-	} else {
-		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
-	}
-	return beziers
-}
-
 func splitCubicBezier(p0, p1, p2, p3 Point, t float64) (Point, Point, Point, Point, Point, Point, Point, Point) {
 	pm := p1.Interpolate(p2, t)
 
@@ -522,6 +498,30 @@ func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float6
 
 	tf := math.Cbrt(flatness / s3)
 	return t - tf*(1.0-t), t + tf*(1.0-t)
+}
+
+func splitCubicBezierAtInflections(p0, p1, p2, p3 Point) [][4]Point {
+	t1, t2 := findInflectionPointsCubicBezier(p0, p1, p2, p3)
+	var beziers [][4]Point
+	if t1 > 0.0 && t1 < 1.0 && t2 > 0.0 && t2 < 1.0 {
+		p0, p1, p2, p3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1)
+		t2 = (t2 - t1) / (1.0 - t1)
+		q0, q1, q2, q3, r0, r1, r2, r3 := splitCubicBezier(q0, q1, q2, q3, t2)
+		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
+		beziers = append(beziers, [4]Point{q0, q1, q2, q3})
+		beziers = append(beziers, [4]Point{r0, r1, r2, r3})
+	} else if t1 > 0.0 && t1 < 1.0 || t2 > 0.0 && t2 < 1.0 {
+		t := t1
+		if t2 > 0.0 && t2 < 1.0 {
+			t = t2
+		}
+		p0, p1, p2, p3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t)
+		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
+		beziers = append(beziers, [4]Point{q0, q1, q2, q3})
+	} else {
+		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
+	}
+	return beziers
 }
 
 func flattenCubicBezier(p0, p1, p2, p3 Point) *Path {
