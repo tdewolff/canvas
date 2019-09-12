@@ -160,3 +160,55 @@ func TestFlattenEllipse(t *testing.T) {
 	Tolerance = 1.0
 	test.T(t, flattenEllipse(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}).String(), "M0 0L3.8202 27.243L15.092 52.545L33.225 74.179L56.889 90.115L84.082 98.716L100 100L127.24 96.18L152.55 84.908L174.18 66.775L190.12 43.111L198.72 15.918L200 0")
 }
+
+func TestQuadraticBezier(t *testing.T) {
+	Epsilon = 1e-3
+
+	p1, p2 := quadraticToCubicBezier(Point{0.0, 0.0}, Point{1.5, 0.0}, Point{3.0, 0.0})
+	test.T(t, p1, Point{1.0, 0.0})
+	test.T(t, p2, Point{2.0, 0.0})
+
+	p1, p2 = quadraticToCubicBezier(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0})
+	test.T(t, p1, Point{0.667, 0.0})
+	test.T(t, p2, Point{1.0, 0.333})
+
+	test.T(t, quadraticBezierPos(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 0.0), Point{0.0, 0.0})
+	test.T(t, quadraticBezierPos(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 0.5), Point{0.75, 0.25})
+	test.T(t, quadraticBezierPos(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 1.0), Point{1.0, 1.0})
+	test.T(t, quadraticBezierDeriv(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 0.0), Point{2.0, 0.0})
+	test.T(t, quadraticBezierDeriv(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 0.5), Point{1.0, 1.0})
+	test.T(t, quadraticBezierDeriv(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 1.0), Point{0.0, 2.0})
+	test.Float(t, quadraticBezierLength(Point{0.0, 0.0}, Point{0.5, 0.0}, Point{2.0, 0.0}), 2.0)
+	test.Float(t, quadraticBezierLength(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{2.0, 0.0}), 2.0)
+
+	// https://www.wolframalpha.com/input/?i=length+of+the+curve+%7Bx%3D2*%281-t%29*t*1.00+%2B+t%5E2*1.00%2C+y%3Dt%5E2*1.00%7D+from+0+to+1
+	test.Float(t, quadraticBezierLength(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}), 1.623225)
+
+	p0, p1, p2, q0, q1, q2 := splitQuadraticBezier(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 0.5)
+	test.T(t, p0, Point{0.0, 0.0})
+	test.T(t, p1, Point{0.5, 0.0})
+	test.T(t, p2, Point{0.75, 0.25})
+	test.T(t, q0, Point{0.75, 0.25})
+	test.T(t, q1, Point{1.0, 0.5})
+	test.T(t, q2, Point{1.0, 1.0})
+}
+
+func TestCubicBezier(t *testing.T) {
+	test.T(t, cubicBezierPos(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.0), Point{0.0, 0.0})
+	test.T(t, cubicBezierPos(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.5), Point{0.75, 0.25})
+	test.T(t, cubicBezierPos(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 1.0), Point{1.0, 1.0})
+	test.T(t, cubicBezierDeriv(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.0), Point{2.0, 0.0})
+	test.T(t, cubicBezierDeriv(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.5), Point{1.0, 1.0})
+	test.T(t, cubicBezierDeriv(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 1.0), Point{0.0, 2.0})
+	test.T(t, cubicBezierDeriv2(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.0), Point{-2.0, 2.0})
+	test.T(t, cubicBezierDeriv2(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.5), Point{-2.0, 2.0})
+	test.T(t, cubicBezierDeriv2(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 1.0), Point{-2.0, 2.0})
+	test.Float(t, cubicBezierCurvatureRadius(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.0), 2.000004)
+	test.Float(t, cubicBezierCurvatureRadius(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.5), 0.707107)
+	test.Float(t, cubicBezierCurvatureRadius(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 1.0), 2.000004)
+	test.T(t, cubicBezierNormal(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.0, 1.0), Point{0.0, -1.0})
+	test.T(t, cubicBezierNormal(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 1.0, 1.0), Point{1.0, 0.0})
+
+	// https://www.wolframalpha.com/input/?i=length+of+the+curve+%7Bx%3D3*%281-t%29%5E2*t*0.666667+%2B+3*%281-t%29*t%5E2*1.00+%2B+t%5E3*1.00%2C+y%3D3*%281-t%29*t%5E2*0.333333+%2B+t%5E3*1.00%7D+from+0+to+1
+	test.Float(t, cubicBezierLength(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}), 1.623214)
+}

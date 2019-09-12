@@ -268,7 +268,8 @@ func quadraticBezierLength(p0, p1, p2 Point) float64 {
 	B := 4.0 * a.Dot(b)
 	C := b.Dot(b)
 	if equal(A, 0.0) {
-		return 0.0
+		// p1 is in the middle between p0 and p2, so it is a straight line from p0 to p2
+		return p2.Sub(p0).Length()
 	}
 
 	Sabc := 2.0 * math.Sqrt(A+B+C)
@@ -353,7 +354,7 @@ func cubicBezierNormal(p0, p1, p2, p3 Point, t, d float64) Point {
 		}
 		return n.Rot90CW().Norm(d)
 	}
-	panic("not implemented")
+	panic("not implemented") // not needed
 }
 
 // cubicBezierLength calculates the length of the Bézier, taking care of inflection points
