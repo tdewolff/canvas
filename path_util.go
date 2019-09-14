@@ -464,7 +464,8 @@ func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
 	return x1, x2
 }
 
-func findInflectionPointRange(p0, p1, p2, p3 Point, t, flatness float64) (float64, float64) {
+func findInflectionPointRangeCubicBezier(p0, p1, p2, p3 Point, t, flatness float64) (float64, float64) {
+	// find the range around an inflection point that we consider flat within the flatness criterion
 	if math.IsNaN(t) {
 		return math.Inf(1), math.Inf(1)
 	}
@@ -513,12 +514,8 @@ func splitCubicBezierAtInflections(p0, p1, p2, p3 Point) [][4]Point {
 		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
 		beziers = append(beziers, [4]Point{q0, q1, q2, q3})
 		beziers = append(beziers, [4]Point{r0, r1, r2, r3})
-	} else if t1 > 0.0 && t1 < 1.0 || t2 > 0.0 && t2 < 1.0 {
-		t := t1
-		if t2 > 0.0 && t2 < 1.0 {
-			t = t2
-		}
-		p0, p1, p2, p3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t)
+	} else if t1 > 0.0 && t1 < 1.0 {
+		p0, p1, p2, p3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1)
 		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
 		beziers = append(beziers, [4]Point{q0, q1, q2, q3})
 	} else {
@@ -540,7 +537,7 @@ func flattenCubicBezier(p0, p1, p2, p3 Point) *Path {
 func strokeCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 	p := &Path{}
 	// 0 <= t1 <= 1 if t1 exists
-	// 0 <= t2 <= 1 and t1 < t2 if t2 exists
+	// 0 <= t1 <= t2 <= 1 if t1 and t2 both exist
 	t1, t2 := findInflectionPointsCubicBezier(p0, p1, p2, p3)
 	if math.IsNaN(t1) && math.IsNaN(t2) {
 		// There are no inflection points or cusps, approximate linearly by subdivision.
@@ -548,10 +545,10 @@ func strokeCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 		return p
 	}
 
-	// t1min <= t1max; with t1min <= 1 and t2max >= 0
-	// t2min <= t2max; with t2min <= 1 and t2max >= 0
-	t1min, t1max := findInflectionPointRange(p0, p1, p2, p3, t1, flatness)
-	t2min, t2max := findInflectionPointRange(p0, p1, p2, p3, t2, flatness)
+	// 0 <= t1min <= t1max <= 1
+	// 0 <= t2min <= t2max <= 1
+	t1min, t1max := findInflectionPointRangeCubicBezier(p0, p1, p2, p3, t1, flatness)
+	t2min, t2max := findInflectionPointRangeCubicBezier(p0, p1, p2, p3, t2, flatness)
 
 	if math.IsNaN(t2) && t1min <= 0.0 && 1.0 <= t1max {
 		// There is no second inflection point, and the first inflection point can be entirely approximated linearly.

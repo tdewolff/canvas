@@ -95,18 +95,10 @@ func (p *Path) Equals(q *Path) bool {
 	if len(p.d) != len(q.d) || p.i0 != q.i0 {
 		return false
 	}
-	for i := p.i0; i < len(p.d); {
-		if p.d[i] != q.d[i] {
+	for i := 0; i < len(p.d); i++ {
+		if !equal(p.d[i], q.d[i]) {
 			return false
 		}
-
-		n := cmdLen(p.d[i])
-		for j := i + 1; j < i+n; j++ {
-			if !equal(p.d[j], q.d[j]) {
-				return false
-			}
-		}
-		i += n
 	}
 	return true
 }
@@ -284,7 +276,7 @@ func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x1, y1 float64) 
 	return p
 }
 
-// Arc adds an elliptical arc with radii rx and ry, with rot the counter clockwise rotation in degrees, and theta0 and theta1 the angles in degrees of the ellipse (before rot is applies) between which the arc will run. If theta0 < theta1, the arc will run in a CCW direction. If the difference between theta0 and theta1 is bigger than 360 degrees, a full circle will be drawn and the remaining part (eg. a difference of 810 degrees will draw one full circle and an arc over 90 degrees).
+// Arc adds an elliptical arc with radii rx and ry, with rot the counter clockwise rotation in degrees, and theta0 and theta1 the angles in degrees of the ellipse (before rot is applies) between which the arc will run. If theta0 < theta1, the arc will run in a CCW direction. If the difference between theta0 and theta1 is bigger than 360 degrees, one full circle will be drawn and the remaining part of diff % 360 (eg. a difference of 810 degrees will draw one full circle and an arc over 90 degrees).
 func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
 	phi := rot * math.Pi / 180.0
 	theta0 *= math.Pi / 180.0
@@ -298,10 +290,13 @@ func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
 
 	start := p.Pos()
 	center := start.Sub(p0)
-	if dtheta > 2.0*math.Pi {
+	if dtheta >= 2.0*math.Pi {
 		startOpposite := center.Sub(p0)
 		p.ArcTo(rx, ry, rot, largeArc, sweep, startOpposite.X, startOpposite.Y)
 		p.ArcTo(rx, ry, rot, largeArc, sweep, start.X, start.Y)
+		if equal(math.Mod(dtheta, 2.0*math.Pi), 0.0) {
+			return p
+		}
 	}
 	end := center.Add(p1)
 	return p.ArcTo(rx, ry, rot, largeArc, sweep, end.X, end.Y)
@@ -318,6 +313,7 @@ func (p *Path) Close() *Path {
 ////////////////////////////////////////////////////////////////
 
 // CCW returns true when the path has (mostly) a counter clockwise direction.
+// Does not need the path to be closed and will return true for a empty or straight line.
 func (p *Path) CCW() bool {
 	// use the Shoelace formula
 	area := 0.0
@@ -332,7 +328,7 @@ func (p *Path) CCW() bool {
 		}
 		start = end
 	}
-	return area < 0.0
+	return area <= 0.0
 }
 
 // Filling returns whether the path segments get filled or not. A path may not be filling when it negates another path, depending on the FillRule.
@@ -755,7 +751,7 @@ func (p *Path) Split() []*Path {
 	var i, j int
 	for j < len(p.d) {
 		cmd := p.d[j]
-		if j > i && cmd == moveToCmd || closed {
+		if i < j && cmd == moveToCmd || closed {
 			d := p.d[i:j:j]
 			if d[0] != moveToCmd && !start.IsZero() {
 				d = append([]float64{moveToCmd, start.X, start.Y}, d...)
@@ -767,7 +763,7 @@ func (p *Path) Split() []*Path {
 		closed = cmd == closeCmd
 		j += cmdLen(cmd)
 	}
-	if j > i {
+	if i < j {
 		d := p.d[i:j:j]
 		if d[0] != moveToCmd && !start.IsZero() {
 			d = append([]float64{moveToCmd, start.X, start.Y}, d...)
@@ -798,7 +794,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 		q = &Path{}
 	}
 
-	if len(p.d) > 0 && p.d[0] == moveToCmd {
+	if 0 < len(p.d) && p.d[0] == moveToCmd {
 		q.MoveTo(p.d[1], p.d[2])
 	}
 	for _, ps := range p.Split() {
@@ -937,7 +933,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 			start = end
 		}
 	}
-	if len(q.d) > 3 {
+	if 3 < len(q.d) {
 		qs = append(qs, q)
 	}
 	return qs

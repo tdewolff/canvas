@@ -257,7 +257,9 @@ func TestCubicBezierStrokeHelpers(t *testing.T) {
 	p = &Path{}
 	flattenSmoothCubicBezier(p, p0, p0, p2, p3, 0.5, 0.125) // denom == 0
 	test.T(t, p.String(), "L1.5 1")
+}
 
+func TestCubicBezierInflectionPoints(t *testing.T) {
 	x1, x2 := findInflectionPointsCubicBezier(Point{0.0, 0.0}, Point{0.0, 1.0}, Point{1.0, 1.0}, Point{1.0, 0.0})
 	test.Float(t, x1, math.NaN())
 	test.Float(t, x2, math.NaN())
@@ -287,4 +289,9 @@ func TestCubicBezierStrokeHelpers(t *testing.T) {
 	x1, x2 = findInflectionPointsCubicBezier(Point{884, 574}, Point{135, 14}, Point{678, 14}, Point{14, 566})
 	test.Float(t, x1, 0.320836)
 	test.Float(t, x2, 0.682291)
+}
+
+func TestCubicBezierInflectionPointRange(t *testing.T) {
+	// TODO
+	//x1, x2 := findInflectionPointRangeCubicBezier(Point{0.0, 0.0}, Point{1.0, 1.0}, Point{0.0, 1.0}, Point{1.0, 0.0}, 0.5, 0.25)
 }
