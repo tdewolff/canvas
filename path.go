@@ -10,6 +10,8 @@ import (
 	"golang.org/x/image/vector"
 )
 
+// TODO: use consistent language; a path consists of subpaths (ie. starts with moveto), each subpath contains path segments (ie. commands).
+
 // Tolerance is the maximum deviation from the original path in millimeters when e.g. flatting
 var Tolerance = 0.01
 
@@ -198,6 +200,9 @@ func (p *Path) Coords() []Point {
 // Multiple path segments can be useful when negating parts of a previous path by overlapping it
 // with a path in the opposite direction.
 func (p *Path) MoveTo(x, y float64) *Path {
+	//if len(p.d) == 0 && equal(x, 0.0) && equal(y, 0.0) {
+	//	return p
+	//}
 	p.i0 = len(p.d)
 	p.d = append(p.d, moveToCmd, x, y)
 	return p
@@ -305,8 +310,8 @@ func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
 // Close closes a path with a LineTo to the start of the path (the most recent MoveTo command).
 // It also signals the path closes, as opposed to being just a LineTo command.
 func (p *Path) Close() *Path {
-	start := p.StartPos()
-	p.d = append(p.d, closeCmd, start.X, start.Y)
+	p1 := p.StartPos()
+	p.d = append(p.d, closeCmd, p1.X, p1.Y)
 	return p
 }
 
@@ -647,7 +652,9 @@ func (p *Path) Flatten() *Path {
 	return p.Copy().Replace(nil, flattenCubicBezier, flattenEllipse)
 }
 
-// Replace replaces path commands by their respective functions, each returning the path that will replace the command or nil if no replacement is to be performed. The line function will take the start and end points. The bezier function will take the start point, control point 1 and 2, and the end point (ie. a cubic Bézier, quadratic Béziers will be implicitly converted to cubic ones). The arc function will take a start point, the major and minor radii, the radial rotaton counter clockwise, the largeArc and sweep booleans, and the end point. Be aware this will change the path inplace.
+// Replace replaces path commands by their respective functions, each returning the path that will replace the command or nil if no replacement is to be performed.
+// The line function will take the start and end points. The bezier function will take the start point, control point 1 and 2, and the end point (ie. a cubic Bézier, quadratic Béziers will be implicitly converted to cubic ones). The arc function will take a start point, the major and minor radii, the radial rotaton counter clockwise, the largeArc and sweep booleans, and the end point.
+// Be aware this will change the path inplace. Changing the end point of one path will subsequently change the start point of the next command. Returning nil has no effect on the path.
 func (p *Path) Replace(
 	line func(Point, Point) *Path,
 	bezier func(Point, Point, Point, Point) *Path,
@@ -692,6 +699,10 @@ func (p *Path) Replace(
 		}
 
 		if q != nil {
+			if q.Empty() {
+				p.d = append(p.d[:i:i], p.d[i+cmdLen(cmd):]...)
+				continue // don't update start variable
+			}
 			if 0 < len(q.d) && q.d[0] == moveToCmd {
 				x0, y0 := 0.0, 0.0
 				if 0 < i {
@@ -702,11 +713,15 @@ func (p *Path) Replace(
 					q.d = q.d[3:]
 				}
 			}
+			for j := 0; j < len(q.d); {
+				cmd := q.d[j]
+				if cmd == moveToCmd {
+					p.i0 = i + j
+				}
+				j += cmdLen(cmd)
+			}
 			p.d = append(p.d[:i:i], append(q.d, p.d[i+cmdLen(cmd):]...)...)
 			i += len(q.d)
-			if q.Empty() {
-				continue // don't update start variable
-			}
 		} else {
 			i += cmdLen(cmd)
 		}
@@ -719,25 +734,30 @@ func (p *Path) Replace(
 func (p *Path) Markers(start, mid, end *Path, align bool) []*Path {
 	coord := Point{}
 	markers := []*Path{}
-	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
-		if len(markers) != 0 || cmd == moveToCmd {
-			i += cmdLen(cmd)
-			coord = Point{p.d[i-2], p.d[i-1]}
-		}
-		if cmd != moveToCmd {
-			q := mid
-			if len(markers) == 0 {
-				q = start
-			} else if i == len(p.d) {
-				q = end
+	for _, ps := range p.Split() {
+		closed := ps.Closed()
+		for i := 0; i < len(ps.d); {
+			cmd := ps.d[i]
+			if len(markers) != 0 || cmd == moveToCmd {
+				i += cmdLen(cmd)
+				coord = Point{ps.d[i-2], ps.d[i-1]}
 			}
+			if cmd != moveToCmd && cmd != closeCmd {
+				q := mid
+				if !closed {
+					if len(markers) == 0 {
+						q = start
+					} else if i == len(ps.d) {
+						q = end
+					}
+				}
 
-			m := Identity.Translate(coord.X, coord.Y)
-			if align {
+				m := Identity.Translate(coord.X, coord.Y)
+				//if align {
 				// TODO: marker alignment
+				//}
+				markers = append(markers, q.Copy().Transform(m))
 			}
-			markers = append(markers, q.Copy().Transform(m))
 		}
 	}
 	return markers
@@ -776,7 +796,7 @@ func (p *Path) Split() []*Path {
 // SplitAt splits the path into separate paths at the specified intervals (given in millimeters) along the path.
 func (p *Path) SplitAt(ts ...float64) []*Path {
 	if len(ts) == 0 {
-		return []*Path{}
+		return []*Path{p}
 	}
 
 	sort.Float64s(ts)
@@ -976,7 +996,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 //	return ps, qs
 //}
 
-// Dash returns a new path that consists of dashes. Each parameter represents a length in millimeters along the original path, and will be either a dash or a space alternatingly.
+// Dash returns a new path that consists of dashes. The elements in d specify the width of the dashes and gaps. It will alternate between dashes and gaps when picking widths. If d is an array of odd length, it is equivalent of passing d twice in sequence. The offset specifies the offset used into d (or negative offset onto the path). Dash will be applied to each path segment individually.
 func (p *Path) Dash(offset float64, d ...float64) *Path {
 	if len(d) == 0 {
 		return p
@@ -986,34 +1006,30 @@ func (p *Path) Dash(offset float64, d ...float64) *Path {
 		d = append(d, d...)
 	}
 
-	i := 0 // index in d
-	for d[i] < offset {
-		offset -= d[i]
-		i++
-		if len(d) <= i {
-			i = 0
+	i0 := 0 // index in d
+	for d[i0] < offset {
+		offset -= d[i0]
+		i0++
+		if len(d) <= i0 {
+			i0 = 0
 		}
 	}
-	pos := -offset // negative if offset is halfway into dash
+	pos0 := -offset // negative if offset is halfway into dash
 	if offset < 0.0 {
 		dTotal := 0.0
 		for _, dd := range d {
 			dTotal += dd
 		}
-		pos = -(dTotal + offset) // handle negative offsets
+		pos0 = -(dTotal + offset) // handle negative offsets
 	}
 
 	q := &Path{}
 	for _, ps := range p.Split() {
-		length := ps.Length()
-		if length <= d[i] {
-			if i%2 == 0 {
-				q = q.Append(ps)
-			}
-			continue
-		}
+		i := i0
+		pos := pos0
 
 		t := []float64{}
+		length := ps.Length()
 		for pos+d[i] < length {
 			pos += d[i]
 			if 0.0 < pos {
@@ -1044,7 +1060,6 @@ func (p *Path) Dash(offset float64, d ...float64) *Path {
 			}
 		}
 		q = q.Append(qd)
-		pos -= length
 	}
 	return q
 }
@@ -1127,7 +1142,6 @@ func (p *Path) Optimize() *Path {
 		i += cmdLen(p.d[i])
 	}
 
-	p.i0 = 0
 	i := len(p.d)
 	end := Point{}
 	if 0 < i {
@@ -1142,12 +1156,10 @@ func (p *Path) Optimize() *Path {
 		}
 		switch cmd {
 		case moveToCmd:
-			if i+3 < len(p.d) && p.d[i+3] == moveToCmd || i == 0 && end.IsZero() {
+			if i+3 < len(p.d) && p.d[i+3] == moveToCmd || i == 0 && end.IsZero() || i+3 == len(p.d) {
 				p.d = append(p.d[:i], p.d[i+3:]...)
 			} else if i+3 < len(p.d) && p.d[i+3] == closeCmd {
 				p.d = append(p.d[:i], p.d[i+6:]...)
-			} else if p.i0 == 0 {
-				p.i0 = i
 			}
 		case lineToCmd:
 			if start == end {
@@ -1160,7 +1172,7 @@ func (p *Path) Optimize() *Path {
 			}
 		case quadToCmd:
 			cp := Point{p.d[i+1], p.d[i+2]}
-			if cp == start || cp == end {
+			if end.Sub(start).AngleBetween(cp.Sub(start)) == 0.0 {
 				p.d = append(p.d[:i+1], p.d[i+3:]...)
 				p.d[i] = lineToCmd
 				cmd = lineToCmd
@@ -1168,7 +1180,7 @@ func (p *Path) Optimize() *Path {
 		case cubeToCmd:
 			cp1 := Point{p.d[i+1], p.d[i+2]}
 			cp2 := Point{p.d[i+3], p.d[i+4]}
-			if (cp1 == start || cp1 == end) && (cp2 == start || cp2 == end) {
+			if end.Sub(start).AngleBetween(cp1.Sub(start)) == 0.0 && end.Sub(start).AngleBetween(cp2.Sub(start)) == 0.0 {
 				p.d = append(p.d[:i+1], p.d[i+5:]...)
 				p.d[i] = lineToCmd
 				cmd = lineToCmd
@@ -1190,6 +1202,15 @@ func (p *Path) Optimize() *Path {
 			}
 		}
 		end = start
+	}
+	// set i0 correctly
+	p.i0 = 0
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		if cmd == moveToCmd {
+			p.i0 = i
+		}
+		i += cmdLen(p.d[i])
 	}
 	return p
 }
@@ -1462,20 +1483,22 @@ func (p *Path) ToSVG() string {
 }
 
 // ToPS returns a string that represents the path in the PostScript data format.
+// TODO: print numbers with maximum number of digits 5, not minimum decimals 5
+// TODO: must we closepath every subpath? Path may be used as stroke for example.
 func (p *Path) ToPS() string {
 	if p.Empty() {
 		return ""
 	}
 
 	sb := strings.Builder{}
-	if len(p.d) > 0 && p.d[0] != moveToCmd {
+	if 0 < len(p.d) && p.d[0] != moveToCmd {
+		// TODO: check if subpath need to start with moveto, or continue from previous close position
 		fmt.Fprintf(&sb, " 0 0 moveto")
 	}
 
-	var cmd float64
 	x, y := 0.0, 0.0
 	for i := 0; i < len(p.d); {
-		cmd = p.d[i]
+		cmd := p.d[i]
 		switch cmd {
 		case moveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
@@ -1519,16 +1542,13 @@ func (p *Path) ToPS() string {
 				fmt.Fprintf(&sb, "n")
 			}
 			if !equal(rot, 0.0) {
-				fmt.Fprintf(&sb, " initmatrix")
+				fmt.Fprintf(&sb, " initmatrix") // TODO: push matrix before and pop matrix here instead of assuming it was the initmatrix anyways
 			}
 		case closeCmd:
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, " closepath")
 		}
 		i += cmdLen(cmd)
-	}
-	if cmd != closeCmd {
-		fmt.Fprintf(&sb, " closepath")
 	}
 	return sb.String()[1:] // remove the first space
 }
@@ -1541,7 +1561,8 @@ func (p *Path) ToPDF() string {
 	p = p.Copy().Replace(nil, nil, ellipseToBeziers)
 
 	sb := strings.Builder{}
-	if len(p.d) > 0 && p.d[0] != moveToCmd {
+	if 0 < len(p.d) && p.d[0] != moveToCmd {
+		// TODO: check if subpath need to start with moveto, or continue from previous close position
 		fmt.Fprintf(&sb, " 0 0 m")
 	}
 

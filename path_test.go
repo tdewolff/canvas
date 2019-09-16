@@ -236,13 +236,29 @@ func TestPathTransform(t *testing.T) {
 }
 
 func TestPathReplace(t *testing.T) {
+	line := func(p0, p1 Point) *Path {
+		return (&Path{}).MoveTo(p0.X, p0.Y).LineTo(p1.X, p1.Y-5.0)
+	}
+	bezier := func(p0, p1, p2, p3 Point) *Path {
+		return (&Path{}).MoveTo(p0.X+10.0, p0.Y).LineTo(p3.X, p3.Y)
+	}
+	arc := func(p0 Point, rx, ry, phi float64, largeArc, sweep bool, p1 Point) *Path {
+		return (&Path{}).MoveTo(p0.X, p0.Y).ArcTo(rx, ry, phi, !largeArc, sweep, p1.X, p1.Y)
+	}
+
 	var tts = []struct {
 		orig   string
 		res    string
+		line   func(Point, Point) *Path
+		bezier func(Point, Point, Point, Point) *Path
+		arc    func(Point, float64, float64, float64, bool, bool, Point) *Path
 		i0Orig int
 		i0Res  int
 	}{
-		{"C0 10 10 10 10 0M20 0L30 0", "L10 0M20 0L30 0", 7, 3},
+		{"C0 10 10 10 10 0M20 0L30 0", "M20 0L30 0", nil, bezier, nil, 7, 0},
+		{"M20 0L30 0C0 10 10 10 10 0", "M20 0L30 0M40 0L10 0", nil, bezier, nil, 0, 6},
+		{"M10 0L20 0Q25 10 30 0A5 5 0 0 0 40 0z", "M10 0L20 -5M30 -5L30 0A5 5 0 1 0 40 0L10 -5z", line, bezier, arc, 0, 6},
+		{"L10 0L0 5z", "L10 -5L0 0L0 -5z", line, nil, nil, 0, 0},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
@@ -250,11 +266,42 @@ func TestPathReplace(t *testing.T) {
 			test.Error(t, err)
 			test.T(t, p.i0, tt.i0Orig)
 
-			p.Replace(nil, func(p0, p1, p2, p3 Point) *Path {
-				return (&Path{}).MoveTo(p0.X, p0.Y).LineTo(p3.X, p3.Y)
-			}, nil)
+			p.Replace(tt.line, tt.bezier, tt.arc)
 			test.T(t, p.String(), tt.res)
 			test.T(t, p.i0, tt.i0Res)
+		})
+	}
+}
+
+func TestPathMarkers(t *testing.T) {
+	// TODO: test marker alignment
+	start := MustParseSVG("L1 0L0 1z")
+	mid := MustParseSVG("M-1 0A1 1 0 0 0 1 0z")
+	end := MustParseSVG("L-1 0L0 1z")
+
+	var tts = []struct {
+		orig    string
+		markers []string
+	}{
+		{"L10 0L20 10", []string{"M0 0L1 0L0 1z", "M9 0A1 1 0 0 0 11 0z", "M20 10L19 10L20 11z"}},
+		{"L10 0L20 10z", []string{"M-1 0A1 1 0 0 0 1 0z", "M9 0A1 1 0 0 0 11 0z", "M19 10A1 1 0 0 0 21 10z"}},
+	}
+	for _, tt := range tts {
+		t.Run(tt.orig, func(t *testing.T) {
+			p := MustParseSVG(tt.orig)
+
+			ps := p.Markers(start, mid, end, false)
+			if len(ps) != len(tt.markers) {
+				origs := []string{}
+				for _, p := range ps {
+					origs = append(origs, p.String())
+				}
+				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.markers, "\n"))
+			} else {
+				for i, p := range ps {
+					test.T(t, p.String(), tt.markers[i])
+				}
+			}
 		})
 	}
 }
@@ -272,9 +319,7 @@ func TestPathSplit(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, err := ParseSVG(tt.orig)
-			test.Error(t, err)
-
+			p := MustParseSVG(tt.orig)
 			ps := p.Split()
 			if len(ps) != len(tt.split) {
 				origs := []string{}
@@ -297,10 +342,12 @@ func TestPathSplitAt(t *testing.T) {
 		d     []float64
 		split []string
 	}{
-		{"L4 3L8 0z", []float64{}, []string{}},
+		{"L4 3L8 0z", []float64{}, []string{"L4 3L8 0z"}},
+		{"M2 0L4 3Q10 10 20 0C20 10 30 10 30 0A10 10 0 0 0 50 0z", []float64{0.0}, []string{"M2 0L4 3Q10 10 20 0C20 10 30 10 30 0A10 10 0 0 0 50 0L2 0"}},
 		{"L4 3L8 0z", []float64{0.0, 5.0, 10.0, 18.0}, []string{"L4 3", "M4 3L8 0", "M8 0L0 0"}},
 		{"L4 3L8 0z", []float64{5.0, 20.0}, []string{"L4 3", "M4 3L8 0L0 0"}},
 		{"L4 3L8 0z", []float64{2.5, 7.5, 14.0}, []string{"L2 1.5", "M2 1.5L4 3L6 1.5", "M6 1.5L8 0L4 0", "M4 0L0 0"}},
+		{"Q10 0 20 0", []float64{10.0}, []string{"Q5 0 10 0", "M10 0Q15 0 20 0"}},
 		{"C10 0 10 0 20 0", []float64{10.0}, []string{"C5 0 7.5 0 10 0", "M10 0C12.5 0 15 0 20 0"}},
 		{"A10 10 0 0 1 -20 0", []float64{15.707963}, []string{"A10 10 0 0 1 -10 10", "M-10 10A10 10 0 0 1 -20 0"}},
 		{"A10 10 0 0 0 20 0", []float64{15.707963}, []string{"A10 10 0 0 0 10 10", "M10 10A10 10 0 0 0 20 0"}},
@@ -308,9 +355,7 @@ func TestPathSplitAt(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, err := ParseSVG(tt.orig)
-			test.Error(t, err)
-
+			p := MustParseSVG(tt.orig)
 			ps := p.SplitAt(tt.d...)
 			if len(ps) != len(tt.split) {
 				origs := []string{}
@@ -327,11 +372,40 @@ func TestPathSplitAt(t *testing.T) {
 	}
 }
 
+func TestPathDash(t *testing.T) {
+	var tts = []struct {
+		orig   string
+		offset float64
+		d      []float64
+		dashes string
+	}{
+		{"", 0.0, []float64{0.0}, ""},
+		{"L10 0", 0.0, []float64{}, "L10 0"},
+		{"L10 0", 0.0, []float64{2.0}, "L2 0M4 0L6 0M8 0L10 0"},
+		{"L10 0", 0.0, []float64{2.0, 1.0}, "L2 0M3 0L5 0M6 0L8 0M9 0L10 0"},
+		{"L10 0", 1.0, []float64{2.0, 1.0}, "L1 0M2 0L4 0M5 0L7 0M8 0L10 0"},
+		{"L10 0", -1.0, []float64{2.0, 1.0}, "M1 0L3 0M4 0L6 0M7 0L9 0"},
+		{"L10 0", 2.0, []float64{2.0, 1.0}, "M1 0L3 0M4 0L6 0M7 0L9 0"},
+		{"L10 0", 5.0, []float64{2.0, 1.0}, "M1 0L3 0M4 0L6 0M7 0L9 0"},
+		{"L10 0L20 0", 0.0, []float64{15.0}, "L10 0L15 0"},
+		{"L10 0L20 0", 15.0, []float64{15.0}, "M15 0L20 0"},
+		{"L10 0L10 10L0 10z", 0.0, []float64{10.0}, "L10 0M10 10L0 10"},
+		{"L10 0L10 10L0 10z", 0.0, []float64{15.0}, "M0 10L0 0L10 0L10 5"},
+		{"L10 0M0 10L10 10", 0.0, []float64{8.0}, "L8 0M0 10L8 10"},
+	}
+	for _, tt := range tts {
+		t.Run(tt.orig, func(t *testing.T) {
+			test.T(t, MustParseSVG(tt.orig).Dash(tt.offset, tt.d...), MustParseSVG(tt.dashes))
+		})
+	}
+}
+
 func TestPathReverse(t *testing.T) {
 	var tts = []struct {
 		orig string
 		inv  string
 	}{
+		{"", ""},
 		{"M5 5", "M5 5"},
 		{"M5 5z", "M5 5z"},
 		{"M5 5L5 10L10 5", "M10 5L5 10L5 5"},
@@ -373,35 +447,34 @@ func TestPathOptimize(t *testing.T) {
 	var tts = []struct {
 		orig string
 		opt  string
+		i0   int
 	}{
-		{"M0 0", ""},
-		{"M10 10z", ""},
-		{"M10 10M20 20", "M20 20"},
-		{"M10 10L20 20zz", "M10 10L20 20z"},
-		{"M10 10L20 20L20 20", "M10 10L20 20"},
-		{"M10 10L20 20L30 30", "M10 10L30 30"},
-		{"M10 10L10 10L20 20L20 20", "M10 10L20 20"},
-		{"L10 10A5 5 0 0 0 10 10", "L10 10"},
-		{"Q0 0 10 10", "L10 10"},
-		{"Q10 10 10 10", "L10 10"},
-		{"C0 0 0 0 10 10", "L10 10"},
-		{"C0 0 10 10 10 10", "L10 10"},
-		{"C10 10 0 0 10 10", "L10 10"},
-		{"C10 10 10 10 10 10", "L10 10"},
-		{"C10 10 10 10 10 10L20 20", "L20 20"},
+		{"M0 0", "", 0},
+		{"M10 10z", "", 0},
+		{"M10 10zM20 20", "", 0},
+		{"M10 10zM20 20L30 20", "M20 20L30 20", 0},
+		{"M10 10M20 20", "", 0},
+		{"M10 10M20 20L30 30", "M20 20L30 30", 0},
+		{"M10 10L20 20zz", "M10 10L20 20z", 0},
+		{"M10 10L20 20L30 30", "M10 10L30 30", 0},
+		{"M10 10L20 10L20 20L15 15z", "M10 10L20 10L20 20z", 0},
+		{"M10 10L20 10L10 10z", "M10 10L20 10z", 0},
+		{"Q5 5 10 10", "L10 10", 0},
+		{"C2 2 8 8 10 10", "L10 10", 0},
+		{"C2 2 8 8 10 10L20 20", "L20 20", 0},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, err := ParseSVG(tt.orig)
-			test.Error(t, err)
-
-			opt := p.Optimize().String()
-			if strings.HasPrefix(opt, "M0 0") {
-				opt = opt[4:]
-			}
-			test.T(t, opt, tt.opt)
+			p := MustParseSVG(tt.orig).Optimize()
+			test.T(t, p.i0, tt.i0)
+			test.T(t, p, MustParseSVG(tt.opt))
 		})
 	}
+
+	test.T(t, (&Path{[]float64{lineToCmd, 0.0, 0.0}, 0}).Optimize().String(), "")
+	test.T(t, (&Path{[]float64{quadToCmd, 0.0, 0.0, 10.0, 10.0}, 0}).Optimize().String(), "L10 10")
+	test.T(t, (&Path{[]float64{cubeToCmd, 0.0, 0.0, 10.0, 10.0, 10.0, 10.0}, 0}).Optimize().String(), "L10 10")
+	test.T(t, (&Path{[]float64{arcToCmd, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0}, 0}).Optimize().String(), "")
 }
 
 func TestPathParseSVG(t *testing.T) {
@@ -409,6 +482,12 @@ func TestPathParseSVG(t *testing.T) {
 		orig string
 		res  string
 	}{
+		{"M10 0L20 0H30V10C40 10 50 10 50 0Q55 10 60 0A5 5 0 0 0 70 0Z", "M10 0L20 0L30 0L30 10C40 10 50 10 50 0Q55 10 60 0A5 5 0 0 0 70 0z"},
+		{"m10 0l10 0h10v10c10 0 20 0 20 -10q5 10 10 0a5 5 0 0 0 10 0z", "M10 0L20 0L30 0L30 10C40 10 50 10 50 0Q55 10 60 0A5 5 0 0 0 70 0z"},
+		{"C0 10 10 10 10 0S20 -10 20 0", "C0 10 10 10 10 0C10 -10 20 -10 20 0"},
+		{"c0 10 10 10 10 0s10 -10 10 0", "C0 10 10 10 10 0C10 -10 20 -10 20 0"},
+		{"Q5 10 10 0T20 0", "Q5 10 10 0Q15 -10 20 0"},
+		{"q5 10 10 0t10 0", "Q5 10 10 0Q15 -10 20 0"},
 		{"A10 10 0 0 0 40 0", "A20 20 0 0 0 40 0"},  // scale ellipse
 		{"A10 5 90 0 0 40 0", "A40 20 90 0 0 40 0"}, // scale ellipse
 
@@ -440,6 +519,63 @@ func TestPathParseSVGErrors(t *testing.T) {
 			_, err := ParseSVG(tt.orig)
 			test.That(t, err != nil)
 			test.T(t, err.Error(), tt.err)
+		})
+	}
+}
+
+func TestPathToSVG(t *testing.T) {
+	var tts = []struct {
+		orig string
+		ps   string
+	}{
+		{"", ""},
+		{"L10 0Q15 10 20 0M20 10C20 20 30 20 30 10z", "M0 0H10Q15 10 20 0M20 10C20 20 30 20 30 10z"},
+		{"L10 0M20 0L30 0", "M0 0H10M20 0H30"},
+		{"L0 0L0 10L20 20", "M0 0V10L20 20"},
+		{"A5 5 0 0 1 10 0", "M0 0A5 5 0 0 1 10 0"},
+		{"A10 5 90 0 0 10 0", "M0 0A5 10 0 0 0 10 0"},
+		{"A10 5 90 1 0 10 0", "M0 0A5 10 0 1 0 10 0"},
+	}
+	for _, tt := range tts {
+		t.Run(tt.orig, func(t *testing.T) {
+			p := MustParseSVG(tt.orig)
+			test.T(t, p.ToSVG(), tt.ps)
+		})
+	}
+}
+
+func TestPathToPS(t *testing.T) {
+	var tts = []struct {
+		orig string
+		ps   string
+	}{
+		{"", ""},
+		{"L10 0Q15 10 20 0M20 10C20 20 30 20 30 10z", "0 0 moveto 10.00000 0.00000 lineto 13.33333 6.66667 16.66667 6.66667 20.00000 0.00000 curveto 20.00000 10.00000 moveto 20.00000 20.00000 30.00000 20.00000 30.00000 10.00000 curveto closepath"},
+		{"L10 0M20 0L30 0", "0 0 moveto 10.00000 0.00000 lineto 20.00000 0.00000 moveto 30.00000 0.00000 lineto"},
+		{"A5 5 0 0 1 10 0", "0 0 moveto 5.00000 0.00000 5.00000 180.00000 360.00000 arc"},
+		{"A10 5 90 0 0 10 0", "0 0 moveto 5.00000 0.00000 translate 90.00000 rotate -5.00000 -0.00000 translate 5.00000 0.00000 10.00000 5.00000 90.00000 -90.00000 ellipsen initmatrix"},
+	}
+	for _, tt := range tts {
+		t.Run(tt.orig, func(t *testing.T) {
+			p := MustParseSVG(tt.orig)
+			test.T(t, p.ToPS(), tt.ps)
+		})
+	}
+}
+
+func TestPathToPDF(t *testing.T) {
+	var tts = []struct {
+		orig string
+		ps   string
+	}{
+		{"", ""},
+		{"L10 0Q15 10 20 0M20 10C20 20 30 20 30 10z", "0 0 m 10.00000 0.00000 l 13.33333 6.66667 16.66667 6.66667 20.00000 0.00000 c 20.00000 10.00000 m 20.00000 20.00000 30.00000 20.00000 30.00000 10.00000 c h"},
+		{"L10 0M20 0L30 0", "0 0 m 10.00000 0.00000 l 20.00000 0.00000 m 30.00000 0.00000 l"},
+	}
+	for _, tt := range tts {
+		t.Run(tt.orig, func(t *testing.T) {
+			p := MustParseSVG(tt.orig)
+			test.T(t, p.ToPDF(), tt.ps)
 		})
 	}
 }

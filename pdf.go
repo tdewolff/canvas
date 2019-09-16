@@ -465,7 +465,6 @@ func (w *pdfPageWriter) SetLineJoin(joiner Joiner) {
 
 func (w *pdfPageWriter) SetDashes(dashPhase float64, dashArray []float64) {
 	// TODO: connect the first and last dash if they coincide
-	// TODO: mind that dash pattern is restarted for each path segment, in contrary to Dash()
 	if len(dashArray)%2 == 1 {
 		dashArray = append(dashArray, dashArray...)
 	}
