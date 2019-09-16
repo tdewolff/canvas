@@ -111,7 +111,6 @@ func TestPathCCW(t *testing.T) {
 }
 
 func TestPathFilling(t *testing.T) {
-	FillRule = NonZero
 	fillings := MustParseSVG("M0 0").Filling()
 	test.T(t, len(fillings), 0)
 
@@ -132,10 +131,10 @@ func TestPathFilling(t *testing.T) {
 	fillings = MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Filling() // outer CCW, inner CW
 	test.T(t, fillings[0], true)
 	test.T(t, fillings[1], false)
+	FillRule = NonZero
 }
 
 func TestPathInterior(t *testing.T) {
-	FillRule = NonZero
 	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Interior(1, 1))
 	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Interior(3, 3))
 	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Interior(1, 1))
@@ -146,6 +145,7 @@ func TestPathInterior(t *testing.T) {
 	test.That(t, !MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Interior(3, 3))
 	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Interior(1, 1))
 	test.That(t, !MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Interior(3, 3))
+	FillRule = NonZero
 }
 
 func TestPathBounds(t *testing.T) {

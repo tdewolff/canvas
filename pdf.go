@@ -16,6 +16,8 @@ import (
 	"golang.org/x/image/font"
 )
 
+var PDFCompress = true
+
 type pdfWriter struct {
 	w   io.Writer
 	err error
@@ -357,12 +359,14 @@ func (w *pdfPageWriter) writePage(parent pdfRef) pdfRef {
 	if 0 < len(b) && b[0] == ' ' {
 		b = b[1:]
 	}
-	contents := w.pdf.writeObject(pdfStream{
-		dict: pdfDict{
-			"Filter": pdfFilterFlate,
-		},
+	stream := pdfStream{
+		dict:   pdfDict{},
 		stream: b,
-	})
+	}
+	if PDFCompress {
+		stream.dict["Filter"] = pdfFilterFlate
+	}
+	contents := w.pdf.writeObject(stream)
 	return w.pdf.writeObject(pdfDict{
 		"Type":      pdfName("Page"),
 		"Parent":    parent,
