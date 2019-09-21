@@ -27,6 +27,7 @@ const (
 	EvenOdd
 )
 
+// TODO: record both forward and backward command in one float, so we can traverse the path backwards easily
 const (
 	moveToCmd = 1.0 << iota
 	lineToCmd
@@ -34,7 +35,7 @@ const (
 	cubeToCmd
 	arcToCmd
 	closeCmd
-	nullCmd = 0.0
+	nullCmd = 0.0 // TODO: remove?
 )
 
 // cmdLen returns the number of numbers the path command contains.

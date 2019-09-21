@@ -9,6 +9,9 @@ import (
 )
 
 func TestPathStroke(t *testing.T) {
+	Tolerance = 1.0
+	Epsilon = 1e-3
+	// TODO: remove last lineTo if followed by close to the same location (butt and square cappers), fix in path.Close() func?
 	var tts = []struct {
 		orig   string
 		w      float64
@@ -21,19 +24,49 @@ func TestPathStroke(t *testing.T) {
 		{"M10 10L10 5", 2.0, RoundCapper, RoundJoiner, "M9 10L9 5A1 1 0 0 1 11 5L11 10A1 1 0 0 1 9 10z"},
 		{"M10 10L10 5", 2.0, ButtCapper, RoundJoiner, "M9 10L9 5L11 5L11 10L9 10z"},
 		{"M10 10L10 5", 2.0, SquareCapper, RoundJoiner, "M9 10L9 5L9 4L11 4L11 5L11 10L11 11L9 11L9 10z"},
-		{"M10 10L10 5L15 5L10 10", 2.0, ButtCapper, RoundJoiner, "M9 10L9 5A1 1 0 0 1 10 4L15 4A1 1 0 0 1 15.707 5.7071L10.707 10.707L9.2929 9.2929L14.293 4.2929L15 6L10 6L11 5L11 10L9 10z"},
-		{"M10 10L10 5L15 5L10 10z", 2.0, ButtCapper, RoundJoiner, "M9 10L9 5A1 1 0 0 1 10 4L15 4A1 1 0 0 1 15.707 5.7071L10.707 10.707A1 1 0 0 1 9 10zM11 10L9.2929 9.2929L14.293 4.2929L15 6L10 6L11 5z"},
-		{"M10 10L10 5L15 5z", 2.0, ButtCapper, RoundJoiner, "M9 10L9 5A1 1 0 0 1 10 4L15 4A1 1 0 0 1 15.707 5.7071L10.707 10.707A1 1 0 0 1 9 10zM11 10L9.2929 9.2929L14.293 4.2929L15 6L10 6L11 5z"},
-		{"M100 100A50 50 0 0 1 114.64 64.645", 2.0, ButtCapper, RoundJoiner, "M99 100A51 51 0 0 1 113.93 63.938L115.35 65.352A49 49 0 0 0 101 100L99 100z"},
-		//{"M-5 -5A5 5 0 0 1 0 0A5 5 0 0 1 5 -5", 2.0, ButtCapper, ArcsJoiner, ""},
+
+		{"M0 0L10 0L20 0", 2.0, ButtCapper, RoundJoiner, "M0 -1L10 -1L20 -1L20 1L10 1L0 1L0 -1z"},
+		{"M0 0L10 0L10 10", 2.0, ButtCapper, RoundJoiner, "M0 -1L10 -1A1 1 0 0 1 11 0L11 10L9 10L9 0L10 1L0 1L0 -1z"},
+		{"M0 0L10 0L10 -10", 2.0, ButtCapper, RoundJoiner, "M0 -1L10 -1L9 0L9 -10L11 -10L11 0A1 1 0 0 1 10 1L0 1L0 -1z"},
+
+		{"M0 0L10 0L20 0", 2.0, ButtCapper, BevelJoiner, "M0 -1L10 -1L20 -1L20 1L10 1L0 1L0 -1z"},
+		{"M0 0L10 0L10 10", 2.0, ButtCapper, BevelJoiner, "M0 -1L10 -1L11 0L11 10L9 10L9 0L10 1L0 1L0 -1z"},
+		{"M0 0L10 0L10 -10", 2.0, ButtCapper, BevelJoiner, "M0 -1L10 -1L9 0L9 -10L11 -10L11 0L10 1L0 1L0 -1z"},
+
+		{"M0 0L10 0L20 0", 2.0, ButtCapper, MiterClipJoiner(BevelJoiner, 4.0), "M0 -1L10 -1L20 -1L20 1L10 1L0 1L0 -1z"},
+		{"M0 0L10 0L5 0", 2.0, ButtCapper, MiterClipJoiner(BevelJoiner, 4.0), "M0 -1L10 -1L10 1L5 1L5 -1L10 -1L10 1L0 1L0 -1z"},
+		{"M0 0L10 0L10 10", 2.0, ButtCapper, MiterClipJoiner(BevelJoiner, 2.0), "M0 -1L10 -1L11 0L11 10L9 10L9 0L10 1L0 1L0 -1z"},
+		{"M0 0L10 0L10 10", 2.0, ButtCapper, MiterClipJoiner(BevelJoiner, 4.0), "M0 -1L10 -1L11 -1L11 0L11 10L9 10L9 0L10 1L0 1L0 -1z"},
+		{"M0 0L10 0L10 -10", 2.0, ButtCapper, MiterClipJoiner(BevelJoiner, 4.0), "M0 -1L10 -1L9 0L9 -10L11 -10L11 0L11 1L10 1L0 1L0 -1z"},
+
+		{"M0 0L10 0L20 0", 2.0, ButtCapper, ArcsClipJoiner(BevelJoiner, 4.0), "M0 -1L10 -1L20 -1L20 1L10 1L0 1L0 -1z"},
+		{"M0 0L10 0L5 0", 2.0, ButtCapper, ArcsClipJoiner(BevelJoiner, 4.0), "M0 -1L10 -1L10 1L5 1L5 -1L10 -1L10 1L0 1L0 -1z"},
+		{"M0 0L10 0L10 10", 2.0, ButtCapper, ArcsClipJoiner(BevelJoiner, 2.0), "M0 -1L10 -1L11 0L11 10L9 10L9 0L10 1L0 1L0 -1z"},
+
+		{"M0 0L10 0L10 10L0 10z", 2.0, ButtCapper, BevelJoiner, "M0 -1L10 -1L11 0L11 10L10 11L0 11L-1 10L-1 0L0 -1zM0 1L1 0L1 10L0 9L10 9L9 10L9 0L10 1z"},
+		{"M0 0L0 10L10 10L10 0z", 2.0, ButtCapper, BevelJoiner, "M-1 0L-1 10L0 11L10 11L11 10L11 0L10 -1L0 -1L-1 0zM1 0L0 1L10 1L9 0L9 10L10 9L0 9L1 10z"},
+		{"M0 0Q10 0 10 10", 2.0, ButtCapper, BevelJoiner, "M0 -1L9.6467 3.7346L11 10L9 10L7.6849 4.3366L0 1L0 -1z"},
+		{"M0 0C0 10 10 10 10 0", 2.0, ButtCapper, BevelJoiner, "M1 0L3.4056 6.0146L6.9801 5.7289L9 0L11 0L9.7996 5.3497L2.7451 7.9408L-1 0L1 0z"},
+		//{"M0 0A10 5 0 0 0 20 0", 2.0, ButtCapper, BevelJoiner, "M1 0A9 4 0 0 0 19 0L21 0A11 6 0 0 1 -1 0L1 0z"},
+		//{"M0 0A10 5 0 0 1 20 0", 2.0, ButtCapper, BevelJoiner, "M-1 0A11 6 0 0 1 21 0L19 0A9 4 0 0 0 1 0L-1 0z"},
+		{"M5 2L2 2A2 2 0 0 0 0 0", 2.0, ButtCapper, BevelJoiner, "M5 3L2 3L1 2A1 1 0 0 0 0 1L0 -1A3 3 0 0 1 3 2L2 1L5 1L5 3z"},
+
+		// two circle quadrants joining at 90 degrees
+		//{"M0 0A10 10 0 0 1 10 10A10 10 0 0 1 0 0z", 2.0, ButtCapper, ArcsJoiner, "M0 -1A11 11 0 0 1 11 10A11 11 0 0 1 10.958 10.958A11 11 0 0 1 10 11A11 11 0 0 1 -1 0A11 11 0 0 1 -0.958 -0.958A11 11 0 0 1 0 -1zM0 1L1 0A9 9 0 0 0 10 9L9 10A9 9 0 0 0 0 1z"},
+
+		// circles joining at one point (10,0), stroke will never join
+		//{"M0 0A5 5 0 0 0 10 0A10 10 0 0 1 0 10", 2.0, ButtCapper, ArcsJoiner, "M1 0A4 4 0 0 0 9 0L11 0A11 11 0 0 1 0 11L0 9A9 9 0 0 0 9 0L11 0A6 6 0 0 1 -1 0L1 0z"},
+
+		// circle and line intersecting in one point
+		{"M0 0A2 2 0 0 1 2 2L5 2", 2.0, ButtCapper, ArcsClipJoiner(BevelJoiner, 10.0), "M0 -1A3 3 0 0 1 3 2L2 1L5 1L5 3L2 3L0 3A1 1 0 0 0 1 2A1 1 0 0 0 0 1L0-1z"},
+
+		// line and circle intersecting in one point
+		{"M5 2L2 2A2 2 0 0 0 0 0", 2.0, ButtCapper, ArcsClipJoiner(BevelJoiner, 10.0), "M5 3L2 3L0 3A1 1 0 0 0 1 2A1 1 0 0 0 0 1L0-1A3 3 0 0 1 3 2L2 1L5 1L5 3z"},
 	}
 	for j, tt := range tts {
 		t.Run(fmt.Sprintf("%v", j), func(t *testing.T) {
-			p, err := ParseSVG(tt.orig)
-			test.Error(t, err)
-
-			sp := p.Stroke(tt.w, tt.cp, tt.jr)
-			test.T(t, sp.String(), tt.stroke)
+			stroke := MustParseSVG(tt.orig).Stroke(tt.w, tt.cp, tt.jr)
+			test.T(t, stroke, MustParseSVG(tt.stroke))
 		})
 	}
 }

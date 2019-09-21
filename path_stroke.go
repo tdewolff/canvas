@@ -403,16 +403,20 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 	lhs.MoveTo(lStart.X, lStart.Y)
 
 	for i, cur := range states {
-		rEnd := cur.p1.Add(cur.n1)
-		lEnd := cur.p1.Sub(cur.n1)
 		switch cur.cmd {
 		case lineToCmd:
+			rEnd := cur.p1.Add(cur.n1)
+			lEnd := cur.p1.Sub(cur.n1)
 			rhs.LineTo(rEnd.X, rEnd.Y)
 			lhs.LineTo(lEnd.X, lEnd.Y)
 		case cubeToCmd:
 			rhs = rhs.Join(strokeCubicBezier(cur.p0, cur.cp1, cur.cp2, cur.p1, halfWidth, Tolerance))
 			lhs = lhs.Join(strokeCubicBezier(cur.p0, cur.cp1, cur.cp2, cur.p1, -halfWidth, Tolerance))
 		case arcToCmd:
+			rStart := cur.p0.Add(cur.n0)
+			lStart := cur.p0.Sub(cur.n0)
+			rEnd := cur.p1.Add(cur.n1)
+			lEnd := cur.p1.Sub(cur.n1)
 			dr := halfWidth
 			if !cur.sweep { // bend to the right, ie. CW
 				dr = -dr
@@ -426,10 +430,8 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			rhs.ArcTo(rLambda*(cur.rx+dr), rLambda*(cur.ry+dr), cur.rot, cur.largeArc, cur.sweep, rEnd.X, rEnd.Y)
 			lhs.ArcTo(lLambda*(cur.rx-dr), lLambda*(cur.ry-dr), cur.rot, cur.largeArc, cur.sweep, lEnd.X, lEnd.Y)
 		}
-		rStart = rEnd
-		lStart = lEnd
 
-		// join the cur and next path segments on the outside of the bend
+		// join the cur and next path segments
 		if i+1 < len(states) || closed {
 			var next pathStrokeState
 			if i+1 < len(states) {
@@ -508,14 +510,16 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 			// inner path should go opposite direction to cancel the outer path
 			if ps.CCW() {
 				lhs = lhs.Reverse()
+				q = q.Append(rhs)
+				q = q.Append(lhs)
 			} else {
 				rhs = rhs.Reverse()
+				q = q.Append(lhs)
+				q = q.Append(rhs)
 			}
-		}
-		if rhs != nil {
+		} else if rhs != nil {
 			q = q.Append(rhs)
-		}
-		if lhs != nil {
+		} else {
 			q = q.Append(lhs)
 		}
 	}
