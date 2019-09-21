@@ -16,7 +16,7 @@ import (
 	"golang.org/x/image/font"
 )
 
-var PDFCompress = true
+var pdfCompress = true
 
 type pdfWriter struct {
 	w   io.Writer
@@ -363,7 +363,7 @@ func (w *pdfPageWriter) writePage(parent pdfRef) pdfRef {
 		dict:   pdfDict{},
 		stream: b,
 	}
-	if PDFCompress {
+	if pdfCompress {
 		stream.dict["Filter"] = pdfFilterFlate
 	}
 	contents := w.pdf.writeObject(stream)

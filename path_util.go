@@ -478,25 +478,25 @@ func findInflectionPointRangeCubicBezier(p0, p1, p2, p3 Point, t, flatness float
 	// then we impose that s(tf) = flatness and find tf
 	// at inflection points however, s2 = 0, so that s(t) = s3*t^3
 
-	if t != 0.0 {
+	if !equal(t, 0.0) {
 		_, _, _, _, p0, p1, p2, p3 = splitCubicBezier(p0, p1, p2, p3, t)
 	}
 	nr := p1.Sub(p0)
 	ns := p3.Sub(p0)
-	if nr.X == 0.0 && nr.Y == 0.0 {
+	if equal(nr.X, 0.0) && equal(nr.Y, 0.0) {
 		// if p0=p1, then rn (the velocity at t=0) needs adjustment
 		// nr = lim[t->0](B'(t)) = 3*(p1-p0) + 6*t*((p1-p0)+(p2-p1)) + second order terms of t
 		// if (p1-p0)->0, we use (p2-p1)=(p2-p0)
 		nr = p2.Sub(p0)
 	}
 
-	if nr.X == 0.0 && nr.Y == 0.0 {
+	if equal(nr.X, 0.0) && equal(nr.Y, 0.0) {
 		// if rn is still zero, this curve has p0=p1=p2, so it is straight
 		return 0.0, 1.0
 	}
 
 	s3 := math.Abs(ns.X*nr.Y-ns.Y*nr.X) / math.Hypot(nr.X, nr.Y)
-	if s3 == 0.0 {
+	if equal(s3, 0.0) {
 		return 0.0, 1.0 // can approximate whole curve linearly
 	}
 
@@ -545,8 +545,8 @@ func strokeCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 		return p
 	}
 
-	// 0 <= t1min <= t1max <= 1
-	// 0 <= t2min <= t2max <= 1
+	// t1min <= t1max; with 0 <= t1max and t1min <= 1
+	// t2min <= t2max; with 0 <= t2max and t2min <= 1
 	t1min, t1max := findInflectionPointRangeCubicBezier(p0, p1, p2, p3, t1, flatness)
 	t2min, t2max := findInflectionPointRangeCubicBezier(p0, p1, p2, p3, t2, flatness)
 
@@ -572,7 +572,7 @@ func strokeCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 			return p
 		}
 	} else if 1.0 <= t2min {
-		// t1 and t2 overlap but past the curve, approximate linearly
+		// No t2 present and t1max is past the end of the curve, approximate linearly
 		addCubicBezierLine(p, p0, p1, p2, p3, 1.0, d)
 		return p
 	}
@@ -583,15 +583,11 @@ func strokeCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 			// t2 range starts inside t1 range, approximate t1 range linearly
 			_, _, _, _, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1max)
 			addCubicBezierLine(p, q0, q1, q2, q3, 0.0, d)
-		} else if 0.0 < t1max {
+		} else {
 			// no overlap
 			_, _, _, _, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1max)
 			t2minq := (t2min - t1max) / (1 - t1max)
 			q0, q1, q2, q3, _, _, _, _ = splitCubicBezier(q0, q1, q2, q3, t2minq)
-			flattenSmoothCubicBezier(p, q0, q1, q2, q3, d, flatness)
-		} else {
-			// no t1, approximate up to t2min linearly by subdivision
-			q0, q1, q2, q3, _, _, _, _ := splitCubicBezier(p0, p1, p2, p3, t2min)
 			flattenSmoothCubicBezier(p, q0, q1, q2, q3, d, flatness)
 		}
 	}

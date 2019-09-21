@@ -22,6 +22,8 @@ func TestShapes(t *testing.T) {
 	test.T(t, RegularPolygon(2, 2.0, true), &Path{})
 	test.T(t, RegularPolygon(4, 0.0, true), &Path{})
 	test.T(t, RegularPolygon(4, 2.0, true), MustParseSVG("M0 2 -2 0 0 -2 2 0z"))
+	test.T(t, RegularPolygon(3, 2.0, false), MustParseSVG("M-1.7321 1L0 -2L1.7321 1z"))
 	test.T(t, StarPolygon(2, 4.0, 2.0, true), &Path{})
 	test.T(t, StarPolygon(4, 4.0, 2.0, true), MustParseSVG("M0 4 -1.41 1.41 -4 0 -1.41 -1.41 0 -4 1.41 -1.41 4 0 1.41 1.41z"))
+	test.T(t, StarPolygon(3, 4.0, 2.0, false), MustParseSVG("M-3.4641 2L-1.7321 -1L0 -4L1.7321 -1L3.4641 2L0 2z"))
 }

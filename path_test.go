@@ -535,6 +535,7 @@ func TestPathToSVG(t *testing.T) {
 		{"A5 5 0 0 1 10 0", "M0 0A5 5 0 0 1 10 0"},
 		{"A10 5 90 0 0 10 0", "M0 0A5 10 0 0 0 10 0"},
 		{"A10 5 90 1 0 10 0", "M0 0A5 10 0 1 0 10 0"},
+		{"M20 0L20 0", "M20 0"},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {

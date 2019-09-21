@@ -7,7 +7,6 @@ import (
 	"math"
 	"strings"
 
-	"golang.org/x/image/math/f32"
 	"golang.org/x/image/math/fixed"
 )
 
@@ -61,12 +60,8 @@ func toCSSColor(color color.RGBA) string {
 
 ////////////////////////////////////////////////////////////////
 
-func toF32Vec(x, y float64) f32.Vec2 {
-	return f32.Vec2{float32(x), float32(y)}
-}
-
-func toP26_6(x, y float64) fixed.Point26_6 {
-	return fixed.Point26_6{toI26_6(x), toI26_6(y)}
+func toP26_6(p Point) fixed.Point26_6 {
+	return fixed.Point26_6{toI26_6(p.X), toI26_6(p.Y)}
 }
 
 func fromP26_6(f fixed.Point26_6) Point {

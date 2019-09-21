@@ -11,7 +11,7 @@ func TestPDF(t *testing.T) {
 	c := New(10, 10)
 	c.DrawPath(0, 0, MustParseSVG("L10 0"))
 
-	PDFCompress = false
+	pdfCompress = false
 	sb := strings.Builder{}
 	c.WritePDF(&sb)
 	test.T(t, sb.String(), `%PDF-1.7

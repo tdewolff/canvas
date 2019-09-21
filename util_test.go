@@ -36,6 +36,11 @@ func TestCSSColor(t *testing.T) {
 	test.String(t, toCSSColor(color.RGBA{85, 85, 17, 85}), "rgba(255,255,51,0.33333)")
 }
 
+func TestToFromFixed(t *testing.T) {
+	test.T(t, fromP26_6(toP26_6(Point{3.0, 5.0})), Point{3.0, 5.0})
+	test.Float(t, fromI26_6(toI26_6(7.0)), 7.0)
+}
+
 func TestPoint(t *testing.T) {
 	Epsilon = 0.01
 	p := Point{3, 4}
@@ -136,6 +141,8 @@ func TestMatrix(t *testing.T) {
 	test.String(t, Identity.Shear(2.0, 3.0).String(), "(1 2; 3 1) + (0,0)")
 
 	test.T(t, Identity.Shear(1.0, 1.0), Identity.Rotate(45).Scale(2.0, 0.0).Rotate(-45))
+	test.String(t, Identity.ToSVG(10.0), "")
+	test.String(t, Identity.Translate(3.0, 4.0).ToSVG(10.0), "translate(3,6)")
 	test.String(t, Identity.Shear(1.0, 1.0).ToSVG(10.0), "rotate(-45) scale(2,0) rotate(45)")
 	test.String(t, Identity.Rotate(45).Scale(2.0, 0.0).Rotate(-45).ToSVG(10.0), "rotate(-45) scale(2,0) rotate(45)")
 }
@@ -174,4 +181,37 @@ func TestGaussLegendre(t *testing.T) {
 	test.Float(t, gaussLegendre3(math.Log, 0.0, 1.0), -0.947672)
 	test.Float(t, gaussLegendre5(math.Log, 0.0, 1.0), -0.979001)
 	test.Float(t, gaussLegendre7(math.Log, 0.0, 1.0), -0.988738)
+}
+
+func TestPolynomialChebyshevApprox(t *testing.T) {
+	f := func(x float64) float64 {
+		return x * x
+	}
+
+	g := polynomialChebyshevApprox(3, f, 0.0, 11.0, 0.0, 100.0)
+	test.Float(t, g(0.0), 0.0)
+	test.Float(t, g(5.0), 25.0)
+	test.Float(t, g(10.0), 100.0)
+	test.Float(t, g(11.0), 100.0)
+}
+
+func TestInvSpeedPolynomialApprox(t *testing.T) {
+	fp := func(t float64) float64 {
+		xp := math.Cos(t)
+		yp := 2 * t
+		return math.Sqrt(xp*xp + yp*yp)
+	}
+
+	// https://www.wolframalpha.com/input/?i=arclength+x%28t%29%3Dsin+t%2C+y%28t%29%3Dt*t+for+t%3D0+to+2pi
+	f, L := invSpeedPolynomialChebyshevApprox(15, gaussLegendre7, fp, 0.0, 2.0*math.Pi)
+	test.Float(t, L, 40.051641)
+	test.Float(t, f(0.0), 0.0)
+	test.That(t, math.Abs(f(40.051641)-2.0*math.Pi) < 0.01)
+	test.That(t, math.Abs(f(10.3539)-math.Pi) < 0.01)
+
+	f, L = invPolynomialApprox3(gaussLegendre7, fp, 0.0, 2.0*math.Pi)
+	test.Float(t, L, 40.051641)
+	test.Float(t, f(0.0), 0.0)
+	test.That(t, math.Abs(f(40.051641)-2.0*math.Pi) < 0.01)
+	test.That(t, math.Abs(f(10.3539)-math.Pi) < 1.0)
 }
