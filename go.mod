@@ -1,7 +1,6 @@
 module github.com/tdewolff/canvas
 
 require (
-	github.com/dsnet/compress v0.0.1
 	github.com/flopp/go-findfont v0.0.0-20180308170802-e788239e52bc
 	github.com/gogo/protobuf v1.2.1 // indirect
 	github.com/paulmach/orb v0.1.3
