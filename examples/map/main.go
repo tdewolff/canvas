@@ -19,7 +19,7 @@ var dejaVuSerif *canvas.FontFamily
 func main() {
 	dejaVuSerif = canvas.NewFontFamily("dejavu-serif")
 	dejaVuSerif.Use(canvas.CommonLigatures)
-	if err := dejaVuSerif.LoadFontFile("../DejaVuSerif.ttf", canvas.FontRegular); err != nil {
+	if err := dejaVuSerif.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 

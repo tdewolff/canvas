@@ -8,7 +8,7 @@ import (
 
 func TestTextLine(t *testing.T) {
 	family := NewFontFamily("dejavu-serif")
-	family.LoadFontFile("examples/DejaVuSerif.ttf", FontRegular)
+	family.LoadFontFile("./test/DejaVuSerif.ttf", FontRegular)
 	face := family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal, FontUnderline)
 
 	text := NewTextLine(face, "test\nline", Left)
@@ -34,7 +34,7 @@ func TestTextLine(t *testing.T) {
 
 func TestRichText(t *testing.T) {
 	family := NewFontFamily("dejavu-serif")
-	family.LoadFontFile("examples/DejaVuSerif.ttf", FontRegular)
+	family.LoadFontFile("./test/DejaVuSerif.ttf", FontRegular)
 	face := family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal) // line height is 13.96875
 
 	rt := NewRichText()
@@ -146,7 +146,7 @@ func TestRichText(t *testing.T) {
 
 func TestTextLineHeights(t *testing.T) {
 	family := NewFontFamily("dejavu-serif")
-	family.LoadFontFile("examples/DejaVuSerif.ttf", FontRegular)
+	family.LoadFontFile("./test/DejaVuSerif.ttf", FontRegular)
 	face8 := family.Face(8.0*ptPerMm, Black, FontRegular, FontNormal, FontUnderline)
 	face12 := family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal, FontUnderline)
 

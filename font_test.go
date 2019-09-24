@@ -8,7 +8,7 @@ import (
 )
 
 func TestParseTTF(t *testing.T) {
-	b, err := ioutil.ReadFile("examples/DejaVuSerif.ttf")
+	b, err := ioutil.ReadFile("./test/DejaVuSerif.ttf")
 	test.Error(t, err)
 
 	font, err := parseFont("dejavu-serif", b)
@@ -28,7 +28,7 @@ func TestParseTTF(t *testing.T) {
 }
 
 func TestParseOTF(t *testing.T) {
-	b, err := ioutil.ReadFile("test/EBGaramond12-Regular.otf")
+	b, err := ioutil.ReadFile("./test/EBGaramond12-Regular.otf")
 	test.Error(t, err)
 
 	font, err := parseFont("dejavu-serif", b)
@@ -37,7 +37,7 @@ func TestParseOTF(t *testing.T) {
 }
 
 func TestParseWOFF(t *testing.T) {
-	b, err := ioutil.ReadFile("examples/DejaVuSerif.woff")
+	b, err := ioutil.ReadFile("./test/DejaVuSerif.woff")
 	test.Error(t, err)
 
 	font, err := parseFont("dejavu-serif", b)
@@ -46,7 +46,7 @@ func TestParseWOFF(t *testing.T) {
 }
 
 func TestSubstitutes(t *testing.T) {
-	b, err := ioutil.ReadFile("examples/DejaVuSerif.ttf")
+	b, err := ioutil.ReadFile("./test/DejaVuSerif.ttf")
 	test.Error(t, err)
 
 	font, err := parseFont("dejavu-serif", b)
