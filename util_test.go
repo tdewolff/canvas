@@ -30,10 +30,10 @@ func TestAngleBetween(t *testing.T) {
 }
 
 func TestCSSColor(t *testing.T) {
-	test.String(t, toCSSColor(Cyan), "#0ff")
-	test.String(t, toCSSColor(Aliceblue), "#f0f8ff")
-	test.String(t, toCSSColor(color.RGBA{255, 255, 255, 0}), "rgba(0,0,0,0)")
-	test.String(t, toCSSColor(color.RGBA{85, 85, 17, 85}), "rgba(255,255,51,0.33333)")
+	test.String(t, cssColor(Cyan).String(), "#0ff")
+	test.String(t, cssColor(Aliceblue).String(), "#f0f8ff")
+	test.String(t, cssColor(color.RGBA{255, 255, 255, 0}).String(), "rgba(0,0,0,0)")
+	test.String(t, cssColor(color.RGBA{85, 85, 17, 85}).String(), "rgba(255,255,51,.33333333)")
 }
 
 func TestToFromFixed(t *testing.T) {

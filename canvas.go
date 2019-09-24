@@ -165,7 +165,7 @@ func (c *Canvas) Fit(margin float64) {
 
 // WriteSVG writes the stored drawing operations in Canvas in the SVG file format.
 func (c *Canvas) WriteSVG(w io.Writer) {
-	fmt.Fprintf(w, `<svg version="1.1" width="%.5g" height="%.5g" viewBox="0 0 %.5g %.5g" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, c.W, c.H, c.W, c.H)
+	fmt.Fprintf(w, `<svg version="1.1" width="%v" height="%v" viewBox="0 0 %v %v" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, dec(c.W), dec(c.H), dec(c.W), dec(c.H))
 	if len(c.fonts) > 0 {
 		fmt.Fprintf(w, "<defs><style>")
 		for f := range c.fonts {
@@ -279,7 +279,7 @@ func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 	if !stroke {
 		if fill {
 			if l.fillColor != Black {
-				fmt.Fprintf(w, `" fill="%s`, toCSSColor(l.fillColor))
+				fmt.Fprintf(w, `" fill="%v`, cssColor(l.fillColor))
 			}
 			if l.fillRule == EvenOdd {
 				fmt.Fprintf(w, `" fill-rule="evenodd`)
@@ -291,7 +291,7 @@ func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 		style := &strings.Builder{}
 		if fill {
 			if l.fillColor != Black {
-				fmt.Fprintf(style, ";fill:%s", toCSSColor(l.fillColor))
+				fmt.Fprintf(style, ";fill:%v", cssColor(l.fillColor))
 			}
 			if l.fillRule == EvenOdd {
 				fmt.Fprintf(style, ";fill-rule:evenodd")
@@ -300,9 +300,9 @@ func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 			fmt.Fprintf(style, ";fill:none")
 		}
 		if stroke && !strokeUnsupported {
-			fmt.Fprintf(style, `;stroke:%s`, toCSSColor(l.strokeColor))
+			fmt.Fprintf(style, `;stroke:%v`, cssColor(l.strokeColor))
 			if l.strokeWidth != 1.0 {
-				fmt.Fprintf(style, ";stroke-width:%.5g", l.strokeWidth)
+				fmt.Fprintf(style, ";stroke-width:%v", dec(l.strokeWidth))
 			}
 			if _, ok := l.strokeCapper.(roundCapper); ok {
 				fmt.Fprintf(style, ";stroke-linecap:round")
@@ -318,24 +318,24 @@ func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 			} else if arcs, ok := l.strokeJoiner.(arcsJoiner); ok && !math.IsNaN(arcs.limit) {
 				fmt.Fprintf(style, ";stroke-linejoin:arcs")
 				if arcs.limit != 4.0 {
-					fmt.Fprintf(style, ";stroke-miterlimit:%.5g", arcs.limit)
+					fmt.Fprintf(style, ";stroke-miterlimit:%v", dec(arcs.limit))
 				}
 			} else if miter, ok := l.strokeJoiner.(miterJoiner); ok && !math.IsNaN(miter.limit) {
 				// a miter line join is the default
 				if miter.limit != 4.0 {
-					fmt.Fprintf(style, ";stroke-miterlimit:%.5g", miter.limit)
+					fmt.Fprintf(style, ";stroke-miterlimit:%v", dec(miter.limit))
 				}
 			} else {
 				panic("SVG: line join not support")
 			}
 
 			if 0 < len(l.dashes) {
-				fmt.Fprintf(style, ";stroke-dasharray:%.5g", l.dashes[0])
+				fmt.Fprintf(style, ";stroke-dasharray:%v", dec(l.dashes[0]))
 				for _, dash := range l.dashes[1:] {
-					fmt.Fprintf(style, " %.5g", dash)
+					fmt.Fprintf(style, " %v", dec(dash))
 				}
 				if 0.0 != l.dashOffset {
-					fmt.Fprintf(style, ";stroke-dashoffset:%.5g", l.dashOffset)
+					fmt.Fprintf(style, ";stroke-dashoffset:%v", dec(l.dashOffset))
 				}
 			}
 		}
@@ -353,7 +353,7 @@ func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 		p = p.Stroke(l.strokeWidth, l.strokeCapper, l.strokeJoiner)
 		fmt.Fprintf(w, `<path d="%s`, p.ToSVG())
 		if l.strokeColor != Black {
-			fmt.Fprintf(w, `" fill="%s`, toCSSColor(l.strokeColor))
+			fmt.Fprintf(w, `" fill="%v`, cssColor(l.strokeColor))
 		}
 		if l.fillRule == EvenOdd {
 			fmt.Fprintf(w, `" fill-rule="evenodd`)
@@ -577,7 +577,7 @@ func (l imageLayer) WriteSVG(w io.Writer, h float64) {
 	}
 
 	m := l.m.Translate(0.0, float64(l.img.Bounds().Size().Y))
-	fmt.Fprintf(w, `<image transform="%v" width="%d" height="%d" xlink:href="data:%s;base64,`,
+	fmt.Fprintf(w, `<image transform="%s" width="%d" height="%d" xlink:href="data:%s;base64,`,
 		m.ToSVG(h), l.img.Bounds().Size().X, l.img.Bounds().Size().Y, mimetype)
 
 	encoder := base64.NewEncoder(base64.StdEncoding, w)

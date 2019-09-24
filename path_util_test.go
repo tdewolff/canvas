@@ -153,12 +153,14 @@ func TestEllipseSplit(t *testing.T) {
 }
 
 func TestEllipseToBeziers(t *testing.T) {
-	test.T(t, ellipseToBeziers(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}).String(), "M0 0C6.7182e-15 54.858 45.142 100 100 100C154.86 100 200 54.858 200 0")
+	Epsilon = 1e-2
+	test.T(t, ellipseToBeziers(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}), MustParseSVG("M0 0C6.7182e-15 54.858 45.142 100 100 100C154.86 100 200 54.858 200 0"))
 }
 
 func TestFlattenEllipse(t *testing.T) {
+	Epsilon = 1e-2
 	Tolerance = 1.0
-	test.T(t, flattenEllipse(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}).String(), "M0 0L3.8202 27.243L15.092 52.545L33.225 74.179L56.889 90.115L84.082 98.716L100 100L127.24 96.18L152.55 84.908L174.18 66.775L190.12 43.111L198.72 15.918L200 0")
+	test.T(t, flattenEllipse(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}), MustParseSVG("M0 0L3.8202 27.243L15.092 52.545L33.225 74.179L56.889 90.115L84.082 98.716L100 100L127.24 96.18L152.55 84.908L174.18 66.775L190.12 43.111L198.72 15.918L200 0"))
 }
 
 func TestQuadraticBezier(t *testing.T) {
@@ -240,23 +242,23 @@ func TestCubicBezierStrokeHelpers(t *testing.T) {
 
 	p = &Path{}
 	addCubicBezierLine(p, p0, p1, p2, p3, 0.0, 0.5)
-	test.T(t, p.String(), "L0 -0.5")
+	test.T(t, p, MustParseSVG("L0 -0.5"))
 
 	p = &Path{}
 	addCubicBezierLine(p, p0, p1, p2, p3, 1.0, 0.5)
-	test.T(t, p.String(), "L1.5 1")
+	test.T(t, p, MustParseSVG("L1.5 1"))
 
 	p = &Path{}
 	flattenSmoothCubicBezier(p, p0, p1, p2, p3, 0.5, 0.5)
-	test.T(t, p.String(), "L1.5 1")
+	test.T(t, p, MustParseSVG("L1.5 1"))
 
 	p = &Path{}
 	flattenSmoothCubicBezier(p, p0, p1, p2, p3, 0.5, 0.125)
-	test.T(t, p.String(), "L1.4542 0.55703L1.5 1")
+	test.T(t, p, MustParseSVG("L1.4542 0.55703L1.5 1"))
 
 	p = &Path{}
 	flattenSmoothCubicBezier(p, p0, p0, p2, p3, 0.5, 0.125) // denom == 0
-	test.T(t, p.String(), "L1.5 1")
+	test.T(t, p, MustParseSVG("L1.5 1"))
 }
 
 func TestCubicBezierInflectionPoints(t *testing.T) {

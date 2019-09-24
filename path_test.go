@@ -174,9 +174,7 @@ func TestPathBounds(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, err := ParseSVG(tt.orig)
-			test.Error(t, err)
-			test.T(t, p.Bounds(), tt.bounds)
+			test.T(t, MustParseSVG(tt.orig).Bounds(), tt.bounds)
 		})
 	}
 }
@@ -204,10 +202,7 @@ func TestPathLength(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, err := ParseSVG(tt.orig)
-			test.Error(t, err)
-
-			length := p.Length()
+			length := MustParseSVG(tt.orig).Length()
 			if math.Abs(tt.length-length)/length > 0.01 {
 				test.Fail(t, length, "!=", tt.length, "±1%")
 			}
@@ -262,12 +257,11 @@ func TestPathReplace(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, err := ParseSVG(tt.orig)
-			test.Error(t, err)
+			p := MustParseSVG(tt.orig)
 			test.T(t, p.i0, tt.i0Orig)
 
 			p.Replace(tt.line, tt.bezier, tt.arc)
-			test.T(t, p.String(), tt.res)
+			test.T(t, p, MustParseSVG(tt.res))
 			test.T(t, p.i0, tt.i0Res)
 		})
 	}
@@ -289,7 +283,6 @@ func TestPathMarkers(t *testing.T) {
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
 			p := MustParseSVG(tt.orig)
-
 			ps := p.Markers(start, mid, end, false)
 			if len(ps) != len(tt.markers) {
 				origs := []string{}
@@ -299,7 +292,7 @@ func TestPathMarkers(t *testing.T) {
 				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.markers, "\n"))
 			} else {
 				for i, p := range ps {
-					test.T(t, p.String(), tt.markers[i])
+					test.T(t, p, MustParseSVG(tt.markers[i]))
 				}
 			}
 		})
@@ -329,7 +322,7 @@ func TestPathSplit(t *testing.T) {
 				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.split, "\n"))
 			} else {
 				for i, p := range ps {
-					test.T(t, p.String(), tt.split[i])
+					test.T(t, p, MustParseSVG(tt.split[i]))
 				}
 			}
 		})
@@ -365,7 +358,7 @@ func TestPathSplitAt(t *testing.T) {
 				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.split, "\n"))
 			} else {
 				for i, p := range ps {
-					test.T(t, p.String(), tt.split[i])
+					test.T(t, p, MustParseSVG(tt.split[i]))
 				}
 			}
 		})
@@ -434,11 +427,7 @@ func TestPathReverse(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p, err := ParseSVG(tt.orig)
-			test.Error(t, err)
-
-			p = p.Reverse()
-			test.T(t, p.String(), tt.inv)
+			test.T(t, MustParseSVG(tt.orig).Reverse(), MustParseSVG(tt.inv))
 		})
 	}
 }
@@ -498,7 +487,7 @@ func TestPathParseSVG(t *testing.T) {
 		t.Run(tt.orig, func(t *testing.T) {
 			p, err := ParseSVG(tt.orig)
 			test.Error(t, err)
-			test.T(t, p.String(), tt.res)
+			test.T(t, p, MustParseSVG(tt.res))
 		})
 	}
 }
@@ -551,15 +540,14 @@ func TestPathToPS(t *testing.T) {
 		ps   string
 	}{
 		{"", ""},
-		{"L10 0Q15 10 20 0M20 10C20 20 30 20 30 10z", "0 0 moveto 10.00000 0.00000 lineto 13.33333 6.66667 16.66667 6.66667 20.00000 0.00000 curveto 20.00000 10.00000 moveto 20.00000 20.00000 30.00000 20.00000 30.00000 10.00000 curveto closepath"},
-		{"L10 0M20 0L30 0", "0 0 moveto 10.00000 0.00000 lineto 20.00000 0.00000 moveto 30.00000 0.00000 lineto"},
-		{"A5 5 0 0 1 10 0", "0 0 moveto 5.00000 0.00000 5.00000 180.00000 360.00000 arc"},
-		{"A10 5 90 0 0 10 0", "0 0 moveto 5.00000 0.00000 translate 90.00000 rotate -5.00000 -0.00000 translate 5.00000 0.00000 10.00000 5.00000 90.00000 -90.00000 ellipsen initmatrix"},
+		{"L10 0Q15 10 20 0M20 10C20 20 30 20 30 10z", "0 0 moveto 10 0 lineto 13.333333 6.6666667 16.666667 6.6666667 20 0 curveto 20 10 moveto 20 20 30 20 30 10 curveto closepath"},
+		{"L10 0M20 0L30 0", "0 0 moveto 10 0 lineto 20 0 moveto 30 0 lineto"},
+		{"A5 5 0 0 1 10 0", "0 0 moveto 5 0 5 180 360 arc"},
+		{"A10 5 90 0 0 10 0", "0 0 moveto 5 0 translate 90 rotate -5 0 translate 5 0 10 5 90 -90 ellipsen initmatrix"},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p := MustParseSVG(tt.orig)
-			test.T(t, p.ToPS(), tt.ps)
+			test.T(t, MustParseSVG(tt.orig).ToPS(), tt.ps)
 		})
 	}
 }
@@ -570,13 +558,12 @@ func TestPathToPDF(t *testing.T) {
 		ps   string
 	}{
 		{"", ""},
-		{"L10 0Q15 10 20 0M20 10C20 20 30 20 30 10z", "0 0 m 10.00000 0.00000 l 13.33333 6.66667 16.66667 6.66667 20.00000 0.00000 c 20.00000 10.00000 m 20.00000 20.00000 30.00000 20.00000 30.00000 10.00000 c h"},
-		{"L10 0M20 0L30 0", "0 0 m 10.00000 0.00000 l 20.00000 0.00000 m 30.00000 0.00000 l"},
+		{"L10 0Q15 10 20 0M20 10C20 20 30 20 30 10z", "0 0 m 10 0 l 13.333333 6.6666667 16.666667 6.6666667 20 0 c 20 10 m 20 20 30 20 30 10 c h"},
+		{"L10 0M20 0L30 0", "0 0 m 10 0 l 20 0 m 30 0 l"},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p := MustParseSVG(tt.orig)
-			test.T(t, p.ToPDF(), tt.ps)
+			test.T(t, MustParseSVG(tt.orig).ToPDF(), tt.ps)
 		})
 	}
 }

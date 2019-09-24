@@ -714,19 +714,25 @@ func (p *Path) Replace(
 					q.d = q.d[3:]
 				}
 			}
-			for j := 0; j < len(q.d); {
-				cmd := q.d[j]
-				if cmd == moveToCmd {
-					p.i0 = i + j
-				}
-				j += cmdLen(cmd)
-			}
 			p.d = append(p.d[:i:i], append(q.d, p.d[i+cmdLen(cmd):]...)...)
 			i += len(q.d)
 		} else {
 			i += cmdLen(cmd)
 		}
 		start = Point{p.d[i-2], p.d[i-1]}
+	}
+
+	// repair i0 and close positions
+	start = Point{}
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		if cmd == moveToCmd {
+			start = Point{p.d[i+1], p.d[i+2]}
+			p.i0 = i
+		} else if cmd == closeCmd {
+			p.d[i+1], p.d[i+2] = start.X, start.Y
+		}
+		i += cmdLen(cmd)
 	}
 	return p
 }
@@ -1398,13 +1404,13 @@ func (p *Path) String() string {
 		cmd := p.d[i]
 		switch cmd {
 		case moveToCmd:
-			fmt.Fprintf(&sb, "M%.5g %.5g", p.d[i+1], p.d[i+2])
+			fmt.Fprintf(&sb, "M%g %g", p.d[i+1], p.d[i+2])
 		case lineToCmd:
-			fmt.Fprintf(&sb, "L%.5g %.5g", p.d[i+1], p.d[i+2])
+			fmt.Fprintf(&sb, "L%g %g", p.d[i+1], p.d[i+2])
 		case quadToCmd:
-			fmt.Fprintf(&sb, "Q%.5g %.5g %.5g %.5g", p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4])
+			fmt.Fprintf(&sb, "Q%g %g %g %g", p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4])
 		case cubeToCmd:
-			fmt.Fprintf(&sb, "C%.5g %.5g %.5g %.5g %.5g %.5g", p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4], p.d[i+5], p.d[i+6])
+			fmt.Fprintf(&sb, "C%g %g %g %g %g %g", p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4], p.d[i+5], p.d[i+6])
 		case arcToCmd:
 			rot := p.d[i+3] * 180.0 / math.Pi
 			largeArc, sweep := fromArcFlags(p.d[i+4])
@@ -1416,7 +1422,7 @@ func (p *Path) String() string {
 			if sweep {
 				sSweep = "1"
 			}
-			fmt.Fprintf(&sb, "A%.5g %.5g %.5g %s %s %.5g %.5g", p.d[i+1], p.d[i+2], rot, sLargeArc, sSweep, p.d[i+5], p.d[i+6])
+			fmt.Fprintf(&sb, "A%g %g %g %s %s %g %g", p.d[i+1], p.d[i+2], rot, sLargeArc, sSweep, p.d[i+5], p.d[i+6])
 		case closeCmd:
 			fmt.Fprintf(&sb, "z")
 		}
@@ -1437,25 +1443,25 @@ func (p *Path) ToSVG() string {
 		switch cmd {
 		case moveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
-			fmt.Fprintf(&sb, "M%.5g %.5g", x, y)
+			fmt.Fprintf(&sb, "M%v %v", dec(x), dec(y))
 		case lineToCmd:
 			xStart, yStart := x, y
 			x, y = p.d[i+1], p.d[i+2]
 			if equal(x, xStart) && equal(y, yStart) {
 				// nothing
 			} else if equal(x, xStart) {
-				fmt.Fprintf(&sb, "V%.5g", y)
+				fmt.Fprintf(&sb, "V%v", dec(y))
 			} else if equal(y, yStart) {
-				fmt.Fprintf(&sb, "H%.5g", x)
+				fmt.Fprintf(&sb, "H%v", dec(x))
 			} else {
-				fmt.Fprintf(&sb, "L%.5g %.5g", x, y)
+				fmt.Fprintf(&sb, "L%v %v", dec(x), dec(y))
 			}
 		case quadToCmd:
 			x, y = p.d[i+3], p.d[i+4]
-			fmt.Fprintf(&sb, "Q%.5g %.5g %.5g %.5g", p.d[i+1], p.d[i+2], x, y)
+			fmt.Fprintf(&sb, "Q%v %v %v %v", dec(p.d[i+1]), dec(p.d[i+2]), dec(x), dec(y))
 		case cubeToCmd:
 			x, y = p.d[i+5], p.d[i+6]
-			fmt.Fprintf(&sb, "C%.5g %.5g %.5g %.5g %.5g %.5g", p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4], x, y)
+			fmt.Fprintf(&sb, "C%v %v %v %v %v %v", dec(p.d[i+1]), dec(p.d[i+2]), dec(p.d[i+3]), dec(p.d[i+4]), dec(x), dec(y))
 		case arcToCmd:
 			rx, ry := p.d[i+1], p.d[i+2]
 			rot := p.d[i+3] * 180.0 / math.Pi
@@ -1473,7 +1479,7 @@ func (p *Path) ToSVG() string {
 				rx, ry = ry, rx
 				rot -= 90.0
 			}
-			fmt.Fprintf(&sb, "A%.5g %.5g %.5g %s %s %.5g %.5g", rx, ry, rot, sLargeArc, sSweep, p.d[i+5], p.d[i+6])
+			fmt.Fprintf(&sb, "A%v %v %v %s %s %v %v", dec(rx), dec(ry), dec(rot), sLargeArc, sSweep, dec(p.d[i+5]), dec(p.d[i+6]))
 		case closeCmd:
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, "z")
@@ -1503,10 +1509,10 @@ func (p *Path) ToPS() string {
 		switch cmd {
 		case moveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
-			fmt.Fprintf(&sb, " %.5f %.5f moveto", x, y)
+			fmt.Fprintf(&sb, " %v %v moveto", num(x), num(y))
 		case lineToCmd:
 			x, y = p.d[i+1], p.d[i+2]
-			fmt.Fprintf(&sb, " %.5f %.5f lineto", x, y)
+			fmt.Fprintf(&sb, " %v %v lineto", num(x), num(y))
 		case quadToCmd, cubeToCmd:
 			var start, cp1, cp2 Point
 			start = Point{x, y}
@@ -1518,7 +1524,7 @@ func (p *Path) ToPS() string {
 				cp2 = Point{p.d[i+3], p.d[i+4]}
 				x, y = p.d[i+5], p.d[i+6]
 			}
-			fmt.Fprintf(&sb, " %.5f %.5f %.5f %.5f %.5f %.5f curveto", cp1.X, cp1.Y, cp2.X, cp2.Y, x, y)
+			fmt.Fprintf(&sb, " %v %v %v %v %v %v curveto", num(cp1.X), num(cp1.Y), num(cp2.X), num(cp2.Y), num(x), num(y))
 		case arcToCmd:
 			x0, y0 := x, y
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
@@ -1532,12 +1538,12 @@ func (p *Path) ToPS() string {
 			isEllipse := !equal(rx, ry)
 
 			if !equal(rot, 0.0) {
-				fmt.Fprintf(&sb, " %.5f %.5f translate %.5f rotate %.5f %.5f translate", cx, cy, rot, -cx, -cy)
+				fmt.Fprintf(&sb, " %v %v translate %v rotate %v %v translate", num(cx), num(cy), num(rot), num(-cx), num(-cy))
 			}
 			if isEllipse {
-				fmt.Fprintf(&sb, " %.5f %.5f %.5f %.5f %.5f %.5f ellipse", cx, cy, rx, ry, theta0, theta1)
+				fmt.Fprintf(&sb, " %v %v %v %v %v %v ellipse", num(cx), num(cy), num(rx), num(ry), num(theta0), num(theta1))
 			} else {
-				fmt.Fprintf(&sb, " %.5f %.5f %.5f %.5f %.5f arc", cx, cy, rx, theta0, theta1)
+				fmt.Fprintf(&sb, " %v %v %v %v %v arc", num(cx), num(cy), num(rx), num(theta0), num(theta1))
 			}
 			if !sweep {
 				fmt.Fprintf(&sb, "n")
@@ -1573,10 +1579,10 @@ func (p *Path) ToPDF() string {
 		switch cmd {
 		case moveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
-			fmt.Fprintf(&sb, " %.5f %.5f m", x, y)
+			fmt.Fprintf(&sb, " %v %v m", num(x), num(y))
 		case lineToCmd:
 			x, y = p.d[i+1], p.d[i+2]
-			fmt.Fprintf(&sb, " %.5f %.5f l", x, y)
+			fmt.Fprintf(&sb, " %v %v l", num(x), num(y))
 		case quadToCmd, cubeToCmd:
 			var start, cp1, cp2 Point
 			start = Point{x, y}
@@ -1588,7 +1594,7 @@ func (p *Path) ToPDF() string {
 				cp2 = Point{p.d[i+3], p.d[i+4]}
 				x, y = p.d[i+5], p.d[i+6]
 			}
-			fmt.Fprintf(&sb, " %.5f %.5f %.5f %.5f %.5f %.5f c", cp1.X, cp1.Y, cp2.X, cp2.Y, x, y)
+			fmt.Fprintf(&sb, " %v %v %v %v %v %v c", num(cp1.X), num(cp1.Y), num(cp2.X), num(cp2.Y), num(x), num(y))
 		case arcToCmd:
 			panic("arcs should have been replaced")
 		case closeCmd:

@@ -7,11 +7,15 @@ import (
 	"math"
 	"strings"
 
+	"github.com/tdewolff/minify"
 	"golang.org/x/image/math/fixed"
 )
 
 // Epsilon is the smallest number below which we assume the value to be zero. This is to avoid numerical floating point issues.
 var Epsilon = 1e-10
+
+// Precision is the number of significant digits at which floating point value will be printed to output formats.
+var Precision = 8
 
 // equal returns true if a and b are equal with tolerance Epsilon.
 func equal(a, b float64) bool {
@@ -40,7 +44,23 @@ func angleBetween(theta, lower, upper float64) bool {
 
 ////////////////////////////////////////////////////////////////
 
-func toCSSColor(color color.RGBA) string {
+type num float64
+
+func (f num) String() string {
+	s := fmt.Sprintf("%.*g", Precision, f)
+	return string(minify.Number([]byte(s), Precision))
+}
+
+type dec float64
+
+func (f dec) String() string {
+	s := fmt.Sprintf("%.*g", Precision, f)
+	return string(minify.Decimal([]byte(s), Precision))
+}
+
+type cssColor color.RGBA
+
+func (color cssColor) String() string {
 	if color.A == 255 {
 		buf := make([]byte, 7)
 		buf[0] = '#'
@@ -55,7 +75,7 @@ func toCSSColor(color color.RGBA) string {
 		return "rgba(0,0,0,0)"
 	}
 	a := float64(color.A) / 255.0
-	return fmt.Sprintf("rgba(%d,%d,%d,%.5g)", int(float64(color.R)/a), int(float64(color.G)/a), int(float64(color.B)/a), a)
+	return fmt.Sprintf("rgba(%d,%d,%d,%v)", int(float64(color.R)/a), int(float64(color.G)/a), int(float64(color.B)/a), dec(a))
 }
 
 ////////////////////////////////////////////////////////////////
@@ -444,16 +464,16 @@ func (m Matrix) ToSVG(h float64) string {
 
 	s := &strings.Builder{}
 	if !equal(m[0][2], 0.0) || !equal(m[1][2], 0.0) {
-		fmt.Fprintf(s, " translate(%.5g,%.5g)", tx, h-ty)
+		fmt.Fprintf(s, " translate(%v,%v)", dec(tx), dec(h-ty))
 	}
 	if !equal(theta, 0.0) {
-		fmt.Fprintf(s, " rotate(%.5g)", theta)
+		fmt.Fprintf(s, " rotate(%v)", dec(theta))
 	}
 	if !equal(sx, 1.0) || !equal(sy, 1.0) {
-		fmt.Fprintf(s, " scale(%.5g,%.5g)", sx, sy)
+		fmt.Fprintf(s, " scale(%v,%v)", dec(sx), dec(sy))
 	}
 	if !equal(phi, 0.0) {
-		fmt.Fprintf(s, " rotate(%.5g)", phi)
+		fmt.Fprintf(s, " rotate(%v)", dec(phi))
 	}
 
 	if s.Len() == 0 {

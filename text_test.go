@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/tdewolff/test"
@@ -144,7 +145,7 @@ func TestRichText(t *testing.T) {
 	test.T(t, len(text.lines), 1)
 }
 
-func TestTextLineHeights(t *testing.T) {
+func TestTextBounds(t *testing.T) {
 	family := NewFontFamily("dejavu-serif")
 	family.LoadFontFile("./test/DejaVuSerif.ttf", FontRegular)
 	face8 := family.Face(8.0*ptPerMm, Black, FontRegular, FontNormal, FontUnderline)
@@ -160,4 +161,36 @@ func TestTextLineHeights(t *testing.T) {
 	test.Float(t, ascent, 11.140625)
 	test.Float(t, descent, 2.828125)
 	test.Float(t, bottom, 2.828125)
+
+	test.Float(t, text.Height(), face12.Metrics().LineHeight)
+
+	bounds := text.Bounds()
+	test.Float(t, bounds.X, 0.0)
+	test.Float(t, bounds.Y, -13.390625)
+	test.Float(t, bounds.W, face8.TextWidth("test")+face12.TextWidth("test"))
+	test.Float(t, bounds.H, 10.40625)
+}
+
+func TestTextWriteSVG(t *testing.T) {
+	dejaVuSerif := NewFontFamily("dejavu-serif")
+	dejaVuSerif.LoadFontFile("./test/DejaVuSerif.ttf", FontRegular)
+
+	ebGaramond := NewFontFamily("eb-garamond")
+	ebGaramond.LoadFontFile("./test/EBGaramond12-Regular.otf", FontRegular)
+
+	dejaVu8 := dejaVuSerif.Face(8.0*ptPerMm, Black, FontRegular, FontNormal)
+	dejaVu12 := dejaVuSerif.Face(12.0*ptPerMm, Red, FontItalic, FontNormal, FontUnderline)
+	dejaVu12sub := dejaVuSerif.Face(12.0*ptPerMm, Black, FontRegular, FontSubscript)
+	garamond10 := ebGaramond.Face(10.0*ptPerMm, Black, FontBold, FontNormal)
+
+	rt := NewRichText()
+	rt.Add(dejaVu8, "dejaVu8")
+	rt.Add(dejaVu12, " glyphspacing")
+	rt.Add(dejaVu12sub, " dejaVu12sub")
+	rt.Add(garamond10, " garamond10")
+	text := rt.ToText(dejaVu12.TextWidth("glyphspacing")+float64(len("glyphspacing")-1), 100.0, Justify, Top, 0.0, 0.0)
+
+	buf := &bytes.Buffer{}
+	text.WriteSVG(buf, 0.0, Identity)
+	test.String(t, buf.String(), `<text x="0" y="0" style="font: 12px dejavu-serif"><tspan x="0" y="7.421875" style="font:8px dejavu-serif">dejaVu8</tspan><tspan x="0" y="20.453125" letter-spacing="1" style="font-style:italic;fill:#f00">glyphspacing</tspan><tspan x="0" y="33.725625" style="font:700 6.996px dejavu-serif">dejaVu12sub</tspan><tspan x="0" y="38.5" style="font:700 10px eb-garamond">garamond10</tspan></text><path d="M0 22.703125H91.71875V21.803125H0V22.703125z" fill="#f00"/>`)
 }
