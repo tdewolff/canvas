@@ -180,6 +180,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		// trim left spaces
 		spans[0] = spans[0].TrimLeft()
 		for spans[0].text == "" {
+			// TODO: reachable?
 			if k+1 == len(rt.spans) {
 				break
 			}
@@ -763,11 +764,14 @@ func (span textSpan) Split(width float64) ([]textSpan, bool) {
 	}
 	for i := len(span.boundaries) - 2; i >= 0; i-- {
 		if span.boundaries[i].pos == 0 {
-			return []textSpan{span}, false
+			return []textSpan{span}, false // TODO: reachable?
 		}
 
 		span0, span1 := span.split(i)
 		if span0.width <= width {
+			if span1.width == 0.0 {
+				return []textSpan{span0}, true
+			}
 			return []textSpan{span0, span1}, true
 		}
 	}
