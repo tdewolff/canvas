@@ -8,7 +8,7 @@ import (
 
 func TestFontFamily(t *testing.T) {
 	family := NewFontFamily("dejavu-serif")
-	family.LoadFontFile("./test/DejaVuSerif.ttf", FontRegular)
+	family.LoadFontFile("test/DejaVuSerif.ttf", FontRegular)
 
 	face := family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal)
 	test.Float(t, face.fauxBold, 0.0)
@@ -28,7 +28,7 @@ func TestFontFamily(t *testing.T) {
 
 func TestFontFace(t *testing.T) {
 	family := NewFontFamily("dejavu-serif")
-	family.LoadFontFile("./test/DejaVuSerif.ttf", FontRegular)
+	family.LoadFontFile("test/DejaVuSerif.ttf", FontRegular)
 	face := family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal)
 
 	metrics := face.Metrics()
@@ -52,7 +52,7 @@ func TestFontFace(t *testing.T) {
 
 func TestFontDecoration(t *testing.T) {
 	family := NewFontFamily("dejavu-serif")
-	family.LoadFontFile("./test/DejaVuSerif.ttf", FontRegular)
+	family.LoadFontFile("test/DejaVuSerif.ttf", FontRegular)
 
 	face := family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal, FontUnderline)
 	test.T(t, face.Decorate(10.0), MustParseSVG("M0 -2.25L10 -2.25L10 -1.35L0 -1.35L0 -2.25z"))

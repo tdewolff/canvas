@@ -132,7 +132,7 @@ func (c *Canvas) DrawImage(x, y float64, img image.Image, enc ImageEncoding, dpm
 	if img.Bounds().Size().Eq(image.Point{}) {
 		return
 	}
-	m := Identity.Mul(c.m).Translate(x, y).Scale(1/dpm, 1/dpm)
+	m := Identity.Translate(x, y).Mul(c.m).Scale(1/dpm, 1/dpm)
 	c.layers = append(c.layers, imageLayer{img, enc, m})
 }
 
