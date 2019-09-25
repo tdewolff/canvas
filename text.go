@@ -536,7 +536,7 @@ func (t *Text) WriteSVG(w io.Writer, h float64, m Matrix) {
 				fmt.Fprintf(buf, ` small-caps`)
 			}
 
-			fmt.Fprintf(buf, ` %vpx %s`, dec(ff.size*ff.scale), ff.font.name)
+			fmt.Fprintf(buf, ` %vpx %s`, num(ff.size*ff.scale), ff.font.name)
 			buf.ReadByte()
 			buf.WriteTo(w)
 
@@ -571,7 +571,7 @@ func (t *Text) WriteSVG(w io.Writer, h float64, m Matrix) {
 	if m.IsTranslation() {
 		x0, y0 = m.Pos()
 		y0 = h - y0
-		fmt.Fprintf(w, `<text x="%v" y="%v`, dec(x0), dec(y0))
+		fmt.Fprintf(w, `<text x="%v" y="%v`, num(x0), num(y0))
 	} else {
 		fmt.Fprintf(w, `<text transform="%s`, m.ToSVG(h))
 	}
@@ -585,7 +585,7 @@ func (t *Text) WriteSVG(w io.Writer, h float64, m Matrix) {
 	if ffMain.variant&FontSmallcaps != 0 {
 		fmt.Fprintf(w, ` small-caps`)
 	}
-	fmt.Fprintf(w, ` %vpx %s`, dec(ffMain.size*ffMain.scale), ffMain.font.name)
+	fmt.Fprintf(w, ` %vpx %s`, num(ffMain.size*ffMain.scale), ffMain.font.name)
 	if ffMain.color != Black {
 		fmt.Fprintf(w, `;fill:%v`, cssColor(ffMain.color))
 	}
@@ -594,12 +594,12 @@ func (t *Text) WriteSVG(w io.Writer, h float64, m Matrix) {
 	decorations := []pathLayer{}
 	for _, line := range t.lines {
 		for _, span := range line.spans {
-			fmt.Fprintf(w, `<tspan x="%v" y="%v`, dec(x0+span.dx), dec(y0-line.y-span.ff.voffset))
+			fmt.Fprintf(w, `<tspan x="%v" y="%v`, num(x0+span.dx), num(y0-line.y-span.ff.voffset))
 			if span.wordSpacing > 0.0 {
-				fmt.Fprintf(w, `" word-spacing="%v`, dec(span.wordSpacing))
+				fmt.Fprintf(w, `" word-spacing="%v`, num(span.wordSpacing))
 			}
 			if span.glyphSpacing > 0.0 {
-				fmt.Fprintf(w, `" letter-spacing="%v`, dec(span.glyphSpacing))
+				fmt.Fprintf(w, `" letter-spacing="%v`, num(span.glyphSpacing))
 			}
 			writeStyle(span.ff, ffMain)
 			s := span.text
@@ -631,7 +631,7 @@ func (t *Text) WritePDF(w *pdfPageWriter, m Matrix) {
 
 			if 0.0 < span.ff.fauxBold {
 				w.SetTextRenderMode(2)
-				fmt.Fprintf(w, " %v w", num(span.ff.fauxBold*2.0))
+				fmt.Fprintf(w, " %v w", dec(span.ff.fauxBold*2.0))
 			} else {
 				w.SetTextRenderMode(0)
 			}

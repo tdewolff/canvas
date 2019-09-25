@@ -54,8 +54,15 @@ func (f num) String() string {
 type dec float64
 
 func (f dec) String() string {
-	s := fmt.Sprintf("%.*g", Precision, f)
-	return string(minify.Decimal([]byte(s), Precision))
+	s := fmt.Sprintf("%.*f", Precision, f)
+	n := 0
+	if 1.0 <= f {
+		i := strings.IndexByte(s, '.')
+		if i != -1 {
+			n = i
+		}
+	}
+	return string(minify.Decimal([]byte(s), Precision-n))
 }
 
 type cssColor color.RGBA

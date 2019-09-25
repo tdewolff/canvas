@@ -2,6 +2,7 @@ package canvas
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"io/ioutil"
 	"testing"
@@ -22,7 +23,9 @@ func TestCanvas(t *testing.T) {
 	img.Set(1, 1, Black)
 
 	c := New(100, 100)
-	c.SetView(Identity.Rotate(89).Scale(2.0, 1.0))
+	c.SetView(Identity.Rotate(90).Scale(2.0, 1.0))
+	fmt.Println(path.Transform(Identity.Rotate(90).Scale(2.0, 1.0)))
+	fmt.Println(path.Transform(Identity.Rotate(89).Scale(2.0, 1.0)))
 	c.SetFillColor(Red)
 	c.SetStrokeColor(Gray)
 	c.SetStrokeWidth(1.0)

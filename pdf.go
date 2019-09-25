@@ -83,7 +83,7 @@ func (w *pdfWriter) writeVal(i interface{}) {
 	case int:
 		w.write("%d", v)
 	case float64:
-		w.write("%v", num(v))
+		w.write("%v", dec(v))
 	case string:
 		v = strings.Replace(v, `\`, `\\`, -1)
 		v = strings.Replace(v, `(`, `\(`, -1)
@@ -394,9 +394,9 @@ func (w *pdfPageWriter) SetFillColor(fillColor color.RGBA) {
 	a := float64(fillColor.A) / 255.0
 	if fillColor != w.fillColor {
 		if fillColor.R == fillColor.G && fillColor.R == fillColor.B {
-			fmt.Fprintf(w, " %v g", num(float64(fillColor.R)/255.0/a))
+			fmt.Fprintf(w, " %v g", dec(float64(fillColor.R)/255.0/a))
 		} else {
-			fmt.Fprintf(w, " %v %v %v rg", num(float64(fillColor.R)/255.0/a), num(float64(fillColor.G)/255.0/a), num(float64(fillColor.B)/255.0/a))
+			fmt.Fprintf(w, " %v %v %v rg", dec(float64(fillColor.R)/255.0/a), dec(float64(fillColor.G)/255.0/a), dec(float64(fillColor.B)/255.0/a))
 		}
 		w.fillColor = fillColor
 	}
@@ -407,9 +407,9 @@ func (w *pdfPageWriter) SetStrokeColor(strokeColor color.RGBA) {
 	a := float64(strokeColor.A) / 255.0
 	if strokeColor != w.strokeColor {
 		if strokeColor.R == strokeColor.G && strokeColor.R == strokeColor.B {
-			fmt.Fprintf(w, " %v G", num(float64(strokeColor.R)/255.0/a))
+			fmt.Fprintf(w, " %v G", dec(float64(strokeColor.R)/255.0/a))
 		} else {
-			fmt.Fprintf(w, " %v %v %v RG", num(float64(strokeColor.R)/255.0/a), num(float64(strokeColor.G)/255.0/a), num(float64(strokeColor.B)/255.0/a))
+			fmt.Fprintf(w, " %v %v %v RG", dec(float64(strokeColor.R)/255.0/a), dec(float64(strokeColor.G)/255.0/a), dec(float64(strokeColor.B)/255.0/a))
 		}
 		w.strokeColor = strokeColor
 	}
@@ -418,7 +418,7 @@ func (w *pdfPageWriter) SetStrokeColor(strokeColor color.RGBA) {
 
 func (w *pdfPageWriter) SetLineWidth(lineWidth float64) {
 	if lineWidth != w.lineWidth {
-		fmt.Fprintf(w, " %v w", num(lineWidth))
+		fmt.Fprintf(w, " %v w", dec(lineWidth))
 		w.lineWidth = lineWidth
 	}
 }
@@ -462,7 +462,7 @@ func (w *pdfPageWriter) SetLineJoin(joiner Joiner) {
 		w.lineJoin = lineJoin
 	}
 	if lineJoin == 0 && miterLimit != w.miterLimit {
-		fmt.Fprintf(w, " %v M", num(miterLimit))
+		fmt.Fprintf(w, " %v M", dec(miterLimit))
 		w.miterLimit = miterLimit
 	}
 }
@@ -501,11 +501,11 @@ func (w *pdfPageWriter) SetDashes(dashPhase float64, dashArray []float64) {
 			fmt.Fprintf(w, " [] 0 d")
 			dashes[0] = 0.0
 		} else {
-			fmt.Fprintf(w, " [%v", num(dashes[0]))
+			fmt.Fprintf(w, " [%v", dec(dashes[0]))
 			for _, dash := range dashes[1 : len(dashes)-1] {
-				fmt.Fprintf(w, " %v", num(dash))
+				fmt.Fprintf(w, " %v", dec(dash))
 			}
-			fmt.Fprintf(w, "] %v d", num(dashes[len(dashes)-1]))
+			fmt.Fprintf(w, "] %v d", dec(dashes[len(dashes)-1]))
 		}
 		w.dashes = dashes
 	}
@@ -522,7 +522,7 @@ func (w *pdfPageWriter) SetFont(font *Font, size float64) {
 		} else {
 			for name, fontRef := range w.resources["Font"].(pdfDict) {
 				if ref == fontRef {
-					fmt.Fprintf(w, " /%v %v Tf", name, num(size))
+					fmt.Fprintf(w, " /%v %v Tf", name, dec(size))
 					return
 				}
 			}
@@ -530,7 +530,7 @@ func (w *pdfPageWriter) SetFont(font *Font, size float64) {
 
 		name := pdfName(fmt.Sprintf("F%d", len(w.resources["Font"].(pdfDict))))
 		w.resources["Font"].(pdfDict)[name] = ref
-		fmt.Fprintf(w, " /%v %v Tf", name, num(size))
+		fmt.Fprintf(w, " /%v %v Tf", name, dec(size))
 	}
 }
 
@@ -541,9 +541,9 @@ func (w *pdfPageWriter) SetTextPosition(m Matrix) {
 
 	if equal(m[0][0], w.textPosition[0][0]) && equal(m[0][1], w.textPosition[0][1]) && equal(m[1][0], w.textPosition[1][0]) && equal(m[1][1], w.textPosition[1][1]) {
 		d := w.textPosition.Inv().Dot(Point{m[0][2], m[1][2]})
-		fmt.Fprintf(w, " %v %v Td", num(d.X), num(d.Y))
+		fmt.Fprintf(w, " %v %v Td", dec(d.X), dec(d.Y))
 	} else {
-		fmt.Fprintf(w, " %v %v %v %v %v %v Tm", num(m[0][0]), num(m[1][0]), num(m[0][1]), num(m[1][1]), num(m[0][2]), num(m[1][2]))
+		fmt.Fprintf(w, " %v %v %v %v %v %v Tm", dec(m[0][0]), dec(m[1][0]), dec(m[0][1]), dec(m[1][1]), dec(m[0][2]), dec(m[1][2]))
 	}
 	w.textPosition = m
 }
@@ -557,7 +557,7 @@ func (w *pdfPageWriter) SetTextRenderMode(mode int) {
 
 func (w *pdfPageWriter) SetTextCharSpace(space float64) {
 	if !equal(w.textCharSpace, space) {
-		fmt.Fprintf(w, " %v Tc", num(space))
+		fmt.Fprintf(w, " %v Tc", dec(space))
 		w.textCharSpace = space
 	}
 }
@@ -616,7 +616,7 @@ func (w *pdfPageWriter) DrawImage(img image.Image, enc ImageEncoding, m Matrix) 
 	size := img.Bounds().Size()
 	m = m.Scale(float64(size.X), float64(size.Y))
 	w.SetAlpha(1.0)
-	fmt.Fprintf(w, " q %v %v %v %v %v %v cm /%v Do Q", num(m[0][0]), num(-m[0][1]), num(-m[1][0]), num(m[1][1]), num(m[0][2]), num(m[1][2]), name)
+	fmt.Fprintf(w, " q %v %v %v %v %v %v cm /%v Do Q", dec(m[0][0]), dec(-m[0][1]), dec(-m[1][0]), dec(m[1][1]), dec(m[0][2]), dec(m[1][2]), name)
 }
 
 func (w *pdfPageWriter) embedImage(img image.Image, enc ImageEncoding) pdfName {
