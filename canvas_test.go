@@ -2,7 +2,6 @@ package canvas
 
 import (
 	"bytes"
-	"fmt"
 	"image"
 	"io/ioutil"
 	"testing"
@@ -24,8 +23,6 @@ func TestCanvas(t *testing.T) {
 
 	c := New(100, 100)
 	c.SetView(Identity.Rotate(90).Scale(2.0, 1.0))
-	fmt.Println(path.Transform(Identity.Rotate(90).Scale(2.0, 1.0)))
-	fmt.Println(path.Transform(Identity.Rotate(89).Scale(2.0, 1.0)))
 	c.SetFillColor(Red)
 	c.SetStrokeColor(Gray)
 	c.SetStrokeWidth(1.0)
@@ -37,7 +34,7 @@ func TestCanvas(t *testing.T) {
 	c.DrawText(30.0, 30.0, text)                // contained between the other two
 	c.DrawImage(50.0, 50.0, img, Lossless, 0.1) // 20x20 => -20x40
 
-	//c.Fit(6.0)
+	c.Fit(6.0)
 	//test.Float(t, c.W, 50.0-2.5+12.0) // img upper bound - path lower bound + margin
 	//test.Float(t, c.H, 110-30+12.0)   // path bounds + margin
 
@@ -53,4 +50,8 @@ func TestCanvas(t *testing.T) {
 	ioutil.WriteFile("test/canvas.pdf", buf.Bytes(), 0644)
 	//s = regexp.MustCompile(`stream\nx(.|\n)+\nendstream\n`).ReplaceAllString(buf.String(), `stream\n\nendstream\n`) // remove embedded font
 	//test.String(t, s, ``)
+
+	buf.Reset()
+	c.WriteEPS(buf)
+	ioutil.WriteFile("test/canvas.eps", buf.Bytes(), 0644)
 }

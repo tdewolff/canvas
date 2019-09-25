@@ -255,7 +255,14 @@ type pathLayer struct {
 }
 
 func (l pathLayer) Bounds() Rect {
-	return l.path.Bounds()
+	bounds := l.path.Bounds()
+	if l.strokeColor.A != 0 && 0.0 < l.strokeWidth {
+		bounds.X -= l.strokeWidth / 2.0
+		bounds.Y -= l.strokeWidth / 2.0
+		bounds.W += l.strokeWidth
+		bounds.H += l.strokeWidth
+	}
+	return bounds
 }
 
 func (l pathLayer) WriteSVG(w io.Writer, h float64) {
