@@ -616,7 +616,7 @@ func (w *pdfPageWriter) DrawImage(img image.Image, enc ImageEncoding, m Matrix) 
 	size := img.Bounds().Size()
 	m = m.Scale(float64(size.X), float64(size.Y))
 	w.SetAlpha(1.0)
-	fmt.Fprintf(w, " q %v %v %v %v %v %v cm /%v Do Q", dec(m[0][0]), dec(-m[0][1]), dec(-m[1][0]), dec(m[1][1]), dec(m[0][2]), dec(m[1][2]), name)
+	fmt.Fprintf(w, " q %v %v %v %v %v %v cm /%v Do Q", dec(m[0][0]), dec(m[1][0]), dec(m[0][1]), dec(m[1][1]), dec(m[0][2]), dec(m[1][2]), name)
 }
 
 func (w *pdfPageWriter) embedImage(img image.Image, enc ImageEncoding) pdfName {
@@ -642,7 +642,7 @@ func (w *pdfPageWriter) embedImage(img image.Image, enc ImageEncoding) pdfName {
 			"Height":           size.Y,
 			"ColorSpace":       pdfName("DeviceRGB"),
 			"BitsPerComponent": 8,
-			"Interpolation":    true,
+			"Interpolate":      true,
 			"Filter":           pdfFilterFlate,
 		},
 		stream: b,
