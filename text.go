@@ -162,106 +162,7 @@ func (rt *RichText) Add(ff FontFace, s string) *RichText {
 	return rt
 }
 
-// ToText takes the added text spans and fits them within a given box of certain width and height.
-func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, indent, lineStretch float64) *Text {
-	if len(rt.spans) == 0 {
-		return &Text{[]line{}, rt.fonts}
-	}
-	spans := []textSpan{rt.spans[0]}
-
-	k := 0 // index into rt.spans and rt.positions
-	lines := []line{}
-	yoverflow := false
-	y, prevLineSpacing := 0.0, 0.0
-	for k < len(rt.spans) {
-		dx := indent
-		indent = 0.0
-
-		// trim left spaces
-		spans[0] = spans[0].TrimLeft()
-		for spans[0].text == "" {
-			// TODO: reachable?
-			if k+1 == len(rt.spans) {
-				break
-			}
-			k++
-			spans = []textSpan{rt.spans[k]}
-			spans[0] = spans[0].TrimLeft()
-		}
-
-		// accumulate line spans for a full line, ie. either split span1 to fit or if it fits retrieve the next span1 and repeat
-		ss := []textSpan{}
-		for {
-			// space or inter-word splitting
-			var ok bool
-			if width == 0.0 {
-				spans, ok = spans[0].Split(0.0)
-			} else {
-				spans, ok = spans[0].Split(width - dx)
-			}
-			if !ok && len(ss) != 0 {
-				// span couln't fit, but we have no choice as it's the only span on the line
-				break
-			}
-
-			newline := 1 < len(spans[0].boundaries) && spans[0].boundaries[len(spans[0].boundaries)-2].kind == lineBoundary
-			if newline {
-				spans[0], _ = spans[0].split(len(spans[0].boundaries) - 2)
-			}
-
-			spans[0].dx = dx
-			ss = append(ss, spans[0])
-			dx += spans[0].width
-
-			spans = spans[1:]
-			if len(spans) == 0 {
-				k++
-				if k == len(rt.spans) {
-					break
-				}
-				spans = []textSpan{rt.spans[k]}
-			} else {
-				break // span couldn't fully fit, we have a full line
-			}
-			if newline {
-				break
-			}
-		}
-
-		// trim right spaces
-		for 0 < len(ss) {
-			ss[len(ss)-1] = ss[len(ss)-1].TrimRight()
-			if 1 < len(ss) && ss[len(ss)-1].text == "" {
-				ss = ss[:len(ss)-1]
-			} else {
-				break
-			}
-		}
-
-		l := line{ss, []decoSpan{}, 0.0}
-		top, ascent, descent, bottom := l.Heights()
-		lineSpacing := math.Max(top-ascent, prevLineSpacing)
-		if len(lines) != 0 {
-			y -= lineSpacing * (1.0 + lineStretch)
-			y -= ascent * lineStretch
-		}
-		y -= ascent
-		l.y = y
-		y -= descent * (1.0 + lineStretch)
-		prevLineSpacing = bottom - descent
-
-		if height != 0.0 && y < -height {
-			yoverflow = true
-			break
-		}
-		lines = append(lines, l)
-	}
-
-	if len(lines) == 0 {
-		return &Text{lines, rt.fonts}
-	}
-
-	// apply horizontal alignment
+func (rt *RichText) halign(lines []line, yoverflow bool, width float64, halign TextAlign) {
 	if halign == Right || halign == Center {
 		for _, l := range lines {
 			firstSpan := l.spans[0]
@@ -362,10 +263,10 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			}
 		}
 	}
+}
 
-	// apply vertical alignment
+func (rt *RichText) valign(lines []line, h, height float64, valign TextAlign) {
 	dy := 0.0
-	h := -y
 	extraLineSpacing := 0.0
 	if height != 0.0 && (valign == Bottom || valign == Center || valign == Justify) {
 		if valign == Bottom {
@@ -379,8 +280,9 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	for j := range lines {
 		lines[j].y -= dy + float64(j)*extraLineSpacing
 	}
+}
 
-	// set decorations
+func (rt *RichText) decorate(lines []line) {
 	for j, line := range lines {
 		ff := FontFace{}
 		x0, x1 := 0.0, 0.0
@@ -401,6 +303,116 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			lines[j].decos = append(lines[j].decos, decoSpan{ff, x0, x1})
 		}
 	}
+}
+
+// ToText takes the added text spans and fits them within a given box of certain width and height.
+func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, indent, lineStretch float64) *Text {
+	if len(rt.spans) == 0 {
+		return &Text{[]line{}, rt.fonts}
+	}
+	spans := []textSpan{rt.spans[0]}
+
+	k := 0 // index into rt.spans and rt.positions
+	lines := []line{}
+	yoverflow := false
+	y, prevLineSpacing := 0.0, 0.0
+	for k < len(rt.spans) {
+		dx := indent
+		indent = 0.0
+
+		// trim left spaces
+		spans[0] = spans[0].TrimLeft()
+		for spans[0].text == "" {
+			// TODO: reachable?
+			if k+1 == len(rt.spans) {
+				break
+			}
+			k++
+			spans = []textSpan{rt.spans[k]}
+			spans[0] = spans[0].TrimLeft()
+		}
+
+		// accumulate line spans for a full line, ie. either split span1 to fit or if it fits retrieve the next span1 and repeat
+		ss := []textSpan{}
+		for {
+			// space or inter-word splitting
+			var ok bool
+			if width == 0.0 {
+				spans, ok = spans[0].Split(0.0)
+			} else {
+				spans, ok = spans[0].Split(width - dx)
+			}
+			if !ok && len(ss) != 0 {
+				// span couln't fit, but we have no choice as it's the only span on the line
+				break
+			}
+
+			newline := 1 < len(spans[0].boundaries) && spans[0].boundaries[len(spans[0].boundaries)-2].kind == lineBoundary
+			if newline {
+				spans[0], _ = spans[0].split(len(spans[0].boundaries) - 2)
+			}
+
+			spans[0].dx = dx
+			ss = append(ss, spans[0])
+			dx += spans[0].width
+
+			spans = spans[1:]
+			if len(spans) == 0 {
+				k++
+				if k == len(rt.spans) {
+					break
+				}
+				spans = []textSpan{rt.spans[k]}
+			} else {
+				break // span couldn't fully fit, we have a full line
+			}
+			if newline {
+				break
+			}
+		}
+
+		// trim right spaces
+		for 0 < len(ss) {
+			ss[len(ss)-1] = ss[len(ss)-1].TrimRight()
+			if 1 < len(ss) && ss[len(ss)-1].text == "" {
+				ss = ss[:len(ss)-1]
+			} else {
+				break
+			}
+		}
+
+		l := line{ss, []decoSpan{}, 0.0}
+		top, ascent, descent, bottom := l.Heights()
+		lineSpacing := math.Max(top-ascent, prevLineSpacing)
+		if len(lines) != 0 {
+			y -= lineSpacing * (1.0 + lineStretch)
+			y -= ascent * lineStretch
+		}
+		y -= ascent
+		l.y = y
+		y -= descent * (1.0 + lineStretch)
+		prevLineSpacing = bottom - descent
+
+		if height != 0.0 && y < -height {
+			yoverflow = true
+			break
+		}
+		lines = append(lines, l)
+	}
+
+	if len(lines) == 0 {
+		return &Text{lines, rt.fonts}
+	}
+
+	// apply horizontal alignment
+	rt.halign(lines, yoverflow, width, halign)
+
+	// apply vertical alignment
+	rt.valign(lines, -y, height, valign)
+
+	// set decorations
+	rt.decorate(lines)
+
 	return &Text{lines, rt.fonts}
 }
 
@@ -499,70 +511,70 @@ func (t *Text) ToPaths() ([]*Path, []color.RGBA) {
 	return paths, colors
 }
 
+func (t *Text) writeSVGFontStyle(w io.Writer, ff, ffMain FontFace) {
+	boldness := ff.boldness()
+	differences := 0
+	if ff.style&FontItalic != ffMain.style&FontItalic {
+		differences++
+	}
+	if boldness != ffMain.boldness() {
+		differences++
+	}
+	if ff.variant&FontSmallcaps != ffMain.variant&FontSmallcaps {
+		differences++
+	}
+	if ff.color != ffMain.color {
+		differences++
+	}
+	if ff.font.name != ffMain.font.name || ff.size*ff.scale != ffMain.size || differences == 3 {
+		fmt.Fprintf(w, `" style="font:`)
+
+		buf := &bytes.Buffer{}
+		if ff.style&FontItalic != ffMain.style&FontItalic {
+			fmt.Fprintf(buf, ` italic`)
+		}
+
+		if boldness != ffMain.boldness() {
+			fmt.Fprintf(buf, ` %d`, boldness)
+		}
+
+		if ff.variant&FontSmallcaps != ffMain.variant&FontSmallcaps {
+			fmt.Fprintf(buf, ` small-caps`)
+		}
+
+		fmt.Fprintf(buf, ` %vpx %s`, num(ff.size*ff.scale), ff.font.name)
+		buf.ReadByte()
+		buf.WriteTo(w)
+
+		if ff.color != ffMain.color {
+			fmt.Fprintf(w, `;fill:%v`, cssColor(ff.color))
+		}
+	} else if differences == 1 && ff.color != ffMain.color {
+		fmt.Fprintf(w, `" fill="%v`, cssColor(ff.color))
+	} else if 0 < differences {
+		fmt.Fprintf(w, `" style="`)
+		buf := &bytes.Buffer{}
+		if ff.style&FontItalic != ffMain.style&FontItalic {
+			fmt.Fprintf(buf, `;font-style:italic`)
+		}
+		if boldness != ffMain.boldness() {
+			fmt.Fprintf(buf, `;font-weight:%d`, boldness)
+		}
+		if ff.variant&FontSmallcaps != ffMain.variant&FontSmallcaps {
+			fmt.Fprintf(buf, `;font-variant:small-caps`)
+		}
+		if ff.color != ffMain.color {
+			fmt.Fprintf(buf, `;fill:%v`, cssColor(ff.color))
+		}
+		buf.ReadByte()
+		buf.WriteTo(w)
+	}
+}
+
 // WriteSVG will write out the text in the SVG file format.
 func (t *Text) WriteSVG(w io.Writer, h float64, m Matrix) {
 	if len(t.lines) == 0 || len(t.lines[0].spans) == 0 {
 		return
-	}
-
-	writeStyle := func(ff, ffMain FontFace) {
-		boldness := ff.boldness()
-		differences := 0
-		if ff.style&FontItalic != ffMain.style&FontItalic {
-			differences++
-		}
-		if boldness != ffMain.boldness() {
-			differences++
-		}
-		if ff.variant&FontSmallcaps != ffMain.variant&FontSmallcaps {
-			differences++
-		}
-		if ff.color != ffMain.color {
-			differences++
-		}
-		if ff.font.name != ffMain.font.name || ff.size*ff.scale != ffMain.size || differences == 3 {
-			fmt.Fprintf(w, `" style="font:`)
-
-			buf := &bytes.Buffer{}
-			if ff.style&FontItalic != ffMain.style&FontItalic {
-				fmt.Fprintf(buf, ` italic`)
-			}
-
-			if boldness != ffMain.boldness() {
-				fmt.Fprintf(buf, ` %d`, boldness)
-			}
-
-			if ff.variant&FontSmallcaps != ffMain.variant&FontSmallcaps {
-				fmt.Fprintf(buf, ` small-caps`)
-			}
-
-			fmt.Fprintf(buf, ` %vpx %s`, num(ff.size*ff.scale), ff.font.name)
-			buf.ReadByte()
-			buf.WriteTo(w)
-
-			if ff.color != ffMain.color {
-				fmt.Fprintf(w, `;fill:%v`, cssColor(ff.color))
-			}
-		} else if differences == 1 && ff.color != ffMain.color {
-			fmt.Fprintf(w, `" fill="%v`, cssColor(ff.color))
-		} else if 0 < differences {
-			fmt.Fprintf(w, `" style="`)
-			buf := &bytes.Buffer{}
-			if ff.style&FontItalic != ffMain.style&FontItalic {
-				fmt.Fprintf(buf, `;font-style:italic`)
-			}
-			if boldness != ffMain.boldness() {
-				fmt.Fprintf(buf, `;font-weight:%d`, boldness)
-			}
-			if ff.variant&FontSmallcaps != ffMain.variant&FontSmallcaps {
-				fmt.Fprintf(buf, `;font-variant:small-caps`)
-			}
-			if ff.color != ffMain.color {
-				fmt.Fprintf(buf, `;fill:%v`, cssColor(ff.color))
-			}
-			buf.ReadByte()
-			buf.WriteTo(w)
-		}
 	}
 
 	ffMain := t.mostCommonFontFace()
@@ -601,7 +613,7 @@ func (t *Text) WriteSVG(w io.Writer, h float64, m Matrix) {
 			if span.glyphSpacing > 0.0 {
 				fmt.Fprintf(w, `" letter-spacing="%v`, num(span.glyphSpacing))
 			}
-			writeStyle(span.ff, ffMain)
+			t.writeSVGFontStyle(w, span.ff, ffMain)
 			s := span.text
 			s = strings.ReplaceAll(s, `"`, `&quot;`)
 			fmt.Fprintf(w, `">%s</tspan>`, s)
