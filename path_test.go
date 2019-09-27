@@ -542,8 +542,8 @@ func TestPathToPS(t *testing.T) {
 		{"", ""},
 		{"L10 0Q15 10 20 0M20 10C20 20 30 20 30 10z", "0 0 moveto 10 0 lineto 13.333333 6.6666667 16.666667 6.6666667 20 0 curveto 20 10 moveto 20 20 30 20 30 10 curveto closepath"},
 		{"L10 0M20 0L30 0", "0 0 moveto 10 0 lineto 20 0 moveto 30 0 lineto"},
-		{"A5 5 0 0 1 10 0", "0 0 moveto 5 0 5 180 360 arc"},
-		{"A10 5 90 0 0 10 0", "0 0 moveto 5 0 translate 90 rotate -5 0 translate 5 0 10 5 90 -90 ellipsen initmatrix"},
+		{"A5 5 0 0 1 10 0", "0 0 moveto 5 0 5 5 180 360 0 ellipse"},
+		{"A10 5 90 0 0 10 0", "0 0 moveto 5 0 10 5 90 -90 90 ellipsen"},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
