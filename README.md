@@ -248,7 +248,7 @@ Where the provided string gets inserted into the following document template:
 
 
 ## Example
-See https://github.com/tdewolff/canvas/tree/master/example for a working examples.
+See https://github.com/tdewolff/canvas/tree/master/examples for a working examples.
 
 ## License
 Released under the [MIT license](LICENSE.md).
