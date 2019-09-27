@@ -128,7 +128,7 @@ func (family *FontFamily) Face(size float64, col color.Color, style FontStyle, v
 		}
 	}
 
-	// TODO: take info from SFNT OS/2 table
+	// TODO: use subscript/superscript size info from SFNT OS/2 table
 	if variant&FontSubscript != 0 || variant&FontSuperscript != 0 {
 		scale = 0.583
 		fauxBold += 0.02

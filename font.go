@@ -204,6 +204,7 @@ func (f *Font) substituteLigatures(s string) string {
 }
 
 func (f *Font) substituteTypography(s string, inSingleQuote, inDoubleQuote bool) (string, bool, bool) {
+	// TODO: typography substitution should maybe not be part of this package (or of Font)
 	if f.typography {
 		var rPrev, r rune
 		var i, size int
@@ -309,7 +310,7 @@ func parseSFNT(b []byte) (string, *sfnt.Font, error) {
 	} else if tag == "OTTO" {
 		mimetype = "font/opentype"
 	} else {
-		// TODO: support EOT?
+		// TODO: support EOT font format?
 		return "", nil, fmt.Errorf("unrecognized font file format")
 	}
 
@@ -411,7 +412,7 @@ func parseWOFF(b []byte) ([]byte, error) {
 			data = buf.Bytes()
 		}
 
-		// TODO: check checksum
+		// TODO: (WOFF) check checksum
 
 		if len(data) != int(table.origLength) {
 			panic("font data size mismatch")
@@ -545,7 +546,7 @@ func parseWOFF(b []byte) ([]byte, error) {
 //	sfntOffset := uint32(12 + 16*int(numTables))
 //	for _, table := range tables {
 //		out.push32(table.tag)
-//		out.push32(0) // TODO: checksum
+//		out.push32(0) // TODO: (WOFF2) checksum
 //		out.push32(sfntOffset)
 //		out.push32(table.origLength)
 //	}
@@ -563,21 +564,21 @@ func parseWOFF(b []byte) ([]byte, error) {
 //		case "glyf":
 //			if table.transformVersion == 0 {
 //				panic("WOFF2 transformed glyf table not supported")
-//				// TODO: see https://www.w3.org/TR/WOFF2/#glyf_table_format
+//				// TODO: (WOFF2) see https://www.w3.org/TR/WOFF2/#glyf_table_format
 //			} else if table.transformVersion != 3 {
 //				panic("WOFF2 unknown transformation of glyf table")
 //			}
 //		case "loca":
 //			if table.transformVersion == 0 {
 //				panic("WOFF2 transformed loca table not supported")
-//				// TODO
+//				// TODO: (WOFF2)
 //			} else if table.transformVersion != 3 {
 //				panic("WOFF2 unknown transformation of loca table")
 //			}
 //		case "hmtx":
 //			if table.transformVersion == 1 {
 //				panic("WOFF2 transformed hmtx table not supported")
-//				// TODO
+//				// TODO: (WOFF2)
 //			} else if table.transformVersion != 0 {
 //				panic("WOFF2 unknown transformation of hmtx table")
 //			}

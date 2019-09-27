@@ -4,7 +4,7 @@ import (
 	"math"
 )
 
-// NOTE: implementation mostly taken from github.com/golang/freetype/raster/stroke.go
+// NOTE: implementation inspired from github.com/golang/freetype/raster/stroke.go
 
 // Capper implements Cap, with rhs the path to append to, halfWidth the half width of the stroke,
 // pivot the pivot point around which to construct a cap, and n0 the normal at the start of the path.
@@ -443,7 +443,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 		}
 	}
 
-	// TODO: split at intersections and filter out overlapped parts
+	// TODO: (stroke) split at intersections and filter out overlapped parts
 
 	if closed {
 		rhs.Close()

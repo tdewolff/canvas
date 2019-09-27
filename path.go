@@ -894,7 +894,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 				if j == len(ts) {
 					q.CubeTo(cp1.X, cp1.Y, cp2.X, cp2.Y, end.X, end.Y)
 				} else {
-					// TODO: handle inflection points (not sure if really needed)
+					// TODO: handle inflection points when splitting cubic bezier? unsure if it improves precision, needs testing
 					speed := func(t float64) float64 {
 						return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
 					}
@@ -972,7 +972,6 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 //}
 //
 //func (p *Path) SplitAtIntersections(q *Path) ([]*Path, []*Path) {
-//	panic("not implemented") // TODO: implement intersections
 //	selfIntersect := p == q
 //	ps := []*Path{}
 //	qs := []*Path{}
@@ -1490,8 +1489,6 @@ func (p *Path) ToSVG() string {
 }
 
 // ToPS returns a string that represents the path in the PostScript data format.
-// TODO: print numbers with maximum number of digits 5, not minimum decimals 5
-// TODO: must we closepath every subpath? Path may be used as stroke for example.
 func (p *Path) ToPS() string {
 	if p.Empty() {
 		return ""
@@ -1499,7 +1496,6 @@ func (p *Path) ToPS() string {
 
 	sb := strings.Builder{}
 	if 0 < len(p.d) && p.d[0] != moveToCmd {
-		// TODO: check if subpath need to start with moveto, or continue from previous close position
 		fmt.Fprintf(&sb, " 0 0 moveto")
 	}
 
@@ -1535,21 +1531,10 @@ func (p *Path) ToPS() string {
 			theta0 = theta0 * 180.0 / math.Pi
 			theta1 = theta1 * 180.0 / math.Pi
 			rot := phi * 180.0 / math.Pi
-			isEllipse := !equal(rx, ry)
 
-			if !equal(rot, 0.0) {
-				fmt.Fprintf(&sb, " %v %v translate %v rotate %v %v translate", dec(cx), dec(cy), dec(rot), dec(-cx), dec(-cy))
-			}
-			if isEllipse {
-				fmt.Fprintf(&sb, " %v %v %v %v %v %v ellipse", dec(cx), dec(cy), dec(rx), dec(ry), dec(theta0), dec(theta1))
-			} else {
-				fmt.Fprintf(&sb, " %v %v %v %v %v arc", dec(cx), dec(cy), dec(rx), dec(theta0), dec(theta1))
-			}
+			fmt.Fprintf(&sb, " %v %v %v %v %v %v %v ellipse", dec(cx), dec(cy), dec(rx), dec(ry), dec(theta0), dec(theta1), dec(rot))
 			if !sweep {
 				fmt.Fprintf(&sb, "n")
-			}
-			if !equal(rot, 0.0) {
-				fmt.Fprintf(&sb, " initmatrix") // TODO: push matrix before and pop matrix here instead of assuming it was the initmatrix anyways
 			}
 		case closeCmd:
 			x, y = p.d[i+1], p.d[i+2]
@@ -1569,7 +1554,6 @@ func (p *Path) ToPDF() string {
 
 	sb := strings.Builder{}
 	if 0 < len(p.d) && p.d[0] != moveToCmd {
-		// TODO: check if subpath need to start with moveto, or continue from previous close position
 		fmt.Fprintf(&sb, " 0 0 m")
 	}
 

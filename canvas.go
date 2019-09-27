@@ -111,11 +111,12 @@ func (c *Canvas) DrawPath(x, y float64, path *Path) {
 
 // DrawText draws text at position (x,y) using the current draw state. In particular, it only uses the current affine transformation matrix.
 func (c *Canvas) DrawText(x, y float64, text *Text) {
-	for font := range text.fonts {
-		c.fonts[font] = true
+	if !text.Empty() {
+		for font := range text.fonts {
+			c.fonts[font] = true
+		}
+		c.layers = append(c.layers, textLayer{text, Identity.Translate(x, y).Mul(c.m)})
 	}
-	// TODO: skip if empty
-	c.layers = append(c.layers, textLayer{text, Identity.Translate(x, y).Mul(c.m)})
 }
 
 // ImageEncoding defines whether the embedded image shall be embedded as Lossless (typically PNG) or Lossy (typically JPG).
@@ -382,8 +383,8 @@ func (l pathLayer) WritePDF(w *pdfPageWriter) {
 
 	differentAlpha := fill && stroke && l.fillColor.A != l.strokeColor.A
 
+	// TODO: (PDF) does not support connecting first and last dashes if path is closed
 	// PDFs don't support the arcs joiner, miter joiner (not clipped), or miter-clip joiner with non-bevel fallback
-	// TODO: PDF does not support connecting first and last dashes if path is closed
 	strokeUnsupported := false
 	if _, ok := l.strokeJoiner.(arcsJoiner); ok {
 		strokeUnsupported = true
@@ -494,16 +495,16 @@ func (l pathLayer) WritePDF(w *pdfPageWriter) {
 }
 
 func (l pathLayer) WriteEPS(w *epsWriter) {
-	// TODO: EPS test ellipse, rotations etc
+	// TODO: (EPS) test ellipse, rotations etc
+	// TODO: (EPS) add drawState support
 	w.SetColor(l.fillColor)
 	w.Write([]byte(" "))
 	w.Write([]byte(l.path.ToPS()))
 	w.Write([]byte(" fill"))
-	// TODO: EPS add drawState support
 }
 
 func (l pathLayer) WriteImage(img *image.RGBA, dpm float64) {
-	// TODO: use fillRule
+	// TODO: use fill rule (EvenOdd, NonZero) for rasterizer
 	w, h := img.Bounds().Size().X, img.Bounds().Size().Y
 	if l.fillColor.A != 0 {
 		ras := vector.NewRasterizer(w, h)
@@ -545,7 +546,7 @@ func (l textLayer) WritePDF(w *pdfPageWriter) {
 }
 
 func (l textLayer) WriteEPS(w *epsWriter) {
-	// TODO: EPS write text
+	// TODO: (EPS) write text natively
 	paths, colors := l.text.ToPaths()
 	for i, path := range paths {
 		state := defaultDrawState
@@ -555,7 +556,6 @@ func (l textLayer) WriteEPS(w *epsWriter) {
 }
 
 func (l textLayer) WriteImage(img *image.RGBA, dpm float64) {
-	//l.Text.WriteImage(img, dpm)
 	paths, colors := l.text.ToPaths()
 	for i, path := range paths {
 		state := defaultDrawState
@@ -609,7 +609,7 @@ func (l imageLayer) WritePDF(w *pdfPageWriter) {
 }
 
 func (l imageLayer) WriteEPS(w *epsWriter) {
-	// TODO: EPS write image
+	// TODO: (EPS) write image
 }
 
 func (l imageLayer) WriteImage(img *image.RGBA, dpm float64) {

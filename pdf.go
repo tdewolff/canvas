@@ -629,11 +629,11 @@ func (w *pdfPageWriter) embedImage(img image.Image, enc ImageEncoding) pdfName {
 			b[i+0] = byte(R >> 8)
 			b[i+1] = byte(G >> 8)
 			b[i+2] = byte(B >> 8)
-			// TODO: handle alpha channel
+			// TODO: (PDF) handle alpha channel for images
 		}
 	}
 
-	// TODO: implement JPXFilter for Lossy image compression
+	// TODO: (PDF) implement JPXFilter for lossy image compression
 	ref := w.pdf.writeObject(pdfStream{
 		dict: pdfDict{
 			"Type":             pdfName("XObject"),

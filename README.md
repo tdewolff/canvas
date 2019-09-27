@@ -68,6 +68,8 @@ General
 
 * Fix slowness in the rasterizer (text_example.go is slow! use rasterized cache for each glyph/path)
 * Add targets such as OpenGL and HTML5 Canvas (consider WASM output)
+* Encoding forward and backward command in path so to easily reversely iterate the path 
+* Be consist in wordings of path, subpath, path segment, path command and path coordinates/values
 
 Fonts
 

@@ -416,8 +416,7 @@ func addCubicBezierLine(p *Path, p0, p1, p2, p3 Point, t, d float64) {
 
 // split the curve and replace it by lines as long as maximum deviation = flatness is maintained
 func flattenSmoothCubicBezier(p *Path, p0, p1, p2, p3 Point, d, flatness float64) {
-	// TODO: by also iterating in the reverse direction, we can take the t half way between the t's found one direction and t's found the reverse direction
-	//       this will improve smoothness without add points, it will distribute the points equally along the curve (and not close to the end points)
+	// TODO: by also iterating in the reverse direction, we can take the t half way between the t's found one direction and t's found the reverse direction. this will improve smoothness without add points, it will distribute the points equally along the curve (and not close to the end points)
 	t := 0.0
 	for t < 1.0 {
 		s2nom := (p2.X-p0.X)*(p1.Y-p0.Y) - (p2.Y-p0.Y)*(p1.X-p0.X)

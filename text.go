@@ -416,6 +416,16 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	return &Text{lines, rt.fonts}
 }
 
+// Empty is true if there are no text lines or no text spans.
+func (t *Text) Empty() bool {
+	for _, line := range t.lines {
+		if len(line.spans) != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // Height returns the height of the text using the font metrics, this is usually more than the bounds of the glyph outlines.
 func (t *Text) Height() float64 {
 	if len(t.lines) == 0 {
@@ -673,8 +683,6 @@ func (t *Text) WritePDF(w *pdfPageWriter, m Matrix) {
 		l.WritePDF(w)
 	}
 }
-
-// TODO: Text.WriteEPS
 
 ////////////////////////////////////////////////////////////////
 

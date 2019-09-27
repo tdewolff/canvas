@@ -74,9 +74,6 @@ func (p *Polyline) Interior(x, y float64) bool {
 	return fillCount%2 != 0
 }
 
-// TODO: write functions when they appear to be needed: Bounds, ConvexHull, Centeroid? IsSimple (ie. non-intersecting)?
-// TODO: write function to simplify polyline using Ramer-Douglas-Peucker algorithm
-
 // Smoothen returns a new path that smoothens out a path using cubic Béziers between all the path points. It makes sure that the curvature is smooth along the whole path. If the path is closed, it will be smooth between start and end segment too.
 func (p *Polyline) Smoothen() *Path {
 	K := p.coords
