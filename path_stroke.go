@@ -289,7 +289,7 @@ func (j arcsJoiner) String() string {
 
 type pathStrokeState struct {
 	cmd    float64
-	size   int     // number of commands it ends up being (ie. cubic bezier becomes many linears)
+	size   int     // number of segments it ends up being (ie. cubic bezier becomes many lines)
 	p0, p1 Point   // position of start and end
 	n0, n1 Point   // normal of start and end
 	r0, r1 float64 // radius of start and end

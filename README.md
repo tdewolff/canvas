@@ -14,7 +14,9 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS and raste
 
 **Figure 2abc**: Three examples of what is possible with this library, for example the plotting of graphs, maps and documents.
 
-**Terminology**: a path is a sequence of drawing commands (MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close) that completely describe a path. QuadTo and CubeTo are quadratic and cubic Béziers respectively, ArcTo is an elliptical arc, and Close is a LineTo to the last MoveTo command and closes the path (sometimes this has a special meaning such as when stroking). A path can consist of several path segments by having multiple MoveTos, Closes, or the pair of Close and MoveTo. Flattening is the action of converting the QuadTo, CubeTo and ArcTo commands into LineTos.
+**Terminology**: a path is a sequence of drawing commands (MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close) that completely describe a path. QuadTo and CubeTo are quadratic and cubic Béziers respectively, ArcTo is an elliptical arc, and Close is a LineTo to the last MoveTo command and closes the path (sometimes this has a special meaning such as when stroking). A path can consist of several subpaths by having more than one MoveTo or Close command. A subpath consists of path segments which are defined by a command and some values or coordinates.
+
+Flattening is the act of converting the QuadTo, CubeTo and ArcTo segments into LineTos so that all path segments are linear.
 
 ### Articles
 * [Numerically stable quadratic formula](https://math.stackexchange.com/questions/866331/numerically-stable-algorithm-for-solving-the-quadratic-equation-when-a-is-very/2007723#2007723)
@@ -68,8 +70,7 @@ General
 
 * Fix slowness in the rasterizer (text_example.go is slow! use rasterized cache for each glyph/path)
 * Add targets such as OpenGL and HTML5 Canvas (consider WASM output)
-* Encoding forward and backward command in path so to easily reversely iterate the path 
-* Be consist in wordings of path, subpath, path segment, path command and path coordinates/values
+* Encoding forward and backward command in path so to easily reversely iterate the path
 
 Fonts
 
@@ -149,11 +150,11 @@ c.DrawText(0.0, 0.0, text)
 
 
 ## Paths
-A large deal of this library implements functionality for building paths. Any path can be constructed from a few basic operations, see below. The successive commands start from the current pen position (from the previous command's end point) and are drawn towards a new end point. A path can consist of multiple path segments (multiple MoveTos), but be aware that overlapping paths will cancel each other.
+A large deal of this library implements functionality for building paths. Any path can be constructed from a few basic commands, see below. Successive commands build up segments that start from the current pen position (which is the previous segments's end point) and are drawn towards a new end point. A path can consist of multiple subpaths which each start with a MoveTo command (there is an implicit MoveTo after each Close command), but be aware that overlapping paths can cancel each other depending on the FillRule.
 
 ``` go
 p := &Path{}
-p.MoveTo(x, y float64)                                            // new path segment starting at (x,y)
+p.MoveTo(x, y float64)                                            // new subpath starting at (x,y)
 p.LineTo(x, y float64)                                            // straight line to (x,y)
 p.QuadTo(cpx, cpy, x, y float64)                                  // a quadratic Bézier with control point (cpx,cpy) and end point (x,y)
 p.CubeTo(cp1x, cp1y, cp2x, cp2y, x, y float64)                    // a cubic Bézier with control points (cp1x,cp1y), (cp2x,cp2y) and end point (x,y)
@@ -174,13 +175,13 @@ p = StarPolygon(n int, R, r float64, up bool)
 We can extract information from these paths using:
 
 ``` go
-p.Empty() bool                 // true if path contains no commands other than MoveTo or Close
+p.Empty() bool                 // true if path contains no segments (ie. no commands other than MoveTo or Close)
 p.Pos() (x, y float64)         // current pen position
 p.StartPos() (x, y float64)    // position of last MoveTo
-p.Coords() []Point             // (start) positions of all commands
+p.Coords() []Point             // start/end positions of all segments
 p.CCW() bool                   // true if the path is (mostly) counter clockwise
 p.Interior(x, y float64) bool  // true if (x,y) is in the interior of the path, ie. gets filled (depends on FillRule)
-p.Filling() []bool             // for all path segments, true if the path segment is filling (depends on FillRule)
+p.Filling() []bool             // for all subpaths, true if the subpath is filling (depends on FillRule)
 p.Bounds() Rect                // bounding box of path
 p.Length() float64             // length of path in millimeters
 ```
@@ -192,13 +193,13 @@ p = p.Copy()
 p = p.Append(q *Path)                 // append path q to p and return a new path
 p = p.Join(q *Path)                   // join path q to p and return a new path
 p = p.Reverse()                       // reverse the direction of the path
-ps = p.Split() []*Path                // split the path segments, ie. at Close/MoveTo
+ps = p.Split() []*Path                // split the subpaths, ie. at Close/MoveTo
 ps = p.SplitAt(d ...float64) []*Path  // split the path at certain lengths d
 
 p = p.Transform(Matrix)               // apply multiple transformations at once and return a new path
 p = p.Translate(x, y float64)
 
-p = p.Flatten()                                            // flatten Bézier and arc commands to straight lines
+p = p.Flatten()                                            // flatten Bézier and arc segments to straight lines
 p = p.Offset(width float64)                                // offset the path outwards (width > 0) or inwards (width < 0), depends on FillRule
 p = p.Stroke(width float64, capper Capper, joiner Joiner)  // create a stroke from a path of certain width, using capper and joiner for caps and joins
 p = p.Dash(offset float64, d ...float64)                   // create dashed path with lengths d which are alternating the dash and the space, start at an offset into the given pattern (can be negative)
@@ -207,11 +208,11 @@ p = p.Optimize()  // optimize and shorten path
 ```
 
 ### Polylines
-Some operations on paths only work when it consists of line elements only. We can either flatten an existing path or use the command coordinates to create a polyline.
+Some operations on paths only work when it consists of linear segments only. We can either flatten an existing path or use the start/end coordinates of the segments to create a polyline.
 
 ``` go
 polyline := PolylineFromPath(p)       // create by flattening p
-polyline = PolylineFromPathCoords(p)  // create from the command coordinates of p
+polyline = PolylineFromPathCoords(p)  // create from the start/end coordinates of the segments of p
 
 polyline.Smoothen()              // smoothen it by cubic Béziers
 polyline.FillCount() int         // returns the fill count as dictated by the FillRule

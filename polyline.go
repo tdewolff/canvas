@@ -10,7 +10,7 @@ func PolylineFromPath(p *Path) *Polyline {
 	return &Polyline{p.Flatten().Coords()}
 }
 
-// PolylineFromPathCoords returns a polyline from the given path from each of the start/end coordinates of the path commands, ie. converting all non-linear path commands to linear ones.
+// PolylineFromPathCoords returns a polyline from the given path from each of the start/end coordinates of the segments, ie. converting all non-linear segments to linear ones.
 func PolylineFromPathCoords(p *Path) *Polyline {
 	return &Polyline{p.Coords()}
 }

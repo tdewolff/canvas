@@ -10,15 +10,13 @@ import (
 	"golang.org/x/image/vector"
 )
 
-// TODO: use consistent language; a path consists of subpaths (ie. starts with moveto), each subpath contains path segments (ie. commands).
-
 // Tolerance is the maximum deviation from the original path in millimeters when e.g. flatting
 var Tolerance = 0.01
 
 // FillRule defines the FillRuleType used by the path.
 var FillRule = NonZero
 
-// FillRuleType is the algorithm to specify which area is to be filled and which not, in particular when multiple path segments overlap. The NonZero rule is the default and will fill any point that is being enclosed by an unequal number of paths winding clockwise and counter clockwise, otherwise it will not be filled. The EvenOdd rule will fill any point that is being enclosed by an uneven number of path, whichever their direction.
+// FillRuleType is the algorithm to specify which area is to be filled and which not, in particular when multiple subpaths overlap. The NonZero rule is the default and will fill any point that is being enclosed by an unequal number of paths winding clockwise and counter clockwise, otherwise it will not be filled. The EvenOdd rule will fill any point that is being enclosed by an uneven number of path, whichever their direction.
 type FillRuleType int
 
 // see FillRuleType
@@ -38,7 +36,7 @@ const (
 	nullCmd = 0.0 // TODO: remove?
 )
 
-// cmdLen returns the number of numbers the path command contains.
+// cmdLen returns the number of values (float64s) the path command contains.
 func cmdLen(cmd float64) int {
 	switch cmd {
 	case moveToCmd, lineToCmd, closeCmd:
@@ -106,7 +104,7 @@ func (p *Path) Equals(q *Path) bool {
 	return true
 }
 
-// Closed returns true if the last segment of p is a closed path.
+// Closed returns true if the last subpath of p is a closed path.
 func (p *Path) Closed() bool {
 	var cmd float64
 	for i := p.i0; i < len(p.d); {
@@ -173,7 +171,7 @@ func (p *Path) Pos() Point {
 	return Point{}
 }
 
-// StartPos returns the start point of the current path segment, ie. it returns the position of the last MoveTo command.
+// StartPos returns the start point of the current subpath, ie. it returns the position of the last MoveTo command.
 func (p *Path) StartPos() Point {
 	if len(p.d) > 0 && p.d[p.i0] == moveToCmd {
 		return Point{p.d[p.i0+1], p.d[p.i0+2]}
@@ -181,7 +179,7 @@ func (p *Path) StartPos() Point {
 	return Point{}
 }
 
-// Coords returns all the coordinates between the commands.
+// Coords returns all the coordinates of the segment start/end points.
 func (p *Path) Coords() []Point {
 	P := []Point{}
 	if 0 < len(p.d) && p.d[0] != moveToCmd {
@@ -197,9 +195,7 @@ func (p *Path) Coords() []Point {
 
 ////////////////////////////////////////////////////////////////
 
-// MoveTo moves the path to x,y without connecting the path. It starts a new independent path segment.
-// Multiple path segments can be useful when negating parts of a previous path by overlapping it
-// with a path in the opposite direction.
+// MoveTo moves the path to x,y without connecting the path. It starts a new independent subpath. Multiple subpaths can be useful when negating parts of a previous path by overlapping it with a path in the opposite direction. The bahaviour for overlapping paths depend on the FillRule.
 func (p *Path) MoveTo(x, y float64) *Path {
 	//if len(p.d) == 0 && equal(x, 0.0) && equal(y, 0.0) {
 	//	return p
@@ -247,7 +243,7 @@ func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x1, y1 float64) *Path {
 
 // ArcTo adds an arc with radii rx and ry, with rot the counter clockwise rotation with respect to the coordinate system in degrees,
 // largeArc and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
-// and x1,y1 the end position of the pen. The start positions of the pen was given by a previous command.
+// and x1,y1 the end position of the pen. The start position of the pen was given by a previous command end point.
 // When sweep is true it means following the arc in a CCW direction in the Cartesian coordinate system, ie. that is CW in the upper-left coordinate system as is the case in SVGs.
 func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x1, y1 float64) *Path {
 	p0 := p.Pos()
@@ -308,8 +304,8 @@ func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
 	return p.ArcTo(rx, ry, rot, largeArc, sweep, end.X, end.Y)
 }
 
-// Close closes a path with a LineTo to the start of the path (the most recent MoveTo command).
-// It also signals the path closes, as opposed to being just a LineTo command.
+// Close closes a (sub)path with a LineTo to the start of the path (the most recent MoveTo command).
+// It also signals the path closes as opposed to being just a LineTo command, which can be significant for stroking purposes for example.
 func (p *Path) Close() *Path {
 	p1 := p.StartPos()
 	p.d = append(p.d, closeCmd, p1.X, p1.Y)
@@ -337,7 +333,7 @@ func (p *Path) CCW() bool {
 	return area <= 0.0
 }
 
-// Filling returns whether the path segments get filled or not. A path may not be filling when it negates another path, depending on the FillRule.
+// Filling returns whether each subpath gets filled or not. A path may not be filling when it negates another path and depends on the FillRule.
 func (p *Path) Filling() []bool {
 	Ps := p.Split()
 	testPoints := make([]Point, 0, len(Ps))
@@ -653,9 +649,9 @@ func (p *Path) Flatten() *Path {
 	return p.Copy().Replace(nil, flattenCubicBezier, flattenEllipse)
 }
 
-// Replace replaces path commands by their respective functions, each returning the path that will replace the command or nil if no replacement is to be performed.
+// Replace replaces path segments by their respective functions, each returning the path that will replace the segment or nil if no replacement is to be performed.
 // The line function will take the start and end points. The bezier function will take the start point, control point 1 and 2, and the end point (ie. a cubic Bézier, quadratic Béziers will be implicitly converted to cubic ones). The arc function will take a start point, the major and minor radii, the radial rotaton counter clockwise, the largeArc and sweep booleans, and the end point.
-// Be aware this will change the path inplace. Changing the end point of one path will subsequently change the start point of the next command. Returning nil has no effect on the path.
+// Be aware this will change the path inplace. Changing the end point of one path will subsequently change the start point of the next segment. Returning nil has no effect on the path.
 func (p *Path) Replace(
 	line func(Point, Point) *Path,
 	bezier func(Point, Point, Point, Point) *Path,
@@ -770,7 +766,7 @@ func (p *Path) Markers(start, mid, end *Path, align bool) []*Path {
 	return markers
 }
 
-// Split splits the path into its independent path segments. The path is split on the MoveTo and/or Close commands.
+// Split splits the path into its independent subpaths. The path is split before each MoveTo command. Note that after a Close command there is an implicit MoveTo command.
 func (p *Path) Split() []*Path {
 	ps := []*Path{}
 	start := Point{}
@@ -1002,7 +998,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 //	return ps, qs
 //}
 
-// Dash returns a new path that consists of dashes. The elements in d specify the width of the dashes and gaps. It will alternate between dashes and gaps when picking widths. If d is an array of odd length, it is equivalent of passing d twice in sequence. The offset specifies the offset used into d (or negative offset onto the path). Dash will be applied to each path segment individually.
+// Dash returns a new path that consists of dashes. The elements in d specify the width of the dashes and gaps. It will alternate between dashes and gaps when picking widths. If d is an array of odd length, it is equivalent of passing d twice in sequence. The offset specifies the offset used into d (or negative offset onto the path). Dash will be applied to each subpath independently.
 func (p *Path) Dash(offset float64, d ...float64) *Path {
 	if len(d) == 0 {
 		return p
@@ -1140,7 +1136,7 @@ func (p *Path) Reverse() *Path {
 	return ip
 }
 
-// Optimize returns the same path but with superfluous commands removed (such as multiple colinear LineTos). Be aware this changes the path inplace.
+// Optimize returns the same path but with superfluous segments removed (such as multiple colinear LineTos). Be aware this changes the path inplace.
 func (p *Path) Optimize() *Path {
 	cmds := []float64{}
 	for i := 0; i < len(p.d); {
