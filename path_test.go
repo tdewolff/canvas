@@ -268,7 +268,6 @@ func TestPathReplace(t *testing.T) {
 }
 
 func TestPathMarkers(t *testing.T) {
-	// TODO: test marker alignment
 	start := MustParseSVG("L1 0L0 1z")
 	mid := MustParseSVG("M-1 0A1 1 0 0 0 1 0z")
 	end := MustParseSVG("L-1 0L0 1z")
@@ -277,13 +276,50 @@ func TestPathMarkers(t *testing.T) {
 		orig    string
 		markers []string
 	}{
+		{"M10 0z", []string{}},
+		{"M10 0L20 10", []string{"M10 0L11 0L10 1z", "M20 10L19 10L20 11z"}},
 		{"L10 0L20 10", []string{"M0 0L1 0L0 1z", "M9 0A1 1 0 0 0 11 0z", "M20 10L19 10L20 11z"}},
-		{"L10 0L20 10z", []string{"M-1 0A1 1 0 0 0 1 0z", "M9 0A1 1 0 0 0 11 0z", "M19 10A1 1 0 0 0 21 10z"}},
+		{"L10 0L20 10z", []string{"M9 0A1 1 0 0 0 11 0z", "M19 10A1 1 0 0 0 21 10z", "M-1 0A1 1 0 0 0 1 0z"}},
+		{"M10 0L20 10M30 0L40 10", []string{"M10 0L11 0L10 1z", "M20 10L19 10L20 11z", "M30 0L31 0L30 1z", "M40 10L39 10L40 11z"}},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
 			p := MustParseSVG(tt.orig)
 			ps := p.Markers(start, mid, end, false)
+			if len(ps) != len(tt.markers) {
+				origs := []string{}
+				for _, p := range ps {
+					origs = append(origs, p.String())
+				}
+				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.markers, "\n"))
+			} else {
+				for i, p := range ps {
+					test.T(t, p, MustParseSVG(tt.markers[i]))
+				}
+			}
+		})
+	}
+}
+
+func TestPathMarkersAligned(t *testing.T) {
+	start := MustParseSVG("L1 0L0 1z")
+	mid := MustParseSVG("M-1 0A1 1 0 0 0 1 0z")
+	end := MustParseSVG("L-1 0L0 1z")
+
+	var tts = []struct {
+		orig    string
+		markers []string
+	}{
+		{"M10 0z", []string{}},
+		{"M10 0L20 10", []string{"M10 0L10.707 0.707L9.293 0.707z", "M20 10L19.293 9.293L19.293 10.707z"}},
+		{"L10 0L20 10", []string{"M0 0L1 0L0 1z", "M9.076 -0.383A1 1 0 0 0 10.924 0.383z", "M20 10L19.293 9.293L19.293 10.707z"}},
+		{"L10 0L20 10z", []string{"M9.076 -0.383A1 1 0 0 0 10.924 0.383z", "M20.585 9.189A1 1 0 0 0 19.415 10.811z", "M-0.230 0.973A1 1 0 0 0 0.230 -0.973z"}},
+		{"M10 0L20 10M30 0L40 10", []string{"M10 0L10.707 0.707L9.293 0.707z", "M20 10L19.293 9.293L19.293 10.707z", "M30 0L30.707 0.707L29.293 0.707z", "M40 10L39.293 9.293L39.293 10.707z"}},
+	}
+	for _, tt := range tts {
+		t.Run(tt.orig, func(t *testing.T) {
+			p := MustParseSVG(tt.orig)
+			ps := p.Markers(start, mid, end, true)
 			if len(ps) != len(tt.markers) {
 				origs := []string{}
 				for _, p := range ps {

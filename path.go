@@ -733,35 +733,87 @@ func (p *Path) Replace(
 	return p
 }
 
-// Markers returns an array of start, mid and end markers along the path at the path coordinates between commands. Align will align the markers with the path direction.
-func (p *Path) Markers(start, mid, end *Path, align bool) []*Path {
-	coord := Point{}
+// Markers returns an array of start, mid and end markers along the path at the path coordinates between commands. Align will align the markers with the path direction so that the markers orient towards the path's left.
+func (p *Path) Markers(first, mid, last *Path, align bool) []*Path {
 	markers := []*Path{}
 	for _, ps := range p.Split() {
+		if p.Empty() {
+			continue
+		}
+
+		isFirst := true
 		closed := ps.Closed()
+
+		var start, end Point
+		var n0Start, n1Prev, n0, n1 Point
 		for i := 0; i < len(ps.d); {
 			cmd := ps.d[i]
-			if len(markers) != 0 || cmd == moveToCmd {
-				i += cmdLen(cmd)
-				coord = Point{ps.d[i-2], ps.d[i-1]}
-			}
-			if cmd != moveToCmd && cmd != closeCmd {
-				q := mid
-				if !closed {
-					if len(markers) == 0 {
-						q = start
-					} else if i == len(ps.d) {
-						q = end
-					}
-				}
+			i += cmdLen(cmd)
 
-				m := Identity.Translate(coord.X, coord.Y)
-				//if align {
-				// TODO: marker alignment
-				//}
-				markers = append(markers, q.Copy().Transform(m))
+			start = end
+			end = Point{ps.d[i-2], ps.d[i-1]}
+
+			if align {
+				n1Prev = n1
+				switch cmd {
+				case lineToCmd, closeCmd:
+					n := end.Sub(start).Rot90CW().Norm(1.0)
+					n0, n1 = n, n
+				case quadToCmd, cubeToCmd:
+					var cp1, cp2 Point
+					if cmd == quadToCmd {
+						cp := Point{p.d[i-4], p.d[i-3]}
+						cp1, cp2 = quadraticToCubicBezier(start, cp, end)
+					} else {
+						cp1 = Point{p.d[i-6], p.d[i-5]}
+						cp2 = Point{p.d[i-4], p.d[i-3]}
+					}
+					n0 = cubicBezierNormal(start, cp1, cp2, end, 0.0, 1.0)
+					n1 = cubicBezierNormal(start, cp1, cp2, end, 1.0, 1.0)
+				case arcToCmd:
+					rx, ry, phi := p.d[i-6], p.d[i-5], p.d[i-4]
+					largeArc, sweep := fromArcFlags(p.d[i-3])
+					_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
+					n0 = ellipseNormal(rx, ry, phi, sweep, theta0, 1.0)
+					n1 = ellipseNormal(rx, ry, phi, sweep, theta1, 1.0)
+				}
 			}
+
+			if cmd == moveToCmd {
+				continue
+			}
+
+			q := mid
+			angle := n1Prev.Add(n0).Angle()
+			if isFirst {
+				n0Start = n0
+				isFirst = false
+				if closed {
+					continue
+				}
+				q = first
+				angle = n0.Angle()
+			}
+
+			m := Identity.Translate(start.X, start.Y)
+			if align {
+				m = m.Rotate((angle * 180.0 / math.Pi) + 90.0)
+			}
+			markers = append(markers, q.Transform(m))
 		}
+
+		q := last
+		angle := n1.Angle()
+		if closed {
+			q = mid
+			angle = n1.Add(n0Start).Angle()
+		}
+
+		m := Identity.Translate(end.X, end.Y)
+		if align {
+			m = m.Rotate((angle * 180.0 / math.Pi) + 90.0)
+		}
+		markers = append(markers, q.Transform(m))
 	}
 	return markers
 }

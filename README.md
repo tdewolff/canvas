@@ -68,9 +68,8 @@ Features that are planned to be implemented in the future, with important issues
 
 General
 
-* Fix slowness in the rasterizer (text_example.go is slow! use rasterized cache for each glyph/path)
+* Fix slowness in the rasterizer (text\_example.go is slow! use rasterized cache for each glyph/path)
 * Add targets such as OpenGL and HTML5 Canvas (consider WASM output)
-* Encoding forward and backward command in path so to easily reversely iterate the path
 
 Fonts
 
@@ -84,21 +83,19 @@ Fonts
 
 Paths
 
+* **Avoid overlapping paths when offsetting in corners (needs path intersection code)**
 * **Intersection function between line, Bézier and ellipse and between themselves (for path merge, overlap/mask, clipping, etc.)**
 * **Implement Bentley-Ottmann algorithm to find all line intersections (clipping)**
 * Get position and derivative/normal at length L along the path
 * Simplify polygons using the Ramer-Douglas-Peucker algorithm
-
-Optimization
-
-* **Avoid overlapping paths when offsetting in corners (needs path intersection code)**
-* Approximate Béziers by elliptic arcs instead of lines when stroking, if number of path elements is reduced by more than 2 times (unsure if worth it)
+* Encoding forward and backward command in path so to easily reversely iterate the path
 
 Far future
 
 * Support fill gradients and patterns (hard)
 * Load in PDFs, SVGs and EPSs and turn to paths/texts
 * Load in Markdown/HTML formatting and turn into texts
+* Generate TeX-like formulas in pure Go, use OpenType math font such as STIX or TeX Gyre
 
 
 ## Canvas
