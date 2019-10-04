@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"image/color"
-	"image/png"
 	"os"
 
 	"github.com/tdewolff/canvas"
@@ -30,31 +29,6 @@ func main() {
 	}
 	defer svgFile.Close()
 	c.WriteSVG(svgFile)
-
-	////////////////
-
-	pngFile, err := os.Create("test.png")
-	if err != nil {
-		panic(err)
-	}
-	defer pngFile.Close()
-
-	img := c.WriteImage(10.0)
-	err = png.Encode(pngFile, img)
-	if err != nil {
-		panic(err)
-	}
-
-	pdfFile, err := os.Create("test.pdf")
-	if err != nil {
-		panic(err)
-	}
-	defer pdfFile.Close()
-
-	err = c.WritePDF(pdfFile)
-	if err != nil {
-		panic(err)
-	}
 }
 
 func drawStrokedPath(c *canvas.Canvas, x, y, d float64, path string) {
@@ -70,16 +44,16 @@ func drawStrokedPath(c *canvas.Canvas, x, y, d float64, path string) {
 	c.SetFillColor(color.RGBA{128, 0, 0, 128})
 	c.DrawPath(x, y, p)
 
-	p = p.Stroke(0.2, canvas.RoundCapper, canvas.RoundJoiner)
-	c.SetFillColor(color.RGBA{255, 0, 0, 255})
-	c.DrawPath(x, y, p)
+	//p = p.Stroke(0.2, canvas.RoundCapper, canvas.RoundJoiner)
+	//c.SetFillColor(color.RGBA{255, 0, 0, 255})
+	//c.DrawPath(x, y, p)
 }
 
 func draw(c *canvas.Canvas) {
-	c.SetFillColor(color.RGBA{0, 0, 128, 128})
-	p := canvas.Rectangle(4.0, 2.0)
-	c.DrawPath(10.0, 10.0, p)
-	c.DrawPath(10.0, 10.0, p.Transform(canvas.Identity.Shear(2.0, -1.0)))
+	//c.SetFillColor(color.RGBA{0, 0, 128, 128})
+	//p := canvas.Rectangle(4.0, 2.0)
+	//c.DrawPath(10.0, 10.0, p)
+	//c.DrawPath(10.0, 10.0, p.Transform(canvas.Identity.Shear(2.0, -1.0)))
 	//s := "ﻙﺎﻨﺗ ﺎﻠﺴﻣﺍﺀ ﺹ \n\n ﺎﻔﻳﺓ ﻢﻧ"
 
 	//face := dejaVuSerif.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
@@ -148,7 +122,7 @@ func draw(c *canvas.Canvas) {
 	//drawStrokedPath(c, 60, 70, 2.0, "M0 -25A25 25 0 0 0 0 0A25 25 0 0 0 0 -25z") // CW
 	//drawStrokedPath(c, 90, 65, 2.0, "M0 -25A25 25 0 0 0 0 0A25 25 0 0 1 20 -25z")
 	//drawStrokedPath(c, 140, 50, 4.0, "M0 0A20 20 0 0 0 40 0A10 10 0 0 1 20 0z")
-	//drawStrokedPath(c, 170, 20, 2.0, "C10 -13.33 10 -13.33 20 0z")
+	drawStrokedPath(c, 170, 20, 2.0, "C10 -13.33 10 -13.33 20 0z")
 	//drawStrokedPath(c, 170, 30, 2.0, "C10 13.33 10 13.33 20 0z")
 
 	// c.SetColor(canvas.LightGrey)

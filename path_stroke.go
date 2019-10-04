@@ -402,6 +402,8 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 	rhs.MoveTo(rStart.X, rStart.Y)
 	lhs.MoveTo(lStart.X, lStart.Y)
 
+	rhsInnerBends := []int{}
+	lhsInnerBends := []int{}
 	for i, cur := range states {
 		switch cur.cmd {
 		case lineToCmd:
@@ -440,10 +442,18 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 				next = states[0]
 			}
 			jr.Join(rhs, lhs, halfWidth, cur.p1, cur.n1, next.n0, cur.r1, next.r0)
+
+			cw := cur.n1.Rot90CW().Dot(next.n0) >= 0.0
+			if cw {
+				rhsInnerBends = append(rhsInnerBends, len(rhs.d)-3)
+			} else {
+				lhsInnerBends = append(lhsInnerBends, len(lhs.d)-3)
+			}
 		}
 	}
 
-	// TODO: (stroke) split at intersections and filter out overlapped parts
+	closeInnerBends(rhs, rhsInnerBends, closed)
+	closeInnerBends(lhs, lhsInnerBends, closed)
 
 	if closed {
 		rhs.Close()
@@ -458,6 +468,44 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 	cr.Cap(rhs, halfWidth, states[0].p0, states[0].n0.Neg())
 	rhs.Close()
 	return rhs, nil
+}
+
+func closeInnerBends(p *Path, indices []int, closed bool) {
+	// TODO: (stroke) implement inner bend optimization for all combinations
+
+	for _, i := range indices {
+		//cmd := p.d[i]
+		//iPrev := i - cmdLen(prevCmd)
+		//if cmd == moveToCmd {
+		//	fmt.Println(i, len(p.d))
+		//}
+		//if cmd == moveToCmd {
+		//	if 0 < iPrev && (i+3 < len(p.d) || closed) {
+		//		prevStart := Point{p.d[iPrev-2], p.d[iPrev-1]}
+		//		prevEnd := Point{p.d[i-2], p.d[i-1]}
+
+		//		iNext := i + 3
+		//		if iNext == len(p.d) {
+		//			iNext = 3
+		//		}
+		//		nextCmd := p.d[iNext]
+		//		nextStart := Point{p.d[i+1], p.d[i+2]}
+		//		nextEnd := Point{p.d[iNext+1], p.d[iNext+2]}
+
+		//		if prevCmd == lineToCmd && nextCmd == lineToCmd {
+		//			fmt.Println("L2L:", prevStart, prevEnd, "=>", nextStart, nextEnd)
+		//			x, ok := intersectionLineLine(prevStart, prevEnd, nextStart, nextEnd)
+		//			if ok {
+		//				fmt.Println("X", x)
+		//			}
+		//		}
+		//	}
+
+		//	// unable to fix inner bend, revert to overlap
+		//	p.d[i] = lineToCmd
+		//}
+		//prevCmd = cmd
+	}
 }
 
 // Offset offsets the path to expand by w and returns a new path. If w is negative it will contract. Path must be closed.

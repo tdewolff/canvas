@@ -32,9 +32,9 @@ My own
 Papers
 
 * [M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI (1996), p. 143--150](https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf)
-* [T.F. Hain, A.L. Ahmad, S.V.R. Racherla, D.D. Langan, Fast, precise flattening of cubic Bézier path and offset curves, Computers & Graphics 29 (2005). p. 656--666](https://www.sciencedirect.com/science/article/pii/S0097849305001287?via%3Dihub)
+* [T.F. Hain, et al., Fast, precise flattening of cubic Bézier path and offset curves, Computers & Graphics 29 (2005). p. 656--666](https://www.sciencedirect.com/science/article/pii/S0097849305001287?via%3Dihub)
 * [M. Goldapp, Approximation of circular arcs by cubic polynomials, Computer Aided Geometric Design 8 (1991), p. 227--238](https://www.sciencedirect.com/science/article/abs/pii/016783969190007X)
-* [Drawing and elliptical arc using polylines, quadratic or cubic Bézier curves (2003), L. Maisonobe](https://spaceroots.org/documents/ellipse/elliptical-arc.pdf)
+* [L. Maisonobe, Drawing and elliptical arc using polylines, quadratic or cubic Bézier curves (2003)](https://spaceroots.org/documents/ellipse/elliptical-arc.pdf)
 
 ## Status
 ### Targets
@@ -70,6 +70,8 @@ General
 
 * Fix slowness in the rasterizer (text\_example.go is slow! use rasterized cache for each glyph/path)
 * Add targets such as OpenGL and HTML5 Canvas (consider WASM output)
+* Use general span placement algorithm (like CSS flexbox) that replace the current Text placer, to allow for text, image, path elements (e.g. inline formulas, inline icons or emoticons, ...)
+* Use word breaking algorithm from [Knuth & Plass](http://defoe.sourceforge.net/folio/knuth-plass.html), implemented in JS in [typeset](http://www.bramstein.com/projects/typeset/). Use letter stretching and shrinking, shrinking by using ligatures, space shrinking and stretching (depending if space is between words or after comma or dot), and spacing or shrinking between glyphs. Use a point system of how ugly breaks are on a paragraph basis. Also see [Justify Just or Just Justify](https://quod.lib.umich.edu/j/jep/3336451.0013.105?view=text;rgn=main).
 
 Fonts
 
