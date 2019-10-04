@@ -106,13 +106,7 @@ func (p *Path) Equals(q *Path) bool {
 
 // Closed returns true if the last subpath of p is a closed path.
 func (p *Path) Closed() bool {
-	// TODO: use backward cmd
-	var cmd float64
-	for i := p.i0; i < len(p.d); {
-		cmd = p.d[i]
-		i += cmdLen(cmd)
-	}
-	return cmd == closeCmd
+	return 0 < len(p.d) && p.d[len(p.d)-1] == closeCmd
 }
 
 // Copy returns a copy of p.
@@ -1126,13 +1120,6 @@ func (p *Path) Reverse() *Path {
 		return ip
 	}
 
-	// TODO: optimize with backward commands
-	cmds := []float64{}
-	for i := 0; i < len(p.d); {
-		cmds = append(cmds, p.d[i])
-		i += cmdLen(p.d[i])
-	}
-
 	end := Point{p.d[len(p.d)-3], p.d[len(p.d)-2]}
 	if !end.IsZero() {
 		ip.MoveTo(end.X, end.Y)
@@ -1140,10 +1127,10 @@ func (p *Path) Reverse() *Path {
 	start := end
 	closed := false
 
-	i := len(p.d)
-	for icmd := len(cmds) - 1; icmd >= 0; icmd-- {
-		cmd := cmds[icmd]
+	for i := len(p.d); 0 < i; {
+		cmd := p.d[i-1]
 		i -= cmdLen(cmd)
+
 		end = Point{}
 		if i > 0 {
 			end = Point{p.d[i-3], p.d[i-2]}
@@ -1164,7 +1151,7 @@ func (p *Path) Reverse() *Path {
 				ip.MoveTo(end.X, end.Y)
 			}
 		case lineToCmd:
-			if closed && (icmd == 0 || cmds[icmd-1] == moveToCmd) {
+			if closed && (0 == i || p.d[i-1] == moveToCmd) {
 				ip.Close()
 				closed = false
 			} else {
@@ -1192,20 +1179,13 @@ func (p *Path) Reverse() *Path {
 
 // Optimize returns the same path but with superfluous segments removed (such as multiple colinear LineTos). Be aware this changes the path inplace.
 func (p *Path) Optimize() *Path {
-	// TODO: optimize with backward commands
-	cmds := []float64{}
-	for i := 0; i < len(p.d); {
-		cmds = append(cmds, p.d[i])
-		i += cmdLen(p.d[i])
+	end := Point{}
+	if 0 < len(p.d) {
+		end = Point{p.d[len(p.d)-3], p.d[len(p.d)-2]}
 	}
 
-	i := len(p.d)
-	end := Point{}
-	if 0 < i {
-		end = Point{p.d[i-3], p.d[i-2]}
-	}
-	for icmd := len(cmds) - 1; icmd >= 0; icmd-- {
-		cmd := cmds[icmd]
+	for i := len(p.d); 0 < i; {
+		cmd := p.d[i-1]
 		di := cmdLen(cmd)
 		i -= di
 
@@ -1267,14 +1247,15 @@ func (p *Path) Optimize() *Path {
 		end = start
 	}
 	// set i0 correctly
-	// TODO: optimze with backward commands
 	p.i0 = 0
-	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
+	for i := len(p.d); 0 < i; {
+		cmd := p.d[i-1]
+		i -= cmdLen(cmd)
+
 		if cmd == moveToCmd {
 			p.i0 = i
+			break
 		}
-		i += cmdLen(p.d[i])
 	}
 	return p
 }
