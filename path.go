@@ -27,24 +27,24 @@ const (
 
 // TODO: record both forward and backward command in one float, so we can traverse the path backwards easily
 const (
-	moveToCmd = 1.0 << iota
-	lineToCmd
-	quadToCmd
-	cubeToCmd
-	arcToCmd
-	closeCmd
-	nullCmd = 0.0 // TODO: remove?
+	moveToCmd = 1.0 << iota //  1.0
+	lineToCmd               //  2.0
+	quadToCmd               //  4.0
+	cubeToCmd               //  8.0
+	arcToCmd                // 16.0
+	closeCmd                // 32.0
+	nullCmd   = 0.0         //  0.0
 )
 
 // cmdLen returns the number of values (float64s) the path command contains.
 func cmdLen(cmd float64) int {
 	switch cmd {
 	case moveToCmd, lineToCmd, closeCmd:
-		return 3
+		return 4
 	case quadToCmd:
-		return 5
+		return 6
 	case cubeToCmd, arcToCmd:
-		return 7
+		return 8
 	case nullCmd:
 		return 0
 	}
@@ -106,6 +106,7 @@ func (p *Path) Equals(q *Path) bool {
 
 // Closed returns true if the last subpath of p is a closed path.
 func (p *Path) Closed() bool {
+	// TODO: use backward cmd
 	var cmd float64
 	for i := p.i0; i < len(p.d); {
 		cmd = p.d[i]
@@ -148,11 +149,11 @@ func (p *Path) Join(q *Path) *Path {
 	}
 	i0 := len(p.d) + q.i0
 	if q.d[0] == moveToCmd {
-		x0, y0 := p.d[len(p.d)-2], p.d[len(p.d)-1]
+		x0, y0 := p.d[len(p.d)-3], p.d[len(p.d)-2]
 		x1, y1 := q.d[1], q.d[2]
 		if equal(x0, x1) && equal(y0, y1) {
-			q.d = q.d[3:]
-			i0 -= 3
+			q.d = q.d[cmdLen(moveToCmd):]
+			i0 -= cmdLen(moveToCmd)
 			if q.i0 == 0 {
 				i0 = p.i0
 			}
@@ -166,7 +167,7 @@ func (p *Path) Join(q *Path) *Path {
 // Pos returns the current position of the path, which is the end point of the last command.
 func (p *Path) Pos() Point {
 	if 0 < len(p.d) {
-		return Point{p.d[len(p.d)-2], p.d[len(p.d)-1]}
+		return Point{p.d[len(p.d)-3], p.d[len(p.d)-2]}
 	}
 	return Point{}
 }
@@ -188,7 +189,7 @@ func (p *Path) Coords() []Point {
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		i += cmdLen(cmd)
-		P = append(P, Point{p.d[i-2], p.d[i-1]})
+		P = append(P, Point{p.d[i-3], p.d[i-2]})
 	}
 	return P
 }
@@ -201,7 +202,7 @@ func (p *Path) MoveTo(x, y float64) *Path {
 	//	return p
 	//}
 	p.i0 = len(p.d)
-	p.d = append(p.d, moveToCmd, x, y)
+	p.d = append(p.d, moveToCmd, x, y, moveToCmd)
 	return p
 }
 
@@ -212,7 +213,7 @@ func (p *Path) LineTo(x1, y1 float64) *Path {
 	if p0.Equals(p1) {
 		return p
 	}
-	p.d = append(p.d, lineToCmd, p1.X, p1.Y)
+	p.d = append(p.d, lineToCmd, p1.X, p1.Y, lineToCmd)
 	return p
 }
 
@@ -224,7 +225,7 @@ func (p *Path) QuadTo(cpx, cpy, x1, y1 float64) *Path {
 	if cp.Equals(p0) || cp.Equals(p1) {
 		return p.LineTo(p1.X, p1.Y)
 	}
-	p.d = append(p.d, quadToCmd, cp.X, cp.Y, p1.X, p1.Y)
+	p.d = append(p.d, quadToCmd, cp.X, cp.Y, p1.X, p1.Y, quadToCmd)
 	return p
 }
 
@@ -237,7 +238,7 @@ func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x1, y1 float64) *Path {
 	if (cp1.Equals(p0) || cp1.Equals(p1)) && (cp2.Equals(p0) || cp2.Equals(p1)) {
 		return p.LineTo(p1.X, p1.Y)
 	}
-	p.d = append(p.d, cubeToCmd, cp1.X, cp1.Y, cp2.X, cp2.Y, p1.X, p1.Y)
+	p.d = append(p.d, cubeToCmd, cp1.X, cp1.Y, cp2.X, cp2.Y, p1.X, p1.Y, cubeToCmd)
 	return p
 }
 
@@ -274,7 +275,7 @@ func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x1, y1 float64) 
 		ry *= lambda
 	}
 
-	p.d = append(p.d, arcToCmd, rx, ry, phi, toArcFlags(largeArc, sweep), p1.X, p1.Y)
+	p.d = append(p.d, arcToCmd, rx, ry, phi, toArcFlags(largeArc, sweep), p1.X, p1.Y, arcToCmd)
 	return p
 }
 
@@ -308,7 +309,7 @@ func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
 // It also signals the path closes as opposed to being just a LineTo command, which can be significant for stroking purposes for example.
 func (p *Path) Close() *Path {
 	p1 := p.StartPos()
-	p.d = append(p.d, closeCmd, p1.X, p1.Y)
+	p.d = append(p.d, closeCmd, p1.X, p1.Y, closeCmd)
 	return p
 }
 
@@ -324,7 +325,7 @@ func (p *Path) CCW() bool {
 		cmd := p.d[i]
 		i += cmdLen(cmd)
 
-		end = Point{p.d[i-2], p.d[i-1]}
+		end = Point{p.d[i-3], p.d[i-2]}
 		if cmd != moveToCmd {
 			area += (end.X - start.X) * (start.Y + end.Y)
 		}
@@ -345,11 +346,11 @@ func (p *Path) Filling() []bool {
 		var p0, p1 Point
 		iNextCmd := cmdLen(ps.d[0])
 		if ps.d[0] != moveToCmd {
-			p1 = Point{ps.d[iNextCmd-2], ps.d[iNextCmd-1]}
+			p1 = Point{ps.d[iNextCmd-3], ps.d[iNextCmd-2]}
 		} else {
 			iNextCmd2 := iNextCmd + cmdLen(ps.d[iNextCmd])
-			p0 = Point{ps.d[iNextCmd-2], ps.d[iNextCmd-1]}
-			p1 = Point{ps.d[iNextCmd2-2], ps.d[iNextCmd2-1]}
+			p0 = Point{ps.d[iNextCmd-3], ps.d[iNextCmd-2]}
+			p1 = Point{ps.d[iNextCmd2-3], ps.d[iNextCmd2-2]}
 		}
 
 		offset := p1.Sub(p0).Rot90CW().Norm(Epsilon)
@@ -566,7 +567,7 @@ func (p *Path) Length() float64 {
 func (p *Path) Transform(m Matrix) *Path {
 	p = p.Copy()
 	if len(p.d) > 0 && p.d[0] != moveToCmd {
-		p.d = append([]float64{moveToCmd, 0.0, 0.0}, p.d...)
+		p.d = append([]float64{moveToCmd, 0.0, 0.0, moveToCmd}, p.d...)
 	}
 	_, _, _, xscale, yscale, _ := m.Decompose()
 	for i := 0; i < len(p.d); {
@@ -703,11 +704,11 @@ func (p *Path) Replace(
 			if 0 < len(q.d) && q.d[0] == moveToCmd {
 				x0, y0 := 0.0, 0.0
 				if 0 < i {
-					x0, y0 = p.d[i-2], p.d[i-1]
+					x0, y0 = p.d[i-3], p.d[i-2]
 				}
 				x1, y1 := q.d[1], q.d[2]
 				if equal(x0, x1) && equal(y0, y1) {
-					q.d = q.d[3:]
+					q.d = q.d[cmdLen(moveToCmd):]
 				}
 			}
 			p.d = append(p.d[:i:i], append(q.d, p.d[i+cmdLen(cmd):]...)...)
@@ -715,7 +716,7 @@ func (p *Path) Replace(
 		} else {
 			i += cmdLen(cmd)
 		}
-		start = Point{p.d[i-2], p.d[i-1]}
+		start = Point{p.d[i-3], p.d[i-2]}
 	}
 
 	// repair i0 and close positions
@@ -751,7 +752,7 @@ func (p *Path) Markers(first, mid, last *Path, align bool) []*Path {
 			i += cmdLen(cmd)
 
 			start = end
-			end = Point{ps.d[i-2], ps.d[i-1]}
+			end = Point{ps.d[i-3], ps.d[i-2]}
 
 			if align {
 				n1Prev = n1
@@ -762,17 +763,17 @@ func (p *Path) Markers(first, mid, last *Path, align bool) []*Path {
 				case quadToCmd, cubeToCmd:
 					var cp1, cp2 Point
 					if cmd == quadToCmd {
-						cp := Point{p.d[i-4], p.d[i-3]}
+						cp := Point{p.d[i-5], p.d[i-3]}
 						cp1, cp2 = quadraticToCubicBezier(start, cp, end)
 					} else {
-						cp1 = Point{p.d[i-6], p.d[i-5]}
-						cp2 = Point{p.d[i-4], p.d[i-3]}
+						cp1 = Point{p.d[i-7], p.d[i-6]}
+						cp2 = Point{p.d[i-5], p.d[i-4]}
 					}
 					n0 = cubicBezierNormal(start, cp1, cp2, end, 0.0, 1.0)
 					n1 = cubicBezierNormal(start, cp1, cp2, end, 1.0, 1.0)
 				case arcToCmd:
-					rx, ry, phi := p.d[i-6], p.d[i-5], p.d[i-4]
-					largeArc, sweep := fromArcFlags(p.d[i-3])
+					rx, ry, phi := p.d[i-7], p.d[i-6], p.d[i-5]
+					largeArc, sweep := fromArcFlags(p.d[i-4])
 					_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
 					n0 = ellipseNormal(rx, ry, phi, sweep, theta0, 1.0)
 					n1 = ellipseNormal(rx, ry, phi, sweep, theta1, 1.0)
@@ -829,10 +830,10 @@ func (p *Path) Split() []*Path {
 		if i < j && cmd == moveToCmd || closed {
 			d := p.d[i:j:j]
 			if d[0] != moveToCmd && !start.IsZero() {
-				d = append([]float64{moveToCmd, start.X, start.Y}, d...)
+				d = append([]float64{moveToCmd, start.X, start.Y, moveToCmd}, d...)
 			}
 			ps = append(ps, &Path{d, 0})
-			start = Point{p.d[j-2], p.d[j-1]}
+			start = Point{p.d[j-3], p.d[j-2]}
 			i = j
 		}
 		closed = cmd == closeCmd
@@ -841,7 +842,7 @@ func (p *Path) Split() []*Path {
 	if i < j {
 		d := p.d[i:j:j]
 		if d[0] != moveToCmd && !start.IsZero() {
-			d = append([]float64{moveToCmd, start.X, start.Y}, d...)
+			d = append([]float64{moveToCmd, start.X, start.Y, moveToCmd}, d...)
 		}
 		ps = append(ps, &Path{d, 0})
 	}
@@ -1008,7 +1009,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 			start = end
 		}
 	}
-	if 3 < len(q.d) {
+	if cmdLen(moveToCmd) < len(q.d) {
 		qs = append(qs, q)
 	}
 	return qs
@@ -1125,13 +1126,14 @@ func (p *Path) Reverse() *Path {
 		return ip
 	}
 
+	// TODO: optimize with backward commands
 	cmds := []float64{}
 	for i := 0; i < len(p.d); {
 		cmds = append(cmds, p.d[i])
 		i += cmdLen(p.d[i])
 	}
 
-	end := Point{p.d[len(p.d)-2], p.d[len(p.d)-1]}
+	end := Point{p.d[len(p.d)-3], p.d[len(p.d)-2]}
 	if !end.IsZero() {
 		ip.MoveTo(end.X, end.Y)
 	}
@@ -1144,7 +1146,7 @@ func (p *Path) Reverse() *Path {
 		i -= cmdLen(cmd)
 		end = Point{}
 		if i > 0 {
-			end = Point{p.d[i-2], p.d[i-1]}
+			end = Point{p.d[i-3], p.d[i-2]}
 		}
 
 		switch cmd {
@@ -1190,6 +1192,7 @@ func (p *Path) Reverse() *Path {
 
 // Optimize returns the same path but with superfluous segments removed (such as multiple colinear LineTos). Be aware this changes the path inplace.
 func (p *Path) Optimize() *Path {
+	// TODO: optimize with backward commands
 	cmds := []float64{}
 	for i := 0; i < len(p.d); {
 		cmds = append(cmds, p.d[i])
@@ -1199,36 +1202,40 @@ func (p *Path) Optimize() *Path {
 	i := len(p.d)
 	end := Point{}
 	if 0 < i {
-		end = Point{p.d[i-2], p.d[i-1]}
+		end = Point{p.d[i-3], p.d[i-2]}
 	}
 	for icmd := len(cmds) - 1; icmd >= 0; icmd-- {
 		cmd := cmds[icmd]
-		i -= cmdLen(cmd)
+		di := cmdLen(cmd)
+		i -= di
+
 		start := Point{}
 		if 0 < i {
-			start = Point{p.d[i-2], p.d[i-1]}
+			start = Point{p.d[i-3], p.d[i-2]}
 		}
 		switch cmd {
 		case moveToCmd:
-			if i+3 < len(p.d) && p.d[i+3] == moveToCmd || i == 0 && end.IsZero() || i+3 == len(p.d) {
-				p.d = append(p.d[:i], p.d[i+3:]...)
-			} else if i+3 < len(p.d) && p.d[i+3] == closeCmd {
-				p.d = append(p.d[:i], p.d[i+6:]...)
+			if i+di < len(p.d) && p.d[i+di] == moveToCmd || i == 0 && end.IsZero() || i+di == len(p.d) {
+				p.d = append(p.d[:i], p.d[i+di:]...)
+			} else if i+di < len(p.d) && p.d[i+di] == closeCmd {
+				p.d = append(p.d[:i], p.d[i+di+cmdLen(closeCmd):]...)
 			}
 		case lineToCmd:
 			if start == end {
-				p.d = append(p.d[:i], p.d[i+3:]...)
+				p.d = append(p.d[:i], p.d[i+di:]...)
 				cmd = nullCmd
 			}
 		case closeCmd:
-			if i+3 < len(p.d) && p.d[i+3] == closeCmd {
-				p.d = append(p.d[:i+3], p.d[i+6:]...) // remove last closeCmd to ensure x,y values are valid
+			if i+di < len(p.d) && p.d[i+di] == closeCmd {
+				p.d = append(p.d[:i+di], p.d[i+di+cmdLen(closeCmd):]...) // remove last closeCmd to ensure x,y values are valid
+				cmd = nullCmd
 			}
 		case quadToCmd:
 			cp := Point{p.d[i+1], p.d[i+2]}
 			if end.Sub(start).AngleBetween(cp.Sub(start)) == 0.0 {
 				p.d = append(p.d[:i+1], p.d[i+3:]...)
 				p.d[i] = lineToCmd
+				p.d[i+cmdLen(lineToCmd)-1] = lineToCmd
 				cmd = lineToCmd
 			}
 		case cubeToCmd:
@@ -1237,27 +1244,30 @@ func (p *Path) Optimize() *Path {
 			if end.Sub(start).AngleBetween(cp1.Sub(start)) == 0.0 && end.Sub(start).AngleBetween(cp2.Sub(start)) == 0.0 {
 				p.d = append(p.d[:i+1], p.d[i+5:]...)
 				p.d[i] = lineToCmd
+				p.d[i+cmdLen(lineToCmd)-1] = lineToCmd
 				cmd = lineToCmd
 			}
 		case arcToCmd:
 			if start == end {
-				p.d = append(p.d[:i], p.d[i+7:]...)
+				p.d = append(p.d[:i], p.d[i+di:]...)
 			}
 		}
 
 		// remove adjacent lines if they are collinear
-		if cmd == lineToCmd && i+3 < len(p.d) && (p.d[i+3] == lineToCmd || p.d[i+3] == closeCmd) {
-			nextEnd := Point{p.d[i+4], p.d[i+5]}
-			if p.d[i+3] == closeCmd && end == nextEnd {
-				p.d = append(p.d[:i], p.d[i+3:]...)
+		di = cmdLen(cmd)
+		if cmd == lineToCmd && i+di < len(p.d) && (p.d[i+di] == lineToCmd || p.d[i+di] == closeCmd) {
+			nextEnd := Point{p.d[i+di+1], p.d[i+di+2]}
+			if p.d[i+di] == closeCmd && end == nextEnd {
+				p.d = append(p.d[:i], p.d[i+di:]...)
 				p.d[i] = closeCmd
 			} else if end.Sub(start).AngleBetween(nextEnd.Sub(end)) == 0.0 {
-				p.d = append(p.d[:i], p.d[i+3:]...)
+				p.d = append(p.d[:i], p.d[i+di:]...)
 			}
 		}
 		end = start
 	}
 	// set i0 correctly
+	// TODO: optimze with backward commands
 	p.i0 = 0
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]

@@ -45,11 +45,11 @@ func TestPathAppend(t *testing.T) {
 
 	p := MustParseSVG("M5 0L5 10").Append(MustParseSVG("M5 15L10 15"))
 	test.T(t, p.String(), "M5 0L5 10M5 15L10 15")
-	test.T(t, p.i0, 6)
+	test.T(t, p.i0, 8)
 
 	p = MustParseSVG("M5 0L5 10").Append(MustParseSVG("L10 15M20 15L25 15"))
 	test.T(t, p.String(), "M5 0L5 10M0 0L10 15M20 15L25 15")
-	test.T(t, p.i0, 12)
+	test.T(t, p.i0, 16)
 }
 
 func TestPathJoin(t *testing.T) {
@@ -66,11 +66,11 @@ func TestPathJoin(t *testing.T) {
 
 	p = MustParseSVG("M5 0L5 10").Join(MustParseSVG("L10 15M20 15L25 15"))
 	test.T(t, p.String(), "M5 0L5 10L10 15M20 15L25 15")
-	test.T(t, p.i0, 9)
+	test.T(t, p.i0, 12)
 
 	p = MustParseSVG("M5 0L5 10").Join(MustParseSVG("M5 10L10 15M20 15L25 15"))
 	test.T(t, p.String(), "M5 0L5 10L10 15M20 15L25 15")
-	test.T(t, p.i0, 9)
+	test.T(t, p.i0, 12)
 }
 
 func TestPathCoords(t *testing.T) {
@@ -250,9 +250,9 @@ func TestPathReplace(t *testing.T) {
 		i0Orig int
 		i0Res  int
 	}{
-		{"C0 10 10 10 10 0M20 0L30 0", "M20 0L30 0", nil, bezier, nil, 7, 0},
-		{"M20 0L30 0C0 10 10 10 10 0", "M20 0L30 0M40 0L10 0", nil, bezier, nil, 0, 6},
-		{"M10 0L20 0Q25 10 30 0A5 5 0 0 0 40 0z", "M10 0L20 -5M30 -5L30 0A5 5 0 1 0 40 0L10 -5z", line, bezier, arc, 0, 6},
+		{"C0 10 10 10 10 0M20 0L30 0", "M20 0L30 0", nil, bezier, nil, 8, 0},
+		{"M20 0L30 0C0 10 10 10 10 0", "M20 0L30 0M40 0L10 0", nil, bezier, nil, 0, 8},
+		{"M10 0L20 0Q25 10 30 0A5 5 0 0 0 40 0z", "M10 0L20 -5M30 -5L30 0A5 5 0 1 0 40 0L10 -5z", line, bezier, arc, 0, 8},
 		{"L10 0L0 5z", "L10 -5L0 0L0 -5z", line, nil, nil, 0, 0},
 	}
 	for _, tt := range tts {
@@ -496,10 +496,10 @@ func TestPathOptimize(t *testing.T) {
 		})
 	}
 
-	test.T(t, (&Path{[]float64{lineToCmd, 0.0, 0.0}, 0}).Optimize().String(), "")
-	test.T(t, (&Path{[]float64{quadToCmd, 0.0, 0.0, 10.0, 10.0}, 0}).Optimize().String(), "L10 10")
-	test.T(t, (&Path{[]float64{cubeToCmd, 0.0, 0.0, 10.0, 10.0, 10.0, 10.0}, 0}).Optimize().String(), "L10 10")
-	test.T(t, (&Path{[]float64{arcToCmd, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0}, 0}).Optimize().String(), "")
+	test.T(t, (&Path{[]float64{lineToCmd, 0.0, 0.0, lineToCmd}, 0}).Optimize().String(), "")
+	test.T(t, (&Path{[]float64{quadToCmd, 0.0, 0.0, 10.0, 10.0, quadToCmd}, 0}).Optimize().String(), "L10 10")
+	test.T(t, (&Path{[]float64{cubeToCmd, 0.0, 0.0, 10.0, 10.0, 10.0, 10.0, cubeToCmd}, 0}).Optimize().String(), "L10 10")
+	test.T(t, (&Path{[]float64{arcToCmd, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0, arcToCmd}, 0}).Optimize().String(), "")
 }
 
 func TestPathParseSVG(t *testing.T) {
