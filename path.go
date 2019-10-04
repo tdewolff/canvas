@@ -192,9 +192,15 @@ func (p *Path) Coords() []Point {
 
 // MoveTo moves the path to x,y without connecting the path. It starts a new independent subpath. Multiple subpaths can be useful when negating parts of a previous path by overlapping it with a path in the opposite direction. The bahaviour for overlapping paths depend on the FillRule.
 func (p *Path) MoveTo(x, y float64) *Path {
+	// TODO: don't add MoveTo after Close with same coords
 	//if len(p.d) == 0 && equal(x, 0.0) && equal(y, 0.0) {
 	//	return p
 	//}
+	if 0 < len(p.d) && p.d[len(p.d)-1] == moveToCmd {
+		p.d[len(p.d)-3] = x
+		p.d[len(p.d)-2] = y
+		return p
+	}
 	p.i0 = len(p.d)
 	p.d = append(p.d, moveToCmd, x, y, moveToCmd)
 	return p
@@ -302,6 +308,10 @@ func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
 // Close closes a (sub)path with a LineTo to the start of the path (the most recent MoveTo command).
 // It also signals the path closes as opposed to being just a LineTo command, which can be significant for stroking purposes for example.
 func (p *Path) Close() *Path {
+	// TODO: replace prev LineTo if it has the same coords
+	if 0 < len(p.d) && p.d[len(p.d)-1] == closeCmd {
+		return p
+	}
 	p1 := p.StartPos()
 	p.d = append(p.d, closeCmd, p1.X, p1.Y, closeCmd)
 	return p

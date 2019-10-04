@@ -343,7 +343,7 @@ func TestPathSplit(t *testing.T) {
 		{"M5 5L6 6z", []string{"M5 5L6 6z"}},
 		{"L5 5M10 10L20 20z", []string{"L5 5", "M10 10L20 20z"}},
 		{"L5 5zL10 10", []string{"L5 5z", "L10 10"}},
-		{"M5 5M10 10z", []string{"M5 5", "M10 10z"}},
+		//{"M5 5M10 10z", []string{"M5 5", "M10 10z"}},
 		{"M5 5zL10 10zL20 20", []string{"M5 5z", "M5 5L10 10z", "M5 5L20 20"}},
 	}
 	for _, tt := range tts {
@@ -363,6 +363,10 @@ func TestPathSplit(t *testing.T) {
 			}
 		})
 	}
+
+	ps := (&Path{[]float64{moveToCmd, 5.0, 5.0, moveToCmd, moveToCmd, 10.0, 10.0, moveToCmd, closeCmd, 10.0, 10.0, closeCmd}, 0}).Split()
+	test.T(t, ps[0].String(), "M5 5")
+	test.T(t, ps[1].String(), "M10 10z")
 }
 
 func TestPathSplitAt(t *testing.T) {
