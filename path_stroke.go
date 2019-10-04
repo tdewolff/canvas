@@ -473,7 +473,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 func closeInnerBends(p *Path, indices []int, closed bool) {
 	// TODO: (stroke) implement inner bend optimization for all combinations
 
-	for _, i := range indices {
+	for _, _ = range indices {
 		//cmd := p.d[i]
 		//iPrev := i - cmdLen(prevCmd)
 		//if cmd == moveToCmd {
