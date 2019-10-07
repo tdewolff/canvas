@@ -190,15 +190,17 @@ func (p *Path) Coords() []Point {
 
 ////////////////////////////////////////////////////////////////
 
-// MoveTo moves the path to x,y without connecting the path. It starts a new independent subpath. Multiple subpaths can be useful when negating parts of a previous path by overlapping it with a path in the opposite direction. The bahaviour for overlapping paths depend on the FillRule.
+// MoveTo moves the path to x,y without connecting the path. It starts a new independent subpath. Multiple subpaths can be useful when negating parts of a previous path by overlapping it with a path in the opposite direction. The behaviour for overlapping paths depend on the FillRule.
 func (p *Path) MoveTo(x, y float64) *Path {
-	// TODO: don't add MoveTo after Close with same coords
-	//if len(p.d) == 0 && equal(x, 0.0) && equal(y, 0.0) {
-	//	return p
-	//}
-	if 0 < len(p.d) && p.d[len(p.d)-1] == moveToCmd {
-		p.d[len(p.d)-3] = x
-		p.d[len(p.d)-2] = y
+	if 0 < len(p.d) {
+		if p.d[len(p.d)-1] == moveToCmd {
+			p.d[len(p.d)-3] = x
+			p.d[len(p.d)-2] = y
+			return p
+		} else if p.d[len(p.d)-1] == closeCmd && p.d[len(p.d)-3] == x && p.d[len(p.d)-2] == y {
+			return p
+		}
+	} else if equal(x, 0.0) && equal(y, 0.0) {
 		return p
 	}
 	p.i0 = len(p.d)
@@ -206,54 +208,69 @@ func (p *Path) MoveTo(x, y float64) *Path {
 	return p
 }
 
-// LineTo adds a linear path to x1,y1.
-func (p *Path) LineTo(x1, y1 float64) *Path {
-	p0 := p.Pos()
-	p1 := Point{x1, y1}
-	if p0.Equals(p1) {
+// LineTo adds a linear path to x,y.
+func (p *Path) LineTo(x, y float64) *Path {
+	start := p.Pos()
+	end := Point{x, y}
+	if start.Equals(end) {
 		return p
+		//} else if cmdLen(lineToCmd) <= len(p.d) && p.d[len(p.d)-1] == lineToCmd {
+		//	prevStart := Point{}
+		//	if cmdLen(lineToCmd) < len(p.d) {
+		//		prevStart = Point{p.d[len(p.d)-cmdLen(lineToCmd)-3], p.d[len(p.d)-cmdLen(lineToCmd)-2]}
+		//	}
+		//	if equal(end.Sub(start).AngleBetween(start.Sub(prevStart)), 0.0) {
+		//		fmt.Println(p, prevStart, start, end, "//", end.Sub(start), start.Sub(prevStart), "==", end.Sub(start).AngleBetween(start.Sub(prevStart)), equal(end.Sub(start).AngleBetween(start.Sub(prevStart)), 0.0), Epsilon)
+		//		p.d[len(p.d)-3] = x
+		//		p.d[len(p.d)-2] = y
+		//		return p
+		//	}
 	}
-	p.d = append(p.d, lineToCmd, p1.X, p1.Y, lineToCmd)
+	p.d = append(p.d, lineToCmd, end.X, end.Y, lineToCmd)
 	return p
 }
 
-// QuadTo adds a quadratic Bézier path with control point cpx,cpy and end point x1,y1.
-func (p *Path) QuadTo(cpx, cpy, x1, y1 float64) *Path {
-	p0 := p.Pos()
+// QuadTo adds a quadratic Bézier path with control point cpx,cpy and end point x,y.
+func (p *Path) QuadTo(cpx, cpy, x, y float64) *Path {
+	start := p.Pos()
 	cp := Point{cpx, cpy}
-	p1 := Point{x1, y1}
-	if cp.Equals(p0) || cp.Equals(p1) {
-		return p.LineTo(p1.X, p1.Y)
+	end := Point{x, y}
+	if start.Equals(end) && start.Equals(cp) {
+		return p
+		//} else if !start.Equals(end) && equal(end.Sub(start).AngleBetween(cp.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp)), 0.0) {
+		//	return p.LineTo(end.X, end.Y)
 	}
-	p.d = append(p.d, quadToCmd, cp.X, cp.Y, p1.X, p1.Y, quadToCmd)
+	p.d = append(p.d, quadToCmd, cp.X, cp.Y, end.X, end.Y, quadToCmd)
 	return p
 }
 
-// CubeTo adds a cubic Bézier path with control points cpx1,cpy1 and cpx2,cpy2 and end point x1,y1.
-func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x1, y1 float64) *Path {
-	p0 := p.Pos()
+// CubeTo adds a cubic Bézier path with control points cpx1,cpy1 and cpx2,cpy2 and end point x,y.
+func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x, y float64) *Path {
+	start := p.Pos()
 	cp1 := Point{cpx1, cpy1}
 	cp2 := Point{cpx2, cpy2}
-	p1 := Point{x1, y1}
-	if (cp1.Equals(p0) || cp1.Equals(p1)) && (cp2.Equals(p0) || cp2.Equals(p1)) {
-		return p.LineTo(p1.X, p1.Y)
+	end := Point{x, y}
+	if start.Equals(end) && start.Equals(cp1) && start.Equals(cp2) {
+		return p
+		//} else if !start.Equals(end) && equal(end.Sub(start).AngleBetween(cp1.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp1)), 0.0) && equal(end.Sub(start).AngleBetween(cp2.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp2)), 0.0) {
+		//	return p.LineTo(end.X, end.Y)
 	}
-	p.d = append(p.d, cubeToCmd, cp1.X, cp1.Y, cp2.X, cp2.Y, p1.X, p1.Y, cubeToCmd)
+	p.d = append(p.d, cubeToCmd, cp1.X, cp1.Y, cp2.X, cp2.Y, end.X, end.Y, cubeToCmd)
 	return p
 }
 
 // ArcTo adds an arc with radii rx and ry, with rot the counter clockwise rotation with respect to the coordinate system in degrees,
 // largeArc and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
-// and x1,y1 the end position of the pen. The start position of the pen was given by a previous command end point.
+// and x,y the end position of the pen. The start position of the pen was given by a previous command end point.
 // When sweep is true it means following the arc in a CCW direction in the Cartesian coordinate system, ie. that is CW in the upper-left coordinate system as is the case in SVGs.
-func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x1, y1 float64) *Path {
-	p0 := p.Pos()
-	p1 := Point{x1, y1}
-	if p0.Equals(p1) {
+func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x, y float64) *Path {
+	start := p.Pos()
+	end := Point{x, y}
+	if start.Equals(end) {
 		return p
 	}
 	if equal(rx, 0.0) || equal(ry, 0.0) {
-		return p.LineTo(p1.X, p1.Y)
+		return p.LineTo(end.X, end.Y)
 	}
 
 	rx = math.Abs(rx)
@@ -269,13 +286,13 @@ func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x1, y1 float64) 
 	}
 
 	// scale ellipse if rx and ry are too small
-	lambda := ellipseRadiiCorrection(p0, rx, ry, phi, p1)
+	lambda := ellipseRadiiCorrection(start, rx, ry, phi, end)
 	if lambda > 1.0 {
 		rx *= lambda
 		ry *= lambda
 	}
 
-	p.d = append(p.d, arcToCmd, rx, ry, phi, toArcFlags(largeArc, sweep), p1.X, p1.Y, arcToCmd)
+	p.d = append(p.d, arcToCmd, rx, ry, phi, toArcFlags(largeArc, sweep), end.X, end.Y, arcToCmd)
 	return p
 }
 
@@ -308,12 +325,20 @@ func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
 // Close closes a (sub)path with a LineTo to the start of the path (the most recent MoveTo command).
 // It also signals the path closes as opposed to being just a LineTo command, which can be significant for stroking purposes for example.
 func (p *Path) Close() *Path {
-	// TODO: replace prev LineTo if it has the same coords
-	if 0 < len(p.d) && p.d[len(p.d)-1] == closeCmd {
-		return p
+	end := p.StartPos()
+	if 0 < len(p.d) {
+		if p.d[len(p.d)-1] == closeCmd {
+			return p
+		} else if p.d[len(p.d)-1] == moveToCmd {
+			p.d = p.d[:len(p.d)-cmdLen(moveToCmd)]
+			return p
+		} else if p.d[len(p.d)-1] == lineToCmd && equal(p.d[len(p.d)-3], end.X) && equal(p.d[len(p.d)-2], end.Y) {
+			p.d[len(p.d)-1] = closeCmd
+			p.d[len(p.d)-cmdLen(lineToCmd)] = closeCmd
+			return p
+		}
 	}
-	p1 := p.StartPos()
-	p.d = append(p.d, closeCmd, p1.X, p1.Y, closeCmd)
+	p.d = append(p.d, closeCmd, end.X, end.Y, closeCmd)
 	return p
 }
 
@@ -570,10 +595,10 @@ func (p *Path) Length() float64 {
 // Transform transform the path by the given transformation matrix and returns a new path.
 func (p *Path) Transform(m Matrix) *Path {
 	p = p.Copy()
-	if len(p.d) > 0 && p.d[0] != moveToCmd {
+	tx, ty, _, xscale, yscale, _ := m.Decompose()
+	if len(p.d) > 0 && p.d[0] != moveToCmd && (!equal(tx, 0.0) || !equal(ty, 0.0)) {
 		p.d = append([]float64{moveToCmd, 0.0, 0.0, moveToCmd}, p.d...)
 	}
-	_, _, _, xscale, yscale, _ := m.Decompose()
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
@@ -658,6 +683,7 @@ func (p *Path) Flatten() *Path {
 // The line function will take the start and end points. The bezier function will take the start point, control point 1 and 2, and the end point (ie. a cubic Bézier, quadratic Béziers will be implicitly converted to cubic ones). The arc function will take a start point, the major and minor radii, the radial rotaton counter clockwise, the largeArc and sweep booleans, and the end point.
 // Be aware this will change the path inplace. Changing the end point of one path will subsequently change the start point of the next segment. Returning nil has no effect on the path.
 func (p *Path) Replace(
+	// TODO: does not obey to command function optimizations, i.e. replacing a command with a LineTo that is colinear with the previous LineTo does not merge them together, run Optimize after?
 	line func(Point, Point) *Path,
 	bezier func(Point, Point, Point, Point) *Path,
 	arc func(Point, float64, float64, float64, bool, bool, Point) *Path,
@@ -767,7 +793,7 @@ func (p *Path) Markers(first, mid, last *Path, align bool) []*Path {
 				case quadToCmd, cubeToCmd:
 					var cp1, cp2 Point
 					if cmd == quadToCmd {
-						cp := Point{p.d[i-5], p.d[i-3]}
+						cp := Point{p.d[i-5], p.d[i-4]}
 						cp1, cp2 = quadraticToCubicBezier(start, cp, end)
 					} else {
 						cp1 = Point{p.d[i-7], p.d[i-6]}
@@ -1206,23 +1232,27 @@ func (p *Path) Optimize() *Path {
 		switch cmd {
 		case moveToCmd:
 			if i+di < len(p.d) && p.d[i+di] == moveToCmd || i == 0 && end.IsZero() || i+di == len(p.d) {
+				// TODO: first and second tests should be impossible
 				p.d = append(p.d[:i], p.d[i+di:]...)
 			} else if i+di < len(p.d) && p.d[i+di] == closeCmd {
+				// TODO: impossible to reach
 				p.d = append(p.d[:i], p.d[i+di+cmdLen(closeCmd):]...)
 			}
 		case lineToCmd:
+			// TODO: impossible to reach
 			if start == end {
 				p.d = append(p.d[:i], p.d[i+di:]...)
 				cmd = nullCmd
 			}
 		case closeCmd:
+			// TODO: impossible to reach
 			if i+di < len(p.d) && p.d[i+di] == closeCmd {
 				p.d = append(p.d[:i+di], p.d[i+di+cmdLen(closeCmd):]...) // remove last closeCmd to ensure x,y values are valid
 				cmd = nullCmd
 			}
 		case quadToCmd:
 			cp := Point{p.d[i+1], p.d[i+2]}
-			if end.Sub(start).AngleBetween(cp.Sub(start)) == 0.0 {
+			if equal(end.Sub(start).AngleBetween(cp.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp)), 0.0) {
 				p.d = append(p.d[:i+1], p.d[i+3:]...)
 				p.d[i] = lineToCmd
 				p.d[i+cmdLen(lineToCmd)-1] = lineToCmd
@@ -1231,13 +1261,14 @@ func (p *Path) Optimize() *Path {
 		case cubeToCmd:
 			cp1 := Point{p.d[i+1], p.d[i+2]}
 			cp2 := Point{p.d[i+3], p.d[i+4]}
-			if end.Sub(start).AngleBetween(cp1.Sub(start)) == 0.0 && end.Sub(start).AngleBetween(cp2.Sub(start)) == 0.0 {
+			if equal(end.Sub(start).AngleBetween(cp1.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp1)), 0.0) && equal(end.Sub(start).AngleBetween(cp2.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp2)), 0.0) {
 				p.d = append(p.d[:i+1], p.d[i+5:]...)
 				p.d[i] = lineToCmd
 				p.d[i+cmdLen(lineToCmd)-1] = lineToCmd
 				cmd = lineToCmd
 			}
 		case arcToCmd:
+			// TODO: impossible to reach
 			if start == end {
 				p.d = append(p.d[:i], p.d[i+di:]...)
 			}
@@ -1248,9 +1279,11 @@ func (p *Path) Optimize() *Path {
 		if cmd == lineToCmd && i+di < len(p.d) && (p.d[i+di] == lineToCmd || p.d[i+di] == closeCmd) {
 			nextEnd := Point{p.d[i+di+1], p.d[i+di+2]}
 			if p.d[i+di] == closeCmd && end == nextEnd {
+				// TODO: impossible to reach
 				p.d = append(p.d[:i], p.d[i+di:]...)
 				p.d[i] = closeCmd
 			} else if end.Sub(start).AngleBetween(nextEnd.Sub(end)) == 0.0 {
+				// TODO: move to LineTo and Close functions
 				p.d = append(p.d[:i], p.d[i+di:]...)
 			}
 		}

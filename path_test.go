@@ -88,10 +88,16 @@ func TestPathCommands(t *testing.T) {
 	test.T(t, (&Path{}).MoveTo(3, 4).ArcTo(2, 2, 0, false, false, 3, 4).String(), "M3 4")
 
 	test.T(t, (&Path{}).LineTo(3, 4).String(), "L3 4")
-	test.T(t, (&Path{}).QuadTo(3, 4, 3, 4).String(), "L3 4")
+	//test.T(t, (&Path{}).QuadTo(3, 4, 3, 4).String(), "L3 4")
 	test.T(t, (&Path{}).QuadTo(1, 2, 3, 4).String(), "Q1 2 3 4")
-	test.T(t, (&Path{}).CubeTo(0, 0, 3, 4, 3, 4).String(), "L3 4")
+	test.T(t, (&Path{}).QuadTo(0, 0, 0, 0).String(), "")
+	test.T(t, (&Path{}).QuadTo(3, 4, 0, 0).String(), "Q3 4 0 0")
+	//test.T(t, (&Path{}).QuadTo(1.5, 2, 3, 4).String(), "L3 4")
+	//test.T(t, (&Path{}).CubeTo(0, 0, 3, 4, 3, 4).String(), "L3 4")
 	test.T(t, (&Path{}).CubeTo(1, 1, 2, 2, 3, 4).String(), "C1 1 2 2 3 4")
+	test.T(t, (&Path{}).CubeTo(1, 1, 2, 2, 0, 0).String(), "C1 1 2 2 0 0")
+	test.T(t, (&Path{}).CubeTo(0, 0, 0, 0, 0, 0).String(), "")
+	//test.T(t, (&Path{}).CubeTo(1, 1, 2, 2, 3, 3).String(), "L3 3")
 	test.T(t, (&Path{}).ArcTo(0, 0, 0, false, false, 4, 0).String(), "L4 0")
 	test.T(t, (&Path{}).ArcTo(2, 1, 0, false, false, 4, 0).String(), "A2 1 0 0 0 4 0")
 	test.T(t, (&Path{}).ArcTo(1, 2, 0, true, true, 4, 0).String(), "A4 2 90 1 1 4 0")
@@ -101,6 +107,12 @@ func TestPathCommands(t *testing.T) {
 	test.T(t, (&Path{}).Arc(2, 1, 0, 540, 0), (&Path{}).ArcTo(2, 1, 0, false, false, 4, 0).ArcTo(2, 1, 0, false, false, 0, 0).ArcTo(2, 1, 0, false, false, 4, 0))
 	test.T(t, (&Path{}).Arc(2, 1, 0, 180, -180), (&Path{}).ArcTo(2, 1, 0, false, false, 4, 0).ArcTo(2, 1, 0, false, false, 0, 0))
 	test.T(t, (&Path{}).Close().String(), "z")
+
+	test.T(t, (&Path{}).MoveTo(3, 4).MoveTo(5, 3).String(), "M5 3")
+	test.T(t, (&Path{}).MoveTo(3, 4).Close().String(), "")
+	test.T(t, (&Path{}).LineTo(3, 4).LineTo(0, 0).Close().String(), "L3 4z")
+	test.T(t, (&Path{}).LineTo(3, 4).Close().Close().String(), "L3 4z")
+	test.T(t, (&Path{}).MoveTo(2, 1).LineTo(3, 4).LineTo(5, 0).Close().MoveTo(2, 1).LineTo(6, 3).String(), "M2 1L3 4L5 0zL6 3")
 }
 
 func TestPathCCW(t *testing.T) {
@@ -315,6 +327,9 @@ func TestPathMarkersAligned(t *testing.T) {
 		{"L10 0L20 10", []string{"M0 0L1 0L0 1z", "M9.076 -0.383A1 1 0 0 0 10.924 0.383z", "M20 10L19.293 9.293L19.293 10.707z"}},
 		{"L10 0L20 10z", []string{"M9.076 -0.383A1 1 0 0 0 10.924 0.383z", "M20.585 9.189A1 1 0 0 0 19.415 10.811z", "M-0.230 0.973A1 1 0 0 0 0.230 -0.973z"}},
 		{"M10 0L20 10M30 0L40 10", []string{"M10 0L10.707 0.707L9.293 0.707z", "M20 10L19.293 9.293L19.293 10.707z", "M30 0L30.707 0.707L29.293 0.707z", "M40 10L39.293 9.293L39.293 10.707z"}},
+		{"Q0 10 10 10Q20 10 20 0", []string{"L0 1L-1 0z", "M9 10A1 1 0 0 0 11 10z", "M20 0L20 1L21 0z"}},
+		{"C0 6.66667 3.33333 10 10 10C16.66667 10 20 6.66667 20 0", []string{"L0 1L-1 0z", "M9 10A1 1 0 0 0 11 10z", "M20 0L20 1L21 0z"}},
+		{"A10 10 0 0 0 10 10A10 10 0 0 0 20 0", []string{"L0 1L-1 0z", "M9 10A1 1 0 0 0 11 10z", "M20 0L20 1L21 0z"}},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
@@ -343,8 +358,6 @@ func TestPathSplit(t *testing.T) {
 		{"M5 5L6 6z", []string{"M5 5L6 6z"}},
 		{"L5 5M10 10L20 20z", []string{"L5 5", "M10 10L20 20z"}},
 		{"L5 5zL10 10", []string{"L5 5z", "L10 10"}},
-		//{"M5 5M10 10z", []string{"M5 5", "M10 10z"}},
-		{"M5 5zL10 10zL20 20", []string{"M5 5z", "M5 5L10 10z", "M5 5L20 20"}},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
@@ -380,8 +393,8 @@ func TestPathSplitAt(t *testing.T) {
 		{"L4 3L8 0z", []float64{0.0, 5.0, 10.0, 18.0}, []string{"L4 3", "M4 3L8 0", "M8 0L0 0"}},
 		{"L4 3L8 0z", []float64{5.0, 20.0}, []string{"L4 3", "M4 3L8 0L0 0"}},
 		{"L4 3L8 0z", []float64{2.5, 7.5, 14.0}, []string{"L2 1.5", "M2 1.5L4 3L6 1.5", "M6 1.5L8 0L4 0", "M4 0L0 0"}},
-		{"Q10 0 20 0", []float64{10.0}, []string{"Q5 0 10 0", "M10 0Q15 0 20 0"}},
-		{"C10 0 10 0 20 0", []float64{10.0}, []string{"C5 0 7.5 0 10 0", "M10 0C12.5 0 15 0 20 0"}},
+		{"Q10 10 20 0", []float64{11.477858}, []string{"Q5 5 10 5", "M10 5Q15 5 20 0"}},
+		{"C0 10 20 10 20 0", []float64{13.947108}, []string{"C0 5 5 7.5 10 7.5", "M10 7.5C15 7.5 20 5 20 0"}},
 		{"A10 10 0 0 1 -20 0", []float64{15.707963}, []string{"A10 10 0 0 1 -10 10", "M-10 10A10 10 0 0 1 -20 0"}},
 		{"A10 10 0 0 0 20 0", []float64{15.707963}, []string{"A10 10 0 0 0 10 10", "M10 10A10 10 0 0 0 20 0"}},
 		{"A10 10 0 1 0 2.9289 -7.0711", []float64{15.707963}, []string{"A10 10 0 0 0 10.024 9.9999", "M10.024 9.9999A10 10 0 1 0 2.9289 -7.0711"}},
@@ -489,8 +502,10 @@ func TestPathOptimize(t *testing.T) {
 		{"M10 10L20 10L20 20L15 15z", "M10 10L20 10L20 20z", 0},
 		{"M10 10L20 10L10 10z", "M10 10L20 10z", 0},
 		{"Q5 5 10 10", "L10 10", 0},
+		{"Q12 12 10 10", "Q12 12 10 10", 0},
 		{"C2 2 8 8 10 10", "L10 10", 0},
 		{"C2 2 8 8 10 10L20 20", "L20 20", 0},
+		{"C12 12 12 12 10 10", "C12 12 12 12 10 10", 0},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
@@ -500,10 +515,10 @@ func TestPathOptimize(t *testing.T) {
 		})
 	}
 
-	test.T(t, (&Path{[]float64{lineToCmd, 0.0, 0.0, lineToCmd}, 0}).Optimize().String(), "")
-	test.T(t, (&Path{[]float64{quadToCmd, 0.0, 0.0, 10.0, 10.0, quadToCmd}, 0}).Optimize().String(), "L10 10")
-	test.T(t, (&Path{[]float64{cubeToCmd, 0.0, 0.0, 10.0, 10.0, 10.0, 10.0, cubeToCmd}, 0}).Optimize().String(), "L10 10")
-	test.T(t, (&Path{[]float64{arcToCmd, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0, arcToCmd}, 0}).Optimize().String(), "")
+	//test.T(t, (&Path{[]float64{lineToCmd, 0.0, 0.0, lineToCmd}, 0}).Optimize().String(), "")
+	//test.T(t, (&Path{[]float64{quadToCmd, 0.0, 0.0, 10.0, 10.0, quadToCmd}, 0}).Optimize().String(), "L10 10")
+	//test.T(t, (&Path{[]float64{cubeToCmd, 0.0, 0.0, 10.0, 10.0, 10.0, 10.0, cubeToCmd}, 0}).Optimize().String(), "L10 10")
+	//test.T(t, (&Path{[]float64{arcToCmd, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0, arcToCmd}, 0}).Optimize().String(), "")
 }
 
 func TestPathParseSVG(t *testing.T) {

@@ -79,7 +79,7 @@ func TestPDFText(t *testing.T) {
 	buf := &bytes.Buffer{}
 	pdf := newPDFWriter(buf).NewPage(210.0, 297.0)
 	text.WritePDF(pdf, Identity) // this actually gives coverage to PDF font embedding, which we don't test...
-	test.String(t, pdf.String(), " BT /F0 8 Tf 0 -7.421875 Td[(\x00G\x00H\x00M\x00D\x009) 63 (\x00X\x00\x1B)]TJ 1 0 0 rg 1 0 .3 1 0 -20.453125 Tm 1 Tc[(\x00J\x00O\x00\\\x00S\x00K\x00V\x00S\x00D\x00F\x00L\x00Q\x00J)]TJ 0 g 1 0 0 1 0 -29.765625 Tm 0 Tc 2 Tr .27984 w[(\x00G\x00H\x00M\x00D\x009) 63 (\x00X\x00\x14\x00\x15\x00V\x00X\x00E)]TJ /F1 10 Tf 0 -8.734375 Td .4 w[(\x00H\x00B\x00S\x00B\x00N\x00P\x00O\x00E\x00\x12\x00\x11)]TJ ET 1 0 0 rg 0 -22.703125 m 91.71875 -22.703125 l 91.71875 -21.803125 l 0 -21.803125 l 0 -22.703125 l f")
+	test.String(t, pdf.String(), " BT /F0 8 Tf 0 -7.421875 Td[(\x00G\x00H\x00M\x00D\x009) 63 (\x00X\x00\x1B)]TJ 1 0 0 rg 1 0 .3 1 0 -20.453125 Tm 1 Tc[(\x00J\x00O\x00\\\x00S\x00K\x00V\x00S\x00D\x00F\x00L\x00Q\x00J)]TJ 0 g 1 0 0 1 0 -29.765625 Tm 0 Tc 2 Tr .27984 w[(\x00G\x00H\x00M\x00D\x009) 63 (\x00X\x00\x14\x00\x15\x00V\x00X\x00E)]TJ /F1 10 Tf 0 -8.734375 Td .4 w[(\x00H\x00B\x00S\x00B\x00N\x00P\x00O\x00E\x00\x12\x00\x11)]TJ ET 1 0 0 rg 0 -22.703125 m 91.71875 -22.703125 l 91.71875 -21.803125 l 0 -21.803125 l f")
 }
 
 func TestPDFImage(t *testing.T) {
