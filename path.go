@@ -1252,7 +1252,7 @@ func (p *Path) Optimize() *Path {
 			}
 		case quadToCmd:
 			cp := Point{p.d[i+1], p.d[i+2]}
-			if equal(end.Sub(start).AngleBetween(cp.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp)), 0.0) {
+			if (!start.Equals(end) || start.Equals(cp)) && equal(end.Sub(start).AngleBetween(cp.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp)), 0.0) {
 				p.d = append(p.d[:i+1], p.d[i+3:]...)
 				p.d[i] = lineToCmd
 				p.d[i+cmdLen(lineToCmd)-1] = lineToCmd
@@ -1261,7 +1261,7 @@ func (p *Path) Optimize() *Path {
 		case cubeToCmd:
 			cp1 := Point{p.d[i+1], p.d[i+2]}
 			cp2 := Point{p.d[i+3], p.d[i+4]}
-			if equal(end.Sub(start).AngleBetween(cp1.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp1)), 0.0) && equal(end.Sub(start).AngleBetween(cp2.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp2)), 0.0) {
+			if (!start.Equals(end) || start.Equals(cp1) && start.Equals(cp2)) && equal(end.Sub(start).AngleBetween(cp1.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp1)), 0.0) && equal(end.Sub(start).AngleBetween(cp2.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp2)), 0.0) {
 				p.d = append(p.d[:i+1], p.d[i+5:]...)
 				p.d[i] = lineToCmd
 				p.d[i+cmdLen(lineToCmd)-1] = lineToCmd

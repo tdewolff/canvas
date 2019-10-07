@@ -445,9 +445,9 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 
 			cw := cur.n1.Rot90CW().Dot(next.n0) >= 0.0
 			if cw {
-				rhsInnerBends = append(rhsInnerBends, len(rhs.d)-3)
+				rhsInnerBends = append(rhsInnerBends, len(rhs.d)-cmdLen(lineToCmd))
 			} else {
-				lhsInnerBends = append(lhsInnerBends, len(lhs.d)-3)
+				lhsInnerBends = append(lhsInnerBends, len(lhs.d)-cmdLen(lineToCmd))
 			}
 		}
 	}
@@ -472,40 +472,38 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 
 func closeInnerBends(p *Path, indices []int, closed bool) {
 	// TODO: (stroke) implement inner bend optimization for all combinations
+	di := 0
+	for _, i := range indices {
+		i -= di
+		cmd := p.d[i]
+		iPrev := i - cmdLen(p.d[i-1])
+		iNext := i + cmdLen(cmd)
+		if closed && iNext == len(p.d) {
+			iNext = cmdLen(moveToCmd)
+		}
+		if 0 < iPrev && iNext < len(p.d) {
+			prevStart := Point{p.d[iPrev-3], p.d[iPrev-2]}
+			prevEnd := Point{p.d[i-3], p.d[i-2]}
+			nextStart := Point{p.d[i+1], p.d[i+2]}
+			nextEnd := Point{p.d[iNext+1], p.d[iNext+2]}
+			if p.d[iPrev] == lineToCmd && p.d[iNext] == lineToCmd {
+				x, ok := intersectionLineLine(prevStart, prevEnd, nextStart, nextEnd)
+				if ok {
+					p.d[i-3] = x.X
+					p.d[i-2] = x.Y
+					p.d = append(p.d[:i:i], p.d[i+cmdLen(cmd):]...)
+					di += cmdLen(cmd)
 
-	for _, _ = range indices {
-		//cmd := p.d[i]
-		//iPrev := i - cmdLen(prevCmd)
-		//if cmd == moveToCmd {
-		//	fmt.Println(i, len(p.d))
-		//}
-		//if cmd == moveToCmd {
-		//	if 0 < iPrev && (i+3 < len(p.d) || closed) {
-		//		prevStart := Point{p.d[iPrev-2], p.d[iPrev-1]}
-		//		prevEnd := Point{p.d[i-2], p.d[i-1]}
-
-		//		iNext := i + 3
-		//		if iNext == len(p.d) {
-		//			iNext = 3
-		//		}
-		//		nextCmd := p.d[iNext]
-		//		nextStart := Point{p.d[i+1], p.d[i+2]}
-		//		nextEnd := Point{p.d[iNext+1], p.d[iNext+2]}
-
-		//		if prevCmd == lineToCmd && nextCmd == lineToCmd {
-		//			fmt.Println("L2L:", prevStart, prevEnd, "=>", nextStart, nextEnd)
-		//			x, ok := intersectionLineLine(prevStart, prevEnd, nextStart, nextEnd)
-		//			if ok {
-		//				fmt.Println("X", x)
-		//			}
-		//		}
-		//	}
-
-		//	// unable to fix inner bend, revert to overlap
-		//	p.d[i] = lineToCmd
-		//}
-		//prevCmd = cmd
+					if closed && iNext < iPrev {
+						// closed path, update first MoveTo
+						p.d[1] = x.X
+						p.d[2] = x.Y
+					}
+				}
+			}
+		}
 	}
+	// TODO: i0 is bad!!
 }
 
 // Offset offsets the path to expand by w and returns a new path. If w is negative it will contract. Path must be closed.

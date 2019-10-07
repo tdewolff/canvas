@@ -40,13 +40,15 @@ func drawStrokedPath(c *canvas.Canvas, x, y, d float64, path string) {
 	}
 	c.DrawPath(x, y, p)
 
-	p = p.Stroke(d, canvas.ButtCapper, canvas.MiterClipJoiner(canvas.RoundJoiner, d))
 	c.SetFillColor(color.RGBA{128, 0, 0, 128})
+	p = p.Stroke(d, canvas.ButtCapper, canvas.MiterClipJoiner(canvas.RoundJoiner, d))
 	c.DrawPath(x, y, p)
 
-	//p = p.Stroke(0.2, canvas.RoundCapper, canvas.RoundJoiner)
-	//c.SetFillColor(color.RGBA{255, 0, 0, 255})
-	//c.DrawPath(x, y, p)
+	c.SetFillColor(color.RGBA{255, 0, 0, 255})
+	for _, ps := range p.Split() {
+		ps = ps.Stroke(0.2, canvas.RoundCapper, canvas.RoundJoiner)
+		c.DrawPath(x, y, ps)
+	}
 }
 
 func draw(c *canvas.Canvas) {
@@ -114,16 +116,16 @@ func draw(c *canvas.Canvas) {
 	//c.SetFillColor(color.RGBA{0, 0, 0, 128})
 	//c.DrawPath(10.0, 10.0, ellipse)
 
-	//drawStrokedPath(c, 30, 40, 2.0, "M0 0L50 0L50 -5")
-	//drawStrokedPath(c, 30, 30, 2.0, "M-25 -25A25 25 0 0 1 0 0A25 25 0 0 1 25 -25z")
-	//drawStrokedPath(c, 80, 30, 2.0, "M-35.35 -14.65A50 50 0 0 0 0 0A50 50 0 0 0 35.35 -14.65L-35.35 -14.65z")
-	//drawStrokedPath(c, 140, 35, 2.0, "M-25 -30A50 50 0 0 1 0 0A50 50 0 0 1 25 -30L-25 -30z")
-	//drawStrokedPath(c, 30, 70, 2.0, "M0 -25A25 25 0 0 1 0 0A25 25 0 0 1 0 -25z") // CCW
-	//drawStrokedPath(c, 60, 70, 2.0, "M0 -25A25 25 0 0 0 0 0A25 25 0 0 0 0 -25z") // CW
-	//drawStrokedPath(c, 90, 65, 2.0, "M0 -25A25 25 0 0 0 0 0A25 25 0 0 1 20 -25z")
-	//drawStrokedPath(c, 140, 50, 4.0, "M0 0A20 20 0 0 0 40 0A10 10 0 0 1 20 0z")
+	drawStrokedPath(c, 30, 40, 2.0, "M0 0L50 0L50 -5")
+	drawStrokedPath(c, 30, 30, 2.0, "M-25 -25A25 25 0 0 1 0 0A25 25 0 0 1 25 -25z")
+	drawStrokedPath(c, 80, 30, 2.0, "M-35.35 -14.65A50 50 0 0 0 0 0A50 50 0 0 0 35.35 -14.65L-35.35 -14.65z")
+	drawStrokedPath(c, 140, 35, 2.0, "M-25 -30A50 50 0 0 1 0 0A50 50 0 0 1 25 -30L-25 -30z")
+	drawStrokedPath(c, 30, 70, 2.0, "M0 -25A25 25 0 0 1 0 0A25 25 0 0 1 0 -25z") // CCW
+	drawStrokedPath(c, 60, 70, 2.0, "M0 -25A25 25 0 0 0 0 0A25 25 0 0 0 0 -25z") // CW
+	drawStrokedPath(c, 90, 65, 2.0, "M0 -25A25 25 0 0 0 0 0A25 25 0 0 1 20 -25z")
+	drawStrokedPath(c, 140, 50, 4.0, "M0 0A20 20 0 0 0 40 0A10 10 0 0 1 20 0z")
 	drawStrokedPath(c, 170, 20, 2.0, "C10 -13.33 10 -13.33 20 0z")
-	//drawStrokedPath(c, 170, 30, 2.0, "C10 13.33 10 13.33 20 0z")
+	drawStrokedPath(c, 170, 30, 2.0, "C10 13.33 10 13.33 20 0z")
 
 	// c.SetColor(canvas.LightGrey)
 	// c.DrawPath(20.0, 20.0, 0.0, canvas.Rectangle(0.0, 0.0, 160.0, 40.0))
