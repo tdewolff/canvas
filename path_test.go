@@ -45,11 +45,9 @@ func TestPathAppend(t *testing.T) {
 
 	p := MustParseSVG("M5 0L5 10").Append(MustParseSVG("M5 15L10 15"))
 	test.T(t, p.String(), "M5 0L5 10M5 15L10 15")
-	test.T(t, p.i0, 8)
 
 	p = MustParseSVG("M5 0L5 10").Append(MustParseSVG("L10 15M20 15L25 15"))
 	test.T(t, p.String(), "M5 0L5 10M0 0L10 15M20 15L25 15")
-	test.T(t, p.i0, 16)
 }
 
 func TestPathJoin(t *testing.T) {
@@ -58,19 +56,15 @@ func TestPathJoin(t *testing.T) {
 
 	p := MustParseSVG("M5 0L5 10").Join(MustParseSVG("L10 15"))
 	test.T(t, p.String(), "M5 0L5 10L10 15")
-	test.T(t, p.i0, 0)
 
 	p = MustParseSVG("M5 0L5 10").Join(MustParseSVG("M5 10L10 15"))
 	test.T(t, p.String(), "M5 0L5 10L10 15")
-	test.T(t, p.i0, 0)
 
 	p = MustParseSVG("M5 0L5 10").Join(MustParseSVG("L10 15M20 15L25 15"))
 	test.T(t, p.String(), "M5 0L5 10L10 15M20 15L25 15")
-	test.T(t, p.i0, 12)
 
 	p = MustParseSVG("M5 0L5 10").Join(MustParseSVG("M5 10L10 15M20 15L25 15"))
 	test.T(t, p.String(), "M5 0L5 10L10 15M20 15L25 15")
-	test.T(t, p.i0, 12)
 }
 
 func TestPathCoords(t *testing.T) {
@@ -259,22 +253,16 @@ func TestPathReplace(t *testing.T) {
 		line   func(Point, Point) *Path
 		bezier func(Point, Point, Point, Point) *Path
 		arc    func(Point, float64, float64, float64, bool, bool, Point) *Path
-		i0Orig int
-		i0Res  int
 	}{
-		{"C0 10 10 10 10 0M20 0L30 0", "M20 0L30 0", nil, bezier, nil, 8, 0},
-		{"M20 0L30 0C0 10 10 10 10 0", "M20 0L30 0M40 0L10 0", nil, bezier, nil, 0, 8},
-		{"M10 0L20 0Q25 10 30 0A5 5 0 0 0 40 0z", "M10 0L20 -5M30 -5L30 0A5 5 0 1 0 40 0L10 -5z", line, bezier, arc, 0, 8},
-		{"L10 0L0 5z", "L10 -5L0 0L0 -5z", line, nil, nil, 0, 0},
+		{"C0 10 10 10 10 0M20 0L30 0", "M20 0L30 0", nil, bezier, nil},
+		{"M20 0L30 0C0 10 10 10 10 0", "M20 0L30 0M40 0L10 0", nil, bezier, nil},
+		{"M10 0L20 0Q25 10 30 0A5 5 0 0 0 40 0z", "M10 0L20 -5M30 -5L30 0A5 5 0 1 0 40 0L10 -5z", line, bezier, arc},
+		{"L10 0L0 5z", "L10 -5L0 0L0 -5z", line, nil, nil},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
 			p := MustParseSVG(tt.orig)
-			test.T(t, p.i0, tt.i0Orig)
-
-			p.Replace(tt.line, tt.bezier, tt.arc)
-			test.T(t, p, MustParseSVG(tt.res))
-			test.T(t, p.i0, tt.i0Res)
+			test.T(t, p.Replace(tt.line, tt.bezier, tt.arc), MustParseSVG(tt.res))
 		})
 	}
 }
@@ -377,7 +365,7 @@ func TestPathSplit(t *testing.T) {
 		})
 	}
 
-	ps := (&Path{[]float64{moveToCmd, 5.0, 5.0, moveToCmd, moveToCmd, 10.0, 10.0, moveToCmd, closeCmd, 10.0, 10.0, closeCmd}, 0}).Split()
+	ps := (&Path{[]float64{moveToCmd, 5.0, 5.0, moveToCmd, moveToCmd, 10.0, 10.0, moveToCmd, closeCmd, 10.0, 10.0, closeCmd}}).Split()
 	test.T(t, ps[0].String(), "M5 5")
 	test.T(t, ps[1].String(), "M10 10z")
 }
@@ -489,29 +477,26 @@ func TestPathOptimize(t *testing.T) {
 	var tts = []struct {
 		orig string
 		opt  string
-		i0   int
 	}{
-		{"M0 0", "", 0},
-		{"M10 10z", "", 0},
-		{"M10 10zM20 20", "", 0},
-		{"M10 10zM20 20L30 20", "M20 20L30 20", 0},
-		{"M10 10M20 20", "", 0},
-		{"M10 10M20 20L30 30", "M20 20L30 30", 0},
-		{"M10 10L20 20zz", "M10 10L20 20z", 0},
-		{"M10 10L20 20L30 30", "M10 10L30 30", 0},
-		{"M10 10L20 10L20 20L15 15z", "M10 10L20 10L20 20z", 0},
-		{"M10 10L20 10L10 10z", "M10 10L20 10z", 0},
-		{"Q5 5 10 10", "L10 10", 0},
-		{"Q12 12 10 10", "Q12 12 10 10", 0},
-		{"C2 2 8 8 10 10", "L10 10", 0},
-		{"C2 2 8 8 10 10L20 20", "L20 20", 0},
-		{"C12 12 12 12 10 10", "C12 12 12 12 10 10", 0},
+		{"M0 0", ""},
+		{"M10 10z", ""},
+		{"M10 10zM20 20", ""},
+		{"M10 10zM20 20L30 20", "M20 20L30 20"},
+		{"M10 10M20 20", ""},
+		{"M10 10M20 20L30 30", "M20 20L30 30"},
+		{"M10 10L20 20zz", "M10 10L20 20z"},
+		{"M10 10L20 20L30 30", "M10 10L30 30"},
+		{"M10 10L20 10L20 20L15 15z", "M10 10L20 10L20 20z"},
+		{"M10 10L20 10L10 10z", "M10 10L20 10z"},
+		{"Q5 5 10 10", "L10 10"},
+		{"Q12 12 10 10", "Q12 12 10 10"},
+		{"C2 2 8 8 10 10", "L10 10"},
+		{"C2 2 8 8 10 10L20 20", "L20 20"},
+		{"C12 12 12 12 10 10", "C12 12 12 12 10 10"},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p := MustParseSVG(tt.orig).Optimize()
-			test.T(t, p.i0, tt.i0)
-			test.T(t, p, MustParseSVG(tt.opt))
+			test.T(t, MustParseSVG(tt.orig).Optimize(), MustParseSVG(tt.opt))
 		})
 	}
 

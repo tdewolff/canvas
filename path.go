@@ -72,8 +72,7 @@ func toArcFlags(largeArc, sweep bool) float64 {
 // Each command consists of a number of float64 values (depending on the command) that fully define the action. The first value is the command itself (as a float64). The last two values are the end point position of the pen after the action (x,y). QuadTo defined one control point (x,y) in between, CubeTo defines two control points, and ArcTo defines (rx,ry,phi,largeArc+sweep) i.e. the radius in x and y, its rotation (in radians) and the largeArc and sweep booleans in one float64.
 // Only valid commands are appended, so that LineTo has a non-zero length, QuadTo's and CubeTo's control point(s) don't (both) overlap with the start and end point, and ArcTo has non-zero radii and has non-zero length. For ArcTo we also make sure the angle is is in the range [0, 2*PI) and we scale the radii up if they appear too small to fit the arc.
 type Path struct {
-	d  []float64
-	i0 int // index of last MoveTo command
+	d []float64
 }
 
 // Empty returns true if p is an empty path or consists of only MoveTos and Closes.
@@ -93,7 +92,7 @@ func (p *Path) Empty() bool {
 
 // Equals returns true if p and q are equal within tolerance Epsilon.
 func (p *Path) Equals(q *Path) bool {
-	if len(p.d) != len(q.d) || p.i0 != q.i0 {
+	if len(p.d) != len(q.d) {
 		return false
 	}
 	for i := 0; i < len(p.d); i++ {
@@ -113,7 +112,6 @@ func (p *Path) Closed() bool {
 func (p *Path) Copy() *Path {
 	q := &Path{}
 	q.d = append(q.d, p.d...)
-	q.i0 = p.i0
 	return q
 }
 
@@ -124,14 +122,10 @@ func (p *Path) Append(q *Path) *Path {
 	} else if len(p.d) == 0 {
 		return q
 	}
-	i0 := len(p.d) + q.i0
 	if q.d[0] != moveToCmd {
 		p.MoveTo(0.0, 0.0)
-		if q.i0 != 0 {
-			i0 += cmdLen(moveToCmd)
-		}
 	}
-	return &Path{append(p.d, q.d...), i0}
+	return &Path{append(p.d, q.d...)}
 }
 
 // Join joins path q to p and returns a new path.
@@ -141,21 +135,14 @@ func (p *Path) Join(q *Path) *Path {
 	} else if len(p.d) == 0 {
 		return q
 	}
-	i0 := len(p.d) + q.i0
 	if q.d[0] == moveToCmd {
 		x0, y0 := p.d[len(p.d)-3], p.d[len(p.d)-2]
 		x1, y1 := q.d[1], q.d[2]
 		if equal(x0, x1) && equal(y0, y1) {
 			q.d = q.d[cmdLen(moveToCmd):]
-			i0 -= cmdLen(moveToCmd)
-			if q.i0 == 0 {
-				i0 = p.i0
-			}
 		}
-	} else if q.i0 == 0 {
-		i0 = p.i0
 	}
-	return &Path{append(p.d, q.d...), i0}
+	return &Path{append(p.d, q.d...)}
 }
 
 // Pos returns the current position of the path, which is the end point of the last command.
@@ -168,8 +155,12 @@ func (p *Path) Pos() Point {
 
 // StartPos returns the start point of the current subpath, ie. it returns the position of the last MoveTo command.
 func (p *Path) StartPos() Point {
-	if len(p.d) > 0 && p.d[p.i0] == moveToCmd {
-		return Point{p.d[p.i0+1], p.d[p.i0+2]}
+	for i := len(p.d); 0 < i; {
+		cmd := p.d[i-1]
+		if cmd == moveToCmd {
+			return Point{p.d[i-3], p.d[i-2]}
+		}
+		i -= cmdLen(cmd)
 	}
 	return Point{}
 }
@@ -203,7 +194,6 @@ func (p *Path) MoveTo(x, y float64) *Path {
 	} else if equal(x, 0.0) && equal(y, 0.0) {
 		return p
 	}
-	p.i0 = len(p.d)
 	p.d = append(p.d, moveToCmd, x, y, moveToCmd)
 	return p
 }
@@ -693,8 +683,6 @@ func (p *Path) Replace(
 		var q *Path
 		cmd := p.d[i]
 		switch cmd {
-		case moveToCmd:
-			p.i0 = i
 		case lineToCmd, closeCmd:
 			if line != nil {
 				end := Point{p.d[i+1], p.d[i+2]}
@@ -755,7 +743,6 @@ func (p *Path) Replace(
 		cmd := p.d[i]
 		if cmd == moveToCmd {
 			start = Point{p.d[i+1], p.d[i+2]}
-			p.i0 = i
 		} else if cmd == closeCmd {
 			p.d[i+1], p.d[i+2] = start.X, start.Y
 		}
@@ -862,7 +849,7 @@ func (p *Path) Split() []*Path {
 			if d[0] != moveToCmd && !start.IsZero() {
 				d = append([]float64{moveToCmd, start.X, start.Y, moveToCmd}, d...)
 			}
-			ps = append(ps, &Path{d, 0})
+			ps = append(ps, &Path{d})
 			start = Point{p.d[j-3], p.d[j-2]}
 			i = j
 		}
@@ -874,7 +861,7 @@ func (p *Path) Split() []*Path {
 		if d[0] != moveToCmd && !start.IsZero() {
 			d = append([]float64{moveToCmd, start.X, start.Y, moveToCmd}, d...)
 		}
-		ps = append(ps, &Path{d, 0})
+		ps = append(ps, &Path{d})
 	}
 	return ps
 }
@@ -1288,17 +1275,6 @@ func (p *Path) Optimize() *Path {
 			}
 		}
 		end = start
-	}
-	// set i0 correctly
-	p.i0 = 0
-	for i := len(p.d); 0 < i; {
-		cmd := p.d[i-1]
-		i -= cmdLen(cmd)
-
-		if cmd == moveToCmd {
-			p.i0 = i
-			break
-		}
 	}
 	return p
 }
