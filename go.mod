@@ -1,6 +1,8 @@
 module github.com/tdewolff/canvas
 
 require (
+	dmitri.shuralyov.com/font/woff2 v0.0.0-20180220214647-957792cbbdab // indirect
+	github.com/ConradIrwin/font v0.0.0-20190603172541-e12dbea4cf12
 	github.com/dsnet/compress v0.0.1
 	github.com/flopp/go-findfont v0.0.0-20180308170802-e788239e52bc
 	github.com/gogo/protobuf v1.2.1 // indirect

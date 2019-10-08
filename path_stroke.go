@@ -471,7 +471,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 }
 
 func closeInnerBends(p *Path, indices []int, closed bool) {
-	// TODO: (stroke) implement inner bend optimization for all combinations
+	// closed paths end with a LineTo to the original MoveTo but are not (yet) closed
 	di := 0
 	for _, i := range indices {
 		i -= di
@@ -482,10 +482,13 @@ func closeInnerBends(p *Path, indices []int, closed bool) {
 			iNext = cmdLen(moveToCmd)
 		}
 		if 0 < iPrev && iNext < len(p.d) {
+			// TODO: (stroke) implement inner bend optimization for all combinations
+			// TODO: (stroke) if segments do not cross keep looking, what if while looking we pass another index in indices? Remove all?
 			prevStart := Point{p.d[iPrev-3], p.d[iPrev-2]}
 			prevEnd := Point{p.d[i-3], p.d[i-2]}
 			nextStart := Point{p.d[i+1], p.d[i+2]}
 			nextEnd := Point{p.d[iNext+1], p.d[iNext+2]}
+
 			if p.d[iPrev] == lineToCmd && p.d[iNext] == lineToCmd {
 				x, ok := intersectionLineLine(prevStart, prevEnd, nextStart, nextEnd)
 				if ok {
@@ -493,15 +496,18 @@ func closeInnerBends(p *Path, indices []int, closed bool) {
 					p.d[i-2] = x.Y
 					p.d = append(p.d[:i:i], p.d[i+cmdLen(cmd):]...)
 					di += cmdLen(cmd)
-
-					if closed && iNext < iPrev {
-						// closed path, update first MoveTo
-						p.d[1] = x.X
-						p.d[2] = x.Y
-					}
 				}
+			} else if p.d[iPrev] == lineToCmd && p.d[iNext] == arcToCmd {
+			} else if p.d[iPrev] == arcToCmd && p.d[iNext] == lineToCmd {
+			} else if p.d[iPrev] == arcToCmd && p.d[iNext] == arcToCmd {
 			}
 		}
+	}
+
+	if closed {
+		// update MoveTo to match the last LineTo (which will be a Close)
+		p.d[1] = p.d[len(p.d)-3]
+		p.d[2] = p.d[len(p.d)-2]
 	}
 }
 

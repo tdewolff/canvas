@@ -1,15 +1,11 @@
 package canvas
 
 import (
-	"bytes"
-	"compress/zlib"
-	"encoding/binary"
-	"fmt"
-	"io"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
-	"github.com/dsnet/compress/brotli"
+	canvasFont "github.com/tdewolff/canvas/font"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/sfnt"
 )
@@ -44,7 +40,7 @@ type Font struct {
 }
 
 func parseFont(name string, b []byte) (*Font, error) {
-	mimetype, sfnt, err := parseSFNT(b)
+	mimetype, sfnt, err := canvasFont.ParseFontOld(b)
 	if err != nil {
 		return nil, err
 	}
@@ -282,321 +278,91 @@ func (f *Font) substituteTypography(s string, inSingleQuote, inDoubleQuote bool)
 	return s, inSingleQuote, inDoubleQuote
 }
 
-////////////////////////////////////////////////////////////////
-
-func parseSFNT(b []byte) (string, *sfnt.Font, error) {
-	if len(b) < 4 {
-		return "", nil, fmt.Errorf("invalid font file")
+// from https://github.com/russross/blackfriday/blob/11635eb403ff09dbc3a6b5a007ab5ab09151c229/smartypants.go#L42
+func quoteReplace(s string, i int, prev, quote, next rune, isOpen *bool) (string, int) {
+	switch {
+	case prev == 0 && next == 0:
+		// context is not any help here, so toggle
+		*isOpen = !*isOpen
+	case isspace(prev) && next == 0:
+		// [ "] might be [ "<code>foo...]
+		*isOpen = true
+	case ispunct(prev) && next == 0:
+		// [!"] hmm... could be [Run!"] or [("<code>...]
+		*isOpen = false
+	case /* isnormal(prev) && */ next == 0:
+		// [a"] is probably a close
+		*isOpen = false
+	case prev == 0 && isspace(next):
+		// [" ] might be [...foo</code>" ]
+		*isOpen = false
+	case isspace(prev) && isspace(next):
+		// [ " ] context is not any help here, so toggle
+		*isOpen = !*isOpen
+	case ispunct(prev) && isspace(next):
+		// [!" ] is probably a close
+		*isOpen = false
+	case /* isnormal(prev) && */ isspace(next):
+		// [a" ] this is one of the easy cases
+		*isOpen = false
+	case prev == 0 && ispunct(next):
+		// ["!] hmm... could be ["$1.95] or [</code>"!...]
+		*isOpen = false
+	case isspace(prev) && ispunct(next):
+		// [ "!] looks more like [ "$1.95]
+		*isOpen = true
+	case ispunct(prev) && ispunct(next):
+		// [!"!] context is not any help here, so toggle
+		*isOpen = !*isOpen
+	case /* isnormal(prev) && */ ispunct(next):
+		// [a"!] is probably a close
+		*isOpen = false
+	case prev == 0 /* && isnormal(next) */ :
+		// ["a] is probably an open
+		*isOpen = true
+	case isspace(prev) /* && isnormal(next) */ :
+		// [ "a] this is one of the easy cases
+		*isOpen = true
+	case ispunct(prev) /* && isnormal(next) */ :
+		// [!"a] is probably an open
+		*isOpen = true
+	default:
+		// [a'b] maybe a contraction?
+		*isOpen = false
 	}
 
-	mimetype := ""
-	tag := string(b[:4])
-	if tag == "wOFF" {
-		mimetype = "font/woff"
-		var err error
-		b, err = parseWOFF(b)
-		if err != nil {
-			return "", nil, err
+	if quote == '"' {
+		if *isOpen {
+			return stringReplace(s, i, 1, "\u201C")
 		}
-	} else if tag == "wOF2" {
-		return "", nil, fmt.Errorf("WOFF2 not yet supported")
-		//mimetype = "font/woff2"
-		//var err error
-		//b, err = parseWOFF2(b)
-		//if err != nil {
-		//	return "", nil, err
-		//}
-	} else if tag == "true" || binary.BigEndian.Uint32(b[:4]) == 0x00010000 {
-		mimetype = "font/truetype"
-	} else if tag == "OTTO" {
-		mimetype = "font/opentype"
-	} else {
-		// TODO: support EOT font format?
-		return "", nil, fmt.Errorf("unrecognized font file format")
+		return stringReplace(s, i, 1, "\u201D")
+	} else if quote == '\'' {
+		if *isOpen {
+			return stringReplace(s, i, 1, "\u2018")
+		}
+		return stringReplace(s, i, 1, "\u2019")
 	}
-
-	sfnt, err := sfnt.Parse(b)
-	if err != nil {
-		return "", nil, err
-	}
-	return mimetype, sfnt, nil
+	return s, 1
 }
 
-type woffTable struct {
-	tag          uint32
-	offset       uint32
-	length       uint32
-	origLength   uint32
-	origChecksum uint32
+func stringReplace(s string, i, n int, target string) (string, int) {
+	s = s[:i] + target + s[i+n:]
+	return s, len(target)
 }
 
-func parseWOFF(b []byte) ([]byte, error) {
-	if len(b) < 44 {
-		return nil, fmt.Errorf("invalid WOFF data")
-	}
-
-	p := newPopper(b)
-	signature := p.pops(4)
-	if signature != "wOFF" {
-		return nil, fmt.Errorf("invalid WOFF data")
-	}
-	flavor := p.pop32()
-	_ = p.pop32() // length
-	numTables := p.pop16()
-	_ = p.pop16() // reserved
-	_ = p.pop32() // totalSfntSize
-	_ = p.pop16() // majorVersion
-	_ = p.pop16() // minorVersion
-	_ = p.pop32() // metaOffset
-	_ = p.pop32() // metaLength
-	_ = p.pop32() // metaOrigLength
-	_ = p.pop32() // privOffset
-	_ = p.pop32() // privLength
-
-	tables := []woffTable{}
-	sfntLength := uint32(12 + 16*int(numTables))
-	for i := 0; i < int(numTables); i++ {
-		tag := p.pop32()
-		offset := p.pop32()
-		compLength := p.pop32()
-		origLength := p.pop32()
-		origChecksum := p.pop32()
-		tables = append(tables, woffTable{
-			tag:          tag,
-			offset:       offset,
-			length:       compLength,
-			origLength:   origLength,
-			origChecksum: origChecksum,
-		})
-
-		sfntLength += origLength
-		sfntLength = (sfntLength + 3) & 0xFFFFFFFC // add padding
-	}
-
-	var searchRange uint16 = 1
-	var entrySelector uint16
-	var rangeShift uint16
-	for {
-		if searchRange*2 > numTables {
-			break
-		}
-		searchRange *= 2
-		entrySelector++
-	}
-	searchRange *= 16
-	rangeShift = numTables*16 - searchRange
-
-	out := newPusher(make([]byte, sfntLength))
-	out.push32(flavor)
-	out.push16(numTables)
-	out.push16(searchRange)
-	out.push16(entrySelector)
-	out.push16(rangeShift)
-
-	sfntOffset := uint32(12 + 16*int(numTables))
-	for _, table := range tables {
-		out.push32(table.tag)
-		out.push32(table.origChecksum)
-		out.push32(sfntOffset)
-		out.push32(table.origLength)
-		sfntOffset += table.origLength
-		sfntOffset = (sfntOffset + 3) & 0xFFFFFFFC // add padding
-	}
-
-	for _, table := range tables {
-		data := b[table.offset : table.offset+table.length]
-		if table.length != table.origLength {
-			var buf bytes.Buffer
-			r, _ := zlib.NewReader(bytes.NewReader(data))
-			io.Copy(&buf, r)
-			r.Close()
-			data = buf.Bytes()
-		}
-
-		if len(data) != int(table.origLength) {
-			panic("font data size mismatch")
-		}
-
-		// TODO: (WOFF) check checksum
-
-		out.push(data)
-		nPadding := 4 - len(data)%4
-		if nPadding == 4 {
-			nPadding = 0
-		}
-		for i := 0; i < nPadding; i++ {
-			out.push([]byte{0x00})
-		}
-	}
-	return out.b, nil
+func isWordBoundary(r rune) bool {
+	return r == 0 || isspace(r) || ispunct(r)
 }
 
-type woff2Table struct {
-	tag              uint32
-	origLength       uint32
-	transformVersion int
-	transformLength  uint32
+func isspace(r rune) bool {
+	return unicode.IsSpace(r)
 }
 
-var woff2TableTags = []string{
-	"cmap", "head", "hhea", "hmtx",
-	"maxp", "name", "OS/2", "post",
-	"cvt ", "fpgm", "glyf", "loca",
-	"prep", "CFF ", "VORG", "EBDT",
-	"EBLC", "gasp", "hdmx", "kern",
-	"LTSH", "PCLT", "VDMX", "vhea",
-	"vmtx", "BASE", "GDEF", "GPOS",
-	"GSUB", "EBSC", "JSTF", "MATH",
-	"CBDT", "CBLC", "COLR", "CPAL",
-	"SVG ", "sbix", "acnt", "avar",
-	"bdat", "bloc", "bsln", "cvar",
-	"fdsc", "feat", "fmtx", "fvar",
-	"gvar", "hsty", "just", "lcar",
-	"mort", "morx", "opbd", "prop",
-	"trak", "Zapf", "Silf", "Glat",
-	"Gloc", "Feat", "Sill",
-}
-
-func parseWOFF2(b []byte) ([]byte, error) {
-	if len(b) < 48 {
-		return nil, fmt.Errorf("invalid WOFF2 data")
-	}
-
-	p := newPopper(b)
-	signature := p.pops(4)
-	if signature != "wOF2" {
-		return nil, fmt.Errorf("invalid WOFF2 data")
-	}
-	flavor := p.pop32()
-	if uint32ToString(flavor) == "ttcf" {
-		panic("collections are unsupported")
-	}
-	_ = p.pop32() // length
-	numTables := p.pop16()
-	_ = p.pop16()                    // reserved
-	_ = p.pop32()                    // totalSfntSize
-	totalCompressedSize := p.pop32() // totalCompressedSize
-	_ = p.pop16()                    // majorVersion
-	_ = p.pop16()                    // minorVersion
-	_ = p.pop32()                    // metaOffset
-	_ = p.pop32()                    // metaLength
-	_ = p.pop32()                    // metaOrigLength
-	_ = p.pop32()                    // privOffset
-	_ = p.pop32()                    // privLength
-
-	tables := []woff2Table{}
-	sfntLength := uint32(12 + 16*int(numTables))
-	for i := 0; i < int(numTables); i++ {
-		flags := p.pop8()
-		tagIndex := int(flags & 0x3F)
-		transformVersion := int((flags & 0xC0) >> 5)
-
-		var tag uint32
-		if tagIndex == 63 {
-			tag = p.pop32()
-		} else {
-			tag = binary.BigEndian.Uint32([]byte(woff2TableTags[tagIndex]))
-		}
-		origLength := p.popBase128()
-
-		var transformLength uint32
-		if transformVersion == 0 && (tag == binary.BigEndian.Uint32([]byte("glyf")) || tag == binary.BigEndian.Uint32([]byte("loca")) || transformVersion != 0) {
-			transformLength = p.popBase128()
-		}
-		tables = append(tables, woff2Table{
-			tag:              tag,
-			origLength:       origLength,
-			transformVersion: transformVersion,
-			transformLength:  transformLength,
-		})
-		fmt.Println(uint32ToString(tag), origLength, transformLength, transformVersion)
-
-		sfntLength += origLength
-		sfntLength = (sfntLength + 3) & 0xFFFFFFFC // add padding
-	}
-
-	var searchRange uint16 = 1
-	var entrySelector uint16
-	var rangeShift uint16
-	for {
-		if searchRange*2 > numTables {
-			break
-		}
-		searchRange *= 2
-		entrySelector++
-	}
-	searchRange *= 16
-	rangeShift = numTables*16 - searchRange
-
-	out := newPusher(make([]byte, sfntLength))
-	out.push32(flavor)
-	out.push16(numTables)
-	out.push16(searchRange)
-	out.push16(entrySelector)
-	out.push16(rangeShift)
-
-	data := p.pop(int(totalCompressedSize))
-
-	// decompress Brotlu
-	var buf bytes.Buffer
-	r, _ := brotli.NewReader(bytes.NewReader(data), nil)
-	io.Copy(&buf, r)
-	r.Close()
-	data = buf.Bytes()
-
-	sfntOffset := uint32(12 + 16*int(numTables))
-	for _, table := range tables {
-		out.push32(table.tag)
-		out.push32(0) // TODO: (WOFF2) checksum
-		out.push32(sfntOffset)
-		out.push32(table.origLength)
-	}
-
-	var offset uint32
-	for _, table := range tables {
-		n := table.origLength
-		if table.transformLength != 0 {
-			n = table.transformLength
-		}
-		tableData := data[offset : offset+n]
-		offset += n
-
-		switch uint32ToString(table.tag) {
-		case "glyf":
-			if table.transformVersion == 0 {
-				panic("WOFF2 transformed glyf table not supported")
-				// TODO: (WOFF2) see https://www.w3.org/TR/WOFF2/#glyf_table_format
-			} else if table.transformVersion != 3 {
-				panic("WOFF2 unknown transformation of glyf table")
-			}
-		case "loca":
-			if table.transformVersion == 0 {
-				panic("WOFF2 transformed loca table not supported")
-				// TODO: (WOFF2)
-			} else if table.transformVersion != 3 {
-				panic("WOFF2 unknown transformation of loca table")
-			}
-		case "hmtx":
-			if table.transformVersion == 1 {
-				panic("WOFF2 transformed hmtx table not supported")
-				// TODO: (WOFF2)
-			} else if table.transformVersion != 0 {
-				panic("WOFF2 unknown transformation of hmtx table")
-			}
-		default:
-			if table.transformVersion != 0 {
-				panic(fmt.Sprintf("WOFF2 unknown transformation of %s table", uint32ToString(table.tag)))
-			}
-		}
-
-		out.push(tableData)
-		nPadding := 4 - len(tableData)%4
-		if nPadding == 4 {
-			nPadding = 0
-		}
-		for i := 0; i < nPadding; i++ {
-			out.push([]byte{0x00})
+func ispunct(r rune) bool {
+	for _, punct := range "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~" {
+		if r == punct {
+			return true
 		}
 	}
-	return out.b, nil
+	return false
 }

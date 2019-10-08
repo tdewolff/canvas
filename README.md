@@ -69,28 +69,26 @@ Features that are planned to be implemented in the future, with important issues
 General
 
 * Fix slowness in the rasterizer (text\_example.go is slow! use rasterized cache for each glyph/path)
-* Add targets such as OpenGL and HTML5 Canvas (consider WASM output)
 * Use general span placement algorithm (like CSS flexbox) that replace the current Text placer, to allow for text, image, path elements (e.g. inline formulas, inline icons or emoticons, ...)
 * Use word breaking algorithm from [Knuth & Plass](http://defoe.sourceforge.net/folio/knuth-plass.html), implemented in JS in [typeset](http://www.bramstein.com/projects/typeset/). Use letter stretching and shrinking, shrinking by using ligatures, space shrinking and stretching (depending if space is between words or after comma or dot), and spacing or shrinking between glyphs. Use a point system of how ugly breaks are on a paragraph basis. Also see [Justify Just or Just Justify](https://quod.lib.umich.edu/j/jep/3336451.0013.105?view=text;rgn=main).
+* Add targets such as OpenGL and HTML5 Canvas (consider WASM output)
 
 Fonts
 
 * **Compressing fonts and embedding only used characters**
-* **Use ligature tables**
-* Font embedding for EPSs
+* **Use ligature and OS/2 tables**
 * Support WOFF2 font format
 * Support Type1 font format?
+* Font embedding for EPSs
 * Support font hinting (for the rasterizer)?
-* Support LaTeX and other paths as text spans?
 
 Paths
 
-* **Avoid overlapping paths when offsetting in corners (needs path intersection code)**
-* **Intersection function between line, Bézier and ellipse and between themselves (for path merge, overlap/mask, clipping, etc.)**
-* **Implement Bentley-Ottmann algorithm to find all line intersections (clipping)**
+* **Avoid overlapping paths when offsetting in corners**
 * Get position and derivative/normal at length L along the path
 * Simplify polygons using the Ramer-Douglas-Peucker algorithm
-* Encoding forward and backward command in path so to easily reversely iterate the path
+* Intersection function between line, Bézier and ellipse and between themselves (for path merge, overlap/mask, clipping, etc.)
+* Implement Bentley-Ottmann algorithm to find all line intersections (clipping)
 
 Far future
 
