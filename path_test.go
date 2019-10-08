@@ -105,6 +105,7 @@ func TestPathCommands(t *testing.T) {
 	test.T(t, (&Path{}).MoveTo(3, 4).MoveTo(5, 3).String(), "M5 3")
 	test.T(t, (&Path{}).MoveTo(3, 4).Close().String(), "")
 	test.T(t, (&Path{}).LineTo(3, 4).LineTo(0, 0).Close().String(), "L3 4z")
+	test.T(t, (&Path{}).LineTo(3, 4).LineTo(4, 0).LineTo(2, 0).Close().String(), "L3 4L4 0z")
 	test.T(t, (&Path{}).LineTo(3, 4).Close().Close().String(), "L3 4z")
 	test.T(t, (&Path{}).MoveTo(2, 1).LineTo(3, 4).LineTo(5, 0).Close().MoveTo(2, 1).LineTo(6, 3).String(), "M2 1L3 4L5 0zL6 3")
 }

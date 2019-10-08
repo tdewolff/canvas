@@ -503,7 +503,6 @@ func closeInnerBends(p *Path, indices []int, closed bool) {
 			}
 		}
 	}
-	// TODO: i0 is bad!!
 }
 
 // Offset offsets the path to expand by w and returns a new path. If w is negative it will contract. Path must be closed.

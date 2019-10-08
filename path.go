@@ -142,7 +142,8 @@ func (p *Path) Join(q *Path) *Path {
 			q.d = q.d[cmdLen(moveToCmd):]
 		}
 	}
-	return &Path{append(p.d, q.d...)}
+	p = &Path{append(p.d, q.d...)}
+	return p.Optimize()
 }
 
 // Pos returns the current position of the path, which is the end point of the last command.
@@ -204,17 +205,16 @@ func (p *Path) LineTo(x, y float64) *Path {
 	end := Point{x, y}
 	if start.Equals(end) {
 		return p
-		//} else if cmdLen(lineToCmd) <= len(p.d) && p.d[len(p.d)-1] == lineToCmd {
-		//	prevStart := Point{}
-		//	if cmdLen(lineToCmd) < len(p.d) {
-		//		prevStart = Point{p.d[len(p.d)-cmdLen(lineToCmd)-3], p.d[len(p.d)-cmdLen(lineToCmd)-2]}
-		//	}
-		//	if equal(end.Sub(start).AngleBetween(start.Sub(prevStart)), 0.0) {
-		//		fmt.Println(p, prevStart, start, end, "//", end.Sub(start), start.Sub(prevStart), "==", end.Sub(start).AngleBetween(start.Sub(prevStart)), equal(end.Sub(start).AngleBetween(start.Sub(prevStart)), 0.0), Epsilon)
-		//		p.d[len(p.d)-3] = x
-		//		p.d[len(p.d)-2] = y
-		//		return p
-		//	}
+	} else if cmdLen(lineToCmd) <= len(p.d) && p.d[len(p.d)-1] == lineToCmd {
+		prevStart := Point{}
+		if cmdLen(lineToCmd) < len(p.d) {
+			prevStart = Point{p.d[len(p.d)-cmdLen(lineToCmd)-3], p.d[len(p.d)-cmdLen(lineToCmd)-2]}
+		}
+		if equal(end.Sub(start).AngleBetween(start.Sub(prevStart)), 0.0) {
+			p.d[len(p.d)-3] = x
+			p.d[len(p.d)-2] = y
+			return p
+		}
 	}
 	p.d = append(p.d, lineToCmd, end.X, end.Y, lineToCmd)
 	return p
@@ -227,8 +227,8 @@ func (p *Path) QuadTo(cpx, cpy, x, y float64) *Path {
 	end := Point{x, y}
 	if start.Equals(end) && start.Equals(cp) {
 		return p
-		//} else if !start.Equals(end) && equal(end.Sub(start).AngleBetween(cp.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp)), 0.0) {
-		//	return p.LineTo(end.X, end.Y)
+	} else if !start.Equals(end) && equal(end.Sub(start).AngleBetween(cp.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp)), 0.0) {
+		return p.LineTo(end.X, end.Y)
 	}
 	p.d = append(p.d, quadToCmd, cp.X, cp.Y, end.X, end.Y, quadToCmd)
 	return p
@@ -242,8 +242,8 @@ func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x, y float64) *Path {
 	end := Point{x, y}
 	if start.Equals(end) && start.Equals(cp1) && start.Equals(cp2) {
 		return p
-		//} else if !start.Equals(end) && equal(end.Sub(start).AngleBetween(cp1.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp1)), 0.0) && equal(end.Sub(start).AngleBetween(cp2.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp2)), 0.0) {
-		//	return p.LineTo(end.X, end.Y)
+	} else if !start.Equals(end) && equal(end.Sub(start).AngleBetween(cp1.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp1)), 0.0) && equal(end.Sub(start).AngleBetween(cp2.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp2)), 0.0) {
+		return p.LineTo(end.X, end.Y)
 	}
 	p.d = append(p.d, cubeToCmd, cp1.X, cp1.Y, cp2.X, cp2.Y, end.X, end.Y, cubeToCmd)
 	return p
@@ -326,6 +326,19 @@ func (p *Path) Close() *Path {
 			p.d[len(p.d)-1] = closeCmd
 			p.d[len(p.d)-cmdLen(lineToCmd)] = closeCmd
 			return p
+		} else if cmdLen(lineToCmd) <= len(p.d) && p.d[len(p.d)-1] == lineToCmd {
+			start := Point{p.d[len(p.d)-3], p.d[len(p.d)-2]}
+			prevStart := Point{}
+			if cmdLen(lineToCmd) < len(p.d) {
+				prevStart = Point{p.d[len(p.d)-cmdLen(lineToCmd)-3], p.d[len(p.d)-cmdLen(lineToCmd)-2]}
+			}
+			if equal(end.Sub(start).AngleBetween(start.Sub(prevStart)), 0.0) {
+				p.d[len(p.d)-cmdLen(lineToCmd)] = closeCmd
+				p.d[len(p.d)-3] = end.X
+				p.d[len(p.d)-2] = end.Y
+				p.d[len(p.d)-1] = closeCmd
+				return p
+			}
 		}
 	}
 	p.d = append(p.d, closeCmd, end.X, end.Y, closeCmd)
@@ -719,6 +732,7 @@ func (p *Path) Replace(
 				p.d = append(p.d[:i:i], p.d[i+cmdLen(cmd):]...)
 				continue // don't update start variable
 			}
+			// TODO: use Join() and consider whether to insert MoveTos to keep the original path always as it was even if the replacement doesn't match start/end positions
 			if 0 < len(q.d) && q.d[0] == moveToCmd {
 				x0, y0 := 0.0, 0.0
 				if 0 < i {
@@ -737,7 +751,7 @@ func (p *Path) Replace(
 		start = Point{p.d[i-3], p.d[i-2]}
 	}
 
-	// repair i0 and close positions
+	// repair close positions
 	start = Point{}
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
@@ -748,7 +762,7 @@ func (p *Path) Replace(
 		}
 		i += cmdLen(cmd)
 	}
-	return p
+	return p.Optimize()
 }
 
 // Markers returns an array of start, mid and end markers along the path at the path coordinates between commands. Align will align the markers with the path direction so that the markers orient towards the path's left.
