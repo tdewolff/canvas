@@ -30,9 +30,6 @@ func main() {
 	}
 	defer svgFile.Close()
 	c.WriteSVG(svgFile)
-
-	fmt.Println("LL", canvas.LLCount, "LA", canvas.LACount, "AA", canvas.AACount)
-	fmt.Println("LLX", canvas.LLXCount)
 }
 
 func drawStrokedPath(c *canvas.Canvas, x, y, d float64, path string) {
