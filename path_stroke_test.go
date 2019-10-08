@@ -9,7 +9,6 @@ import (
 )
 
 func TestPathStroke(t *testing.T) {
-	// TODO: remove last lineTo if followed by close to the same location (butt and square cappers), fix in path.Close() func?
 	Tolerance = 1.0
 	Epsilon = 1e-3
 	var tts = []struct {
@@ -93,7 +92,6 @@ func TestPathStrokeEllipse(t *testing.T) {
 }
 
 func TestPathOffset(t *testing.T) {
-	// TODO: cut at intersection on inner bends
 	var tts = []struct {
 		orig   string
 		w      float64

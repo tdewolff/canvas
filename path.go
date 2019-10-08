@@ -25,7 +25,6 @@ const (
 	EvenOdd
 )
 
-// TODO: record both forward and backward command in one float, so we can traverse the path backwards easily
 const (
 	moveToCmd = 1.0 << iota //  1.0
 	lineToCmd               //  2.0
@@ -686,7 +685,6 @@ func (p *Path) Flatten() *Path {
 // The line function will take the start and end points. The bezier function will take the start point, control point 1 and 2, and the end point (ie. a cubic Bézier, quadratic Béziers will be implicitly converted to cubic ones). The arc function will take a start point, the major and minor radii, the radial rotaton counter clockwise, the largeArc and sweep booleans, and the end point.
 // Be aware this will change the path inplace. Changing the end point of one path will subsequently change the start point of the next segment. Returning nil has no effect on the path.
 func (p *Path) Replace(
-	// TODO: does not obey to command function optimizations, i.e. replacing a command with a LineTo that is colinear with the previous LineTo does not merge them together, run Optimize after?
 	line func(Point, Point) *Path,
 	bezier func(Point, Point, Point, Point) *Path,
 	arc func(Point, float64, float64, float64, bool, bool, Point) *Path,
@@ -1216,6 +1214,7 @@ func (p *Path) Reverse() *Path {
 
 // Optimize returns the same path but with superfluous segments removed (such as multiple colinear LineTos). Be aware this changes the path inplace.
 func (p *Path) Optimize() *Path {
+	// TODO: many of these optimizations cannot be reached unless called through Join() or Replace(), consider handling them there only and remove Optimize() in the future
 	end := Point{}
 	if 0 < len(p.d) {
 		end = Point{p.d[len(p.d)-3], p.d[len(p.d)-2]}
@@ -1233,20 +1232,20 @@ func (p *Path) Optimize() *Path {
 		switch cmd {
 		case moveToCmd:
 			if i+di < len(p.d) && p.d[i+di] == moveToCmd || i == 0 && end.IsZero() || i+di == len(p.d) {
-				// TODO: first and second tests should be impossible
+				// first and second tests should be impossible
 				p.d = append(p.d[:i], p.d[i+di:]...)
 			} else if i+di < len(p.d) && p.d[i+di] == closeCmd {
-				// TODO: impossible to reach
+				// impossible to reach
 				p.d = append(p.d[:i], p.d[i+di+cmdLen(closeCmd):]...)
 			}
 		case lineToCmd:
-			// TODO: impossible to reach
+			// impossible to reach
 			if start == end {
 				p.d = append(p.d[:i], p.d[i+di:]...)
 				cmd = nullCmd
 			}
 		case closeCmd:
-			// TODO: impossible to reach
+			// impossible to reach
 			if i+di < len(p.d) && p.d[i+di] == closeCmd {
 				p.d = append(p.d[:i+di], p.d[i+di+cmdLen(closeCmd):]...) // remove last closeCmd to ensure x,y values are valid
 				cmd = nullCmd
@@ -1269,7 +1268,7 @@ func (p *Path) Optimize() *Path {
 				cmd = lineToCmd
 			}
 		case arcToCmd:
-			// TODO: impossible to reach
+			// impossible to reach
 			if start == end {
 				p.d = append(p.d[:i], p.d[i+di:]...)
 			}
@@ -1280,11 +1279,10 @@ func (p *Path) Optimize() *Path {
 		if cmd == lineToCmd && i+di < len(p.d) && (p.d[i+di] == lineToCmd || p.d[i+di] == closeCmd) {
 			nextEnd := Point{p.d[i+di+1], p.d[i+di+2]}
 			if p.d[i+di] == closeCmd && end == nextEnd {
-				// TODO: impossible to reach
+				// impossible to reach
 				p.d = append(p.d[:i], p.d[i+di:]...)
 				p.d[i] = closeCmd
 			} else if end.Sub(start).AngleBetween(nextEnd.Sub(end)) == 0.0 {
-				// TODO: move to LineTo and Close functions
 				p.d = append(p.d[:i], p.d[i+di:]...)
 			}
 		}
@@ -1666,11 +1664,12 @@ func (p *Path) ToPDF() string {
 func (p *Path) ToRasterizer(ras *vector.Rasterizer, dpm float64) {
 	p = p.Copy().Replace(nil, nil, ellipseToBeziers)
 
-	closed := false
 	dy := float64(ras.Bounds().Size().Y)
+	if 0 < len(p.d) && p.d[0] != moveToCmd {
+		ras.MoveTo(0.0, float32(dy))
+	}
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
-		closed = false
 		switch cmd {
 		case moveToCmd:
 			ras.MoveTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm))
@@ -1684,11 +1683,10 @@ func (p *Path) ToRasterizer(ras *vector.Rasterizer, dpm float64) {
 			panic("arcs should have been replaced")
 		case closeCmd:
 			ras.ClosePath()
-			closed = true
 		}
 		i += cmdLen(cmd)
 	}
-	if !closed {
+	if 0 < len(p.d) && p.d[len(p.d)-1] == closeCmd {
 		// implicitly close path
 		ras.ClosePath()
 	}
