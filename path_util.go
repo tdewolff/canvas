@@ -535,6 +535,9 @@ func flattenCubicBezier(p0, p1, p2, p3 Point) *Path {
 // the maximum error from the orinal curve, and d the half width of the curve used for stroking (positive is to the right).
 func strokeCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 	p := &Path{}
+	start := p0.Add(cubicBezierNormal(p0, p1, p2, p3, 0.0, d))
+	p.MoveTo(start.X, start.Y)
+
 	// 0 <= t1 <= 1 if t1 exists
 	// 0 <= t1 <= t2 <= 1 if t1 and t2 both exist
 	t1, t2 := findInflectionPointsCubicBezier(p0, p1, p2, p3)

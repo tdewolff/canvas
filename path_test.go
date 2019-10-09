@@ -55,16 +55,19 @@ func TestPathJoin(t *testing.T) {
 	test.T(t, (&Path{}).Join(MustParseSVG("M5 0L5 10")).String(), "M5 0L5 10")
 
 	p := MustParseSVG("M5 0L5 10").Join(MustParseSVG("L10 15"))
-	test.T(t, p.String(), "M5 0L5 10L10 15")
+	test.T(t, p.String(), "M5 0L5 10L15 25")
 
 	p = MustParseSVG("M5 0L5 10").Join(MustParseSVG("M5 10L10 15"))
 	test.T(t, p.String(), "M5 0L5 10L10 15")
 
 	p = MustParseSVG("M5 0L5 10").Join(MustParseSVG("L10 15M20 15L25 15"))
-	test.T(t, p.String(), "M5 0L5 10L10 15M20 15L25 15")
+	test.T(t, p.String(), "M5 0L5 10L15 25M25 25L30 25")
 
 	p = MustParseSVG("M5 0L5 10").Join(MustParseSVG("M5 10L10 15M20 15L25 15"))
 	test.T(t, p.String(), "M5 0L5 10L10 15M20 15L25 15")
+
+	p = MustParseSVG("M5 0L10 5").Join(MustParseSVG("M10 5L15 10"))
+	test.T(t, p.String(), "M5 0L15 10")
 }
 
 func TestPathCoords(t *testing.T) {
@@ -426,6 +429,7 @@ func TestPathDash(t *testing.T) {
 		{"L10 0L20 0", 15.0, []float64{15.0}, "M15 0L20 0"},
 		{"L10 0L10 10L0 10z", 0.0, []float64{10.0}, "L10 0M10 10L0 10"},
 		{"L10 0L10 10L0 10z", 0.0, []float64{15.0}, "M0 10L0 0L10 0L10 5"},
+		{"M10 0L20 0L20 10L10 10z", 0.0, []float64{15.0}, "M10 10L10 0L20 0L20 5"},
 		{"L10 0M0 10L10 10", 0.0, []float64{8.0}, "L8 0M0 10L8 10"},
 	}
 	for _, tt := range tts {

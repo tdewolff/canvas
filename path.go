@@ -127,22 +127,46 @@ func (p *Path) Append(q *Path) *Path {
 	return &Path{append(p.d, q.d...)}
 }
 
-// Join joins path q to p and returns a new path.
+// Join joins path q to p and returns a new path. It translates q so that its start point coincides with p's end point.
 func (p *Path) Join(q *Path) *Path {
 	if q == nil || len(q.d) == 0 {
 		return p
 	} else if len(p.d) == 0 {
 		return q
 	}
+
+	d := Point{p.d[len(p.d)-3], p.d[len(p.d)-2]}
 	if q.d[0] == moveToCmd {
-		x0, y0 := p.d[len(p.d)-3], p.d[len(p.d)-2]
-		x1, y1 := q.d[1], q.d[2]
-		if equal(x0, x1) && equal(y0, y1) {
-			q.d = q.d[cmdLen(moveToCmd):]
-		}
+		d.X = q.d[1] - d.X
+		d.Y = q.d[2] - d.Y
 	}
-	p = &Path{append(p.d, q.d...)}
-	return p.Optimize()
+	if !d.Equals(Point{0.0, 0.0}) {
+		q = q.Translate(d.X, d.Y)
+	}
+	if q.d[0] == moveToCmd {
+		q.d = q.d[cmdLen(moveToCmd):]
+	}
+	if 0 < len(q.d) {
+		// add the first command through the command functions to use the optimization features
+		cmd := q.d[0]
+		switch cmd {
+		case moveToCmd:
+			p.MoveTo(q.d[1], q.d[2])
+		case lineToCmd:
+			p.LineTo(q.d[1], q.d[2])
+		case quadToCmd:
+			p.QuadTo(q.d[1], q.d[2], q.d[3], q.d[4])
+		case cubeToCmd:
+			p.CubeTo(q.d[1], q.d[2], q.d[3], q.d[4], q.d[5], q.d[6])
+		case arcToCmd:
+			largeArc, sweep := fromArcFlags(q.d[4])
+			p.ArcTo(q.d[1], q.d[2], q.d[3], largeArc, sweep, q.d[5], q.d[6])
+		case closeCmd:
+			p.Close()
+		}
+		p = &Path{append(p.d, q.d[cmdLen(cmd):]...)}
+	}
+	return p
 }
 
 // Pos returns the current position of the path, which is the end point of the last command.
@@ -598,7 +622,7 @@ func (p *Path) Length() float64 {
 func (p *Path) Transform(m Matrix) *Path {
 	p = p.Copy()
 	tx, ty, _, xscale, yscale, _ := m.Decompose()
-	if len(p.d) > 0 && p.d[0] != moveToCmd && (!equal(tx, 0.0) || !equal(ty, 0.0)) {
+	if 0 < len(p.d) && p.d[0] != moveToCmd && (!equal(tx, 0.0) || !equal(ty, 0.0)) {
 		p.d = append([]float64{moveToCmd, 0.0, 0.0, moveToCmd}, p.d...)
 	}
 	for i := 0; i < len(p.d); {
