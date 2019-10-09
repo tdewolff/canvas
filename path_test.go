@@ -478,39 +478,6 @@ func TestPathReverse(t *testing.T) {
 	}
 }
 
-func TestPathOptimize(t *testing.T) {
-	var tts = []struct {
-		orig string
-		opt  string
-	}{
-		{"M0 0", ""},
-		{"M10 10z", ""},
-		{"M10 10zM20 20", ""},
-		{"M10 10zM20 20L30 20", "M20 20L30 20"},
-		{"M10 10M20 20", ""},
-		{"M10 10M20 20L30 30", "M20 20L30 30"},
-		{"M10 10L20 20zz", "M10 10L20 20z"},
-		{"M10 10L20 20L30 30", "M10 10L30 30"},
-		{"M10 10L20 10L20 20L15 15z", "M10 10L20 10L20 20z"},
-		{"M10 10L20 10L10 10z", "M10 10L20 10z"},
-		{"Q5 5 10 10", "L10 10"},
-		{"Q12 12 10 10", "Q12 12 10 10"},
-		{"C2 2 8 8 10 10", "L10 10"},
-		{"C2 2 8 8 10 10L20 20", "L20 20"},
-		{"C12 12 12 12 10 10", "C12 12 12 12 10 10"},
-	}
-	for _, tt := range tts {
-		t.Run(tt.orig, func(t *testing.T) {
-			test.T(t, MustParseSVG(tt.orig).Optimize(), MustParseSVG(tt.opt))
-		})
-	}
-
-	//test.T(t, (&Path{[]float64{lineToCmd, 0.0, 0.0, lineToCmd}, 0}).Optimize().String(), "")
-	//test.T(t, (&Path{[]float64{quadToCmd, 0.0, 0.0, 10.0, 10.0, quadToCmd}, 0}).Optimize().String(), "L10 10")
-	//test.T(t, (&Path{[]float64{cubeToCmd, 0.0, 0.0, 10.0, 10.0, 10.0, 10.0, cubeToCmd}, 0}).Optimize().String(), "L10 10")
-	//test.T(t, (&Path{[]float64{arcToCmd, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0, arcToCmd}, 0}).Optimize().String(), "")
-}
-
 func TestPathParseSVG(t *testing.T) {
 	var tts = []struct {
 		orig string

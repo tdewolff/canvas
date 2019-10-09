@@ -200,8 +200,6 @@ p = p.Flatten()                                            // flatten Bézier an
 p = p.Offset(width float64)                                // offset the path outwards (width > 0) or inwards (width < 0), depends on FillRule
 p = p.Stroke(width float64, capper Capper, joiner Joiner)  // create a stroke from a path of certain width, using capper and joiner for caps and joins
 p = p.Dash(offset float64, d ...float64)                   // create dashed path with lengths d which are alternating the dash and the space, start at an offset into the given pattern (can be negative)
-
-p = p.Optimize()  // optimize and shorten path
 ```
 
 ### Polylines

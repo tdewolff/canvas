@@ -784,7 +784,7 @@ func (p *Path) Replace(
 		}
 		i += cmdLen(cmd)
 	}
-	return p.Optimize()
+	return p
 }
 
 // Markers returns an array of start, mid and end markers along the path at the path coordinates between commands. Align will align the markers with the path direction so that the markers orient towards the path's left.
@@ -1234,85 +1234,6 @@ func (p *Path) Reverse() *Path {
 		ip.Close()
 	}
 	return ip
-}
-
-// Optimize returns the same path but with superfluous segments removed (such as multiple colinear LineTos). Be aware this changes the path inplace.
-func (p *Path) Optimize() *Path {
-	// TODO: many of these optimizations cannot be reached unless called through Join() or Replace(), consider handling them there only and remove Optimize() in the future
-	end := Point{}
-	if 0 < len(p.d) {
-		end = Point{p.d[len(p.d)-3], p.d[len(p.d)-2]}
-	}
-
-	for i := len(p.d); 0 < i; {
-		cmd := p.d[i-1]
-		di := cmdLen(cmd)
-		i -= di
-
-		start := Point{}
-		if 0 < i {
-			start = Point{p.d[i-3], p.d[i-2]}
-		}
-		switch cmd {
-		case moveToCmd:
-			if i+di < len(p.d) && p.d[i+di] == moveToCmd || i == 0 && end.IsZero() || i+di == len(p.d) {
-				// first and second tests should be impossible
-				p.d = append(p.d[:i], p.d[i+di:]...)
-			} else if i+di < len(p.d) && p.d[i+di] == closeCmd {
-				// impossible to reach
-				p.d = append(p.d[:i], p.d[i+di+cmdLen(closeCmd):]...)
-			}
-		case lineToCmd:
-			// impossible to reach
-			if start == end {
-				p.d = append(p.d[:i], p.d[i+di:]...)
-				cmd = nullCmd
-			}
-		case closeCmd:
-			// impossible to reach
-			if i+di < len(p.d) && p.d[i+di] == closeCmd {
-				p.d = append(p.d[:i+di], p.d[i+di+cmdLen(closeCmd):]...) // remove last closeCmd to ensure x,y values are valid
-				cmd = nullCmd
-			}
-		case quadToCmd:
-			cp := Point{p.d[i+1], p.d[i+2]}
-			if (!start.Equals(end) || start.Equals(cp)) && equal(end.Sub(start).AngleBetween(cp.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp)), 0.0) {
-				p.d = append(p.d[:i+1], p.d[i+3:]...)
-				p.d[i] = lineToCmd
-				p.d[i+cmdLen(lineToCmd)-1] = lineToCmd
-				cmd = lineToCmd
-			}
-		case cubeToCmd:
-			cp1 := Point{p.d[i+1], p.d[i+2]}
-			cp2 := Point{p.d[i+3], p.d[i+4]}
-			if (!start.Equals(end) || start.Equals(cp1) && start.Equals(cp2)) && equal(end.Sub(start).AngleBetween(cp1.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp1)), 0.0) && equal(end.Sub(start).AngleBetween(cp2.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp2)), 0.0) {
-				p.d = append(p.d[:i+1], p.d[i+5:]...)
-				p.d[i] = lineToCmd
-				p.d[i+cmdLen(lineToCmd)-1] = lineToCmd
-				cmd = lineToCmd
-			}
-		case arcToCmd:
-			// impossible to reach
-			if start == end {
-				p.d = append(p.d[:i], p.d[i+di:]...)
-			}
-		}
-
-		// remove adjacent lines if they are collinear
-		di = cmdLen(cmd)
-		if cmd == lineToCmd && i+di < len(p.d) && (p.d[i+di] == lineToCmd || p.d[i+di] == closeCmd) {
-			nextEnd := Point{p.d[i+di+1], p.d[i+di+2]}
-			if p.d[i+di] == closeCmd && end == nextEnd {
-				// impossible to reach
-				p.d = append(p.d[:i], p.d[i+di:]...)
-				p.d[i] = closeCmd
-			} else if end.Sub(start).AngleBetween(nextEnd.Sub(end)) == 0.0 {
-				p.d = append(p.d[:i], p.d[i+di:]...)
-			}
-		}
-		end = start
-	}
-	return p
 }
 
 ////////////////////////////////////////////////////////////////
