@@ -18,7 +18,6 @@ func TestPathEmpty(t *testing.T) {
 	test.That(t, p.Empty())
 
 	p.MoveTo(5, 2)
-	p.Close()
 	test.That(t, p.Empty())
 
 	p.LineTo(6, 2)
@@ -283,7 +282,7 @@ func TestPathMarkers(t *testing.T) {
 		orig    string
 		markers []string
 	}{
-		{"M10 0z", []string{}},
+		{"M10 0", []string{}},
 		{"M10 0L20 10", []string{"M10 0L11 0L10 1z", "M20 10L19 10L20 11z"}},
 		{"L10 0L20 10", []string{"M0 0L1 0L0 1z", "M9 0A1 1 0 0 0 11 0z", "M20 10L19 10L20 11z"}},
 		{"L10 0L20 10z", []string{"M9 0A1 1 0 0 0 11 0z", "M19 10A1 1 0 0 0 21 10z", "M-1 0A1 1 0 0 0 1 0z"}},
@@ -353,6 +352,7 @@ func TestPathSplit(t *testing.T) {
 		{"M5 5L6 6z", []string{"M5 5L6 6z"}},
 		{"L5 5M10 10L20 20z", []string{"L5 5", "M10 10L20 20z"}},
 		{"L5 5zL10 10", []string{"L5 5z", "L10 10"}},
+		{"M5 5L15 5zL10 10zL20 20", []string{"M5 5L15 5z", "M5 5L10 10z", "M5 5L20 20"}},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {

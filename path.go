@@ -76,12 +76,9 @@ type Path struct {
 
 // Empty returns true if p is an empty path or consists of only MoveTos and Closes.
 func (p *Path) Empty() bool {
-	if len(p.d) == 0 {
-		return true
-	}
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
-		if cmd != moveToCmd && cmd != closeCmd {
+		if cmd != moveToCmd && cmd != closeCmd { // actually checking for moveTo is sufficient
 			return false
 		}
 		i += cmdLen(cmd)
@@ -150,8 +147,6 @@ func (p *Path) Join(q *Path) *Path {
 	// add the first command through the command functions to use the optimization features
 	cmd := q.d[0]
 	switch cmd {
-	case moveToCmd:
-		p.MoveTo(q.d[1], q.d[2])
 	case lineToCmd:
 		p.LineTo(q.d[1], q.d[2])
 	case quadToCmd:
