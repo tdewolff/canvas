@@ -114,7 +114,7 @@ func (p *Path) Copy() *Path {
 	return q
 }
 
-// Append appends path q to p and returns a new path.
+// Append appends path q to p and returns a new path if succesful (otherwise either p or q are returned).
 func (p *Path) Append(q *Path) *Path {
 	if q == nil || len(q.d) == 0 {
 		return p
@@ -127,7 +127,7 @@ func (p *Path) Append(q *Path) *Path {
 	return &Path{append(p.d, q.d...)}
 }
 
-// Join joins path q to p and returns a new path. It translates q so that its start point coincides with p's end point.
+// Join joins path q to p and returns a new path if succesful (otherwise either p or q are returned). Its like executing the commands in q to p in sequence, where if the first MoveTo of q doesn't coincide with p it will fallback to appending the paths.
 func (p *Path) Join(q *Path) *Path {
 	if q == nil || len(q.d) == 0 {
 		return p
@@ -135,36 +135,51 @@ func (p *Path) Join(q *Path) *Path {
 		return q
 	}
 
-	d := Point{p.d[len(p.d)-3], p.d[len(p.d)-2]}
-	if q.d[0] == moveToCmd {
-		d.X = q.d[1] - d.X
-		d.Y = q.d[2] - d.Y
+	if q.d[0] != moveToCmd {
+		q.d = append([]float64{moveToCmd, 0.0, 0.0, moveToCmd}, q.d...)
 	}
-	if !d.Equals(Point{0.0, 0.0}) {
-		q = q.Translate(d.X, d.Y)
+	if !equal(p.d[len(p.d)-3], q.d[1]) || !equal(p.d[len(p.d)-2], q.d[2]) {
+		return p.Append(q)
 	}
-	if q.d[0] == moveToCmd {
-		q.d = q.d[cmdLen(moveToCmd):]
+
+	q.d = q.d[cmdLen(moveToCmd):]
+	if len(q.d) == 0 {
+		return p
 	}
-	if 0 < len(q.d) {
-		// add the first command through the command functions to use the optimization features
-		cmd := q.d[0]
-		switch cmd {
-		case moveToCmd:
-			p.MoveTo(q.d[1], q.d[2])
-		case lineToCmd:
-			p.LineTo(q.d[1], q.d[2])
-		case quadToCmd:
-			p.QuadTo(q.d[1], q.d[2], q.d[3], q.d[4])
-		case cubeToCmd:
-			p.CubeTo(q.d[1], q.d[2], q.d[3], q.d[4], q.d[5], q.d[6])
-		case arcToCmd:
-			largeArc, sweep := fromArcFlags(q.d[4])
-			p.ArcTo(q.d[1], q.d[2], q.d[3], largeArc, sweep, q.d[5], q.d[6])
-		case closeCmd:
-			p.Close()
+
+	// add the first command through the command functions to use the optimization features
+	cmd := q.d[0]
+	switch cmd {
+	case moveToCmd:
+		p.MoveTo(q.d[1], q.d[2])
+	case lineToCmd:
+		p.LineTo(q.d[1], q.d[2])
+	case quadToCmd:
+		p.QuadTo(q.d[1], q.d[2], q.d[3], q.d[4])
+	case cubeToCmd:
+		p.CubeTo(q.d[1], q.d[2], q.d[3], q.d[4], q.d[5], q.d[6])
+	case arcToCmd:
+		largeArc, sweep := fromArcFlags(q.d[4])
+		p.ArcTo(q.d[1], q.d[2], q.d[3], largeArc, sweep, q.d[5], q.d[6])
+	case closeCmd:
+		p.Close()
+	}
+
+	i := len(p.d)
+	end := p.StartPos()
+	p = &Path{append(p.d, q.d[cmdLen(cmd):]...)}
+
+	// repair close commands
+	for i < len(p.d) {
+		cmd := p.d[i]
+		if cmd == moveToCmd {
+			break
+		} else if cmd == closeCmd {
+			p.d[i+1] = end.X
+			p.d[i+2] = end.Y
+			break
 		}
-		p = &Path{append(p.d, q.d[cmdLen(cmd):]...)}
+		i += cmdLen(cmd)
 	}
 	return p
 }
@@ -339,29 +354,27 @@ func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
 // It also signals the path closes as opposed to being just a LineTo command, which can be significant for stroking purposes for example.
 func (p *Path) Close() *Path {
 	end := p.StartPos()
-	if 0 < len(p.d) {
-		if p.d[len(p.d)-1] == closeCmd {
-			return p
-		} else if p.d[len(p.d)-1] == moveToCmd {
-			p.d = p.d[:len(p.d)-cmdLen(moveToCmd)]
-			return p
-		} else if p.d[len(p.d)-1] == lineToCmd && equal(p.d[len(p.d)-3], end.X) && equal(p.d[len(p.d)-2], end.Y) {
-			p.d[len(p.d)-1] = closeCmd
+	if len(p.d) == 0 || p.d[len(p.d)-1] == closeCmd {
+		return p
+	} else if p.d[len(p.d)-1] == moveToCmd {
+		p.d = p.d[:len(p.d)-cmdLen(moveToCmd)]
+		return p
+	} else if p.d[len(p.d)-1] == lineToCmd && equal(p.d[len(p.d)-3], end.X) && equal(p.d[len(p.d)-2], end.Y) {
+		p.d[len(p.d)-1] = closeCmd
+		p.d[len(p.d)-cmdLen(lineToCmd)] = closeCmd
+		return p
+	} else if cmdLen(lineToCmd) <= len(p.d) && p.d[len(p.d)-1] == lineToCmd {
+		start := Point{p.d[len(p.d)-3], p.d[len(p.d)-2]}
+		prevStart := Point{}
+		if cmdLen(lineToCmd) < len(p.d) {
+			prevStart = Point{p.d[len(p.d)-cmdLen(lineToCmd)-3], p.d[len(p.d)-cmdLen(lineToCmd)-2]}
+		}
+		if equal(end.Sub(start).AngleBetween(start.Sub(prevStart)), 0.0) {
 			p.d[len(p.d)-cmdLen(lineToCmd)] = closeCmd
+			p.d[len(p.d)-3] = end.X
+			p.d[len(p.d)-2] = end.Y
+			p.d[len(p.d)-1] = closeCmd
 			return p
-		} else if cmdLen(lineToCmd) <= len(p.d) && p.d[len(p.d)-1] == lineToCmd {
-			start := Point{p.d[len(p.d)-3], p.d[len(p.d)-2]}
-			prevStart := Point{}
-			if cmdLen(lineToCmd) < len(p.d) {
-				prevStart = Point{p.d[len(p.d)-cmdLen(lineToCmd)-3], p.d[len(p.d)-cmdLen(lineToCmd)-2]}
-			}
-			if equal(end.Sub(start).AngleBetween(start.Sub(prevStart)), 0.0) {
-				p.d[len(p.d)-cmdLen(lineToCmd)] = closeCmd
-				p.d[len(p.d)-3] = end.X
-				p.d[len(p.d)-2] = end.Y
-				p.d[len(p.d)-1] = closeCmd
-				return p
-			}
 		}
 	}
 	p.d = append(p.d, closeCmd, end.X, end.Y, closeCmd)
@@ -702,25 +715,27 @@ func (p *Path) Translate(x, y float64) *Path {
 
 // Flatten flattens all Bézier and arc curves into linear segments and returns a new path. It uses Tolerance as the maximum deviation.
 func (p *Path) Flatten() *Path {
-	return p.Copy().Replace(nil, flattenCubicBezier, flattenEllipse)
+	return p.replace(nil, flattenCubicBezier, flattenEllipse)
 }
 
-// Replace replaces path segments by their respective functions, each returning the path that will replace the segment or nil if no replacement is to be performed.
+// replace replaces path segments by their respective functions, each returning the path that will replace the segment or nil if no replacement is to be performed.
 // The line function will take the start and end points. The bezier function will take the start point, control point 1 and 2, and the end point (ie. a cubic Bézier, quadratic Béziers will be implicitly converted to cubic ones). The arc function will take a start point, the major and minor radii, the radial rotaton counter clockwise, the largeArc and sweep booleans, and the end point.
-// Be aware this will change the path inplace. Changing the end point of one path will subsequently change the start point of the next segment. Returning nil has no effect on the path.
-func (p *Path) Replace(
+// The replacing path will replace the path segment without any checks, you need to make sure the be moved so that its start point connects with the last end point of the base path before the replacement. If the end point of the replacing path is different that the end point of what is replaced, the path that follows will be displaced.
+func (p *Path) replace(
 	line func(Point, Point) *Path,
 	bezier func(Point, Point, Point, Point) *Path,
 	arc func(Point, float64, float64, float64, bool, bool, Point) *Path,
 ) *Path {
-	start := Point{}
+	p = p.Copy()
+
+	var start, end Point
 	for i := 0; i < len(p.d); {
 		var q *Path
 		cmd := p.d[i]
 		switch cmd {
 		case lineToCmd, closeCmd:
 			if line != nil {
-				end := Point{p.d[i+1], p.d[i+2]}
+				end = Point{p.d[i+1], p.d[i+2]}
 				q = line(start, end)
 				if cmd == closeCmd {
 					q.Close()
@@ -729,7 +744,7 @@ func (p *Path) Replace(
 		case quadToCmd:
 			if bezier != nil {
 				cp := Point{p.d[i+1], p.d[i+2]}
-				end := Point{p.d[i+3], p.d[i+4]}
+				end = Point{p.d[i+3], p.d[i+4]}
 				cp1, cp2 := quadraticToCubicBezier(start, cp, end)
 				q = bezier(start, cp1, cp2, end)
 			}
@@ -737,52 +752,33 @@ func (p *Path) Replace(
 			if bezier != nil {
 				cp1 := Point{p.d[i+1], p.d[i+2]}
 				cp2 := Point{p.d[i+3], p.d[i+4]}
-				end := Point{p.d[i+5], p.d[i+6]}
+				end = Point{p.d[i+5], p.d[i+6]}
 				q = bezier(start, cp1, cp2, end)
 			}
 		case arcToCmd:
 			if arc != nil {
 				rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 				largeArc, sweep := fromArcFlags(p.d[i+4])
-				end := Point{p.d[i+5], p.d[i+6]}
+				end = Point{p.d[i+5], p.d[i+6]}
 				q = arc(start, rx, ry, phi, largeArc, sweep, end)
 			}
 		}
 
 		if q != nil {
-			if q.Empty() {
-				p.d = append(p.d[:i:i], p.d[i+cmdLen(cmd):]...)
-				continue // don't update start variable
+			r := &Path{append([]float64{moveToCmd, end.X, end.Y, moveToCmd}, p.d[i+cmdLen(cmd):]...)}
+
+			p.d = p.d[: i : i+cmdLen(cmd)] // make sure not to overwrite the rest of the path
+			p = p.Join(q)
+			if cmd != closeCmd {
+				p.LineTo(end.X, end.Y)
 			}
-			// TODO: use Join() and consider whether to insert MoveTos to keep the original path always as it was even if the replacement doesn't match start/end positions
-			if 0 < len(q.d) && q.d[0] == moveToCmd {
-				x0, y0 := 0.0, 0.0
-				if 0 < i {
-					x0, y0 = p.d[i-3], p.d[i-2]
-				}
-				x1, y1 := q.d[1], q.d[2]
-				if equal(x0, x1) && equal(y0, y1) {
-					q.d = q.d[cmdLen(moveToCmd):]
-				}
-			}
-			p.d = append(p.d[:i:i], append(q.d, p.d[i+cmdLen(cmd):]...)...)
-			i += len(q.d)
+
+			i = len(p.d)
+			p = p.Join(r) // join the rest of the base path
 		} else {
 			i += cmdLen(cmd)
 		}
 		start = Point{p.d[i-3], p.d[i-2]}
-	}
-
-	// repair close positions
-	start = Point{}
-	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
-		if cmd == moveToCmd {
-			start = Point{p.d[i+1], p.d[i+2]}
-		} else if cmd == closeCmd {
-			p.d[i+1], p.d[i+2] = start.X, start.Y
-		}
-		i += cmdLen(cmd)
 	}
 	return p
 }
@@ -1565,7 +1561,7 @@ func (p *Path) ToPDF() string {
 	if p.Empty() {
 		return ""
 	}
-	p = p.Copy().Replace(nil, nil, ellipseToBeziers)
+	p = p.replace(nil, nil, ellipseToBeziers)
 
 	sb := strings.Builder{}
 	if 0 < len(p.d) && p.d[0] != moveToCmd {
@@ -1607,7 +1603,7 @@ func (p *Path) ToPDF() string {
 
 // ToRasterizer rasterizes the path using the given rasterizer with dpm the dots-per-millimeter.
 func (p *Path) ToRasterizer(ras *vector.Rasterizer, dpm float64) {
-	p = p.Copy().Replace(nil, nil, ellipseToBeziers)
+	p = p.replace(nil, nil, ellipseToBeziers)
 
 	dy := float64(ras.Bounds().Size().Y)
 	if 0 < len(p.d) && p.d[0] != moveToCmd {

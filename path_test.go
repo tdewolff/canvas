@@ -40,34 +40,37 @@ func TestPathClosed(t *testing.T) {
 }
 
 func TestPathAppend(t *testing.T) {
-	test.T(t, MustParseSVG("M5 0L5 10").Append(nil).String(), "M5 0L5 10")
-	test.T(t, (&Path{}).Append(MustParseSVG("M5 0L5 10")).String(), "M5 0L5 10")
+	test.T(t, MustParseSVG("M5 0L5 10").Append(nil), MustParseSVG("M5 0L5 10"))
+	test.T(t, (&Path{}).Append(MustParseSVG("M5 0L5 10")), MustParseSVG("M5 0L5 10"))
 
 	p := MustParseSVG("M5 0L5 10").Append(MustParseSVG("M5 15L10 15"))
-	test.T(t, p.String(), "M5 0L5 10M5 15L10 15")
+	test.T(t, p, MustParseSVG("M5 0L5 10M5 15L10 15"))
 
 	p = MustParseSVG("M5 0L5 10").Append(MustParseSVG("L10 15M20 15L25 15"))
-	test.T(t, p.String(), "M5 0L5 10M0 0L10 15M20 15L25 15")
+	test.T(t, p, MustParseSVG("M5 0L5 10M0 0L10 15M20 15L25 15"))
 }
 
 func TestPathJoin(t *testing.T) {
-	test.T(t, MustParseSVG("M5 0L5 10").Join(nil).String(), "M5 0L5 10")
-	test.T(t, (&Path{}).Join(MustParseSVG("M5 0L5 10")).String(), "M5 0L5 10")
+	test.T(t, MustParseSVG("M5 0L5 10").Join(nil), MustParseSVG("M5 0L5 10"))
+	test.T(t, (&Path{}).Join(MustParseSVG("M5 0L5 10")), MustParseSVG("M5 0L5 10"))
 
 	p := MustParseSVG("M5 0L5 10").Join(MustParseSVG("L10 15"))
-	test.T(t, p.String(), "M5 0L5 10L15 25")
+	test.T(t, p, MustParseSVG("M5 0L5 10M0 0L10 15"))
 
 	p = MustParseSVG("M5 0L5 10").Join(MustParseSVG("M5 10L10 15"))
-	test.T(t, p.String(), "M5 0L5 10L10 15")
+	test.T(t, p, MustParseSVG("M5 0L5 10L10 15"))
 
 	p = MustParseSVG("M5 0L5 10").Join(MustParseSVG("L10 15M20 15L25 15"))
-	test.T(t, p.String(), "M5 0L5 10L15 25M25 25L30 25")
+	test.T(t, p, MustParseSVG("M5 0L5 10M0 0L10 15M20 15L25 15"))
 
 	p = MustParseSVG("M5 0L5 10").Join(MustParseSVG("M5 10L10 15M20 15L25 15"))
-	test.T(t, p.String(), "M5 0L5 10L10 15M20 15L25 15")
+	test.T(t, p, MustParseSVG("M5 0L5 10L10 15M20 15L25 15"))
 
 	p = MustParseSVG("M5 0L10 5").Join(MustParseSVG("M10 5L15 10"))
-	test.T(t, p.String(), "M5 0L15 10")
+	test.T(t, p, MustParseSVG("M5 0L15 10"))
+
+	p = MustParseSVG("M5 0L10 5").Join(MustParseSVG("L5 5z"))
+	test.T(t, p, MustParseSVG("M5 0L10 5M0 0L5 5z"))
 }
 
 func TestPathCoords(t *testing.T) {
@@ -85,16 +88,16 @@ func TestPathCommands(t *testing.T) {
 	test.T(t, (&Path{}).MoveTo(3, 4).ArcTo(2, 2, 0, false, false, 3, 4).String(), "M3 4")
 
 	test.T(t, (&Path{}).LineTo(3, 4).String(), "L3 4")
-	//test.T(t, (&Path{}).QuadTo(3, 4, 3, 4).String(), "L3 4")
+	test.T(t, (&Path{}).QuadTo(3, 4, 3, 4).String(), "L3 4")
 	test.T(t, (&Path{}).QuadTo(1, 2, 3, 4).String(), "Q1 2 3 4")
 	test.T(t, (&Path{}).QuadTo(0, 0, 0, 0).String(), "")
 	test.T(t, (&Path{}).QuadTo(3, 4, 0, 0).String(), "Q3 4 0 0")
-	//test.T(t, (&Path{}).QuadTo(1.5, 2, 3, 4).String(), "L3 4")
-	//test.T(t, (&Path{}).CubeTo(0, 0, 3, 4, 3, 4).String(), "L3 4")
+	test.T(t, (&Path{}).QuadTo(1.5, 2, 3, 4).String(), "L3 4")
+	test.T(t, (&Path{}).CubeTo(0, 0, 3, 4, 3, 4).String(), "L3 4")
 	test.T(t, (&Path{}).CubeTo(1, 1, 2, 2, 3, 4).String(), "C1 1 2 2 3 4")
 	test.T(t, (&Path{}).CubeTo(1, 1, 2, 2, 0, 0).String(), "C1 1 2 2 0 0")
 	test.T(t, (&Path{}).CubeTo(0, 0, 0, 0, 0, 0).String(), "")
-	//test.T(t, (&Path{}).CubeTo(1, 1, 2, 2, 3, 3).String(), "L3 3")
+	test.T(t, (&Path{}).CubeTo(1, 1, 2, 2, 3, 3).String(), "L3 3")
 	test.T(t, (&Path{}).ArcTo(0, 0, 0, false, false, 4, 0).String(), "L4 0")
 	test.T(t, (&Path{}).ArcTo(2, 1, 0, false, false, 4, 0).String(), "A2 1 0 0 0 4 0")
 	test.T(t, (&Path{}).ArcTo(1, 2, 0, true, true, 4, 0).String(), "A4 2 90 1 1 4 0")
@@ -103,7 +106,7 @@ func TestPathCommands(t *testing.T) {
 	test.T(t, (&Path{}).Arc(2, 1, 0, 0, 180), (&Path{}).ArcTo(2, 1, 0, false, true, -4, 0))
 	test.T(t, (&Path{}).Arc(2, 1, 0, 540, 0), (&Path{}).ArcTo(2, 1, 0, false, false, 4, 0).ArcTo(2, 1, 0, false, false, 0, 0).ArcTo(2, 1, 0, false, false, 4, 0))
 	test.T(t, (&Path{}).Arc(2, 1, 0, 180, -180), (&Path{}).ArcTo(2, 1, 0, false, false, 4, 0).ArcTo(2, 1, 0, false, false, 0, 0))
-	test.T(t, (&Path{}).Close().String(), "z")
+	test.T(t, (&Path{}).Close().String(), "")
 
 	test.T(t, (&Path{}).MoveTo(3, 4).MoveTo(5, 3).String(), "M5 3")
 	test.T(t, (&Path{}).MoveTo(3, 4).Close().String(), "")
@@ -245,7 +248,7 @@ func TestPathReplace(t *testing.T) {
 		return (&Path{}).MoveTo(p0.X, p0.Y).LineTo(p1.X, p1.Y-5.0)
 	}
 	bezier := func(p0, p1, p2, p3 Point) *Path {
-		return (&Path{}).MoveTo(p0.X+10.0, p0.Y).LineTo(p3.X, p3.Y)
+		return (&Path{}).MoveTo(p0.X, p0.Y).LineTo(p3.X, p3.Y)
 	}
 	arc := func(p0 Point, rx, ry, phi float64, largeArc, sweep bool, p1 Point) *Path {
 		return (&Path{}).MoveTo(p0.X, p0.Y).ArcTo(rx, ry, phi, !largeArc, sweep, p1.X, p1.Y)
@@ -258,15 +261,15 @@ func TestPathReplace(t *testing.T) {
 		bezier func(Point, Point, Point, Point) *Path
 		arc    func(Point, float64, float64, float64, bool, bool, Point) *Path
 	}{
-		{"C0 10 10 10 10 0M20 0L30 0", "M20 0L30 0", nil, bezier, nil},
-		{"M20 0L30 0C0 10 10 10 10 0", "M20 0L30 0M40 0L10 0", nil, bezier, nil},
-		{"M10 0L20 0Q25 10 30 0A5 5 0 0 0 40 0z", "M10 0L20 -5M30 -5L30 0A5 5 0 1 0 40 0L10 -5z", line, bezier, arc},
-		{"L10 0L0 5z", "L10 -5L0 0L0 -5z", line, nil, nil},
+		{"C0 10 10 10 10 0L30 0", "L30 0", nil, bezier, nil},
+		{"M20 0L30 0C0 10 10 10 10 0", "M20 0L30 0L10 0", nil, bezier, nil},
+		{"M10 0L20 0Q25 10 20 10A5 5 0 0 0 30 10z", "M10 0L20 -5L20 10A5 5 0 1 0 30 10L10 -5z", line, bezier, arc},
+		{"L10 0L0 5z", "L10 -5L10 0L0 0L0 5L0 -5z", line, nil, nil},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
 			p := MustParseSVG(tt.orig)
-			test.T(t, p.Replace(tt.line, tt.bezier, tt.arc), MustParseSVG(tt.res))
+			test.T(t, p.replace(tt.line, tt.bezier, tt.arc), MustParseSVG(tt.res))
 		})
 	}
 }
