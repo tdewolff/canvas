@@ -155,7 +155,7 @@ func (p *Path) Join(q *Path) *Path {
 		p.CubeTo(q.d[1], q.d[2], q.d[3], q.d[4], q.d[5], q.d[6])
 	case arcToCmd:
 		largeArc, sweep := fromArcFlags(q.d[4])
-		p.ArcTo(q.d[1], q.d[2], q.d[3], largeArc, sweep, q.d[5], q.d[6])
+		p.ArcTo(q.d[1], q.d[2], q.d[3]*180.0/math.Pi, largeArc, sweep, q.d[5], q.d[6])
 	case closeCmd:
 		p.Close()
 	}
