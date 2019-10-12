@@ -330,8 +330,8 @@ func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 				}
 			} else if miter, ok := l.strokeJoiner.(miterJoiner); ok && !math.IsNaN(miter.limit) {
 				// a miter line join is the default
-				if miter.limit != 4.0 {
-					fmt.Fprintf(style, ";stroke-miterlimit:%v", dec(miter.limit))
+				if miter.limit*2.0/l.strokeWidth != 4.0 {
+					fmt.Fprintf(style, ";stroke-miterlimit:%v", dec(miter.limit*2.0/l.strokeWidth))
 				}
 			} else {
 				panic("SVG: line join not support")
@@ -384,7 +384,7 @@ func (l pathLayer) WritePDF(w *pdfPageWriter) {
 	differentAlpha := fill && stroke && l.fillColor.A != l.strokeColor.A
 
 	// TODO: (PDF) does not support connecting first and last dashes if path is closed
-	// PDFs don't support the arcs joiner, miter joiner (not clipped), or miter-clip joiner with non-bevel fallback
+	// PDFs don't support the arcs joiner, miter joiner (not clipped), or miter joiner (clipped) with non-bevel fallback
 	strokeUnsupported := false
 	if _, ok := l.strokeJoiner.(arcsJoiner); ok {
 		strokeUnsupported = true

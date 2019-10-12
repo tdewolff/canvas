@@ -107,10 +107,10 @@ func (roundJoiner) String() string {
 	return "Round"
 }
 
-// MiterJoiner connects two path elements by extending the ends of the paths as lines until they meet. If this point is further than 4 mm away, this will result in a bevel join.
-var MiterJoiner Joiner = miterJoiner{BevelJoiner, 4.0} // TODO: use miter-clip from SVG, ie. relative to stroke width. make sure SVG and PDF implementations use the right limits.
+// MiterJoiner connects two path elements by extending the ends of the paths as lines until they meet. If this point is further than 10 mm * (strokeWidth / 2.0) away, this will result in a bevel join.
+var MiterJoiner Joiner = miterJoiner{BevelJoiner, 10.0}
 
-// MiterClipJoiner returns a MiterJoiner with given limit in mm upon which the gapJoiner function will be used. Limit can be NaN so that the gapJoiner is never used.
+// MiterClipJoiner returns a MiterJoiner with given limit*strokeWidth/2.0 in mm upon which the gapJoiner function will be used. Limit can be NaN so that the gapJoiner is never used.
 func MiterClipJoiner(gapJoiner Joiner, limit float64) Joiner {
 	return miterJoiner{gapJoiner, limit}
 }
@@ -125,7 +125,7 @@ func (j miterJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point
 		BevelJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	}
-	limit := math.Max(j.limit/2.0, halfWidth*1.001) // otherwise nearly linear joins will also get clipped
+	limit := math.Max(j.limit, 1.001) // otherwise nearly linear joins will also get clipped
 
 	cw := n0.Rot90CW().Dot(n1) >= 0.0
 	hw := halfWidth
@@ -135,7 +135,7 @@ func (j miterJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point
 
 	theta := n0.AngleBetween(n1) / 2.0
 	d := hw / math.Cos(theta)
-	if !math.IsNaN(limit) && math.Abs(d) > limit {
+	if !math.IsNaN(limit) && limit*halfWidth < math.Abs(d) {
 		j.gapJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	}
@@ -159,10 +159,10 @@ func (j miterJoiner) String() string {
 	return "MiterClip"
 }
 
-// ArcsJoiner connects two path elements by extending the ends of the paths as circle arcs until they meet. If this point is further than 4 mm away, this will result in a bevel join.
-var ArcsJoiner Joiner = arcsJoiner{BevelJoiner, 4.0}
+// ArcsJoiner connects two path elements by extending the ends of the paths as circle arcs until they meet. If this point is further than 10 mm * (strokeWidth / 2.0) away, this will result in a bevel join.
+var ArcsJoiner Joiner = arcsJoiner{BevelJoiner, 10.0}
 
-// ArcsClipJoiner returns an ArcsJoiner with given limit in mm upon which the gapJoiner function will be used. Limit can be NaN so that the gapJoiner is never used.
+// ArcsClipJoiner returns an ArcsJoiner with given limit in mm*strokeWidth/2.0 upon which the gapJoiner function will be used. Limit can be NaN so that the gapJoiner is never used.
 func ArcsClipJoiner(gapJoiner Joiner, limit float64) Joiner {
 	return arcsJoiner{gapJoiner, limit}
 }
@@ -180,7 +180,7 @@ func (j arcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point,
 		miterJoiner{j.gapJoiner, j.limit}.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	}
-	limit := math.Max(j.limit/2.0, halfWidth*1.001) // 1.001 so that nearly linear joins will not get clipped
+	limit := math.Max(j.limit, 1.001) // 1.001 so that nearly linear joins will not get clipped
 
 	cw := n0.Rot90CW().Dot(n1) >= 0.0
 	hw := halfWidth
@@ -234,7 +234,7 @@ func (j arcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point,
 		mid = i1
 	}
 
-	if !math.IsNaN(limit) && mid.Sub(pivot).Length() > limit {
+	if !math.IsNaN(limit) && limit*halfWidth < mid.Sub(pivot).Length() {
 		j.gapJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	}

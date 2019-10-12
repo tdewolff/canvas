@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"image/color"
+	"math"
 	"os"
 
 	"github.com/tdewolff/canvas"
@@ -45,16 +46,16 @@ func main() {
 
 	//////////////////
 
-	//pdfFile, err := os.Create("test.pdf")
-	//if err != nil {
-	//	panic(err)
-	//}
-	//defer pdfFile.Close()
+	pdfFile, err := os.Create("test.pdf")
+	if err != nil {
+		panic(err)
+	}
+	defer pdfFile.Close()
 
-	//err = c.WritePDF(pdfFile)
-	//if err != nil {
-	//	panic(err)
-	//}
+	err = c.WritePDF(pdfFile)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func drawStrokedPath(c *canvas.Canvas, x, y, d float64, path string) {
@@ -135,9 +136,8 @@ func draw(c *canvas.Canvas) {
 	//p = p.Offset(1.0)
 	//c.DrawPath(110, 110, p)
 
-	p, _ := canvas.ParseSVG("C30 0 30 10 25 10z")
-	//ps := p.Stroke(10.0, canvas.ButtCapper, canvas.BevelJoiner)
-	ps := p.Offset(-5.0)
+	p, _ := canvas.ParseSVG(fmt.Sprintf("L%f 0L0 50z", math.Sqrt(3)*50.0))
+	ps := p.Stroke(10.0, canvas.ButtCapper, canvas.MiterClipJoiner(canvas.BevelJoiner, 2.01))
 	c.SetFillColor(canvas.Lightblue)
 	c.DrawPath(10.0, 10.0, ps)
 
