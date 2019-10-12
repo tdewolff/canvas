@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"image/color"
+	"image/png"
 	"os"
 
 	"github.com/tdewolff/canvas"
@@ -30,6 +31,31 @@ func main() {
 	}
 	defer svgFile.Close()
 	c.WriteSVG(svgFile)
+
+	pngFile, err := os.Create("test.png")
+	if err != nil {
+		panic(err)
+	}
+	defer pngFile.Close()
+
+	img := c.WriteImage(5.0)
+	err = png.Encode(pngFile, img)
+	if err != nil {
+		panic(err)
+	}
+
+	////////////////
+
+	pdfFile, err := os.Create("test.pdf")
+	if err != nil {
+		panic(err)
+	}
+	defer pdfFile.Close()
+
+	err = c.WritePDF(pdfFile)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func drawStrokedPath(c *canvas.Canvas, x, y, d float64, path string) {
@@ -110,17 +136,32 @@ func draw(c *canvas.Canvas) {
 	//p = p.Offset(1.0)
 	//c.DrawPath(110, 110, p)
 
-	ellipse, _ := canvas.ParseSVG(fmt.Sprintf("A100 200 30 1 0 200 0z"))
-	c.SetFillColor(canvas.Red)
-	c.DrawPath(10.0, 10.0, ellipse)
+	p, _ := canvas.ParseSVG("C30 0 30 10 25 10")
+	c.SetFillColor(canvas.Transparent)
+	c.SetStrokeColor(canvas.Lightblue)
+	c.SetStrokeWidth(10.0)
+	c.SetStrokeCapper(canvas.ButtCapper)
+	c.SetStrokeJoiner(canvas.BevelJoiner)
+	c.DrawPath(10.0, 10.0, p)
 
-	ps := ellipse.SplitAt(100.0)
-	ellipse = ps[0]
-	//fmt.Println(ellipse)
-	//ellipse = ellipse.Dash(0.0, 20.0, 40.0, 20.0)
-	ellipse = ellipse.Stroke(5.0, canvas.ButtCapper, canvas.RoundJoiner)
-	c.SetFillColor(color.RGBA{0, 0, 0, 128})
-	c.DrawPath(10.0, 10.0, ellipse)
+	c.SetFillColor(canvas.Transparent)
+	c.SetStrokeColor(canvas.Black)
+	c.SetStrokeWidth(0.5)
+	c.SetStrokeCapper(canvas.ButtCapper)
+	c.SetStrokeJoiner(canvas.BevelJoiner)
+	c.DrawPath(10.0, 10.0, p)
+
+	//ellipse, _ := canvas.ParseSVG(fmt.Sprintf("A100 200 30 1 0 200 0z"))
+	//c.SetFillColor(canvas.Red)
+	//c.DrawPath(10.0, 10.0, ellipse)
+
+	//ps := ellipse.SplitAt(100.0)
+	//ellipse = ps[0]
+	////fmt.Println(ellipse)
+	////ellipse = ellipse.Dash(0.0, 20.0, 40.0, 20.0)
+	//ellipse = ellipse.Stroke(5.0, canvas.ButtCapper, canvas.RoundJoiner)
+	//c.SetFillColor(color.RGBA{0, 0, 0, 128})
+	//c.DrawPath(10.0, 10.0, ellipse)
 
 	//drawStrokedPath(c, 30, 40, 2.0, "M0 0L50 0L50 -5")
 	//drawStrokedPath(c, 30, 30, 2.0, "M-25 -25A25 25 0 0 1 0 0A25 25 0 0 1 25 -25z")

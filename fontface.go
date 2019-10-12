@@ -4,6 +4,7 @@ import (
 	"image/color"
 	"io/ioutil"
 	"math"
+	"os/exec"
 	"reflect"
 
 	findfont "github.com/flopp/go-findfont"
@@ -58,7 +59,11 @@ func NewFontFamily(name string) *FontFamily {
 func (family *FontFamily) LoadLocalFont(name string, style FontStyle) error {
 	filename, err := findfont.Find(name)
 	if err != nil {
-		return err
+		b, err := exec.Command("fc-match", "--format=%{file}", name).Output()
+		filename = string(b)
+		if err != nil {
+			return err
+		}
 	}
 	return family.LoadFontFile(filename, style)
 }

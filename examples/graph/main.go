@@ -13,12 +13,12 @@ import (
 	"github.com/tdewolff/canvas"
 )
 
-var dejaVuSerif *canvas.FontFamily
+var fontFamily *canvas.FontFamily
 
 func main() {
-	dejaVuSerif = canvas.NewFontFamily("dejavu-serif")
-	dejaVuSerif.Use(canvas.CommonLigatures)
-	if err := dejaVuSerif.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
+	fontFamily = canvas.NewFontFamily("times")
+	fontFamily.Use(canvas.CommonLigatures)
+	if err := fontFamily.LoadLocalFont("NimbusRoman-Regular", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 
@@ -39,7 +39,7 @@ func main() {
 }
 
 func draw(c *canvas.Canvas) {
-	tickFace := dejaVuSerif.Face(8.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	tickFace := fontFamily.Face(8.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 
 	datafile, err := os.Open("co2-mm-mlo.csv")
 	if err != nil {
@@ -126,8 +126,8 @@ func draw(c *canvas.Canvas) {
 	// Draw the labels
 	c.SetFillColor(canvas.Black)
 
-	labelFace := dejaVuSerif.Face(14.0, color.Black, canvas.FontRegular, canvas.FontNormal)
-	labelSubFace := dejaVuSerif.Face(14.0, color.Black, canvas.FontRegular, canvas.FontSubscript)
+	labelFace := fontFamily.Face(14.0, color.Black, canvas.FontRegular, canvas.FontNormal)
+	labelSubFace := fontFamily.Face(14.0, color.Black, canvas.FontRegular, canvas.FontSubscript)
 	rt := canvas.NewRichText()
 	rt.Add(labelFace, "CO")
 	rt.Add(labelSubFace, "2")
@@ -137,13 +137,13 @@ func draw(c *canvas.Canvas) {
 	text := rt.ToText(0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0)
 	c.DrawText(-10.0, 40.0, text)
 	c.PopState()
-	c.DrawText(55.0, -10.0, canvas.NewTextLine(labelFace, "Year", canvas.Center))
+	c.DrawText(60.0, -10.0, canvas.NewTextLine(labelFace, "Year", canvas.Center))
 
-	titleFace := dejaVuSerif.Face(16.0, color.Black, canvas.FontRegular, canvas.FontNormal)
-	titleSubFace := dejaVuSerif.Face(16.0, color.Black, canvas.FontRegular, canvas.FontSubscript)
+	titleFace := fontFamily.Face(16.0, color.Black, canvas.FontRegular, canvas.FontNormal)
+	titleSubFace := fontFamily.Face(16.0, color.Black, canvas.FontRegular, canvas.FontSubscript)
 	rt = canvas.NewRichText()
 	rt.Add(titleFace, "Atmospheric CO")
 	rt.Add(titleSubFace, "2")
 	rt.Add(titleFace, " at Mauna Loa Observatory")
-	c.DrawText(55.0, 91.0, rt.ToText(0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0))
+	c.DrawText(60.0, 91.0, rt.ToText(0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0))
 }
