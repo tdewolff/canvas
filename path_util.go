@@ -186,27 +186,27 @@ func ellipseRadiiCorrection(start Point, rx, ry, phi float64, end Point) float64
 	return math.Sqrt(x1p*x1p/rx/rx + y1p*y1p/ry/ry)
 }
 
-// splitEllipse returns the new mid point, the two largeArc parameters and the ok bool, the rest stays the same
+// splitEllipse returns the new mid point, the two large parameters and the ok bool, the rest stays the same
 func splitEllipse(rx, ry, phi, cx, cy, theta0, theta1, theta float64) (Point, bool, bool, bool) {
 	if !angleBetween(theta, theta0, theta1) {
 		return Point{}, false, false, false
 	}
 
 	mid := ellipsePos(rx, ry, phi, cx, cy, theta)
-	largeArc0, largeArc1 := false, false
+	large0, large1 := false, false
 	if math.Abs(theta-theta0) > math.Pi {
-		largeArc0 = true
+		large0 = true
 	} else if math.Abs(theta-theta1) > math.Pi {
-		largeArc1 = true
+		large1 = true
 	}
-	return mid, largeArc0, largeArc1, true
+	return mid, large0, large1, true
 }
 
 // see Drawing and elliptical arc using polylines, quadratic or cubic Bézier curves (2003), L. Maisonobe,
 // https://spaceroots.org/documents/ellipse/elliptical-arc.pdf
-func ellipseToBeziers(start Point, rx, ry, phi float64, largeArc, sweep bool, end Point) *Path {
+func ellipseToBeziers(start Point, rx, ry, phi float64, large, sweep bool, end Point) *Path {
 	p := &Path{}
-	cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
+	cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
 
 	dtheta := math.Pi / 2.0
 	n := int(math.Ceil(math.Abs(theta1-theta0) / dtheta))
@@ -232,8 +232,8 @@ func ellipseToBeziers(start Point, rx, ry, phi float64, largeArc, sweep bool, en
 	return p
 }
 
-func flattenEllipse(start Point, rx, ry, phi float64, largeArc, sweep bool, end Point) *Path {
-	return ellipseToBeziers(start, rx, ry, phi, largeArc, sweep, end).Flatten()
+func flattenEllipse(start Point, rx, ry, phi float64, large, sweep bool, end Point) *Path {
+	return ellipseToBeziers(start, rx, ry, phi, large, sweep, end).Flatten()
 }
 
 ////////////////////////////////////////////////////////////////

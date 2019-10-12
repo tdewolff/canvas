@@ -130,26 +130,26 @@ func TestEllipseToCenter(t *testing.T) {
 }
 
 func TestEllipseSplit(t *testing.T) {
-	mid, largeArc0, largeArc1, ok := splitEllipse(2.0, 1.0, 0.0, 0.0, 0.0, math.Pi, 0.0, math.Pi/2.0)
+	mid, large0, large1, ok := splitEllipse(2.0, 1.0, 0.0, 0.0, 0.0, math.Pi, 0.0, math.Pi/2.0)
 	test.That(t, ok)
 	test.T(t, mid, Point{0.0, 1.0})
-	test.That(t, !largeArc0)
-	test.That(t, !largeArc1)
+	test.That(t, !large0)
+	test.That(t, !large1)
 
 	_, _, _, ok = splitEllipse(2.0, 1.0, 0.0, 0.0, 0.0, math.Pi, 0.0, -math.Pi/2.0)
 	test.That(t, !ok)
 
-	mid, largeArc0, largeArc1, ok = splitEllipse(2.0, 1.0, 0.0, 0.0, 0.0, 0.0, math.Pi*7.0/4.0, math.Pi/2.0)
+	mid, large0, large1, ok = splitEllipse(2.0, 1.0, 0.0, 0.0, 0.0, 0.0, math.Pi*7.0/4.0, math.Pi/2.0)
 	test.That(t, ok)
 	test.T(t, mid, Point{0.0, 1.0})
-	test.That(t, !largeArc0)
-	test.That(t, largeArc1)
+	test.That(t, !large0)
+	test.That(t, large1)
 
-	mid, largeArc0, largeArc1, ok = splitEllipse(2.0, 1.0, 0.0, 0.0, 0.0, 0.0, math.Pi*7.0/4.0, math.Pi*3.0/2.0)
+	mid, large0, large1, ok = splitEllipse(2.0, 1.0, 0.0, 0.0, 0.0, 0.0, math.Pi*7.0/4.0, math.Pi*3.0/2.0)
 	test.That(t, ok)
 	test.T(t, mid, Point{0.0, -1.0})
-	test.That(t, largeArc0)
-	test.That(t, !largeArc1)
+	test.That(t, large0)
+	test.That(t, !large1)
 }
 
 func TestEllipseToBeziers(t *testing.T) {

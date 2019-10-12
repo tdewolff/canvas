@@ -65,7 +65,7 @@ func toArcFlags(large, sweep bool) float64 {
 }
 
 // Path defines a vector path in 2D using a series of connected commands (MoveTo, LineTo, QuadTo, CubeTo, ArcTo and Close).
-// Each command consists of a number of float64 values (depending on the command) that fully define the action. The first value is the command itself (as a float64). The last two values are the end point position of the pen after the action (x,y). QuadTo defined one control point (x,y) in between, CubeTo defines two control points, and ArcTo defines (rx,ry,phi,largeArc+sweep) i.e. the radius in x and y, its rotation (in radians) and the largeArc and sweep booleans in one float64.
+// Each command consists of a number of float64 values (depending on the command) that fully define the action. The first value is the command itself (as a float64). The last two values are the end point position of the pen after the action (x,y). QuadTo defined one control point (x,y) in between, CubeTo defines two control points, and ArcTo defines (rx,ry,phi,large+sweep) i.e. the radius in x and y, its rotation (in radians) and the large and sweep booleans in one float64.
 // Only valid commands are appended, so that LineTo has a non-zero length, QuadTo's and CubeTo's control point(s) don't (both) overlap with the start and end point, and ArcTo has non-zero radii and has non-zero length. For ArcTo we also make sure the angle is is in the range [0, 2*PI) and we scale the radii up if they appear too small to fit the arc.
 type Path struct {
 	d []float64
@@ -136,8 +136,8 @@ func (p *Path) Join(q *Path) *Path {
 	case cubeToCmd:
 		p.CubeTo(q.d[1], q.d[2], q.d[3], q.d[4], q.d[5], q.d[6])
 	case arcToCmd:
-		largeArc, sweep := fromArcFlags(q.d[4])
-		p.ArcTo(q.d[1], q.d[2], q.d[3]*180.0/math.Pi, largeArc, sweep, q.d[5], q.d[6])
+		large, sweep := fromArcFlags(q.d[4])
+		p.ArcTo(q.d[1], q.d[2], q.d[3]*180.0/math.Pi, large, sweep, q.d[5], q.d[6])
 	case closeCmd:
 		p.Close()
 	}
@@ -276,10 +276,10 @@ func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x, y float64) *Path {
 }
 
 // ArcTo adds an arc with radii rx and ry, with rot the counter clockwise rotation with respect to the coordinate system in degrees,
-// largeArc and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
+// large and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
 // and x,y the end position of the pen. The start position of the pen was given by a previous command end point.
 // When sweep is true it means following the arc in a CCW direction in the Cartesian coordinate system, ie. that is CW in the upper-left coordinate system as is the case in SVGs.
-func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x, y float64) *Path {
+func (p *Path) ArcTo(rx, ry, rot float64, large, sweep bool, x, y float64) *Path {
 	start := p.Pos()
 	end := Point{x, y}
 	if start.Equals(end) {
@@ -313,7 +313,7 @@ func (p *Path) ArcTo(rx, ry, rot float64, largeArc, sweep bool, x, y float64) *P
 	} else if p.d[len(p.d)-1] == closeCmd {
 		p.MoveTo(p.d[len(p.d)-3], p.d[len(p.d)-2])
 	}
-	p.d = append(p.d, arcToCmd, rx, ry, phi, toArcFlags(largeArc, sweep), end.X, end.Y, arcToCmd)
+	p.d = append(p.d, arcToCmd, rx, ry, phi, toArcFlags(large, sweep), end.X, end.Y, arcToCmd)
 	return p
 }
 
@@ -325,7 +325,7 @@ func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
 	dtheta := math.Abs(theta1 - theta0)
 
 	sweep := theta0 < theta1
-	largeArc := math.Mod(dtheta, 2.0*math.Pi) > math.Pi
+	large := math.Mod(dtheta, 2.0*math.Pi) > math.Pi
 	p0 := ellipsePos(rx, ry, phi, 0.0, 0.0, theta0)
 	p1 := ellipsePos(rx, ry, phi, 0.0, 0.0, theta1)
 
@@ -333,14 +333,14 @@ func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
 	center := start.Sub(p0)
 	if dtheta >= 2.0*math.Pi {
 		startOpposite := center.Sub(p0)
-		p.ArcTo(rx, ry, rot, largeArc, sweep, startOpposite.X, startOpposite.Y)
-		p.ArcTo(rx, ry, rot, largeArc, sweep, start.X, start.Y)
+		p.ArcTo(rx, ry, rot, large, sweep, startOpposite.X, startOpposite.Y)
+		p.ArcTo(rx, ry, rot, large, sweep, start.X, start.Y)
 		if equal(math.Mod(dtheta, 2.0*math.Pi), 0.0) {
 			return p
 		}
 	}
 	end := center.Add(p1)
-	return p.ArcTo(rx, ry, rot, largeArc, sweep, end.X, end.Y)
+	return p.ArcTo(rx, ry, rot, large, sweep, end.X, end.Y)
 }
 
 // Close closes a (sub)path with a LineTo to the start of the path (the most recent MoveTo command).
@@ -569,9 +569,9 @@ func (p *Path) Bounds() Rect {
 			}
 		case arcToCmd:
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
-			largeArc, sweep := fromArcFlags(p.d[i+4])
+			large, sweep := fromArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
-			cx, cy, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
+			cx, cy, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
 
 			// find the four extremes (top, bottom, left, right) and apply those who are between theta1 and theta2
 			// x(theta) = cx + rx*cos(theta)*cos(phi) - ry*sin(theta)*sin(phi)
@@ -633,9 +633,9 @@ func (p *Path) Length() float64 {
 			d += cubicBezierLength(start, cp1, cp2, end)
 		case arcToCmd:
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
-			largeArc, sweep := fromArcFlags(p.d[i+4])
+			large, sweep := fromArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
-			_, _, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
+			_, _, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
 			d += ellipseLength(rx, ry, theta1, theta2)
 		}
 		i += cmdLen(cmd)
@@ -676,7 +676,7 @@ func (p *Path) Transform(m Matrix) *Path {
 			rx := p.d[i+1]
 			ry := p.d[i+2]
 			phi := p.d[i+3]
-			largeArc, sweep := fromArcFlags(p.d[i+4])
+			large, sweep := fromArcFlags(p.d[i+4])
 			end := m.Dot(Point{p.d[i+5], p.d[i+6]})
 
 			// For ellipses written as the conic section equation in matrix form, we have:
@@ -709,7 +709,7 @@ func (p *Path) Transform(m Matrix) *Path {
 			p.d[i+1] = rx
 			p.d[i+2] = ry
 			p.d[i+3] = phi
-			p.d[i+4] = toArcFlags(largeArc, sweep)
+			p.d[i+4] = toArcFlags(large, sweep)
 			p.d[i+5] = end.X
 			p.d[i+6] = end.Y
 		}
@@ -729,7 +729,7 @@ func (p *Path) Flatten() *Path {
 }
 
 // replace replaces path segments by their respective functions, each returning the path that will replace the segment or nil if no replacement is to be performed.
-// The line function will take the start and end points. The bezier function will take the start point, control point 1 and 2, and the end point (ie. a cubic Bézier, quadratic Béziers will be implicitly converted to cubic ones). The arc function will take a start point, the major and minor radii, the radial rotaton counter clockwise, the largeArc and sweep booleans, and the end point.
+// The line function will take the start and end points. The bezier function will take the start point, control point 1 and 2, and the end point (ie. a cubic Bézier, quadratic Béziers will be implicitly converted to cubic ones). The arc function will take a start point, the major and minor radii, the radial rotaton counter clockwise, the large and sweep booleans, and the end point.
 // The replacing path will replace the path segment without any checks, you need to make sure the be moved so that its start point connects with the last end point of the base path before the replacement. If the end point of the replacing path is different that the end point of what is replaced, the path that follows will be displaced.
 func (p *Path) replace(
 	line func(Point, Point) *Path,
@@ -768,9 +768,9 @@ func (p *Path) replace(
 		case arcToCmd:
 			if arc != nil {
 				rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
-				largeArc, sweep := fromArcFlags(p.d[i+4])
+				large, sweep := fromArcFlags(p.d[i+4])
 				end = Point{p.d[i+5], p.d[i+6]}
-				q = arc(start, rx, ry, phi, largeArc, sweep, end)
+				q = arc(start, rx, ry, phi, large, sweep, end)
 			}
 		}
 
@@ -828,8 +828,8 @@ func (p *Path) Markers(first, mid, last *Path, align bool) []*Path {
 					n1 = cubicBezierNormal(start, cp1, cp2, end, 1.0, 1.0)
 				case arcToCmd:
 					rx, ry, phi := p.d[i-7], p.d[i-6], p.d[i-5]
-					largeArc, sweep := fromArcFlags(p.d[i-4])
-					_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
+					large, sweep := fromArcFlags(p.d[i-4])
+					_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
 					n0 = ellipseNormal(rx, ry, phi, sweep, theta0, 1.0)
 					n1 = ellipseNormal(rx, ry, phi, sweep, theta1, 1.0)
 				}
@@ -1015,12 +1015,12 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 				}
 			case arcToCmd:
 				rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
-				largeArc, sweep := fromArcFlags(p.d[i+4])
+				large, sweep := fromArcFlags(p.d[i+4])
 				end = Point{p.d[i+5], p.d[i+6]}
-				cx, cy, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
+				cx, cy, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
 
 				if j == len(ts) {
-					q.ArcTo(rx, ry, phi*180.0/math.Pi, largeArc, sweep, end.X, end.Y)
+					q.ArcTo(rx, ry, phi*180.0/math.Pi, large, sweep, end.X, end.Y)
 				} else {
 					speed := func(theta float64) float64 {
 						return ellipseDeriv(rx, ry, 0.0, true, theta).Length()
@@ -1028,23 +1028,23 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 					invL, dT := invSpeedPolynomialChebyshevApprox(10, gaussLegendre5, speed, theta1, theta2)
 
 					startTheta := theta1
-					nextLargeArc := largeArc
+					nextLarge := large
 					for j < len(ts) && T < ts[j] && ts[j] <= T+dT {
 						theta := invL(ts[j] - T)
-						mid, largeArc1, largeArc2, ok := splitEllipse(rx, ry, phi, cx, cy, startTheta, theta2, theta)
+						mid, large1, large2, ok := splitEllipse(rx, ry, phi, cx, cy, startTheta, theta2, theta)
 						if !ok {
 							panic("theta not in elliptic arc range for splitting")
 						}
 
-						q.ArcTo(rx, ry, phi*180.0/math.Pi, largeArc1, sweep, mid.X, mid.Y)
+						q.ArcTo(rx, ry, phi*180.0/math.Pi, large1, sweep, mid.X, mid.Y)
 						push()
 						q.MoveTo(mid.X, mid.Y)
 						startTheta = theta
-						nextLargeArc = largeArc2
+						nextLarge = large2
 						j++
 					}
 					if !equal(startTheta, theta2) {
-						q.ArcTo(rx, ry, phi*180.0/math.Pi, nextLargeArc, sweep, end.X, end.Y)
+						q.ArcTo(rx, ry, phi*180.0/math.Pi, nextLarge, sweep, end.X, end.Y)
 					}
 					T += dT
 				}
@@ -1216,8 +1216,8 @@ func (p *Path) Reverse() *Path {
 			rp.CubeTo(cx1, cy1, cx2, cy2, end.X, end.Y)
 		case arcToCmd:
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
-			largeArc, sweep := fromArcFlags(p.d[i+4])
-			rp.ArcTo(rx, ry, phi*180.0/math.Pi, largeArc, !sweep, end.X, end.Y)
+			large, sweep := fromArcFlags(p.d[i+4])
+			rp.ArcTo(rx, ry, phi*180.0/math.Pi, large, !sweep, end.X, end.Y)
 		}
 		start = end
 	}
@@ -1383,13 +1383,13 @@ func ParseSVG(s string) (*Path, error) {
 			rx := f[0]
 			ry := f[1]
 			rot := f[2]
-			largeArc := f[3] == 1.0
+			large := f[3] == 1.0
 			sweep := f[4] == 1.0
 			p1 = Point{f[5], f[6]}
 			if cmd == 'a' {
 				p1 = p1.Add(p0)
 			}
-			p.ArcTo(rx, ry, rot, largeArc, sweep, p1.X, p1.Y)
+			p.ArcTo(rx, ry, rot, large, sweep, p1.X, p1.Y)
 		default:
 			return nil, fmt.Errorf("bad path: unknown command '%c' at position %d", cmd, i)
 		}
@@ -1415,16 +1415,16 @@ func (p *Path) String() string {
 			fmt.Fprintf(&sb, "C%g %g %g %g %g %g", p.d[i+1], p.d[i+2], p.d[i+3], p.d[i+4], p.d[i+5], p.d[i+6])
 		case arcToCmd:
 			rot := p.d[i+3] * 180.0 / math.Pi
-			largeArc, sweep := fromArcFlags(p.d[i+4])
-			sLargeArc := "0"
-			if largeArc {
-				sLargeArc = "1"
+			large, sweep := fromArcFlags(p.d[i+4])
+			sLarge := "0"
+			if large {
+				sLarge = "1"
 			}
 			sSweep := "0"
 			if sweep {
 				sSweep = "1"
 			}
-			fmt.Fprintf(&sb, "A%g %g %g %s %s %g %g", p.d[i+1], p.d[i+2], rot, sLargeArc, sSweep, p.d[i+5], p.d[i+6])
+			fmt.Fprintf(&sb, "A%g %g %g %s %s %g %g", p.d[i+1], p.d[i+2], rot, sLarge, sSweep, p.d[i+5], p.d[i+6])
 		case closeCmd:
 			fmt.Fprintf(&sb, "z")
 		}
@@ -1468,11 +1468,11 @@ func (p *Path) ToSVG() string {
 		case arcToCmd:
 			rx, ry := p.d[i+1], p.d[i+2]
 			rot := p.d[i+3] * 180.0 / math.Pi
-			largeArc, sweep := fromArcFlags(p.d[i+4])
+			large, sweep := fromArcFlags(p.d[i+4])
 			x, y = p.d[i+5], p.d[i+6]
-			sLargeArc := "0"
-			if largeArc {
-				sLargeArc = "1"
+			sLarge := "0"
+			if large {
+				sLarge = "1"
 			}
 			sSweep := "0"
 			if sweep {
@@ -1482,7 +1482,7 @@ func (p *Path) ToSVG() string {
 				rx, ry = ry, rx
 				rot -= 90.0
 			}
-			fmt.Fprintf(&sb, "A%v %v %v %s %s %v %v", num(rx), num(ry), num(rot), sLargeArc, sSweep, num(p.d[i+5]), num(p.d[i+6]))
+			fmt.Fprintf(&sb, "A%v %v %v %s %s %v %v", num(rx), num(ry), num(rot), sLarge, sSweep, num(p.d[i+5]), num(p.d[i+6]))
 		case closeCmd:
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, "z")
@@ -1524,10 +1524,10 @@ func (p *Path) ToPS() string {
 		case arcToCmd:
 			x0, y0 := x, y
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
-			largeArc, sweep := fromArcFlags(p.d[i+4])
+			large, sweep := fromArcFlags(p.d[i+4])
 			x, y = p.d[i+5], p.d[i+6]
 
-			cx, cy, theta0, theta1 := ellipseToCenter(x0, y0, rx, ry, phi, largeArc, sweep, x, y)
+			cx, cy, theta0, theta1 := ellipseToCenter(x0, y0, rx, ry, phi, large, sweep, x, y)
 			theta0 = theta0 * 180.0 / math.Pi
 			theta1 = theta1 * 180.0 / math.Pi
 			rot := phi * 180.0 / math.Pi

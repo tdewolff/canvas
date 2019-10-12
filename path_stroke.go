@@ -284,7 +284,7 @@ type pathStrokeState struct {
 
 	cp1, cp2                    Point   // Béziers
 	rx, ry, rot, theta0, theta1 float64 // arcs
-	largeArc, sweep             bool    // arcs
+	large, sweep                bool    // arcs
 }
 
 // offsetSegment returns the rhs and lhs paths from offsetting a path segment.
@@ -339,28 +339,28 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			})
 		case arcToCmd:
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
-			largeArc, sweep := fromArcFlags(p.d[i+4])
+			large, sweep := fromArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
-			_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, largeArc, sweep, end.X, end.Y)
+			_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
 			n0 := ellipseNormal(rx, ry, phi, sweep, theta0, halfWidth)
 			n1 := ellipseNormal(rx, ry, phi, sweep, theta1, halfWidth)
 			r0 := ellipseCurvatureRadius(rx, ry, sweep, theta0)
 			r1 := ellipseCurvatureRadius(rx, ry, sweep, theta1)
 			states = append(states, pathStrokeState{
-				cmd:      arcToCmd,
-				p0:       start,
-				p1:       end,
-				n0:       n0,
-				n1:       n1,
-				r0:       r0,
-				r1:       r1,
-				rx:       rx,
-				ry:       ry,
-				rot:      phi * 180.0 / math.Pi,
-				theta0:   theta0,
-				theta1:   theta1,
-				largeArc: largeArc,
-				sweep:    sweep,
+				cmd:    arcToCmd,
+				p0:     start,
+				p1:     end,
+				n0:     n0,
+				n1:     n1,
+				r0:     r0,
+				r1:     r1,
+				rx:     rx,
+				ry:     ry,
+				rot:    phi * 180.0 / math.Pi,
+				theta0: theta0,
+				theta1: theta1,
+				large:  large,
+				sweep:  sweep,
 			})
 		case closeCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
@@ -415,8 +415,8 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			if rLambda <= 1.0 && lLambda <= 1.0 {
 				rLambda, lLambda = 1.0, 1.0
 			}
-			rhs.ArcTo(rLambda*(cur.rx+dr), rLambda*(cur.ry+dr), cur.rot, cur.largeArc, cur.sweep, rEnd.X, rEnd.Y)
-			lhs.ArcTo(lLambda*(cur.rx-dr), lLambda*(cur.ry-dr), cur.rot, cur.largeArc, cur.sweep, lEnd.X, lEnd.Y)
+			rhs.ArcTo(rLambda*(cur.rx+dr), rLambda*(cur.ry+dr), cur.rot, cur.large, cur.sweep, rEnd.X, rEnd.Y)
+			lhs.ArcTo(lLambda*(cur.rx-dr), lLambda*(cur.ry-dr), cur.rot, cur.large, cur.sweep, lEnd.X, lEnd.Y)
 		}
 
 		// join the cur and next path segments
