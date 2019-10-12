@@ -396,14 +396,13 @@ func (p *Path) CCW() bool {
 	return area <= 0.0
 }
 
-// Filling returns whether each subpath gets filled or not. A path may not be filling when it negates another path and depends on the FillRule.
+// Filling returns whether each subpath gets filled or not. A path may not be filling when it negates another path and depends on the FillRule. If a subpath is not closed, it is implicitly assumed to be closed.
 func (p *Path) Filling() []bool {
 	Ps := p.Split()
 	testPoints := make([]Point, 0, len(Ps))
 	for _, ps := range Ps {
 		if !ps.Closed() {
-			// TODO: what is some subpaths are not closed? The returned sequence is not of the same length of the number of subpaths.
-			continue
+			ps.Close() // implicitly close each subpath
 		}
 
 		iNextCmd := cmdLen(ps.d[0])

@@ -518,7 +518,7 @@ func (p *Path) Offset(w float64) *Path {
 	}
 
 	q := &Path{}
-	fillings := p.Filling()
+	filling := p.Filling()
 	for i, ps := range p.Split() {
 		if !ps.Closed() {
 			continue
@@ -531,7 +531,7 @@ func (p *Path) Offset(w float64) *Path {
 		if w > 0.0 {
 			useRHS = !useRHS
 		}
-		if fillings[i] {
+		if filling[i] {
 			useRHS = !useRHS
 		}
 
