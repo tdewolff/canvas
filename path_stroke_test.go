@@ -44,8 +44,8 @@ func TestPathStroke(t *testing.T) {
 
 		{"M0 0L10 0L10 10L0 10z", 2.0, ButtCapper, BevelJoiner, "M0 -1L10 -1L11 0L11 10L10 11L0 11L-1 10L-1 0zM1 1L1 9L9 9L9 1z"},
 		{"M0 0L0 10L10 10L10 0z", 2.0, ButtCapper, BevelJoiner, "M-1 0L-1 10L0 11L10 11L11 10L11 0L10 -1L0 -1zM1 1L9 1L9 9L1 9z"},
-		{"M0 0Q10 0 10 10", 2.0, ButtCapper, BevelJoiner, "M0 -1L9.6467 3.7346L11 10L9 10L7.6849 4.3366L0 1z"},
-		{"M0 0C0 10 10 10 10 0", 2.0, ButtCapper, BevelJoiner, "M1 0L3.4056 6.0146L6.9801 5.7289L9 0L11 0L9.7996 5.3497L2.7451 7.9408L-1 0z"},
+		{"M0 0Q10 0 10 10", 2.0, ButtCapper, BevelJoiner, "M0 -1L9.5137 3.4975L11 10L9 10L7.7845 4.5025L0 1z"},
+		{"M0 0C0 10 10 10 10 0", 2.0, ButtCapper, BevelJoiner, "M1 0L3.5291 6.0900L7.4502 5.2589L9 0L11 0L8.9701 6.5589L2.5234 7.8188L-1 0z"},
 		{"M0 0A10 5 0 0 0 20 0", 2.0, ButtCapper, BevelJoiner, "M1 0A9 4 0 0 0 19 0L21 0A11 6 0 0 1 -1 0z"},
 		{"M0 0A10 5 0 0 1 20 0", 2.0, ButtCapper, BevelJoiner, "M-1 0A11 6 0 0 1 21 0L19 0A9 4 0 0 0 1 0z"},
 		{"M5 2L2 2A2 2 0 0 0 0 0", 2.0, ButtCapper, BevelJoiner, "M5 3L2 3L1 2A1 1 0 0 0 0 1L0 -1A3 3 0 0 1 3 2L2 1L5 1z"},

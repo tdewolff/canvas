@@ -426,8 +426,8 @@ func flattenSmoothCubicBezier(p *Path, p0, p1, p2, p3 Point, d, flatness float64
 		}
 
 		s2 := s2nom / denom
-		r1 := denom
-		effectiveFlatness := flatness / math.Abs(1.0+2.0*d*s2/3.0/r1/r1)
+		//r1 := denom
+		effectiveFlatness := flatness // / (1.0 + 2.0*d*s2/3.0/r1/r1)  // TODO: (stroke bezier) unclear what to do when negative
 		t = 2.0 * math.Sqrt(effectiveFlatness/3.0/math.Abs(s2))
 		if t >= 1.0 {
 			break

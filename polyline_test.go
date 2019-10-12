@@ -31,6 +31,6 @@ func TestPolyline(t *testing.T) {
 func TestPolylineSmoothen(t *testing.T) {
 	test.T(t, (&Polyline{}).Smoothen(), MustParseSVG(""))
 	test.T(t, (&Polyline{}).Add(0, 0).Add(10, 0).Smoothen(), MustParseSVG("M0 0L10 0"))
-	test.T(t, (&Polyline{}).Add(0, 0).Add(5, 10).Add(10, 0).Add(5, -10).Smoothen(), MustParseSVG("M0 0C1.4444 5.1111 2.8889 10.222 5 10C7.1111 9.7778 9.8889 4.2222 10 0C10.111 -4.2222 7.5556 -7.1111 5 -10"))
+	test.T(t, (&Polyline{}).Add(0, 0).Add(5, 10).Add(10, 0).Add(5, -10).Smoothen(), MustParseSVG("M0 0C1.444444 5.111111 2.888889 10.22222 5 10C7.111111 9.777778 9.888889 4.222222 10 0C10.11111 -4.222222 7.555556 -7.111111 5 -10"))
 	test.T(t, (&Polyline{}).Add(0, 0).Add(5, 10).Add(10, 0).Add(5, -10).Add(0, 0).Smoothen(), MustParseSVG("M0 0C0 5 2.5 10 5 10C7.5 10 10 5 10 0C10 -5 7.5 -10 5 -10C2.5 -10 0 -5 0 0z"))
 }
