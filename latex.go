@@ -74,7 +74,7 @@ func ParseLaTeX(s string) (*Path, error) {
 
 	svgPaths := map[string]*Path{}
 	x0, y0 := math.Inf(1), math.Inf(1)
-	width, height := 0.0, 0.0
+	height := 0.0
 
 	p := &Path{}
 	l := xml.NewLexer(r)
@@ -85,10 +85,7 @@ func ParseLaTeX(s string) (*Path, error) {
 			if l.Err() != io.EOF {
 				return nil, l.Err()
 			}
-			if !p.Empty() {
-				_ = width
-				p = p.Transform(Identity.Translate(-x0, y0+height).ReflectY())
-			}
+			p = p.Transform(Identity.Translate(-x0, y0+height).ReflectY())
 			//_ = ioutil.WriteFile(path.Join(tempDir, hash), []byte(p.String()), 0644)
 			return p, nil
 		case xml.StartTagToken:
@@ -108,11 +105,6 @@ func ParseLaTeX(s string) (*Path, error) {
 
 			if tag == "svg" {
 				var n int
-				width, n = strconv.ParseFloat(attrs["width"])
-				if n == 0 {
-					return nil, errors.New("unexpected SVG format: expected valid width attribute on svg tag")
-				}
-
 				height, n = strconv.ParseFloat(attrs["height"])
 				if n == 0 {
 					return nil, errors.New("unexpected SVG format: expected valid height attribute on svg tag")

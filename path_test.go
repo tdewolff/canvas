@@ -80,39 +80,50 @@ func TestPathCoords(t *testing.T) {
 }
 
 func TestPathCommands(t *testing.T) {
-	test.T(t, (&Path{}).MoveTo(3, 4).String(), "M3 4")
-	test.T(t, (&Path{}).MoveTo(3, 4).LineTo(3, 4).String(), "M3 4")
-	test.T(t, (&Path{}).MoveTo(3, 4).QuadTo(3, 4, 3, 4).String(), "M3 4")
-	test.T(t, (&Path{}).MoveTo(3, 4).CubeTo(3, 4, 3, 4, 3, 4).String(), "M3 4")
-	test.T(t, (&Path{}).MoveTo(3, 4).ArcTo(2, 2, 0, false, false, 3, 4).String(), "M3 4")
+	var tts = []struct {
+		p *Path
+		s string
+	}{
+		{(&Path{}).MoveTo(3, 4), "M3 4"},
+		{(&Path{}).MoveTo(3, 4).QuadTo(3, 4, 3, 4), "M3 4"},
+		{(&Path{}).MoveTo(3, 4).CubeTo(3, 4, 3, 4, 3, 4), "M3 4"},
+		{(&Path{}).MoveTo(3, 4).ArcTo(2, 2, 0, false, false, 3, 4), "M3 4"},
 
-	test.T(t, (&Path{}).LineTo(3, 4).String(), "L3 4")
-	test.T(t, (&Path{}).QuadTo(3, 4, 3, 4).String(), "L3 4")
-	test.T(t, (&Path{}).QuadTo(1, 2, 3, 4).String(), "Q1 2 3 4")
-	test.T(t, (&Path{}).QuadTo(0, 0, 0, 0).String(), "")
-	test.T(t, (&Path{}).QuadTo(3, 4, 0, 0).String(), "Q3 4 0 0")
-	test.T(t, (&Path{}).QuadTo(1.5, 2, 3, 4).String(), "L3 4")
-	test.T(t, (&Path{}).CubeTo(0, 0, 3, 4, 3, 4).String(), "L3 4")
-	test.T(t, (&Path{}).CubeTo(1, 1, 2, 2, 3, 4).String(), "C1 1 2 2 3 4")
-	test.T(t, (&Path{}).CubeTo(1, 1, 2, 2, 0, 0).String(), "C1 1 2 2 0 0")
-	test.T(t, (&Path{}).CubeTo(0, 0, 0, 0, 0, 0).String(), "")
-	test.T(t, (&Path{}).CubeTo(1, 1, 2, 2, 3, 3).String(), "L3 3")
-	test.T(t, (&Path{}).ArcTo(0, 0, 0, false, false, 4, 0).String(), "L4 0")
-	test.T(t, (&Path{}).ArcTo(2, 1, 0, false, false, 4, 0).String(), "A2 1 0 0 0 4 0")
-	test.T(t, (&Path{}).ArcTo(1, 2, 0, true, true, 4, 0).String(), "A4 2 90 1 1 4 0")
-	test.T(t, (&Path{}).ArcTo(1, 2, 90, false, false, 4, 0).String(), "A2 1 0 0 0 4 0")
-	test.T(t, (&Path{}).Arc(2, 1, 0, 180, 0), (&Path{}).ArcTo(2, 1, 0, false, false, 4, 0))
-	test.T(t, (&Path{}).Arc(2, 1, 0, 0, 180), (&Path{}).ArcTo(2, 1, 0, false, true, -4, 0))
-	test.T(t, (&Path{}).Arc(2, 1, 0, 540, 0), (&Path{}).ArcTo(2, 1, 0, false, false, 4, 0).ArcTo(2, 1, 0, false, false, 0, 0).ArcTo(2, 1, 0, false, false, 4, 0))
-	test.T(t, (&Path{}).Arc(2, 1, 0, 180, -180), (&Path{}).ArcTo(2, 1, 0, false, false, 4, 0).ArcTo(2, 1, 0, false, false, 0, 0))
-	test.T(t, (&Path{}).Close().String(), "")
+		{(&Path{}).LineTo(3, 4), "M0 0L3 4"},
+		{(&Path{}).QuadTo(3, 4, 3, 4), "M0 0L3 4"},
+		{(&Path{}).QuadTo(1, 2, 3, 4), "M0 0Q1 2 3 4"},
+		{(&Path{}).QuadTo(0, 0, 0, 0), ""},
+		{(&Path{}).QuadTo(3, 4, 0, 0), "M0 0Q3 4 0 0"},
+		{(&Path{}).QuadTo(1.5, 2, 3, 4), "M0 0L3 4"},
+		{(&Path{}).CubeTo(0, 0, 3, 4, 3, 4), "M0 0L3 4"},
+		{(&Path{}).CubeTo(1, 1, 2, 2, 3, 4), "M0 0C1 1 2 2 3 4"},
+		{(&Path{}).CubeTo(1, 1, 2, 2, 0, 0), "M0 0C1 1 2 2 0 0"},
+		{(&Path{}).CubeTo(0, 0, 0, 0, 0, 0), ""},
+		{(&Path{}).CubeTo(1, 1, 2, 2, 3, 3), "M0 0L3 3"},
+		{(&Path{}).ArcTo(0, 0, 0, false, false, 4, 0), "M0 0L4 0"},
+		{(&Path{}).ArcTo(2, 1, 0, false, false, 4, 0), "M0 0A2 1 0 0 0 4 0"},
+		{(&Path{}).ArcTo(1, 2, 0, true, true, 4, 0), "M0 0A4 2 90 1 1 4 0"},
+		{(&Path{}).ArcTo(1, 2, 90, false, false, 4, 0), "M0 0A2 1 0 0 0 4 0"},
+		{(&Path{}).Close(), ""},
 
-	test.T(t, (&Path{}).MoveTo(3, 4).MoveTo(5, 3).String(), "M5 3")
-	test.T(t, (&Path{}).MoveTo(3, 4).Close().String(), "")
-	test.T(t, (&Path{}).LineTo(3, 4).LineTo(0, 0).Close().String(), "L3 4z")
-	test.T(t, (&Path{}).LineTo(3, 4).LineTo(4, 0).LineTo(2, 0).Close().String(), "L3 4L4 0z")
-	test.T(t, (&Path{}).LineTo(3, 4).Close().Close().String(), "L3 4z")
-	test.T(t, (&Path{}).MoveTo(2, 1).LineTo(3, 4).LineTo(5, 0).Close().MoveTo(2, 1).LineTo(6, 3).String(), "M2 1L3 4L5 0zL6 3")
+		{(&Path{}).MoveTo(3, 4).MoveTo(5, 3), "M5 3"},
+		{(&Path{}).MoveTo(3, 4).Close(), ""},
+		{(&Path{}).LineTo(3, 4).LineTo(0, 0).Close(), "M0 0L3 4z"},
+		{(&Path{}).LineTo(3, 4).LineTo(4, 0).LineTo(2, 0).Close(), "M0 0L3 4L4 0z"},
+		{(&Path{}).LineTo(3, 4).Close().Close(), "M0 0L3 4z"},
+		{(&Path{}).MoveTo(2, 1).LineTo(3, 4).LineTo(5, 0).Close().LineTo(6, 3), "M2 1L3 4L5 0zM2 1L6 3"},
+		{(&Path{}).MoveTo(2, 1).LineTo(3, 4).LineTo(5, 0).Close().MoveTo(2, 1).LineTo(6, 3), "M2 1L3 4L5 0zM2 1L6 3"},
+	}
+	for _, tt := range tts {
+		t.Run(tt.s, func(t *testing.T) {
+			test.String(t, tt.p.String(), tt.s)
+		})
+	}
+
+	test.T(t, (&Path{}).Arc(2, 1, 0, 180, 0), MustParseSVG("A2 1 0 0 0 4 0"))
+	test.T(t, (&Path{}).Arc(2, 1, 0, 0, 180), MustParseSVG("A2 1 0 0 1 -4 0"))
+	test.T(t, (&Path{}).Arc(2, 1, 0, 540, 0), MustParseSVG("A2 1 0 0 0 4 0A2 1 0 0 0 0 0A2 1 0 0 0 4 0"))
+	test.T(t, (&Path{}).Arc(2, 1, 0, 180, -180), MustParseSVG("A2 1 0 0 0 4 0A2 1 0 0 0 0 0"))
 }
 
 func TestPathCCW(t *testing.T) {
@@ -472,7 +483,7 @@ func TestPathReverse(t *testing.T) {
 		{"C0 5 5 5 5 0z", "L5 0C5 5 0 5 0 0z"},
 		{"A2.5 5 0 0 0 5 0", "M5 0A5 2.5 90 0 1 0 0"},
 		{"A2.5 5 0 0 0 5 0z", "L5 0A5 2.5 90 0 1 0 0z"},
-		{"M5 5L10 10zL15 10", "M15 10L5 5L10 10z"},
+		{"M5 5L10 10zL15 10", "M15 10L5 5M5 5L10 10z"},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
@@ -539,7 +550,7 @@ func TestPathToSVG(t *testing.T) {
 		{"A5 5 0 0 1 10 0", "M0 0A5 5 0 0 1 10 0"},
 		{"A10 5 90 0 0 10 0", "M0 0A5 10 0 0 0 10 0"},
 		{"A10 5 90 1 0 10 0", "M0 0A5 10 0 1 0 10 0"},
-		{"M20 0L20 0", "M20 0"},
+		{"M20 0L20 0", ""},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
