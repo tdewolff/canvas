@@ -77,6 +77,12 @@ func TestPathCoords(t *testing.T) {
 	test.T(t, len(coords), 2)
 	test.T(t, coords[0], Point{0.0, 0.0})
 	test.T(t, coords[1], Point{5.0, 10.0})
+
+	coords = MustParseSVG("L5 10C2.5 10 0 5 0 0z").Coords()
+	test.T(t, len(coords), 3)
+	test.T(t, coords[0], Point{0.0, 0.0})
+	test.T(t, coords[1], Point{5.0, 10.0})
+	test.T(t, coords[2], Point{0.0, 0.0})
 }
 
 func TestPathCommands(t *testing.T) {
@@ -160,6 +166,15 @@ func TestPathFilling(t *testing.T) {
 	test.T(t, fillings[0], true)
 	test.T(t, fillings[1], false)
 	FillRule = NonZero
+
+	fillings = MustParseSVG("L10 10z").Filling()
+	test.T(t, fillings[0], false)
+
+	fillings = MustParseSVG("C5 0 10 5 10 10z").Filling()
+	test.T(t, fillings[0], true)
+
+	fillings = MustParseSVG("C0 5 5 10 10 10z").Filling()
+	test.T(t, fillings[0], true)
 }
 
 func TestPathInterior(t *testing.T) {

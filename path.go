@@ -48,14 +48,14 @@ func cmdLen(cmd float64) int {
 }
 
 func fromArcFlags(f float64) (bool, bool) {
-	largeArc := (f == 1.0 || f == 3.0)
+	large := (f == 1.0 || f == 3.0)
 	sweep := (f == 2.0 || f == 3.0)
-	return largeArc, sweep
+	return large, sweep
 }
 
-func toArcFlags(largeArc, sweep bool) float64 {
+func toArcFlags(large, sweep bool) float64 {
 	f := 0.0
-	if largeArc {
+	if large {
 		f += 1.0
 	}
 	if sweep {
@@ -183,13 +183,15 @@ func (p *Path) StartPos() Point {
 
 // Coords returns all the coordinates of the segment start/end points.
 func (p *Path) Coords() []Point {
-	P := []Point{}
+	coords := []Point{}
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		i += cmdLen(cmd)
-		P = append(P, Point{p.d[i-3], p.d[i-2]})
+		if cmd != closeCmd || !equal(coords[len(coords)-1].X, p.d[i-3]) || !equal(coords[len(coords)-1].Y, p.d[i-2]) {
+			coords = append(coords, Point{p.d[i-3], p.d[i-2]})
+		}
 	}
-	return P
+	return coords
 }
 
 ////////////////////////////////////////////////////////////////
@@ -374,51 +376,82 @@ func (p *Path) Close() *Path {
 
 ////////////////////////////////////////////////////////////////
 
+func (p *Path) simplifyToCoords() []Point {
+	coords := p.Coords()
+	if len(coords) == 3 {
+		// if there are just two commands, linearizing them gives us an area of no surface. To avoid this we add extra coordinates halfway for QuadTo, CubeTo and ArcTo.
+		coords = []Point{}
+		for i := 0; i < len(p.d); {
+			cmd := p.d[i]
+			if cmd == quadToCmd {
+				p0 := Point{p.d[i-3], p.d[i-2]}
+				p1 := Point{p.d[i+1], p.d[i+2]}
+				p2 := Point{p.d[i+3], p.d[i+4]}
+				_, _, _, coord, _, _ := splitQuadraticBezier(p0, p1, p2, 0.5)
+				coords = append(coords, coord)
+			} else if cmd == cubeToCmd {
+				p0 := Point{p.d[i-3], p.d[i-2]}
+				p1 := Point{p.d[i+1], p.d[i+2]}
+				p2 := Point{p.d[i+3], p.d[i+4]}
+				p3 := Point{p.d[i+5], p.d[i+6]}
+				_, _, _, _, coord, _, _, _ := splitCubicBezier(p0, p1, p2, p3, 0.5)
+				coords = append(coords, coord)
+			} else if cmd == arcToCmd {
+				rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
+				large, sweep := fromArcFlags(p.d[i+4])
+				cx, cy, theta0, theta1 := ellipseToCenter(p.d[i-3], p.d[i-2], rx, ry, phi, large, sweep, p.d[i+5], p.d[i+6])
+				coord, _, _, _ := splitEllipse(rx, ry, phi, cx, cy, theta0, theta1, (theta1-theta0)/2.0)
+				coords = append(coords, coord)
+			}
+			i += cmdLen(cmd)
+			if cmd != closeCmd || !equal(coords[len(coords)-1].X, p.d[i-3]) || !equal(coords[len(coords)-1].Y, p.d[i-2]) {
+				coords = append(coords, Point{p.d[i-3], p.d[i-2]})
+			}
+		}
+	}
+	return coords
+}
+
 // CCW returns true when the path has (mostly) a counter clockwise direction.
 // Does not need the path to be closed and will return true for a empty or straight line.
 func (p *Path) CCW() bool {
 	// use the Shoelace formula
 	area := 0.0
-	var start, end Point
-	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
-		i += cmdLen(cmd)
-
-		end = Point{p.d[i-3], p.d[i-2]}
-		if cmd != moveToCmd {
-			area += (end.X - start.X) * (start.Y + end.Y)
+	for _, ps := range p.Split() {
+		coords := ps.simplifyToCoords()
+		for i := 1; i < len(coords); i++ {
+			area += (coords[i].X - coords[i-1].X) * (coords[i-1].Y + coords[i].Y)
 		}
-		start = end
 	}
 	return area <= 0.0
 }
 
-// Filling returns whether each subpath gets filled or not. A path may not be filling when it negates another path and depends on the FillRule. If a subpath is not closed, it is implicitly assumed to be closed.
+// Filling returns whether each subpath gets filled or not. A path may not be filling when it negates another path and depends on the FillRule. If a subpath is not closed, it is implicitly assumed to be closed. If the path has no area it will return false.
 func (p *Path) Filling() []bool {
-	Ps := p.Split()
-	testPoints := make([]Point, 0, len(Ps))
-	for _, ps := range Ps {
-		if !ps.Closed() {
-			ps.Close() // implicitly close each subpath
-		}
+	var pls []*Polyline
+	var ccw []bool
+	for _, ps := range p.Split() {
+		ps = ps.Close()
 
-		iNextCmd := cmdLen(ps.d[0])
-		iNextCmd2 := iNextCmd + cmdLen(ps.d[iNextCmd])
-		p0 := Point{ps.d[iNextCmd-3], ps.d[iNextCmd-2]}
-		p1 := Point{ps.d[iNextCmd2-3], ps.d[iNextCmd2-2]}
+		coords := ps.simplifyToCoords()
+		polyline := &Polyline{coords}
+		pls = append(pls, polyline) // no need for flattening as we pick our test point to be inside the polyline
+		ccw = append(ccw, ps.CCW())
+	}
 
-		offset := p1.Sub(p0).Rot90CW().Norm(Epsilon)
-		if ps.CCW() {
+	testPoints := make([]Point, 0, len(pls))
+	for i, pl := range pls {
+		offset := pl.coords[1].Sub(pl.coords[0]).Rot90CW().Norm(Epsilon)
+		if ccw[i] {
 			offset = offset.Neg()
 		}
-		testPoints = append(testPoints, p0.Interpolate(p1, 0.5).Add(offset))
+		testPoints = append(testPoints, pl.coords[0].Interpolate(pl.coords[1], 0.5).Add(offset))
 	}
 
 	fillCounts := make([]int, len(testPoints))
-	for _, ps := range Ps {
-		polyline := PolylineFromPathCoords(ps) // no need for flattening as we pick our test point to be inside the polyline
+	for _, pl := range pls {
 		for i, test := range testPoints {
-			fillCounts[i] += polyline.FillCount(test.X, test.Y)
+			fillCounts[i] += pl.FillCount(test.X, test.Y)
 		}
 	}
 

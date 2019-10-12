@@ -187,16 +187,16 @@ func ellipseRadiiCorrection(start Point, rx, ry, phi float64, end Point) float64
 }
 
 // splitEllipse returns the new mid point, the two largeArc parameters and the ok bool, the rest stays the same
-func splitEllipse(rx, ry, phi, cx, cy, theta1, theta2, theta float64) (Point, bool, bool, bool) {
-	if !angleBetween(theta, theta1, theta2) {
+func splitEllipse(rx, ry, phi, cx, cy, theta0, theta1, theta float64) (Point, bool, bool, bool) {
+	if !angleBetween(theta, theta0, theta1) {
 		return Point{}, false, false, false
 	}
 
 	mid := ellipsePos(rx, ry, phi, cx, cy, theta)
 	largeArc0, largeArc1 := false, false
-	if math.Abs(theta-theta1) > math.Pi {
+	if math.Abs(theta-theta0) > math.Pi {
 		largeArc0 = true
-	} else if math.Abs(theta-theta2) > math.Pi {
+	} else if math.Abs(theta-theta1) > math.Pi {
 		largeArc1 = true
 	}
 	return mid, largeArc0, largeArc1, true

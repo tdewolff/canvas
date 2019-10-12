@@ -510,7 +510,7 @@ func (p *Path) Offset(w float64) *Path {
 	}
 
 	q := &Path{}
-	filling := p.Filling() // TODO: fix for CubeTo and Close, there is no canonical place to put the test point
+	filling := p.Filling()
 	for i, ps := range p.Split() {
 		if !ps.Closed() {
 			continue
