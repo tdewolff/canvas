@@ -93,6 +93,9 @@ func (c *Canvas) SetStrokeJoiner(joiner Joiner) {
 
 // SetDashes sets the dash pattern to be used for stroking operations. The dash offset denotes the offset into the dash array in mm from where to start. Negative values are allowed.
 func (c *Canvas) SetDashes(dashOffset float64, dashes ...float64) {
+	if len(dashes)%2 == 1 {
+		dashes = append(dashes, dashes...)
+	}
 	c.dashOffset = dashOffset
 	c.dashes = dashes
 }
@@ -103,6 +106,19 @@ func (c *Canvas) DrawPath(x, y float64, path *Path) {
 		return
 	}
 	if !path.Empty() {
+		if 0.0 < c.strokeWidth && c.strokeColor.A != 0 && len(c.dashes) != 0 && path.Closed() {
+			// will draw dashes
+			length := path.Length()
+			i, pos := dashStart(c.dashOffset, c.dashes)
+			if length <= pos+c.dashes[i] {
+				if i%2 == 0 { // first dash covers whole path
+					c.dashes = []float64{}
+				} else { // first space covers whole path
+					return
+				}
+			}
+		}
+
 		path = path.Transform(Identity.Translate(x, y).Mul(c.m))
 		c.drawState.fillRule = FillRule
 		c.layers = append(c.layers, pathLayer{path, c.drawState})
@@ -373,17 +389,8 @@ func (l pathLayer) WriteSVG(w io.Writer, h float64) {
 func (l pathLayer) WritePDF(w *pdfPageWriter) {
 	fill := l.fillColor.A != 0
 	stroke := l.strokeColor.A != 0 && 0.0 < l.strokeWidth
-
-	closed := false
-	data := l.path.ToPDF()
-	if 1 < len(data) && data[len(data)-1] == 'h' {
-		data = data[:len(data)-2]
-		closed = true
-	}
-
 	differentAlpha := fill && stroke && l.fillColor.A != l.strokeColor.A
 
-	// TODO: (PDF) does not support connecting first and last dashes if path is closed
 	// PDFs don't support the arcs joiner, miter joiner (not clipped), or miter joiner (clipped) with non-bevel fallback
 	strokeUnsupported := false
 	if _, ok := l.strokeJoiner.(arcsJoiner); ok {
@@ -394,6 +401,32 @@ func (l pathLayer) WritePDF(w *pdfPageWriter) {
 		} else if _, ok := miter.gapJoiner.(bevelJoiner); !ok {
 			strokeUnsupported = true
 		}
+	}
+
+	// PDFs don't support connecting first and last dashes if path is closed, so we move the start of the path if this is the case
+	if stroke && !strokeUnsupported && len(l.dashes) != 0 && l.path.Closed() {
+		length := l.path.Length() // OPTIMIZE: already calculated in canvas.DrawPath
+		i, pos := dashStart(l.dashOffset, l.dashes)
+		if i%2 == 0 { // starts with dash
+			for pos+l.dashes[i] < length {
+				pos += l.dashes[i]
+				i++
+				if i == len(l.dashes) {
+					i = 0
+				}
+			}
+
+			if i%2 == 0 { // ends with dash
+				strokeUnsupported = true
+			}
+		}
+	}
+
+	closed := false
+	data := l.path.ToPDF()
+	if 1 < len(data) && data[len(data)-1] == 'h' {
+		data = data[:len(data)-2]
+		closed = true
 	}
 
 	if !stroke || !strokeUnsupported {

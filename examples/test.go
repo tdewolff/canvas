@@ -137,15 +137,20 @@ func draw(c *canvas.Canvas) {
 	//c.DrawPath(110, 110, p)
 
 	p, _ := canvas.ParseSVG(fmt.Sprintf("L%f 0L0 50z", math.Sqrt(3)*50.0))
-	ps := p.Stroke(10.0, canvas.ButtCapper, canvas.MiterClipJoiner(canvas.BevelJoiner, 2.01))
-	c.SetFillColor(canvas.Lightblue)
-	c.DrawPath(10.0, 10.0, ps)
+	c.SetFillColor(canvas.Transparent)
+	c.SetStrokeColor(canvas.Lightblue)
+	c.SetStrokeWidth(10.0)
+	c.SetStrokeCapper(canvas.ButtCapper)
+	c.SetStrokeJoiner(canvas.RoundJoiner)
+	c.SetDashes(240.0, 240.0)
+	c.DrawPath(10.0, 10.0, p)
 
 	c.SetFillColor(canvas.Transparent)
 	c.SetStrokeColor(canvas.Black)
 	c.SetStrokeWidth(0.5)
 	c.SetStrokeCapper(canvas.ButtCapper)
 	c.SetStrokeJoiner(canvas.BevelJoiner)
+	c.SetDashes(0.0)
 	c.DrawPath(10.0, 10.0, p)
 
 	//ellipse, _ := canvas.ParseSVG(fmt.Sprintf("A100 200 30 1 0 200 0z"))

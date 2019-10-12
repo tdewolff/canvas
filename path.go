@@ -1095,21 +1095,12 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 //	return ps, qs
 //}
 
-// Dash returns a new path that consists of dashes. The elements in d specify the width of the dashes and gaps. It will alternate between dashes and gaps when picking widths. If d is an array of odd length, it is equivalent of passing d twice in sequence. The offset specifies the offset used into d (or negative offset onto the path). Dash will be applied to each subpath independently.
-func (p *Path) Dash(offset float64, d ...float64) *Path {
-	if len(d) == 0 {
-		return p
-	}
-	if len(d)%2 == 1 {
-		// if d is uneven length, dash and space lengths alternate. Duplicate d so that uneven indices are always spaces
-		d = append(d, d...)
-	}
-
+func dashStart(offset float64, d []float64) (int, float64) {
 	i0 := 0 // index in d
-	for d[i0] < offset {
+	for d[i0] <= offset {
 		offset -= d[i0]
 		i0++
-		if len(d) <= i0 {
+		if i0 == len(d) {
 			i0 = 0
 		}
 	}
@@ -1121,6 +1112,20 @@ func (p *Path) Dash(offset float64, d ...float64) *Path {
 		}
 		pos0 = -(dTotal + offset) // handle negative offsets
 	}
+	return i0, pos0
+}
+
+// Dash returns a new path that consists of dashes. The elements in d specify the width of the dashes and gaps. It will alternate between dashes and gaps when picking widths. If d is an array of odd length, it is equivalent of passing d twice in sequence. The offset specifies the offset used into d (or negative offset onto the path). Dash will be applied to each subpath independently.
+func (p *Path) Dash(offset float64, d ...float64) *Path {
+	if len(d) == 0 {
+		return p
+	}
+	if len(d)%2 == 1 {
+		// if d is uneven length, dash and space lengths alternate. Duplicate d so that uneven indices are always spaces
+		d = append(d, d...)
+	}
+
+	i0, pos0 := dashStart(offset, d)
 
 	q := &Path{}
 	for _, ps := range p.Split() {
@@ -1135,7 +1140,7 @@ func (p *Path) Dash(offset float64, d ...float64) *Path {
 				t = append(t, pos)
 			}
 			i++
-			if len(d) <= i {
+			if i == len(d) {
 				i = 0
 			}
 		}
