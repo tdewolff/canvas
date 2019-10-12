@@ -106,6 +106,11 @@ func TestPathCommands(t *testing.T) {
 		{(&Path{}).ArcTo(1, 2, 90, false, false, 4, 0), "M0 0A2 1 0 0 0 4 0"},
 		{(&Path{}).Close(), ""},
 
+		{(&Path{}).LineTo(5, 0).Close().LineTo(6, 3), "M0 0L5 0zM0 0L6 3"},
+		{(&Path{}).LineTo(5, 0).Close().QuadTo(5, 3, 6, 3), "M0 0L5 0zM0 0Q5 3 6 3"},
+		{(&Path{}).LineTo(5, 0).Close().CubeTo(5, 1, 5, 3, 6, 3), "M0 0L5 0zM0 0C5 1 5 3 6 3"},
+		{(&Path{}).LineTo(5, 0).Close().ArcTo(5, 5, 0, false, false, 10, 0), "M0 0L5 0zM0 0A5 5 0 0 0 10 0"},
+
 		{(&Path{}).MoveTo(3, 4).MoveTo(5, 3), "M5 3"},
 		{(&Path{}).MoveTo(3, 4).Close(), ""},
 		{(&Path{}).LineTo(3, 4).LineTo(0, 0).Close(), "M0 0L3 4z"},

@@ -75,10 +75,6 @@ var BevelJoiner Joiner = bevelJoiner{}
 type bevelJoiner struct{}
 
 func (bevelJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
-	if n0.Equals(n1) {
-		return
-	}
-
 	rEnd := pivot.Add(n1)
 	lEnd := pivot.Sub(n1)
 	rhs.LineTo(rEnd.X, rEnd.Y)
@@ -95,14 +91,10 @@ var RoundJoiner Joiner = roundJoiner{}
 type roundJoiner struct{}
 
 func (roundJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
-	if n0.Equals(n1) {
-		return
-	}
-
 	rEnd := pivot.Add(n1)
 	lEnd := pivot.Sub(n1)
 	cw := n0.Rot90CW().Dot(n1) >= 0.0
-	if cw { // bend to the right, ie. CW
+	if cw { // bend to the right, ie. CW (or 180 degree turn)
 		rhs.LineTo(rEnd.X, rEnd.Y)
 		lhs.ArcTo(halfWidth, halfWidth, 0.0, false, false, lEnd.X, lEnd.Y)
 	} else { // bend to the left, ie. CCW
@@ -129,9 +121,7 @@ type miterJoiner struct {
 }
 
 func (j miterJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
-	if n0.Equals(n1) {
-		return
-	} else if n0.Equals(n1.Neg()) {
+	if n0.Equals(n1.Neg()) {
 		BevelJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	}
@@ -183,9 +173,7 @@ type arcsJoiner struct {
 }
 
 func (j arcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
-	if n0.Equals(n1) {
-		return
-	} else if n0.Equals(n1.Neg()) {
+	if n0.Equals(n1.Neg()) {
 		BevelJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	} else if math.IsNaN(r0) && math.IsNaN(r1) {
@@ -302,6 +290,7 @@ type pathStrokeState struct {
 // offsetSegment returns the rhs and lhs paths from offsetting a path segment.
 // It closes rhs and lhs when p is closed as well.
 func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Path) {
+	// only non-empty paths are evaluated
 	closed := false
 	states := []pathStrokeState{}
 	var start, end Point
@@ -392,9 +381,6 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 		start = end
 		i += cmdLen(cmd)
 	}
-	if len(states) == 0 || len(states) == 1 && states[0].cmd == closeCmd {
-		return nil, nil
-	}
 
 	rhs, lhs := &Path{}, &Path{}
 	rStart := states[0].p0.Add(states[0].n0)
@@ -441,13 +427,19 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			} else {
 				next = states[0]
 			}
-			jr.Join(rhs, lhs, halfWidth, cur.p1, cur.n1, next.n0, cur.r1, next.r0)
 
-			cw := cur.n1.Rot90CW().Dot(next.n0) >= 0.0
-			if cw {
-				rhsInnerBends = append(rhsInnerBends, len(rhs.d)-cmdLen(lineToCmd))
-			} else {
-				lhsInnerBends = append(lhsInnerBends, len(lhs.d)-cmdLen(lineToCmd))
+			if !cur.n1.Equals(next.n0) {
+				jr.Join(rhs, lhs, halfWidth, cur.p1, cur.n1, next.n0, cur.r1, next.r0)
+
+				if !cur.n1.Equals(next.n0.Neg()) {
+					// all turns except 0 degrees and 180 degrees are added
+					cw := cur.n1.Rot90CW().Dot(next.n0) >= 0.0
+					if cw {
+						rhsInnerBends = append(rhsInnerBends, len(rhs.d)-cmdLen(lineToCmd))
+					} else {
+						lhsInnerBends = append(lhsInnerBends, len(lhs.d)-cmdLen(lineToCmd))
+					}
+				}
 			}
 		}
 	}
@@ -537,13 +529,9 @@ func (p *Path) Offset(w float64) *Path {
 
 		rhs, lhs := offsetSegment(ps, math.Abs(w), ButtCapper, RoundJoiner)
 		if useRHS {
-			if rhs != nil {
-				q = q.Append(rhs)
-			}
+			q = q.Append(rhs)
 		} else {
-			if lhs != nil {
-				q = q.Append(lhs)
-			}
+			q = q.Append(lhs)
 		}
 	}
 	return q
@@ -557,7 +545,7 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 	halfWidth := w / 2.0
 	for _, ps := range p.Split() {
 		rhs, lhs := offsetSegment(ps, halfWidth, cr, jr)
-		if rhs != nil && lhs != nil { // closed path
+		if lhs != nil { // closed path
 			// inner path should go opposite direction to cancel the outer path
 			if ps.CCW() {
 				lhs = lhs.Reverse()
@@ -568,10 +556,8 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 				q = q.Append(lhs)
 				q = q.Append(rhs)
 			}
-		} else if rhs != nil {
-			q = q.Append(rhs)
 		} else {
-			q = q.Append(lhs)
+			q = q.Append(rhs)
 		}
 	}
 	return q

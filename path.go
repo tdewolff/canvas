@@ -32,7 +32,6 @@ const (
 	cubeToCmd               //  8.0
 	arcToCmd                // 16.0
 	closeCmd                // 32.0
-	nullCmd   = 0.0         //  0.0
 )
 
 // cmdLen returns the number of values (float64s) the path command contains.
@@ -44,8 +43,6 @@ func cmdLen(cmd float64) int {
 		return 6
 	case cubeToCmd, arcToCmd:
 		return 8
-	case nullCmd:
-		return 0
 	}
 	panic(fmt.Sprintf("unknown path command '%f'", cmd))
 }
@@ -1135,14 +1132,14 @@ func (p *Path) Dash(offset float64, d ...float64) *Path {
 
 // Reverse returns a new path that is the same path as p but in the reverse direction.
 func (p *Path) Reverse() *Path {
-	ip := &Path{}
+	rp := &Path{}
 	if len(p.d) == 0 {
-		return ip
+		return rp
 	}
 
 	end := Point{p.d[len(p.d)-3], p.d[len(p.d)-2]}
 	if !end.IsZero() {
-		ip.MoveTo(end.X, end.Y)
+		rp.MoveTo(end.X, end.Y)
 	}
 	start := end
 	closed := false
@@ -1159,42 +1156,39 @@ func (p *Path) Reverse() *Path {
 		switch cmd {
 		case closeCmd:
 			if !start.Equals(end) {
-				ip.LineTo(end.X, end.Y)
+				rp.LineTo(end.X, end.Y)
 			}
 			closed = true
 		case moveToCmd:
 			if closed {
-				ip.Close()
+				rp.Close()
 				closed = false
 			}
 			if !end.IsZero() {
-				ip.MoveTo(end.X, end.Y)
+				rp.MoveTo(end.X, end.Y)
 			}
 		case lineToCmd:
 			if closed && (0 == i || p.d[i-1] == moveToCmd) {
-				ip.Close()
+				rp.Close()
 				closed = false
 			} else {
-				ip.LineTo(end.X, end.Y)
+				rp.LineTo(end.X, end.Y)
 			}
 		case quadToCmd:
 			cx, cy := p.d[i+1], p.d[i+2]
-			ip.QuadTo(cx, cy, end.X, end.Y)
+			rp.QuadTo(cx, cy, end.X, end.Y)
 		case cubeToCmd:
 			cx1, cy1 := p.d[i+3], p.d[i+4]
 			cx2, cy2 := p.d[i+1], p.d[i+2]
-			ip.CubeTo(cx1, cy1, cx2, cy2, end.X, end.Y)
+			rp.CubeTo(cx1, cy1, cx2, cy2, end.X, end.Y)
 		case arcToCmd:
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			largeArc, sweep := fromArcFlags(p.d[i+4])
-			ip.ArcTo(rx, ry, phi*180.0/math.Pi, largeArc, !sweep, end.X, end.Y)
+			rp.ArcTo(rx, ry, phi*180.0/math.Pi, largeArc, !sweep, end.X, end.Y)
 		}
 		start = end
 	}
-	if closed {
-		ip.Close()
-	}
-	return ip
+	return rp
 }
 
 ////////////////////////////////////////////////////////////////
