@@ -465,15 +465,22 @@ func TestDashCanonical(t *testing.T) {
 		dashes     []float64
 	}{
 		{0.0, []float64{0.0}, 0.0, []float64{0.0}},
-		// [0] => [0]
-		// [0 1] => [0]
-		// [1 0] => []
-		// [1 0 1] => [2]
-		// [1 0 1] => [2]
-		// [1 0 1 1 0 1] => [2 2] ?> [2]
-		// [0 1 0] => [0]
-		// [0 1 2] => [2 1] +2
-		// [2 1 0] => [3 1] +1
+		{0.0, []float64{-1.0}, 0.0, []float64{0.0}},
+		{0.0, []float64{2.0, 0.0}, 0.0, []float64{}},
+		{0.0, []float64{0.0, 2.0}, 0.0, []float64{0.0}},
+		{0.0, []float64{0.0, 2.0, 0.0}, -2.0, []float64{2.0}},
+		{0.0, []float64{0.0, 2.0, 3.0, 0.0}, -2.0, []float64{3.0, 2.0}},
+		{0.0, []float64{0.0, 2.0, 3.0, 1.0, 0.0}, -2.0, []float64{3.0, 1.0, 2.0}},
+		{0.0, []float64{0.0, 1.0, 2.0}, -1.0, []float64{3.0}},
+		{0.0, []float64{0.0, 1.0, 2.0, 4.0}, -1.0, []float64{2.0, 5.0}},
+		{0.0, []float64{2.0, 1.0, 0.0}, 1.0, []float64{3.0}},
+		{0.0, []float64{4.0, 2.0, 1.0, 0.0}, 1.0, []float64{5.0, 2.0}},
+
+		{0.0, []float64{1.0, 0.0, 2.0}, 0.0, []float64{3.0}},
+		{0.0, []float64{1.0, 0.0, 2.0, 2.0, 0.0, 1.0}, 0.0, []float64{3.0}},
+		{0.0, []float64{2.0, 0.0, -1.0}, 0.0, []float64{1.0}},
+		{0.0, []float64{1.0, 0.0, 2.0, 0.0, 3.0, 0.0}, 0.0, []float64{}},
+		{0.0, []float64{0.0, 1.0, 0.0, 2.0, 0.0, 3.0}, 0.0, []float64{0.0}},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprintf("%v +%v", tt.origDashes, tt.origOffset), func(t *testing.T) {
@@ -489,7 +496,7 @@ func TestDashCanonical(t *testing.T) {
 				}
 			}
 			if diff {
-				test.Fail(t, fmt.Sprintf("%v +%v != %v +%v", offset, dashes, tt.offset, tt.dashes))
+				test.Fail(t, fmt.Sprintf("%v +%v != %v +%v", dashes, offset, tt.dashes, tt.offset))
 			}
 		})
 	}

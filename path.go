@@ -1097,7 +1097,9 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 
 // dashCanonical returns an optimized and even-length dash array
 func dashCanonical(offset float64, d []float64) (float64, []float64) {
-	// TODO: collapse zeros and optimize dashes, eg:
+	if len(d) == 0 {
+		return 0.0, []float64{}
+	}
 
 	// remove zeros except first and last
 	for i := 1; i < len(d)-1; i++ {
@@ -1108,11 +1110,43 @@ func dashCanonical(offset float64, d []float64) (float64, []float64) {
 		}
 	}
 
+	// remove first zero, collapse with second and last
+	if equal(d[0], 0.0) {
+		if len(d) < 3 {
+			return 0.0, []float64{0.0}
+		}
+		offset -= d[1]
+		d[len(d)-1] += d[1]
+		d = d[2:]
+	}
+
+	// remove last zero, collapse with fist and second to last
+	if equal(d[len(d)-1], 0.0) {
+		if len(d) < 3 {
+			return 0.0, []float64{}
+		}
+		offset += d[len(d)-2]
+		d[0] += d[len(d)-2]
+		d = d[:len(d)-2]
+	}
+
 	// if there are zeros or negatives, don't draw any dashes
 	for i := 0; i < len(d); i++ {
 		if d[i] < 0.0 || equal(d[i], 0.0) {
 			return 0.0, []float64{0.0}
 		}
+	}
+
+	// remove repeated patterns
+REPEAT:
+	for len(d)%2 == 0 {
+		mid := len(d) / 2
+		for i := 0; i < mid; i++ {
+			if !equal(d[i], d[mid+i]) {
+				break REPEAT
+			}
+		}
+		d = d[:mid]
 	}
 	return offset, d
 }
