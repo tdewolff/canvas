@@ -176,6 +176,18 @@ func TestPathFilling(t *testing.T) {
 
 	fillings = MustParseSVG("C0 5 5 10 10 10z").Filling()
 	test.T(t, fillings[0], true)
+
+	fillings = MustParseSVG("Q10 0 10 10z").Filling()
+	test.T(t, fillings[0], true)
+
+	fillings = MustParseSVG("Q0 10 10 10z").Filling()
+	test.T(t, fillings[0], true)
+
+	fillings = MustParseSVG("A10 10 0 0 1 10 10z").Filling()
+	test.T(t, fillings[0], true)
+
+	fillings = MustParseSVG("A10 10 0 0 0 10 10z").Filling()
+	test.T(t, fillings[0], true)
 }
 
 func TestPathInterior(t *testing.T) {

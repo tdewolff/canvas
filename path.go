@@ -400,7 +400,7 @@ func (p *Path) simplifyToCoords() []Point {
 				rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 				large, sweep := fromArcFlags(p.d[i+4])
 				cx, cy, theta0, theta1 := ellipseToCenter(p.d[i-3], p.d[i-2], rx, ry, phi, large, sweep, p.d[i+5], p.d[i+6])
-				coord, _, _, _ := splitEllipse(rx, ry, phi, cx, cy, theta0, theta1, (theta1-theta0)/2.0)
+				coord, _, _, _ := splitEllipse(rx, ry, phi, cx, cy, theta0, theta1, (theta0+theta1)/2.0)
 				coords = append(coords, coord)
 			}
 			i += cmdLen(cmd)

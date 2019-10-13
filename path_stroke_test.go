@@ -32,15 +32,15 @@ func TestPathStroke(t *testing.T) {
 		{"M0 0L10 0L10 10", 2.0, ButtCapper, BevelJoiner, "M0 -1L10 -1L11 0L11 10L9 10L9 1L0 1z"},
 		{"M0 0L10 0L10 -10", 2.0, ButtCapper, BevelJoiner, "M0 -1L9 -1L9 -10L11 -10L11 0L10 1L0 1z"},
 
-		{"M0 0L10 0L20 0", 2.0, ButtCapper, MiterClipJoiner(BevelJoiner, 4.0), "M0 -1L10 -1L20 -1L20 1L10 1L0 1z"},
-		{"M0 0L10 0L5 0", 2.0, ButtCapper, MiterClipJoiner(BevelJoiner, 4.0), "M0 -1L10 -1L10 1L5 1L5 -1L10 -1L10 1L0 1z"},
-		{"M0 0L10 0L10 10", 2.0, ButtCapper, MiterClipJoiner(BevelJoiner, 2.0), "M0 -1L10 -1L11 0L11 10L9 10L9 1L0 1z"},
-		{"M0 0L10 0L10 10", 2.0, ButtCapper, MiterClipJoiner(BevelJoiner, 4.0), "M0 -1L10 -1L11 -1L11 0L11 10L9 10L9 1L0 1z"},
-		{"M0 0L10 0L10 -10", 2.0, ButtCapper, MiterClipJoiner(BevelJoiner, 4.0), "M0 -1L9 -1L9 -10L11 -10L11 0L11 1L10 1L0 1z"},
+		{"M0 0L10 0L20 0", 2.0, ButtCapper, MiterClipJoiner(BevelJoiner, 2.0), "M0 -1L10 -1L20 -1L20 1L10 1L0 1z"},
+		{"M0 0L10 0L5 0", 2.0, ButtCapper, MiterClipJoiner(BevelJoiner, 2.0), "M0 -1L10 -1L10 1L5 1L5 -1L10 -1L10 1L0 1z"},
+		{"M0 0L10 0L10 10", 2.0, ButtCapper, MiterClipJoiner(BevelJoiner, 1.0), "M0 -1L10 -1L11 0L11 10L9 10L9 1L0 1z"},
+		{"M0 0L10 0L10 10", 2.0, ButtCapper, MiterClipJoiner(BevelJoiner, 2.0), "M0 -1L10 -1L11 -1L11 0L11 10L9 10L9 1L0 1z"},
+		{"M0 0L10 0L10 -10", 2.0, ButtCapper, MiterClipJoiner(BevelJoiner, 2.0), "M0 -1L9 -1L9 -10L11 -10L11 0L11 1L10 1L0 1z"},
 
-		{"M0 0L10 0L20 0", 2.0, ButtCapper, ArcsClipJoiner(BevelJoiner, 4.0), "M0 -1L10 -1L20 -1L20 1L10 1L0 1z"},
-		{"M0 0L10 0L5 0", 2.0, ButtCapper, ArcsClipJoiner(BevelJoiner, 4.0), "M0 -1L10 -1L10 1L5 1L5 -1L10 -1L10 1L0 1z"},
-		{"M0 0L10 0L10 10", 2.0, ButtCapper, ArcsClipJoiner(BevelJoiner, 2.0), "M0 -1L10 -1L11 0L11 10L9 10L9 1L0 1z"},
+		{"M0 0L10 0L20 0", 2.0, ButtCapper, ArcsClipJoiner(BevelJoiner, 2.0), "M0 -1L10 -1L20 -1L20 1L10 1L0 1z"},
+		{"M0 0L10 0L5 0", 2.0, ButtCapper, ArcsClipJoiner(BevelJoiner, 2.0), "M0 -1L10 -1L10 1L5 1L5 -1L10 -1L10 1L0 1z"},
+		{"M0 0L10 0L10 10", 2.0, ButtCapper, ArcsClipJoiner(BevelJoiner, 1.0), "M0 -1L10 -1L11 0L11 10L9 10L9 1L0 1z"},
 
 		{"M0 0L10 0L10 10L0 10z", 2.0, ButtCapper, BevelJoiner, "M0 -1L10 -1L11 0L11 10L10 11L0 11L-1 10L-1 0zM1 1L1 9L9 9L9 1z"},
 		{"M0 0L0 10L10 10L10 0z", 2.0, ButtCapper, BevelJoiner, "M-1 0L-1 10L0 11L10 11L11 10L11 0L10 -1L0 -1zM1 1L9 1L9 9L1 9z"},
