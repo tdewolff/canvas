@@ -673,28 +673,18 @@ func TestPathToPDF(t *testing.T) {
 }
 
 func plotPathLengthParametrization(filename string, N int, speed, length func(float64) float64, tmin, tmax float64) {
-	T3, _ := invPolynomialApprox3(gaussLegendre7, speed, tmin, tmax)
 	Tc, totalLength := invSpeedPolynomialChebyshevApprox(N, gaussLegendre7, speed, tmin, tmax)
-
-	anchor1Data := make(plotter.XYs, 2)
-	anchor1Data[0].X = totalLength * 1.0 / 3.0
-	anchor1Data[0].Y = T3(totalLength * 1.0 / 3.0)
-	anchor1Data[1].X = totalLength * 2.0 / 3.0
-	anchor1Data[1].Y = T3(totalLength * 2.0 / 3.0)
 
 	n := 100
 	realData := make(plotter.XYs, n+1)
-	model1Data := make(plotter.XYs, n+1)
-	model2Data := make(plotter.XYs, n+1)
+	modelData := make(plotter.XYs, n+1)
 	for i := 0; i < n+1; i++ {
 		t := tmin + (tmax-tmin)*float64(i)/float64(n)
 		l := totalLength * float64(i) / float64(n)
 		realData[i].X = length(t)
 		realData[i].Y = t
-		model1Data[i].X = l
-		model1Data[i].Y = T3(l)
-		model2Data[i].X = l
-		model2Data[i].Y = Tc(l)
+		modelData[i].X = l
+		modelData[i].Y = Tc(l)
 	}
 
 	scatter, err := plotter.NewScatter(realData)
@@ -703,27 +693,12 @@ func plotPathLengthParametrization(filename string, N int, speed, length func(fl
 	}
 	scatter.Shape = draw.CircleGlyph{}
 
-	anchors1, err := plotter.NewScatter(anchor1Data)
+	line, err := plotter.NewLine(modelData)
 	if err != nil {
 		panic(err)
 	}
-	anchors1.GlyphStyle.Shape = draw.CircleGlyph{}
-	anchors1.GlyphStyle.Color = Steelblue
-	anchors1.GlyphStyle.Radius = 5.0
-
-	line1, err := plotter.NewLine(model1Data)
-	if err != nil {
-		panic(err)
-	}
-	line1.LineStyle.Color = Steelblue
-	line1.LineStyle.Width = 2.0
-
-	line2, err := plotter.NewLine(model2Data)
-	if err != nil {
-		panic(err)
-	}
-	line2.LineStyle.Color = Orangered
-	line2.LineStyle.Width = 1.0
+	line.LineStyle.Color = Red
+	line.LineStyle.Width = 2.0
 
 	p, err := plot.New()
 	if err != nil {
@@ -731,11 +706,10 @@ func plotPathLengthParametrization(filename string, N int, speed, length func(fl
 	}
 	p.X.Label.Text = "L"
 	p.Y.Label.Text = "t"
-	p.Add(scatter, line1, line2, anchors1)
+	p.Add(scatter, line)
 
 	p.Legend.Add("real", scatter)
-	p.Legend.Add("Polynomial", line1)
-	p.Legend.Add(fmt.Sprintf("Chebyshev N=%v", N), line2)
+	p.Legend.Add(fmt.Sprintf("Chebyshev N=%v", N), line)
 
 	if err := p.Save(7*vg.Inch, 4*vg.Inch, filename); err != nil {
 		panic(err)
