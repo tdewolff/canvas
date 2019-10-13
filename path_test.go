@@ -735,7 +735,7 @@ func plotPathLengthParametrization(filename string, N int, speed, length func(fl
 
 	p.Legend.Add("real", scatter)
 	p.Legend.Add("Polynomial", line1)
-	p.Legend.Add("Chebyshev N=10", line2)
+	p.Legend.Add(fmt.Sprintf("Chebyshev N=%v", N), line2)
 
 	if err := p.Save(7*vg.Inch, 4*vg.Inch, filename); err != nil {
 		panic(err)
@@ -750,7 +750,7 @@ func TestPathLengthParametrization(t *testing.T) {
 	_ = os.Mkdir("test", 0755)
 
 	start := Point{0.0, 0.0}
-	cp := Point{10.0, 0.0}
+	cp := Point{1000.0, 0.0}
 	end := Point{10.0, 10.0}
 	speed := func(t float64) float64 {
 		return quadraticBezierDeriv(start, cp, end, t).Length()
@@ -759,7 +759,7 @@ func TestPathLengthParametrization(t *testing.T) {
 		p0, p1, p2, _, _, _ := splitQuadraticBezier(start, cp, end, t)
 		return quadraticBezierLength(p0, p1, p2)
 	}
-	plotPathLengthParametrization("test/len_param_quad.png", 10, speed, length, 0.0, 1.0)
+	plotPathLengthParametrization("test/len_param_quad.png", 20, speed, length, 0.0, 1.0)
 
 	plotCube := func(name string, start, cp1, cp2, end Point) {
 		N := 20 + 20*cubicBezierNumInflections(start, cp1, cp2, end)
@@ -783,7 +783,7 @@ func TestPathLengthParametrization(t *testing.T) {
 	plotCube("test/len_param_cube4.png", Point{819, 566}, Point{43, 18}, Point{826, 18}, Point{25, 533})
 	plotCube("test/len_param_cube5.png", Point{884, 574}, Point{135, 14}, Point{678, 14}, Point{14, 566})
 
-	rx, ry := 100.0, 10.0
+	rx, ry := 10000.0, 10.0
 	phi := 0.0
 	sweep := false
 	end = Point{-100.0, 10.0}
@@ -794,5 +794,5 @@ func TestPathLengthParametrization(t *testing.T) {
 	length = func(theta float64) float64 {
 		return ellipseLength(rx, ry, theta1, theta)
 	}
-	plotPathLengthParametrization("test/len_param_ellipse.png", 10, speed, length, theta1, theta2)
+	plotPathLengthParametrization("test/len_param_ellipse.png", 20, speed, length, theta1, theta2)
 }

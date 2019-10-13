@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"image/color"
-	"math"
 	"os"
 
 	"github.com/tdewolff/canvas"
@@ -136,13 +135,12 @@ func draw(c *canvas.Canvas) {
 	//p = p.Offset(1.0)
 	//c.DrawPath(110, 110, p)
 
-	p, _ := canvas.ParseSVG(fmt.Sprintf("L%f 0L0 50z", math.Sqrt(3)*50.0))
+	p, _ := canvas.ParseSVG("Q1000 0 10 10")
 	c.SetFillColor(canvas.Transparent)
 	c.SetStrokeColor(canvas.Lightblue)
 	c.SetStrokeWidth(10.0)
 	c.SetStrokeCapper(canvas.ButtCapper)
 	c.SetStrokeJoiner(canvas.RoundJoiner)
-	c.SetDashes(240.0, 240.0)
 	c.DrawPath(10.0, 10.0, p)
 
 	c.SetFillColor(canvas.Transparent)
@@ -150,7 +148,6 @@ func draw(c *canvas.Canvas) {
 	c.SetStrokeWidth(0.5)
 	c.SetStrokeCapper(canvas.ButtCapper)
 	c.SetStrokeJoiner(canvas.BevelJoiner)
-	c.SetDashes(0.0)
 	c.DrawPath(10.0, 10.0, p)
 
 	//ellipse, _ := canvas.ParseSVG(fmt.Sprintf("A100 200 30 1 0 200 0z"))

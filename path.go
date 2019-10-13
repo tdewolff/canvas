@@ -957,7 +957,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 					speed := func(t float64) float64 {
 						return quadraticBezierDeriv(start, cp, end, t).Length()
 					}
-					invL, dT := invSpeedPolynomialChebyshevApprox(10, gaussLegendre5, speed, 0.0, 1.0)
+					invL, dT := invSpeedPolynomialChebyshevApprox(20, gaussLegendre7, speed, 0.0, 1.0)
 
 					t0 := 0.0
 					r0, r1, r2 := start, cp, end
@@ -988,10 +988,11 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 					q.CubeTo(cp1.X, cp1.Y, cp2.X, cp2.Y, end.X, end.Y)
 				} else {
 					speed := func(t float64) float64 {
+						// splitting on inflection points does not improve output
 						return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
 					}
 					N := 20 + 20*cubicBezierNumInflections(start, cp1, cp2, end)
-					invL, dT := invSpeedPolynomialChebyshevApprox(N, gaussLegendre5, speed, 0.0, 1.0)
+					invL, dT := invSpeedPolynomialChebyshevApprox(N, gaussLegendre7, speed, 0.0, 1.0)
 
 					t0 := 0.0
 					r0, r1, r2, r3 := start, cp1, cp2, end
@@ -1025,7 +1026,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 					speed := func(theta float64) float64 {
 						return ellipseDeriv(rx, ry, 0.0, true, theta).Length()
 					}
-					invL, dT := invSpeedPolynomialChebyshevApprox(10, gaussLegendre5, speed, theta1, theta2)
+					invL, dT := invSpeedPolynomialChebyshevApprox(10, gaussLegendre7, speed, theta1, theta2)
 
 					startTheta := theta1
 					nextLarge := large
