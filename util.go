@@ -696,6 +696,7 @@ func polynomialChebyshevApprox(N int, f func(float64) float64, xmin, xmax, ymin,
 		ymin, ymax = ymax, ymin
 	}
 	return func(x float64) float64 {
+		x = math.Min(xmax, math.Max(xmin, x))
 		u := (x-xmin)/(xmax-xmin)*2.0 - 1.0
 		a := 0.0
 		for j := 0; j < N; j++ {

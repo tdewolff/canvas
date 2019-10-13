@@ -672,9 +672,9 @@ func TestPathToPDF(t *testing.T) {
 	}
 }
 
-func plotPathLengthParametrization(filename string, speed, length func(float64) float64, tmin, tmax float64) {
-	T3, _ := invPolynomialApprox3(gaussLegendre5, speed, tmin, tmax)
-	Tc, totalLength := invSpeedPolynomialChebyshevApprox(10, gaussLegendre5, speed, tmin, tmax)
+func plotPathLengthParametrization(filename string, N int, speed, length func(float64) float64, tmin, tmax float64) {
+	T3, _ := invPolynomialApprox3(gaussLegendre7, speed, tmin, tmax)
+	Tc, totalLength := invSpeedPolynomialChebyshevApprox(N, gaussLegendre7, speed, tmin, tmax)
 
 	anchor1Data := make(plotter.XYs, 2)
 	anchor1Data[0].X = totalLength * 1.0 / 3.0
@@ -759,20 +759,21 @@ func TestPathLengthParametrization(t *testing.T) {
 		p0, p1, p2, _, _, _ := splitQuadraticBezier(start, cp, end, t)
 		return quadraticBezierLength(p0, p1, p2)
 	}
-	plotPathLengthParametrization("test/len_param_quad.png", speed, length, 0.0, 1.0)
+	plotPathLengthParametrization("test/len_param_quad.png", 10, speed, length, 0.0, 1.0)
 
 	plotCube := func(name string, start, cp1, cp2, end Point) {
-		speed = func(t float64) float64 {
+		N := 20 + 20*cubicBezierNumInflections(start, cp1, cp2, end)
+		speed := func(t float64) float64 {
 			return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
 		}
-		length = func(t float64) float64 {
+		length := func(t float64) float64 {
 			p0, p1, p2, p3, _, _, _, _ := splitCubicBezier(start, cp1, cp2, end, t)
 			return cubicBezierLength(p0, p1, p2, p3)
 		}
-		plotPathLengthParametrization("test/len_param_cube.png", speed, length, 0.0, 1.0)
+		plotPathLengthParametrization(name, N, speed, length, 0.0, 1.0)
 	}
 
-	plotCube("test/len_param_cube.png", Point{0.0, 0.0}, Point{6.66667, 0.0}, Point{10.0, 3.33333}, Point{10.0, 10.0})
+	plotCube("test/len_param_cube.png", Point{0.0, 0.0}, Point{10.0, 0.0}, Point{10.0, 2.0}, Point{8.0, 2.0})
 
 	// see "Analysis of Inflection Points for Planar Cubic Bezier Curve" by Z.Zhang et al. from 2009
 	// https://cie.nwsuaf.edu.cn/docs/20170614173651207557.pdf
@@ -793,5 +794,5 @@ func TestPathLengthParametrization(t *testing.T) {
 	length = func(theta float64) float64 {
 		return ellipseLength(rx, ry, theta1, theta)
 	}
-	plotPathLengthParametrization("test/len_param_ellipse.png", speed, length, theta1, theta2)
+	plotPathLengthParametrization("test/len_param_ellipse.png", 10, speed, length, theta1, theta2)
 }

@@ -318,24 +318,6 @@ func TestCubicBezierInflectionPointRange(t *testing.T) {
 	test.Float(t, x2, 0.500550)
 }
 
-func TestCubicBezierSplitAtInflections(t *testing.T) {
-	Epsilon = 1.0
-
-	beziers := splitCubicBezierAtInflections(Point{0, 0}, Point{0, 1}, Point{1, 1}, Point{1, 1})
-	test.T(t, len(beziers), 1)
-
-	// see "Analysis of Inflection Points for Planar Cubic Bezier Curve" by Z.Zhang et al. from 2009
-	// https://cie.nwsuaf.edu.cn/docs/20170614173651207557.pdf
-	beziers = splitCubicBezierAtInflections(Point{16, 467}, Point{185, 95}, Point{673, 545}, Point{810, 17})
-	test.T(t, len(beziers), 2)
-	test.T(t, beziers[1][0], Point{383, 300})
-
-	beziers = splitCubicBezierAtInflections(Point{884, 574}, Point{135, 14}, Point{678, 14}, Point{14, 566})
-	test.T(t, len(beziers), 3)
-	test.T(t, beziers[1][0], Point{479, 207})
-	test.T(t, beziers[2][0], Point{361, 207})
-}
-
 func TestCubicBezierStroke(t *testing.T) {
 	Epsilon = 1e-4
 

@@ -987,11 +987,11 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 				if j == len(ts) {
 					q.CubeTo(cp1.X, cp1.Y, cp2.X, cp2.Y, end.X, end.Y)
 				} else {
-					// TODO: handle inflection points when splitting cubic bezier? unsure if it improves precision, needs testing
 					speed := func(t float64) float64 {
 						return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
 					}
-					invL, dT := invSpeedPolynomialChebyshevApprox(10, gaussLegendre5, speed, 0.0, 1.0)
+					N := 20 + 20*cubicBezierNumInflections(start, cp1, cp2, end)
+					invL, dT := invSpeedPolynomialChebyshevApprox(N, gaussLegendre5, speed, 0.0, 1.0)
 
 					t0 := 0.0
 					r0, r1, r2, r3 := start, cp1, cp2, end
