@@ -220,7 +220,7 @@ func TestCubicBezier(t *testing.T) {
 	test.T(t, cubicBezierNormal(p3, p3, p3, p3, 1.0, 1.0), Point{})
 
 	// https://www.wolframalpha.com/input/?i=length+of+the+curve+%7Bx%3D3*%281-t%29%5E2*t*0.666667+%2B+3*%281-t%29*t%5E2*1.00+%2B+t%5E3*1.00%2C+y%3D3*%281-t%29*t%5E2*0.333333+%2B+t%5E3*1.00%7D+from+0+to+1
-	test.Float(t, cubicBezierLength(p0, p1, p2, p3), 1.623214)
+	test.Float(t, cubicBezierLength(p0, p1, p2, p3), 1.623225)
 
 	p0, p1, p2, p3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, 0.5)
 	test.T(t, p0, Point{0.0, 0.0})

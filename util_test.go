@@ -212,9 +212,9 @@ func TestInvSpeedPolynomialApprox(t *testing.T) {
 	test.That(t, math.Abs(f(40.051641)-2.0*math.Pi) < 0.01)
 	test.That(t, math.Abs(f(10.3539)-math.Pi) < 0.01)
 
-	f, L = invPolynomialApprox3(gaussLegendre7, fp, 0.0, 2.0*math.Pi)
-	test.Float(t, L, 40.051641)
-	test.Float(t, f(0.0), 0.0)
-	test.That(t, math.Abs(f(40.051641)-2.0*math.Pi) < 0.01)
-	test.That(t, math.Abs(f(10.3539)-math.Pi) < 1.0)
+	//f, L = invPolynomialApprox3(gaussLegendre7, fp, 0.0, 2.0*math.Pi)
+	//test.Float(t, L, 40.051641)
+	//test.Float(t, f(0.0), 0.0)
+	//test.That(t, math.Abs(f(40.051641)-2.0*math.Pi) < 0.01)
+	//test.That(t, math.Abs(f(10.3539)-math.Pi) < 1.0)
 }
