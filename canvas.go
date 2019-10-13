@@ -93,9 +93,7 @@ func (c *Canvas) SetStrokeJoiner(joiner Joiner) {
 
 // SetDashes sets the dash pattern to be used for stroking operations. The dash offset denotes the offset into the dash array in mm from where to start. Negative values are allowed.
 func (c *Canvas) SetDashes(dashOffset float64, dashes ...float64) {
-	if len(dashes)%2 == 1 {
-		dashes = append(dashes, dashes...)
-	}
+	dashOffset, dashes = dashCanonical(dashOffset, dashes)
 	c.dashOffset = dashOffset
 	c.dashes = dashes
 }
@@ -106,22 +104,45 @@ func (c *Canvas) DrawPath(x, y float64, path *Path) {
 		return
 	}
 	if !path.Empty() {
+		dashes := c.dashes
+		dashesClose := false
 		if 0.0 < c.strokeWidth && c.strokeColor.A != 0 && len(c.dashes) != 0 && path.Closed() {
+			d := c.dashes
+			if len(d) == 1 && d[0] == 0.0 {
+				return
+			} else if len(d)%2 == 1 {
+				d = append(d, d...)
+			}
+
 			// will draw dashes
 			length := path.Length()
-			i, pos := dashStart(c.dashOffset, c.dashes)
-			if length <= pos+c.dashes[i] {
+			i, pos := dashStart(c.dashOffset, d)
+			if length <= pos+d[i] {
 				if i%2 == 0 { // first dash covers whole path
-					c.dashes = []float64{}
+					dashes = []float64{}
 				} else { // first space covers whole path
 					return
+				}
+			} else if i%2 == 0 { // starts with dash
+				for pos+d[i] < length {
+					pos += d[i]
+					i++
+					if i == len(d) {
+						i = 0
+					}
+				}
+				if i%2 == 0 { // ends with dash
+					fmt.Println(length, i, pos)
+					dashesClose = true
 				}
 			}
 		}
 
 		path = path.Transform(Identity.Translate(x, y).Mul(c.m))
 		c.drawState.fillRule = FillRule
-		c.layers = append(c.layers, pathLayer{path, c.drawState})
+		l := pathLayer{path, c.drawState, dashesClose}
+		l.dashes = dashes
+		c.layers = append(c.layers, l)
 	}
 }
 
@@ -169,11 +190,14 @@ func (c *Canvas) Fit(margin float64) {
 	for i, layer := range c.layers {
 		switch l := layer.(type) {
 		case pathLayer:
-			c.layers[i] = pathLayer{l.path.Translate(-rect.X+margin, -rect.Y+margin), l.drawState}
+			l.path = l.path.Translate(-rect.X+margin, -rect.Y+margin)
+			c.layers[i] = l
 		case textLayer:
-			c.layers[i] = textLayer{l.text, Identity.Translate(-rect.X+margin, -rect.Y+margin).Mul(l.m)}
+			l.m = Identity.Translate(-rect.X+margin, -rect.Y+margin).Mul(l.m)
+			c.layers[i] = l
 		case imageLayer:
-			c.layers[i] = imageLayer{l.img, l.enc, Identity.Translate(-rect.X+margin, -rect.Y+margin).Mul(l.m)}
+			l.m = Identity.Translate(-rect.X+margin, -rect.Y+margin).Mul(l.m)
+			c.layers[i] = l
 		}
 	}
 	c.W = rect.W + 2*margin
@@ -267,8 +291,9 @@ var defaultDrawState = drawState{
 ////////////////////////////////////////////////////////////////
 
 type pathLayer struct {
-	path      *Path
-	drawState // view matrix has already been applied
+	path        *Path
+	drawState   // view matrix has already been applied
+	dashesClose bool
 }
 
 func (l pathLayer) Bounds() Rect {
@@ -404,22 +429,8 @@ func (l pathLayer) WritePDF(w *pdfPageWriter) {
 	}
 
 	// PDFs don't support connecting first and last dashes if path is closed, so we move the start of the path if this is the case
-	if stroke && !strokeUnsupported && len(l.dashes) != 0 && l.path.Closed() {
-		length := l.path.Length() // OPTIMIZE: already calculated in canvas.DrawPath
-		i, pos := dashStart(l.dashOffset, l.dashes)
-		if i%2 == 0 { // starts with dash
-			for pos+l.dashes[i] < length {
-				pos += l.dashes[i]
-				i++
-				if i == len(l.dashes) {
-					i = 0
-				}
-			}
-
-			if i%2 == 0 { // ends with dash
-				strokeUnsupported = true
-			}
-		}
+	if l.dashesClose {
+		strokeUnsupported = true
 	}
 
 	closed := false
@@ -584,7 +595,7 @@ func (l textLayer) WriteEPS(w *epsWriter) {
 	for i, path := range paths {
 		state := defaultDrawState
 		state.fillColor = colors[i]
-		pathLayer{path.Transform(l.m), state}.WriteEPS(w)
+		pathLayer{path.Transform(l.m), state, false}.WriteEPS(w)
 	}
 }
 
@@ -593,7 +604,7 @@ func (l textLayer) WriteImage(img *image.RGBA, dpm float64) {
 	for i, path := range paths {
 		state := defaultDrawState
 		state.fillColor = colors[i]
-		pathLayer{path.Transform(l.m), state}.WriteImage(img, dpm)
+		pathLayer{path.Transform(l.m), state, false}.WriteImage(img, dpm)
 	}
 }
 

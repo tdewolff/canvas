@@ -631,7 +631,7 @@ func (t *Text) WriteSVG(w io.Writer, h float64, m Matrix) {
 		for _, deco := range line.decos {
 			p := deco.ff.Decorate(deco.x1 - deco.x0)
 			p = p.Transform(Identity.Mul(m).Translate(deco.x0, line.y+deco.ff.voffset))
-			decorations = append(decorations, pathLayer{p, drawState{fillColor: deco.ff.color}})
+			decorations = append(decorations, pathLayer{p, drawState{fillColor: deco.ff.color}, false})
 		}
 	}
 	fmt.Fprintf(w, `</text>`)
@@ -675,7 +675,7 @@ func (t *Text) WritePDF(w *pdfPageWriter, m Matrix) {
 		for _, deco := range line.decos {
 			p := deco.ff.Decorate(deco.x1 - deco.x0)
 			p = p.Transform(Identity.Mul(m).Translate(deco.x0, line.y+deco.ff.voffset))
-			decorations = append(decorations, pathLayer{p, drawState{fillColor: deco.ff.color}})
+			decorations = append(decorations, pathLayer{p, drawState{fillColor: deco.ff.color}, false})
 		}
 	}
 	fmt.Fprintf(w, ` ET`)

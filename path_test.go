@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"strings"
@@ -444,6 +445,44 @@ func TestPathSplitAt(t *testing.T) {
 	}
 }
 
+func TestDashCanonical(t *testing.T) {
+	var tts = []struct {
+		origOffset float64
+		origDashes []float64
+		offset     float64
+		dashes     []float64
+	}{
+		{0.0, []float64{0.0}, 0.0, []float64{0.0}},
+		// [0] => [0]
+		// [0 1] => [0]
+		// [1 0] => []
+		// [1 0 1] => [2]
+		// [1 0 1] => [2]
+		// [1 0 1 1 0 1] => [2 2] ?> [2]
+		// [0 1 0] => [0]
+		// [0 1 2] => [2 1] +2
+		// [2 1 0] => [3 1] +1
+	}
+	for _, tt := range tts {
+		t.Run(fmt.Sprintf("%v +%v", tt.origDashes, tt.origOffset), func(t *testing.T) {
+			offset, dashes := dashCanonical(tt.origOffset, tt.origDashes)
+
+			diff := offset != tt.offset || len(dashes) != len(tt.dashes)
+			if !diff {
+				for i := 0; i < len(tt.dashes); i++ {
+					if dashes[i] != tt.dashes[i] {
+						diff = true
+						break
+					}
+				}
+			}
+			if diff {
+				test.Fail(t, fmt.Sprintf("%v +%v != %v +%v", offset, dashes, tt.offset, tt.dashes))
+			}
+		})
+	}
+}
+
 func TestPathDash(t *testing.T) {
 	var tts = []struct {
 		orig   string
@@ -701,33 +740,28 @@ func TestPathLengthParametrization(t *testing.T) {
 		p0, p1, p2, _, _, _ := splitQuadraticBezier(start, cp, end, t)
 		return quadraticBezierLength(p0, p1, p2)
 	}
-	plotPathLengthParametrization("test/quadratic_bezier_parametrization.png", speed, length, 0.0, 1.0)
+	plotPathLengthParametrization("test/len_param_quad.png", speed, length, 0.0, 1.0)
 
-	start = Point{0.0, 0.0}
-	cp1 := Point{6.67, 0.0}
-	cp2 := Point{10.0, 3.33}
-	end = Point{10.0, 10.0}
-	speed = func(t float64) float64 {
-		return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
+	plotCube := func(name string, start, cp1, cp2, end Point) {
+		speed = func(t float64) float64 {
+			return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
+		}
+		length = func(t float64) float64 {
+			p0, p1, p2, p3, _, _, _, _ := splitCubicBezier(start, cp1, cp2, end, t)
+			return cubicBezierLength(p0, p1, p2, p3)
+		}
+		plotPathLengthParametrization("test/len_param_cube.png", speed, length, 0.0, 1.0)
 	}
-	length = func(t float64) float64 {
-		p0, p1, p2, p3, _, _, _, _ := splitCubicBezier(start, cp1, cp2, end, t)
-		return cubicBezierLength(p0, p1, p2, p3)
-	}
-	plotPathLengthParametrization("test/cubic_bezier_parametrization.png", speed, length, 0.0, 1.0)
 
-	start = Point{0.0, 0.0}
-	cp1 = Point{10.0, 10.0}
-	cp2 = Point{0.0, 10.0}
-	end = Point{10.0, 10.0}
-	speed = func(t float64) float64 {
-		return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
-	}
-	length = func(t float64) float64 {
-		p0, p1, p2, p3, _, _, _, _ := splitCubicBezier(start, cp1, cp2, end, t)
-		return cubicBezierLength(p0, p1, p2, p3)
-	}
-	plotPathLengthParametrization("test/cubic_bezier_parametrization_inflection.png", speed, length, 0.0, 1.0)
+	plotCube("test/len_param_cube.png", Point{0.0, 0.0}, Point{6.66667, 0.0}, Point{10.0, 3.33333}, Point{10.0, 10.0})
+
+	// see "Analysis of Inflection Points for Planar Cubic Bezier Curve" by Z.Zhang et al. from 2009
+	// https://cie.nwsuaf.edu.cn/docs/20170614173651207557.pdf
+	plotCube("test/len_param_cube1.png", Point{16, 467}, Point{185, 95}, Point{673, 545}, Point{810, 17})
+	plotCube("test/len_param_cube2.png", Point{859, 676}, Point{13, 422}, Point{781, 12}, Point{266, 425})
+	plotCube("test/len_param_cube3.png", Point{872, 686}, Point{11, 423}, Point{779, 13}, Point{220, 376})
+	plotCube("test/len_param_cube4.png", Point{819, 566}, Point{43, 18}, Point{826, 18}, Point{25, 533})
+	plotCube("test/len_param_cube5.png", Point{884, 574}, Point{135, 14}, Point{678, 14}, Point{14, 566})
 
 	rx, ry := 100.0, 10.0
 	phi := 0.0
@@ -740,5 +774,5 @@ func TestPathLengthParametrization(t *testing.T) {
 	length = func(theta float64) float64 {
 		return ellipseLength(rx, ry, theta1, theta)
 	}
-	plotPathLengthParametrization("test/ellipse_parametrization.png", speed, length, theta1, theta2)
+	plotPathLengthParametrization("test/len_param_ellipse.png", speed, length, theta1, theta2)
 }

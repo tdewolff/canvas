@@ -1095,7 +1095,30 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 //	return ps, qs
 //}
 
+// dashCanonical returns an optimized and even-length dash array
+func dashCanonical(offset float64, d []float64) (float64, []float64) {
+	// TODO: collapse zeros and optimize dashes, eg:
+
+	// remove zeros except first and last
+	for i := 1; i < len(d)-1; i++ {
+		if equal(d[i], 0.0) {
+			d[i-1] += d[i+1]
+			d = append(d[:i], d[i+2:]...)
+			i--
+		}
+	}
+
+	// if there are zeros or negatives, don't draw any dashes
+	for i := 0; i < len(d); i++ {
+		if d[i] < 0.0 || equal(d[i], 0.0) {
+			return 0.0, []float64{0.0}
+		}
+	}
+	return offset, d
+}
+
 func dashStart(offset float64, d []float64) (int, float64) {
+
 	i0 := 0 // index in d
 	for d[i0] <= offset {
 		offset -= d[i0]
@@ -1117,9 +1140,13 @@ func dashStart(offset float64, d []float64) (int, float64) {
 
 // Dash returns a new path that consists of dashes. The elements in d specify the width of the dashes and gaps. It will alternate between dashes and gaps when picking widths. If d is an array of odd length, it is equivalent of passing d twice in sequence. The offset specifies the offset used into d (or negative offset onto the path). Dash will be applied to each subpath independently.
 func (p *Path) Dash(offset float64, d ...float64) *Path {
+	offset, d = dashCanonical(offset, d)
 	if len(d) == 0 {
 		return p
+	} else if len(d) == 1 && d[0] == 0.0 {
+		return &Path{}
 	}
+
 	if len(d)%2 == 1 {
 		// if d is uneven length, dash and space lengths alternate. Duplicate d so that uneven indices are always spaces
 		d = append(d, d...)
