@@ -12,11 +12,31 @@ var font *canvas.FontFamily
 
 func main() {
 	font = canvas.NewFontFamily("font")
-	font.Use(canvas.CommonLigatures)
-	//if err := font.LoadLocalFont("Amiri", canvas.FontRegular); err != nil {
-	if err := font.LoadLocalFont("Dynalight", canvas.FontRegular); err != nil {
+	if err := font.LoadFontFile("../font/DejaVuSerif.woff", canvas.FontRegular); err != nil {
 		panic(err)
 	}
+
+	//font2 := canvas.NewFontFamily("font")
+	//if err := font2.LoadFontFile("../font/DejaVuSerif.woff", canvas.FontRegular); err != nil {
+	//	panic(err)
+	//}
+
+	//for i, f := range []*canvas.FontFamily{font2, font} {
+	//	if i == 0 {
+	//		fmt.Println("\nWOFF:")
+	//	} else {
+	//		fmt.Println("\nWOFF2:")
+	//	}
+	//	face := f.Face(1024.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	//	p, _ := face.ToPath("T")
+	//	fmt.Println("Path of T:", p)
+	//}
+
+	//font.Use(canvas.CommonLigatures)
+	////if err := font.LoadLocalFont("Amiri", canvas.FontRegular); err != nil {
+	//if err := font.LoadLocalFont("Dynalight", canvas.FontRegular); err != nil {
+	//	panic(err)
+	//}
 
 	c := canvas.New(220, 100)
 	draw(c)
@@ -83,13 +103,13 @@ func draw(c *canvas.Canvas) {
 	//c.DrawPath(10.0, 10.0, p)
 	//c.DrawPath(10.0, 10.0, p.Transform(canvas.Identity.Shear(2.0, -1.0)))
 	//s := "ﻙﺎﻨﺗ ﺎﻠﺴﻣﺍﺀ ﺹ \n\n ﺎﻔﻳﺓ ﻢﻧ"
-	//s := "Lorem ipsum dolor sid amet"
+	s := "Lorem ipsum dolor sid amet"
 
-	//face := font.Face(6.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
-	////frame := canvas.Rectangle(28.0, -10.0)
-	//rt := canvas.NewRichText()
-	//rt.Add(face, s)
-	//text := rt.ToText(28.0, 0.0, canvas.Justify, canvas.Top, 0.0, 0.0)
+	face := font.Face(60.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	//frame := canvas.Rectangle(28.0, -10.0)
+	rt := canvas.NewRichText()
+	rt.Add(face, s)
+	text := rt.ToText(0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0)
 
 	//p, _ := canvas.ParseSVG(fmt.Sprintf("A20.0 10.0 0.0 0 0 40.0 0.0z"))
 	//f := p.Flatten().Stroke(1.0, canvas.ButtCapper, canvas.MiterJoiner)
@@ -97,7 +117,7 @@ func draw(c *canvas.Canvas) {
 
 	//c.DrawPath(10.0, 10.0, f)
 	//c.DrawPath(10.0, 10.0, frame)
-	//c.DrawText(10.0, 10.0, text)
+	c.DrawText(10.0, 10.0, text)
 
 	//ps, _ := text.ToPaths()
 	//fmt.Println(len(ps))
@@ -135,20 +155,20 @@ func draw(c *canvas.Canvas) {
 	//p = p.Offset(1.0)
 	//c.DrawPath(110, 110, p)
 
-	p, _ := canvas.ParseSVG("Q1000 0 10 10")
-	c.SetFillColor(canvas.Transparent)
-	c.SetStrokeColor(canvas.Lightblue)
-	c.SetStrokeWidth(10.0)
-	c.SetStrokeCapper(canvas.ButtCapper)
-	c.SetStrokeJoiner(canvas.RoundJoiner)
-	c.DrawPath(10.0, 10.0, p)
+	//p, _ := canvas.ParseSVG("Q1000 0 10 10")
+	//c.SetFillColor(canvas.Transparent)
+	//c.SetStrokeColor(canvas.Lightblue)
+	//c.SetStrokeWidth(10.0)
+	//c.SetStrokeCapper(canvas.ButtCapper)
+	//c.SetStrokeJoiner(canvas.RoundJoiner)
+	//c.DrawPath(10.0, 10.0, p)
 
-	c.SetFillColor(canvas.Transparent)
-	c.SetStrokeColor(canvas.Black)
-	c.SetStrokeWidth(0.5)
-	c.SetStrokeCapper(canvas.ButtCapper)
-	c.SetStrokeJoiner(canvas.BevelJoiner)
-	c.DrawPath(10.0, 10.0, p)
+	//c.SetFillColor(canvas.Transparent)
+	//c.SetStrokeColor(canvas.Black)
+	//c.SetStrokeWidth(0.5)
+	//c.SetStrokeCapper(canvas.ButtCapper)
+	//c.SetStrokeJoiner(canvas.BevelJoiner)
+	//c.DrawPath(10.0, 10.0, p)
 
 	//ellipse, _ := canvas.ParseSVG(fmt.Sprintf("A100 200 30 1 0 200 0z"))
 	//c.SetFillColor(canvas.Red)
@@ -177,9 +197,9 @@ func draw(c *canvas.Canvas) {
 	// c.DrawPath(20.0, 20.0, 0.0, canvas.Rectangle(0.0, 0.0, 160.0, 40.0))
 	// c.SetColor(canvas.Black)
 
-	// ff := font.Face(8.0)
-	// text := canvas.NewTextBox(ff, "Lorem ipsum dolor sid amet, confiscusar patria est gravus repara sid ipsum. Apare tu garage.", 160.0, 40.0, canvas.Justify, canvas.Justify, 140.0)
-	// c.DrawText(20, 60-ff.Metrics().Ascent, 0.0, text)
+	//ff := font.Face(8.0)
+	//text := canvas.NewTextBox(ff, "Lorem ipsum dolor sid amet, confiscusar patria est gravus repara sid ipsum. Apare tu garage.", 160.0, 40.0, canvas.Justify, canvas.Justify, 140.0)
+	//c.DrawText(20, 60-ff.Metrics().Ascent, 0.0, text)
 
 	//p, _ := canvas.ParseSVG("C0 10 10 10 100 0")
 	//ps := p.SplitAt(52.5)

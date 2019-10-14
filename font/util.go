@@ -9,25 +9,25 @@ func uint32ToString(v uint32) string {
 }
 
 type binaryReader struct {
-	b []byte
-	i int
+	buf []byte
+	pos uint32
 }
 
-func newBinaryReader(b []byte) *binaryReader {
-	return &binaryReader{b, 0}
+func newBinaryReader(buf []byte) *binaryReader {
+	return &binaryReader{buf, 0}
 }
 
-func (r *binaryReader) ReadBytes(n int) []byte {
-	b := r.b[r.i : r.i+n]
-	r.i += n
-	return b
+func (r *binaryReader) ReadBytes(n uint32) []byte {
+	buf := r.buf[r.pos : r.pos+n]
+	r.pos += n
+	return buf
 }
 
 func (r *binaryReader) ReadByte() byte {
 	return r.ReadBytes(1)[0]
 }
 
-func (r *binaryReader) ReadString(n int) string {
+func (r *binaryReader) ReadString(n uint32) string {
 	return string(r.ReadBytes(n))
 }
 
@@ -39,40 +39,54 @@ func (r *binaryReader) ReadUint32() uint32 {
 	return binary.BigEndian.Uint32(r.ReadBytes(4))
 }
 
-func (r *binaryReader) ReadBase128() uint32 {
-	var accum uint32
-	for i := 0; i < 5; i++ {
-		dataByte := r.b[r.i+i]
-		if i == 0 && dataByte == 0x80 {
-			return 0
-		}
-		if (accum & 0xFE000000) != 0 {
-			return 0
-		}
-		accum = (accum << 7) | uint32(dataByte&0x7F)
-		if (dataByte & 0x80) == 0 {
-			r.i += i + 1
-			return accum
-		}
+func (r *binaryReader) ReadInt16() int16 {
+	return int16(r.ReadUint16())
+}
+
+func (r *binaryReader) Len() uint32 {
+	return uint32(len(r.buf)) - r.pos
+}
+
+type bitmapReader struct {
+	buf []byte
+	pos uint32
+	bit int
+}
+
+func newBitmapReader(buf []byte) *bitmapReader {
+	return &bitmapReader{buf, 0, 0}
+}
+
+func (r *bitmapReader) Read() bool {
+	bit := r.buf[r.pos]&(1<<r.bit) == 1
+	r.bit++
+	if r.bit == 8 {
+		r.bit = 0
+		r.pos++
 	}
-	return 0
+	return bit
+}
+
+func (r *bitmapReader) Len() uint32 {
+	return (uint32(len(r.buf))-r.pos)*8 - uint32(r.bit)
 }
 
 type binaryWriter struct {
-	b []byte
-	i int
+	buf []byte
 }
 
-func newBinaryWriter(b []byte) *binaryWriter {
-	return &binaryWriter{b, 0}
+func newBinaryWriter(buf []byte) *binaryWriter {
+	return &binaryWriter{buf[:0]}
 }
 
 func (w *binaryWriter) Bytes() []byte {
-	return w.b
+	return w.buf
 }
 
 func (w *binaryWriter) WriteBytes(v []byte) {
-	w.i += copy(w.b[w.i:], v)
+	pos := len(w.buf)
+	w.buf = append(w.buf, make([]byte, len(v))...)
+	copy(w.buf[pos:], v)
 }
 
 func (w *binaryWriter) WriteByte(v byte) {
@@ -84,11 +98,21 @@ func (w *binaryWriter) WriteString(v string) {
 }
 
 func (w *binaryWriter) WriteUint16(v uint16) {
-	binary.BigEndian.PutUint16(w.b[w.i:], v)
-	w.i += 2
+	pos := len(w.buf)
+	w.buf = append(w.buf, make([]byte, 2)...)
+	binary.BigEndian.PutUint16(w.buf[pos:], v)
 }
 
 func (w *binaryWriter) WriteUint32(v uint32) {
-	binary.BigEndian.PutUint32(w.b[w.i:], v)
-	w.i += 4
+	pos := len(w.buf)
+	w.buf = append(w.buf, make([]byte, 4)...)
+	binary.BigEndian.PutUint32(w.buf[pos:], v)
+}
+
+func (w *binaryWriter) WriteInt16(v int16) {
+	w.WriteUint16(uint16(v))
+}
+
+func (w *binaryWriter) Len() uint32 {
+	return uint32(len(w.buf))
 }

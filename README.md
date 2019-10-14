@@ -2,7 +2,7 @@
 
 [![GoDoc](http://godoc.org/github.com/tdewolff/canvas?status.svg)](http://godoc.org/github.com/tdewolff/canvas) [![Build Status](https://travis-ci.org/tdewolff/canvas.svg?branch=master)](https://travis-ci.org/tdewolff/canvas) [![Go Report Card](https://goreportcard.com/badge/github.com/tdewolff/canvas)](https://goreportcard.com/report/github.com/tdewolff/canvas) [![Coverage Status](https://coveralls.io/repos/github/tdewolff/canvas/badge.svg?branch=master)](https://coveralls.io/github/tdewolff/canvas?branch=master)
 
-Canvas is a common vector drawing target that can output SVG, PDF, EPS and raster images (which can be saved as PNG, JPG, ...). It has a wide range of path manipulation functionality such as flattening, stroking and dashing implemented. Additionally, it has a good text formatter and embeds fonts (TTF, OTF or WOFF) or converts them to outlines. It can be considered a Cairo or node-canvas alternative in Go. See the example below in Fig. 1 and Fig. 2 for an overview of the functionality.
+Canvas is a common vector drawing target that can output SVG, PDF, EPS and raster images (which can be saved as PNG, JPG, ...). It has a wide range of path manipulation functionality such as flattening, stroking and dashing implemented. Additionally, it has a good text formatter and embeds fonts (TTF, OTF, WOFF, or WOFF2) or converts them to outlines. It can be considered a Cairo or node-canvas alternative in Go. See the example below in Fig. 1 and Fig. 2 for an overview of the functionality.
 
 ![Preview](https://raw.githubusercontent.com/tdewolff/canvas/master/examples/preview/out.png)
 
@@ -77,8 +77,7 @@ Fonts
 
 * **Compressing fonts and embedding only used characters**
 * **Use ligature and OS/2 tables**
-* Support WOFF2 font format
-* Support Type1 font format?
+* Support EPS and Type1 font format?
 * Font embedding for EPSs
 * Support font hinting (for the rasterizer)?
 
@@ -131,7 +130,7 @@ Canvas allows to draw either paths, text or images. All positions and sizes are 
 
 ``` go
 dejaVuSerif := NewFontFamily("dejavu-serif")
-err := dejaVuSerif.LoadFontFile("DejaVuSerif.ttf", canvas.FontRegular)  // TTF, OTF or WOFF
+err := dejaVuSerif.LoadFontFile("DejaVuSerif.ttf", canvas.FontRegular)  // TTF, OTF, WOFF, or WOFF2
 ff := dejaVuSerif.Face(size float64, color.Color, FontStyle, FontVariant, ...FontDecorator)
 
 text = NewTextLine(ff, "string\nsecond line", halign) // simple text line

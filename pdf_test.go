@@ -59,10 +59,10 @@ func TestPDFPath(t *testing.T) {
 
 func TestPDFText(t *testing.T) {
 	dejaVuSerif := NewFontFamily("dejavu-serif")
-	dejaVuSerif.LoadFontFile("./test/DejaVuSerif.ttf", FontRegular)
+	dejaVuSerif.LoadFontFile("font/DejaVuSerif.ttf", FontRegular)
 
 	ebGaramond := NewFontFamily("eb-garamond")
-	ebGaramond.LoadFontFile("./test/EBGaramond12-Regular.otf", FontRegular)
+	ebGaramond.LoadFontFile("font/EBGaramond12-Regular.otf", FontRegular)
 
 	dejaVu8 := dejaVuSerif.Face(8.0*ptPerMm, Black, FontRegular, FontNormal)
 	dejaVu12 := dejaVuSerif.Face(12.0*ptPerMm, Red, FontItalic, FontNormal, FontUnderline)

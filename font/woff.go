@@ -3,27 +3,28 @@ package font
 import (
 	"bytes"
 	"compress/zlib"
+	"encoding/binary"
 	"fmt"
 	"io"
 )
 
 type woffTable struct {
-	tag          uint32
+	tag          string
 	offset       uint32
 	length       uint32
 	origLength   uint32
 	origChecksum uint32
 }
 
-func ParseWOFF(b []byte) (*Font, error) {
+func ParseWOFF(b []byte) ([]byte, uint32, error) {
 	if len(b) < 44 {
-		return nil, fmt.Errorf("invalid WOFF data")
+		return nil, 0, fmt.Errorf("invalid WOFF data")
 	}
 
 	r := newBinaryReader(b)
 	signature := r.ReadString(4)
 	if signature != "wOFF" {
-		return nil, fmt.Errorf("invalid WOFF data")
+		return nil, 0, fmt.Errorf("invalid WOFF data")
 	}
 	flavor := r.ReadUint32()
 	_ = r.ReadUint32() // length
@@ -41,7 +42,7 @@ func ParseWOFF(b []byte) (*Font, error) {
 	tables := []woffTable{}
 	sfntLength := uint32(12 + 16*int(numTables))
 	for i := 0; i < int(numTables); i++ {
-		tag := r.ReadUint32()
+		tag := uint32ToString(r.ReadUint32())
 		offset := r.ReadUint32()
 		compLength := r.ReadUint32()
 		origLength := r.ReadUint32()
@@ -80,7 +81,7 @@ func ParseWOFF(b []byte) (*Font, error) {
 
 	sfntOffset := uint32(12 + 16*int(numTables))
 	for _, table := range tables {
-		w.WriteUint32(table.tag)
+		w.WriteUint32(binary.BigEndian.Uint32([]byte(table.tag)))
 		w.WriteUint32(table.origChecksum)
 		w.WriteUint32(sfntOffset)
 		w.WriteUint32(table.origLength)
@@ -99,19 +100,16 @@ func ParseWOFF(b []byte) (*Font, error) {
 		}
 
 		if len(data) != int(table.origLength) {
-			panic("font data size mismatch")
+			return nil, 0, fmt.Errorf("font data size mismatch")
 		}
 
 		// TODO: (WOFF) check checksum
 
 		w.WriteBytes(data)
-		nPadding := 4 - len(data)%4
-		if nPadding == 4 {
-			nPadding = 0
-		}
+		nPadding := (4 - len(data)&3) & 3
 		for i := 0; i < nPadding; i++ {
 			w.WriteByte(0x00)
 		}
 	}
-	return ParseSFNT(w.Bytes())
+	return w.Bytes(), flavor, nil
 }
