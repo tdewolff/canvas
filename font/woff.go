@@ -16,15 +16,18 @@ type woffTable struct {
 	origChecksum uint32
 }
 
+// ParseWOFF parses the WOFF font format and returns its contained SFNT font format (TTF or OTF).
+// See https://www.w3.org/TR/WOFF/
 func ParseWOFF(b []byte) ([]byte, uint32, error) {
+	// TODO: (WOFF) could be stricter with parsing, spec is clear when the font should be dismissed
 	if len(b) < 44 {
-		return nil, 0, fmt.Errorf("invalid WOFF data")
+		return nil, 0, fmt.Errorf("invalid data")
 	}
 
 	r := newBinaryReader(b)
 	signature := r.ReadString(4)
 	if signature != "wOFF" {
-		return nil, 0, fmt.Errorf("invalid WOFF data")
+		return nil, 0, fmt.Errorf("invalid data")
 	}
 	flavor := r.ReadUint32()
 	_ = r.ReadUint32() // length
@@ -100,7 +103,7 @@ func ParseWOFF(b []byte) ([]byte, uint32, error) {
 		}
 
 		if len(data) != int(table.origLength) {
-			return nil, 0, fmt.Errorf("font data size mismatch")
+			return nil, 0, fmt.Errorf("%s: font data size mismatch", table.tag)
 		}
 
 		// TODO: (WOFF) check checksum

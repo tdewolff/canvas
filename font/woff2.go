@@ -37,7 +37,10 @@ var woff2TableTags = []string{
 	"Gloc", "Feat", "Sill",
 }
 
+// ParseWOFF2 parses the WOFF2 font format and returns its contained SFNT font format (TTF or OTF).
+// See https://www.w3.org/TR/WOFF2/
 func ParseWOFF2(b []byte) ([]byte, uint32, error) {
+	// TODO: (WOFF2) could be stricter with parsing, spec is clear when the font should be dismissed
 	if len(b) < 48 {
 		return nil, 0, fmt.Errorf("invalid data")
 	}
@@ -145,7 +148,7 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 		case "hmtx":
 			if tables[i].transformVersion == 1 {
 				panic("WOFF2 transformed hmtx table not supported")
-				// TODO: (WOFF2)
+				// TODO: (WOFF2) support hmtx table transformation
 			} else if tables[i].transformVersion != 0 {
 				return nil, 0, fmt.Errorf("htmx: unknown transformation")
 			}
@@ -185,7 +188,7 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 		table := tables[tagTableIndex[tag]]
 		length := uint32(len(table.data))
 		w.WriteUint32(binary.BigEndian.Uint32([]byte(table.tag)))
-		w.WriteUint32(0) // TODO: (WOFF2) checksum
+		w.WriteUint32(0) // TODO: (WOFF2) check checksum
 		w.WriteUint32(sfntOffset)
 		w.WriteUint32(length)
 		sfntOffset += length + uint32((4-len(table.data)&3)&3)
