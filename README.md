@@ -77,8 +77,8 @@ Fonts
 
 * **Compressing fonts and embedding only used characters**
 * **Use ligature and OS/2 tables**
-* Support EPS and Type1 font format?
-* Font embedding for EPSs
+* Support EOT font format
+* Font embedding for EPS
 * Support font hinting (for the rasterizer)?
 
 Paths
@@ -92,8 +92,8 @@ Paths
 Far future
 
 * Support fill gradients and patterns (hard)
-* Load in PDFs, SVGs and EPSs and turn to paths/texts
-* Load in Markdown/HTML formatting and turn into texts
+* Load in PDF, SVG and EPS and turn to paths/text
+* Load in Markdown/HTML formatting and turn into text
 * Generate TeX-like formulas in pure Go, use OpenType math font such as STIX or TeX Gyre
 
 
