@@ -132,7 +132,7 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 	rBrotli, _ := brotli.NewReader(bytes.NewReader(data), nil) // err is always nil
 	io.Copy(&dataBuf, rBrotli)
 	if err := rBrotli.Close(); err != nil {
-		return nil, 0, fmt.Errorf("brotli: %w", err)
+		return nil, 0, fmt.Errorf("brotli: %v", err)
 	}
 
 	data = dataBuf.Bytes()
@@ -292,7 +292,7 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 
 	buf := w.Bytes()
 	checkSumAdjustment := 0xB1B0AFBA - calcChecksum(buf)
-	binary.BigEndian.PutUint32(buf[iCheckSumAdjustment:], checkSumAdjustment) // TODO: (WOFF2) test overal checksum
+	binary.BigEndian.PutUint32(buf[iCheckSumAdjustment:], checkSumAdjustment)
 	return buf, flavor, nil
 }
 

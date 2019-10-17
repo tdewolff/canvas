@@ -16,6 +16,33 @@ type woffTable struct {
 	origChecksum uint32
 }
 
+type tablePositions struct {
+	offsets, lengths []uint32
+}
+
+func (table *tablePositions) Add(offset, length uint32) {
+	i := 0
+	for i < len(table.offsets) && table.offsets[i] < offset {
+		i++
+	}
+	if i == len(table.offsets) {
+		table.offsets = append(table.offsets, offset)
+		table.lengths = append(table.lengths, length)
+	} else {
+		table.offsets = append(table.offsets[:i], append([]uint32{offset}, table.offsets[i:]...)...)
+		table.lengths = append(table.lengths[:i], append([]uint32{length}, table.lengths[i:]...)...)
+	}
+}
+
+func (table *tablePositions) HasOverlap() bool {
+	for i := 1; i < len(table.offsets); i++ {
+		if table.offsets[i] < table.offsets[i-1]+table.lengths[i-1] {
+			return true
+		}
+	}
+	return false
+}
+
 // ParseWOFF parses the WOFF font format and returns its contained SFNT font format (TTF or OTF).
 // See https://www.w3.org/TR/WOFF/
 func ParseWOFF(b []byte) ([]byte, uint32, error) {
@@ -35,11 +62,11 @@ func ParseWOFF(b []byte) ([]byte, uint32, error) {
 	totalSfntSize := r.ReadUint32() // totalSfntSize
 	_ = r.ReadUint16()              // majorVersion
 	_ = r.ReadUint16()              // minorVersion
-	_ = r.ReadUint32()              // metaOffset
-	_ = r.ReadUint32()              // metaLength
+	metaOffset := r.ReadUint32()    // metaOffset
+	metaLength := r.ReadUint32()    // metaLength
 	_ = r.ReadUint32()              // metaOrigLength
-	_ = r.ReadUint32()              // privOffset
-	_ = r.ReadUint32()              // privLength
+	privOffset := r.ReadUint32()    // privOffset
+	privLength := r.ReadUint32()    // privLength
 
 	frontSize := uint32(12 + 16*int(numTables))
 	if r.EOF() || numTables == 0 || r.Len() < frontSize || reserved != 0 {
@@ -47,6 +74,8 @@ func ParseWOFF(b []byte) ([]byte, uint32, error) {
 	}
 
 	tables := []woffTable{}
+	tablePos := &tablePositions{[]uint32{}, []uint32{}}
+	tablePos.Add(0, frontSize)
 	for i := 0; i < int(numTables); i++ {
 		// EOF already checked above
 		tag := uint32ToString(r.ReadUint32())
@@ -70,9 +99,18 @@ func ParseWOFF(b []byte) ([]byte, uint32, error) {
 			origLength:   origLength,
 			origChecksum: origChecksum,
 		})
+		tablePos.Add(offset, compLength)
 	}
 
-	// TODO: (WOFF) check table overlap and padding
+	if metaOffset != 0 || metaLength != 0 {
+		tablePos.Add(metaOffset, metaLength)
+	}
+	if privOffset != 0 || privLength != 0 {
+		tablePos.Add(privOffset, privLength)
+	}
+	if tablePos.HasOverlap() {
+		return nil, 0, ErrInvalidFontData
+	}
 
 	var searchRange uint16 = 1
 	var entrySelector uint16
@@ -112,13 +150,13 @@ func ParseWOFF(b []byte) ([]byte, uint32, error) {
 			var buf bytes.Buffer
 			r, err := zlib.NewReader(bytes.NewReader(data))
 			if err != nil {
-				return nil, 0, fmt.Errorf("%s: %w", table.tag, err)
+				return nil, 0, fmt.Errorf("%s: %v", table.tag, err)
 			}
 			if _, err = io.Copy(&buf, r); err != nil {
-				return nil, 0, fmt.Errorf("%s: %w", table.tag, err)
+				return nil, 0, fmt.Errorf("%s: %v", table.tag, err)
 			}
 			if err = r.Close(); err != nil {
-				return nil, 0, fmt.Errorf("%s: %w", table.tag, err)
+				return nil, 0, fmt.Errorf("%s: %v", table.tag, err)
 			}
 			data = buf.Bytes()
 		}
@@ -132,7 +170,7 @@ func ParseWOFF(b []byte) ([]byte, uint32, error) {
 		for i := 0; i < nPadding; i++ {
 			data = append(data, 0x00)
 		}
-
+		fmt.Println(table.tag, table.origChecksum)
 		if table.tag == "head" {
 			if len(data) < 12 {
 				return nil, 0, ErrInvalidFontData
@@ -158,15 +196,16 @@ func ParseWOFF(b []byte) ([]byte, uint32, error) {
 	if iCheckSumAdjustment == 0 {
 		return nil, 0, ErrInvalidFontData
 	} else {
-		// TODO: (WOFF) overal checksum is off...
+		// TODO: (WOFF) overal checksum is off by a little...
+		//fmt.Println(binary.BigEndian.Uint32(w.Bytes()[iCheckSumAdjustment:]))
 		//checksum := 0xB1B0AFBA - calcChecksum(w.Bytes())
-		//fmt.Println(checkSumAdjustment, checksum)
+		//if checkSumAdjustment != checksum {
 		//return nil, 0, fmt.Errorf("bad checksum")
 	}
 
 	// replace overal checksum in head table
 	buf := w.Bytes()
-	binary.BigEndian.PutUint32(buf[iCheckSumAdjustment:], checkSumAdjustment) // TODO: (WOFF) check overal checksum
+	binary.BigEndian.PutUint32(buf[iCheckSumAdjustment:], checkSumAdjustment)
 	return buf, flavor, nil
 }
 
