@@ -40,15 +40,14 @@ var woff2TableTags = []string{
 // ParseWOFF2 parses the WOFF2 font format and returns its contained SFNT font format (TTF or OTF).
 // See https://www.w3.org/TR/WOFF2/
 func ParseWOFF2(b []byte) ([]byte, uint32, error) {
-	// TODO: (WOFF2) could be stricter with parsing, spec is clear when the font should be dismissed
 	if len(b) < 48 {
-		return nil, 0, fmt.Errorf("invalid data")
+		return nil, 0, ErrInvalidFontData
 	}
 
 	r := newBinaryReader(b)
 	signature := r.ReadString(4)
 	if signature != "wOF2" {
-		return nil, 0, fmt.Errorf("invalid data")
+		return nil, 0, ErrInvalidFontData
 	}
 	flavor := r.ReadUint32()
 	if uint32ToString(flavor) == "ttcf" {
@@ -57,7 +56,7 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 	_ = r.ReadUint32() // length
 	numTables := r.ReadUint16()
 	_ = r.ReadUint16()                    // reserved
-	_ = r.ReadUint32()                    // totalSfntSize
+	totalSfntSize := r.ReadUint32()       // totalSfntSize
 	totalCompressedSize := r.ReadUint32() // totalCompressedSize
 	_ = r.ReadUint16()                    // majorVersion
 	_ = r.ReadUint16()                    // minorVersion
@@ -66,11 +65,14 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 	_ = r.ReadUint32()                    // metaOrigLength
 	_ = r.ReadUint32()                    // privOffset
 	_ = r.ReadUint32()                    // privLength
+	if r.EOF() {
+		return nil, 0, ErrInvalidFontData
+	}
 
 	tags := []string{}
 	tagTableIndex := map[string]int{}
 	tables := []woff2Table{}
-	sfntLength := uint32(12 + 16*int(numTables))
+	var uncompressedSize uint32
 	for i := 0; i < int(numTables); i++ {
 		flags := r.ReadByte()
 		tagIndex := int(flags & 0x3F)
@@ -82,15 +84,30 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 		} else {
 			tag = woff2TableTags[tagIndex]
 		}
-		origLength := readBase128(r)
 
-		var transformLength uint32
-		if transformVersion == 0 && (tag == "glyf" || tag == "loca" || transformVersion != 0) {
-			transformLength = readBase128(r)
+		origLength, err := readUintBase128(r) // if EOF is encountered above, this will return ErrInvalidFontData
+		if err != nil {
+			return nil, 0, err
 		}
 
-		if transformVersion == 0 && tag == "loca" && transformLength != 0 {
-			return nil, 0, fmt.Errorf("loca: transformLength must be zero")
+		var transformLength uint32
+		if transformVersion == 0 && (tag == "glyf" || tag == "loca") || transformVersion != 0 {
+			transformLength, err = readUintBase128(r)
+			if err != nil {
+				return nil, 0, err
+			}
+			uncompressedSize += transformLength
+		} else {
+			uncompressedSize += origLength
+		}
+
+		if tag == "loca" {
+			if transformLength != 0 {
+				return nil, 0, fmt.Errorf("loca: transformLength must be zero")
+			}
+			if _, ok := tagTableIndex["glyf"]; !ok {
+				return nil, 0, fmt.Errorf("loca: must follow 'glyf' table")
+			}
 		}
 
 		tags = append(tags, tag)
@@ -101,44 +118,45 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 			transformVersion: transformVersion,
 			transformLength:  transformLength,
 		})
-
-		sfntLength += origLength
-		sfntLength = (sfntLength + 3) & 0xFFFFFFFC // add padding
 	}
 
-	// decompress font data using Brotli
-	var buf bytes.Buffer
-	data := r.ReadBytes(totalCompressedSize)
-	rBrotli, _ := brotli.NewReader(bytes.NewReader(data), nil)
-	io.Copy(&buf, rBrotli)
-	rBrotli.Close()
-	data = buf.Bytes()
+	// TODO: (WOFF2) parse collection directory format
 
-	// read font data and detransform
+	// decompress font data using Brotli
+	data := r.ReadBytes(totalCompressedSize)
+	if r.EOF() {
+		return nil, 0, ErrInvalidFontData
+	}
+
+	var dataBuf bytes.Buffer
+	rBrotli, _ := brotli.NewReader(bytes.NewReader(data), nil) // err is always nil
+	io.Copy(&dataBuf, rBrotli)
+	if err := rBrotli.Close(); err != nil {
+		return nil, 0, fmt.Errorf("brotli: %w", err)
+	}
+
+	data = dataBuf.Bytes()
+	if uint32(len(data)) != uncompressedSize {
+		return nil, 0, ErrInvalidFontData
+	}
+
+	// read font data
 	var offset uint32
 	for i, _ := range tables {
 		if tables[i].tag == "loca" && tables[i].transformVersion == 0 {
-			continue // already handled
+			continue // will be reconstructed
 		}
 
 		n := tables[i].origLength
 		if tables[i].transformLength != 0 {
 			n = tables[i].transformLength
 		}
-		tables[i].data = data[offset : offset+n]
+		tables[i].data = data[offset : offset+n : offset+n]
 		offset += n
 
 		switch tables[i].tag {
 		case "glyf":
-			if tables[i].transformVersion == 0 {
-				var locaData []byte
-				var err error
-				tables[i].data, locaData, err = parseGlyfTransformed(tables[i].data)
-				if err != nil {
-					return nil, 0, err
-				}
-				tables[tagTableIndex["loca"]].data = locaData
-			} else if tables[i].transformVersion != 3 {
+			if tables[i].transformVersion != 0 && tables[i].transformVersion != 3 {
 				return nil, 0, fmt.Errorf("glyf: unknown transformation")
 			}
 		case "loca":
@@ -146,10 +164,7 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 				return nil, 0, fmt.Errorf("loca: unknown transformation")
 			}
 		case "hmtx":
-			if tables[i].transformVersion == 1 {
-				panic("WOFF2 transformed hmtx table not supported")
-				// TODO: (WOFF2) support hmtx table transformation
-			} else if tables[i].transformVersion != 0 {
+			if tables[i].transformVersion != 0 && tables[i].transformVersion != 1 {
 				return nil, 0, fmt.Errorf("htmx: unknown transformation")
 			}
 		default:
@@ -157,6 +172,70 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 				return nil, 0, fmt.Errorf("%s: unknown transformation", tables[i].tag)
 			}
 		}
+	}
+
+	// detransform font data tables
+	iGlyf, hasGlyf := tagTableIndex["glyf"]
+	iLoca, hasLoca := tagTableIndex["loca"]
+	if hasGlyf != hasLoca || tables[iGlyf].transformVersion != tables[iLoca].transformVersion {
+		return nil, 0, fmt.Errorf("glyf and loca tables must be both present and either be both transformed or not")
+	}
+	if hasGlyf {
+		if tables[iGlyf].transformVersion == 0 {
+			var err error
+			tables[iGlyf].data, tables[iLoca].data, err = parseGlyfTransformed(tables[iGlyf].data)
+			if err != nil {
+				return nil, 0, err
+			}
+			if tables[iLoca].origLength != uint32(len(tables[iLoca].data)) {
+				return nil, 0, fmt.Errorf("loca: invalid value for origLength")
+			}
+		} else {
+			rGlyf := newBinaryReader(tables[iGlyf].data)
+			_ = rGlyf.ReadUint32() // version
+			numGlyphs := uint32(rGlyf.ReadUint16())
+			indexFormat := rGlyf.ReadUint16()
+			if rGlyf.EOF() {
+				return nil, 0, ErrInvalidFontData
+			}
+			if indexFormat == 0 && tables[iLoca].origLength != (numGlyphs+1)*2 || indexFormat == 1 && tables[iLoca].origLength != (numGlyphs+1)*4 {
+				return nil, 0, fmt.Errorf("loca: invalid value for origLength")
+			}
+		}
+	}
+
+	if iHmtx, hasHmtx := tagTableIndex["hmtx"]; hasHmtx && tables[iHmtx].transformVersion == 1 {
+		iMaxp, ok := tagTableIndex["maxp"]
+		if !ok {
+			return nil, 0, fmt.Errorf("hmtx: maxp table must be defined in order to rebuild hmtx table")
+		}
+		iHhea, ok := tagTableIndex["hhea"]
+		if !ok {
+			return nil, 0, fmt.Errorf("hmtx: hhea table must be defined in order to rebuild hmtx table")
+		}
+		var err error
+		tables[iHmtx].data, err = parseHmtxTransformed(tables[iHmtx].data, tables[iGlyf].data, tables[iMaxp].data, tables[iHhea].data)
+		if err != nil {
+			return nil, 0, err
+		}
+	}
+
+	// set checkSumAdjustment to zero to enable calculation of table checksum and overal checksum
+	// also clear 11th bit in flags field
+	iHead, hasHead := tagTableIndex["head"]
+	if !hasHead || len(tables[iHead].data) < 18 {
+		return nil, 0, fmt.Errorf("head: must be present")
+	} else {
+		binary.BigEndian.PutUint32(tables[iHead].data[8:], 0x00000000) // clear checkSumAdjustment
+
+		flags := binary.BigEndian.Uint16(tables[iHead].data[16:])
+		flags &= ^(uint16(1 << 11)) // clear bit 11
+		binary.BigEndian.PutUint16(tables[iHead].data[16:], flags)
+	}
+
+	// remove DSIG table
+	if iDSIG, hasDSIG := tagTableIndex["DSIG"]; hasDSIG {
+		tags = append(tags[:iDSIG], tags[iDSIG+1:]...)
 	}
 
 	// find values for offset table
@@ -174,7 +253,7 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 	rangeShift = numTables*16 - searchRange
 
 	// write offset table
-	w := newBinaryWriter(make([]byte, sfntLength))
+	w := newBinaryWriter(make([]byte, totalSfntSize)) // initial guess, will be bigger
 	w.WriteUint32(flavor)
 	w.WriteUint16(numTables)
 	w.WriteUint16(searchRange)
@@ -185,27 +264,36 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 	sort.Strings(tags)
 	sfntOffset := uint32(12 + 16*int(numTables))
 	for _, tag := range tags {
-		table := tables[tagTableIndex[tag]]
-		length := uint32(len(table.data))
-		w.WriteUint32(binary.BigEndian.Uint32([]byte(table.tag)))
-		w.WriteUint32(0) // TODO: (WOFF2) check checksum
+		i := tagTableIndex[tag]
+		actualLength := len(tables[i].data)
+
+		// add padding
+		nPadding := (4 - actualLength&3) & 3
+		for j := 0; j < nPadding; j++ {
+			tables[i].data = append(tables[i].data, 0x00)
+		}
+
+		w.WriteUint32(binary.BigEndian.Uint32([]byte(tables[i].tag)))
+		w.WriteUint32(calcChecksum(tables[i].data))
 		w.WriteUint32(sfntOffset)
-		w.WriteUint32(length)
-		sfntOffset += length + uint32((4-len(table.data)&3)&3)
+		w.WriteUint32(uint32(actualLength))
+		sfntOffset += uint32(len(tables[i].data))
 	}
 
 	// write tables
+	var iCheckSumAdjustment uint32
 	for _, tag := range tags {
+		if tag == "head" {
+			iCheckSumAdjustment = w.Len() + 8
+		}
 		table := tables[tagTableIndex[tag]]
 		w.WriteBytes(table.data)
-
-		// add padding
-		nPadding := (4 - len(table.data)&3) & 3
-		for i := 0; i < nPadding; i++ {
-			w.WriteByte(0x00)
-		}
 	}
-	return w.Bytes(), flavor, nil
+
+	buf := w.Bytes()
+	checkSumAdjustment := 0xB1B0AFBA - calcChecksum(buf)
+	binary.BigEndian.PutUint32(buf[iCheckSumAdjustment:], checkSumAdjustment) // TODO: (WOFF2) test overal checksum
+	return buf, flavor, nil
 }
 
 // Remarkable! This code was written on a Sunday evening, and after fixing the compiler errors it worked flawlessly!
@@ -221,6 +309,9 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 	compositeStreamSize := r.ReadUint32()
 	bboxStreamSize := r.ReadUint32()
 	instructionStreamSize := r.ReadUint32()
+	if r.EOF() || nContourStreamSize != 2*uint32(numGlyphs) {
+		return nil, nil, ErrInvalidFontData
+	}
 
 	bboxBitmapSize := ((uint32(numGlyphs) + 31) >> 5) << 2
 	nContourStream := newBinaryReader(r.ReadBytes(nContourStreamSize))
@@ -241,13 +332,13 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 			loca.WriteUint32(w.Len())
 		}
 
-		nContours := nContourStream.ReadInt16()
+		nContours := nContourStream.ReadInt16() // EOF cannot occur
 
-		explicitBbox := bboxBitmap.Read()
+		explicitBbox := bboxBitmap.Read() // EOF cannot occur
 		if nContours == 0 && explicitBbox {
-			return nil, nil, fmt.Errorf("glyf: empty glyph cannot have explicit bbox definition")
+			return nil, nil, fmt.Errorf("glyf: empty glyph cannot have bbox definition")
 		} else if nContours == -1 && !explicitBbox {
-			return nil, nil, fmt.Errorf("glyf: composite glyph must have explicit bbox definition")
+			return nil, nil, fmt.Errorf("glyf: composite glyph must have bbox definition")
 		}
 
 		if nContours == 0 { // empty glyph
@@ -259,6 +350,9 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 				yMin = bboxStream.ReadInt16()
 				xMax = bboxStream.ReadInt16()
 				yMax = bboxStream.ReadInt16()
+				if bboxStream.EOF() {
+					return nil, nil, ErrInvalidFontData
+				}
 			}
 
 			var nPoints uint16
@@ -267,6 +361,9 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 				nPoint := read255Uint16(nPointsStream)
 				nPoints += nPoint
 				endPtsOfContours[iContour] = nPoints - 1
+			}
+			if nPointsStream.EOF() {
+				return nil, nil, ErrInvalidFontData
 			}
 
 			signInt16 := func(flag byte, pos int) int16 {
@@ -348,9 +445,15 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 					}
 				}
 			}
+			if flagStream.EOF() || glyphStream.EOF() {
+				return nil, nil, ErrInvalidFontData
+			}
 
 			instructionLength := read255Uint16(glyphStream)
 			instructions := instructionStream.ReadBytes(uint32(instructionLength))
+			if instructionStream.EOF() {
+				return nil, nil, ErrInvalidFontData
+			}
 
 			// write simple glyph definition
 			w.WriteInt16(nContours) // numberOfContours
@@ -377,6 +480,9 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 			yMin := bboxStream.ReadInt16()
 			xMax := bboxStream.ReadInt16()
 			yMax := bboxStream.ReadInt16()
+			if bboxStream.EOF() {
+				return nil, nil, ErrInvalidFontData
+			}
 
 			// write composite glyph definition
 			w.WriteInt16(nContours) // numberOfContours
@@ -388,12 +494,12 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 			hasInstructions := false
 			for {
 				compositeFlag := compositeStream.ReadUint16()
-				argsAreWords := ((compositeFlag >> 0) & 0x01) == 1
-				haveScale := ((compositeFlag >> 3) & 0x01) == 1
-				moreComponents := ((compositeFlag >> 5) & 0x01) == 1
-				haveXYScales := ((compositeFlag >> 6) & 0x01) == 1
-				have2by2 := ((compositeFlag >> 7) & 0x01) == 1
-				haveInstructions := ((compositeFlag >> 8) & 0x01) == 1
+				argsAreWords := (compositeFlag & 0x0001) != 0
+				haveScale := (compositeFlag & 0x0008) != 0
+				moreComponents := (compositeFlag & 0x0020) != 0
+				haveXYScales := (compositeFlag & 0x0040) != 0
+				have2by2 := (compositeFlag & 0x0080) != 0
+				haveInstructions := (compositeFlag & 0x0100) != 0
 
 				numBytes := 4 // 2 for glyphIndex and 2 for XY bytes
 				if argsAreWords {
@@ -407,6 +513,9 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 					numBytes += 8
 				}
 				compositeBytes := compositeStream.ReadBytes(uint32(numBytes))
+				if compositeStream.EOF() {
+					return nil, nil, ErrInvalidFontData
+				}
 
 				w.WriteUint16(compositeFlag)
 				w.WriteBytes(compositeBytes)
@@ -422,12 +531,15 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 			if hasInstructions {
 				instructionLength := read255Uint16(glyphStream)
 				instructions := instructionStream.ReadBytes(uint32(instructionLength))
+				if instructionStream.EOF() {
+					return nil, nil, ErrInvalidFontData
+				}
 				w.WriteUint16(instructionLength)
 				w.WriteBytes(instructions)
 			}
 		}
 
-		// padding to allow shorrt version for loca table
+		// padding to allow short version for loca table
 		if w.Len()%2 == 1 {
 			w.WriteByte(0x00)
 		}
@@ -443,23 +555,162 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 	return w.Bytes(), loca.Bytes(), nil
 }
 
-func readBase128(r *binaryReader) uint32 {
+func parseHmtxTransformed(b []byte, glyf []byte, maxp []byte, hhea []byte) ([]byte, error) {
+	r := newBinaryReader(b)
+	flags := r.ReadByte() // flags
+	if flags&0xFC != 0 {
+		return nil, fmt.Errorf("hmtx: the flag's 6 most significant bits must be zero")
+	}
+	reconstructLsb := flags&0x01 != 0
+	reconstructLeftSideBearing := flags&0x02 != 0
+	if !reconstructLsb && !reconstructLeftSideBearing {
+		return nil, fmt.Errorf("hmtx: must either reconstruct lsb or LeftSideBearing arrays")
+	}
+
+	// get numGlyphs
+	rMaxp := newBinaryReader(maxp)
+	_ = rMaxp.ReadUint32() // version
+	numGlyphs := uint32(rMaxp.ReadUint16())
+	if rMaxp.EOF() {
+		return nil, ErrInvalidFontData
+	}
+
+	// get numHMetrics
+	rHhea := newBinaryReader(hhea)
+	_ = rHhea.ReadBytes(34) // skip all but the last header field
+	numHMetrics := uint32(rHhea.ReadUint16())
+	if rHhea.EOF() {
+		return nil, ErrInvalidFontData
+	}
+
+	n := numHMetrics * 2
+	if !reconstructLsb {
+		n += numHMetrics * 2
+	} else if !reconstructLeftSideBearing {
+		n += (numGlyphs - numHMetrics) * 2
+	}
+	fmt.Println("hmtx", n, "==?", r.Len())
+	if n != r.Len() {
+		return nil, ErrInvalidFontData
+	}
+
+	w := newBinaryWriter(make([]byte, 0))
+
+	advanceWidths := make([]uint16, numHMetrics)
+	for iHMetric := uint32(0); iHMetric < numHMetrics; iHMetric++ {
+		advanceWidths[iHMetric] = r.ReadUint16()
+	}
+	if !reconstructLsb {
+		for iHMetric := uint32(0); iHMetric < numHMetrics; iHMetric++ {
+			w.WriteUint16(advanceWidths[iHMetric])
+			w.WriteInt16(r.ReadInt16()) // lsb
+		}
+	}
+
+	rGlyf := newBinaryReader(glyf)
+	for iGlyph := uint32(0); iGlyph < numGlyphs; iGlyph++ {
+		numContours := rGlyf.ReadInt16()
+		xMin := rGlyf.ReadInt16()
+		if reconstructLsb && iGlyph < numHMetrics {
+			w.WriteUint16(advanceWidths[iGlyph])
+			w.WriteInt16(xMin) // lsb
+		} else if reconstructLeftSideBearing && numHMetrics <= iGlyph {
+			w.WriteInt16(xMin) // leftSideBearing
+		}
+
+		// skip through rest of glyf table
+		_ = rGlyf.ReadBytes(6) // yMin, xMax, yMax
+		if 0 < numContours {
+			_ = rGlyf.ReadBytes(2 * uint32(numContours)) // endPtsOfContours except last
+			numPoints := rGlyf.ReadUint16() + 1
+			instructionLength := rGlyf.ReadUint16()
+			_ = rGlyf.ReadBytes(uint32(instructionLength)) // instructions
+
+			var xLength, yLength uint32
+			for iPoint := uint16(0); iPoint < numPoints; iPoint++ {
+				flag := rGlyf.ReadByte()
+				xShort := (flag & 0x02) != 0
+				yShort := (flag & 0x04) != 0
+				repeat := (flag & 0x08) != 0
+				xSame := (flag & 0x10) != 0
+				ySame := (flag & 0x20) != 0
+
+				var dx, dy uint32
+				if xShort {
+					dx = 1
+				} else if !xSame {
+					dx = 2
+				}
+				if yShort {
+					dy = 1
+				} else if !ySame {
+					dy = 2
+				}
+				if repeat {
+					n := rGlyf.ReadByte()
+					dx *= uint32(n)
+					dy *= uint32(n)
+					iPoint += uint16(n)
+				}
+				xLength += dx
+				yLength += dy
+			}
+			_ = rGlyf.ReadBytes(xLength) // xCoordinates
+			_ = rGlyf.ReadBytes(yLength) // yCoordinates
+		} else if numContours < 0 {
+			for {
+				compositeFlag := rGlyf.ReadUint16()
+				argsAreWords := (compositeFlag & 0x0001) != 0
+				haveScale := (compositeFlag & 0x0008) != 0
+				moreComponents := (compositeFlag & 0x0020) != 0
+				haveXYScales := (compositeFlag & 0x0040) != 0
+				have2by2 := (compositeFlag & 0x0080) != 0
+
+				numBytes := 4 // 2 for glyphIndex and 2 for XY bytes
+				if argsAreWords {
+					numBytes += 2
+				}
+				if haveScale {
+					numBytes += 2
+				} else if haveXYScales {
+					numBytes += 4
+				} else if have2by2 {
+					numBytes += 8
+				}
+				_ = rGlyf.ReadBytes(uint32(numBytes))
+				if !moreComponents {
+					break
+				}
+			}
+		}
+		if rGlyf.EOF() {
+			return nil, ErrInvalidFontData
+		}
+	}
+	fmt.Println("hmtx left:", r.Len())
+	return w.Bytes(), nil
+}
+
+func readUintBase128(r *binaryReader) (uint32, error) {
 	// see https://www.w3.org/TR/WOFF2/#DataTypes
 	var accum uint32
 	for i := 0; i < 5; i++ {
 		dataByte := r.ReadByte()
+		if r.EOF() {
+			return 0, ErrInvalidFontData
+		}
 		if i == 0 && dataByte == 0x80 {
-			return 0
+			return 0, fmt.Errorf("readUintBase128: must not start with leading zeros")
 		}
 		if (accum & 0xFE000000) != 0 {
-			return 0
+			return 0, fmt.Errorf("readUintBase128: overflow")
 		}
 		accum = (accum << 7) | uint32(dataByte&0x7F)
 		if (dataByte & 0x80) == 0 {
-			return accum
+			return accum, nil
 		}
 	}
-	return 0
+	return 0, fmt.Errorf("readUintBase128: exceeds 5 bytes")
 }
 
 func read255Uint16(r *binaryReader) uint16 {

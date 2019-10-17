@@ -1,6 +1,11 @@
 package font
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"fmt"
+)
+
+var ErrInvalidFontData = fmt.Errorf("invalid font data")
 
 func uint32ToString(v uint32) string {
 	b := make([]byte, 4)
@@ -11,20 +16,29 @@ func uint32ToString(v uint32) string {
 type binaryReader struct {
 	buf []byte
 	pos uint32
+	eof bool
 }
 
 func newBinaryReader(buf []byte) *binaryReader {
-	return &binaryReader{buf, 0}
+	return &binaryReader{buf, 0, false}
 }
 
 func (r *binaryReader) ReadBytes(n uint32) []byte {
+	if r.eof || uint32(len(r.buf)) < r.pos+n {
+		r.eof = true
+		return nil
+	}
 	buf := r.buf[r.pos : r.pos+n]
 	r.pos += n
 	return buf
 }
 
 func (r *binaryReader) ReadByte() byte {
-	return r.ReadBytes(1)[0]
+	b := r.ReadBytes(1)
+	if b == nil {
+		return 0
+	}
+	return b[0]
 }
 
 func (r *binaryReader) ReadString(n uint32) string {
@@ -32,15 +46,27 @@ func (r *binaryReader) ReadString(n uint32) string {
 }
 
 func (r *binaryReader) ReadUint16() uint16 {
-	return binary.BigEndian.Uint16(r.ReadBytes(2))
+	b := r.ReadBytes(2)
+	if b == nil {
+		return 0
+	}
+	return binary.BigEndian.Uint16(b)
 }
 
 func (r *binaryReader) ReadUint32() uint32 {
-	return binary.BigEndian.Uint32(r.ReadBytes(4))
+	b := r.ReadBytes(4)
+	if b == nil {
+		return 0
+	}
+	return binary.BigEndian.Uint32(b)
 }
 
 func (r *binaryReader) ReadInt16() int16 {
 	return int16(r.ReadUint16())
+}
+
+func (r *binaryReader) EOF() bool {
+	return r.eof
 }
 
 func (r *binaryReader) Len() uint32 {
@@ -51,13 +77,18 @@ type bitmapReader struct {
 	buf []byte
 	pos uint32
 	bit int
+	eof bool
 }
 
 func newBitmapReader(buf []byte) *bitmapReader {
-	return &bitmapReader{buf, 0, 0}
+	return &bitmapReader{buf, 0, 0, false}
 }
 
 func (r *bitmapReader) Read() bool {
+	if r.eof || uint32(len(r.buf)) <= r.pos {
+		r.eof = true
+		return false
+	}
 	bit := r.buf[r.pos]&(1<<r.bit) == 1
 	r.bit++
 	if r.bit == 8 {
@@ -67,8 +98,8 @@ func (r *bitmapReader) Read() bool {
 	return bit
 }
 
-func (r *bitmapReader) Len() uint32 {
-	return (uint32(len(r.buf))-r.pos)*8 - uint32(r.bit)
+func (r *bitmapReader) EOF() bool {
+	return r.eof
 }
 
 type binaryWriter struct {
