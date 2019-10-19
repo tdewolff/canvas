@@ -7,61 +7,70 @@ import (
 	"golang.org/x/image/font/sfnt"
 )
 
-func ParseFontOld(b []byte) (string, *sfnt.Font, error) {
-	font, tag, err := ParseFont(b)
-	if err != nil {
-		return "", nil, err
-	}
-
-	mimetype := ""
-	if tag == "wOFF" {
-		mimetype = "font/woff"
-	} else if tag == "wOF2" {
-		mimetype = "font/woff2"
-	} else if tag == "true" || binary.BigEndian.Uint32([]byte(tag)) == 0x00010000 {
-		mimetype = "font/truetype"
-	} else if tag == "OTTO" {
-		mimetype = "font/opentype"
-	}
-	return mimetype, (*sfnt.Font)(font), nil
-}
-
+// Font currently uses golang.org/x/image/font/sfnt
 type Font sfnt.Font
 
-func ParseFont(b []byte) (*Font, string, error) {
-	// TODO: support Type1 and EOT font format?
+func Mimetype(b []byte) (string, error) {
 	if len(b) < 4 {
-		return nil, "", fmt.Errorf("empty font file")
+		return "", fmt.Errorf("empty font file")
 	}
 
 	tag := string(b[:4])
 	if tag == "wOFF" {
-		var flavor uint32
-		var err error
-		b, flavor, err = ParseWOFF(b)
+		return "font/woff", nil
+	} else if tag == "wOF2" {
+		return "font/woff2", nil
+	} else if tag == "true" || binary.BigEndian.Uint32(b[:4]) == 0x00010000 {
+		return "font/truetype", nil
+	} else if tag == "OTTO" {
+		return "font/opentype", nil
+	} else if 36 < len(b) && binary.LittleEndian.Uint16(b[34:36]) == 0x504C {
+		return "font/eot", nil
+	}
+	return "", fmt.Errorf("unrecognized font file format")
+
+}
+
+func ToSFNT(b []byte) ([]byte, string, error) {
+	mimetype, err := Mimetype(b)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if mimetype == "font/woff" {
+		b, err = ParseWOFF(b)
 		if err != nil {
 			return nil, "", fmt.Errorf("WOFF: %w", err)
 		}
-		tag = uint32ToString(flavor)
-	} else if tag == "wOF2" {
-		var flavor uint32
-		var err error
-		b, flavor, err = ParseWOFF2(b)
+	} else if mimetype == "font/woff2" {
+		b, err = ParseWOFF2(b)
 		if err != nil {
 			return nil, "", fmt.Errorf("WOFF2: %w", err)
 		}
-		tag = uint32ToString(flavor)
-	} else if tag == "true" || binary.BigEndian.Uint32(b[:4]) == 0x00010000 {
-		// TTF
-	} else if tag == "OTTO" {
-		// OTF
-	} else {
-		return nil, "", fmt.Errorf("unrecognized font file format")
+	} else if mimetype == "font/eot" {
+		b, err = ParseEOT(b)
+		if err != nil {
+			return nil, "", fmt.Errorf("EOT: %w", err)
+		}
 	}
 
-	sfnt, err := ParseSFNT(b)
+	mimetype, err = Mimetype(b)
 	if err != nil {
-		return nil, "", fmt.Errorf("SFNT: %w", err)
+		return nil, "", err
 	}
-	return sfnt, tag, nil
+	return b, mimetype, nil
+}
+
+// ParseFont parses a byte slice and recognized whether it is a TTF, OTF, WOFF, WOFF2, or EOT font format. It will return the parsed font and its mimetype.
+func ParseFont(b []byte) (*Font, error) {
+	sfntBytes, _, err := ToSFNT(b)
+	if err != nil {
+		return nil, err
+	}
+
+	sfnt, err := ParseSFNT(sfntBytes)
+	if err != nil {
+		return nil, err
+	}
+	return sfnt, nil
 }

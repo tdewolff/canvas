@@ -45,17 +45,20 @@ func (table *tablePositions) HasOverlap() bool {
 
 // ParseWOFF parses the WOFF font format and returns its contained SFNT font format (TTF or OTF).
 // See https://www.w3.org/TR/WOFF/
-func ParseWOFF(b []byte) ([]byte, uint32, error) {
+func ParseWOFF(b []byte) ([]byte, error) {
 	if len(b) < 44 {
-		return nil, 0, fmt.Errorf("invalid data")
+		return nil, ErrInvalidFontData
 	}
 
 	r := newBinaryReader(b)
 	signature := r.ReadString(4)
 	if signature != "wOFF" {
-		return nil, 0, fmt.Errorf("invalid data")
+		return nil, ErrInvalidFontData
 	}
 	flavor := r.ReadUint32()
+	if uint32ToString(flavor) == "ttcf" {
+		return nil, fmt.Errorf("collections are unsupported")
+	}
 	_ = r.ReadUint32() // length
 	numTables := r.ReadUint16()
 	reserved := r.ReadUint16()      // reserved
@@ -70,7 +73,7 @@ func ParseWOFF(b []byte) ([]byte, uint32, error) {
 
 	frontSize := uint32(12 + 16*int(numTables))
 	if r.EOF() || numTables == 0 || r.Len() < frontSize || reserved != 0 {
-		return nil, 0, ErrInvalidFontData
+		return nil, ErrInvalidFontData
 	}
 
 	tables := []woffTable{}
@@ -84,13 +87,13 @@ func ParseWOFF(b []byte) ([]byte, uint32, error) {
 		origLength := r.ReadUint32()
 		origChecksum := r.ReadUint32()
 		if uint32(len(b)) < offset+compLength {
-			return nil, 0, ErrInvalidFontData // table extends beyond file
+			return nil, ErrInvalidFontData // table extends beyond file
 		}
 		if 0 < i && tag < tables[i-1].tag {
-			return nil, 0, ErrInvalidFontData // tables not sorted alphabetically
+			return nil, ErrInvalidFontData // tables not sorted alphabetically
 		}
 		if origLength < compLength {
-			return nil, 0, ErrInvalidFontData
+			return nil, ErrInvalidFontData
 		}
 		tables = append(tables, woffTable{
 			tag:          tag,
@@ -109,7 +112,7 @@ func ParseWOFF(b []byte) ([]byte, uint32, error) {
 		tablePos.Add(privOffset, privLength)
 	}
 	if tablePos.HasOverlap() {
-		return nil, 0, ErrInvalidFontData
+		return nil, ErrInvalidFontData
 	}
 
 	var searchRange uint16 = 1
@@ -150,19 +153,19 @@ func ParseWOFF(b []byte) ([]byte, uint32, error) {
 			var buf bytes.Buffer
 			r, err := zlib.NewReader(bytes.NewReader(data))
 			if err != nil {
-				return nil, 0, fmt.Errorf("%s: %v", table.tag, err)
+				return nil, fmt.Errorf("%s: %v", table.tag, err)
 			}
 			if _, err = io.Copy(&buf, r); err != nil {
-				return nil, 0, fmt.Errorf("%s: %v", table.tag, err)
+				return nil, fmt.Errorf("%s: %v", table.tag, err)
 			}
 			if err = r.Close(); err != nil {
-				return nil, 0, fmt.Errorf("%s: %v", table.tag, err)
+				return nil, fmt.Errorf("%s: %v", table.tag, err)
 			}
 			data = buf.Bytes()
 		}
 
 		if len(data) != int(table.origLength) {
-			return nil, 0, ErrInvalidFontData
+			return nil, ErrInvalidFontData
 		}
 
 		// add padding
@@ -170,10 +173,9 @@ func ParseWOFF(b []byte) ([]byte, uint32, error) {
 		for i := 0; i < nPadding; i++ {
 			data = append(data, 0x00)
 		}
-		fmt.Println(table.tag, table.origChecksum)
 		if table.tag == "head" {
 			if len(data) < 12 {
-				return nil, 0, ErrInvalidFontData
+				return nil, ErrInvalidFontData
 			}
 			checkSumAdjustment = binary.BigEndian.Uint32(data[8:])
 			iCheckSumAdjustment = w.Len() + 8
@@ -181,20 +183,20 @@ func ParseWOFF(b []byte) ([]byte, uint32, error) {
 			// to check checksum for head table, replace the overal checksum with zero and reset it at the end
 			binary.BigEndian.PutUint32(data[8:], 0x00000000)
 			if calcChecksum(data) != table.origChecksum {
-				return nil, 0, fmt.Errorf("%s: bad checksum", table.tag)
+				return nil, fmt.Errorf("%s: bad checksum", table.tag)
 			}
 		} else if calcChecksum(data) != table.origChecksum {
-			return nil, 0, fmt.Errorf("%s: bad checksum", table.tag)
+			return nil, fmt.Errorf("%s: bad checksum", table.tag)
 		}
 
 		w.WriteBytes(data)
 	}
 	if w.Len() != totalSfntSize {
-		return nil, 0, ErrInvalidFontData
+		return nil, ErrInvalidFontData
 	}
 
 	if iCheckSumAdjustment == 0 {
-		return nil, 0, ErrInvalidFontData
+		return nil, ErrInvalidFontData
 	} else {
 		// TODO: (WOFF) overal checksum is off by a little...
 		//fmt.Println(binary.BigEndian.Uint32(w.Bytes()[iCheckSumAdjustment:]))
@@ -206,17 +208,5 @@ func ParseWOFF(b []byte) ([]byte, uint32, error) {
 	// replace overal checksum in head table
 	buf := w.Bytes()
 	binary.BigEndian.PutUint32(buf[iCheckSumAdjustment:], checkSumAdjustment)
-	return buf, flavor, nil
-}
-
-func calcChecksum(b []byte) uint32 {
-	if len(b)%4 != 0 {
-		panic("data not multiple of four bytes")
-	}
-	var sum uint32
-	r := newBinaryReader(b)
-	for !r.EOF() {
-		sum += r.ReadUint32()
-	}
-	return sum
+	return buf, nil
 }

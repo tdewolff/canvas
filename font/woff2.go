@@ -39,19 +39,19 @@ var woff2TableTags = []string{
 
 // ParseWOFF2 parses the WOFF2 font format and returns its contained SFNT font format (TTF or OTF).
 // See https://www.w3.org/TR/WOFF2/
-func ParseWOFF2(b []byte) ([]byte, uint32, error) {
+func ParseWOFF2(b []byte) ([]byte, error) {
 	if len(b) < 48 {
-		return nil, 0, ErrInvalidFontData
+		return nil, ErrInvalidFontData
 	}
 
 	r := newBinaryReader(b)
 	signature := r.ReadString(4)
 	if signature != "wOF2" {
-		return nil, 0, ErrInvalidFontData
+		return nil, ErrInvalidFontData
 	}
 	flavor := r.ReadUint32()
 	if uint32ToString(flavor) == "ttcf" {
-		return nil, 0, fmt.Errorf("collections are unsupported")
+		return nil, fmt.Errorf("collections are unsupported")
 	}
 	_ = r.ReadUint32() // length
 	numTables := r.ReadUint16()
@@ -66,7 +66,7 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 	_ = r.ReadUint32()                    // privOffset
 	_ = r.ReadUint32()                    // privLength
 	if r.EOF() {
-		return nil, 0, ErrInvalidFontData
+		return nil, ErrInvalidFontData
 	}
 
 	tags := []string{}
@@ -87,14 +87,14 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 
 		origLength, err := readUintBase128(r) // if EOF is encountered above, this will return ErrInvalidFontData
 		if err != nil {
-			return nil, 0, err
+			return nil, err
 		}
 
 		var transformLength uint32
 		if transformVersion == 0 && (tag == "glyf" || tag == "loca") || transformVersion != 0 {
 			transformLength, err = readUintBase128(r)
 			if err != nil {
-				return nil, 0, err
+				return nil, err
 			}
 			uncompressedSize += transformLength
 		} else {
@@ -103,10 +103,10 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 
 		if tag == "loca" {
 			if transformLength != 0 {
-				return nil, 0, fmt.Errorf("loca: transformLength must be zero")
+				return nil, fmt.Errorf("loca: transformLength must be zero")
 			}
 			if _, ok := tagTableIndex["glyf"]; !ok {
-				return nil, 0, fmt.Errorf("loca: must follow 'glyf' table")
+				return nil, fmt.Errorf("loca: must follow 'glyf' table")
 			}
 		}
 
@@ -125,19 +125,19 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 	// decompress font data using Brotli
 	data := r.ReadBytes(totalCompressedSize)
 	if r.EOF() {
-		return nil, 0, ErrInvalidFontData
+		return nil, ErrInvalidFontData
 	}
 
 	var dataBuf bytes.Buffer
 	rBrotli, _ := brotli.NewReader(bytes.NewReader(data), nil) // err is always nil
 	io.Copy(&dataBuf, rBrotli)
 	if err := rBrotli.Close(); err != nil {
-		return nil, 0, fmt.Errorf("brotli: %v", err)
+		return nil, fmt.Errorf("brotli: %v", err)
 	}
 
 	data = dataBuf.Bytes()
 	if uint32(len(data)) != uncompressedSize {
-		return nil, 0, ErrInvalidFontData
+		return nil, ErrInvalidFontData
 	}
 
 	// read font data
@@ -157,19 +157,19 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 		switch tables[i].tag {
 		case "glyf":
 			if tables[i].transformVersion != 0 && tables[i].transformVersion != 3 {
-				return nil, 0, fmt.Errorf("glyf: unknown transformation")
+				return nil, fmt.Errorf("glyf: unknown transformation")
 			}
 		case "loca":
 			if tables[i].transformVersion != 0 && tables[i].transformVersion != 3 {
-				return nil, 0, fmt.Errorf("loca: unknown transformation")
+				return nil, fmt.Errorf("loca: unknown transformation")
 			}
 		case "hmtx":
 			if tables[i].transformVersion != 0 && tables[i].transformVersion != 1 {
-				return nil, 0, fmt.Errorf("htmx: unknown transformation")
+				return nil, fmt.Errorf("htmx: unknown transformation")
 			}
 		default:
 			if tables[i].transformVersion != 0 {
-				return nil, 0, fmt.Errorf("%s: unknown transformation", tables[i].tag)
+				return nil, fmt.Errorf("%s: unknown transformation", tables[i].tag)
 			}
 		}
 	}
@@ -178,17 +178,17 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 	iGlyf, hasGlyf := tagTableIndex["glyf"]
 	iLoca, hasLoca := tagTableIndex["loca"]
 	if hasGlyf != hasLoca || tables[iGlyf].transformVersion != tables[iLoca].transformVersion {
-		return nil, 0, fmt.Errorf("glyf and loca tables must be both present and either be both transformed or not")
+		return nil, fmt.Errorf("glyf and loca tables must be both present and either be both transformed or not")
 	}
 	if hasGlyf {
 		if tables[iGlyf].transformVersion == 0 {
 			var err error
 			tables[iGlyf].data, tables[iLoca].data, err = parseGlyfTransformed(tables[iGlyf].data)
 			if err != nil {
-				return nil, 0, err
+				return nil, err
 			}
 			if tables[iLoca].origLength != uint32(len(tables[iLoca].data)) {
-				return nil, 0, fmt.Errorf("loca: invalid value for origLength")
+				return nil, fmt.Errorf("loca: invalid value for origLength")
 			}
 		} else {
 			rGlyf := newBinaryReader(tables[iGlyf].data)
@@ -196,10 +196,10 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 			numGlyphs := uint32(rGlyf.ReadUint16())
 			indexFormat := rGlyf.ReadUint16()
 			if rGlyf.EOF() {
-				return nil, 0, ErrInvalidFontData
+				return nil, ErrInvalidFontData
 			}
 			if indexFormat == 0 && tables[iLoca].origLength != (numGlyphs+1)*2 || indexFormat == 1 && tables[iLoca].origLength != (numGlyphs+1)*4 {
-				return nil, 0, fmt.Errorf("loca: invalid value for origLength")
+				return nil, fmt.Errorf("loca: invalid value for origLength")
 			}
 		}
 	}
@@ -207,16 +207,16 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 	if iHmtx, hasHmtx := tagTableIndex["hmtx"]; hasHmtx && tables[iHmtx].transformVersion == 1 {
 		iMaxp, ok := tagTableIndex["maxp"]
 		if !ok {
-			return nil, 0, fmt.Errorf("hmtx: maxp table must be defined in order to rebuild hmtx table")
+			return nil, fmt.Errorf("hmtx: maxp table must be defined in order to rebuild hmtx table")
 		}
 		iHhea, ok := tagTableIndex["hhea"]
 		if !ok {
-			return nil, 0, fmt.Errorf("hmtx: hhea table must be defined in order to rebuild hmtx table")
+			return nil, fmt.Errorf("hmtx: hhea table must be defined in order to rebuild hmtx table")
 		}
 		var err error
 		tables[iHmtx].data, err = parseHmtxTransformed(tables[iHmtx].data, tables[iGlyf].data, tables[iMaxp].data, tables[iHhea].data)
 		if err != nil {
-			return nil, 0, err
+			return nil, err
 		}
 	}
 
@@ -224,7 +224,7 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 	// also clear 11th bit in flags field
 	iHead, hasHead := tagTableIndex["head"]
 	if !hasHead || len(tables[iHead].data) < 18 {
-		return nil, 0, fmt.Errorf("head: must be present")
+		return nil, fmt.Errorf("head: must be present")
 	} else {
 		binary.BigEndian.PutUint32(tables[iHead].data[8:], 0x00000000) // clear checkSumAdjustment
 
@@ -293,7 +293,7 @@ func ParseWOFF2(b []byte) ([]byte, uint32, error) {
 	buf := w.Bytes()
 	checkSumAdjustment := 0xB1B0AFBA - calcChecksum(buf)
 	binary.BigEndian.PutUint32(buf[iCheckSumAdjustment:], checkSumAdjustment)
-	return buf, flavor, nil
+	return buf, nil
 }
 
 // Remarkable! This code was written on a Sunday evening, and after fixing the compiler errors it worked flawlessly!

@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 
+	canvasFont "github.com/tdewolff/canvas/font"
 	"golang.org/x/image/font"
 )
 
@@ -185,7 +186,14 @@ func (w *pdfWriter) getFont(font *Font) pdfRef {
 
 	mimetype, b := font.Raw()
 	if mimetype != "font/truetype" && mimetype != "font/opentype" {
-		panic("only TTF and OTF formats supported for embedding fonts in PDFs")
+		var err error
+		b, mimetype, err = canvasFont.ToSFNT(b)
+		if err != nil {
+			panic(err)
+		}
+		if mimetype != "font/truetype" && mimetype != "font/opentype" {
+			panic("only TTF and OTF formats supported for embedding fonts in PDFs")
+		}
 	}
 
 	ffSubtype := ""

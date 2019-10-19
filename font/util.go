@@ -7,6 +7,18 @@ import (
 
 var ErrInvalidFontData = fmt.Errorf("invalid font data")
 
+func calcChecksum(b []byte) uint32 {
+	if len(b)%4 != 0 {
+		panic("data not multiple of four bytes")
+	}
+	var sum uint32
+	r := newBinaryReader(b)
+	for !r.EOF() {
+		sum += r.ReadUint32()
+	}
+	return sum
+}
+
 func uint32ToString(v uint32) string {
 	b := make([]byte, 4)
 	binary.BigEndian.PutUint32(b, v)
@@ -65,12 +77,36 @@ func (r *binaryReader) ReadInt16() int16 {
 	return int16(r.ReadUint16())
 }
 
-func (r *binaryReader) EOF() bool {
-	return r.eof
+func (r *binaryReader) ReadUint16LE() uint16 {
+	b := r.ReadBytes(2)
+	if b == nil {
+		return 0
+	}
+	return binary.LittleEndian.Uint16(b)
+}
+
+func (r *binaryReader) ReadUint32LE() uint32 {
+	b := r.ReadBytes(4)
+	if b == nil {
+		return 0
+	}
+	return binary.LittleEndian.Uint32(b)
+}
+
+func (r *binaryReader) ReadInt16LE() int16 {
+	return int16(r.ReadUint16LE())
+}
+
+func (r *binaryReader) Pos() uint32 {
+	return r.pos
 }
 
 func (r *binaryReader) Len() uint32 {
 	return uint32(len(r.buf)) - r.pos
+}
+
+func (r *binaryReader) EOF() bool {
+	return r.eof
 }
 
 type bitmapReader struct {
@@ -96,6 +132,10 @@ func (r *bitmapReader) Read() bool {
 		r.pos++
 	}
 	return bit
+}
+
+func (r *bitmapReader) Pos() uint32 {
+	return r.pos*8 + uint32(r.bit)
 }
 
 func (r *bitmapReader) EOF() bool {

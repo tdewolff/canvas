@@ -40,15 +40,21 @@ type Font struct {
 }
 
 func parseFont(name string, b []byte) (*Font, error) {
-	mimetype, sfnt, err := canvasFont.ParseFontOld(b)
+	mimetype, err := canvasFont.Mimetype(b)
 	if err != nil {
 		return nil, err
 	}
+
+	sfntFont, err := canvasFont.ParseFont(b)
+	if err != nil {
+		return nil, err
+	}
+
 	f := &Font{
 		name:     name,
 		mimetype: mimetype,
 		raw:      b,
-		sfnt:     sfnt,
+		sfnt:     (*sfnt.Font)(sfntFont),
 	}
 	f.superscript = f.supportedSubstitutions(superscriptSubstitutes)
 	f.subscript = f.supportedSubstitutions(subscriptSubstitutes)
