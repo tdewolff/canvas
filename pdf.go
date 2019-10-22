@@ -629,29 +629,54 @@ func (w *pdfPageWriter) DrawImage(img image.Image, enc ImageEncoding, m Matrix) 
 func (w *pdfPageWriter) embedImage(img image.Image, enc ImageEncoding) pdfName {
 	size := img.Bounds().Size()
 	b := make([]byte, size.X*size.Y*3)
+	bMask := make([]byte, size.X*size.Y)
+	hasMask := false
 	for y := 0; y < size.Y; y++ {
 		for x := 0; x < size.X; x++ {
 			i := (y*size.X + x) * 3
-			R, G, B, _ := img.At(x, y).RGBA()
-			b[i+0] = byte(R >> 8)
-			b[i+1] = byte(G >> 8)
-			b[i+2] = byte(B >> 8)
-			// TODO: (PDF) handle alpha channel for images
+			R, G, B, A := img.At(x, y).RGBA()
+			if A != 0 {
+				b[i+0] = byte((R * 65536 / A) >> 8)
+				b[i+1] = byte((G * 65536 / A) >> 8)
+				b[i+2] = byte((B * 65536 / A) >> 8)
+				bMask[y*size.X+x] = byte(A >> 8)
+			}
+			if A != 255 {
+				hasMask = true
+			}
 		}
+	}
+
+	dict := pdfDict{
+		"Type":             pdfName("XObject"),
+		"Subtype":          pdfName("Image"),
+		"Width":            size.X,
+		"Height":           size.Y,
+		"ColorSpace":       pdfName("DeviceRGB"),
+		"BitsPerComponent": 8,
+		"Interpolate":      true,
+		"Filter":           pdfFilterFlate,
+	}
+
+	if hasMask {
+		dict["SMask"] = w.pdf.writeObject(pdfStream{
+			dict: pdfDict{
+				"Type":             pdfName("XObject"),
+				"Subtype":          pdfName("Image"),
+				"Width":            size.X,
+				"Height":           size.Y,
+				"ColorSpace":       pdfName("DeviceGray"),
+				"BitsPerComponent": 8,
+				"Interpolate":      true,
+				"Filter":           pdfFilterFlate,
+			},
+			stream: bMask,
+		})
 	}
 
 	// TODO: (PDF) implement JPXFilter for lossy image compression
 	ref := w.pdf.writeObject(pdfStream{
-		dict: pdfDict{
-			"Type":             pdfName("XObject"),
-			"Subtype":          pdfName("Image"),
-			"Width":            size.X,
-			"Height":           size.Y,
-			"ColorSpace":       pdfName("DeviceRGB"),
-			"BitsPerComponent": 8,
-			"Interpolate":      true,
-			"Filter":           pdfFilterFlate,
-		},
+		dict:   dict,
 		stream: b,
 	})
 

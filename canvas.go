@@ -61,11 +61,11 @@ func New(w, h float64) *Canvas {
 func (c *Canvas) SetCoordinateSystem(coordSystem CoordinateSystem) {
 	m := Identity
 	switch coordSystem {
-	case Quadrant2:
+	case CartesianQuadrant2:
 		m = m.ReflectXAt(c.W)
-	case Quadrant3:
+	case CartesianQuadrant3:
 		m = m.Translate(c.W, c.H).Scale(-1.0, -1.0).Translate(-c.W, -c.H)
-	case Quadrant4:
+	case CartesianQuadrant4:
 		m = m.ReflectYAt(c.H)
 	}
 	c.coordSystem = m
