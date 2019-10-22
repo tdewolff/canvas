@@ -21,18 +21,54 @@ const ptPerMm = 2.8346456692913384
 const mmPerInch = 25.4
 const inchPerMm = 1 / 25.4
 
+// CoordinateSystem defines which coordinate system to use for positioning and paths.
+type CoordinateSystem int
+
+// see CoordinateSystem
+const (
+	CartesianQuadrant1 CoordinateSystem = iota
+	CartesianQuadrant2
+	CartesianQuadrant3
+	CartesianQuadrant4
+)
+
+// ImageEncoding defines whether the embedded image shall be embedded as Lossless (typically PNG) or Lossy (typically JPG).
+type ImageEncoding int
+
+// see ImageEncoding
+const (
+	Lossless ImageEncoding = iota
+	Lossy
+)
+
 // Canvas holds the intermediate drawing state, accumulating all the layers (draw actions) and keeping track of the draw state. It allows for exporting to various target formats and using their native stroking and text features.
 type Canvas struct {
-	W, H   float64
-	layers []layer
-	fonts  map[*Font]bool
+	W, H        float64
+	coordSystem Matrix
+	layers      []layer
+	fonts       map[*Font]bool
 	drawState
 	stack []drawState
 }
 
 // New returns a new Canvas of given width and height in mm.
 func New(w, h float64) *Canvas {
-	return &Canvas{w, h, []layer{}, map[*Font]bool{}, defaultDrawState, nil}
+	return &Canvas{w, h, Identity, []layer{}, map[*Font]bool{}, defaultDrawState, nil}
+}
+
+// SetCoordinateSystem sets the coordinate system to the given Cartesian system quadrant. The default is Cartesian quadrant one.
+// The coordinate system affects the x,y coordinates given to the Draw* functions, as well as to the entire path for DrawPath. Text and images are not affected, only their positioning.
+func (c *Canvas) SetCoordinateSystem(coordSystem CoordinateSystem) {
+	m := Identity
+	switch coordSystem {
+	case Quadrant2:
+		m = m.ReflectXAt(c.W)
+	case Quadrant3:
+		m = m.Translate(c.W, c.H).Scale(-1.0, -1.0).Translate(-c.W, -c.H)
+	case Quadrant4:
+		m = m.ReflectYAt(c.H)
+	}
+	c.coordSystem = m
 }
 
 // PushState saves the current draw state, so that it can be popped later on.
@@ -138,7 +174,7 @@ func (c *Canvas) DrawPath(x, y float64, path *Path) {
 			}
 		}
 
-		path = path.Transform(Identity.Translate(x, y).Mul(c.m))
+		path = path.Transform(c.coordSystem.Translate(x, y).Mul(c.m))
 		c.drawState.fillRule = FillRule
 		l := pathLayer{path, c.drawState, dashesClose}
 		l.dashes = dashes
@@ -152,25 +188,18 @@ func (c *Canvas) DrawText(x, y float64, text *Text) {
 		for font := range text.fonts {
 			c.fonts[font] = true
 		}
-		c.layers = append(c.layers, textLayer{text, Identity.Translate(x, y).Mul(c.m)})
+		coord := c.coordSystem.Dot(Point{x, y})
+		c.layers = append(c.layers, textLayer{text, Identity.Translate(coord.X, coord.Y).Mul(c.m)})
 	}
 }
-
-// ImageEncoding defines whether the embedded image shall be embedded as Lossless (typically PNG) or Lossy (typically JPG).
-type ImageEncoding int
-
-// see ImageEncoding
-const (
-	Lossless ImageEncoding = iota
-	Lossy
-)
 
 // DrawImage draws an image at position (x,y), using an image encoding (Lossy or Lossless) and DPM (dots-per-millimeter). A higher DPM will draw a smaller image.
 func (c *Canvas) DrawImage(x, y float64, img image.Image, enc ImageEncoding, dpm float64) {
 	if img.Bounds().Size().Eq(image.Point{}) {
 		return
 	}
-	m := Identity.Translate(x, y).Mul(c.m).Scale(1/dpm, 1/dpm)
+	coord := c.coordSystem.Dot(Point{x, y})
+	m := Identity.Translate(coord.X, coord.Y).Mul(c.m).Scale(1/dpm, 1/dpm)
 	c.layers = append(c.layers, imageLayer{img, enc, m})
 }
 
