@@ -654,7 +654,21 @@ func (l imageLayer) Bounds() Rect {
 func (l imageLayer) WriteSVG(w io.Writer, h float64) {
 	mimetype := "image/png"
 	if l.enc == Lossy {
-		mimetype = "image/jpg"
+		hasMask := false
+		size := l.img.Bounds().Size()
+		for y := 0; y < size.Y; y++ {
+			for x := 0; x < size.X; x++ {
+				_, _, _, A := l.img.At(x, y).RGBA()
+				if A != 65536 {
+					hasMask = true
+					break
+				}
+			}
+		}
+		// TODO: add mask as separate definition in <defs><mask><image>...
+		if !hasMask {
+			mimetype = "image/jpg"
+		}
 	}
 
 	m := l.m.Translate(0.0, float64(l.img.Bounds().Size().Y))
@@ -662,7 +676,7 @@ func (l imageLayer) WriteSVG(w io.Writer, h float64) {
 		m.ToSVG(h), l.img.Bounds().Size().X, l.img.Bounds().Size().Y, mimetype)
 
 	encoder := base64.NewEncoder(base64.StdEncoding, w)
-	if l.enc == Lossy {
+	if mimetype == "image/jpg" {
 		if err := jpeg.Encode(encoder, l.img, nil); err != nil {
 			panic(err)
 		}
