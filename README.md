@@ -242,6 +242,14 @@ Where the provided string gets inserted into the following document template:
 
 
 ## Example
+### Use Cartesian coordinate system in quadrant 4
+To use the SVG coordinate system, you can set the coordinate system as follows:
+
+``` go
+c.SetCoordinateSystem(canvas.CartesianQuadrant4)
+```
+
+### Examples
 See https://github.com/tdewolff/canvas/tree/master/examples for a working examples.
 
 ## License
