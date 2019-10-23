@@ -64,7 +64,10 @@ func (w *svgWriter) DrawImage(img image.Image, enc ImageEncoding, m Matrix) {
 				for x := 0; x < size.X; x++ {
 					R, G, B, A := img.At(x, y).RGBA()
 					if A != 0 {
-						opaque.SetRGBA(x, y, color.RGBA{byte((R * 65536 / A) >> 8), byte((G * 65536 / A) >> 8), byte((B * 65536 / A) >> 8), 255})
+						r := byte((R * 65535 / A) >> 8)
+						g := byte((G * 65535 / A) >> 8)
+						b := byte((B * 65535 / A) >> 8)
+						opaque.SetRGBA(x, y, color.RGBA{r, g, b, 255})
 						mask.SetGray(x, y, color.Gray{byte(A >> 8)})
 					}
 					if A>>8 != 255 {

@@ -636,9 +636,9 @@ func (w *pdfPageWriter) embedImage(img image.Image, enc ImageEncoding) pdfName {
 			i := (y*size.X + x) * 3
 			R, G, B, A := img.At(x, y).RGBA()
 			if A != 0 {
-				b[i+0] = byte((R * 65536 / A) >> 8)
-				b[i+1] = byte((G * 65536 / A) >> 8)
-				b[i+2] = byte((B * 65536 / A) >> 8)
+				b[i+0] = byte((R * 65535 / A) >> 8)
+				b[i+1] = byte((G * 65535 / A) >> 8)
+				b[i+2] = byte((B * 65535 / A) >> 8)
 				bMask[y*size.X+x] = byte(A >> 8)
 			}
 			if A>>8 != 255 {
