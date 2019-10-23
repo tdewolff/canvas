@@ -641,7 +641,7 @@ func (w *pdfPageWriter) embedImage(img image.Image, enc ImageEncoding) pdfName {
 				b[i+2] = byte((B * 65536 / A) >> 8)
 				bMask[y*size.X+x] = byte(A >> 8)
 			}
-			if A != 65536 {
+			if A>>8 != 255 {
 				hasMask = true
 			}
 		}

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/jpeg"
-	"image/png"
 	"io"
 	"math"
 	"strings"
@@ -249,8 +247,9 @@ func (c *Canvas) WriteSVG(w io.Writer) {
 		}
 		fmt.Fprintf(w, "\n</style></defs>")
 	}
+	svg := newSVGWriter(w, c.H)
 	for _, l := range c.layers {
-		l.WriteSVG(w, c.H)
+		l.WriteSVG(svg)
 	}
 	fmt.Fprintf(w, "</svg>")
 }
@@ -289,7 +288,7 @@ func (c *Canvas) WriteImage(dpm float64) *image.RGBA {
 
 type layer interface {
 	Bounds() Rect
-	WriteSVG(io.Writer, float64)
+	WriteSVG(*svgWriter)
 	WritePDF(*pdfPageWriter)
 	WriteEPS(*epsWriter)
 	WriteImage(*image.RGBA, float64)
@@ -337,7 +336,8 @@ func (l pathLayer) Bounds() Rect {
 	return bounds
 }
 
-func (l pathLayer) WriteSVG(w io.Writer, h float64) {
+func (l pathLayer) WriteSVG(w *svgWriter) {
+	h := w.height
 	fill := l.fillColor.A != 0
 	stroke := l.strokeColor.A != 0 && 0.0 < l.strokeWidth
 
@@ -611,8 +611,8 @@ func (l textLayer) Bounds() Rect {
 	return l.text.Bounds().Transform(l.m)
 }
 
-func (l textLayer) WriteSVG(w io.Writer, h float64) {
-	l.text.WriteSVG(w, h, l.m)
+func (l textLayer) WriteSVG(w *svgWriter) {
+	l.text.WriteSVG(w, l.m)
 }
 
 func (l textLayer) WritePDF(w *pdfPageWriter) {
@@ -651,45 +651,8 @@ func (l imageLayer) Bounds() Rect {
 	return Rect{0.0, 0.0, float64(size.X), float64(size.Y)}.Transform(l.m)
 }
 
-func (l imageLayer) WriteSVG(w io.Writer, h float64) {
-	mimetype := "image/png"
-	if l.enc == Lossy {
-		hasMask := false
-		size := l.img.Bounds().Size()
-		for y := 0; y < size.Y; y++ {
-			for x := 0; x < size.X; x++ {
-				_, _, _, A := l.img.At(x, y).RGBA()
-				if A != 65536 {
-					hasMask = true
-					break
-				}
-			}
-		}
-		// TODO: add mask as separate definition in <defs><mask><image>...
-		if !hasMask {
-			mimetype = "image/jpg"
-		}
-	}
-
-	m := l.m.Translate(0.0, float64(l.img.Bounds().Size().Y))
-	fmt.Fprintf(w, `<image transform="%s" width="%d" height="%d" xlink:href="data:%s;base64,`,
-		m.ToSVG(h), l.img.Bounds().Size().X, l.img.Bounds().Size().Y, mimetype)
-
-	encoder := base64.NewEncoder(base64.StdEncoding, w)
-	if mimetype == "image/jpg" {
-		if err := jpeg.Encode(encoder, l.img, nil); err != nil {
-			panic(err)
-		}
-	} else {
-		if err := png.Encode(encoder, l.img); err != nil {
-			panic(err)
-		}
-	}
-	if err := encoder.Close(); err != nil {
-		panic(err)
-	}
-
-	fmt.Fprintf(w, `"/>`)
+func (l imageLayer) WriteSVG(w *svgWriter) {
+	w.DrawImage(l.img, l.enc, l.m)
 }
 
 func (l imageLayer) WritePDF(w *pdfPageWriter) {

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"image/color"
-	"io"
 	"math"
 	"strings"
 	"unicode"
@@ -521,7 +520,7 @@ func (t *Text) ToPaths() ([]*Path, []color.RGBA) {
 	return paths, colors
 }
 
-func (t *Text) writeSVGFontStyle(w io.Writer, ff, ffMain FontFace) {
+func (t *Text) writeSVGFontStyle(w *svgWriter, ff, ffMain FontFace) {
 	boldness := ff.boldness()
 	differences := 0
 	if ff.style&FontItalic != ffMain.style&FontItalic {
@@ -582,7 +581,7 @@ func (t *Text) writeSVGFontStyle(w io.Writer, ff, ffMain FontFace) {
 }
 
 // WriteSVG will write out the text in the SVG file format.
-func (t *Text) WriteSVG(w io.Writer, h float64, m Matrix) {
+func (t *Text) WriteSVG(w *svgWriter, m Matrix) {
 	if len(t.lines) == 0 || len(t.lines[0].spans) == 0 {
 		return
 	}
@@ -592,10 +591,10 @@ func (t *Text) WriteSVG(w io.Writer, h float64, m Matrix) {
 	x0, y0 := 0.0, 0.0
 	if m.IsTranslation() {
 		x0, y0 = m.Pos()
-		y0 = h - y0
+		y0 = w.height - y0
 		fmt.Fprintf(w, `<text x="%v" y="%v`, num(x0), num(y0))
 	} else {
-		fmt.Fprintf(w, `<text transform="%s`, m.ToSVG(h))
+		fmt.Fprintf(w, `<text transform="%s`, m.ToSVG(w.height))
 	}
 	fmt.Fprintf(w, `" style="font:`)
 	if ffMain.style&FontItalic != 0 {
@@ -636,7 +635,7 @@ func (t *Text) WriteSVG(w io.Writer, h float64, m Matrix) {
 	}
 	fmt.Fprintf(w, `</text>`)
 	for _, l := range decorations {
-		l.WriteSVG(w, h)
+		l.WriteSVG(w)
 	}
 }
 
