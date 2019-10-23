@@ -13,11 +13,41 @@ import (
 type svgWriter struct {
 	io.Writer
 	height float64
+	fonts  map[*Font]bool
 	maskID int
 }
 
-func newSVGWriter(w io.Writer, h float64) *svgWriter {
-	return &svgWriter{w, h, 0}
+func newSVGWriter(writer io.Writer, w, h float64) *svgWriter {
+	fmt.Fprintf(writer, `<svg version="1.1" width="%v" height="%v" viewBox="0 0 %v %v" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, dec(w), dec(h), dec(w), dec(h))
+	return &svgWriter{writer, h, map[*Font]bool{}, 0}
+}
+
+func (w *svgWriter) Close() error {
+	fmt.Fprintf(w, "</svg>")
+	return nil
+}
+
+func (w *svgWriter) EmbedFonts(fonts []*Font) {
+	is := []int{}
+	for i, font := range fonts {
+		if _, ok := w.fonts[font]; !ok {
+			is = append(is, i)
+			w.fonts[font] = true
+		}
+	}
+
+	if 0 < len(is) {
+		fmt.Fprintf(w, "<style>")
+		for _, i := range is {
+			mimetype, raw := fonts[i].Raw()
+			fmt.Fprintf(w, "\n@font-face{font-family:'%s';src:url('data:%s;base64,", fonts[i].name, mimetype)
+			encoder := base64.NewEncoder(base64.StdEncoding, w)
+			encoder.Write(raw)
+			encoder.Close()
+			fmt.Fprintf(w, "');}")
+		}
+		fmt.Fprintf(w, "\n</style>")
+	}
 }
 
 func (w *svgWriter) DrawImage(img image.Image, enc ImageEncoding, m Matrix) {

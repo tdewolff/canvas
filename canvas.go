@@ -1,7 +1,6 @@
 package canvas
 
 import (
-	"encoding/base64"
 	"fmt"
 	"image"
 	"image/color"
@@ -44,14 +43,13 @@ type Canvas struct {
 	W, H        float64
 	coordSystem Matrix
 	layers      []layer
-	fonts       map[*Font]bool
 	drawState
 	stack []drawState
 }
 
 // New returns a new Canvas of given width and height in mm.
 func New(w, h float64) *Canvas {
-	return &Canvas{w, h, Identity, []layer{}, map[*Font]bool{}, defaultDrawState, nil}
+	return &Canvas{w, h, Identity, []layer{}, defaultDrawState, nil}
 }
 
 // SetCoordinateSystem sets the coordinate system to the given Cartesian system quadrant. The default is Cartesian quadrant one.
@@ -183,9 +181,6 @@ func (c *Canvas) DrawPath(x, y float64, path *Path) {
 // DrawText draws text at position (x,y) using the current draw state. In particular, it only uses the current affine transformation matrix.
 func (c *Canvas) DrawText(x, y float64, text *Text) {
 	if !text.Empty() {
-		for font := range text.fonts {
-			c.fonts[font] = true
-		}
 		coord := c.coordSystem.Dot(Point{x, y})
 		c.layers = append(c.layers, textLayer{text, Identity.Translate(coord.X, coord.Y).Mul(c.m)})
 	}
@@ -233,25 +228,12 @@ func (c *Canvas) Fit(margin float64) {
 }
 
 // WriteSVG writes the stored drawing operations in Canvas in the SVG file format.
-func (c *Canvas) WriteSVG(w io.Writer) {
-	fmt.Fprintf(w, `<svg version="1.1" width="%v" height="%v" viewBox="0 0 %v %v" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, dec(c.W), dec(c.H), dec(c.W), dec(c.H))
-	if len(c.fonts) > 0 {
-		fmt.Fprintf(w, "<defs><style>")
-		for f := range c.fonts {
-			mimetype, raw := f.Raw()
-			fmt.Fprintf(w, "\n@font-face{font-family:'%s';src:url('data:%s;base64,", f.name, mimetype)
-			encoder := base64.NewEncoder(base64.StdEncoding, w)
-			encoder.Write(raw)
-			encoder.Close()
-			fmt.Fprintf(w, "');}")
-		}
-		fmt.Fprintf(w, "\n</style></defs>")
-	}
-	svg := newSVGWriter(w, c.H)
+func (c *Canvas) WriteSVG(w io.Writer) error {
+	svg := newSVGWriter(w, c.W, c.H)
 	for _, l := range c.layers {
 		l.WriteSVG(svg)
 	}
-	fmt.Fprintf(w, "</svg>")
+	return svg.Close()
 }
 
 // WritePDF writes the stored drawing operations in Canvas in the PDF file format.
@@ -612,6 +594,11 @@ func (l textLayer) Bounds() Rect {
 }
 
 func (l textLayer) WriteSVG(w *svgWriter) {
+	fonts := []*Font{}
+	for font := range l.text.fonts {
+		fonts = append(fonts, font)
+	}
+	w.EmbedFonts(fonts)
 	l.text.WriteSVG(w, l.m)
 }
 
