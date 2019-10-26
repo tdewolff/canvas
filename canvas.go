@@ -115,7 +115,7 @@ func (l imageLayer) Bounds() Rect {
 
 type Canvas struct {
 	width, height float64
-	coordSystem   Matrix
+	coordSystem   CoordinateSystem
 	drawState
 	stack []drawState
 
@@ -124,22 +124,25 @@ type Canvas struct {
 
 // New returns a new Canvas of given width and height in mm.
 func New(width, height float64) *Canvas {
-	return &Canvas{width, height, Identity, defaultDrawState, nil, nil}
+	return &Canvas{width, height, CartesianQuadrant1, defaultDrawState, nil, nil}
+}
+
+func (c *Canvas) getCoordinateSystem() Matrix {
+	switch c.coordSystem {
+	case CartesianQuadrant2:
+		return Identity.ReflectXAt(c.width)
+	case CartesianQuadrant3:
+		return Identity.Translate(c.width, c.height).Scale(-1.0, -1.0).Translate(-c.width, -c.height)
+	case CartesianQuadrant4:
+		return Identity.ReflectYAt(c.height)
+	}
+	return Identity
 }
 
 // SetCoordinateSystem sets the coordinate system to the given Cartesian system quadrant. The default is Cartesian quadrant one.
 // The coordinate system affects the x,y coordinates given to the Draw* functions, as well as to the entire path for DrawPath. Text and images are not affected, only their positioning.
 func (c *Canvas) SetCoordinateSystem(coordSystem CoordinateSystem) {
-	m := Identity
-	switch coordSystem {
-	case CartesianQuadrant2:
-		m = m.ReflectXAt(c.width)
-	case CartesianQuadrant3:
-		m = m.Translate(c.width, c.height).Scale(-1.0, -1.0).Translate(-c.width, -c.height)
-	case CartesianQuadrant4:
-		m = m.ReflectYAt(c.height)
-	}
-	c.coordSystem = m
+	c.coordSystem = coordSystem
 }
 
 // PushState saves the current draw state, so that it can be popped later on.
@@ -249,10 +252,12 @@ func (c *Canvas) DrawPath(x, y float64, path *Path) {
 			}
 		}
 
-		path = path.Transform(c.coordSystem.Translate(x, y).Mul(c.m))
-		c.drawState.fillRule = FillRule
+		m := c.getCoordinateSystem().Translate(x, y).Mul(c.m)
+		path = path.Transform(m)
+
 		l := pathLayer{path, c.drawState, dashesClose}
 		l.dashes = dashes
+		l.fillRule = FillRule
 		c.layers = append(c.layers, l)
 	}
 }
@@ -260,7 +265,7 @@ func (c *Canvas) DrawPath(x, y float64, path *Path) {
 // DrawText draws text at position (x,y) using the current draw state. In particular, it only uses the current affine transformation matrix.
 func (c *Canvas) DrawText(x, y float64, text *Text) {
 	if !text.Empty() {
-		coord := c.coordSystem.Dot(Point{x, y})
+		coord := c.getCoordinateSystem().Dot(Point{x, y})
 		c.layers = append(c.layers, textLayer{text, Identity.Translate(coord.X, coord.Y).Mul(c.m)})
 	}
 }
@@ -270,7 +275,7 @@ func (c *Canvas) DrawImage(x, y float64, img image.Image, enc ImageEncoding, dpm
 	if img.Bounds().Size().Eq(image.Point{}) {
 		return
 	}
-	coord := c.coordSystem.Dot(Point{x, y})
+	coord := c.getCoordinateSystem().Dot(Point{x, y})
 	m := Identity.Translate(coord.X, coord.Y).Mul(c.m).Scale(1/dpm, 1/dpm)
 	c.layers = append(c.layers, imageLayer{img, enc, m})
 }
