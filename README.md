@@ -38,14 +38,15 @@ Papers
 
 ## Status
 ### Targets
-| Feature | Image | SVG | PDF | EPS |
-| ------- | ----- | --- | --- | --- |
-| Draw path fill | yes | yes | yes | yes |
-| Draw path stroke | yes | yes | yes | no |
-| Draw path dash | yes | yes | yes | no |
-| Embed fonts | | yes | yes | no |
-| Draw text | | yes | yes | as path |
-| Draw image | yes | yes | yes | no |
+| Feature | Image | SVG | PDF | EPS | OpenGL |
+| ------- | ----- | --- | --- | --- | ------ |
+| Draw path fill | yes | yes | yes | yes | no |
+| Draw path stroke | yes | yes | yes | no | no |
+| Draw path dash | yes | yes | yes | no | no |
+| Embed fonts | | yes | yes | no | no |
+| Draw text | | yes | yes | as path | no |
+| Draw image | yes | yes | yes | no | no |
+| EvenOdd fill rule | no | yes | yes | no | no |
 
 * EPS does not support transparency
 * PDF and EPS do not support line joins for last and first dash for dashed and closed path
@@ -71,8 +72,8 @@ General
 * Fix slowness in the rasterizer (text\_example.go is slow! use rasterized cache for each glyph/path)
 * Use general span placement algorithm (like CSS flexbox) that replace the current Text placer, to allow for text, image, path elements (e.g. inline formulas, inline icons or emoticons, ...)
 * Use word breaking algorithm from [Knuth & Plass](http://defoe.sourceforge.net/folio/knuth-plass.html), implemented in JS in [typeset](http://www.bramstein.com/projects/typeset/). Use letter stretching and shrinking, shrinking by using ligatures, space shrinking and stretching (depending if space is between words or after comma or dot), and spacing or shrinking between glyphs. Use a point system of how ugly breaks are on a paragraph basis. Also see [Justify Just or Just Justify](https://quod.lib.umich.edu/j/jep/3336451.0013.105?view=text;rgn=main).
-* Add targets such as OpenGL and HTML5 Canvas (consider WASM output)
 * Load in Markdown/HTML formatting and turn into text
+* Add OpenGL target, needs tessellation (see Delaunay triangulation). See [Resolution independent NURBS curves rendering using programmable graphics pipeline](http://jogamp.com/doc/gpunurbs2011/p70-santina.pdf) and [poly2tri-go](https://github.com/ByteArena/poly2tri-go)
 
 Fonts
 
@@ -95,6 +96,7 @@ Far future
 * Support fill gradients and patterns (hard)
 * Load in PDF, SVG and EPS and turn to paths/text
 * Generate TeX-like formulas in pure Go, use OpenType math font such as STIX or TeX Gyre
+* Add HTML5 Canvas target (consider WASM output)
 
 
 ## Canvas
