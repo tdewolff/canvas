@@ -5,6 +5,8 @@ require (
 	github.com/ConradIrwin/font v0.0.0-20190603172541-e12dbea4cf12
 	github.com/dsnet/compress v0.0.1
 	github.com/flopp/go-findfont v0.0.0-20180308170802-e788239e52bc
+	github.com/go-gl/gl v0.0.0-20190320180904-bf2b1f2f34d7
+	github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1
 	github.com/gogo/protobuf v1.2.1 // indirect
 	github.com/paulmach/orb v0.1.3
 	github.com/paulmach/osm v0.0.1

@@ -61,3 +61,30 @@ func (w *epsWriter) SetColor(color color.RGBA) {
 		w.color = color
 	}
 }
+
+func (w *epsWriter) Close() error {
+	return nil
+}
+
+func (l pathLayer) WriteEPS(w *epsWriter) {
+	// TODO: (EPS) test ellipse, rotations etc
+	// TODO: (EPS) add drawState support
+	w.SetColor(l.fillColor)
+	w.Write([]byte(" "))
+	w.Write([]byte(l.path.ToPS()))
+	w.Write([]byte(" fill"))
+}
+
+func (l textLayer) WriteEPS(w *epsWriter) {
+	// TODO: (EPS) write text natively
+	paths, colors := l.text.ToPaths()
+	for i, path := range paths {
+		state := defaultDrawState
+		state.fillColor = colors[i]
+		pathLayer{path.Transform(l.m), state, false}.WriteEPS(w)
+	}
+}
+
+func (l imageLayer) WriteEPS(w *epsWriter) {
+	// TODO: (EPS) write image
+}

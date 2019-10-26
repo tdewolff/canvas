@@ -62,6 +62,11 @@ func parseFont(name string, b []byte) (*Font, error) {
 	return f, nil
 }
 
+// Name returns the name of the font.
+func (f *Font) Name() string {
+	return f.name
+}
+
 // Raw returns the mimetype and raw binary data of the font.
 func (f *Font) Raw() (string, []byte) {
 	return f.mimetype, f.raw

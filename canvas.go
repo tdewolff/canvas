@@ -1,16 +1,11 @@
 package canvas
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"io"
-	"math"
-	"strings"
 
 	"golang.org/x/image/draw"
-	"golang.org/x/image/math/f64"
-	"golang.org/x/image/vector"
 )
 
 const mmPerPt = 0.3527777777777778
@@ -38,18 +33,98 @@ const (
 	Lossy
 )
 
-// Canvas holds the intermediate drawing state, accumulating all the layers (draw actions) and keeping track of the draw state. It allows for exporting to various target formats and using their native stroking and text features.
+////////////////////////////////////////////////////////////////
+
+type drawState struct {
+	m                      Matrix
+	fillColor, strokeColor color.RGBA
+	strokeWidth            float64
+	strokeCapper           Capper
+	strokeJoiner           Joiner
+	dashOffset             float64
+	dashes                 []float64
+	fillRule               FillRuleType
+}
+
+var defaultDrawState = drawState{
+	m:            Identity,
+	fillColor:    Black,
+	strokeColor:  Transparent,
+	strokeWidth:  1.0,
+	strokeCapper: ButtCapper,
+	strokeJoiner: MiterJoiner,
+	dashOffset:   0.0,
+	dashes:       []float64{},
+	fillRule:     NonZero,
+}
+
+type layer interface {
+	Bounds() Rect
+	WriteSVG(*svgWriter)
+	WritePDF(*pdfPageWriter)
+	WriteEPS(*epsWriter)
+	DrawImage(draw.Image, float64)
+}
+
+////////////////////////////////////////////////////////////////
+
+type pathLayer struct {
+	path        *Path
+	drawState   // view matrix has already been applied
+	dashesClose bool
+}
+
+func (l pathLayer) Bounds() Rect {
+	bounds := l.path.Bounds()
+	if l.strokeColor.A != 0 && 0.0 < l.strokeWidth {
+		bounds.X -= l.strokeWidth / 2.0
+		bounds.Y -= l.strokeWidth / 2.0
+		bounds.W += l.strokeWidth
+		bounds.H += l.strokeWidth
+	}
+	return bounds
+}
+
+////////////////////////////////////////////////////////////////
+
+type textLayer struct {
+	text *Text
+	m    Matrix
+}
+
+func (l textLayer) Bounds() Rect {
+	return l.text.Bounds().Transform(l.m)
+}
+
+////////////////////////////////////////////////////////////////
+
+type imageLayer struct {
+	img image.Image
+	enc ImageEncoding
+	m   Matrix
+}
+
+func (l imageLayer) Bounds() Rect {
+	size := l.img.Bounds().Size()
+	return Rect{0.0, 0.0, float64(size.X), float64(size.Y)}.Transform(l.m)
+}
+
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////
+
 type Canvas struct {
-	W, H        float64
-	coordSystem Matrix
-	layers      []layer
+	width, height float64
+	coordSystem   Matrix
 	drawState
 	stack []drawState
+
+	layers []layer
 }
 
 // New returns a new Canvas of given width and height in mm.
-func New(w, h float64) *Canvas {
-	return &Canvas{w, h, Identity, []layer{}, defaultDrawState, nil}
+func New(width, height float64) *Canvas {
+	return &Canvas{width, height, Identity, defaultDrawState, nil, nil}
 }
 
 // SetCoordinateSystem sets the coordinate system to the given Cartesian system quadrant. The default is Cartesian quadrant one.
@@ -58,11 +133,11 @@ func (c *Canvas) SetCoordinateSystem(coordSystem CoordinateSystem) {
 	m := Identity
 	switch coordSystem {
 	case CartesianQuadrant2:
-		m = m.ReflectXAt(c.W)
+		m = m.ReflectXAt(c.width)
 	case CartesianQuadrant3:
-		m = m.Translate(c.W, c.H).Scale(-1.0, -1.0).Translate(-c.W, -c.H)
+		m = m.Translate(c.width, c.height).Scale(-1.0, -1.0).Translate(-c.width, -c.height)
 	case CartesianQuadrant4:
-		m = m.ReflectYAt(c.H)
+		m = m.ReflectYAt(c.height)
 	}
 	c.coordSystem = m
 }
@@ -130,6 +205,11 @@ func (c *Canvas) SetDashes(dashOffset float64, dashes ...float64) {
 	c.dashes = dashes
 }
 
+// Clear clears all previous draw actions to the canvas buffer.
+func (c *Canvas) Clear() {
+	c.layers = c.layers[:0]
+}
+
 // DrawPath draws a path at position (x,y) using the current draw state.
 func (c *Canvas) DrawPath(x, y float64, path *Path) {
 	if c.fillColor.A == 0 && (c.strokeColor.A == 0 || c.strokeWidth == 0.0) {
@@ -164,7 +244,6 @@ func (c *Canvas) DrawPath(x, y float64, path *Path) {
 					}
 				}
 				if i%2 == 0 { // ends with dash
-					fmt.Println(length, i, pos)
 					dashesClose = true
 				}
 			}
@@ -196,14 +275,12 @@ func (c *Canvas) DrawImage(x, y float64, img image.Image, enc ImageEncoding, dpm
 	c.layers = append(c.layers, imageLayer{img, enc, m})
 }
 
-////////////////////////////////////////////////////////////////
-
 // Fit shrinks the canvas size so all elements fit. The elements are translated towards the origin when any left/bottom margins exist and the canvas size is decreased if any margins exist. It will maintain a given margin.
 func (c *Canvas) Fit(margin float64) {
 	// TODO: slow when we have many paths (see Graph example)
 	if len(c.layers) == 0 {
-		c.W = 0.0
-		c.H = 0.0
+		c.width = 0.0
+		c.height = 0.0
 	}
 
 	rect := c.layers[0].Bounds()
@@ -223,13 +300,13 @@ func (c *Canvas) Fit(margin float64) {
 			c.layers[i] = l
 		}
 	}
-	c.W = rect.W + 2*margin
-	c.H = rect.H + 2*margin
+	c.width = rect.W + 2*margin
+	c.height = rect.H + 2*margin
 }
 
 // WriteSVG writes the stored drawing operations in Canvas in the SVG file format.
 func (c *Canvas) WriteSVG(w io.Writer) error {
-	svg := newSVGWriter(w, c.W, c.H)
+	svg := newSVGWriter(w, c.width, c.height)
 	for _, l := range c.layers {
 		l.WriteSVG(svg)
 	}
@@ -239,421 +316,30 @@ func (c *Canvas) WriteSVG(w io.Writer) error {
 // WritePDF writes the stored drawing operations in Canvas in the PDF file format.
 func (c *Canvas) WritePDF(w io.Writer) error {
 	pdf := newPDFWriter(w)
-	pdfpage := pdf.NewPage(c.W, c.H)
+	pdfPage := pdf.NewPage(c.width, c.height)
 	for _, l := range c.layers {
-		l.WritePDF(pdfpage)
+		l.WritePDF(pdfPage)
 	}
 	return pdf.Close()
 }
 
 // WriteEPS writes the stored drawing operations in Canvas in the EPS file format.
 // Be aware that EPS does not support transparency of colors.
-func (c *Canvas) WriteEPS(w io.Writer) {
-	eps := newEPSWriter(w, c.W, c.H)
+func (c *Canvas) WriteEPS(w io.Writer) error {
+	eps := newEPSWriter(w, c.width, c.height)
 	for _, l := range c.layers {
 		eps.Write([]byte("\n"))
 		l.WriteEPS(eps)
 	}
+	return eps.Close()
 }
 
 // WriteImage writes the stored drawing operations in Canvas as a rasterized image with given DPM (dots-per-millimeter). Higher DPM will result in bigger images.
 func (c *Canvas) WriteImage(dpm float64) *image.RGBA {
-	img := image.NewRGBA(image.Rect(0.0, 0.0, int(c.W*dpm+0.5), int(c.H*dpm+0.5)))
+	img := image.NewRGBA(image.Rect(0.0, 0.0, int(c.width*dpm+0.5), int(c.height*dpm+0.5)))
 	draw.Draw(img, img.Bounds(), image.NewUniform(White), image.Point{}, draw.Src)
 	for _, l := range c.layers {
-		l.WriteImage(img, dpm)
+		l.DrawImage(img, dpm)
 	}
 	return img
-}
-
-////////////////////////////////////////////////////////////////
-
-type layer interface {
-	Bounds() Rect
-	WriteSVG(*svgWriter)
-	WritePDF(*pdfPageWriter)
-	WriteEPS(*epsWriter)
-	WriteImage(*image.RGBA, float64)
-}
-
-type drawState struct {
-	m                      Matrix
-	fillColor, strokeColor color.RGBA
-	strokeWidth            float64
-	strokeCapper           Capper
-	strokeJoiner           Joiner
-	dashOffset             float64
-	dashes                 []float64
-	fillRule               FillRuleType
-}
-
-var defaultDrawState = drawState{
-	m:            Identity,
-	fillColor:    Black,
-	strokeColor:  Transparent,
-	strokeWidth:  1.0,
-	strokeCapper: ButtCapper,
-	strokeJoiner: MiterJoiner,
-	dashOffset:   0.0,
-	dashes:       []float64{},
-	fillRule:     NonZero,
-}
-
-////////////////////////////////////////////////////////////////
-
-type pathLayer struct {
-	path        *Path
-	drawState   // view matrix has already been applied
-	dashesClose bool
-}
-
-func (l pathLayer) Bounds() Rect {
-	bounds := l.path.Bounds()
-	if l.strokeColor.A != 0 && 0.0 < l.strokeWidth {
-		bounds.X -= l.strokeWidth / 2.0
-		bounds.Y -= l.strokeWidth / 2.0
-		bounds.W += l.strokeWidth
-		bounds.H += l.strokeWidth
-	}
-	return bounds
-}
-
-func (l pathLayer) WriteSVG(w *svgWriter) {
-	h := w.height
-	fill := l.fillColor.A != 0
-	stroke := l.strokeColor.A != 0 && 0.0 < l.strokeWidth
-
-	p := l.path.Transform(Identity.Translate(0.0, h).ReflectY())
-	fmt.Fprintf(w, `<path d="%s`, p.ToSVG())
-
-	strokeUnsupported := false
-	if arcs, ok := l.strokeJoiner.(arcsJoiner); ok && math.IsNaN(arcs.limit) {
-		strokeUnsupported = true
-	} else if miter, ok := l.strokeJoiner.(miterJoiner); ok {
-		if math.IsNaN(miter.limit) {
-			strokeUnsupported = true
-		} else if _, ok := miter.gapJoiner.(bevelJoiner); !ok {
-			strokeUnsupported = true
-		}
-	}
-
-	if !stroke {
-		if fill {
-			if l.fillColor != Black {
-				fmt.Fprintf(w, `" fill="%v`, cssColor(l.fillColor))
-			}
-			if l.fillRule == EvenOdd {
-				fmt.Fprintf(w, `" fill-rule="evenodd`)
-			}
-		} else {
-			fmt.Fprintf(w, `" fill="none`)
-		}
-	} else {
-		style := &strings.Builder{}
-		if fill {
-			if l.fillColor != Black {
-				fmt.Fprintf(style, ";fill:%v", cssColor(l.fillColor))
-			}
-			if l.fillRule == EvenOdd {
-				fmt.Fprintf(style, ";fill-rule:evenodd")
-			}
-		} else {
-			fmt.Fprintf(style, ";fill:none")
-		}
-		if stroke && !strokeUnsupported {
-			fmt.Fprintf(style, `;stroke:%v`, cssColor(l.strokeColor))
-			if l.strokeWidth != 1.0 {
-				fmt.Fprintf(style, ";stroke-width:%v", dec(l.strokeWidth))
-			}
-			if _, ok := l.strokeCapper.(roundCapper); ok {
-				fmt.Fprintf(style, ";stroke-linecap:round")
-			} else if _, ok := l.strokeCapper.(squareCapper); ok {
-				fmt.Fprintf(style, ";stroke-linecap:square")
-			} else if _, ok := l.strokeCapper.(buttCapper); !ok {
-				panic("SVG: line cap not support")
-			}
-			if _, ok := l.strokeJoiner.(bevelJoiner); ok {
-				fmt.Fprintf(style, ";stroke-linejoin:bevel")
-			} else if _, ok := l.strokeJoiner.(roundJoiner); ok {
-				fmt.Fprintf(style, ";stroke-linejoin:round")
-			} else if arcs, ok := l.strokeJoiner.(arcsJoiner); ok && !math.IsNaN(arcs.limit) {
-				fmt.Fprintf(style, ";stroke-linejoin:arcs")
-				if arcs.limit != 4.0 {
-					fmt.Fprintf(style, ";stroke-miterlimit:%v", dec(arcs.limit))
-				}
-			} else if miter, ok := l.strokeJoiner.(miterJoiner); ok && !math.IsNaN(miter.limit) {
-				// a miter line join is the default
-				if miter.limit*2.0/l.strokeWidth != 4.0 {
-					fmt.Fprintf(style, ";stroke-miterlimit:%v", dec(miter.limit*2.0/l.strokeWidth))
-				}
-			} else {
-				panic("SVG: line join not support")
-			}
-
-			if 0 < len(l.dashes) {
-				fmt.Fprintf(style, ";stroke-dasharray:%v", dec(l.dashes[0]))
-				for _, dash := range l.dashes[1:] {
-					fmt.Fprintf(style, " %v", dec(dash))
-				}
-				if 0.0 != l.dashOffset {
-					fmt.Fprintf(style, ";stroke-dashoffset:%v", dec(l.dashOffset))
-				}
-			}
-		}
-		if 0 < style.Len() {
-			fmt.Fprintf(w, `" style="%s`, style.String()[1:])
-		}
-	}
-	fmt.Fprintf(w, `"/>`)
-
-	if stroke && strokeUnsupported {
-		// stroke settings unsupported by PDF, draw stroke explicitly
-		if 0 < len(l.dashes) {
-			p = p.Dash(l.dashOffset, l.dashes...)
-		}
-		p = p.Stroke(l.strokeWidth, l.strokeCapper, l.strokeJoiner)
-		fmt.Fprintf(w, `<path d="%s`, p.ToSVG())
-		if l.strokeColor != Black {
-			fmt.Fprintf(w, `" fill="%v`, cssColor(l.strokeColor))
-		}
-		if l.fillRule == EvenOdd {
-			fmt.Fprintf(w, `" fill-rule="evenodd`)
-		}
-		fmt.Fprintf(w, `"/>`)
-	}
-}
-
-func (l pathLayer) WritePDF(w *pdfPageWriter) {
-	fill := l.fillColor.A != 0
-	stroke := l.strokeColor.A != 0 && 0.0 < l.strokeWidth
-	differentAlpha := fill && stroke && l.fillColor.A != l.strokeColor.A
-
-	// PDFs don't support the arcs joiner, miter joiner (not clipped), or miter joiner (clipped) with non-bevel fallback
-	strokeUnsupported := false
-	if _, ok := l.strokeJoiner.(arcsJoiner); ok {
-		strokeUnsupported = true
-	} else if miter, ok := l.strokeJoiner.(miterJoiner); ok {
-		if math.IsNaN(miter.limit) {
-			strokeUnsupported = true
-		} else if _, ok := miter.gapJoiner.(bevelJoiner); !ok {
-			strokeUnsupported = true
-		}
-	}
-
-	// PDFs don't support connecting first and last dashes if path is closed, so we move the start of the path if this is the case
-	if l.dashesClose {
-		strokeUnsupported = true
-	}
-
-	closed := false
-	data := l.path.ToPDF()
-	if 1 < len(data) && data[len(data)-1] == 'h' {
-		data = data[:len(data)-2]
-		closed = true
-	}
-
-	if !stroke || !strokeUnsupported {
-		if fill && !stroke {
-			w.SetFillColor(l.fillColor)
-			w.Write([]byte(" "))
-			w.Write([]byte(data))
-			w.Write([]byte(" f"))
-			if l.fillRule == EvenOdd {
-				w.Write([]byte("*"))
-			}
-		} else if !fill && stroke {
-			w.SetStrokeColor(l.strokeColor)
-			w.SetLineWidth(l.strokeWidth)
-			w.SetLineCap(l.strokeCapper)
-			w.SetLineJoin(l.strokeJoiner)
-			w.SetDashes(l.dashOffset, l.dashes)
-			w.Write([]byte(" "))
-			w.Write([]byte(data))
-			if closed {
-				w.Write([]byte(" s"))
-			} else {
-				w.Write([]byte(" S"))
-			}
-			if l.fillRule == EvenOdd {
-				w.Write([]byte("*"))
-			}
-		} else if fill && stroke {
-			if !differentAlpha {
-				w.SetFillColor(l.fillColor)
-				w.SetStrokeColor(l.strokeColor)
-				w.SetLineWidth(l.strokeWidth)
-				w.SetLineCap(l.strokeCapper)
-				w.SetLineJoin(l.strokeJoiner)
-				w.SetDashes(l.dashOffset, l.dashes)
-				w.Write([]byte(" "))
-				w.Write([]byte(data))
-				if closed {
-					w.Write([]byte(" b"))
-				} else {
-					w.Write([]byte(" B"))
-				}
-				if l.fillRule == EvenOdd {
-					w.Write([]byte("*"))
-				}
-			} else {
-				w.SetFillColor(l.fillColor)
-				w.Write([]byte(" "))
-				w.Write([]byte(data))
-				w.Write([]byte(" f"))
-				if l.fillRule == EvenOdd {
-					w.Write([]byte("*"))
-				}
-
-				w.SetStrokeColor(l.strokeColor)
-				w.SetLineWidth(l.strokeWidth)
-				w.SetLineCap(l.strokeCapper)
-				w.SetLineJoin(l.strokeJoiner)
-				w.SetDashes(l.dashOffset, l.dashes)
-				w.Write([]byte(" "))
-				w.Write([]byte(data))
-				if closed {
-					w.Write([]byte(" s"))
-				} else {
-					w.Write([]byte(" S"))
-				}
-				if l.fillRule == EvenOdd {
-					w.Write([]byte("*"))
-				}
-			}
-		}
-	} else {
-		// stroke && strokeUnsupported
-		if fill {
-			w.SetFillColor(l.fillColor)
-			w.Write([]byte(" "))
-			w.Write([]byte(data))
-			w.Write([]byte(" f"))
-			if l.fillRule == EvenOdd {
-				w.Write([]byte("*"))
-			}
-		}
-
-		// stroke settings unsupported by PDF, draw stroke explicitly
-		strokePath := l.path
-		if 0 < len(l.dashes) {
-			strokePath = strokePath.Dash(l.dashOffset, l.dashes...)
-		}
-		strokePath = strokePath.Stroke(l.strokeWidth, l.strokeCapper, l.strokeJoiner)
-
-		w.SetFillColor(l.strokeColor)
-		w.Write([]byte(" "))
-		w.Write([]byte(strokePath.ToPDF()))
-		w.Write([]byte(" f"))
-		if l.fillRule == EvenOdd {
-			w.Write([]byte("*"))
-		}
-	}
-}
-
-func (l pathLayer) WriteEPS(w *epsWriter) {
-	// TODO: (EPS) test ellipse, rotations etc
-	// TODO: (EPS) add drawState support
-	w.SetColor(l.fillColor)
-	w.Write([]byte(" "))
-	w.Write([]byte(l.path.ToPS()))
-	w.Write([]byte(" fill"))
-}
-
-func (l pathLayer) WriteImage(img *image.RGBA, dpm float64) {
-	// TODO: use fill rule (EvenOdd, NonZero) for rasterizer
-	w, h := img.Bounds().Size().X, img.Bounds().Size().Y
-	if l.fillColor.A != 0 {
-		ras := vector.NewRasterizer(w, h)
-		l.path.ToRasterizer(ras, dpm)
-		size := ras.Size()
-		ras.Draw(img, image.Rect(0, 0, size.X, size.Y), image.NewUniform(l.fillColor), image.Point{})
-	}
-	if l.strokeColor.A != 0 && 0.0 < l.strokeWidth {
-		strokePath := l.path
-		if 0 < len(l.dashes) {
-			strokePath = strokePath.Dash(l.dashOffset, l.dashes...)
-		}
-		strokePath = strokePath.Stroke(l.strokeWidth, l.strokeCapper, l.strokeJoiner)
-
-		ras := vector.NewRasterizer(w, h)
-		strokePath.ToRasterizer(ras, dpm)
-		size := ras.Size()
-		ras.Draw(img, image.Rect(0, 0, size.X, size.Y), image.NewUniform(l.strokeColor), image.Point{})
-	}
-}
-
-////////////////////////////////////////////////////////////////
-
-type textLayer struct {
-	text *Text
-	m    Matrix
-}
-
-func (l textLayer) Bounds() Rect {
-	return l.text.Bounds().Transform(l.m)
-}
-
-func (l textLayer) WriteSVG(w *svgWriter) {
-	fonts := []*Font{}
-	for font := range l.text.fonts {
-		fonts = append(fonts, font)
-	}
-	w.EmbedFonts(fonts)
-	l.text.WriteSVG(w, l.m)
-}
-
-func (l textLayer) WritePDF(w *pdfPageWriter) {
-	l.text.WritePDF(w, l.m)
-}
-
-func (l textLayer) WriteEPS(w *epsWriter) {
-	// TODO: (EPS) write text natively
-	paths, colors := l.text.ToPaths()
-	for i, path := range paths {
-		state := defaultDrawState
-		state.fillColor = colors[i]
-		pathLayer{path.Transform(l.m), state, false}.WriteEPS(w)
-	}
-}
-
-func (l textLayer) WriteImage(img *image.RGBA, dpm float64) {
-	paths, colors := l.text.ToPaths()
-	for i, path := range paths {
-		state := defaultDrawState
-		state.fillColor = colors[i]
-		pathLayer{path.Transform(l.m), state, false}.WriteImage(img, dpm)
-	}
-}
-
-////////////////////////////////////////////////////////////////
-
-type imageLayer struct {
-	img image.Image
-	enc ImageEncoding
-	m   Matrix
-}
-
-func (l imageLayer) Bounds() Rect {
-	size := l.img.Bounds().Size()
-	return Rect{0.0, 0.0, float64(size.X), float64(size.Y)}.Transform(l.m)
-}
-
-func (l imageLayer) WriteSVG(w *svgWriter) {
-	w.DrawImage(l.img, l.enc, l.m)
-}
-
-func (l imageLayer) WritePDF(w *pdfPageWriter) {
-	w.DrawImage(l.img, l.enc, l.m)
-}
-
-func (l imageLayer) WriteEPS(w *epsWriter) {
-	// TODO: (EPS) write image
-}
-
-func (l imageLayer) WriteImage(img *image.RGBA, dpm float64) {
-	m := l.m.Scale(dpm, dpm)
-	h := float64(img.Bounds().Size().Y)
-	origin := l.m.Dot(Point{0, float64(l.img.Bounds().Size().Y)})
-	aff3 := f64.Aff3{m[0][0], -m[0][1], origin.X * dpm, -m[1][0], m[1][1], h - origin.Y*dpm}
-	draw.CatmullRom.Transform(img, aff3, l.img, l.img.Bounds(), draw.Over, nil)
 }

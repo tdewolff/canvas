@@ -704,3 +704,177 @@ func (w *pdfPageWriter) getOpacityGS(a float64) pdfName {
 	}
 	return name
 }
+
+func (l pathLayer) WritePDF(w *pdfPageWriter) {
+	fill := l.fillColor.A != 0
+	stroke := l.strokeColor.A != 0 && 0.0 < l.strokeWidth
+	differentAlpha := fill && stroke && l.fillColor.A != l.strokeColor.A
+
+	// PDFs don't support the arcs joiner, miter joiner (not clipped), or miter joiner (clipped) with non-bevel fallback
+	strokeUnsupported := false
+	if _, ok := l.strokeJoiner.(arcsJoiner); ok {
+		strokeUnsupported = true
+	} else if miter, ok := l.strokeJoiner.(miterJoiner); ok {
+		if math.IsNaN(miter.limit) {
+			strokeUnsupported = true
+		} else if _, ok := miter.gapJoiner.(bevelJoiner); !ok {
+			strokeUnsupported = true
+		}
+	}
+
+	// PDFs don't support connecting first and last dashes if path is closed, so we move the start of the path if this is the case
+	if l.dashesClose {
+		strokeUnsupported = true
+	}
+
+	closed := false
+	data := l.path.ToPDF()
+	if 1 < len(data) && data[len(data)-1] == 'h' {
+		data = data[:len(data)-2]
+		closed = true
+	}
+
+	if !stroke || !strokeUnsupported {
+		if fill && !stroke {
+			w.SetFillColor(l.fillColor)
+			w.Write([]byte(" "))
+			w.Write([]byte(data))
+			w.Write([]byte(" f"))
+			if l.fillRule == EvenOdd {
+				w.Write([]byte("*"))
+			}
+		} else if !fill && stroke {
+			w.SetStrokeColor(l.strokeColor)
+			w.SetLineWidth(l.strokeWidth)
+			w.SetLineCap(l.strokeCapper)
+			w.SetLineJoin(l.strokeJoiner)
+			w.SetDashes(l.dashOffset, l.dashes)
+			w.Write([]byte(" "))
+			w.Write([]byte(data))
+			if closed {
+				w.Write([]byte(" s"))
+			} else {
+				w.Write([]byte(" S"))
+			}
+			if l.fillRule == EvenOdd {
+				w.Write([]byte("*"))
+			}
+		} else if fill && stroke {
+			if !differentAlpha {
+				w.SetFillColor(l.fillColor)
+				w.SetStrokeColor(l.strokeColor)
+				w.SetLineWidth(l.strokeWidth)
+				w.SetLineCap(l.strokeCapper)
+				w.SetLineJoin(l.strokeJoiner)
+				w.SetDashes(l.dashOffset, l.dashes)
+				w.Write([]byte(" "))
+				w.Write([]byte(data))
+				if closed {
+					w.Write([]byte(" b"))
+				} else {
+					w.Write([]byte(" B"))
+				}
+				if l.fillRule == EvenOdd {
+					w.Write([]byte("*"))
+				}
+			} else {
+				w.SetFillColor(l.fillColor)
+				w.Write([]byte(" "))
+				w.Write([]byte(data))
+				w.Write([]byte(" f"))
+				if l.fillRule == EvenOdd {
+					w.Write([]byte("*"))
+				}
+
+				w.SetStrokeColor(l.strokeColor)
+				w.SetLineWidth(l.strokeWidth)
+				w.SetLineCap(l.strokeCapper)
+				w.SetLineJoin(l.strokeJoiner)
+				w.SetDashes(l.dashOffset, l.dashes)
+				w.Write([]byte(" "))
+				w.Write([]byte(data))
+				if closed {
+					w.Write([]byte(" s"))
+				} else {
+					w.Write([]byte(" S"))
+				}
+				if l.fillRule == EvenOdd {
+					w.Write([]byte("*"))
+				}
+			}
+		}
+	} else {
+		// stroke && strokeUnsupported
+		if fill {
+			w.SetFillColor(l.fillColor)
+			w.Write([]byte(" "))
+			w.Write([]byte(data))
+			w.Write([]byte(" f"))
+			if l.fillRule == EvenOdd {
+				w.Write([]byte("*"))
+			}
+		}
+
+		// stroke settings unsupported by PDF, draw stroke explicitly
+		strokePath := l.path
+		if 0 < len(l.dashes) {
+			strokePath = strokePath.Dash(l.dashOffset, l.dashes...)
+		}
+		strokePath = strokePath.Stroke(l.strokeWidth, l.strokeCapper, l.strokeJoiner)
+
+		w.SetFillColor(l.strokeColor)
+		w.Write([]byte(" "))
+		w.Write([]byte(strokePath.ToPDF()))
+		w.Write([]byte(" f"))
+		if l.fillRule == EvenOdd {
+			w.Write([]byte("*"))
+		}
+	}
+}
+
+func (l textLayer) WritePDF(w *pdfPageWriter) {
+	fmt.Fprintf(w, ` BT`)
+	decorations := []pathLayer{}
+	for _, line := range l.text.lines {
+		for _, span := range line.spans {
+			w.SetFillColor(span.ff.color)
+			w.SetFont(span.ff.font, span.ff.size*span.ff.scale)
+			w.SetTextPosition(l.m.Translate(span.dx, line.y).Shear(span.ff.fauxItalic, 0.0))
+			w.SetTextCharSpace(span.glyphSpacing)
+
+			if 0.0 < span.ff.fauxBold {
+				w.SetTextRenderMode(2)
+				fmt.Fprintf(w, " %v w", dec(span.ff.fauxBold*2.0))
+			} else {
+				w.SetTextRenderMode(0)
+			}
+
+			i := 0
+			TJ := []interface{}{}
+			for _, boundary := range span.boundaries {
+				if boundary.kind == wordBoundary || boundary.kind == eofBoundary {
+					j := boundary.pos + boundary.size
+					TJ = append(TJ, span.text[i:j])
+					if boundary.kind == wordBoundary {
+						TJ = append(TJ, span.wordSpacing)
+					}
+					i = j
+				}
+			}
+			w.WriteText(TJ...)
+		}
+		for _, deco := range line.decos {
+			p := deco.ff.Decorate(deco.x1 - deco.x0)
+			p = p.Transform(Identity.Mul(l.m).Translate(deco.x0, line.y+deco.ff.voffset))
+			decorations = append(decorations, pathLayer{p, drawState{fillColor: deco.ff.color}, false})
+		}
+	}
+	fmt.Fprintf(w, ` ET`)
+	for _, l := range decorations {
+		l.WritePDF(w)
+	}
+}
+
+func (l imageLayer) WritePDF(w *pdfPageWriter) {
+	w.DrawImage(l.img, l.enc, l.m)
+}

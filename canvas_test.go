@@ -38,8 +38,8 @@ func TestCanvas(t *testing.T) {
 	c.DrawImage(50.0, 50.0, img, Lossless, 0.1) // 20x20 => -20x40
 
 	c.Fit(6.0)
-	test.Float(t, c.W, 50-(2.5-0.5)+12) // img upper bound - (path lower bound - path half stroke width) + margin
-	test.Float(t, c.H, 110-30+1.0+12)   // path bounds + path stroke width + margin
+	test.Float(t, c.width, 50-(2.5-0.5)+12) // img upper bound - (path lower bound - path half stroke width) + margin
+	test.Float(t, c.height, 110-30+1.0+12)  // path bounds + path stroke width + margin
 
 	buf := &bytes.Buffer{}
 	c.WriteSVG(buf)

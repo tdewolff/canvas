@@ -1,11 +1,9 @@
 package canvas
 
 import (
-	"bytes"
-	"fmt"
 	"image/color"
 	"math"
-	"strings"
+	"sort"
 	"unicode"
 	"unicode/utf8"
 )
@@ -451,6 +449,23 @@ func (t *Text) Bounds() Rect {
 	return r
 }
 
+// Fonts returns list of fonts used.
+func (t *Text) Fonts() []*Font {
+	fonts := []*Font{}
+	fontNames := []string{}
+	fontMap := map[string]*Font{}
+	for font := range t.fonts {
+		name := font.Name()
+		fontNames = append(fontNames, name)
+		fontMap[name] = font
+	}
+	sort.Strings(fontNames)
+	for _, name := range fontNames {
+		fonts = append(fonts, fontMap[name])
+	}
+	return fonts
+}
+
 func (t *Text) mostCommonFontFace() FontFace {
 	families := map[*FontFamily]int{}
 	sizes := map[float64]int{}
@@ -518,169 +533,6 @@ func (t *Text) ToPaths() ([]*Path, []color.RGBA) {
 		}
 	}
 	return paths, colors
-}
-
-func (t *Text) writeSVGFontStyle(w *svgWriter, ff, ffMain FontFace) {
-	boldness := ff.boldness()
-	differences := 0
-	if ff.style&FontItalic != ffMain.style&FontItalic {
-		differences++
-	}
-	if boldness != ffMain.boldness() {
-		differences++
-	}
-	if ff.variant&FontSmallcaps != ffMain.variant&FontSmallcaps {
-		differences++
-	}
-	if ff.color != ffMain.color {
-		differences++
-	}
-	if ff.font.name != ffMain.font.name || ff.size*ff.scale != ffMain.size || differences == 3 {
-		fmt.Fprintf(w, `" style="font:`)
-
-		buf := &bytes.Buffer{}
-		if ff.style&FontItalic != ffMain.style&FontItalic {
-			fmt.Fprintf(buf, ` italic`)
-		}
-
-		if boldness != ffMain.boldness() {
-			fmt.Fprintf(buf, ` %d`, boldness)
-		}
-
-		if ff.variant&FontSmallcaps != ffMain.variant&FontSmallcaps {
-			fmt.Fprintf(buf, ` small-caps`)
-		}
-
-		fmt.Fprintf(buf, ` %vpx %s`, num(ff.size*ff.scale), ff.font.name)
-		buf.ReadByte()
-		buf.WriteTo(w)
-
-		if ff.color != ffMain.color {
-			fmt.Fprintf(w, `;fill:%v`, cssColor(ff.color))
-		}
-	} else if differences == 1 && ff.color != ffMain.color {
-		fmt.Fprintf(w, `" fill="%v`, cssColor(ff.color))
-	} else if 0 < differences {
-		fmt.Fprintf(w, `" style="`)
-		buf := &bytes.Buffer{}
-		if ff.style&FontItalic != ffMain.style&FontItalic {
-			fmt.Fprintf(buf, `;font-style:italic`)
-		}
-		if boldness != ffMain.boldness() {
-			fmt.Fprintf(buf, `;font-weight:%d`, boldness)
-		}
-		if ff.variant&FontSmallcaps != ffMain.variant&FontSmallcaps {
-			fmt.Fprintf(buf, `;font-variant:small-caps`)
-		}
-		if ff.color != ffMain.color {
-			fmt.Fprintf(buf, `;fill:%v`, cssColor(ff.color))
-		}
-		buf.ReadByte()
-		buf.WriteTo(w)
-	}
-}
-
-// WriteSVG will write out the text in the SVG file format.
-func (t *Text) WriteSVG(w *svgWriter, m Matrix) {
-	if len(t.lines) == 0 || len(t.lines[0].spans) == 0 {
-		return
-	}
-
-	ffMain := t.mostCommonFontFace()
-
-	x0, y0 := 0.0, 0.0
-	if m.IsTranslation() {
-		x0, y0 = m.Pos()
-		y0 = w.height - y0
-		fmt.Fprintf(w, `<text x="%v" y="%v`, num(x0), num(y0))
-	} else {
-		fmt.Fprintf(w, `<text transform="%s`, m.ToSVG(w.height))
-	}
-	fmt.Fprintf(w, `" style="font:`)
-	if ffMain.style&FontItalic != 0 {
-		fmt.Fprintf(w, ` italic`)
-	}
-	if boldness := ffMain.boldness(); boldness != 400 {
-		fmt.Fprintf(w, ` %d`, boldness)
-	}
-	if ffMain.variant&FontSmallcaps != 0 {
-		fmt.Fprintf(w, ` small-caps`)
-	}
-	fmt.Fprintf(w, ` %vpx %s`, num(ffMain.size*ffMain.scale), ffMain.font.name)
-	if ffMain.color != Black {
-		fmt.Fprintf(w, `;fill:%v`, cssColor(ffMain.color))
-	}
-	fmt.Fprintf(w, `">`)
-
-	decorations := []pathLayer{}
-	for _, line := range t.lines {
-		for _, span := range line.spans {
-			fmt.Fprintf(w, `<tspan x="%v" y="%v`, num(x0+span.dx), num(y0-line.y-span.ff.voffset))
-			if span.wordSpacing > 0.0 {
-				fmt.Fprintf(w, `" word-spacing="%v`, num(span.wordSpacing))
-			}
-			if span.glyphSpacing > 0.0 {
-				fmt.Fprintf(w, `" letter-spacing="%v`, num(span.glyphSpacing))
-			}
-			t.writeSVGFontStyle(w, span.ff, ffMain)
-			s := span.text
-			s = strings.ReplaceAll(s, `"`, `&quot;`)
-			fmt.Fprintf(w, `">%s</tspan>`, s)
-		}
-		for _, deco := range line.decos {
-			p := deco.ff.Decorate(deco.x1 - deco.x0)
-			p = p.Transform(Identity.Mul(m).Translate(deco.x0, line.y+deco.ff.voffset))
-			decorations = append(decorations, pathLayer{p, drawState{fillColor: deco.ff.color}, false})
-		}
-	}
-	fmt.Fprintf(w, `</text>`)
-	for _, l := range decorations {
-		l.WriteSVG(w)
-	}
-}
-
-// WritePDF will write out the text in the PDF file format.
-func (t *Text) WritePDF(w *pdfPageWriter, m Matrix) {
-	fmt.Fprintf(w, ` BT`)
-	decorations := []pathLayer{}
-	for _, line := range t.lines {
-		for _, span := range line.spans {
-			w.SetFillColor(span.ff.color)
-			w.SetFont(span.ff.font, span.ff.size*span.ff.scale)
-			w.SetTextPosition(m.Translate(span.dx, line.y).Shear(span.ff.fauxItalic, 0.0))
-			w.SetTextCharSpace(span.glyphSpacing)
-
-			if 0.0 < span.ff.fauxBold {
-				w.SetTextRenderMode(2)
-				fmt.Fprintf(w, " %v w", dec(span.ff.fauxBold*2.0))
-			} else {
-				w.SetTextRenderMode(0)
-			}
-
-			i := 0
-			TJ := []interface{}{}
-			for _, boundary := range span.boundaries {
-				if boundary.kind == wordBoundary || boundary.kind == eofBoundary {
-					j := boundary.pos + boundary.size
-					TJ = append(TJ, span.text[i:j])
-					if boundary.kind == wordBoundary {
-						TJ = append(TJ, span.wordSpacing)
-					}
-					i = j
-				}
-			}
-			w.WriteText(TJ...)
-		}
-		for _, deco := range line.decos {
-			p := deco.ff.Decorate(deco.x1 - deco.x0)
-			p = p.Transform(Identity.Mul(m).Translate(deco.x0, line.y+deco.ff.voffset))
-			decorations = append(decorations, pathLayer{p, drawState{fillColor: deco.ff.color}, false})
-		}
-	}
-	fmt.Fprintf(w, ` ET`)
-	for _, l := range decorations {
-		l.WritePDF(w)
-	}
 }
 
 ////////////////////////////////////////////////////////////////
