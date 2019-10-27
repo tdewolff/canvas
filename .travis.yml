@@ -5,6 +5,8 @@ env:
   - GO111MODULE=on
 before_install:
   - go get github.com/mattn/goveralls
+  - sudo apt-get update
+  - sudo apt-get install -qq libgl1-mesa-dev xorg-dev
 script:
   - go test -covermode=count -coverprofile=profile.cov .
   - goveralls -coverprofile=profile.cov -service=travis-ci
