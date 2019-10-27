@@ -64,6 +64,7 @@ type layer interface {
 	WritePDF(*pdfPageWriter)
 	WriteEPS(*epsWriter)
 	DrawImage(draw.Image, float64)
+	ToOpenGL(*OpenGL)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -347,4 +348,13 @@ func (c *Canvas) WriteImage(dpm float64) *image.RGBA {
 		l.DrawImage(img, dpm)
 	}
 	return img
+}
+
+// WriteImage writes the stored drawing operations in Canvas as a rasterized image with given DPM (dots-per-millimeter). Higher DPM will result in bigger images.
+func (c *Canvas) ToOpenGL() *OpenGL {
+	ogl := newOpenGL()
+	for _, l := range c.layers {
+		l.ToOpenGL(ogl)
+	}
+	return ogl
 }

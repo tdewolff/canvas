@@ -216,6 +216,7 @@ func ellipseToBeziers(start Point, rx, ry, phi float64, large, sweep bool, end P
 		dtheta = -dtheta
 	}
 
+	// TODO: use algorithm that uses Tolerance (i.e. more intelligent algorithm)
 	p.MoveTo(start.X, start.Y)
 	startDeriv := ellipseDeriv(rx, ry, phi, sweep, theta0)
 	for i := 1; i < n+1; i++ {
@@ -233,6 +234,7 @@ func ellipseToBeziers(start Point, rx, ry, phi float64, large, sweep bool, end P
 }
 
 func flattenEllipse(start Point, rx, ry, phi float64, large, sweep bool, end Point) *Path {
+	// TODO: (flatten ellipse) use direct algorithm
 	return ellipseToBeziers(start, rx, ry, phi, large, sweep, end).Flatten()
 }
 
@@ -240,10 +242,45 @@ func flattenEllipse(start Point, rx, ry, phi float64, large, sweep bool, end Poi
 // Béziers /////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
 
-func quadraticToCubicBezier(start, c, end Point) (Point, Point) {
-	c1 := start.Interpolate(c, 2.0/3.0)
-	c2 := end.Interpolate(c, 2.0/3.0)
+func quadraticToCubicBezier(p0, p1, p2 Point) (Point, Point) {
+	c1 := p0.Interpolate(p1, 2.0/3.0)
+	c2 := p2.Interpolate(p1, 2.0/3.0)
 	return c1, c2
+}
+
+// see http://www.caffeineowl.com/graphics/2d/vectorial/cubic2quad01.html
+func cubicToQuadraticBeziers(p0, p1, p2, p3 Point) [][3]Point {
+	quads := [][3]Point{}
+	end_quads := [][3]Point{}
+	for {
+		// dist = sqrt(3)/36 * ||p3 - 3*p2 + 3*p1 - p0||
+		dist := math.Sqrt(3.0) / 36.0 * p3.Sub(p2.Mul(3.0)).Add(p1.Mul(3.0)).Sub(p0).Length()
+		t := math.Cbrt(Tolerance / dist)
+
+		// cp = (3*p2 - p3 + 3*p1 - p0) / 4
+		if t >= 1.0 {
+			// approximate by one quadratic bezier
+			pcp := p2.Mul(3.0).Sub(p3).Add(p1.Mul(3.0)).Sub(p0).Div(4.0)
+			quads = append(quads, [3]Point{p0, pcp, p3})
+			break
+		} else if t >= 0.5 {
+			// approximate by two quadratic beziers
+			r0, r1, r2, r3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, 0.5)
+			rcp := r2.Mul(3.0).Sub(r3).Add(r1.Mul(3.0)).Sub(r0).Div(4.0)
+			qcp := q2.Mul(3.0).Sub(q3).Add(q1.Mul(3.0)).Sub(q0).Div(4.0)
+			quads = append(quads, [3]Point{r0, rcp, r3}, [3]Point{q0, qcp, q3})
+			break
+		} else {
+			// approximate start and end by two quadratic beziers, and reevaluate the middle part
+			r0, r1, r2, r3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, 1-t)
+			r0, r1, r2, r3, p0, p1, p2, p3 = splitCubicBezier(r0, r1, r2, r3, t/(1-t))
+			rcp := r2.Mul(3.0).Sub(r3).Add(r1.Mul(3.0)).Sub(r0).Div(4.0)
+			qcp := q2.Mul(3.0).Sub(q3).Add(q1.Mul(3.0)).Sub(q0).Div(4.0)
+			quads = append(quads, [3]Point{r0, rcp, r3})
+			end_quads = append([][3]Point{{q0, qcp, q3}}, end_quads...)
+		}
+	}
+	return append(quads, end_quads...)
 }
 
 func quadraticBezierPos(p0, p1, p2 Point, t float64) Point {
