@@ -5,7 +5,7 @@ import (
 )
 
 func (P *Path) Tessellate() ([][3]Point, [][3]Point) {
-	P = P.replace(nil, nil, ellipseToBeziers)
+	P = P.replace(nil, nil, nil, arcToQuad)
 
 	simpleTriangles := [][3]Point{}
 	quadTriangles := [][3]Point{}

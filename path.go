@@ -387,20 +387,20 @@ func (p *Path) simplifyToCoords() []Point {
 				p0 := Point{p.d[i-3], p.d[i-2]}
 				p1 := Point{p.d[i+1], p.d[i+2]}
 				p2 := Point{p.d[i+3], p.d[i+4]}
-				_, _, _, coord, _, _ := splitQuadraticBezier(p0, p1, p2, 0.5)
+				_, _, _, coord, _, _ := quadraticBezierSplit(p0, p1, p2, 0.5)
 				coords = append(coords, coord)
 			} else if cmd == cubeToCmd {
 				p0 := Point{p.d[i-3], p.d[i-2]}
 				p1 := Point{p.d[i+1], p.d[i+2]}
 				p2 := Point{p.d[i+3], p.d[i+4]}
 				p3 := Point{p.d[i+5], p.d[i+6]}
-				_, _, _, _, coord, _, _, _ := splitCubicBezier(p0, p1, p2, p3, 0.5)
+				_, _, _, _, coord, _, _, _ := cubicBezierSplit(p0, p1, p2, p3, 0.5)
 				coords = append(coords, coord)
 			} else if cmd == arcToCmd {
 				rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 				large, sweep := fromArcFlags(p.d[i+4])
 				cx, cy, theta0, theta1 := ellipseToCenter(p.d[i-3], p.d[i-2], rx, ry, phi, large, sweep, p.d[i+5], p.d[i+6])
-				coord, _, _, _ := splitEllipse(rx, ry, phi, cx, cy, theta0, theta1, (theta0+theta1)/2.0)
+				coord, _, _, _ := ellipseSplit(rx, ry, phi, cx, cy, theta0, theta1, (theta0+theta1)/2.0)
 				coords = append(coords, coord)
 			}
 			i += cmdLen(cmd)
@@ -725,7 +725,7 @@ func (p *Path) Translate(x, y float64) *Path {
 
 // Flatten flattens all Bézier and arc curves into linear segments and returns a new path. It uses Tolerance as the maximum deviation.
 func (p *Path) Flatten() *Path {
-	return p.replace(nil, flattenCubicBezier, flattenEllipse)
+	return p.replace(nil, flattenQuadraticBezier, flattenCubicBezier, flattenEllipticArc)
 }
 
 // replace replaces path segments by their respective functions, each returning the path that will replace the segment or nil if no replacement is to be performed.
@@ -733,7 +733,8 @@ func (p *Path) Flatten() *Path {
 // The replacing path will replace the path segment without any checks, you need to make sure the be moved so that its start point connects with the last end point of the base path before the replacement. If the end point of the replacing path is different that the end point of what is replaced, the path that follows will be displaced.
 func (p *Path) replace(
 	line func(Point, Point) *Path,
-	bezier func(Point, Point, Point, Point) *Path,
+	quad func(Point, Point, Point) *Path,
+	cube func(Point, Point, Point, Point) *Path,
 	arc func(Point, float64, float64, float64, bool, bool, Point) *Path,
 ) *Path {
 	p = p.Copy()
@@ -752,18 +753,17 @@ func (p *Path) replace(
 				}
 			}
 		case quadToCmd:
-			if bezier != nil {
+			if quad != nil {
 				cp := Point{p.d[i+1], p.d[i+2]}
 				end = Point{p.d[i+3], p.d[i+4]}
-				cp1, cp2 := quadraticToCubicBezier(start, cp, end)
-				q = bezier(start, cp1, cp2, end)
+				q = quad(start, cp, end)
 			}
 		case cubeToCmd:
-			if bezier != nil {
+			if cube != nil {
 				cp1 := Point{p.d[i+1], p.d[i+2]}
 				cp2 := Point{p.d[i+3], p.d[i+4]}
 				end = Point{p.d[i+5], p.d[i+6]}
-				q = bezier(start, cp1, cp2, end)
+				q = cube(start, cp1, cp2, end)
 			}
 		case arcToCmd:
 			if arc != nil {
@@ -967,7 +967,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 						t0 = t
 
 						var q1 Point
-						_, q1, _, r0, r1, r2 = splitQuadraticBezier(r0, r1, r2, tsub)
+						_, q1, _, r0, r1, r2 = quadraticBezierSplit(r0, r1, r2, tsub)
 
 						q.QuadTo(q1.X, q1.Y, r0.X, r0.Y)
 						push()
@@ -1002,7 +1002,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 						t0 = t
 
 						var q1, q2 Point
-						_, q1, q2, _, r0, r1, r2, r3 = splitCubicBezier(r0, r1, r2, r3, tsub)
+						_, q1, q2, _, r0, r1, r2, r3 = cubicBezierSplit(r0, r1, r2, r3, tsub)
 
 						q.CubeTo(q1.X, q1.Y, q2.X, q2.Y, r0.X, r0.Y)
 						push()
@@ -1032,7 +1032,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 					nextLarge := large
 					for j < len(ts) && T < ts[j] && ts[j] <= T+dT {
 						theta := invL(ts[j] - T)
-						mid, large1, large2, ok := splitEllipse(rx, ry, phi, cx, cy, startTheta, theta2, theta)
+						mid, large1, large2, ok := ellipseSplit(rx, ry, phi, cx, cy, startTheta, theta2, theta)
 						if !ok {
 							panic("theta not in elliptic arc range for splitting")
 						}
@@ -1617,7 +1617,7 @@ func (p *Path) ToPDF() string {
 	if p.Empty() {
 		return ""
 	}
-	p = p.replace(nil, nil, ellipseToBeziers)
+	p = p.replace(nil, nil, nil, arcToCube)
 
 	sb := strings.Builder{}
 	var x, y float64
@@ -1655,7 +1655,7 @@ func (p *Path) ToPDF() string {
 
 // ToRasterizer rasterizes the path using the given rasterizer with dpm the dots-per-millimeter.
 func (p *Path) ToRasterizer(ras *vector.Rasterizer, dpm float64) {
-	p = p.replace(nil, nil, ellipseToBeziers)
+	p = p.replace(nil, nil, nil, arcToCube)
 
 	dy := float64(ras.Bounds().Size().Y)
 	for i := 0; i < len(p.d); {

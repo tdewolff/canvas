@@ -186,8 +186,8 @@ func ellipseRadiiCorrection(start Point, rx, ry, phi float64, end Point) float64
 	return math.Sqrt(x1p*x1p/rx/rx + y1p*y1p/ry/ry)
 }
 
-// splitEllipse returns the new mid point, the two large parameters and the ok bool, the rest stays the same
-func splitEllipse(rx, ry, phi, cx, cy, theta0, theta1, theta float64) (Point, bool, bool, bool) {
+// ellipseSplit returns the new mid point, the two large parameters and the ok bool, the rest stays the same
+func ellipseSplit(rx, ry, phi, cx, cy, theta0, theta1, theta float64) (Point, bool, bool, bool) {
 	if !angleBetween(theta, theta0, theta1) {
 		return Point{}, false, false, false
 	}
@@ -202,10 +202,58 @@ func splitEllipse(rx, ry, phi, cx, cy, theta0, theta1, theta float64) (Point, bo
 	return mid, large0, large1, true
 }
 
+func arcToQuad(start Point, rx, ry, phi float64, large, sweep bool, end Point) *Path {
+	p := &Path{}
+	p.MoveTo(start.X, start.Y)
+	for _, bezier := range ellipseToQuadraticBeziers(start, rx, ry, phi, large, sweep, end) {
+		p.QuadTo(bezier[1].X, bezier[1].Y, bezier[2].X, bezier[2].Y)
+	}
+	return p
+}
+
+func arcToCube(start Point, rx, ry, phi float64, large, sweep bool, end Point) *Path {
+	p := &Path{}
+	p.MoveTo(start.X, start.Y)
+	for _, bezier := range ellipseToCubicBeziers(start, rx, ry, phi, large, sweep, end) {
+		p.CubeTo(bezier[1].X, bezier[1].Y, bezier[2].X, bezier[2].Y, bezier[3].X, bezier[3].Y)
+	}
+	return p
+}
+
 // see Drawing and elliptical arc using polylines, quadratic or cubic Bézier curves (2003), L. Maisonobe,
 // https://spaceroots.org/documents/ellipse/elliptical-arc.pdf
-func ellipseToBeziers(start Point, rx, ry, phi float64, large, sweep bool, end Point) *Path {
-	p := &Path{}
+// TODO: see S.H. Kim and Y.J. Ahn, An approximation of circular arcs by quartic Bezier curves, Computer-Aided Design 39 (2007, p. 490--493)
+func ellipseToQuadraticBeziers(start Point, rx, ry, phi float64, large, sweep bool, end Point) [][3]Point {
+	cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
+
+	dtheta := math.Pi / 2.0
+	n := int(math.Ceil(math.Abs(theta1-theta0) / dtheta))
+	dtheta = math.Abs(theta1-theta0) / float64(n) // evenly spread the n points, dalpha will get smaller
+	kappa := math.Tan(dtheta / 2.0)
+	if !sweep {
+		dtheta = -dtheta
+	}
+
+	beziers := [][3]Point{}
+	startDeriv := ellipseDeriv(rx, ry, phi, sweep, theta0)
+	for i := 1; i < n+1; i++ {
+		theta := theta0 + float64(i)*dtheta
+		end := ellipsePos(rx, ry, phi, cx, cy, theta)
+		endDeriv := ellipseDeriv(rx, ry, phi, sweep, theta)
+
+		cp := start.Add(startDeriv.Mul(kappa))
+		beziers = append(beziers, [3]Point{start, cp, end})
+
+		startDeriv = endDeriv
+		start = end
+	}
+	return beziers
+}
+
+// see Drawing and elliptical arc using polylines, quadratic or cubic Bézier curves (2003), L. Maisonobe,
+// https://spaceroots.org/documents/ellipse/elliptical-arc.pdf
+// TODO: see M. Goldapp, Approximation of circular arcs by cubic polynomials, Computer Aided Geometric Design 8 (1991), p. 227--238
+func ellipseToCubicBeziers(start Point, rx, ry, phi float64, large, sweep bool, end Point) [][4]Point {
 	cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
 
 	dtheta := math.Pi / 2.0
@@ -216,8 +264,7 @@ func ellipseToBeziers(start Point, rx, ry, phi float64, large, sweep bool, end P
 		dtheta = -dtheta
 	}
 
-	// TODO: use algorithm that uses Tolerance (i.e. more intelligent algorithm)
-	p.MoveTo(start.X, start.Y)
+	beziers := [][4]Point{}
 	startDeriv := ellipseDeriv(rx, ry, phi, sweep, theta0)
 	for i := 1; i < n+1; i++ {
 		theta := theta0 + float64(i)*dtheta
@@ -226,16 +273,17 @@ func ellipseToBeziers(start Point, rx, ry, phi float64, large, sweep bool, end P
 
 		cp1 := start.Add(startDeriv.Mul(kappa))
 		cp2 := end.Sub(endDeriv.Mul(kappa))
-		p.CubeTo(cp1.X, cp1.Y, cp2.X, cp2.Y, end.X, end.Y)
+		beziers = append(beziers, [4]Point{start, cp1, cp2, end})
+
 		startDeriv = endDeriv
 		start = end
 	}
-	return p
+	return beziers
 }
 
-func flattenEllipse(start Point, rx, ry, phi float64, large, sweep bool, end Point) *Path {
+func flattenEllipticArc(start Point, rx, ry, phi float64, large, sweep bool, end Point) *Path {
 	// TODO: (flatten ellipse) use direct algorithm
-	return ellipseToBeziers(start, rx, ry, phi, large, sweep, end).Flatten()
+	return arcToCube(start, rx, ry, phi, large, sweep, end).Flatten()
 }
 
 ////////////////////////////////////////////////////////////////
@@ -250,6 +298,7 @@ func quadraticToCubicBezier(p0, p1, p2 Point) (Point, Point) {
 
 // see http://www.caffeineowl.com/graphics/2d/vectorial/cubic2quad01.html
 func cubicToQuadraticBeziers(p0, p1, p2, p3 Point) [][3]Point {
+	// TODO: misses theoretic background for optimal number of quads
 	quads := [][3]Point{}
 	end_quads := [][3]Point{}
 	for {
@@ -265,15 +314,15 @@ func cubicToQuadraticBeziers(p0, p1, p2, p3 Point) [][3]Point {
 			break
 		} else if t >= 0.5 {
 			// approximate by two quadratic beziers
-			r0, r1, r2, r3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, 0.5)
+			r0, r1, r2, r3, q0, q1, q2, q3 := cubicBezierSplit(p0, p1, p2, p3, 0.5)
 			rcp := r2.Mul(3.0).Sub(r3).Add(r1.Mul(3.0)).Sub(r0).Div(4.0)
 			qcp := q2.Mul(3.0).Sub(q3).Add(q1.Mul(3.0)).Sub(q0).Div(4.0)
 			quads = append(quads, [3]Point{r0, rcp, r3}, [3]Point{q0, qcp, q3})
 			break
 		} else {
 			// approximate start and end by two quadratic beziers, and reevaluate the middle part
-			r0, r1, r2, r3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, 1-t)
-			r0, r1, r2, r3, p0, p1, p2, p3 = splitCubicBezier(r0, r1, r2, r3, t/(1-t))
+			r0, r1, r2, r3, q0, q1, q2, q3 := cubicBezierSplit(p0, p1, p2, p3, 1-t)
+			r0, r1, r2, r3, p0, p1, p2, p3 = cubicBezierSplit(r0, r1, r2, r3, t/(1-t))
 			rcp := r2.Mul(3.0).Sub(r3).Add(r1.Mul(3.0)).Sub(r0).Div(4.0)
 			qcp := q2.Mul(3.0).Sub(q3).Add(q1.Mul(3.0)).Sub(q0).Div(4.0)
 			quads = append(quads, [3]Point{r0, rcp, r3})
@@ -317,7 +366,7 @@ func quadraticBezierLength(p0, p1, p2 Point) float64 {
 	return (A32*Sabc + A2*B*(Sabc-C2) + (4.0*C*A-B*B)*math.Log((2.0*A2+BA+Sabc)/(BA+C2))) / (4.0 * A32)
 }
 
-func splitQuadraticBezier(p0, p1, p2 Point, t float64) (Point, Point, Point, Point, Point, Point) {
+func quadraticBezierSplit(p0, p1, p2 Point, t float64) (Point, Point, Point, Point, Point, Point) {
 	q0 := p0
 	q1 := p0.Interpolate(p1, t)
 
@@ -400,14 +449,14 @@ func cubicBezierLength(p0, p1, p2, p3 Point) float64 {
 	t1, t2 := findInflectionPointsCubicBezier(p0, p1, p2, p3)
 	var beziers [][4]Point
 	if t1 > 0.0 && t1 < 1.0 && t2 > 0.0 && t2 < 1.0 {
-		p0, p1, p2, p3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1)
+		p0, p1, p2, p3, q0, q1, q2, q3 := cubicBezierSplit(p0, p1, p2, p3, t1)
 		t2 = (t2 - t1) / (1.0 - t1)
-		q0, q1, q2, q3, r0, r1, r2, r3 := splitCubicBezier(q0, q1, q2, q3, t2)
+		q0, q1, q2, q3, r0, r1, r2, r3 := cubicBezierSplit(q0, q1, q2, q3, t2)
 		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
 		beziers = append(beziers, [4]Point{q0, q1, q2, q3})
 		beziers = append(beziers, [4]Point{r0, r1, r2, r3})
 	} else if t1 > 0.0 && t1 < 1.0 {
-		p0, p1, p2, p3, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1)
+		p0, p1, p2, p3, q0, q1, q2, q3 := cubicBezierSplit(p0, p1, p2, p3, t1)
 		beziers = append(beziers, [4]Point{p0, p1, p2, p3})
 		beziers = append(beziers, [4]Point{q0, q1, q2, q3})
 	} else {
@@ -434,7 +483,7 @@ func cubicBezierNumInflections(p0, p1, p2, p3 Point) int {
 	return 0
 }
 
-func splitCubicBezier(p0, p1, p2, p3 Point, t float64) (Point, Point, Point, Point, Point, Point, Point, Point) {
+func cubicBezierSplit(p0, p1, p2, p3 Point, t float64) (Point, Point, Point, Point, Point, Point, Point, Point) {
 	pm := p1.Interpolate(p2, t)
 
 	q0 := p0
@@ -495,7 +544,7 @@ func flattenSmoothCubicBezier(p *Path, p0, p1, p2, p3 Point, d, flatness float64
 		if t >= 1.0 {
 			break
 		}
-		_, _, _, _, p0, p1, p2, p3 = splitCubicBezier(p0, p1, p2, p3, t)
+		_, _, _, _, p0, p1, p2, p3 = cubicBezierSplit(p0, p1, p2, p3, t)
 		addCubicBezierLine(p, p0, p1, p2, p3, 0.0, d)
 	}
 	addCubicBezierLine(p, p0, p1, p2, p3, 1.0, d)
@@ -541,7 +590,7 @@ func findInflectionPointRangeCubicBezier(p0, p1, p2, p3 Point, t, flatness float
 	// at inflection points however, s2 = 0, so that s(t) = s3*t^3
 
 	if !equal(t, 0.0) {
-		_, _, _, _, p0, p1, p2, p3 = splitCubicBezier(p0, p1, p2, p3, t)
+		_, _, _, _, p0, p1, p2, p3 = cubicBezierSplit(p0, p1, p2, p3, t)
 	}
 	nr := p1.Sub(p0)
 	ns := p3.Sub(p0)
@@ -564,6 +613,11 @@ func findInflectionPointRangeCubicBezier(p0, p1, p2, p3 Point, t, flatness float
 
 	tf := math.Cbrt(flatness / s3)
 	return t - tf*(1.0-t), t + tf*(1.0-t)
+}
+
+func flattenQuadraticBezier(p0, p1, p2 Point) *Path {
+	cp1, cp2 := quadraticToCubicBezier(p0, p1, p2)
+	return strokeCubicBezier(p0, cp1, cp2, p2, 0.0, Tolerance)
 }
 
 func flattenCubicBezier(p0, p1, p2, p3 Point) *Path {
@@ -603,13 +657,13 @@ func strokeCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 
 	if 0.0 < t1min {
 		// Flatten up to t1min
-		q0, q1, q2, q3, _, _, _, _ := splitCubicBezier(p0, p1, p2, p3, t1min)
+		q0, q1, q2, q3, _, _, _, _ := cubicBezierSplit(p0, p1, p2, p3, t1min)
 		flattenSmoothCubicBezier(p, q0, q1, q2, q3, d, flatness)
 	}
 
 	if 0.0 < t1max && t1max < 1.0 && t1max < t2min {
 		// t1 and t2 ranges do not overlap, approximate t1 linearly
-		_, _, _, _, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1max)
+		_, _, _, _, q0, q1, q2, q3 := cubicBezierSplit(p0, p1, p2, p3, t1max)
 		addCubicBezierLine(p, q0, q1, q2, q3, 0.0, d)
 		if 1.0 <= t2min {
 			// No t2 present, approximate the rest linearly by subdivision
@@ -626,20 +680,20 @@ func strokeCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 	if 0.0 < t2min {
 		if t2min < t1max {
 			// t2 range starts inside t1 range, approximate t1 range linearly
-			_, _, _, _, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1max)
+			_, _, _, _, q0, q1, q2, q3 := cubicBezierSplit(p0, p1, p2, p3, t1max)
 			addCubicBezierLine(p, q0, q1, q2, q3, 0.0, d)
 		} else {
 			// no overlap
-			_, _, _, _, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t1max)
+			_, _, _, _, q0, q1, q2, q3 := cubicBezierSplit(p0, p1, p2, p3, t1max)
 			t2minq := (t2min - t1max) / (1 - t1max)
-			q0, q1, q2, q3, _, _, _, _ = splitCubicBezier(q0, q1, q2, q3, t2minq)
+			q0, q1, q2, q3, _, _, _, _ = cubicBezierSplit(q0, q1, q2, q3, t2minq)
 			flattenSmoothCubicBezier(p, q0, q1, q2, q3, d, flatness)
 		}
 	}
 
 	// handle (the rest of) t2
 	if t2max < 1.0 {
-		_, _, _, _, q0, q1, q2, q3 := splitCubicBezier(p0, p1, p2, p3, t2max)
+		_, _, _, _, q0, q1, q2, q3 := cubicBezierSplit(p0, p1, p2, p3, t2max)
 		addCubicBezierLine(p, q0, q1, q2, q3, 0.0, d)
 		flattenSmoothCubicBezier(p, q0, q1, q2, q3, d, flatness)
 	} else {

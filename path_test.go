@@ -290,7 +290,10 @@ func TestPathReplace(t *testing.T) {
 	line := func(p0, p1 Point) *Path {
 		return (&Path{}).MoveTo(p0.X, p0.Y).LineTo(p1.X, p1.Y-5.0)
 	}
-	bezier := func(p0, p1, p2, p3 Point) *Path {
+	quad := func(p0, p1, p2 Point) *Path {
+		return (&Path{}).MoveTo(p0.X, p0.Y).LineTo(p2.X, p2.Y)
+	}
+	cube := func(p0, p1, p2, p3 Point) *Path {
 		return (&Path{}).MoveTo(p0.X, p0.Y).LineTo(p3.X, p3.Y)
 	}
 	arc := func(p0 Point, rx, ry, phi float64, largeArc, sweep bool, p1 Point) *Path {
@@ -298,21 +301,22 @@ func TestPathReplace(t *testing.T) {
 	}
 
 	var tts = []struct {
-		orig   string
-		res    string
-		line   func(Point, Point) *Path
-		bezier func(Point, Point, Point, Point) *Path
-		arc    func(Point, float64, float64, float64, bool, bool, Point) *Path
+		orig string
+		res  string
+		line func(Point, Point) *Path
+		quad func(Point, Point, Point) *Path
+		cube func(Point, Point, Point, Point) *Path
+		arc  func(Point, float64, float64, float64, bool, bool, Point) *Path
 	}{
-		{"C0 10 10 10 10 0L30 0", "L30 0", nil, bezier, nil},
-		{"M20 0L30 0C0 10 10 10 10 0", "M20 0L30 0L10 0", nil, bezier, nil},
-		{"M10 0L20 0Q25 10 20 10A5 5 0 0 0 30 10z", "M10 0L20 -5L20 10A5 5 0 1 0 30 10L10 -5z", line, bezier, arc},
-		{"L10 0L0 5z", "L10 -5L10 0L0 0L0 5L0 -5z", line, nil, nil},
+		{"C0 10 10 10 10 0L30 0", "L30 0", nil, quad, cube, nil},
+		{"M20 0L30 0C0 10 10 10 10 0", "M20 0L30 0L10 0", nil, quad, cube, nil},
+		{"M10 0L20 0Q25 10 20 10A5 5 0 0 0 30 10z", "M10 0L20 -5L20 10A5 5 0 1 0 30 10L10 -5z", line, quad, cube, arc},
+		{"L10 0L0 5z", "L10 -5L10 0L0 0L0 5L0 -5z", line, nil, nil, nil},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
 			p := MustParseSVG(tt.orig)
-			test.T(t, p.replace(tt.line, tt.bezier, tt.arc), MustParseSVG(tt.res))
+			test.T(t, p.replace(tt.line, tt.quad, tt.cube, tt.arc), MustParseSVG(tt.res))
 		})
 	}
 }
@@ -730,7 +734,7 @@ func TestPathLengthParametrization(t *testing.T) {
 		return quadraticBezierDeriv(start, cp, end, t).Length()
 	}
 	length := func(t float64) float64 {
-		p0, p1, p2, _, _, _ := splitQuadraticBezier(start, cp, end, t)
+		p0, p1, p2, _, _, _ := quadraticBezierSplit(start, cp, end, t)
 		return quadraticBezierLength(p0, p1, p2)
 	}
 	plotPathLengthParametrization("test/len_param_quad.png", 20, speed, length, 0.0, 1.0)
@@ -741,7 +745,7 @@ func TestPathLengthParametrization(t *testing.T) {
 			return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
 		}
 		length := func(t float64) float64 {
-			p0, p1, p2, p3, _, _, _, _ := splitCubicBezier(start, cp1, cp2, end, t)
+			p0, p1, p2, p3, _, _, _, _ := cubicBezierSplit(start, cp1, cp2, end, t)
 			return cubicBezierLength(p0, p1, p2, p3)
 		}
 		plotPathLengthParametrization(name, N, speed, length, 0.0, 1.0)
