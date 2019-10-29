@@ -180,6 +180,53 @@ func TestSolveQuadraticFormula(t *testing.T) {
 	test.Float(t, x2, 2.0)
 }
 
+func TestSolveCubicFormula(t *testing.T) {
+	x1, x2, x3 := solveCubicFormula(0.0, 1.0, 1.0, 0.25) // is quadratic formula
+	test.Float(t, x1, -0.5)
+	test.Float(t, x2, math.NaN())
+	test.Float(t, x3, math.NaN())
+
+	x1, x2, x3 = solveCubicFormula(1.0, -15.0, 75.0, -125.0) // c0 == 0, c1 == 0
+	test.Float(t, x1, 5.0)
+	test.Float(t, x2, math.NaN())
+	test.Float(t, x3, math.NaN())
+
+	x1, x2, x3 = solveCubicFormula(1.0, -3.0, -6.0, 8.0) // c0 == 0, c1 < 0
+	test.Float(t, x1, -2.0)
+	test.Float(t, x2, 1.0)
+	test.Float(t, x3, 4.0)
+
+	x1, x2, x3 = solveCubicFormula(1.0, -15.0, 75.0, -124.0) // c1 == 0, 0 < c0
+	test.Float(t, x1, 4.0)
+	test.Float(t, x2, math.NaN())
+	test.Float(t, x3, math.NaN())
+
+	x1, x2, x3 = solveCubicFormula(1.0, -15.0, 75.0, -126.0) // c1 == 0, c0 < 0
+	test.Float(t, x1, 6.0)
+	test.Float(t, x2, math.NaN())
+	test.Float(t, x3, math.NaN())
+
+	x1, x2, x3 = solveCubicFormula(1.0, 0.0, -7.0, 6.0) // 0 < delta
+	test.Float(t, x1, -3.0)
+	test.Float(t, x2, 1.0)
+	test.Float(t, x3, 2.0)
+
+	x1, x2, x3 = solveCubicFormula(1.0, -3.0, -9.0, -5.0) // delta == 0
+	test.Float(t, x1, -1.0)
+	test.Float(t, x2, 5.0)
+	test.Float(t, x3, math.NaN())
+
+	x1, x2, x3 = solveCubicFormula(1.0, -4.0, 2.0, -8.0) // delta < 0, 0 < tmp
+	test.Float(t, x1, 4.0)
+	test.Float(t, x2, math.NaN())
+	test.Float(t, x3, math.NaN())
+
+	x1, x2, x3 = solveCubicFormula(1.0, -4.0, 2.0, 7.0) // delta < 0, tmp < 0
+	test.Float(t, x1, -1.0)
+	test.Float(t, x2, math.NaN())
+	test.Float(t, x3, math.NaN())
+}
+
 func TestGaussLegendre(t *testing.T) {
 	test.Float(t, gaussLegendre3(math.Log, 0.0, 1.0), -0.947672)
 	test.Float(t, gaussLegendre5(math.Log, 0.0, 1.0), -0.979001)

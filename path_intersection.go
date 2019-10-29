@@ -20,6 +20,9 @@ func intersectionLineLine(a0, a1, b0, b1 Point) (Point, bool) {
 	return Point{}, false
 }
 
+//func intersectionLineQuad(a0, a1, p0, p1, p2 Point) (Point, Point, bool) {
+//}
+
 // http://mathworld.wolfram.com/Circle-LineIntersection.html
 func intersectionRayCircle(l0, l1, c Point, r float64) (Point, Point, bool) {
 	d := l1.Sub(l0).Norm(1.0) // along line direction, anchored in l0, its length is 1

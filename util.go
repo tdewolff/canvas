@@ -536,6 +536,90 @@ func solveQuadraticFormula(a, b, c float64) (float64, float64) {
 	return x1, x2
 }
 
+// see https://www.geometrictools.com/Documentation/LowDegreePolynomialRoots.pdf
+// see https://github.com/thelonious/kld-polynomial/blob/development/lib/Polynomial.js
+func solveCubicFormula(a, b, c, d float64) (float64, float64, float64) {
+	x1, x2, x3 := math.NaN(), math.NaN(), math.NaN()
+	if equal(a, 0.0) {
+		x1, x2 = solveQuadraticFormula(b, c, d)
+	} else {
+		// eliminate a
+		b /= a
+		c /= a
+		d /= a
+
+		bthird := b / 3.0
+		c0 := d - bthird*(c-2.0*bthird*bthird)
+		c1 := c - b*bthird
+		if equal(c0, 0.0) {
+			if equal(c1, 0.0) {
+				x1 = 0.0 - bthird
+			} else if c1 < 0.0 {
+				tmp := math.Sqrt(-c1)
+				x1 = -tmp - bthird
+				x2 = tmp - bthird
+				x3 = 0.0 - bthird
+			}
+		} else if equal(c1, 0.0) {
+			if 0.0 < c0 {
+				x1 = -math.Cbrt(c0) - bthird
+			} else {
+				x1 = math.Cbrt(-c0) - bthird
+			}
+		} else {
+			delta := -(4.0*c1*c1*c1 + 27.0*c0*c0)
+			if equal(delta, 0.0) {
+				delta = 0.0
+			}
+
+			if delta < 0.0 {
+				betaRe := -c0 / 2.0
+				betaIm := math.Sqrt(-delta/27.0) / 2.0
+				tmp := betaRe - betaIm
+				if 0 <= tmp {
+					x1 = math.Cbrt(tmp)
+				} else {
+					x1 = -math.Cbrt(-tmp)
+				}
+				tmp = betaRe + betaIm
+				if 0 <= tmp {
+					x1 += math.Cbrt(tmp)
+				} else {
+					x1 -= math.Cbrt(-tmp)
+				}
+				x1 -= bthird
+			} else if 0.0 < delta {
+				betaRe := -c0 / 2.0
+				betaIm := math.Sqrt(delta/27.0) / 2.0
+				theta := math.Atan2(betaIm, betaRe) / 3.0
+				sintheta, costheta := math.Sincos(theta)
+				distance := math.Sqrt(-c1 / 3.0) // same as rhoPowThird
+				tmp := distance * sintheta * math.Sqrt(3.0)
+				x1 = 2.0*distance*costheta - bthird
+				x2 = -distance*costheta - tmp - bthird
+				x3 = -distance*costheta + tmp - bthird
+			} else {
+				// reference implementations differ
+				tmp := -3.0 * c0 / (2.0 * c1)
+				x1 = tmp - bthird
+				x2 = -2.0*tmp - bthird
+			}
+		}
+	}
+
+	// sort
+	if x3 < x2 || math.IsNaN(x2) {
+		x2, x3 = x3, x2
+	}
+	if x2 < x1 || math.IsNaN(x1) {
+		x1, x2 = x2, x1
+	}
+	if x3 < x2 || math.IsNaN(x2) {
+		x2, x3 = x3, x2
+	}
+	return x1, x2, x3
+}
+
 type gaussLegendreFunc func(func(float64) float64, float64, float64) float64
 
 // Gauss-Legendre quadrature integration from a to b with n=3
