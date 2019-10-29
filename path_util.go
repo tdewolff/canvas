@@ -160,6 +160,34 @@ func arcToCube(start Point, rx, ry, phi float64, large, sweep bool, end Point) *
 	return p
 }
 
+//func ellipseToQuadraticBezierError(a, b, n1, n2 float64) float64 {
+//	if a < b {
+//		a, b = b, a
+//	}
+//	ba := b / a
+//	c0, c1 := 0.0, 0.0
+//	if ba < 0.25 {
+//		c0 += ((3.92478*ba*ba - 13.5822*ba - 0.233377) / (ba + 0.0128206))
+//		c0 += ((-1.08814*ba*ba + 0.859987*ba + 0.000362265) / (ba + 0.000229036)) * math.Cos(1.0*(n1+n2))
+//		c0 += ((-0.942512*ba*ba + 0.390456*ba + 0.0080909) / (ba + 0.00723895)) * math.Cos(2.0*(n1+n2))
+//		c0 += ((-0.736228*ba*ba + 0.20998*ba + 0.0129867) / (ba + 0.0103456)) * math.Cos(3.0*(n1+n2))
+//		c1 += ((-0.395018*ba*ba + 6.82464*ba + 0.0995293) / (ba + 0.0122198))
+//		c1 += ((-0.545608*ba*ba + 0.0774863*ba + 0.0267327) / (ba + 0.0132482)) * math.Cos(1.0*(n1+n2))
+//		c1 += ((0.0534754*ba*ba - 0.0884167*ba + 0.012595) / (ba + 0.0343396)) * math.Cos(2.0*(n1+n2))
+//		c1 += ((0.209052*ba*ba - 0.0599987*ba - 0.00723897) / (ba + 0.00789976)) * math.Cos(3.0*(n1+n2))
+//	} else {
+//		c0 += ((0.0863805*ba*ba - 11.5595*ba - 2.68765) / (ba + 0.181224))
+//		c0 += ((0.242856*ba*ba - 1.81073*ba + 1.56876) / (ba + 1.68544)) * math.Cos(1.0*(n1+n2))
+//		c0 += ((0.233337*ba*ba - 0.455621*ba + 0.222856) / (ba + 0.403469)) * math.Cos(2.0*(n1+n2))
+//		c0 += ((0.0612978*ba*ba - 0.104879*ba + 0.0446799) / (ba + 0.00867312)) * math.Cos(3.0*(n1+n2))
+//		c1 += ((0.028973*ba*ba + 6.68407*ba + 0.171472) / (ba + 0.0211706))
+//		c1 += ((0.0307674*ba*ba - 0.0517815*ba + 0.0216803) / (ba - 0.0749348)) * math.Cos(1.0*(n1+n2))
+//		c1 += ((-0.0471179*ba*ba + 0.1288*ba - 0.0781702) / (ba + 2.0)) * math.Cos(2.0*(n1+n2))
+//		c1 += ((-0.0309683*ba*ba + 0.0531557*ba - 0.0227191) / (ba + 0.0434511)) * math.Cos(3.0*(n1+n2))
+//	}
+//	return ((0.02*ba*ba + 2.83*ba + 0.125) / (ba + 0.01)) * a * math.Exp(c0+c1*math.Abs(n2-n1))
+//}
+
 // see Drawing and elliptical arc using polylines, quadratic or cubic Bézier curves (2003), L. Maisonobe,
 // https://spaceroots.org/documents/ellipse/elliptical-arc.pdf
 func ellipseToQuadraticBeziers(start Point, rx, ry, phi float64, large, sweep bool, end Point) [][3]Point {
@@ -172,6 +200,8 @@ func ellipseToQuadraticBeziers(start Point, rx, ry, phi float64, large, sweep bo
 	if !sweep {
 		dtheta = -dtheta
 	}
+
+	//fmt.Println("ellipseToQuadraticBezier error:", ellipseToQuadraticBezierError(rx, ry, theta0, theta0+dtheta), "<=?", Tolerance)
 
 	beziers := [][3]Point{}
 	startDeriv := ellipseDeriv(rx, ry, phi, sweep, theta0)
@@ -189,6 +219,54 @@ func ellipseToQuadraticBeziers(start Point, rx, ry, phi float64, large, sweep bo
 	return beziers
 }
 
+//func ellipseToCubicBezierError(a, b, n1, n2 float64) float64 {
+//	if a < b {
+//		a, b = b, a
+//	}
+//	ba := b / a
+//	c0, c1 := 0.0, 0.0
+//	if ba < 0.25 {
+//		c0 += ((3.85268*ba*ba - 21.229*ba - 0.330434) / (ba + 0.0127842))
+//		c0 += ((-1.61486*ba*ba + 0.706564*ba + 0.225945) / (ba + 0.263682)) * math.Cos(1.0*(n1+n2))
+//		c0 += ((-0.910164*ba*ba + 0.388383*ba + 0.00551445) / (ba + 0.00671814)) * math.Cos(2.0*(n1+n2))
+//		c0 += ((-0.630184*ba*ba + 0.192402*ba + 0.0098871) / (ba + 0.0102527)) * math.Cos(3.0*(n1+n2))
+//		c1 += ((-0.162211*ba*ba + 9.94329*ba + 0.13723) / (ba + 0.0124084))
+//		c1 += ((-0.253135*ba*ba + 0.00187735*ba + 0.0230286) / (ba + 0.01264)) * math.Cos(1.0*(n1+n2))
+//		c1 += ((-0.0695069*ba*ba - 0.0437594*ba + 0.0120636) / (ba + 0.0163087)) * math.Cos(2.0*(n1+n2))
+//		c1 += ((-0.0328856*ba*ba - 0.00926032*ba - 0.00173573) / (ba + 0.00527385)) * math.Cos(3.0*(n1+n2))
+//	} else {
+//		c0 += ((0.0899116*ba*ba - 19.2349*ba - 4.11711) / (ba + 0.183362))
+//		c0 += ((0.138148*ba*ba - 1.45804*ba + 1.32044) / (ba + 1.38474)) * math.Cos(1.0*(n1+n2))
+//		c0 += ((0.230903*ba*ba - 0.450262*ba + 0.219963) / (ba + 0.414038)) * math.Cos(2.0*(n1+n2))
+//		c0 += ((0.0590565*ba*ba - 0.101062*ba + 0.0430592) / (ba + 0.0204699)) * math.Cos(3.0*(n1+n2))
+//		c1 += ((0.0164649*ba*ba + 9.89394*ba + 0.0919496) / (ba + 0.00760802))
+//		c1 += ((0.0191603*ba*ba - 0.0322058*ba + 0.0134667) / (ba - 0.0825018)) * math.Cos(1.0*(n1+n2))
+//		c1 += ((0.0156192*ba*ba - 0.017535*ba + 0.00326508) / (ba - 0.228157)) * math.Cos(2.0*(n1+n2))
+//		c1 += ((-0.0236752*ba*ba + 0.0405821*ba - 0.0173086) / (ba + 0.176187)) * math.Cos(3.0*(n1+n2))
+//	}
+//	return ((0.001*ba*ba + 4.98*ba + 0.207) / (ba + 0.0067)) * a * math.Exp(c0+c1*math.Abs(n2-n1))
+//}
+//
+//func distanceEllipseCubicBezier(start, cp1, cp2, end Point, rx, ry, phi, cx, cy, theta0, theta1 float64) float64 {
+//	N := 100
+//	hausdorff := 0.0
+//	for i := 0; i <= N; i++ {
+//		t := float64(i) / float64(N)
+//		pos := cubicBezierPos(start, cp1, cp2, end, t)
+//
+//		dist := func(theta float64) float64 { return ellipsePos(rx, ry, phi, cx, cy, theta).Sub(pos).Length() }
+//		theta := gradientDescent(dist, theta0, theta1)
+//		theta2 := lookupMin(dist, theta0, theta1)
+//		fmt.Println("gradientDescent, loopup:", dist(theta), dist(theta2))
+//
+//		d := dist(theta)
+//		if hausdorff < d {
+//			hausdorff = d
+//		}
+//	}
+//	return hausdorff
+//}
+
 // see Drawing and elliptical arc using polylines, quadratic or cubic Bézier curves (2003), L. Maisonobe,
 // https://spaceroots.org/documents/ellipse/elliptical-arc.pdf
 func ellipseToCubicBeziers(start Point, rx, ry, phi float64, large, sweep bool, end Point) [][4]Point {
@@ -202,6 +280,8 @@ func ellipseToCubicBeziers(start Point, rx, ry, phi float64, large, sweep bool, 
 		dtheta = -dtheta
 	}
 
+	//fmt.Println("ellipseToCubicBezier error:", ellipseToCubicBezierError(rx, ry, theta0, theta0+dtheta), "<=?", Tolerance)
+
 	beziers := [][4]Point{}
 	startDeriv := ellipseDeriv(rx, ry, phi, sweep, theta0)
 	for i := 1; i < n+1; i++ {
@@ -212,6 +292,8 @@ func ellipseToCubicBeziers(start Point, rx, ry, phi float64, large, sweep bool, 
 		cp1 := start.Add(startDeriv.Mul(kappa))
 		cp2 := end.Sub(endDeriv.Mul(kappa))
 		beziers = append(beziers, [4]Point{start, cp1, cp2, end})
+
+		//fmt.Println("dist:", distanceEllipseCubicBezier(start, cp1, cp2, end, rx, ry, phi, cx, cy, theta-dtheta, theta))
 
 		startDeriv = endDeriv
 		start = end

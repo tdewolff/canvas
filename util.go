@@ -575,6 +575,33 @@ func gaussLegendre7(f func(float64) float64, a, b float64) float64 {
 	return c * (0.129485*(Qd1+Qd7) + 0.279705*(Qd2+Qd6) + 0.381830*(Qd3+Qd5) + 0.417959*Qd4)
 }
 
+//func lookupMin(f func(float64) float64, xmin, xmax float64) float64 {
+//	const MaxIterations = 1000
+//	min := math.Inf(1)
+//	for i := 0; i <= MaxIterations; i++ {
+//		t := float64(i) / float64(MaxIterations)
+//		x := xmin + t*(xmax-xmin)
+//		y := f(x)
+//		if y < min {
+//			min = y
+//		}
+//	}
+//	return min
+//}
+//
+//func gradientDescent(f func(float64) float64, xmin, xmax float64) float64 {
+//	const MaxIterations = 100
+//	const Delta = 0.0001
+//	const Rate = 0.01
+//
+//	x := (xmin + xmax) / 2.0
+//	for i := 0; i < MaxIterations; i++ {
+//		dydx := (f(x+Delta) - f(x-Delta)) / 2.0 / Delta
+//		x -= Rate * dydx
+//	}
+//	return x
+//}
+
 // find value x for which f(x) = y in the interval x in [xmin, xmax] using the bisection method
 func bisectionMethod(f func(float64) float64, y, xmin, xmax float64) float64 {
 	const MaxIterations = 100
