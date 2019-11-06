@@ -289,8 +289,8 @@ func (c *Canvas) Fit(margin float64) {
 		c.height = 0.0
 	}
 
-	rect := c.layers[0].Bounds()
-	for _, layer := range c.layers[1:] {
+	rect := Rect{}
+	for _, layer := range c.layers {
 		rect = rect.Add(layer.Bounds())
 	}
 	for i, layer := range c.layers {
