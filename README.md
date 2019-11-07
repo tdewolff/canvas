@@ -75,7 +75,7 @@ General
 * Use general span placement algorithm (like CSS flexbox) that replace the current Text placer, to allow for text, image, path elements (e.g. inline formulas, inline icons or emoticons, ...)
 * Use word breaking algorithm from [Knuth & Plass](http://defoe.sourceforge.net/folio/knuth-plass.html), implemented in JS in [typeset](http://www.bramstein.com/projects/typeset/). Use letter stretching and shrinking, shrinking by using ligatures, space shrinking and stretching (depending if space is between words or after comma or dot), and spacing or shrinking between glyphs. Use a point system of how ugly breaks are on a paragraph basis. Also see [Justify Just or Just Justify](https://quod.lib.umich.edu/j/jep/3336451.0013.105?view=text;rgn=main).
 * Load in Markdown/HTML formatting and turn into text
-* Add OpenGL target, needs tessellation (see Delaunay triangulation). See [Resolution independent NURBS curves rendering using programmable graphics pipeline](http://jogamp.com/doc/gpunurbs2011/p70-santina.pdf) and [poly2tri-go](https://github.com/ByteArena/poly2tri-go)
+* Add OpenGL target, needs tessellation (see Delaunay triangulation). See [Resolution independent NURBS curves rendering using programmable graphics pipeline](http://jogamp.com/doc/gpunurbs2011/p70-santina.pdf) and [poly2tri-go](https://github.com/ByteArena/poly2tri-go). Use rational quadratic Beziérs to represent quadratic Beziérs and elliptic arcs exactly, and reduce degree of cubic Beziérs. Using a fragment shader we can draw all curves exactly. Or use rational cubic Beziérs to represent them all exactly?
 
 Fonts
 

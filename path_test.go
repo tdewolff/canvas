@@ -587,6 +587,7 @@ func TestPathParseSVG(t *testing.T) {
 		{"q5 10 10 0t10 0", "Q5 10 10 0Q15 -10 20 0"},
 		{"A10 10 0 0 0 40 0", "A20 20 0 0 0 40 0"},  // scale ellipse
 		{"A10 5 90 0 0 40 0", "A40 20 90 0 0 40 0"}, // scale ellipse
+		{"A10 5 0 0020 0", "A10 5 0 0 0 20 0"},      // parse boolean flags
 
 		// go-fuzz
 		{"V0 ", ""},

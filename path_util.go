@@ -301,33 +301,6 @@ func ellipseToCubicBeziers(start Point, rx, ry, phi float64, large, sweep bool, 
 	return beziers
 }
 
-// TODO: func ellipseToConicBeziers(start Point, rx, ry, phi float64, large, sweep bool, end Point) ([][3]Point, []float64) {
-//	cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
-//
-//	dtheta := math.Pi / 2.0
-//	n := int(math.Ceil(math.Abs(theta1-theta0) / dtheta))
-//	dtheta = math.Abs(theta1-theta0) / float64(n) // evenly spread the n points, dalpha will get smaller
-//	if !sweep {
-//		dtheta = -dtheta
-//	}
-//
-//	beziers := [][3]Point{}
-//	weights := []float64{}
-//	startDeriv := ellipseDeriv(rx, ry, phi, sweep, theta0)
-//	for i := 1; i < n+1; i++ {
-//		theta := theta0 + float64(i)*dtheta
-//		end := ellipsePos(rx, ry, phi, cx, cy, theta)
-//		endDeriv := ellipseDeriv(rx, ry, phi, sweep, theta)
-//
-//		beziers = append(beziers, [3]Point{start, cp, end})
-//		weights = append(weights, weight)
-//
-//		startDeriv = endDeriv
-//		start = end
-//	}
-//	return beziers, weights
-//}
-
 func flattenEllipticArc(start Point, rx, ry, phi float64, large, sweep bool, end Point) *Path {
 	// TODO: (flatten ellipse) use direct algorithm
 	return arcToCube(start, rx, ry, phi, large, sweep, end).Flatten()

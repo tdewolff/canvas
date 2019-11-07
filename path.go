@@ -991,7 +991,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 						// splitting on inflection points does not improve output
 						return cubicBezierDeriv(start, cp1, cp2, end, t).Length()
 					}
-					N := 20 + 20*cubicBezierNumInflections(start, cp1, cp2, end)
+					N := 20 + 20*cubicBezierNumInflections(start, cp1, cp2, end) // TODO: needs better N
 					invL, dT := invSpeedPolynomialChebyshevApprox(N, gaussLegendre7, speed, 0.0, 1.0)
 
 					t0 := 0.0
@@ -1301,12 +1301,6 @@ func skipCommaWhitespace(path []byte) int {
 	return i
 }
 
-func parseNum(path []byte) (float64, int) {
-	i := skipCommaWhitespace(path)
-	f, n := strconv.ParseFloat(path[i:])
-	return f, i + n
-}
-
 // MustParseSVG parses an SVG path data string and panics if it fails.
 func MustParseSVG(s string) *Path {
 	p, err := ParseSVG(s)
@@ -1363,12 +1357,25 @@ func ParseSVG(s string) (*Path, error) {
 			CMD -= 'a' - 'A'
 		}
 		for j := 0; j < cmdLens[CMD]; j++ {
-			num, n := parseNum(path[i:])
-			if n == 0 {
-				return nil, fmt.Errorf("bad path: %d numbers should follow command '%c' at position %d", cmdLens[CMD], cmd, i)
+			i += skipCommaWhitespace(path[i:])
+			if CMD == 'A' && (j == 3 || j == 4) {
+				// parse largeArc and sweep booleans for A command
+				if path[i] == '1' {
+					f[j] = 1.0
+				} else if path[i] == '0' {
+					f[j] = 0.0
+				} else {
+					return nil, fmt.Errorf("bad path: largeArc and sweep flags should be 0 or 1 in command '%c' at position %d", cmd, i)
+				}
+				i++
+			} else {
+				num, n := strconv.ParseFloat(path[i:])
+				if n == 0 {
+					return nil, fmt.Errorf("bad path: %d numbers should follow command '%c' at position %d", cmdLens[CMD], cmd, i)
+				}
+				f[j] = num
+				i += n
 			}
-			f[j] = num
-			i += n
 		}
 
 		switch cmd {
