@@ -284,8 +284,14 @@ func (c *Canvas) DrawImage(x, y float64, img image.Image, enc ImageEncoding, dpm
 // Fit shrinks the canvas size so all elements fit. The elements are translated towards the origin when any left/bottom margins exist and the canvas size is decreased if any margins exist. It will maintain a given margin.
 func (c *Canvas) Fit(margin float64) {
 	// TODO: slow when we have many paths (see Graph example)
-	rect := Rect{}
-	for _, layer := range c.layers {
+	if len(c.layers) == 0 {
+		c.width = 2 * margin
+		c.height = 2 * margin
+		return
+	}
+
+	rect := c.layers[0].Bounds()
+	for _, layer := range c.layers[1:] {
 		rect = rect.Add(layer.Bounds())
 	}
 	for i, layer := range c.layers {
