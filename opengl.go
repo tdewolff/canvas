@@ -5,16 +5,16 @@ import (
 	"image/color"
 	"strings"
 
-	"github.com/go-gl/gl/v4.1-core/gl"
+	"github.com/go-gl/gl/v4.6-core/gl"
 )
 
 var vertexShaderSource = `
 	#version 410
 	in vec2 position;
-	in vec2 vertTexcoord;
+	in vec4 vertTexcoord;
 	in vec4 vertColor;
 
-	out vec2 fragTexcoord;
+	out vec4 fragTexcoord;
 	out vec4 fragColor;
 
 	void main() {
@@ -26,25 +26,38 @@ var vertexShaderSource = `
 
 var fragmentShaderSource = `
 	#version 410
-	in vec2 fragTexcoord;
+	in vec4 fragTexcoord;
 	in vec4 fragColor;
 
 	out vec4 color;
 
 	void main() {
+		float u = fragTexcoord.s;
+		float v = fragTexcoord.t;
+		float w1 = fragTexcoord.p;
+		float w2 = fragTexcoord.q;
+
+		float denom = ((1-u)*(1-u)*(1-u) + w1*(1-u)*(1-u)*u + w2*(1-u)*u*u + u*u*u);
+		float f = v - (w1*(1-u)*(1-u)*u + w2*(1-u)*u*u) / denom;
+		float gx = dFdx(fragTexcoord.st)
+		float gy = dFdy(fragTexcoord.st)
+		float g = 
+		float e = 0.5 - f / sqrt(g.x*g.x+g.y*g.y);
+
 		vec2 p = fragTexcoord.st;
 		vec2 px = dFdx(p);
 		vec2 py = dFdy(p);
 		float fx = (2*p.x)*px.x - px.y;
 		float fy = (2*p.x)*py.x - py.y;
 		float sd = (p.x*p.x - p.y)/sqrt(fx*fx + fy*fy);
+
 		float alpha = 0.5 - sd;
-		if (alpha >= 1)
+		if (e >= 1)
 			color = fragColor;
-		else if (alpha <= 0)
+		else if (e <= 0)
 			discard;
 		else
-			color = vec4(fragColor.rgb, fragColor.a*alpha);
+			color = vec4(fragColor.rgb, fragColor.a*e);
 	}
 ` + "\x00"
 
@@ -87,20 +100,28 @@ func (ogl *OpenGL) AddPath(p *Path, color color.RGBA) {
 	g := float32(color.G) / 255.0 / a
 	b := float32(color.B) / 255.0 / a
 
-	simpleTriangles, quadTriangles := p.Tessellate()
-	for _, tr := range quadTriangles {
-		ogl.points = append(ogl.points, float32(tr[0].X), float32(tr[0].Y), 0.0, 0.0, r, g, b, a)
-		ogl.points = append(ogl.points, float32(tr[1].X), float32(tr[1].Y), 0.5, 0.0, r, g, b, a)
-		ogl.points = append(ogl.points, float32(tr[2].X), float32(tr[2].Y), 1.0, 1.0, r, g, b, a)
+	triangles, beziers := p.Tessellate()
+	for _, tr := range triangles {
+		ogl.points = append(ogl.points, float32(tr[0].X), float32(tr[0].Y), 0.5, 0.0, 0.0, 0.0, r, g, b, a)
+		ogl.points = append(ogl.points, float32(tr[1].X), float32(tr[1].Y), 0.5, 0.0, 0.0, 0.0, r, g, b, a)
+		ogl.points = append(ogl.points, float32(tr[2].X), float32(tr[2].Y), 0.5, 0.0, 0.0, 0.0, r, g, b, a)
 	}
-	for _, tr := range simpleTriangles {
-		ogl.points = append(ogl.points, float32(tr[0].X), float32(tr[0].Y), 0.5, 0.5, r, g, b, a)
-		ogl.points = append(ogl.points, float32(tr[1].X), float32(tr[1].Y), 0.5, 0.5, r, g, b, a)
-		ogl.points = append(ogl.points, float32(tr[2].X), float32(tr[2].Y), 0.5, 0.5, r, g, b, a)
+	for _, bz := range beziers {
+		w1 := float32(bz[4].X)
+		w2 := float32(bz[4].Y)
+		ogl.points = append(ogl.points, float32(bz[0].X), float32(bz[0].Y), 0.0, 0.0, w1, w2, r, g, b, a)
+		ogl.points = append(ogl.points, float32(bz[2].X), float32(bz[2].Y), 1.0, 1.0, w1, w2, r, g, b, a)
+		ogl.points = append(ogl.points, float32(bz[1].X), float32(bz[1].Y), 0.0, 1.0, w1, w2, r, g, b, a)
+
+		ogl.points = append(ogl.points, float32(bz[3].X), float32(bz[3].Y), 1.0, 0.0, w1, w2, r, g, b, a)
+		ogl.points = append(ogl.points, float32(bz[2].X), float32(bz[2].Y), 1.0, 1.0, w1, w2, r, g, b, a)
+		ogl.points = append(ogl.points, float32(bz[0].X), float32(bz[0].Y), 0.0, 0.0, w1, w2, r, g, b, a)
 	}
 }
 
 func (ogl *OpenGL) Compile() {
+	const N = 10
+
 	vertexShader, err := compileShader(vertexShaderSource, gl.VERTEX_SHADER)
 	if err != nil {
 		panic(err)
@@ -130,9 +151,9 @@ func (ogl *OpenGL) Compile() {
 	gl.EnableVertexAttribArray(vertexAttrib)
 	gl.EnableVertexAttribArray(texcoordAttrib)
 	gl.EnableVertexAttribArray(colorAttrib)
-	gl.VertexAttribPointer(vertexAttrib, 3, gl.FLOAT, false, 8*4, gl.PtrOffset(0))
-	gl.VertexAttribPointer(texcoordAttrib, 2, gl.FLOAT, false, 8*4, gl.PtrOffset(2*4))
-	gl.VertexAttribPointer(colorAttrib, 4, gl.FLOAT, false, 8*4, gl.PtrOffset(4*4))
+	gl.VertexAttribPointer(vertexAttrib, 2, gl.FLOAT, false, N*4, gl.PtrOffset(0))
+	gl.VertexAttribPointer(texcoordAttrib, 4, gl.FLOAT, false, N*4, gl.PtrOffset(2*4))
+	gl.VertexAttribPointer(colorAttrib, 4, gl.FLOAT, false, N*4, gl.PtrOffset(6*4))
 
 	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 	gl.BindVertexArray(0)
@@ -140,7 +161,7 @@ func (ogl *OpenGL) Compile() {
 
 	ogl.program = prog
 	ogl.vao = vao
-	ogl.n = int32(len(ogl.points) / 8)
+	ogl.n = int32(len(ogl.points) / N)
 }
 
 func (ogl *OpenGL) Draw() {

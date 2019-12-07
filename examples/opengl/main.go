@@ -1,7 +1,6 @@
 package main
 
 import (
-	"image/color"
 	"log"
 	"runtime"
 
@@ -55,18 +54,11 @@ func main() {
 		panic(err)
 	}
 
-	p, _ := canvas.ParseSVG("M0 0.5L0.5 0.5Q1 0.5 1 0Q1 -0.5 0.5 -0.5L-0.5 -0.5C-1 -0.5 -1 0.5 -0.5 0.5z")
-
-	face := fontFamily.Face(1.0, color.Black, canvas.FontRegular, canvas.FontNormal)
-	_ = face
-
-	canvas.Tolerance = 1e-3
+	//p, _ := canvas.ParseSVG("M0 0.5L0.5 0.5Q1 0.5 1 0Q1 -0.5 0.5 -0.5L-0.5 -0.5C-1 -0.5 -1 0.5 -0.5 0.5z")
+	p, _ := canvas.ParseSVG("M0 0.5L0.5 0.5C1 0.5 1 -0.5 0.5 -0.5L-0.5 -0.5C-1 -0.5 -1 0.5 -0.5 0.5z")
 	c := canvas.New(0.0, 0.0)
 	c.SetFillColor(canvas.Blue)
-	c.SetStrokeColor(canvas.Red)
-	c.SetStrokeWidth(0.1)
 	c.DrawPath(0.0, 0.0, p)
-	//c.DrawText(0.0, 0.0, canvas.NewTextLine(face, "Test", canvas.Left))
 	ogl := c.ToOpenGL()
 
 	if err := glfw.Init(); err != nil {

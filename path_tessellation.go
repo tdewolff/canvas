@@ -4,13 +4,10 @@ import (
 	"github.com/ByteArena/poly2tri-go"
 )
 
-func (P *Path) Tessellate() ([][3]Point, [][3]Point) {
-	P = P.replace(nil, nil, nil, arcToQuad)
+func (p *Path) Tessellate() ([][3]Point, [][5]Point) {
+	p = p.replace(nil, nil, nil, arcToCube)
 
-	simpleTriangles := [][3]Point{}
-	quadTriangles := [][3]Point{}
-	//for _, p := range P.Split() {
-	p := P
+	beziers := [][5]Point{}
 	contour := []*poly2tri.Point{}
 	var start, end Point
 	for i := 0; i < len(p.d); {
@@ -22,16 +19,15 @@ func (P *Path) Tessellate() ([][3]Point, [][3]Point) {
 		case quadToCmd:
 			cp := Point{p.d[i+1], p.d[i+2]}
 			end = Point{p.d[i+3], p.d[i+4]}
+			cp1, cp2 := quadraticToCubicBezier(start, cp, end)
 			contour = append(contour, poly2tri.NewPoint(end.X, end.Y))
-			quadTriangles = append(quadTriangles, [3]Point{start, cp, end})
+			beziers = append(beziers, [5]Point{start, cp1, cp2, end, Point{1.0, 1.0}})
 		case cubeToCmd:
 			cp1 := Point{p.d[i+1], p.d[i+2]}
 			cp2 := Point{p.d[i+3], p.d[i+4]}
 			end = Point{p.d[i+5], p.d[i+6]}
-			for _, quad := range cubicToQuadraticBeziers(start, cp1, cp2, end) {
-				contour = append(contour, poly2tri.NewPoint(quad[2].X, quad[2].Y))
-				quadTriangles = append(quadTriangles, quad)
-			}
+			contour = append(contour, poly2tri.NewPoint(end.X, end.Y))
+			beziers = append(beziers, [5]Point{start, cp1, cp2, end, Point{1.0, 1.0}})
 		case arcToCmd:
 			panic("arcs should have been replaced")
 		}
@@ -42,12 +38,12 @@ func (P *Path) Tessellate() ([][3]Point, [][3]Point) {
 	swctx := poly2tri.NewSweepContext(contour, false)
 	swctx.Triangulate()
 
+	triangles := [][3]Point{}
 	for _, tr := range swctx.GetTriangles() {
 		p0 := Point{tr.Points[0].X, tr.Points[0].Y}
 		p1 := Point{tr.Points[1].X, tr.Points[1].Y}
 		p2 := Point{tr.Points[2].X, tr.Points[2].Y}
-		simpleTriangles = append(simpleTriangles, [3]Point{p0, p1, p2})
+		triangles = append(triangles, [3]Point{p0, p1, p2})
 	}
-	//}
-	return simpleTriangles, quadTriangles
+	return triangles, beziers
 }
