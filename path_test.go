@@ -608,6 +608,8 @@ func TestPathParseSVGErrors(t *testing.T) {
 	}{
 		{"5", "bad path: path should start with command"},
 		{"MM", "bad path: 2 numbers should follow command 'M' at position 1"},
+		{"A10 10 000 20 0", "bad path: largeArc and sweep flags should be 0 or 1 in command 'A' at position 11"},
+		{"A10 10 0 23 20 0", "bad path: largeArc and sweep flags should be 0 or 1 in command 'A' at position 9"},
 
 		// go-fuzz
 		{"V4-z\n0ìGßIzØ", "bad path: unknown command '0' at position 6"},
@@ -630,9 +632,9 @@ func TestPathToSVG(t *testing.T) {
 		{"L10 0Q15 10 20 0M20 10C20 20 30 20 30 10z", "M0 0H10Q15 10 20 0M20 10C20 20 30 20 30 10z"},
 		{"L10 0M20 0L30 0", "M0 0H10M20 0H30"},
 		{"L0 0L0 10L20 20", "M0 0V10L20 20"},
-		{"A5 5 0 0 1 10 0", "M0 0A5 5 0 0 1 10 0"},
-		{"A10 5 90 0 0 10 0", "M0 0A5 10 0 0 0 10 0"},
-		{"A10 5 90 1 0 10 0", "M0 0A5 10 0 1 0 10 0"},
+		{"A5 5 0 0 1 10 0", "M0 0A5 5 0 0110 0"},
+		{"A10 5 90 0 0 10 0", "M0 0A5 10 0 0010 0"},
+		{"A10 5 90 1 0 10 0", "M0 0A5 10 0 1010 0"},
 		{"M20 0L20 0", ""},
 	}
 	for _, tt := range tts {

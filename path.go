@@ -1556,7 +1556,7 @@ func (p *Path) ToSVG() string {
 				rx, ry = ry, rx
 				rot -= 90.0
 			}
-			fmt.Fprintf(&sb, "A%v %v %v %s %s %v %v", num(rx), num(ry), num(rot), sLarge, sSweep, num(p.d[i+5]), num(p.d[i+6]))
+			fmt.Fprintf(&sb, "A%v %v %v %s%s%v %v", num(rx), num(ry), num(rot), sLarge, sSweep, num(p.d[i+5]), num(p.d[i+6]))
 		case closeCmd:
 			x, y = p.d[i+1], p.d[i+2]
 			fmt.Fprintf(&sb, "z")
