@@ -285,8 +285,9 @@ func (c *Canvas) DrawImage(x, y float64, img image.Image, enc ImageEncoding, dpm
 func (c *Canvas) Fit(margin float64) {
 	// TODO: slow when we have many paths (see Graph example)
 	if len(c.layers) == 0 {
-		c.width = 0.0
-		c.height = 0.0
+		c.width = 2 * margin
+		c.height = 2 * margin
+		return
 	}
 
 	rect := c.layers[0].Bounds()

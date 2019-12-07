@@ -59,3 +59,10 @@ func TestCanvas(t *testing.T) {
 	ioutil.WriteFile("test/canvas.eps", buf.Bytes(), 0644)
 	// TODO: test EPS when fully supported
 }
+
+func TestCanvas_Fit(t *testing.T) {
+	c := New(100, 100)
+	c.Fit(10)
+	test.Float(t, c.width, 20)
+	test.Float(t, c.height, 20)
+}
