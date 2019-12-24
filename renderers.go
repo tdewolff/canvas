@@ -6,6 +6,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"math"
 
 	"github.com/golang/freetype/truetype"
 	"github.com/wcharczuk/go-chart"
@@ -64,6 +65,7 @@ func (r *ChartRenderer) SetDPI(dpi float64) {
 }
 
 func (r *ChartRenderer) SetClassName(name string) {
+	// TODO
 }
 
 func (r *ChartRenderer) SetStrokeColor(col drawing.Color) {
@@ -95,7 +97,16 @@ func (r *ChartRenderer) QuadCurveTo(cx, cy, x, y int) {
 }
 
 func (r *ChartRenderer) ArcTo(cx, cy int, rx, ry, startAngle, delta float64) {
-	fmt.Println("arc")
+	startAngle *= 180.0 / math.Pi
+	delta *= 180.0 / math.Pi
+
+	start := ellipsePos(rx, ry, 0.0, float64(cx), float64(cy), startAngle)
+	if r.p.Empty() {
+		r.p.MoveTo(start.X, start.Y)
+	} else {
+		r.p.LineTo(start.X, start.Y)
+	}
+	r.p.Arc(rx, ry, 0.0, startAngle, startAngle+delta)
 }
 
 func (r *ChartRenderer) Close() {
@@ -129,9 +140,7 @@ func (r *ChartRenderer) Circle(radius float64, x, y int) {
 }
 
 func (r *ChartRenderer) SetFont(font *truetype.Font) {
-	if font != nil {
-		//fmt.Println(font.Name(1))
-	}
+	// TODO
 }
 
 func (r *ChartRenderer) SetFontColor(col drawing.Color) {
@@ -146,6 +155,7 @@ func (r *ChartRenderer) Text(body string, x, y int) {
 	face := r.font.Face(r.fontSize*ptPerMm*r.dpi/72.0, r.fontColor, FontRegular, FontNormal)
 	r.c.PushStyle()
 	r.c.SetFillColor(r.fontColor)
+	r.c.ComposeView(Identity.Rotate(-r.textRotation * 180.0 / math.Pi))
 	r.c.DrawText(float64(x), float64(y), NewTextLine(face, body, Left))
 	r.c.PopStyle()
 }
@@ -153,6 +163,7 @@ func (r *ChartRenderer) Text(body string, x, y int) {
 func (r *ChartRenderer) MeasureText(body string) chart.Box {
 	p, _ := r.font.Face(r.fontSize*ptPerMm*r.dpi/72.0, r.fontColor, FontRegular, FontNormal).ToPath(body)
 	bounds := p.Bounds()
+	bounds = bounds.Transform(Identity.Rotate(-r.textRotation * 180.0 / math.Pi))
 	return chart.Box{Left: int(bounds.X + 0.5), Top: int(bounds.Y + 0.5), Right: int((bounds.W + bounds.X) + 0.5), Bottom: int((bounds.H + bounds.Y) + 0.5)}
 }
 
@@ -165,7 +176,6 @@ func (r *ChartRenderer) ClearTextRotation() {
 }
 
 func (r *ChartRenderer) Save(w io.Writer) error {
-	fmt.Println("save")
 	switch r.output {
 	case SVG:
 		return r.c.WriteSVG(w)

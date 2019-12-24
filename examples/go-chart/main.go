@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"time"
@@ -88,8 +87,6 @@ func main() {
 	f, _ = os.Create("output.png")
 	defer f.Close()
 	graph.Render(canvas.NewChartRenderer(canvas.PNG), f)
-
-	fmt.Println("---")
 
 	f, _ = os.Create("target.png")
 	defer f.Close()

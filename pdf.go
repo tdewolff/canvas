@@ -331,6 +331,7 @@ type pdfPageWriter struct {
 	dashes         []float64
 	font           *Font
 	fontSize       float64
+	inTextObject   bool
 	textPosition   Matrix
 	textCharSpace  float64
 	textRenderMode int
@@ -355,6 +356,7 @@ func (w *pdfWriter) NewPage(width, height float64) *pdfPageWriter {
 		dashes:         []float64{0.0}, // dashArray and dashPhase
 		font:           nil,
 		fontSize:       0.0,
+		inTextObject:   false,
 		textPosition:   Identity,
 		textCharSpace:  0.0,
 		textRenderMode: 0,
@@ -519,6 +521,9 @@ func (w *pdfPageWriter) SetDashes(dashPhase float64, dashArray []float64) {
 }
 
 func (w *pdfPageWriter) SetFont(font *Font, size float64) {
+	if !w.inTextObject {
+		panic("must be in text object")
+	}
 	if font != w.font {
 		w.font = font
 		w.fontSize = size
@@ -542,6 +547,9 @@ func (w *pdfPageWriter) SetFont(font *Font, size float64) {
 }
 
 func (w *pdfPageWriter) SetTextPosition(m Matrix) {
+	if !w.inTextObject {
+		panic("must be in text object")
+	}
 	if m.Equals(w.textPosition) {
 		return
 	}
@@ -556,6 +564,9 @@ func (w *pdfPageWriter) SetTextPosition(m Matrix) {
 }
 
 func (w *pdfPageWriter) SetTextRenderMode(mode int) {
+	if !w.inTextObject {
+		panic("must be in text object")
+	}
 	if w.textRenderMode != mode {
 		fmt.Fprintf(w, " %d Tr", mode)
 		w.textRenderMode = mode
@@ -563,13 +574,36 @@ func (w *pdfPageWriter) SetTextRenderMode(mode int) {
 }
 
 func (w *pdfPageWriter) SetTextCharSpace(space float64) {
+	if !w.inTextObject {
+		panic("must be in text object")
+	}
 	if !equal(w.textCharSpace, space) {
 		fmt.Fprintf(w, " %v Tc", dec(space))
 		w.textCharSpace = space
 	}
 }
 
+func (w *pdfPageWriter) StartTextObject() {
+	if w.inTextObject {
+		panic("already in text object")
+	}
+	fmt.Fprintf(w, " BT")
+	w.textPosition = Identity
+	w.inTextObject = true
+}
+
+func (w *pdfPageWriter) EndTextObject() {
+	if !w.inTextObject {
+		panic("must be in text object")
+	}
+	fmt.Fprintf(w, " ET")
+	w.inTextObject = false
+}
+
 func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
+	if !w.inTextObject {
+		panic("must be in text object")
+	}
 	if len(TJ) == 0 || w.font == nil {
 		return
 	}
@@ -613,6 +647,8 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 			write(val[i:])
 		case float64:
 			fmt.Fprintf(w, " %d", -int(val*1000.0/w.fontSize+0.5))
+		case int:
+			fmt.Fprintf(w, " %d", -int(float64(val)*1000.0/w.fontSize+0.5))
 		}
 	}
 	fmt.Fprintf(w, "]TJ")
@@ -833,7 +869,7 @@ func (l pathLayer) WritePDF(w *pdfPageWriter) {
 }
 
 func (l textLayer) WritePDF(w *pdfPageWriter) {
-	fmt.Fprintf(w, ` BT`)
+	w.StartTextObject()
 	decorations := []pathLayer{}
 	for _, line := range l.text.lines {
 		for _, span := range line.spans {
@@ -869,7 +905,7 @@ func (l textLayer) WritePDF(w *pdfPageWriter) {
 			decorations = append(decorations, pathLayer{p, style{fillColor: deco.ff.color}, false})
 		}
 	}
-	fmt.Fprintf(w, ` ET`)
+	w.EndTextObject()
 	for _, l := range decorations {
 		l.WritePDF(w)
 	}
