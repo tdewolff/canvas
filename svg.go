@@ -179,12 +179,12 @@ func (l pathLayer) WriteSVG(w *svgWriter) {
 				fmt.Fprintf(style, ";stroke-linejoin:round")
 			} else if arcs, ok := l.strokeJoiner.(arcsJoiner); ok && !math.IsNaN(arcs.limit) {
 				fmt.Fprintf(style, ";stroke-linejoin:arcs")
-				if arcs.limit != 4.0 {
+				if !equal(arcs.limit, 4.0) {
 					fmt.Fprintf(style, ";stroke-miterlimit:%v", dec(arcs.limit))
 				}
 			} else if miter, ok := l.strokeJoiner.(miterJoiner); ok && !math.IsNaN(miter.limit) {
 				// a miter line join is the default
-				if miter.limit*2.0/l.strokeWidth != 4.0 {
+				if !equal(miter.limit*2.0/l.strokeWidth, 4.0) {
 					fmt.Fprintf(style, ";stroke-miterlimit:%v", dec(miter.limit*2.0/l.strokeWidth))
 				}
 			} else {
@@ -335,7 +335,7 @@ func (l textLayer) WriteSVG(w *svgWriter) {
 		for _, deco := range line.decos {
 			p := deco.ff.Decorate(deco.x1 - deco.x0)
 			p = p.Transform(Identity.Mul(l.m).Translate(deco.x0, line.y+deco.ff.voffset))
-			decorations = append(decorations, pathLayer{p, drawState{fillColor: deco.ff.color}, false})
+			decorations = append(decorations, pathLayer{p, style{fillColor: deco.ff.color}, false})
 		}
 	}
 	fmt.Fprintf(w, `</text>`)

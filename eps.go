@@ -79,9 +79,9 @@ func (l textLayer) WriteEPS(w *epsWriter) {
 	// TODO: (EPS) write text natively
 	paths, colors := l.text.ToPaths()
 	for i, path := range paths {
-		state := defaultDrawState
-		state.fillColor = colors[i]
-		pathLayer{path.Transform(l.m), state, false}.WriteEPS(w)
+		style := defaultStyle
+		style.fillColor = colors[i]
+		pathLayer{path.Transform(l.m), style, false}.WriteEPS(w)
 	}
 }
 

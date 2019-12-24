@@ -35,7 +35,7 @@ const (
 
 ////////////////////////////////////////////////////////////////
 
-type drawState struct {
+type style struct {
 	m                      Matrix
 	fillColor, strokeColor color.RGBA
 	strokeWidth            float64
@@ -46,7 +46,7 @@ type drawState struct {
 	fillRule               FillRuleType
 }
 
-var defaultDrawState = drawState{
+var defaultStyle = style{
 	m:            Identity,
 	fillColor:    Black,
 	strokeColor:  Transparent,
@@ -64,14 +64,14 @@ type layer interface {
 	WritePDF(*pdfPageWriter)
 	WriteEPS(*epsWriter)
 	DrawImage(draw.Image, float64)
-	ToOpenGL(*OpenGL)
+	//ToOpenGL(*OpenGL)
 }
 
 ////////////////////////////////////////////////////////////////
 
 type pathLayer struct {
 	path        *Path
-	drawState   // view matrix has already been applied
+	style       // view matrix has already been applied
 	dashesClose bool
 }
 
@@ -117,25 +117,28 @@ func (l imageLayer) Bounds() Rect {
 type Canvas struct {
 	width, height float64
 	coordSystem   CoordinateSystem
-	drawState
-	stack []drawState
+	style
+	stack []style
 
 	layers []layer
 }
 
 // New returns a new Canvas of given width and height in mm.
 func New(width, height float64) *Canvas {
-	return &Canvas{width, height, CartesianQuadrant1, defaultDrawState, nil, nil}
+	if width <= 0.0 || height <= 0.0 {
+		panic("width and height must be positive")
+	}
+	return &Canvas{width, height, CartesianQuadrant1, defaultStyle, nil, nil}
 }
 
 func (c *Canvas) getCoordinateSystem() Matrix {
 	switch c.coordSystem {
 	case CartesianQuadrant2:
-		return Identity.ReflectXAt(c.width)
+		return Identity.ReflectXAt(c.width / 2.0)
 	case CartesianQuadrant3:
 		return Identity.Translate(c.width, c.height).Scale(-1.0, -1.0).Translate(-c.width, -c.height)
 	case CartesianQuadrant4:
-		return Identity.ReflectYAt(c.height)
+		return Identity.ReflectYAt(c.height / 2.0)
 	}
 	return Identity
 }
@@ -147,17 +150,22 @@ func (c *Canvas) SetCoordinateSystem(coordSystem CoordinateSystem) {
 }
 
 // PushState saves the current draw state, so that it can be popped later on.
-func (c *Canvas) PushState() {
-	c.stack = append(c.stack, c.drawState)
+func (c *Canvas) PushStyle() {
+	c.stack = append(c.stack, c.style)
 }
 
 // PopState pops the last pushed draw state and uses that as the current draw state. If there are no states on the stack, this will do nothing.
-func (c *Canvas) PopState() {
+func (c *Canvas) PopStyle() {
 	if len(c.stack) == 0 {
 		return
 	}
-	c.drawState = c.stack[len(c.stack)-1]
+	c.style = c.stack[len(c.stack)-1]
 	c.stack = c.stack[:len(c.stack)-1]
+}
+
+// ResetStyle resets the draw state to its default (colors, stroke widths, dashes, ...).
+func (c *Canvas) ResetStyle() {
+	c.style = defaultStyle
 }
 
 // SetView sets the current affine transformation matrix through which all operations will be transformed.
@@ -256,7 +264,7 @@ func (c *Canvas) DrawPath(x, y float64, path *Path) {
 		m := c.getCoordinateSystem().Translate(x, y).Mul(c.m)
 		path = path.Transform(m)
 
-		l := pathLayer{path, c.drawState, dashesClose}
+		l := pathLayer{path, c.style, dashesClose}
 		l.dashes = dashes
 		l.fillRule = FillRule
 		c.layers = append(c.layers, l)
@@ -352,10 +360,10 @@ func (c *Canvas) WriteImage(dpm float64) *image.RGBA {
 }
 
 // WriteImage writes the stored drawing operations in Canvas as a rasterized image with given DPM (dots-per-millimeter). Higher DPM will result in bigger images.
-func (c *Canvas) ToOpenGL() *OpenGL {
-	ogl := newOpenGL()
-	for _, l := range c.layers {
-		l.ToOpenGL(ogl)
-	}
-	return ogl
-}
+//func (c *Canvas) ToOpenGL() *OpenGL {
+//	ogl := newOpenGL()
+//	for _, l := range c.layers {
+//		l.ToOpenGL(ogl)
+//	}
+//	return ogl
+//}

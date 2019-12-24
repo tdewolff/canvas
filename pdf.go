@@ -866,7 +866,7 @@ func (l textLayer) WritePDF(w *pdfPageWriter) {
 		for _, deco := range line.decos {
 			p := deco.ff.Decorate(deco.x1 - deco.x0)
 			p = p.Transform(Identity.Mul(l.m).Translate(deco.x0, line.y+deco.ff.voffset))
-			decorations = append(decorations, pathLayer{p, drawState{fillColor: deco.ff.color}, false})
+			decorations = append(decorations, pathLayer{p, style{fillColor: deco.ff.color}, false})
 		}
 	}
 	fmt.Fprintf(w, ` ET`)

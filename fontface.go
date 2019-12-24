@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"reflect"
 
-	findfont "github.com/flopp/go-findfont"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/sfnt"
 )
@@ -57,15 +56,32 @@ func NewFontFamily(name string) *FontFamily {
 
 // LoadLocalFont loads a font from the system fonts location.
 func (family *FontFamily) LoadLocalFont(name string, style FontStyle) error {
-	filename, err := findfont.Find(name)
-	if err != nil {
-		b, err := exec.Command("fc-match", "--format=%{file}", name).Output()
-		filename = string(b)
-		if err != nil {
-			return err
-		}
+	match := name
+	if style&FontItalic == FontItalic {
+		match += ":italic"
 	}
-	return family.LoadFontFile(filename, style)
+	if style&FontExtraLight == FontExtraLight {
+		match += ":weight=40"
+	} else if style&FontLight == FontLight {
+		match += ":weight=50"
+	} else if style&FontBook == FontBook {
+		match += ":weight=75"
+	} else if style&FontMedium == FontMedium {
+		match += ":weight=100"
+	} else if style&FontSemibold == FontSemibold {
+		match += ":weight=180"
+	} else if style&FontBold == FontBold {
+		match += ":weight=200"
+	} else if style&FontBlack == FontBlack {
+		match += ":weight=205"
+	} else if style&FontExtraBlack == FontExtraBlack {
+		match += ":weight=210"
+	}
+	b, err := exec.Command("fc-match", "--format=%{file}", match).Output()
+	if err != nil {
+		return err
+	}
+	return family.LoadFontFile(string(b), style)
 }
 
 // LoadFontFile loads a font from a file.

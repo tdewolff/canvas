@@ -34,9 +34,9 @@ func (l pathLayer) DrawImage(img draw.Image, dpm float64) {
 func (l textLayer) DrawImage(img draw.Image, dpm float64) {
 	paths, colors := l.text.ToPaths()
 	for i, path := range paths {
-		state := defaultDrawState
-		state.fillColor = colors[i]
-		pathLayer{path.Transform(l.m), state, false}.DrawImage(img, dpm)
+		style := defaultStyle
+		style.fillColor = colors[i]
+		pathLayer{path.Transform(l.m), style, false}.DrawImage(img, dpm)
 	}
 }
 

@@ -107,8 +107,8 @@ func (roundJoiner) String() string {
 	return "Round"
 }
 
-// MiterJoiner connects two path elements by extending the ends of the paths as lines until they meet. If this point is further than 10 mm * (strokeWidth / 2.0) away, this will result in a bevel join.
-var MiterJoiner Joiner = miterJoiner{BevelJoiner, 10.0}
+// MiterJoiner connects two path elements by extending the ends of the paths as lines until they meet. If this point is further than 2 mm * (strokeWidth / 2.0) away, this will result in a bevel join.
+var MiterJoiner Joiner = miterJoiner{BevelJoiner, 2.0}
 
 // MiterClipJoiner returns a MiterJoiner with given limit*strokeWidth/2.0 in mm upon which the gapJoiner function will be used. Limit can be NaN so that the gapJoiner is never used.
 func MiterClipJoiner(gapJoiner Joiner, limit float64) Joiner {
