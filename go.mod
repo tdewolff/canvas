@@ -2,6 +2,7 @@ module github.com/tdewolff/canvas
 
 require (
 	github.com/ByteArena/poly2tri-go v0.0.0-20170716161910-d102ad91854f
+	github.com/blend/go-sdk v2.0.0+incompatible // indirect
 	github.com/dsnet/compress v0.0.1
 	github.com/go-gl/gl v0.0.0-20190320180904-bf2b1f2f34d7
 	github.com/go-gl/glfw v0.0.0-20191125211704-12ad95a8df72
@@ -9,9 +10,8 @@ require (
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/paulmach/orb v0.1.3
 	github.com/paulmach/osm v0.0.1
-	github.com/tdewolff/minify v2.3.6+incompatible
-	github.com/tdewolff/parse v2.3.4+incompatible // indirect
-	github.com/tdewolff/parse/v2 v2.3.8
+	github.com/tdewolff/minify/v2 v2.6.1
+	github.com/tdewolff/parse/v2 v2.3.14
 	github.com/tdewolff/test v1.0.5
 	github.com/wcharczuk/go-chart v2.0.2-0.20191206192251-962b9abdec2b+incompatible
 	golang.org/x/image v0.0.0-20191214001246-9130b4cfad52

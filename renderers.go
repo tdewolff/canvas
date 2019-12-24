@@ -18,6 +18,7 @@ type Output int
 const (
 	SVG Output = iota
 	PDF
+	EPS
 	PNG
 	JPG
 	GIF
@@ -181,6 +182,8 @@ func (r *ChartRenderer) Save(w io.Writer) error {
 		return r.c.WriteSVG(w)
 	case PDF:
 		return r.c.WritePDF(w)
+	case EPS:
+		return r.c.WriteEPS(w)
 	case PNG:
 		img := r.c.WriteImage(r.dpi * inchPerMm)
 		return png.Encode(w, img)
