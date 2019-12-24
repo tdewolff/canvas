@@ -84,6 +84,10 @@ func main() {
 	defer f.Close()
 	graph.Render(canvas.NewChartRenderer(canvas.SVG), f)
 
+	f, _ = os.Create("output.eps")
+	defer f.Close()
+	graph.Render(canvas.NewChartRenderer(canvas.EPS), f)
+
 	f, _ = os.Create("output.png")
 	defer f.Close()
 	graph.Render(canvas.NewChartRenderer(canvas.PNG), f)
