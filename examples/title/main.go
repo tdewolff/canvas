@@ -2,8 +2,6 @@ package main
 
 import (
 	"image/color"
-	"image/png"
-	"os"
 
 	"github.com/tdewolff/canvas"
 )
@@ -19,23 +17,10 @@ func main() {
 
 	c := canvas.New(65, 27)
 	draw(c)
-
-	////////////////
-
-	pngFile, err := os.Create("out.png")
-	if err != nil {
-		panic(err)
-	}
-	defer pngFile.Close()
-
-	img := c.WriteImage(5.0)
-	err = png.Encode(pngFile, img)
-	if err != nil {
-		panic(err)
-	}
+	c.SavePNG("out.png", 5.0)
 }
 
-func draw(c *canvas.Canvas) {
+func draw(c canvas.Canvas) {
 	x := 2.0
 	face := font.Face(80.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 

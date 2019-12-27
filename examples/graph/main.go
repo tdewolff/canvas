@@ -4,7 +4,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"image/color"
-	"image/png"
 	"io"
 	"math"
 	"os"
@@ -24,21 +23,10 @@ func main() {
 
 	c := canvas.New(140, 110)
 	draw(c)
-
-	pngFile, err := os.Create("out.png")
-	if err != nil {
-		panic(err)
-	}
-	defer pngFile.Close()
-
-	img := c.WriteImage(5.0)
-	err = png.Encode(pngFile, img)
-	if err != nil {
-		panic(err)
-	}
+	c.SavePNG("out.png", 5.0)
 }
 
-func draw(c *canvas.Canvas) {
+func draw(c canvas.Canvas) {
 	tickFace := fontFamily.Face(8.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 
 	datafile, err := os.Open("co2-mm-mlo.csv")
@@ -83,7 +71,7 @@ func draw(c *canvas.Canvas) {
 	xscale := 120.0 / (xmax - xmin)
 	yscale := 80.0 / (ymax - ymin)
 
-	c.PushState()
+	c.Push()
 	c.SetView(canvas.Identity.Translate(15.0, 15.0))
 	viewport := canvas.Identity.Scale(xscale, yscale).Translate(-xmin, -ymin)
 
@@ -132,11 +120,11 @@ func draw(c *canvas.Canvas) {
 	rt.Add(labelFace, "CO")
 	rt.Add(labelSubFace, "2")
 	rt.Add(labelFace, " (ppm)")
-	c.PushState()
+	c.Push()
 	c.ComposeView(canvas.Identity.Rotate(90))
 	text := rt.ToText(0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0)
-	c.DrawText(-10.0, 40.0, text)
-	c.PopState()
+	c.DrawText(40.0, 10.0, text)
+	c.Pop()
 	c.DrawText(60.0, -10.0, canvas.NewTextLine(labelFace, "Year", canvas.Center))
 
 	titleFace := fontFamily.Face(16.0, color.Black, canvas.FontRegular, canvas.FontNormal)

@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"image/color"
-	"image/png"
-	"os"
 
 	"github.com/paulmach/orb"
 	"github.com/paulmach/osm"
@@ -25,21 +23,10 @@ func main() {
 
 	c := canvas.New(100, 100)
 	draw(c)
-
-	pngFile, err := os.Create("out.png")
-	if err != nil {
-		panic(err)
-	}
-	defer pngFile.Close()
-
-	img := c.WriteImage(8.0)
-	err = png.Encode(pngFile, img)
-	if err != nil {
-		panic(err)
-	}
+	c.SavePNG("out.png", 8.0)
 }
 
-func draw(c *canvas.Canvas) {
+func draw(c canvas.Canvas) {
 	xmin, xmax := 4.8884, 4.9090
 	ymin, ymax := 52.3659, 52.3779
 

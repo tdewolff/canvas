@@ -1,7 +1,6 @@
 package canvas
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
@@ -486,7 +485,6 @@ func (r *canvas) SaveEPS(filename string) error {
 
 // WriteImage writes the stored drawing operations in Canvas as a rasterized image with given DPM (dots-per-millimeter). Higher DPM will result in bigger images.
 func (r *canvas) WriteImage(dpm float64) *image.RGBA {
-	fmt.Println(dpm)
 	img := image.NewRGBA(image.Rect(0.0, 0.0, int(r.W*dpm+0.5), int(r.H*dpm+0.5)))
 	draw.Draw(img, img.Bounds(), image.NewUniform(White), image.Point{}, draw.Src)
 

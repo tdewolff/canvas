@@ -24,9 +24,12 @@ func main() {
 	////////////////
 
 	c.SaveSVG("out.svg")
+	c.SavePDF("out.pdf")
+	c.SaveEPS("out.eps")
+	c.SavePNG("out.png", 10.0)
 }
 
-func drawText(c *canvas.Canvas, x, y float64, face canvas.FontFace, rich *canvas.RichText) {
+func drawText(c canvas.Canvas, x, y float64, face canvas.FontFace, rich *canvas.RichText) {
 	metrics := face.Metrics()
 	width, height := 80.0, 25.0
 
@@ -45,7 +48,7 @@ func drawText(c *canvas.Canvas, x, y float64, face canvas.FontFace, rich *canvas
 	c.DrawText(x, y, text)
 }
 
-func draw(c *canvas.Canvas) {
+func draw(c canvas.Canvas) {
 	// Draw a comprehensive text box
 	face := fontFamily.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	rich := canvas.NewRichText()
@@ -141,5 +144,5 @@ func draw(c *canvas.Canvas) {
 	if err != nil {
 		panic(err)
 	}
-	c.DrawImage(105.0, 15.0, img, canvas.Lossy, 25.6)
+	c.DrawImage(105.0, 15.0, img, 25.6)
 }
