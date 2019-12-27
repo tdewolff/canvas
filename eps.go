@@ -2,6 +2,7 @@ package canvas
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 	"io"
 )
@@ -36,55 +37,52 @@ xrad yrad scale
 savematrix setmatrix
 } def`
 
-type epsWriter struct {
-	io.Writer
+type eps struct {
+	*Context
+	w     io.Writer
 	color color.RGBA
 }
 
-func newEPSWriter(writer io.Writer, width, height float64) *epsWriter {
-	w := &epsWriter{
-		Writer: writer,
-		color:  Black,
-	}
-
+func EPS(w io.Writer, width, height float64) *eps {
 	fmt.Fprintf(w, "%%!PS-Adobe-3.0 EPSF-3.0\n%%%%BoundingBox: 0 0 %v %v\n", dec(width), dec(height))
 	fmt.Fprintf(w, psEllipseDef)
-
 	// TODO: (EPS) generate and add preview
 
-	return w
+	r := &eps{
+		Context: nil,
+		w:       w,
+		color:   Black,
+	}
+	r.Context = newContext(r, width, height)
+	return r
 }
 
-func (w *epsWriter) SetColor(color color.RGBA) {
-	if color != w.color {
-		fmt.Fprintf(w, " %v %v %v setrgbcolor", dec(float64(color.R)/255.0), dec(float64(color.G)/255.0), dec(float64(color.B)/255.0))
-		w.color = color
+func (r *eps) SetColor(color color.RGBA) {
+	if color != r.color {
+		fmt.Fprintf(r.w, " %v %v %v setrgbcolor", dec(float64(color.R)/255.0), dec(float64(color.G)/255.0), dec(float64(color.B)/255.0))
+		r.color = color
 	}
 }
 
-func (w *epsWriter) Close() error {
-	return nil
-}
-
-func (l pathLayer) WriteEPS(w *epsWriter) {
+func (r *eps) renderPath(path *Path, style Style, m Matrix) {
 	// TODO: (EPS) test ellipse, rotations etc
 	// TODO: (EPS) add drawState support
-	w.SetColor(l.fillColor)
-	w.Write([]byte(" "))
-	w.Write([]byte(l.path.ToPS()))
-	w.Write([]byte(" fill"))
+	r.SetColor(style.FillColor)
+	r.w.Write([]byte(" "))
+	r.w.Write([]byte(path.Transform(m).ToPS()))
+	r.w.Write([]byte(" fill"))
 }
 
-func (l textLayer) WriteEPS(w *epsWriter) {
+func (r *eps) renderText(text *Text, m Matrix) {
 	// TODO: (EPS) write text natively
-	paths, colors := l.text.ToPaths()
+	paths, colors := text.ToPaths()
 	for i, path := range paths {
-		style := defaultStyle
-		style.fillColor = colors[i]
-		pathLayer{path.Transform(l.m), style, false}.WriteEPS(w)
+		style := DefaultStyle
+		style.FillColor = colors[i]
+		r.renderPath(path, style, m)
 	}
 }
 
-func (l imageLayer) WriteEPS(w *epsWriter) {
+func (r *eps) renderImage(img image.Image, m Matrix) {
 	// TODO: (EPS) write image
 }

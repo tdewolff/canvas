@@ -12,7 +12,7 @@ import (
 var fontFamily *canvas.FontFamily
 
 func main() {
-	fontFamily = canvas.NewFontFamily("dejavu-serif")
+	fontFamily = canvas.NewFontFamily("DejaVu Serif")
 	fontFamily.Use(canvas.CommonLigatures)
 	if err := fontFamily.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
 		panic(err)
@@ -23,49 +23,7 @@ func main() {
 
 	////////////////
 
-	svgFile, err := os.Create("out.svg")
-	if err != nil {
-		panic(err)
-	}
-	defer svgFile.Close()
-	c.WriteSVG(svgFile)
-
-	////////////////
-
-	// SLOW
-	pngFile, err := os.Create("out.png")
-	if err != nil {
-		panic(err)
-	}
-	defer pngFile.Close()
-
-	img := c.WriteImage(5.0)
-	err = png.Encode(pngFile, img)
-	if err != nil {
-		panic(err)
-	}
-
-	////////////////
-
-	pdfFile, err := os.Create("out.pdf")
-	if err != nil {
-		panic(err)
-	}
-	defer pdfFile.Close()
-
-	err = c.WritePDF(pdfFile)
-	if err != nil {
-		panic(err)
-	}
-
-	////////////////
-
-	epsFile, err := os.Create("out.eps")
-	if err != nil {
-		panic(err)
-	}
-	defer epsFile.Close()
-	c.WriteEPS(epsFile)
+	c.SaveSVG("out.svg")
 }
 
 func drawText(c *canvas.Canvas, x, y float64, face canvas.FontFace, rich *canvas.RichText) {

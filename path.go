@@ -13,15 +13,12 @@ import (
 // Tolerance is the maximum deviation from the original path in millimeters when e.g. flatting
 var Tolerance = 0.01
 
-// FillRule defines the FillRuleType used by the path.
-var FillRule = NonZero
+// FillRule is the algorithm to specify which area is to be filled and which not, in particular when multiple subpaths overlap. The NonZero rule is the default and will fill any point that is being enclosed by an unequal number of paths winding clockwise and counter clockwise, otherwise it will not be filled. The EvenOdd rule will fill any point that is being enclosed by an uneven number of path, whichever their direction.
+type FillRule int
 
-// FillRuleType is the algorithm to specify which area is to be filled and which not, in particular when multiple subpaths overlap. The NonZero rule is the default and will fill any point that is being enclosed by an unequal number of paths winding clockwise and counter clockwise, otherwise it will not be filled. The EvenOdd rule will fill any point that is being enclosed by an uneven number of path, whichever their direction.
-type FillRuleType int
-
-// see FillRuleType
+// see FillRule
 const (
-	NonZero FillRuleType = iota
+	NonZero FillRule = iota
 	EvenOdd
 )
 
@@ -69,6 +66,7 @@ func toArcFlags(large, sweep bool) float64 {
 // Only valid commands are appended, so that LineTo has a non-zero length, QuadTo's and CubeTo's control point(s) don't (both) overlap with the start and end point, and ArcTo has non-zero radii and has non-zero length. For ArcTo we also make sure the angle is is in the range [0, 2*PI) and we scale the radii up if they appear too small to fit the arc.
 type Path struct {
 	d []float64
+	// TODO: optimization: cache bounds and path len until changes (clearCache()), set bounds directly for predefined shapes
 }
 
 // Empty returns true if p is an empty path or consists of only MoveTos and Closes.
@@ -427,7 +425,7 @@ func (p *Path) CCW() bool {
 }
 
 // Filling returns whether each subpath gets filled or not. A path may not be filling when it negates another path and depends on the FillRule. If a subpath is not closed, it is implicitly assumed to be closed. If the path has no area it will return false.
-func (p *Path) Filling() []bool {
+func (p *Path) Filling(fillRule FillRule) []bool {
 	var pls []*Polyline
 	var ccw []bool
 	for _, ps := range p.Split() {
@@ -457,7 +455,7 @@ func (p *Path) Filling() []bool {
 
 	fillings := make([]bool, len(fillCounts))
 	for i := range fillCounts {
-		if FillRule == NonZero {
+		if fillRule == NonZero {
 			fillings[i] = fillCounts[i] != 0
 		} else {
 			fillings[i] = fillCounts[i]%2 != 0
@@ -467,13 +465,13 @@ func (p *Path) Filling() []bool {
 }
 
 // Interior is true when the point (x,y) is in the interior of the path, ie. gets filled. This depends on the FillRule.
-func (p *Path) Interior(x, y float64) bool {
+func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 	fillCount := 0
 	test := Point{x, y}
 	for _, ps := range p.Split() {
 		fillCount += PolylineFromPath(ps).FillCount(test.X, test.Y) // uses flattening
 	}
-	if FillRule == NonZero {
+	if fillRule == NonZero {
 		return fillCount != 0
 	}
 	return fillCount%2 != 0
@@ -1096,7 +1094,27 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 //	return ps, qs
 //}
 
-// dashCanonical returns an optimized and even-length dash array
+func dashStart(offset float64, d []float64) (int, float64) {
+	i0 := 0 // index in d
+	for d[i0] <= offset {
+		offset -= d[i0]
+		i0++
+		if i0 == len(d) {
+			i0 = 0
+		}
+	}
+	pos0 := -offset // negative if offset is halfway into dash
+	if offset < 0.0 {
+		dTotal := 0.0
+		for _, dd := range d {
+			dTotal += dd
+		}
+		pos0 = -(dTotal + offset) // handle negative offsets
+	}
+	return i0, pos0
+}
+
+// dashCanonical returns an optimized dash array
 func dashCanonical(offset float64, d []float64) (float64, []float64) {
 	if len(d) == 0 {
 		return 0.0, []float64{}
@@ -1152,25 +1170,24 @@ REPEAT:
 	return offset, d
 }
 
-func dashStart(offset float64, d []float64) (int, float64) {
+func (p *Path) checkDash(offset float64, d []float64) (*Path, []float64) {
+	offset, d = dashCanonical(offset, d)
+	if len(d) == 0 {
+		return p, d
+	} else if len(d) == 1 && d[0] == 0.0 {
+		return &Path{}, d
+	}
 
-	i0 := 0 // index in d
-	for d[i0] <= offset {
-		offset -= d[i0]
-		i0++
-		if i0 == len(d) {
-			i0 = 0
+	length := p.Length()
+	i, pos := dashStart(offset, d)
+	if length <= d[i]-pos {
+		if i%2 == 0 { // first dash covers whole path
+			return p, nil
+		} else { // first space covers whole path
+			return &Path{}, nil
 		}
 	}
-	pos0 := -offset // negative if offset is halfway into dash
-	if offset < 0.0 {
-		dTotal := 0.0
-		for _, dd := range d {
-			dTotal += dd
-		}
-		pos0 = -(dTotal + offset) // handle negative offsets
-	}
-	return i0, pos0
+	return p, d
 }
 
 // Dash returns a new path that consists of dashes. The elements in d specify the width of the dashes and gaps. It will alternate between dashes and gaps when picking widths. If d is an array of odd length, it is equivalent of passing d twice in sequence. The offset specifies the offset used into d (or negative offset onto the path). Dash will be applied to each subpath independently.

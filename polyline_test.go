@@ -19,13 +19,11 @@ func TestPolyline(t *testing.T) {
 	test.T(t, (&Polyline{}).Add(10, 0).Add(20, 10).ToPath(), MustParseSVG("M10 0L20 10"))
 	test.T(t, (&Polyline{}).Add(10, 0).Add(20, 10).Add(10, 0).ToPath(), MustParseSVG("M10 0L20 10z"))
 
-	test.That(t, (&Polyline{}).Add(10, 0).Add(20, 10).Add(10, 10).Add(10, 0).Interior(12, 5))
-	test.That(t, !(&Polyline{}).Add(10, 0).Add(20, 10).Add(10, 10).Add(10, 0).Interior(5, 5))
+	test.That(t, (&Polyline{}).Add(10, 0).Add(20, 10).Add(10, 10).Add(10, 0).Interior(12, 5, NonZero))
+	test.That(t, !(&Polyline{}).Add(10, 0).Add(20, 10).Add(10, 10).Add(10, 0).Interior(5, 5, NonZero))
 
-	FillRule = EvenOdd
-	test.That(t, (&Polyline{}).Add(10, 0).Add(20, 10).Add(10, 10).Add(10, 0).Interior(12, 5))
-	test.That(t, !(&Polyline{}).Add(10, 0).Add(20, 10).Add(10, 10).Add(10, 0).Interior(5, 5))
-	FillRule = NonZero
+	test.That(t, (&Polyline{}).Add(10, 0).Add(20, 10).Add(10, 10).Add(10, 0).Interior(12, 5, EvenOdd))
+	test.That(t, !(&Polyline{}).Add(10, 0).Add(20, 10).Add(10, 10).Add(10, 0).Interior(5, 5, EvenOdd))
 }
 
 func TestPolylineSmoothen(t *testing.T) {

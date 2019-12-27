@@ -504,13 +504,13 @@ func closeInnerBends(p *Path, indices []int, closed bool) {
 }
 
 // Offset offsets the path to expand by w and returns a new path. If w is negative it will contract. Path must be closed.
-func (p *Path) Offset(w float64) *Path {
+func (p *Path) Offset(w float64, fillRule FillRule) *Path {
 	if equal(w, 0.0) {
 		return p
 	}
 
 	q := &Path{}
-	filling := p.Filling()
+	filling := p.Filling(fillRule)
 	for i, ps := range p.Split() {
 		if !ps.Closed() {
 			continue

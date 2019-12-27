@@ -104,7 +104,7 @@ func TestPathOffset(t *testing.T) {
 	}
 	for j, tt := range tts {
 		t.Run(fmt.Sprintf("%v", j), func(t *testing.T) {
-			offset := MustParseSVG(tt.orig).Offset(tt.w)
+			offset := MustParseSVG(tt.orig).Offset(tt.w, NonZero)
 			test.T(t, offset, MustParseSVG(tt.offset))
 		})
 	}

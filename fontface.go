@@ -329,7 +329,7 @@ func (ff FontFace) ToPath(s string) (*Path, float64) {
 			p.Close()
 		}
 		if ff.fauxBold != 0.0 {
-			p = p.Offset(ff.fauxBold)
+			p = p.Offset(ff.fauxBold, NonZero)
 		}
 
 		if i != 0 {

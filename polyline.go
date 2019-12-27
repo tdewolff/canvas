@@ -66,9 +66,9 @@ func (p *Polyline) FillCount(x, y float64) int {
 }
 
 // Interior is true when the point (x,y) is in the interior of the path, ie. gets filled. This depends on the FillRule.
-func (p *Polyline) Interior(x, y float64) bool {
+func (p *Polyline) Interior(x, y float64, fillRule FillRule) bool {
 	fillCount := p.FillCount(x, y)
-	if FillRule == NonZero {
+	if fillRule == NonZero {
 		return fillCount != 0
 	}
 	return fillCount%2 != 0

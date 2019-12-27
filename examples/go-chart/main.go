@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"time"
@@ -76,21 +77,23 @@ func main() {
 		},
 	}
 
+	fmt.Println(graph.GetWidth())
+
 	f, _ := os.Create("output.pdf")
 	defer f.Close()
-	graph.Render(canvas.NewChartRenderer(canvas.PDF), f)
+	graph.Render(canvas.NewChartRenderer(canvas.OutputPDF), f)
 
 	f, _ = os.Create("output.svg")
 	defer f.Close()
-	graph.Render(canvas.NewChartRenderer(canvas.SVG), f)
+	graph.Render(canvas.NewChartRenderer(canvas.OutputSVG), f)
 
 	f, _ = os.Create("output.eps")
 	defer f.Close()
-	graph.Render(canvas.NewChartRenderer(canvas.EPS), f)
+	graph.Render(canvas.NewChartRenderer(canvas.OutputEPS), f)
 
 	f, _ = os.Create("output.png")
 	defer f.Close()
-	graph.Render(canvas.NewChartRenderer(canvas.PNG), f)
+	graph.Render(canvas.NewChartRenderer(canvas.OutputPNG), f)
 
 	f, _ = os.Create("target.png")
 	defer f.Close()

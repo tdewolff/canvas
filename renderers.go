@@ -16,19 +16,18 @@ import (
 type Output int
 
 const (
-	SVG Output = iota
-	PDF
-	EPS
-	PNG
-	JPG
-	GIF
+	OutputSVG Output = iota
+	OutputPDF
+	OutputEPS
+	OutputPNG
+	OutputJPG
+	OutputGIF
 )
 
 type ChartRenderer struct {
-	c            *Canvas
+	c            *canvas
 	output       Output
 	dpi          float64
-	p            *Path
 	font         *FontFamily
 	fontSize     float64
 	fontColor    drawing.Color
@@ -41,12 +40,10 @@ func NewChartRenderer(output Output) func(int, int) (chart.Renderer, error) {
 		font.LoadLocalFont("Arimo", FontRegular)
 
 		c := New(float64(w), float64(h))
-		c.SetCoordinateSystem(CartesianQuadrant4)
 		return &ChartRenderer{
 			c:      c,
 			output: output,
 			dpi:    72.0,
-			p:      &Path{},
 			font:   font,
 		}, nil
 	}
@@ -86,54 +83,45 @@ func (r *ChartRenderer) SetStrokeDashArray(dashArray []float64) {
 }
 
 func (r *ChartRenderer) MoveTo(x, y int) {
-	r.p.MoveTo(float64(x), float64(y))
+	r.c.MoveTo(float64(x), r.c.H-float64(y))
 }
 
 func (r *ChartRenderer) LineTo(x, y int) {
-	r.p.LineTo(float64(x), float64(y))
+	r.c.LineTo(float64(x), r.c.H-float64(y))
 }
 
 func (r *ChartRenderer) QuadCurveTo(cx, cy, x, y int) {
-	r.p.QuadTo(float64(cx), float64(cy), float64(x), float64(y))
+	r.c.QuadTo(float64(cx), r.c.H-float64(cy), float64(x), r.c.H-float64(y))
 }
 
 func (r *ChartRenderer) ArcTo(cx, cy int, rx, ry, startAngle, delta float64) {
 	startAngle *= 180.0 / math.Pi
 	delta *= 180.0 / math.Pi
 
-	start := ellipsePos(rx, ry, 0.0, float64(cx), float64(cy), startAngle)
-	if r.p.Empty() {
-		r.p.MoveTo(start.X, start.Y)
+	start := ellipsePos(rx, -ry, 0.0, float64(cx), r.c.H-float64(cy), startAngle)
+	if r.c.Empty() {
+		r.c.MoveTo(start.X, r.c.H-start.Y)
 	} else {
-		r.p.LineTo(start.X, start.Y)
+		r.c.LineTo(start.X, r.c.H-start.Y)
 	}
-	r.p.Arc(rx, ry, 0.0, startAngle, startAngle+delta)
+	r.c.Arc(rx, ry, 0.0, startAngle, startAngle+delta)
 }
 
 func (r *ChartRenderer) Close() {
-	r.p.Close()
-	r.p.MoveTo(0.0, 0.0)
+	r.c.ClosePath()
+	r.c.MoveTo(0.0, 0.0)
 }
 
 func (r *ChartRenderer) Stroke() {
-	r.c.PushStyle()
-	r.c.SetFillColor(Transparent)
-	r.c.DrawPath(0.0, 0.0, r.p)
-	r.c.PopStyle()
-	r.p = &Path{}
+	r.c.Stroke()
 }
 
 func (r *ChartRenderer) Fill() {
-	r.c.PushStyle()
-	r.c.SetStrokeColor(Transparent)
-	r.c.DrawPath(0.0, 0.0, r.p)
-	r.c.PopStyle()
-	r.p = &Path{}
+	r.c.Fill()
 }
 
 func (r *ChartRenderer) FillStroke() {
-	r.c.DrawPath(0.0, 0.0, r.p)
-	r.p = &Path{}
+	r.c.FillStroke()
 }
 
 func (r *ChartRenderer) Circle(radius float64, x, y int) {
@@ -154,11 +142,11 @@ func (r *ChartRenderer) SetFontSize(size float64) {
 
 func (r *ChartRenderer) Text(body string, x, y int) {
 	face := r.font.Face(r.fontSize*ptPerMm*r.dpi/72.0, r.fontColor, FontRegular, FontNormal)
-	r.c.PushStyle()
+	r.c.Push()
 	r.c.SetFillColor(r.fontColor)
 	r.c.ComposeView(Identity.Rotate(-r.textRotation * 180.0 / math.Pi))
-	r.c.DrawText(float64(x), float64(y), NewTextLine(face, body, Left))
-	r.c.PopStyle()
+	r.c.DrawText(float64(x), r.c.H-float64(y), NewTextLine(face, body, Left))
+	r.c.Pop()
 }
 
 func (r *ChartRenderer) MeasureText(body string) chart.Box {
@@ -178,21 +166,36 @@ func (r *ChartRenderer) ClearTextRotation() {
 
 func (r *ChartRenderer) Save(w io.Writer) error {
 	switch r.output {
-	case SVG:
-		return r.c.WriteSVG(w)
-	case PDF:
-		return r.c.WritePDF(w)
-	case EPS:
-		return r.c.WriteEPS(w)
-	case PNG:
+	case OutputSVG:
+		svg := SVG(w, r.c.W, r.c.H)
+		r.c.Render(svg)
+		return svg.Close()
+	case OutputPDF:
+		pdf := PDF(w, r.c.W, r.c.H)
+		r.c.Render(pdf)
+		return pdf.Close()
+	case OutputEPS:
+		eps := EPS(w, r.c.W, r.c.H)
+		r.c.Render(eps)
+		return nil
+	case OutputPNG:
 		img := r.c.WriteImage(r.dpi * inchPerMm)
-		return png.Encode(w, img)
-	case JPG:
+		if err := png.Encode(w, img); err != nil {
+			return err
+		}
+		return nil
+	case OutputJPG:
 		img := r.c.WriteImage(r.dpi * inchPerMm)
-		return jpeg.Encode(w, img, &jpeg.Options{})
-	case GIF:
+		if err := jpeg.Encode(w, img, nil); err != nil {
+			return err
+		}
+		return nil
+	case OutputGIF:
 		img := r.c.WriteImage(r.dpi * inchPerMm)
-		return gif.Encode(w, img, &gif.Options{})
+		if err := gif.Encode(w, img, nil); err != nil {
+			return err
+		}
+		return nil
 	}
 	return fmt.Errorf("unknown output format")
 }

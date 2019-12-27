@@ -146,62 +146,58 @@ func TestPathCCW(t *testing.T) {
 }
 
 func TestPathFilling(t *testing.T) {
-	fillings := MustParseSVG("M0 0").Filling()
+	fillings := MustParseSVG("M0 0").Filling(NonZero)
 	test.T(t, len(fillings), 0)
 
-	fillings = MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Filling() // outer CCW, inner CCW
+	fillings = MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Filling(NonZero) // outer CCW, inner CCW
 	test.T(t, len(fillings), 2)
 	test.T(t, fillings[0], true)
 	test.T(t, fillings[1], true)
 
-	fillings = MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Filling() // outer CCW, inner CW
+	fillings = MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Filling(NonZero) // outer CCW, inner CW
 	test.T(t, fillings[0], true)
 	test.T(t, fillings[1], false)
 
-	FillRule = EvenOdd
-	fillings = MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Filling() // outer CCW, inner CCW
+	fillings = MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Filling(EvenOdd) // outer CCW, inner CCW
 	test.T(t, fillings[0], true)
 	test.T(t, fillings[1], false)
 
-	fillings = MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Filling() // outer CCW, inner CW
+	fillings = MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Filling(EvenOdd) // outer CCW, inner CW
 	test.T(t, fillings[0], true)
 	test.T(t, fillings[1], false)
-	FillRule = NonZero
 
-	fillings = MustParseSVG("L10 10z").Filling()
+	fillings = MustParseSVG("L10 10z").Filling(NonZero)
 	test.T(t, fillings[0], false)
 
-	fillings = MustParseSVG("C5 0 10 5 10 10z").Filling()
+	fillings = MustParseSVG("C5 0 10 5 10 10z").Filling(NonZero)
 	test.T(t, fillings[0], true)
 
-	fillings = MustParseSVG("C0 5 5 10 10 10z").Filling()
+	fillings = MustParseSVG("C0 5 5 10 10 10z").Filling(NonZero)
 	test.T(t, fillings[0], true)
 
-	fillings = MustParseSVG("Q10 0 10 10z").Filling()
+	fillings = MustParseSVG("Q10 0 10 10z").Filling(NonZero)
 	test.T(t, fillings[0], true)
 
-	fillings = MustParseSVG("Q0 10 10 10z").Filling()
+	fillings = MustParseSVG("Q0 10 10 10z").Filling(NonZero)
 	test.T(t, fillings[0], true)
 
-	fillings = MustParseSVG("A10 10 0 0 1 10 10z").Filling()
+	fillings = MustParseSVG("A10 10 0 0 1 10 10z").Filling(NonZero)
 	test.T(t, fillings[0], true)
 
-	fillings = MustParseSVG("A10 10 0 0 0 10 10z").Filling()
+	fillings = MustParseSVG("A10 10 0 0 0 10 10z").Filling(NonZero)
 	test.T(t, fillings[0], true)
 }
 
 func TestPathInterior(t *testing.T) {
-	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Interior(1, 1))
-	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Interior(3, 3))
-	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Interior(1, 1))
-	test.That(t, !MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Interior(3, 3))
+	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Interior(1, 1, NonZero))
+	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Interior(3, 3, NonZero))
+	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Interior(1, 1, NonZero))
+	test.That(t, !MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Interior(3, 3, NonZero))
 
-	FillRule = EvenOdd
-	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Interior(1, 1))
-	test.That(t, !MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Interior(3, 3))
-	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Interior(1, 1))
-	test.That(t, !MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Interior(3, 3))
-	FillRule = NonZero
+	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Interior(1, 1, EvenOdd))
+	test.That(t, !MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Interior(3, 3, EvenOdd))
+	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Interior(1, 1, EvenOdd))
+	test.That(t, !MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Interior(3, 3, EvenOdd))
 }
 
 func TestPathBounds(t *testing.T) {
