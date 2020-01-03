@@ -416,7 +416,7 @@ func TestPathSplit(t *testing.T) {
 		})
 	}
 
-	ps := (&Path{[]float64{moveToCmd, 5.0, 5.0, moveToCmd, moveToCmd, 10.0, 10.0, moveToCmd, closeCmd, 10.0, 10.0, closeCmd}}).Split()
+	ps := (&Path{[]float64{MoveToCmd, 5.0, 5.0, MoveToCmd, MoveToCmd, 10.0, 10.0, MoveToCmd, CloseCmd, 10.0, 10.0, CloseCmd}}).Split()
 	test.T(t, ps[0].String(), "M5 5")
 	test.T(t, ps[1].String(), "M10 10z")
 }

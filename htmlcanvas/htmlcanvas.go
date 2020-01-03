@@ -1,8 +1,10 @@
-package canvas
+package htmlcanvas
 
 import (
 	"image"
 	"syscall/js"
+
+	"github.com/tdewolff/canvas"
 )
 
 type htmlCanvas struct {
@@ -11,7 +13,7 @@ type htmlCanvas struct {
 	dpm           float64
 }
 
-func HTMLCanvas(canvas js.Value, width, height, dpm float64) *htmlCanvas {
+func New(canvas js.Value, width, height, dpm float64) *htmlCanvas {
 	canvas.Set("width", width*dpm)
 	canvas.Set("height", height*dpm)
 
@@ -29,52 +31,53 @@ func (r *htmlCanvas) Size() (float64, float64) {
 	return r.width / r.dpm, r.height / r.dpm
 }
 
-func (r *htmlCanvas) RenderPath(path *Path, style Style, m Matrix) {
+func (r *htmlCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
 	if path.Empty() {
 		return
 	}
 
 	r.context.Call("beginPath")
-	for i := 0; i < len(path.d); {
-		cmd := path.d[i]
+	d := path.Data()
+	for i := 0; i < len(d); {
+		cmd := d[i]
 		switch cmd {
-		case moveToCmd:
-			x, y := path.d[i+1], path.d[i+2]
+		case canvas.MoveToCmd:
+			x, y := d[i+1], d[i+2]
 			r.context.Call("moveTo", x*r.dpm, r.height-y*r.dpm)
-		case lineToCmd:
-			x, y := path.d[i+1], path.d[i+2]
+		case canvas.LineToCmd:
+			x, y := d[i+1], d[i+2]
 			r.context.Call("lineTo", x*r.dpm, r.height-y*r.dpm)
-		case quadToCmd:
-			cpx, cpy := path.d[i+1], path.d[i+2]
-			x, y := path.d[i+3], path.d[i+4]
+		case canvas.QuadToCmd:
+			cpx, cpy := d[i+1], d[i+2]
+			x, y := d[i+3], d[i+4]
 			r.context.Call("quadraticCurveTo", cpx*r.dpm, r.height-cpy*r.dpm, x*r.dpm, r.height-y*r.dpm)
-		case cubeToCmd:
-			cpx1, cpy1 := path.d[i+1], path.d[i+2]
-			cpx2, cpy2 := path.d[i+3], path.d[i+4]
-			x, y := path.d[i+5], path.d[i+6]
+		case canvas.CubeToCmd:
+			cpx1, cpy1 := d[i+1], d[i+2]
+			cpx2, cpy2 := d[i+3], d[i+4]
+			x, y := d[i+5], d[i+6]
 			r.context.Call("cubicCurveTo", cpx1*r.dpm, r.height-cpy1*r.dpm, cpx2*r.dpm, r.height-cpy2*r.dpm, x*r.dpm, r.height-y*r.dpm)
-		case arcToCmd:
+		case canvas.ArcToCmd:
 			//rx, ry, phi := path.d[i+1], path.d[i+2], path.d[i+3]
 			//large, sweep := fromArcFlags(path.d[i+4])
 			//x, y := path.d[i+5], path.d[i+6]
 			// TODO
-		case closeCmd:
+		case canvas.CloseCmd:
 			r.context.Call("closePath")
 		}
-		i += cmdLen(cmd)
+		i += canvas.CmdLen(cmd)
 	}
 	r.context.Call("fill")
 }
 
-func (r *htmlCanvas) RenderText(text *Text, m Matrix) {
+func (r *htmlCanvas) RenderText(text *canvas.Text, m canvas.Matrix) {
 	paths, colors := text.ToPaths()
 	for i, path := range paths {
-		style := DefaultStyle
+		style := canvas.DefaultStyle
 		style.FillColor = colors[i]
 		r.RenderPath(path, style, m)
 	}
 }
 
-func (r *htmlCanvas) RenderImage(img image.Image, m Matrix) {
+func (r *htmlCanvas) RenderImage(img image.Image, m canvas.Matrix) {
 	panic("images not supported in HTML Canvas")
 }

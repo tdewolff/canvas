@@ -5,6 +5,7 @@ import (
 	"syscall/js"
 
 	"github.com/tdewolff/canvas"
+	"github.com/tdewolff/canvas/htmlcanvas"
 )
 
 var fontFamily *canvas.FontFamily
@@ -17,7 +18,7 @@ func main() {
 	//}
 
 	cvs := js.Global().Get("document").Call("getElementById", "canvas")
-	c := canvas.HTMLCanvas(cvs, 200, 80, 3.0)
+	c := htmlcanvas.New(cvs, 200, 80, 3.0)
 
 	ctx := canvas.NewContext(c)
 	draw(ctx)
