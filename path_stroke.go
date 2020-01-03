@@ -297,13 +297,13 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
-		case MoveToCmd:
+		case moveToCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
-		case LineToCmd:
+		case lineToCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
 			n := end.Sub(start).Rot90CW().Norm(halfWidth)
 			states = append(states, pathStrokeState{
-				cmd: LineToCmd,
+				cmd: lineToCmd,
 				p0:  start,
 				p1:  end,
 				n0:  n,
@@ -311,9 +311,9 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 				r0:  math.NaN(),
 				r1:  math.NaN(),
 			})
-		case QuadToCmd, CubeToCmd:
+		case quadToCmd, cubeToCmd:
 			var cp1, cp2 Point
-			if cmd == QuadToCmd {
+			if cmd == quadToCmd {
 				cp := Point{p.d[i+1], p.d[i+2]}
 				end = Point{p.d[i+3], p.d[i+4]}
 				cp1, cp2 = quadraticToCubicBezier(start, cp, end)
@@ -327,7 +327,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			r0 := cubicBezierCurvatureRadius(start, cp1, cp2, end, 0.0)
 			r1 := cubicBezierCurvatureRadius(start, cp1, cp2, end, 1.0)
 			states = append(states, pathStrokeState{
-				cmd: CubeToCmd,
+				cmd: cubeToCmd,
 				p0:  start,
 				p1:  end,
 				n0:  n0,
@@ -337,9 +337,9 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 				cp1: cp1,
 				cp2: cp2,
 			})
-		case ArcToCmd:
+		case arcToCmd:
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
-			large, sweep := ToArcFlags(p.d[i+4])
+			large, sweep := toArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
 			_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
 			n0 := ellipseNormal(rx, ry, phi, sweep, theta0, halfWidth)
@@ -347,7 +347,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			r0 := ellipseCurvatureRadius(rx, ry, sweep, theta0)
 			r1 := ellipseCurvatureRadius(rx, ry, sweep, theta1)
 			states = append(states, pathStrokeState{
-				cmd:    ArcToCmd,
+				cmd:    arcToCmd,
 				p0:     start,
 				p1:     end,
 				n0:     n0,
@@ -362,12 +362,12 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 				large:  large,
 				sweep:  sweep,
 			})
-		case CloseCmd:
+		case closeCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
 			if !equal(start.X, end.X) || !equal(start.Y, end.Y) {
 				n := end.Sub(start).Rot90CW().Norm(halfWidth)
 				states = append(states, pathStrokeState{
-					cmd: LineToCmd,
+					cmd: lineToCmd,
 					p0:  start,
 					p1:  end,
 					n0:  n,
@@ -379,7 +379,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			closed = true
 		}
 		start = end
-		i += CmdLen(cmd)
+		i += cmdLen(cmd)
 	}
 
 	rhs, lhs := &Path{}, &Path{}
@@ -392,15 +392,15 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 	lhsInnerBends := []int{}
 	for i, cur := range states {
 		switch cur.cmd {
-		case LineToCmd:
+		case lineToCmd:
 			rEnd := cur.p1.Add(cur.n1)
 			lEnd := cur.p1.Sub(cur.n1)
 			rhs.LineTo(rEnd.X, rEnd.Y)
 			lhs.LineTo(lEnd.X, lEnd.Y)
-		case CubeToCmd:
+		case cubeToCmd:
 			rhs = rhs.Join(strokeCubicBezier(cur.p0, cur.cp1, cur.cp2, cur.p1, halfWidth, Tolerance))
 			lhs = lhs.Join(strokeCubicBezier(cur.p0, cur.cp1, cur.cp2, cur.p1, -halfWidth, Tolerance))
-		case ArcToCmd:
+		case arcToCmd:
 			rStart := cur.p0.Add(cur.n0)
 			lStart := cur.p0.Sub(cur.n0)
 			rEnd := cur.p1.Add(cur.n1)
@@ -435,9 +435,9 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 					// all turns except 0 degrees and 180 degrees are added
 					cw := cur.n1.Rot90CW().Dot(next.n0) >= 0.0
 					if cw {
-						rhsInnerBends = append(rhsInnerBends, len(rhs.d)-CmdLen(LineToCmd))
+						rhsInnerBends = append(rhsInnerBends, len(rhs.d)-cmdLen(lineToCmd))
 					} else {
-						lhsInnerBends = append(lhsInnerBends, len(lhs.d)-CmdLen(LineToCmd))
+						lhsInnerBends = append(lhsInnerBends, len(lhs.d)-cmdLen(lineToCmd))
 					}
 				}
 			}
@@ -468,10 +468,10 @@ func closeInnerBends(p *Path, indices []int, closed bool) {
 	for _, i := range indices {
 		i -= di
 		cmd := p.d[i]
-		iPrev := i - CmdLen(p.d[i-1])
-		iNext := i + CmdLen(cmd)
+		iPrev := i - cmdLen(p.d[i-1])
+		iNext := i + cmdLen(cmd)
 		if closed && iNext == len(p.d) {
-			iNext = CmdLen(MoveToCmd)
+			iNext = cmdLen(moveToCmd)
 		}
 		if 0 < iPrev && iNext < len(p.d) {
 			// TODO: (stroke) implement inner bend optimization for all combinations
@@ -481,17 +481,17 @@ func closeInnerBends(p *Path, indices []int, closed bool) {
 			nextStart := Point{p.d[i+1], p.d[i+2]}
 			nextEnd := Point{p.d[iNext+1], p.d[iNext+2]}
 
-			if p.d[iPrev] == LineToCmd && p.d[iNext] == LineToCmd {
+			if p.d[iPrev] == lineToCmd && p.d[iNext] == lineToCmd {
 				x, ok := intersectionLineLine(prevStart, prevEnd, nextStart, nextEnd)
 				if ok {
 					p.d[i-3] = x.X
 					p.d[i-2] = x.Y
-					p.d = append(p.d[:i:i], p.d[i+CmdLen(cmd):]...)
-					di += CmdLen(cmd)
+					p.d = append(p.d[:i:i], p.d[i+cmdLen(cmd):]...)
+					di += cmdLen(cmd)
 				}
-			} else if p.d[iPrev] == LineToCmd && p.d[iNext] == ArcToCmd {
-			} else if p.d[iPrev] == ArcToCmd && p.d[iNext] == LineToCmd {
-			} else if p.d[iPrev] == ArcToCmd && p.d[iNext] == ArcToCmd {
+			} else if p.d[iPrev] == lineToCmd && p.d[iNext] == arcToCmd {
+			} else if p.d[iPrev] == arcToCmd && p.d[iNext] == lineToCmd {
+			} else if p.d[iPrev] == arcToCmd && p.d[iNext] == arcToCmd {
 			}
 		}
 	}

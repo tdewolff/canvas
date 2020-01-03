@@ -1,7 +1,10 @@
 package main
 
+//go:generate go-bindata -o dejavuserif.go ../../font/DejaVuSerif.ttf
+
 import (
 	"fmt"
+	"image/color"
 	"syscall/js"
 
 	"github.com/tdewolff/canvas"
@@ -11,11 +14,13 @@ import (
 var fontFamily *canvas.FontFamily
 
 func main() {
-	//fontFamily = canvas.NewFontFamily("DejaVu Serif")
-	//fontFamily.Use(canvas.CommonLigatures)
-	//if err := fontFamily.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
-	//	panic(err)
-	//}
+	dejaVuSerif := MustAsset("../../font/DejaVuSerif.ttf")
+
+	fontFamily = canvas.NewFontFamily("DejaVu Serif")
+	fontFamily.Use(canvas.CommonLigatures)
+	if err := fontFamily.LoadFont(dejaVuSerif, canvas.FontRegular); err != nil {
+		panic(err)
+	}
 
 	cvs := js.Global().Get("document").Call("getElementById", "canvas")
 	c := htmlcanvas.New(cvs, 200, 80, 3.0)
@@ -39,7 +44,6 @@ func draw(c *canvas.Context) {
 	c.SetStrokeCapper(canvas.RoundCapper)
 	c.SetStrokeJoiner(canvas.RoundJoiner)
 	c.SetDashes(0.0, 2.0, 4.0, 2.0, 2.0, 4.0, 2.0)
-	//ellipse = ellipse.Dash(0.0, 2.0, 4.0, 2.0).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner)
 	c.DrawPath(110, 40, shape)
 	c.SetStrokeColor(canvas.Transparent)
 
@@ -53,4 +57,17 @@ func draw(c *canvas.Context) {
 	//	panic(err)
 	//}
 	//c.DrawImage(105.0, 15.0, img, 25.6)
+
+	// Draw text
+	face := fontFamily.Face(10.0, color.Black, canvas.FontRegular, canvas.FontNormal)
+	phrase := "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi egestas, augue eget blandit laoreet, dolor lorem interdum ante, quis consectetur lorem massa vitae nulla. Sed cursus tellus id venenatis suscipit. Nunc volutpat imperdiet ipsum vel varius."
+
+	text := canvas.NewTextBox(face, phrase, 60.0, 35.0, canvas.Justify, canvas.Top, 0.0, 0.0)
+	rect := text.Bounds()
+	rect.Y = 0.0
+	rect.H = -35.0
+	//c.SetFillColor(canvas.Whitesmoke)
+	//c.DrawPath(10.0, 40.0, rect.ToPath())
+	c.SetFillColor(canvas.Black)
+	c.DrawText(10.0, 40.0, text)
 }

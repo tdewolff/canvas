@@ -13,25 +13,25 @@ func (p *Path) Tessellate() ([][3]Point, [][5]Point) {
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
-		case MoveToCmd, LineToCmd:
+		case moveToCmd, lineToCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
 			contour = append(contour, poly2tri.NewPoint(end.X, end.Y))
-		case QuadToCmd:
+		case quadToCmd:
 			cp := Point{p.d[i+1], p.d[i+2]}
 			end = Point{p.d[i+3], p.d[i+4]}
 			cp1, cp2 := quadraticToCubicBezier(start, cp, end)
 			contour = append(contour, poly2tri.NewPoint(end.X, end.Y))
 			beziers = append(beziers, [5]Point{start, cp1, cp2, end, Point{1.0, 1.0}})
-		case CubeToCmd:
+		case cubeToCmd:
 			cp1 := Point{p.d[i+1], p.d[i+2]}
 			cp2 := Point{p.d[i+3], p.d[i+4]}
 			end = Point{p.d[i+5], p.d[i+6]}
 			contour = append(contour, poly2tri.NewPoint(end.X, end.Y))
 			beziers = append(beziers, [5]Point{start, cp1, cp2, end, Point{1.0, 1.0}})
-		case ArcToCmd:
+		case arcToCmd:
 			panic("arcs should have been replaced")
 		}
-		i += CmdLen(cmd)
+		i += cmdLen(cmd)
 		start = end
 	}
 

@@ -35,37 +35,23 @@ func (r *htmlCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 	if path.Empty() {
 		return
 	}
+	path = path.Transform(m)
+	path = path.ReplaceArcs()
 
 	r.context.Call("beginPath")
-	d := path.Data()
-	for i := 0; i < len(d); {
-		cmd := d[i]
-		switch cmd {
-		case canvas.MoveToCmd:
-			x, y := d[i+1], d[i+2]
-			r.context.Call("moveTo", x*r.dpm, r.height-y*r.dpm)
-		case canvas.LineToCmd:
-			x, y := d[i+1], d[i+2]
-			r.context.Call("lineTo", x*r.dpm, r.height-y*r.dpm)
-		case canvas.QuadToCmd:
-			cpx, cpy := d[i+1], d[i+2]
-			x, y := d[i+3], d[i+4]
-			r.context.Call("quadraticCurveTo", cpx*r.dpm, r.height-cpy*r.dpm, x*r.dpm, r.height-y*r.dpm)
-		case canvas.CubeToCmd:
-			cpx1, cpy1 := d[i+1], d[i+2]
-			cpx2, cpy2 := d[i+3], d[i+4]
-			x, y := d[i+5], d[i+6]
-			r.context.Call("cubicCurveTo", cpx1*r.dpm, r.height-cpy1*r.dpm, cpx2*r.dpm, r.height-cpy2*r.dpm, x*r.dpm, r.height-y*r.dpm)
-		case canvas.ArcToCmd:
-			//rx, ry, phi := path.d[i+1], path.d[i+2], path.d[i+3]
-			//large, sweep := fromArcFlags(path.d[i+4])
-			//x, y := path.d[i+5], path.d[i+6]
-			// TODO
-		case canvas.CloseCmd:
-			r.context.Call("closePath")
-		}
-		i += canvas.CmdLen(cmd)
-	}
+	path.Iterate(func(start, end canvas.Point) {
+		r.context.Call("moveTo", end.X*r.dpm, r.height-end.Y*r.dpm)
+	}, func(start, end canvas.Point) {
+		r.context.Call("lineTo", end.X*r.dpm, r.height-end.Y*r.dpm)
+	}, func(start, cp, end canvas.Point) {
+		r.context.Call("quadraticCurveTo", cp.X*r.dpm, r.height-cp.Y*r.dpm, end.X*r.dpm, r.height-end.Y*r.dpm)
+	}, func(start, cp1, cp2, end canvas.Point) {
+		r.context.Call("cubicCurveTo", cp1.X*r.dpm, r.height-cp1.Y*r.dpm, cp2.X*r.dpm, r.height-cp2.Y*r.dpm, end.X*r.dpm, r.height-end.Y*r.dpm)
+	}, func(start canvas.Point, rx, ry, rot float64, large, sweep bool, end canvas.Point) {
+		panic("arcs should have been replaced")
+	}, func(start, end canvas.Point) {
+		r.context.Call("closePath")
+	})
 	r.context.Call("fill")
 }
 
