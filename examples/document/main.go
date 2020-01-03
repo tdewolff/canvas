@@ -17,7 +17,8 @@ func main() {
 	}
 
 	c := canvas.New(200, 230)
-	draw(c)
+	ctx := canvas.NewContext(c)
+	draw(ctx)
 	c.SavePNG("out.png", 5.0)
 }
 
@@ -30,13 +31,13 @@ var lorem = []string{
 
 var y = 205.0
 
-func drawText(c canvas.Canvas, x float64, text *canvas.Text) {
+func drawText(c *canvas.Context, x float64, text *canvas.Text) {
 	h := text.Bounds().H
 	c.DrawText(x, y, text)
 	y -= h + 10.0
 }
 
-func draw(c canvas.Canvas) {
+func draw(c *canvas.Context) {
 	c.SetFillColor(canvas.Black)
 
 	headerFace := fontFamily.Face(28.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)

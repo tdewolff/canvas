@@ -322,25 +322,35 @@ func (m Matrix) Rotate(rot float64) Matrix {
 	})
 }
 
-// Scale adds a scaling transformation in x and y. When scale is negative it will flip those axes.
-func (m Matrix) Scale(x, y float64) Matrix {
-	return m.Mul(Matrix{
-		{x, 0.0, 0.0},
-		{0.0, y, 0.0},
-	})
-}
-
-// Shear adds a shear transformation with x the horizontal shear and y the vertical shear.
-func (m Matrix) Shear(x, y float64) Matrix {
-	return m.Mul(Matrix{
-		{1.0, x, 0.0},
-		{y, 1.0, 0.0},
-	})
-}
-
-// RotateAt adds a rotation transformation around point (x,y) with rot in degrees counter clockwise.
-func (m Matrix) RotateAt(rot, x, y float64) Matrix {
+// RotateAbout adds a rotation transformation around point (x,y) with rot in degrees counter clockwise.
+func (m Matrix) RotateAbout(rot, x, y float64) Matrix {
 	return m.Translate(x, y).Rotate(rot).Translate(-x, -y)
+}
+
+// Scale adds a scaling transformation in sx and sy. When scale is negative it will flip those axes.
+func (m Matrix) Scale(sx, sy float64) Matrix {
+	return m.Mul(Matrix{
+		{sx, 0.0, 0.0},
+		{0.0, sy, 0.0},
+	})
+}
+
+// ScaleAbout adds a scaling transformation around point (x,y) in sx and sy. When scale is negative it will flip those axes.
+func (m Matrix) ScaleAbout(sx, sy, x, y float64) Matrix {
+	return m.Translate(x, y).Scale(sx, sy).Translate(-x, -y)
+}
+
+// Shear adds a shear transformation with sx the horizontal shear and sy the vertical shear.
+func (m Matrix) Shear(sx, sy float64) Matrix {
+	return m.Mul(Matrix{
+		{1.0, sx, 0.0},
+		{sy, 1.0, 0.0},
+	})
+}
+
+// ShearAbout adds a shear transformation around point (x,y) with sx the horizontal shear and sy the vertical shear.
+func (m Matrix) ShearAbout(sx, sy, x, y float64) Matrix {
+	return m.Translate(x, y).Shear(sx, sy).Translate(-x, -y)
 }
 
 // ReflectX adds a horizontal reflection transformation (ie. Scale(-1,1)).
@@ -348,18 +358,18 @@ func (m Matrix) ReflectX() Matrix {
 	return m.Scale(-1.0, 1.0)
 }
 
+// ReflectXAbout adds a horizontal reflection transformation around position x.
+func (m Matrix) ReflectXAbout(x float64) Matrix {
+	return m.Translate(x, 0.0).Scale(-1.0, 1.0).Translate(-x, 0.0)
+}
+
 // ReflectY adds a vertical reflection transformation (ie. Scale(1,-1)).
 func (m Matrix) ReflectY() Matrix {
 	return m.Scale(1.0, -1.0)
 }
 
-// ReflectXAt adds a horizontal reflection transformation around position x.
-func (m Matrix) ReflectXAt(x float64) Matrix {
-	return m.Translate(x, 0.0).Scale(-1.0, 1.0).Translate(-x, 0.0)
-}
-
-// ReflectYAt adds a vertical reflection transformation around position y.
-func (m Matrix) ReflectYAt(y float64) Matrix {
+// ReflectYAbout adds a vertical reflection transformation around position y.
+func (m Matrix) ReflectYAbout(y float64) Matrix {
 	return m.Translate(0.0, y).Scale(1.0, -1.0).Translate(0.0, -y)
 }
 

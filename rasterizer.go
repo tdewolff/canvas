@@ -9,22 +9,23 @@ import (
 )
 
 type rasterizer struct {
-	*Context
 	img draw.Image
 	dpm float64
 }
 
 func Rasterizer(img draw.Image, dpm float64) *rasterizer {
-	r := &rasterizer{
+	return &rasterizer{
 		img: img,
 		dpm: dpm,
 	}
-	size := img.Bounds().Size()
-	r.Context = newContext(r, float64(size.X)/dpm, float64(size.Y)/dpm)
-	return r
 }
 
-func (r *rasterizer) renderPath(path *Path, style Style, m Matrix) {
+func (r *rasterizer) Size() (float64, float64) {
+	size := r.img.Bounds().Size()
+	return float64(size.X) / r.dpm, float64(size.Y) / r.dpm
+}
+
+func (r *rasterizer) RenderPath(path *Path, style Style, m Matrix) {
 	// TODO: use fill rule (EvenOdd, NonZero) for rasterizer
 	path = path.Transform(m)
 	size := r.img.Bounds().Size()
@@ -45,16 +46,16 @@ func (r *rasterizer) renderPath(path *Path, style Style, m Matrix) {
 	}
 }
 
-func (r *rasterizer) renderText(text *Text, m Matrix) {
+func (r *rasterizer) RenderText(text *Text, m Matrix) {
 	paths, colors := text.ToPaths()
 	for i, path := range paths {
 		style := DefaultStyle
 		style.FillColor = colors[i]
-		r.renderPath(path, style, m)
+		r.RenderPath(path, style, m)
 	}
 }
 
-func (r *rasterizer) renderImage(img image.Image, m Matrix) {
+func (r *rasterizer) RenderImage(img image.Image, m Matrix) {
 	origin := m.Dot(Point{0, float64(img.Bounds().Size().Y)}).Mul(r.dpm)
 	m = m.Scale(r.dpm, r.dpm)
 

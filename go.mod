@@ -10,8 +10,8 @@ require (
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/paulmach/orb v0.1.3
 	github.com/paulmach/osm v0.0.1
-	github.com/tdewolff/minify/v2 v2.6.1
-	github.com/tdewolff/parse/v2 v2.4.1
+	github.com/tdewolff/minify/v2 v2.6.2-0.20200102141121-51ac459c0530
+	github.com/tdewolff/parse/v2 v2.4.2
 	github.com/tdewolff/test v1.0.6
 	github.com/wcharczuk/go-chart v2.0.2-0.20191206192251-962b9abdec2b+incompatible
 	golang.org/x/image v0.0.0-20191214001246-9130b4cfad52

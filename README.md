@@ -104,26 +104,31 @@ Far future
 ## Canvas
 ``` go
 c := canvas.New(width, height float64)
-c.PushState()          // save state set by function below on the stack
-c.PopState()           // pop state from the stack
-c.SetView(Matrix)      // set view transformation, all drawn elements are transformed by this matrix
-c.ComposeView(Matrix)  // add transformation after the current view transformation
-c.ResetView()          // use identity transformation matrix
-c.SetFillColor(color.Color)
-c.SetStrokeColor(color.Color)
-c.SetStrokeCapper(Capper)
-c.SetStrokeJoiner(Joiner)
-c.SetStrokeWidth(width float64)
-c.SetDashes(offset float64, lengths ...float64)
 
-c.DrawPath(x, y float64, *Path)
-c.DrawText(x, y float64, *Text)
-c.DrawImage(x, y float64, image.Image, ImageEncoding, dpm float64)
+ctx := canvas.NewContext(c)
+ctx.Push()               // save state set by function below on the stack
+ctx.Pop()                // pop state from the stack
+ctx.SetView(Matrix)      // set view transformation, all drawn elements are transformed by this matrix
+ctx.ComposeView(Matrix)  // add transformation after the current view transformation
+ctx.ResetView()          // use identity transformation matrix
+ctx.SetFillColor(color.Color)
+ctx.SetStrokeColor(color.Color)
+ctx.SetStrokeCapper(Capper)
+ctx.SetStrokeJoiner(Joiner)
+ctx.SetStrokeWidth(width float64)
+ctx.SetDashes(offset float64, lengths ...float64)
+
+ctx.DrawPath(x, y float64, *Path)
+ctx.DrawText(x, y float64, *Text)
+ctx.DrawImage(x, y float64, image.Image, ImageEncoding, dpm float64)
 
 c.Fit(margin float64)  // resize canvas to fit all elements with a given margin
-c.WriteSVG(w io.Writer)
-c.WriteEPS(w io.Writer)
-c.WritePDF(w io.Writer)
+c.SaveSVG(filename string)
+c.SaveEPS(filename string)
+c.SavePDF(filename string)
+c.SavePNG(filename string)
+c.SaveJPG(filename string)
+c.SaveGIF(filename string)
 c.WriteImage(dpm float64) *image.RGBA
 ```
 
@@ -145,7 +150,7 @@ richText := NewRichText()  // allow different FontFaces in the same text block
 richText.Add(ff, "string")
 text = richText.ToText(width, height, halign, valign, indent, lineStretch)
 
-c.DrawText(0.0, 0.0, text)
+ctx.DrawText(0.0, 0.0, text)
 ```
 
 
@@ -242,15 +247,6 @@ Where the provided string gets inserted into the following document template:
 \thispagestyle{empty}
 {{input}}
 \end{document}
-```
-
-
-## Example
-### Use Cartesian coordinate system in quadrant 4
-To use the SVG coordinate system, you can set the coordinate system as follows:
-
-``` go
-c.SetCoordinateSystem(canvas.CartesianQuadrant4)
 ```
 
 ### Examples

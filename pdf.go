@@ -18,15 +18,18 @@ import (
 )
 
 type pdf struct {
-	*Context
-	w      *pdfPageWriter
-	imgEnc ImageEncoding
+	w             *pdfPageWriter
+	width, height float64
+	imgEnc        ImageEncoding
 }
 
 func PDF(w io.Writer, width, height float64) *pdf {
-	r := &pdf{nil, newPDFWriter(w).NewPage(width, height), Lossless}
-	r.Context = newContext(r, width, height)
-	return r
+	return &pdf{
+		w:      newPDFWriter(w).NewPage(width, height),
+		width:  width,
+		height: height,
+		imgEnc: Lossless,
+	}
 }
 
 func (r *pdf) SetImageEncoding(enc ImageEncoding) {
@@ -41,7 +44,11 @@ func (r *pdf) Close() error {
 	return r.w.pdf.Close()
 }
 
-func (r *pdf) renderPath(path *Path, style Style, m Matrix) {
+func (r *pdf) Size() (float64, float64) {
+	return r.width, r.height
+}
+
+func (r *pdf) RenderPath(path *Path, style Style, m Matrix) {
 	fill := style.FillColor.A != 0
 	stroke := style.StrokeColor.A != 0 && 0.0 < style.StrokeWidth
 	differentAlpha := fill && stroke && style.FillColor.A != style.StrokeColor.A
@@ -168,7 +175,7 @@ func (r *pdf) renderPath(path *Path, style Style, m Matrix) {
 	}
 }
 
-func (r *pdf) renderText(text *Text, m Matrix) {
+func (r *pdf) RenderText(text *Text, m Matrix) {
 	r.w.StartTextObject()
 	decoPaths := []*Path{}
 	decoColors := []color.RGBA{}
@@ -211,11 +218,11 @@ func (r *pdf) renderText(text *Text, m Matrix) {
 	style := DefaultStyle
 	for i := range decoPaths {
 		style.FillColor = decoColors[i]
-		r.renderPath(decoPaths[i], style, m)
+		r.RenderPath(decoPaths[i], style, m)
 	}
 }
 
-func (r *pdf) renderImage(img image.Image, m Matrix) {
+func (r *pdf) RenderImage(img image.Image, m Matrix) {
 	r.w.DrawImage(img, r.imgEnc, m)
 }
 

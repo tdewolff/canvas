@@ -19,7 +19,8 @@ func main() {
 	}
 
 	c := canvas.New(200, 80)
-	draw(c)
+	ctx := canvas.NewContext(c)
+	draw(ctx)
 
 	////////////////
 
@@ -29,7 +30,7 @@ func main() {
 	c.SavePNG("out.png", 10.0)
 }
 
-func drawText(c canvas.Canvas, x, y float64, face canvas.FontFace, rich *canvas.RichText) {
+func drawText(c *canvas.Context, x, y float64, face canvas.FontFace, rich *canvas.RichText) {
 	metrics := face.Metrics()
 	width, height := 80.0, 25.0
 
@@ -48,7 +49,7 @@ func drawText(c canvas.Canvas, x, y float64, face canvas.FontFace, rich *canvas.
 	c.DrawText(x, y, text)
 }
 
-func draw(c canvas.Canvas) {
+func draw(c *canvas.Context) {
 	// Draw a comprehensive text box
 	face := fontFamily.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	rich := canvas.NewRichText()

@@ -25,7 +25,9 @@ const (
 )
 
 type ChartRenderer struct {
-	c            *canvas
+	c            *Canvas
+	ctx          *Context
+	height       float64
 	output       Output
 	dpi          float64
 	font         *FontFamily
@@ -42,6 +44,8 @@ func NewChartRenderer(output Output) func(int, int) (chart.Renderer, error) {
 		c := New(float64(w), float64(h))
 		return &ChartRenderer{
 			c:      c,
+			ctx:    NewContext(c),
+			height: float64(h),
 			output: output,
 			dpi:    72.0,
 			font:   font,
@@ -50,7 +54,7 @@ func NewChartRenderer(output Output) func(int, int) (chart.Renderer, error) {
 }
 
 func (r *ChartRenderer) ResetStyle() {
-	r.c.ResetStyle()
+	r.ctx.ResetStyle()
 	r.textRotation = 0.0
 }
 
@@ -67,65 +71,65 @@ func (r *ChartRenderer) SetClassName(name string) {
 }
 
 func (r *ChartRenderer) SetStrokeColor(col drawing.Color) {
-	r.c.SetStrokeColor(col)
+	r.ctx.SetStrokeColor(col)
 }
 
 func (r *ChartRenderer) SetFillColor(col drawing.Color) {
-	r.c.SetFillColor(col)
+	r.ctx.SetFillColor(col)
 }
 
 func (r *ChartRenderer) SetStrokeWidth(width float64) {
-	r.c.SetStrokeWidth(width)
+	r.ctx.SetStrokeWidth(width)
 }
 
 func (r *ChartRenderer) SetStrokeDashArray(dashArray []float64) {
-	r.c.SetDashes(0.0, dashArray...)
+	r.ctx.SetDashes(0.0, dashArray...)
 }
 
 func (r *ChartRenderer) MoveTo(x, y int) {
-	r.c.MoveTo(float64(x), r.c.H-float64(y))
+	r.ctx.MoveTo(float64(x), r.height-float64(y))
 }
 
 func (r *ChartRenderer) LineTo(x, y int) {
-	r.c.LineTo(float64(x), r.c.H-float64(y))
+	r.ctx.LineTo(float64(x), r.height-float64(y))
 }
 
 func (r *ChartRenderer) QuadCurveTo(cx, cy, x, y int) {
-	r.c.QuadTo(float64(cx), r.c.H-float64(cy), float64(x), r.c.H-float64(y))
+	r.ctx.QuadTo(float64(cx), r.height-float64(cy), float64(x), r.height-float64(y))
 }
 
 func (r *ChartRenderer) ArcTo(cx, cy int, rx, ry, startAngle, delta float64) {
 	startAngle *= 180.0 / math.Pi
 	delta *= 180.0 / math.Pi
 
-	start := ellipsePos(rx, -ry, 0.0, float64(cx), r.c.H-float64(cy), startAngle)
+	start := ellipsePos(rx, -ry, 0.0, float64(cx), r.height-float64(cy), startAngle)
 	if r.c.Empty() {
-		r.c.MoveTo(start.X, r.c.H-start.Y)
+		r.ctx.MoveTo(start.X, r.height-start.Y)
 	} else {
-		r.c.LineTo(start.X, r.c.H-start.Y)
+		r.ctx.LineTo(start.X, r.height-start.Y)
 	}
-	r.c.Arc(rx, ry, 0.0, startAngle, startAngle+delta)
+	r.ctx.Arc(rx, ry, 0.0, startAngle, startAngle+delta)
 }
 
 func (r *ChartRenderer) Close() {
-	r.c.ClosePath()
-	r.c.MoveTo(0.0, 0.0)
+	r.ctx.ClosePath()
+	r.ctx.MoveTo(0.0, 0.0)
 }
 
 func (r *ChartRenderer) Stroke() {
-	r.c.Stroke()
+	r.ctx.Stroke()
 }
 
 func (r *ChartRenderer) Fill() {
-	r.c.Fill()
+	r.ctx.Fill()
 }
 
 func (r *ChartRenderer) FillStroke() {
-	r.c.FillStroke()
+	r.ctx.FillStroke()
 }
 
 func (r *ChartRenderer) Circle(radius float64, x, y int) {
-	r.c.DrawPath(float64(x), float64(y), Circle(radius))
+	r.ctx.DrawPath(float64(x), r.height-float64(y), Circle(radius))
 }
 
 func (r *ChartRenderer) SetFont(font *truetype.Font) {
@@ -142,11 +146,11 @@ func (r *ChartRenderer) SetFontSize(size float64) {
 
 func (r *ChartRenderer) Text(body string, x, y int) {
 	face := r.font.Face(r.fontSize*ptPerMm*r.dpi/72.0, r.fontColor, FontRegular, FontNormal)
-	r.c.Push()
-	r.c.SetFillColor(r.fontColor)
-	r.c.ComposeView(Identity.Rotate(-r.textRotation * 180.0 / math.Pi))
-	r.c.DrawText(float64(x), r.c.H-float64(y), NewTextLine(face, body, Left))
-	r.c.Pop()
+	r.ctx.Push()
+	r.ctx.SetFillColor(r.fontColor)
+	r.ctx.ComposeView(Identity.Rotate(-r.textRotation * 180.0 / math.Pi))
+	r.ctx.DrawText(float64(x), r.height-float64(y), NewTextLine(face, body, Left))
+	r.ctx.Pop()
 }
 
 func (r *ChartRenderer) MeasureText(body string) chart.Box {
@@ -165,33 +169,34 @@ func (r *ChartRenderer) ClearTextRotation() {
 }
 
 func (r *ChartRenderer) Save(w io.Writer) error {
+	width, height := r.c.Size()
 	switch r.output {
 	case OutputSVG:
-		svg := SVG(w, r.c.W, r.c.H)
+		svg := SVG(w, width, height)
 		r.c.Render(svg)
 		return svg.Close()
 	case OutputPDF:
-		pdf := PDF(w, r.c.W, r.c.H)
+		pdf := PDF(w, width, height)
 		r.c.Render(pdf)
 		return pdf.Close()
 	case OutputEPS:
-		eps := EPS(w, r.c.W, r.c.H)
+		eps := EPS(w, width, height)
 		r.c.Render(eps)
 		return nil
 	case OutputPNG:
-		img := r.c.WriteImage(r.dpi * inchPerMm)
+		img := r.c.WriteImage(1.0)
 		if err := png.Encode(w, img); err != nil {
 			return err
 		}
 		return nil
 	case OutputJPG:
-		img := r.c.WriteImage(r.dpi * inchPerMm)
+		img := r.c.WriteImage(1.0)
 		if err := jpeg.Encode(w, img, nil); err != nil {
 			return err
 		}
 		return nil
 	case OutputGIF:
-		img := r.c.WriteImage(r.dpi * inchPerMm)
+		img := r.c.WriteImage(1.0)
 		if err := gif.Encode(w, img, nil); err != nil {
 			return err
 		}

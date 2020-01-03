@@ -38,9 +38,9 @@ savematrix setmatrix
 } def`
 
 type eps struct {
-	*Context
-	w     io.Writer
-	color color.RGBA
+	w             io.Writer
+	width, height float64
+	color         color.RGBA
 }
 
 func EPS(w io.Writer, width, height float64) *eps {
@@ -48,41 +48,45 @@ func EPS(w io.Writer, width, height float64) *eps {
 	fmt.Fprintf(w, psEllipseDef)
 	// TODO: (EPS) generate and add preview
 
-	r := &eps{
-		Context: nil,
-		w:       w,
-		color:   Black,
+	return &eps{
+		w:      w,
+		width:  width,
+		height: height,
+		color:  Black,
 	}
-	r.Context = newContext(r, width, height)
-	return r
 }
 
-func (r *eps) SetColor(color color.RGBA) {
+func (r *eps) setColor(color color.RGBA) {
 	if color != r.color {
 		fmt.Fprintf(r.w, " %v %v %v setrgbcolor", dec(float64(color.R)/255.0), dec(float64(color.G)/255.0), dec(float64(color.B)/255.0))
 		r.color = color
 	}
 }
 
-func (r *eps) renderPath(path *Path, style Style, m Matrix) {
+func (r *eps) Size() (float64, float64) {
+	return r.width, r.height
+}
+
+func (r *eps) RenderPath(path *Path, style Style, m Matrix) {
 	// TODO: (EPS) test ellipse, rotations etc
 	// TODO: (EPS) add drawState support
-	r.SetColor(style.FillColor)
+	// TODO: (EPS) use dither to fake transparency
+	r.setColor(style.FillColor)
 	r.w.Write([]byte(" "))
 	r.w.Write([]byte(path.Transform(m).ToPS()))
 	r.w.Write([]byte(" fill"))
 }
 
-func (r *eps) renderText(text *Text, m Matrix) {
+func (r *eps) RenderText(text *Text, m Matrix) {
 	// TODO: (EPS) write text natively
 	paths, colors := text.ToPaths()
 	for i, path := range paths {
 		style := DefaultStyle
 		style.FillColor = colors[i]
-		r.renderPath(path, style, m)
+		r.RenderPath(path, style, m)
 	}
 }
 
-func (r *eps) renderImage(img image.Image, m Matrix) {
+func (r *eps) RenderImage(img image.Image, m Matrix) {
 	// TODO: (EPS) write image
 }

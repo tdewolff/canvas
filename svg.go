@@ -14,19 +14,25 @@ import (
 )
 
 type svg struct {
-	*Context
-	w          io.Writer
-	embedFonts bool
-	fonts      map[*Font]bool
-	maskID     int
-	imgEnc     ImageEncoding
+	w             io.Writer
+	width, height float64
+	embedFonts    bool
+	fonts         map[*Font]bool
+	maskID        int
+	imgEnc        ImageEncoding
 }
 
 func SVG(w io.Writer, width, height float64) *svg {
 	fmt.Fprintf(w, `<svg version="1.1" width="%v" height="%v" viewBox="0 0 %v %v" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, dec(width), dec(height), dec(width), dec(height))
-	r := &svg{nil, w, true, map[*Font]bool{}, 0, Lossless}
-	r.Context = newContext(r, width, height)
-	return r
+	return &svg{
+		w:          w,
+		width:      width,
+		height:     height,
+		embedFonts: true,
+		fonts:      map[*Font]bool{},
+		maskID:     0,
+		imgEnc:     Lossless,
+	}
 }
 
 func (r *svg) Close() error {
@@ -65,11 +71,15 @@ func (r *svg) writeFonts(fonts []*Font) {
 	}
 }
 
-func (r *svg) renderPath(path *Path, style Style, m Matrix) {
+func (r *svg) Size() (float64, float64) {
+	return r.width, r.height
+}
+
+func (r *svg) RenderPath(path *Path, style Style, m Matrix) {
 	fill := style.FillColor.A != 0
 	stroke := style.StrokeColor.A != 0 && 0.0 < style.StrokeWidth
 
-	path = path.Transform(Identity.ReflectYAt(r.H / 2.0).Mul(m))
+	path = path.Transform(Identity.ReflectYAbout(r.height / 2.0).Mul(m))
 	fmt.Fprintf(r.w, `<path d="%s`, path.ToSVG())
 
 	strokeUnsupported := false
@@ -229,7 +239,7 @@ func (r *svg) writeFontStyle(ff, ffMain FontFace) {
 	}
 }
 
-func (r *svg) renderText(text *Text, m Matrix) {
+func (r *svg) RenderText(text *Text, m Matrix) {
 	if r.embedFonts {
 		r.writeFonts(text.Fonts())
 	}
@@ -243,10 +253,10 @@ func (r *svg) renderText(text *Text, m Matrix) {
 	x0, y0 := 0.0, 0.0
 	if m.IsTranslation() {
 		x0, y0 = m.Pos()
-		y0 = r.H - y0
+		y0 = r.height - y0
 		fmt.Fprintf(r.w, `<text x="%v" y="%v`, num(x0), num(y0))
 	} else {
-		fmt.Fprintf(r.w, `<text transform="%s`, m.ToSVG(r.H))
+		fmt.Fprintf(r.w, `<text transform="%s`, m.ToSVG(r.height))
 	}
 	fmt.Fprintf(r.w, `" style="font:`)
 	if ffMain.style&FontItalic != 0 {
@@ -291,11 +301,11 @@ func (r *svg) renderText(text *Text, m Matrix) {
 	style := DefaultStyle
 	for i := range decoPaths {
 		style.FillColor = decoColors[i]
-		r.renderPath(decoPaths[i], style, m)
+		r.RenderPath(decoPaths[i], style, m)
 	}
 }
 
-func (r *svg) renderImage(img image.Image, m Matrix) {
+func (r *svg) RenderImage(img image.Image, m Matrix) {
 	refMask := ""
 	mimetype := "image/png"
 	if r.imgEnc == Lossy {
@@ -340,7 +350,7 @@ func (r *svg) renderImage(img image.Image, m Matrix) {
 
 	m = m.Translate(0.0, float64(img.Bounds().Size().Y))
 	fmt.Fprintf(r.w, `<image transform="%s" width="%d" height="%d" xlink:href="data:%s;base64,`,
-		m.ToSVG(r.H), img.Bounds().Size().X, img.Bounds().Size().Y, mimetype)
+		m.ToSVG(r.height), img.Bounds().Size().X, img.Bounds().Size().Y, mimetype)
 
 	encoder := base64.NewEncoder(base64.StdEncoding, r.w)
 	if mimetype == "image/jpg" {

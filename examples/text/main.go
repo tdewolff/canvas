@@ -16,11 +16,12 @@ func main() {
 	}
 
 	c := canvas.New(265, 90)
-	draw(c)
+	ctx := canvas.NewContext(c)
+	draw(ctx)
 	c.SavePNG("out.png", 5.0)
 }
 
-func drawText(c canvas.Canvas, x, y float64, halign, valign canvas.TextAlign, indent float64) {
+func drawText(c *canvas.Context, x, y float64, halign, valign canvas.TextAlign, indent float64) {
 	face := fontFamily.Face(6.0, color.Black, canvas.FontRegular, canvas.FontNormal)
 	phrase := "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi egestas, augue eget blandit laoreet, dolor lorem interdum ante, quis consectetur lorem massa vitae nulla. Sed cursus tellus id venenatis suscipit. Nunc volutpat imperdiet ipsum vel varius. Pellentesque mattis viverra odio, ullamcorper iaculis massa tristique imperdiet. Aliquam posuere nisl tortor, in scelerisque elit eleifend sed. Suspendisse in risus aliquam leo vestibulum gravida. Sed ipsum massa, fringilla at pellentesque vitae, dictum nec libero. Morbi lorem ante, facilisis a justo vel, mollis fringilla massa. Mauris aliquet imperdiet magna, ac tempor sem fringilla sed."
 
@@ -34,7 +35,7 @@ func drawText(c canvas.Canvas, x, y float64, halign, valign canvas.TextAlign, in
 	c.DrawText(x, y, text)
 }
 
-func draw(c canvas.Canvas) {
+func draw(c *canvas.Context) {
 	face := fontFamily.Face(14.0, color.Black, canvas.FontRegular, canvas.FontNormal)
 	c.SetFillColor(canvas.Black)
 	c.DrawText(132.5, 88.0, canvas.NewTextBox(face, "Different horizontal and vertical alignments with indent", 0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0))

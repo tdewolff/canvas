@@ -22,11 +22,12 @@ func main() {
 	}
 
 	c := canvas.New(100, 100)
-	draw(c)
+	ctx := canvas.NewContext(c)
+	draw(ctx)
 	c.SavePNG("out.png", 8.0)
 }
 
-func draw(c canvas.Canvas) {
+func draw(c *canvas.Context) {
 	xmin, xmax := 4.8884, 4.9090
 	ymin, ymax := 52.3659, 52.3779
 

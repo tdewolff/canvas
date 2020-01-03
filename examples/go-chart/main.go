@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"time"
@@ -76,8 +75,6 @@ func main() {
 			smaSeries,
 		},
 	}
-
-	fmt.Println(graph.GetWidth())
 
 	f, _ := os.Create("output.pdf")
 	defer f.Close()

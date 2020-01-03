@@ -10,7 +10,7 @@ import (
 
 func TestPDF(t *testing.T) {
 	c := New(10, 10)
-	c.DrawPath(0, 0, MustParseSVG("L10 0"))
+	c.RenderPath(MustParseSVG("L10 0"), DefaultStyle, Identity)
 
 	//	pdfCompress = false
 	//	buf := &bytes.Buffer{}

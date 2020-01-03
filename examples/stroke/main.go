@@ -18,12 +18,13 @@ func main() {
 	}
 
 	c := canvas.New(200, 120)
-	draw(c)
+	ctx := canvas.NewContext(c)
+	draw(ctx)
 	c.Fit(1.0)
 	c.SavePNG("out.png", 5.0)
 }
 
-func drawStrokedPath(c canvas.Canvas, x, y float64, path string, cr canvas.Capper, jr canvas.Joiner) {
+func drawStrokedPath(c *canvas.Context, x, y float64, path string, cr canvas.Capper, jr canvas.Joiner) {
 	p, err := canvas.ParseSVG(path)
 	if err != nil {
 		panic(err)
@@ -38,13 +39,13 @@ func drawStrokedPath(c canvas.Canvas, x, y float64, path string, cr canvas.Cappe
 	c.DrawPath(x, y, p.Stroke(0.5, canvas.ButtCapper, canvas.BevelJoiner))
 }
 
-func drawText(c canvas.Canvas, x, y float64, text string) {
+func drawText(c *canvas.Context, x, y float64, text string) {
 	face := fontFamily.Face(18.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	c.SetFillColor(canvas.Black)
 	c.DrawText(x, y, canvas.NewTextBox(face, text, 0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0))
 }
 
-func draw(c canvas.Canvas) {
+func draw(c *canvas.Context) {
 	pathCapper := "M-20 0L0 0"
 	pathJoiner := "M-20 -10A25 25 0 0 0 0 0A20 20 0 0 1 -5 -15"
 

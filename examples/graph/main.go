@@ -22,11 +22,12 @@ func main() {
 	}
 
 	c := canvas.New(140, 110)
-	draw(c)
+	ctx := canvas.NewContext(c)
+	draw(ctx)
 	c.SavePNG("out.png", 5.0)
 }
 
-func draw(c canvas.Canvas) {
+func draw(c *canvas.Context) {
 	tickFace := fontFamily.Face(8.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 
 	datafile, err := os.Open("co2-mm-mlo.csv")

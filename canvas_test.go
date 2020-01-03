@@ -22,17 +22,18 @@ func TestCanvas(t *testing.T) {
 	img.Set(1, 1, Black)
 
 	c := New(100, 100)
-	c.SetView(Identity.Rotate(90).Scale(2.0, 1.0))
-	c.SetFillColor(Red)
-	c.SetStrokeColor(Gray)
-	c.SetStrokeWidth(1.0)
-	c.SetStrokeCapper(RoundCapper)
-	c.SetStrokeJoiner(RoundJoiner)
-	c.SetDashes(-1.0, 2.0, 3.0, 4.0)
+	ctx := NewContext(c)
+	ctx.SetView(Identity.Rotate(90).Scale(2.0, 1.0))
+	ctx.SetFillColor(Red)
+	ctx.SetStrokeColor(Gray)
+	ctx.SetStrokeWidth(1.0)
+	ctx.SetStrokeCapper(RoundCapper)
+	ctx.SetStrokeJoiner(RoundJoiner)
+	ctx.SetDashes(-1.0, 2.0, 3.0, 4.0)
 
-	c.DrawPath(10.0, 10.0, path)      // 50x7.5 => -7.5x100
-	c.DrawText(30.0, 30.0, text)      // contained between the other two
-	c.DrawImage(50.0, 50.0, img, 0.1) // 20x20 => -20x40
+	ctx.DrawPath(10.0, 10.0, path)      // 50x7.5 => -7.5x100
+	ctx.DrawText(30.0, 30.0, text)      // contained between the other two
+	ctx.DrawImage(50.0, 50.0, img, 0.1) // 20x20 => -20x40
 
 	c.Fit(6.0)
 	test.Float(t, c.W, 72.5) // img upper bound - (path lower bound - path half stroke width) + margin

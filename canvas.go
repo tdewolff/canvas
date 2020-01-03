@@ -48,64 +48,17 @@ var DefaultStyle = Style{
 	FillRule:     NonZero,
 }
 
-////////////////////////////////////////////////////////////////
-
-type Canvas interface {
-	Renderer
-
-	Push()
-	Pop()
-	View() Matrix
-	SetView(view Matrix)
-	ResetView()
-	ComposeView(view Matrix)
-	Translate(x, y float64)
-	ReflectX()
-	ReflectXAt(x float64)
-	ReflectY()
-	ReflectYAt(y float64)
-	Rotate(rot float64)
-	RotateAt(rot, x, y float64)
-	Scale(x, y float64)
-	Shear(x, y float64)
-	SetFillColor(col color.Color)
-	SetStrokeColor(col color.Color)
-	SetStrokeWidth(width float64)
-	SetStrokeCapper(capper Capper)
-	SetStrokeJoiner(joiner Joiner)
-	SetDashes(offset float64, dashes ...float64)
-	SetFillRule(rule FillRule)
-	Style() Style
-	SetStyle(style Style)
-	ResetStyle()
-	Pos() (float64, float64)
-	Path() *Path
-	MoveTo(x, y float64)
-	LineTo(x, y float64)
-	QuadTo(cpx, cpy, x, y float64)
-	CubeTo(cpx1, cpy1, cpx2, cpy2, x, y float64)
-	ArcTo(rx, ry, rot float64, large, sweep bool, x, y float64)
-	Arc(rx, ry, rot, theta0, theta1 float64)
-	ClosePath()
-	Fill()
-	Stroke()
-	FillStroke()
-	DrawPath(x, y float64, paths ...*Path)
-	DrawText(x, y float64, texts ...*Text)
-	DrawImage(x, y float64, img image.Image, dpm float64)
-}
-
 type Renderer interface {
-	renderPath(path *Path, style Style, m Matrix)
-	renderText(text *Text, m Matrix)
-	renderImage(img image.Image, m Matrix)
+	Size() (float64, float64)
+	RenderPath(path *Path, style Style, m Matrix)
+	RenderText(text *Text, m Matrix)
+	RenderImage(img image.Image, m Matrix)
 }
 
 ////////////////////////////////////////////////////////////////
 
 type Context struct {
-	r    Renderer
-	W, H float64
+	Renderer
 
 	path       *Path
 	view       Matrix
@@ -114,9 +67,19 @@ type Context struct {
 	styleStack []Style
 }
 
-// newContext returns a new Context.
-func newContext(r Renderer, width, height float64) *Context {
-	return &Context{r, width, height, &Path{}, Identity, DefaultStyle, nil, nil}
+// NewContext returns a new Context.
+func NewContext(r Renderer) *Context {
+	return &Context{r, &Path{}, Identity, DefaultStyle, nil, nil}
+}
+
+func (c *Context) Width() float64 {
+	w, _ := c.Size()
+	return w
+}
+
+func (c *Context) Height() float64 {
+	_, h := c.Size()
+	return h
 }
 
 // Push saves the current draw state, so that it can be popped later on.
@@ -166,8 +129,8 @@ func (c *Context) ReflectX() {
 }
 
 // ReflectXAt inverts the X axis of the view.
-func (c *Context) ReflectXAt(x float64) {
-	c.view = c.view.Mul(Identity.ReflectXAt(x))
+func (c *Context) ReflectXAbout(x float64) {
+	c.view = c.view.Mul(Identity.ReflectXAbout(x))
 }
 
 // ReflectX inverts the Y axis of the view.
@@ -176,8 +139,8 @@ func (c *Context) ReflectY() {
 }
 
 // ReflectX inverts the Y axis of the view.
-func (c *Context) ReflectYAt(y float64) {
-	c.view = c.view.Mul(Identity.ReflectYAt(y))
+func (c *Context) ReflectYAbout(y float64) {
+	c.view = c.view.Mul(Identity.ReflectYAbout(y))
 }
 
 // Rotate rotates the view with rot in degrees.
@@ -186,18 +149,28 @@ func (c *Context) Rotate(rot float64) {
 }
 
 // RotateAt rotates the view around (x,y) with rot in degrees.
-func (c *Context) RotateAt(rot, x, y float64) {
-	c.view = c.view.Mul(Identity.RotateAt(rot, x, y))
+func (c *Context) RotateAbout(rot, x, y float64) {
+	c.view = c.view.Mul(Identity.RotateAbout(rot, x, y))
 }
 
 // Scale scales the view.
-func (c *Context) Scale(x, y float64) {
-	c.view = c.view.Mul(Identity.Scale(x, y))
+func (c *Context) Scale(sx, sy float64) {
+	c.view = c.view.Mul(Identity.Scale(sx, sy))
+}
+
+// ScaleAbout scales the view around (x,y).
+func (c *Context) ScaleAbout(sx, sy, x, y float64) {
+	c.view = c.view.Mul(Identity.ScaleAbout(sx, sy, x, y))
 }
 
 // Shear shear stretches the view.
-func (c *Context) Shear(x, y float64) {
-	c.view = c.view.Mul(Identity.Shear(x, y))
+func (c *Context) Shear(sx, sy float64) {
+	c.view = c.view.Mul(Identity.Shear(sx, sy))
+}
+
+// ShearAbout shear stretches the view around (x,y).
+func (c *Context) ShearAbout(sx, sy, x, y float64) {
+	c.view = c.view.Mul(Identity.ShearAbout(sx, sy, x, y))
 }
 
 // SetFillColor sets the color to be used for filling operations.
@@ -290,19 +263,19 @@ func (c *Context) ClosePath() {
 func (c *Context) Fill() {
 	style := c.style
 	style.StrokeColor = Transparent
-	c.r.renderPath(c.path, style, c.view)
+	c.RenderPath(c.path, style, c.view)
 	c.path = &Path{}
 }
 
 func (c *Context) Stroke() {
 	style := c.style
 	style.FillColor = Transparent
-	c.r.renderPath(c.path, style, c.view)
+	c.RenderPath(c.path, style, c.view)
 	c.path = &Path{}
 }
 
 func (c *Context) FillStroke() {
-	c.r.renderPath(c.path, c.style, c.view)
+	c.RenderPath(c.path, c.style, c.view)
 	c.path = &Path{}
 }
 
@@ -320,7 +293,7 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 		}
 		style := c.style
 		style.Dashes = dashes
-		c.r.renderPath(path, c.style, m)
+		c.RenderPath(path, c.style, m)
 	}
 }
 
@@ -330,7 +303,7 @@ func (c *Context) DrawText(x, y float64, texts ...*Text) {
 		if text.Empty() {
 			continue
 		}
-		c.r.renderText(text, m)
+		c.RenderText(text, m)
 	}
 }
 
@@ -340,7 +313,7 @@ func (c *Context) DrawImage(x, y float64, img image.Image, dpm float64) {
 	}
 
 	m := c.view.Translate(x, y).Scale(1.0/dpm, 1.0/dpm)
-	c.r.renderImage(img, m)
+	c.RenderImage(img, m)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -357,51 +330,55 @@ type layer struct {
 	style Style // only for path
 }
 
-type canvas struct {
-	*Context
+type Canvas struct {
 	layers []layer
+	W, H   float64
 }
 
-func New(width, height float64) *canvas {
-	r := &canvas{
+func New(width, height float64) *Canvas {
+	return &Canvas{
 		layers: []layer{},
+		W:      width,
+		H:      height,
 	}
-	r.Context = newContext(r, width, height)
-	return r
 }
 
-func (r *canvas) renderPath(path *Path, style Style, m Matrix) {
+func (c *Canvas) Size() (float64, float64) {
+	return c.W, c.H
+}
+
+func (c *Canvas) RenderPath(path *Path, style Style, m Matrix) {
 	path = path.Copy()
-	r.layers = append(r.layers, layer{path: path, m: m, style: style})
+	c.layers = append(c.layers, layer{path: path, m: m, style: style})
 }
 
-func (r *canvas) renderText(text *Text, m Matrix) {
-	r.layers = append(r.layers, layer{text: text, m: m})
+func (c *Canvas) RenderText(text *Text, m Matrix) {
+	c.layers = append(c.layers, layer{text: text, m: m})
 }
 
-func (r *canvas) renderImage(img image.Image, m Matrix) {
-	r.layers = append(r.layers, layer{img: img, m: m})
+func (c *Canvas) RenderImage(img image.Image, m Matrix) {
+	c.layers = append(c.layers, layer{img: img, m: m})
 }
 
-func (r *canvas) Empty() bool {
-	return len(r.layers) == 0
+func (c *Canvas) Empty() bool {
+	return len(c.layers) == 0
 }
 
-func (r *canvas) Reset() {
-	r.layers = r.layers[:0]
+func (c *Canvas) Reset() {
+	c.layers = c.layers[:0]
 }
 
 // Fit shrinks the canvas size so all elements fit. The elements are translated towards the origin when any left/bottom margins exist and the canvas size is decreased if any margins exist. It will maintain a given margin.
-func (r *canvas) Fit(margin float64) {
-	// TODO: slow when we have many paths (see Graph example)
-	if len(r.layers) == 0 {
-		r.W = 2 * margin
-		r.H = 2 * margin
+func (c *Canvas) Fit(margin float64) {
+	if len(c.layers) == 0 {
+		c.W = 2 * margin
+		c.H = 2 * margin
 		return
 	}
 
 	rect := Rect{}
-	for i, l := range r.layers {
+	// TODO: slow when we have many paths (see Graph example)
+	for i, l := range c.layers {
 		bounds := Rect{}
 		if l.path != nil {
 			bounds = l.path.Bounds()
@@ -424,82 +401,86 @@ func (r *canvas) Fit(margin float64) {
 			rect = rect.Add(bounds)
 		}
 	}
-	for i := range r.layers {
-		r.layers[i].m = Identity.Translate(-rect.X+margin, -rect.Y+margin).Mul(r.layers[i].m)
+	for i := range c.layers {
+		c.layers[i].m = Identity.Translate(-rect.X+margin, -rect.Y+margin).Mul(c.layers[i].m)
 	}
-	r.W = rect.W + 2*margin
-	r.H = rect.H + 2*margin
+	c.W = rect.W + 2*margin
+	c.H = rect.H + 2*margin
 }
 
-func (r *canvas) Render(c Canvas) {
-	for _, l := range r.layers {
-		m := c.View().Mul(l.m)
+func (c *Canvas) Render(r Renderer) {
+	view := Identity
+	if viewer, ok := r.(interface{ View() Matrix }); ok {
+		view = viewer.View()
+	}
+	for _, l := range c.layers {
+		m := view.Mul(l.m)
 		if l.path != nil {
-			c.renderPath(l.path, l.style, m)
+			r.RenderPath(l.path, l.style, m)
 		} else if l.text != nil {
-			c.renderText(l.text, m)
+			r.RenderText(l.text, m)
 		} else if l.img != nil {
-			c.renderImage(l.img, m)
+			r.RenderImage(l.img, m)
 		}
 	}
 }
 
-// SaveSVG writes the stored drawing operations in Canvas in the SVG file format.
-func (r *canvas) SaveSVG(filename string) error {
+// SaveSVG writes the stored drawing operations in Context in the SVG file format.
+func (c *Canvas) SaveSVG(filename string) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	svg := SVG(f, r.W, r.H)
-	r.Render(svg)
+	svg := SVG(f, c.W, c.H)
+	c.Render(svg)
 	return svg.Close()
 }
 
-// SavePDF writes the stored drawing operations in Canvas in the PDF file format.
-func (r *canvas) SavePDF(filename string) error {
+// SavePDF writes the stored drawing operations in Context in the PDF file format.
+func (c *Canvas) SavePDF(filename string) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	pdf := PDF(f, r.W, r.H)
-	r.Render(pdf)
+	pdf := PDF(f, c.W, c.H)
+	c.Render(pdf)
 	return pdf.Close()
 }
 
-// SaveEPS writes the stored drawing operations in Canvas in the EPS file format.
+// SaveEPS writes the stored drawing operations in Context in the EPS file format.
 // Be aware that EPS does not support transparency of colors.
-func (r *canvas) SaveEPS(filename string) error {
+func (c *Canvas) SaveEPS(filename string) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
 
-	eps := EPS(f, r.W, r.H)
-	r.Render(eps)
+	eps := EPS(f, c.W, c.H)
+	c.Render(eps)
 	return f.Close()
 }
 
-// WriteImage writes the stored drawing operations in Canvas as a rasterized image with given DPM (dots-per-millimeter). Higher DPM will result in bigger images.
-func (r *canvas) WriteImage(dpm float64) *image.RGBA {
-	img := image.NewRGBA(image.Rect(0.0, 0.0, int(r.W*dpm+0.5), int(r.H*dpm+0.5)))
+// WriteImage writes the stored drawing operations in Context as a rasterized image with given DPM (dots-per-millimeter). Higher DPM will result in bigger images.
+func (c *Canvas) WriteImage(dpm float64) *image.RGBA {
+	img := image.NewRGBA(image.Rect(0.0, 0.0, int(c.W*dpm+0.5), int(c.H*dpm+0.5)))
 	draw.Draw(img, img.Bounds(), image.NewUniform(White), image.Point{}, draw.Src)
 
 	ras := Rasterizer(img, dpm)
-	r.Render(ras)
+	c.Render(ras)
 	return img
 }
 
-func (r *canvas) SavePNG(filename string, dpm float64) error {
+func (c *Canvas) SavePNG(filename string, dpm float64) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
 
-	img := r.WriteImage(dpm)
+	img := c.WriteImage(dpm)
 	// TODO: optimization: cache img until canvas changes
 	if err = png.Encode(f, img); err != nil {
 		f.Close()
@@ -508,13 +489,13 @@ func (r *canvas) SavePNG(filename string, dpm float64) error {
 	return f.Close()
 }
 
-func (r *canvas) SaveJPG(filename string, dpm float64, opts *jpeg.Options) error {
+func (c *Canvas) SaveJPG(filename string, dpm float64, opts *jpeg.Options) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
 
-	img := r.WriteImage(dpm)
+	img := c.WriteImage(dpm)
 	if err = jpeg.Encode(f, img, opts); err != nil {
 		f.Close()
 		return err
@@ -522,13 +503,13 @@ func (r *canvas) SaveJPG(filename string, dpm float64, opts *jpeg.Options) error
 	return f.Close()
 }
 
-func (r *canvas) SaveGIF(filename string, dpm float64, opts *gif.Options) error {
+func (c *Canvas) SaveGIF(filename string, dpm float64, opts *gif.Options) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
 
-	img := r.WriteImage(dpm)
+	img := c.WriteImage(dpm)
 	if err = gif.Encode(f, img, opts); err != nil {
 		f.Close()
 		return err
