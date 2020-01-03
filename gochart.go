@@ -24,7 +24,7 @@ const (
 	OutputGIF
 )
 
-type ChartRenderer struct {
+type GoChart struct {
 	c            *Canvas
 	ctx          *Context
 	height       float64
@@ -36,13 +36,13 @@ type ChartRenderer struct {
 	textRotation float64
 }
 
-func NewChartRenderer(output Output) func(int, int) (chart.Renderer, error) {
+func NewGoChart(output Output) func(int, int) (chart.Renderer, error) {
 	return func(w, h int) (chart.Renderer, error) {
 		font := NewFontFamily("font")
 		font.LoadLocalFont("Arimo", FontRegular)
 
 		c := New(float64(w), float64(h))
-		return &ChartRenderer{
+		return &GoChart{
 			c:      c,
 			ctx:    NewContext(c),
 			height: float64(h),
@@ -53,52 +53,52 @@ func NewChartRenderer(output Output) func(int, int) (chart.Renderer, error) {
 	}
 }
 
-func (r *ChartRenderer) ResetStyle() {
+func (r *GoChart) ResetStyle() {
 	r.ctx.ResetStyle()
 	r.textRotation = 0.0
 }
 
-func (r *ChartRenderer) GetDPI() float64 {
+func (r *GoChart) GetDPI() float64 {
 	return r.dpi
 }
 
-func (r *ChartRenderer) SetDPI(dpi float64) {
+func (r *GoChart) SetDPI(dpi float64) {
 	r.dpi = dpi
 }
 
-func (r *ChartRenderer) SetClassName(name string) {
+func (r *GoChart) SetClassName(name string) {
 	// TODO
 }
 
-func (r *ChartRenderer) SetStrokeColor(col drawing.Color) {
+func (r *GoChart) SetStrokeColor(col drawing.Color) {
 	r.ctx.SetStrokeColor(col)
 }
 
-func (r *ChartRenderer) SetFillColor(col drawing.Color) {
+func (r *GoChart) SetFillColor(col drawing.Color) {
 	r.ctx.SetFillColor(col)
 }
 
-func (r *ChartRenderer) SetStrokeWidth(width float64) {
+func (r *GoChart) SetStrokeWidth(width float64) {
 	r.ctx.SetStrokeWidth(width)
 }
 
-func (r *ChartRenderer) SetStrokeDashArray(dashArray []float64) {
+func (r *GoChart) SetStrokeDashArray(dashArray []float64) {
 	r.ctx.SetDashes(0.0, dashArray...)
 }
 
-func (r *ChartRenderer) MoveTo(x, y int) {
+func (r *GoChart) MoveTo(x, y int) {
 	r.ctx.MoveTo(float64(x), r.height-float64(y))
 }
 
-func (r *ChartRenderer) LineTo(x, y int) {
+func (r *GoChart) LineTo(x, y int) {
 	r.ctx.LineTo(float64(x), r.height-float64(y))
 }
 
-func (r *ChartRenderer) QuadCurveTo(cx, cy, x, y int) {
+func (r *GoChart) QuadCurveTo(cx, cy, x, y int) {
 	r.ctx.QuadTo(float64(cx), r.height-float64(cy), float64(x), r.height-float64(y))
 }
 
-func (r *ChartRenderer) ArcTo(cx, cy int, rx, ry, startAngle, delta float64) {
+func (r *GoChart) ArcTo(cx, cy int, rx, ry, startAngle, delta float64) {
 	startAngle *= 180.0 / math.Pi
 	delta *= 180.0 / math.Pi
 
@@ -111,40 +111,40 @@ func (r *ChartRenderer) ArcTo(cx, cy int, rx, ry, startAngle, delta float64) {
 	r.ctx.Arc(rx, ry, 0.0, startAngle, startAngle+delta)
 }
 
-func (r *ChartRenderer) Close() {
+func (r *GoChart) Close() {
 	r.ctx.ClosePath()
 	r.ctx.MoveTo(0.0, 0.0)
 }
 
-func (r *ChartRenderer) Stroke() {
+func (r *GoChart) Stroke() {
 	r.ctx.Stroke()
 }
 
-func (r *ChartRenderer) Fill() {
+func (r *GoChart) Fill() {
 	r.ctx.Fill()
 }
 
-func (r *ChartRenderer) FillStroke() {
+func (r *GoChart) FillStroke() {
 	r.ctx.FillStroke()
 }
 
-func (r *ChartRenderer) Circle(radius float64, x, y int) {
+func (r *GoChart) Circle(radius float64, x, y int) {
 	r.ctx.DrawPath(float64(x), r.height-float64(y), Circle(radius))
 }
 
-func (r *ChartRenderer) SetFont(font *truetype.Font) {
+func (r *GoChart) SetFont(font *truetype.Font) {
 	// TODO
 }
 
-func (r *ChartRenderer) SetFontColor(col drawing.Color) {
+func (r *GoChart) SetFontColor(col drawing.Color) {
 	r.fontColor = col
 }
 
-func (r *ChartRenderer) SetFontSize(size float64) {
+func (r *GoChart) SetFontSize(size float64) {
 	r.fontSize = size
 }
 
-func (r *ChartRenderer) Text(body string, x, y int) {
+func (r *GoChart) Text(body string, x, y int) {
 	face := r.font.Face(r.fontSize*ptPerMm*r.dpi/72.0, r.fontColor, FontRegular, FontNormal)
 	r.ctx.Push()
 	r.ctx.SetFillColor(r.fontColor)
@@ -153,22 +153,22 @@ func (r *ChartRenderer) Text(body string, x, y int) {
 	r.ctx.Pop()
 }
 
-func (r *ChartRenderer) MeasureText(body string) chart.Box {
+func (r *GoChart) MeasureText(body string) chart.Box {
 	p, _ := r.font.Face(r.fontSize*ptPerMm*r.dpi/72.0, r.fontColor, FontRegular, FontNormal).ToPath(body)
 	bounds := p.Bounds()
 	bounds = bounds.Transform(Identity.Rotate(-r.textRotation * 180.0 / math.Pi))
 	return chart.Box{Left: int(bounds.X + 0.5), Top: int(bounds.Y + 0.5), Right: int((bounds.W + bounds.X) + 0.5), Bottom: int((bounds.H + bounds.Y) + 0.5)}
 }
 
-func (r *ChartRenderer) SetTextRotation(radian float64) {
+func (r *GoChart) SetTextRotation(radian float64) {
 	r.textRotation = radian
 }
 
-func (r *ChartRenderer) ClearTextRotation() {
+func (r *GoChart) ClearTextRotation() {
 	r.textRotation = 0.0
 }
 
-func (r *ChartRenderer) Save(w io.Writer) error {
+func (r *GoChart) Save(w io.Writer) error {
 	width, height := r.c.Size()
 	switch r.output {
 	case OutputSVG:

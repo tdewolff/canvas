@@ -78,19 +78,19 @@ func main() {
 
 	f, _ := os.Create("output.pdf")
 	defer f.Close()
-	graph.Render(canvas.NewChartRenderer(canvas.OutputPDF), f)
+	graph.Render(canvas.NewGoChart(canvas.OutputPDF), f)
 
 	f, _ = os.Create("output.svg")
 	defer f.Close()
-	graph.Render(canvas.NewChartRenderer(canvas.OutputSVG), f)
+	graph.Render(canvas.NewGoChart(canvas.OutputSVG), f)
 
 	f, _ = os.Create("output.eps")
 	defer f.Close()
-	graph.Render(canvas.NewChartRenderer(canvas.OutputEPS), f)
+	graph.Render(canvas.NewGoChart(canvas.OutputEPS), f)
 
 	f, _ = os.Create("output.png")
 	defer f.Close()
-	graph.Render(canvas.NewChartRenderer(canvas.OutputPNG), f)
+	graph.Render(canvas.NewGoChart(canvas.OutputPNG), f)
 
 	f, _ = os.Create("target.png")
 	defer f.Close()
