@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Go + WASM + tdewolff/canvas</title>
+    <script src="wasm_exec.js"></script>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const go = new Go();
+        WebAssembly.instantiateStreaming(fetch("lib.wasm"), go.importObject).then((result) => {
+            go.run(result.instance);
+        });
+    </script>
+</body>
+</html>
