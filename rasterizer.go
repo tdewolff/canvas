@@ -28,11 +28,31 @@ func (r *rasterizer) Size() (float64, float64) {
 func (r *rasterizer) RenderPath(path *Path, style Style, m Matrix) {
 	// TODO: use fill rule (EvenOdd, NonZero) for rasterizer
 	path = path.Transform(m)
+
+	strokeWidth := 0.0
+	if style.StrokeColor.A != 0 && 0.0 < style.StrokeWidth {
+		strokeWidth = style.StrokeWidth
+	}
+
 	size := r.img.Bounds().Size()
+	bounds := path.Bounds()
+	x := int((bounds.X - strokeWidth) * r.dpm)
+	y := int((bounds.Y - strokeWidth) * r.dpm)
+	w := int((bounds.W+2*strokeWidth)*r.dpm) + 1
+	h := int((bounds.H+2*strokeWidth)*r.dpm) + 1
+	if 0 <= x && 0 <= y && 0 < w && 0 < h {
+		path = path.Translate(-float64(x)/r.dpm, -float64(y)/r.dpm)
+	} else {
+		x = 0
+		y = 0
+		w = size.X
+		h = size.Y
+	}
+
 	if style.FillColor.A != 0 {
-		ras := vector.NewRasterizer(size.X, size.Y)
+		ras := vector.NewRasterizer(w, h)
 		path.ToRasterizer(ras, r.dpm)
-		ras.Draw(r.img, image.Rect(0, 0, size.X, size.Y), image.NewUniform(style.FillColor), image.Point{})
+		ras.Draw(r.img, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(style.FillColor), image.Point{})
 	}
 	if style.StrokeColor.A != 0 && 0.0 < style.StrokeWidth {
 		if 0 < len(style.Dashes) {
@@ -40,9 +60,9 @@ func (r *rasterizer) RenderPath(path *Path, style Style, m Matrix) {
 		}
 		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
 
-		ras := vector.NewRasterizer(size.X, size.Y)
+		ras := vector.NewRasterizer(w, h)
 		path.ToRasterizer(ras, r.dpm)
-		ras.Draw(r.img, image.Rect(0, 0, size.X, size.Y), image.NewUniform(style.StrokeColor), image.Point{})
+		ras.Draw(r.img, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(style.StrokeColor), image.Point{})
 	}
 }
 
