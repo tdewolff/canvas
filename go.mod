@@ -4,7 +4,6 @@ require (
 	github.com/ByteArena/poly2tri-go v0.0.0-20170716161910-d102ad91854f
 	github.com/blend/go-sdk v2.0.0+incompatible // indirect
 	github.com/dsnet/compress v0.0.1
-	github.com/go-bindata/go-bindata v3.1.2+incompatible // indirect
 	github.com/go-gl/gl v0.0.0-20190320180904-bf2b1f2f34d7
 	github.com/go-gl/glfw v0.0.0-20191125211704-12ad95a8df72
 	github.com/gogo/protobuf v1.2.1 // indirect
