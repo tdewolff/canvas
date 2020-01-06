@@ -122,7 +122,9 @@ func draw(c *canvas.Context) {
 	if err != nil {
 		panic(err)
 	}
-	c.DrawImage(48.0, 5.0, img, 15)
+	c.Rotate(5)
+	c.DrawImage(50.0, 0.0, img, 15)
+	c.SetView(canvas.Identity)
 
 	// Draw an closed set of points being smoothed
 	polyline := &canvas.Polyline{}
