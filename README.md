@@ -2,17 +2,19 @@
 
 [![GoDoc](http://godoc.org/github.com/tdewolff/canvas?status.svg)](http://godoc.org/github.com/tdewolff/canvas) [![Build Status](https://travis-ci.org/tdewolff/canvas.svg?branch=master)](https://travis-ci.org/tdewolff/canvas) [![Go Report Card](https://goreportcard.com/badge/github.com/tdewolff/canvas)](https://goreportcard.com/report/github.com/tdewolff/canvas) [![Coverage Status](https://coveralls.io/repos/github/tdewolff/canvas/badge.svg?branch=master)](https://coveralls.io/github/tdewolff/canvas?branch=master)
 
-Canvas is a common vector drawing target that can output SVG, PDF, EPS and raster images (which can be saved as PNG, JPG, ...). It has a wide range of path manipulation functionality such as flattening, stroking and dashing implemented. Additionally, it has a good text formatter and embeds fonts (TTF, OTF, WOFF, or WOFF2) or converts them to outlines. It can be considered a Cairo or node-canvas alternative in Go. See the example below in Fig. 1 and Fig. 2 for an overview of the functionality.
+Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster images (PNG, JPG, GIF, ...), HTML Canvas through WASM, and OpenGL. It has a wide range of path manipulation functionality such as flattening, stroking and dashing implemented. Additionally, it has a good text formatter and embeds fonts (TTF, OTF, WOFF, or WOFF2) or converts them to outlines. It can be considered a Cairo or node-canvas alternative in Go. See the example below in Fig. 1 and Fig. 2 for an overview of the functionality.
 
 ![Preview](https://raw.githubusercontent.com/tdewolff/canvas/master/examples/preview/out.png)
 
 **Figure 1**: top-left you can see text being fitted into a box and their bounding box (orange-red), the spaces between the words on the first row are being stretched to fill the whole width. You can see all the possible styles and text decorations applied. Also note the typographic substitutions (the quotes) and ligature support (fi, ffi, ffl, ...). Below the text box, the word "stroke" is being stroked and drawn as a path. Top-right we see a LaTeX formula that has been converted to a path. Left of that we see ellipse support showcasing precise dashing, notably the length of e.g. the short dash is equal wherever it is (approximated through arc length parametrization) on the curve. It also shows support for alternating dash lengths, in this case (2.0, 4.0, 2.0) for dashes and for spaces. Note that the dashes themselves are elliptical arcs as well (thus exactly precise even if magnified greatly). In the bottom-right we see a closed polygon of four points being smoothed by cubic Béziers that are smooth along the whole path, and next to it on the left an open path. In the middle you can see a rasterized image painted.
 
-<a href="https://raw.githubusercontent.com/tdewolff/canvas/master/examples/graph/out.png"><img src="https://raw.githubusercontent.com/tdewolff/canvas/master/examples/graph/out.png" height="250"></a>
 <a href="https://raw.githubusercontent.com/tdewolff/canvas/master/examples/map/out.png"><img src="https://raw.githubusercontent.com/tdewolff/canvas/master/examples/map/out.png" height="250"></a>
 <a href="https://raw.githubusercontent.com/tdewolff/canvas/master/examples/document/out.png"><img src="https://raw.githubusercontent.com/tdewolff/canvas/master/examples/document/out.png" height="250"></a>
+<a href="https://raw.githubusercontent.com/tdewolff/canvas/master/examples/go-chart/output.png"><img src="https://raw.githubusercontent.com/tdewolff/canvas/master/examples/go-chart/output.png" height="200" style="padding:25px 0;"></a>
 
 **Figure 2abc**: Three examples of what is possible with this library, for example the plotting of graphs, maps and documents.
+
+[Live WASM HTML Canvas example](https://tdewolff.github.io/canvas/examples/html-canvas/index.html)
 
 **Terminology**: a path is a sequence of drawing commands (MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close) that completely describe a path. QuadTo and CubeTo are quadratic and cubic Béziers respectively, ArcTo is an elliptical arc, and Close is a LineTo to the last MoveTo command and closes the path (sometimes this has a special meaning such as when stroking). A path can consist of several subpaths by having more than one MoveTo or Close command. A subpath consists of path segments which are defined by a command and some values or coordinates.
 
@@ -98,7 +100,6 @@ Far future
 * Support fill gradients and patterns (hard)
 * Load in PDF, SVG and EPS and turn to paths/text
 * Generate TeX-like formulas in pure Go, use OpenType math font such as STIX or TeX Gyre
-* Add HTML5 Canvas target (consider WASM output)
 
 
 ## Canvas
