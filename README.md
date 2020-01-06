@@ -39,18 +39,18 @@ Papers
 
 ## Status
 ### Targets
-| Feature | Image | SVG | PDF | EPS | HTMLCanvas (WASM) | OpenGL |
+| Feature | Image | SVG | PDF | EPS | HTML Canvas (WASM) | OpenGL |
 | ------- | ----- | --- | --- | --- | ----------------- | ------ |
-| Draw path fill | yes | yes | yes | yes | no | no |
-| Draw path stroke | yes | yes | yes | no | no | no |
-| Draw path dash | yes | yes | yes | no | no | no |
+| Draw path fill | yes | yes | yes | yes | yes | no |
+| Draw path stroke | yes | yes | yes | no | yes | no |
+| Draw path dash | yes | yes | yes | no | yes | no |
 | Embed fonts | | yes | yes | no | no | no |
 | Draw text | path | yes | yes | path | path | path |
-| Draw image | yes | yes | yes | no | no | no |
+| Draw image | yes | yes | yes | no | yes | no |
 | EvenOdd fill rule | no | yes | yes | no | no | no |
 
 * EPS does not support transparency
-* PDF and EPS do not support line joins for last and first dash for dashed and closed path
+* PDF and EPS do not support line joins for last and first dash for closed dashed path
 * OpenGL proper tessellation is missing
 
 ### Path

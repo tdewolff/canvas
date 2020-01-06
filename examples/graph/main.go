@@ -85,10 +85,10 @@ func draw(c *canvas.Context) {
 	}
 
 	c.SetFillColor(canvas.Seagreen)
-	c.DrawPath(0, 0, trendLine.ToPath().Transform(viewport).Stroke(0.4, canvas.RoundCapper, canvas.RoundJoiner))
+	c.DrawPath(0, 0, trendLine.ToPath().Transform(viewport).Stroke(0.4, canvas.RoundCap, canvas.RoundJoin))
 
 	c.SetFillColor(color.RGBA{192, 0, 64, 255})
-	c.DrawPath(0, 0, co2Line.ToPath().Transform(viewport).Stroke(0.1, canvas.RoundCapper, canvas.RoundJoiner))
+	c.DrawPath(0, 0, co2Line.ToPath().Transform(viewport).Stroke(0.1, canvas.RoundCap, canvas.RoundJoin))
 	marker := canvas.Ellipse(0.3, 0.3)
 	for _, m := range co2Line.ToPath().Transform(viewport).Markers(marker, marker, marker, false) {
 		c.DrawPath(0, 0, m)
@@ -98,8 +98,8 @@ func draw(c *canvas.Context) {
 	c.SetFillColor(canvas.Transparent)
 	c.SetStrokeColor(canvas.Black)
 	c.SetStrokeWidth(0.3)
-	c.SetStrokeCapper(canvas.RoundCapper)
-	c.SetStrokeJoiner(canvas.RoundJoiner)
+	c.SetStrokeCapper(canvas.RoundCap)
+	c.SetStrokeJoiner(canvas.RoundJoin)
 
 	frame := canvas.Rectangle(xmax-xmin, ymax-ymin).Translate(xmin, ymin)
 	for x := 10.0 * float64(int(xmin/10.0)+1); x < xmax; x += 10.0 {

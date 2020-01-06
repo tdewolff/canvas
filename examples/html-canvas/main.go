@@ -1,10 +1,12 @@
 package main
 
-//go:generate go-bindata -o dejavuserif.go ../../font/DejaVuSerif.ttf
+//go:generate go-bindata -o files.go ../../font/DejaVuSerif.ttf ../lenna.png ../../test/lenna.png
 
 import (
+	"bytes"
 	"fmt"
 	"image/color"
+	"image/png"
 	"syscall/js"
 
 	"github.com/tdewolff/canvas"
@@ -29,45 +31,117 @@ func main() {
 	draw(ctx)
 }
 
+func drawText(c *canvas.Context, x, y float64, face canvas.FontFace, rich *canvas.RichText) {
+	metrics := face.Metrics()
+	width, height := 80.0, 25.0
+
+	text := rich.ToText(width, height, canvas.Justify, canvas.Top, 0.0, 0.0)
+
+	c.SetFillColor(color.RGBA{192, 0, 64, 255})
+	c.DrawPath(x, y, text.Bounds().ToPath())
+	c.SetFillColor(color.RGBA{50, 50, 50, 50})
+	c.DrawPath(x, y, canvas.Rectangle(width, -metrics.LineHeight))
+	c.SetFillColor(color.RGBA{0, 0, 0, 50})
+	c.DrawPath(x, y+metrics.CapHeight-metrics.Ascent, canvas.Rectangle(width, -metrics.CapHeight-metrics.Descent))
+	c.DrawPath(x, y+metrics.XHeight-metrics.Ascent, canvas.Rectangle(width, -metrics.XHeight))
+
+	c.SetFillColor(canvas.Black)
+	c.DrawPath(x, y, canvas.Rectangle(width, -height).Stroke(0.2, canvas.RoundCap, canvas.RoundJoin))
+	c.DrawText(x, y, text)
+}
+
 func draw(c *canvas.Context) {
-	// Draw a shape
-	shape, err := canvas.ParseSVG(fmt.Sprintf("L10 0L10 10Q5 15 0 10z"))
+	// Draw a comprehensive text box
+	face := fontFamily.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	rich := canvas.NewRichText()
+	rich.Add(face, "\"Lorem ")
+	rich.Add(face, " dolor ")
+	rich.Add(face, "ipsum")
+	rich.Add(face, "\". Confiscator")
+	rich.Add(fontFamily.Face(12.0, canvas.Black, canvas.FontBold, canvas.FontNormal), " faux bold")
+	rich.Add(face, " ")
+	rich.Add(fontFamily.Face(12.0, canvas.Black, canvas.FontItalic, canvas.FontNormal), "faux italic")
+	rich.Add(face, " ")
+	rich.Add(fontFamily.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontUnderline), "underline")
+	rich.Add(face, " ")
+	rich.Add(fontFamily.Face(12.0, canvas.White, canvas.FontRegular, canvas.FontNormal, canvas.FontDoubleUnderline), "double underline")
+	rich.Add(face, " ")
+	rich.Add(fontFamily.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontSineUnderline), "sine")
+	rich.Add(face, " ")
+	rich.Add(fontFamily.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontSawtoothUnderline), "sawtooth")
+	rich.Add(face, " ")
+	rich.Add(fontFamily.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontDottedUnderline), "dotted")
+	rich.Add(face, " ")
+	rich.Add(fontFamily.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontDashedUnderline), "dashed")
+	rich.Add(face, " ")
+	rich.Add(fontFamily.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontOverline), "overline ")
+	rich.Add(fontFamily.Face(12.0, canvas.Black, canvas.FontItalic, canvas.FontNormal, canvas.FontStrikethrough, canvas.FontSineUnderline, canvas.FontOverline), "combi")
+	rich.Add(face, ".")
+	drawText(c, 10, 70, face, rich)
+
+	// Draw the word Stroke being stroked
+	face = fontFamily.Face(80.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	p, _ := face.ToPath("Stroke")
+	c.DrawPath(5, 10, p.Stroke(0.75, canvas.RoundCap, canvas.RoundJoin))
+
+	// Draw a LaTeX formula
+	//latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//latex = latex.Transform(canvas.Identity.Rotate(-30))
+	//c.SetFillColor(canvas.Black)
+	//c.DrawPath(140, 65, latex)
+
+	// Draw an elliptic arc being dashed
+	ellipse, err := canvas.ParseSVG(fmt.Sprintf("A10 20 30 1 0 20 0z"))
 	if err != nil {
 		panic(err)
 	}
 	c.SetFillColor(canvas.Whitesmoke)
-	c.DrawPath(110, 40, shape)
+	c.DrawPath(110, 40, ellipse)
 
 	c.SetFillColor(canvas.Transparent)
 	c.SetStrokeColor(canvas.Black)
 	c.SetStrokeWidth(0.5)
-	c.SetStrokeCapper(canvas.RoundCapper)
-	c.SetStrokeJoiner(canvas.RoundJoiner)
+	c.SetStrokeCapper(canvas.RoundCap)
+	c.SetStrokeJoiner(canvas.RoundJoin)
 	c.SetDashes(0.0, 2.0, 4.0, 2.0, 2.0, 4.0, 2.0)
-	c.DrawPath(110, 40, shape)
+	//ellipse = ellipse.Dash(0.0, 2.0, 4.0, 2.0).Stroke(0.5, canvas.RoundCap, canvas.RoundJoin)
+	c.DrawPath(110, 40, ellipse)
 	c.SetStrokeColor(canvas.Transparent)
 
-	// Draw a raster image
-	//lenna, err := os.Open("../lenna.png")
-	//if err != nil {
-	//	panic(err)
-	//}
-	//img, err := png.Decode(lenna)
-	//if err != nil {
-	//	panic(err)
-	//}
-	//c.DrawImage(105.0, 15.0, img, 25.6)
+	// Draw an closed set of points being smoothed
+	polyline := &canvas.Polyline{}
+	polyline.Add(0.0, 0.0)
+	polyline.Add(20.0, 0.0)
+	polyline.Add(20.0, 10.0)
+	polyline.Add(0.0, 20.0)
+	polyline.Add(0.0, 0.0)
+	c.SetFillColor(canvas.Seagreen)
+	c.DrawPath(170, 10, polyline.Smoothen())
+	c.SetFillColor(color.RGBA{0, 0, 0, 255})
+	c.DrawPath(170, 10, polyline.ToPath().Stroke(0.25, canvas.RoundCap, canvas.RoundJoin))
 
-	// Draw text
-	face := fontFamily.Face(10.0, color.Black, canvas.FontRegular, canvas.FontNormal)
-	phrase := "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi egestas, augue eget blandit laoreet, dolor lorem interdum ante, quis consectetur lorem massa vitae nulla. Sed cursus tellus id venenatis suscipit. Nunc volutpat imperdiet ipsum vel varius."
-
-	text := canvas.NewTextBox(face, phrase, 60.0, 35.0, canvas.Justify, canvas.Top, 0.0, 0.0)
-	rect := text.Bounds()
-	rect.Y = 0.0
-	rect.H = -35.0
-	//c.SetFillColor(canvas.Whitesmoke)
-	//c.DrawPath(10.0, 40.0, rect.ToPath())
+	// Draw a open set of points being smoothed
+	polyline = &canvas.Polyline{}
+	polyline.Add(0.0, 0.0)
+	polyline.Add(10.0, 5.0)
+	polyline.Add(20.0, 15.0)
+	polyline.Add(30.0, 20.0)
+	polyline.Add(40.0, 10.0)
+	c.SetFillColor(canvas.Seagreen)
+	c.DrawPath(120, 5, polyline.Smoothen().Stroke(0.5, canvas.RoundCap, canvas.RoundJoin))
 	c.SetFillColor(canvas.Black)
-	c.DrawText(10.0, 40.0, text)
+	for _, coord := range polyline.Coords() {
+		c.DrawPath(120, 5, canvas.Circle(1.0).Translate(coord.X, coord.Y).Stroke(0.5, canvas.RoundCap, canvas.RoundJoin))
+	}
+
+	// Draw a raster image
+	lenna := bytes.NewBuffer(MustAsset("../lenna.png"))
+	img, err := png.Decode(lenna)
+	if err != nil {
+		panic(err)
+	}
+	c.DrawImage(105.0, 15.0, img, 25.6)
 }

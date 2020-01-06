@@ -55,12 +55,12 @@ func (r *pdf) RenderPath(path *Path, style Style, m Matrix) {
 
 	// PDFs don't support the arcs joiner, miter joiner (not clipped), or miter joiner (clipped) with non-bevel fallback
 	strokeUnsupported := false
-	if _, ok := style.StrokeJoiner.(arcsJoiner); ok {
+	if _, ok := style.StrokeJoiner.(ArcsJoiner); ok {
 		strokeUnsupported = true
-	} else if miter, ok := style.StrokeJoiner.(miterJoiner); ok {
-		if math.IsNaN(miter.limit) {
+	} else if miter, ok := style.StrokeJoiner.(MiterJoiner); ok {
+		if math.IsNaN(miter.Limit) {
 			strokeUnsupported = true
-		} else if _, ok := miter.gapJoiner.(bevelJoiner); !ok {
+		} else if _, ok := miter.GapJoiner.(BevelJoiner); !ok {
 			strokeUnsupported = true
 		}
 	}
@@ -647,11 +647,11 @@ func (w *pdfPageWriter) SetLineWidth(lineWidth float64) {
 
 func (w *pdfPageWriter) SetLineCap(capper Capper) {
 	var lineCap int
-	if _, ok := capper.(buttCapper); ok {
+	if _, ok := capper.(ButtCapper); ok {
 		lineCap = 0
-	} else if _, ok := capper.(roundCapper); ok {
+	} else if _, ok := capper.(RoundCapper); ok {
 		lineCap = 1
-	} else if _, ok := capper.(squareCapper); ok {
+	} else if _, ok := capper.(SquareCapper); ok {
 		lineCap = 2
 	} else {
 		panic("PDF: line cap not support")
@@ -665,16 +665,16 @@ func (w *pdfPageWriter) SetLineCap(capper Capper) {
 func (w *pdfPageWriter) SetLineJoin(joiner Joiner) {
 	var lineJoin int
 	var miterLimit float64
-	if _, ok := joiner.(bevelJoiner); ok {
+	if _, ok := joiner.(BevelJoiner); ok {
 		lineJoin = 2
-	} else if _, ok := joiner.(roundJoiner); ok {
+	} else if _, ok := joiner.(RoundJoiner); ok {
 		lineJoin = 1
-	} else if miter, ok := joiner.(miterJoiner); ok {
+	} else if miter, ok := joiner.(MiterJoiner); ok {
 		lineJoin = 0
-		if math.IsNaN(miter.limit) {
+		if math.IsNaN(miter.Limit) {
 			panic("PDF: line join not support")
 		} else {
-			miterLimit = miter.limit
+			miterLimit = miter.Limit
 		}
 	} else {
 		panic("PDF: line join not support")

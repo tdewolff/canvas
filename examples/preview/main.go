@@ -45,7 +45,7 @@ func drawText(c *canvas.Context, x, y float64, face canvas.FontFace, rich *canva
 	c.DrawPath(x, y+metrics.XHeight-metrics.Ascent, canvas.Rectangle(width, -metrics.XHeight))
 
 	c.SetFillColor(canvas.Black)
-	c.DrawPath(x, y, canvas.Rectangle(width, -height).Stroke(0.2, canvas.RoundCapper, canvas.RoundJoiner))
+	c.DrawPath(x, y, canvas.Rectangle(width, -height).Stroke(0.2, canvas.RoundCap, canvas.RoundJoin))
 	c.DrawText(x, y, text)
 }
 
@@ -81,7 +81,7 @@ func draw(c *canvas.Context) {
 	// Draw the word Stroke being stroked
 	face = fontFamily.Face(80.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	p, _ := face.ToPath("Stroke")
-	c.DrawPath(5, 10, p.Stroke(0.75, canvas.RoundCapper, canvas.RoundJoiner))
+	c.DrawPath(5, 10, p.Stroke(0.75, canvas.RoundCap, canvas.RoundJoin))
 
 	// Draw a LaTeX formula
 	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
@@ -103,10 +103,10 @@ func draw(c *canvas.Context) {
 	c.SetFillColor(canvas.Transparent)
 	c.SetStrokeColor(canvas.Black)
 	c.SetStrokeWidth(0.5)
-	c.SetStrokeCapper(canvas.RoundCapper)
-	c.SetStrokeJoiner(canvas.RoundJoiner)
+	c.SetStrokeCapper(canvas.RoundCap)
+	c.SetStrokeJoiner(canvas.RoundJoin)
 	c.SetDashes(0.0, 2.0, 4.0, 2.0, 2.0, 4.0, 2.0)
-	//ellipse = ellipse.Dash(0.0, 2.0, 4.0, 2.0).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner)
+	//ellipse = ellipse.Dash(0.0, 2.0, 4.0, 2.0).Stroke(0.5, canvas.RoundCap, canvas.RoundJoin)
 	c.DrawPath(110, 40, ellipse)
 	c.SetStrokeColor(canvas.Transparent)
 
@@ -120,7 +120,7 @@ func draw(c *canvas.Context) {
 	c.SetFillColor(canvas.Seagreen)
 	c.DrawPath(170, 10, polyline.Smoothen())
 	c.SetFillColor(color.RGBA{0, 0, 0, 255})
-	c.DrawPath(170, 10, polyline.ToPath().Stroke(0.25, canvas.RoundCapper, canvas.RoundJoiner))
+	c.DrawPath(170, 10, polyline.ToPath().Stroke(0.25, canvas.RoundCap, canvas.RoundJoin))
 
 	// Draw a open set of points being smoothed
 	polyline = &canvas.Polyline{}
@@ -130,10 +130,10 @@ func draw(c *canvas.Context) {
 	polyline.Add(30.0, 20.0)
 	polyline.Add(40.0, 10.0)
 	c.SetFillColor(canvas.Seagreen)
-	c.DrawPath(120, 5, polyline.Smoothen().Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner))
+	c.DrawPath(120, 5, polyline.Smoothen().Stroke(0.5, canvas.RoundCap, canvas.RoundJoin))
 	c.SetFillColor(canvas.Black)
 	for _, coord := range polyline.Coords() {
-		c.DrawPath(120, 5, canvas.Circle(1.0).Translate(coord.X, coord.Y).Stroke(0.5, canvas.RoundCapper, canvas.RoundJoiner))
+		c.DrawPath(120, 5, canvas.Circle(1.0).Translate(coord.X, coord.Y).Stroke(0.5, canvas.RoundCap, canvas.RoundJoin))
 	}
 
 	// Draw a raster image

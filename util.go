@@ -69,9 +69,9 @@ func (f dec) String() string {
 	return s
 }
 
-type cssColor color.RGBA
+type CSSColor color.RGBA
 
-func (color cssColor) String() string {
+func (color CSSColor) String() string {
 	if color.A == 255 {
 		buf := make([]byte, 7)
 		buf[0] = '#'

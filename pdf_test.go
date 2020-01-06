@@ -51,8 +51,8 @@ func TestPDFPath(t *testing.T) {
 	pdf.SetFillColor(Red)
 	pdf.SetStrokeColor(Blue)
 	pdf.SetLineWidth(5.0)
-	pdf.SetLineCap(RoundCapper)
-	pdf.SetLineJoin(RoundJoiner)
+	pdf.SetLineCap(RoundCap)
+	pdf.SetLineJoin(RoundJoin)
 	pdf.SetDashes(2.0, []float64{1.0, 2.0, 3.0})
 	test.String(t, pdf.String(), " /A0 gs 1 0 0 rg /A1 gs 0 0 1 RG 5 w 1 J 1 j [1 2 3 1 2 3] 2 d")
 }

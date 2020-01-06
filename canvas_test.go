@@ -27,8 +27,8 @@ func TestCanvas(t *testing.T) {
 	ctx.SetFillColor(Red)
 	ctx.SetStrokeColor(Gray)
 	ctx.SetStrokeWidth(1.0)
-	ctx.SetStrokeCapper(RoundCapper)
-	ctx.SetStrokeJoiner(RoundJoiner)
+	ctx.SetStrokeCapper(RoundCap)
+	ctx.SetStrokeJoiner(RoundJoin)
 	ctx.SetDashes(-1.0, 2.0, 3.0, 4.0)
 
 	ctx.DrawPath(10.0, 10.0, path)      // 50x7.5 => -7.5x100

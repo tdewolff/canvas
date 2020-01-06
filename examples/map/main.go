@@ -171,7 +171,7 @@ func draw(c *canvas.Context) {
 			} else if cat == "route_transit" {
 				width /= 8.0
 			}
-			c.DrawPath(0.0, 0.0, lines[cat].Stroke(width, canvas.RoundCapper, canvas.RoundJoiner))
+			c.DrawPath(0.0, 0.0, lines[cat].Stroke(width, canvas.RoundCap, canvas.RoundJoin))
 		}
 		if rings[cat] != nil {
 			c.DrawPath(0.0, 0.0, rings[cat])

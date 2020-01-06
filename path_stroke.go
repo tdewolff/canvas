@@ -13,40 +13,40 @@ type Capper interface {
 	Cap(*Path, float64, Point, Point)
 }
 
-// RoundCapper caps the start or end of a path by a round cap.
-var RoundCapper Capper = roundCapper{}
+// RoundCap caps the start or end of a path by a round cap.
+var RoundCap Capper = RoundCapper{}
 
-type roundCapper struct{}
+type RoundCapper struct{}
 
-func (roundCapper) Cap(p *Path, halfWidth float64, pivot, n0 Point) {
+func (RoundCapper) Cap(p *Path, halfWidth float64, pivot, n0 Point) {
 	end := pivot.Sub(n0)
 	p.ArcTo(halfWidth, halfWidth, 0, false, true, end.X, end.Y)
 }
 
-func (roundCapper) String() string {
+func (RoundCapper) String() string {
 	return "Round"
 }
 
-// ButtCapper caps the start or end of a path by a butt cap.
-var ButtCapper Capper = buttCapper{}
+// ButtCap caps the start or end of a path by a butt cap.
+var ButtCap Capper = ButtCapper{}
 
-type buttCapper struct{}
+type ButtCapper struct{}
 
-func (buttCapper) Cap(p *Path, halfWidth float64, pivot, n0 Point) {
+func (ButtCapper) Cap(p *Path, halfWidth float64, pivot, n0 Point) {
 	end := pivot.Sub(n0)
 	p.LineTo(end.X, end.Y)
 }
 
-func (buttCapper) String() string {
+func (ButtCapper) String() string {
 	return "Butt"
 }
 
-// SquareCapper caps the start or end of a path by a square cap.
-var SquareCapper Capper = squareCapper{}
+// SquareCap caps the start or end of a path by a square cap.
+var SquareCap Capper = SquareCapper{}
 
-type squareCapper struct{}
+type SquareCapper struct{}
 
-func (squareCapper) Cap(p *Path, halfWidth float64, pivot, n0 Point) {
+func (SquareCapper) Cap(p *Path, halfWidth float64, pivot, n0 Point) {
 	e := n0.Rot90CCW()
 	corner1 := pivot.Add(e).Add(n0)
 	corner2 := pivot.Add(e).Sub(n0)
@@ -56,7 +56,7 @@ func (squareCapper) Cap(p *Path, halfWidth float64, pivot, n0 Point) {
 	p.LineTo(end.X, end.Y)
 }
 
-func (squareCapper) String() string {
+func (SquareCapper) String() string {
 	return "Square"
 }
 
@@ -69,28 +69,28 @@ type Joiner interface {
 	Join(*Path, *Path, float64, Point, Point, Point, float64, float64)
 }
 
-// BevelJoiner connects two path elements by a linear join.
-var BevelJoiner Joiner = bevelJoiner{}
+// BevelJoin connects two path elements by a linear join.
+var BevelJoin Joiner = BevelJoiner{}
 
-type bevelJoiner struct{}
+type BevelJoiner struct{}
 
-func (bevelJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
+func (BevelJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
 	rEnd := pivot.Add(n1)
 	lEnd := pivot.Sub(n1)
 	rhs.LineTo(rEnd.X, rEnd.Y)
 	lhs.LineTo(lEnd.X, lEnd.Y)
 }
 
-func (bevelJoiner) String() string {
+func (BevelJoiner) String() string {
 	return "Bevel"
 }
 
-// RoundJoiner connects two path elements by a round join.
-var RoundJoiner Joiner = roundJoiner{}
+// RoundJoin connects two path elements by a round join.
+var RoundJoin Joiner = RoundJoiner{}
 
-type roundJoiner struct{}
+type RoundJoiner struct{}
 
-func (roundJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
+func (RoundJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
 	rEnd := pivot.Add(n1)
 	lEnd := pivot.Sub(n1)
 	cw := n0.Rot90CW().Dot(n1) >= 0.0
@@ -103,29 +103,29 @@ func (roundJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, 
 	}
 }
 
-func (roundJoiner) String() string {
+func (RoundJoiner) String() string {
 	return "Round"
 }
 
-// MiterJoiner connects two path elements by extending the ends of the paths as lines until they meet. If this point is further than 2 mm * (strokeWidth / 2.0) away, this will result in a bevel join.
-var MiterJoiner Joiner = miterJoiner{BevelJoiner, 2.0}
+// MiterJoin connects two path elements by extending the ends of the paths as lines until they meet. If this point is further than 2 mm * (strokeWidth / 2.0) away, this will result in a bevel join.
+var MiterJoin Joiner = MiterJoiner{BevelJoin, 2.0}
 
-// MiterClipJoiner returns a MiterJoiner with given limit*strokeWidth/2.0 in mm upon which the gapJoiner function will be used. Limit can be NaN so that the gapJoiner is never used.
-func MiterClipJoiner(gapJoiner Joiner, limit float64) Joiner {
-	return miterJoiner{gapJoiner, limit}
+// MiterClipJoin returns a MiterJoiner with given limit*strokeWidth/2.0 in mm upon which the gapJoiner function will be used. Limit can be NaN so that the gapJoiner is never used.
+func MiterClipJoin(gapJoiner Joiner, limit float64) Joiner {
+	return MiterJoiner{gapJoiner, limit}
 }
 
-type miterJoiner struct {
-	gapJoiner Joiner
-	limit     float64
+type MiterJoiner struct {
+	GapJoiner Joiner
+	Limit     float64
 }
 
-func (j miterJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
+func (j MiterJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
 	if n0.Equals(n1.Neg()) {
-		BevelJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
+		BevelJoin.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	}
-	limit := math.Max(j.limit, 1.001) // otherwise nearly linear joins will also get clipped
+	limit := math.Max(j.Limit, 1.001) // otherwise nearly linear joins will also get clipped
 
 	cw := n0.Rot90CW().Dot(n1) >= 0.0
 	hw := halfWidth
@@ -136,7 +136,7 @@ func (j miterJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point
 	theta := n0.AngleBetween(n1) / 2.0
 	d := hw / math.Cos(theta)
 	if !math.IsNaN(limit) && limit*halfWidth < math.Abs(d) {
-		j.gapJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
+		j.GapJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	}
 	mid := pivot.Add(n0.Add(n1).Norm(d))
@@ -152,35 +152,35 @@ func (j miterJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point
 	lhs.LineTo(lEnd.X, lEnd.Y)
 }
 
-func (j miterJoiner) String() string {
-	if math.IsNaN(j.limit) {
+func (j MiterJoiner) String() string {
+	if math.IsNaN(j.Limit) {
 		return "Miter"
 	}
 	return "MiterClip"
 }
 
-// ArcsJoiner connects two path elements by extending the ends of the paths as circle arcs until they meet. If this point is further than 10 mm * (strokeWidth / 2.0) away, this will result in a bevel join.
-var ArcsJoiner Joiner = arcsJoiner{BevelJoiner, 10.0}
+// ArcsJoin connects two path elements by extending the ends of the paths as circle arcs until they meet. If this point is further than 10 mm * (strokeWidth / 2.0) away, this will result in a bevel join.
+var ArcsJoin Joiner = ArcsJoiner{BevelJoin, 10.0}
 
-// ArcsClipJoiner returns an ArcsJoiner with given limit in mm*strokeWidth/2.0 upon which the gapJoiner function will be used. Limit can be NaN so that the gapJoiner is never used.
-func ArcsClipJoiner(gapJoiner Joiner, limit float64) Joiner {
-	return arcsJoiner{gapJoiner, limit}
+// ArcsClipJoin returns an ArcsJoiner with given limit in mm*strokeWidth/2.0 upon which the gapJoiner function will be used. Limit can be NaN so that the gapJoiner is never used.
+func ArcsClipJoin(gapJoiner Joiner, limit float64) Joiner {
+	return ArcsJoiner{gapJoiner, limit}
 }
 
-type arcsJoiner struct {
-	gapJoiner Joiner
-	limit     float64
+type ArcsJoiner struct {
+	GapJoiner Joiner
+	Limit     float64
 }
 
-func (j arcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
+func (j ArcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
 	if n0.Equals(n1.Neg()) {
-		BevelJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
+		BevelJoin.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	} else if math.IsNaN(r0) && math.IsNaN(r1) {
-		miterJoiner{j.gapJoiner, j.limit}.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
+		MiterJoiner{j.GapJoiner, j.Limit}.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	}
-	limit := math.Max(j.limit, 1.001) // 1.001 so that nearly linear joins will not get clipped
+	limit := math.Max(j.Limit, 1.001) // 1.001 so that nearly linear joins will not get clipped
 
 	cw := n0.Rot90CW().Dot(n1) >= 0.0
 	hw := halfWidth
@@ -213,7 +213,7 @@ func (j arcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point,
 	}
 	if !ok {
 		// no intersection
-		j.gapJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
+		j.GapJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	}
 
@@ -235,7 +235,7 @@ func (j arcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point,
 	}
 
 	if !math.IsNaN(limit) && limit*halfWidth < mid.Sub(pivot).Length() {
-		j.gapJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
+		j.GapJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	}
 
@@ -268,8 +268,8 @@ func (j arcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point,
 	}
 }
 
-func (j arcsJoiner) String() string {
-	if math.IsNaN(j.limit) {
+func (j ArcsJoiner) String() string {
+	if math.IsNaN(j.Limit) {
 		return "Arcs"
 	}
 	return "ArcsClip"
@@ -527,7 +527,7 @@ func (p *Path) Offset(w float64, fillRule FillRule) *Path {
 			useRHS = !useRHS
 		}
 
-		rhs, lhs := offsetSegment(ps, math.Abs(w), ButtCapper, RoundJoiner)
+		rhs, lhs := offsetSegment(ps, math.Abs(w), ButtCap, RoundJoin)
 		if useRHS {
 			q = q.Append(rhs)
 		} else {

@@ -83,12 +83,12 @@ func (r *svg) RenderPath(path *Path, style Style, m Matrix) {
 	fmt.Fprintf(r.w, `<path d="%s`, path.ToSVG())
 
 	strokeUnsupported := false
-	if arcs, ok := style.StrokeJoiner.(arcsJoiner); ok && math.IsNaN(arcs.limit) {
+	if arcs, ok := style.StrokeJoiner.(ArcsJoiner); ok && math.IsNaN(arcs.Limit) {
 		strokeUnsupported = true
-	} else if miter, ok := style.StrokeJoiner.(miterJoiner); ok {
-		if math.IsNaN(miter.limit) {
+	} else if miter, ok := style.StrokeJoiner.(MiterJoiner); ok {
+		if math.IsNaN(miter.Limit) {
 			strokeUnsupported = true
-		} else if _, ok := miter.gapJoiner.(bevelJoiner); !ok {
+		} else if _, ok := miter.GapJoiner.(BevelJoiner); !ok {
 			strokeUnsupported = true
 		}
 	}
@@ -96,7 +96,7 @@ func (r *svg) RenderPath(path *Path, style Style, m Matrix) {
 	if !stroke {
 		if fill {
 			if style.FillColor != Black {
-				fmt.Fprintf(r.w, `" fill="%v`, cssColor(style.FillColor))
+				fmt.Fprintf(r.w, `" fill="%v`, CSSColor(style.FillColor))
 			}
 			if style.FillRule == EvenOdd {
 				fmt.Fprintf(r.w, `" fill-rule="evenodd`)
@@ -108,7 +108,7 @@ func (r *svg) RenderPath(path *Path, style Style, m Matrix) {
 		b := &strings.Builder{}
 		if fill {
 			if style.FillColor != Black {
-				fmt.Fprintf(b, ";fill:%v", cssColor(style.FillColor))
+				fmt.Fprintf(b, ";fill:%v", CSSColor(style.FillColor))
 			}
 			if style.FillRule == EvenOdd {
 				fmt.Fprintf(b, ";fill-rule:evenodd")
@@ -117,30 +117,30 @@ func (r *svg) RenderPath(path *Path, style Style, m Matrix) {
 			fmt.Fprintf(b, ";fill:none")
 		}
 		if stroke && !strokeUnsupported {
-			fmt.Fprintf(b, `;stroke:%v`, cssColor(style.StrokeColor))
+			fmt.Fprintf(b, `;stroke:%v`, CSSColor(style.StrokeColor))
 			if style.StrokeWidth != 1.0 {
 				fmt.Fprintf(b, ";stroke-width:%v", dec(style.StrokeWidth))
 			}
-			if _, ok := style.StrokeCapper.(roundCapper); ok {
+			if _, ok := style.StrokeCapper.(RoundCapper); ok {
 				fmt.Fprintf(b, ";stroke-linecap:round")
-			} else if _, ok := style.StrokeCapper.(squareCapper); ok {
+			} else if _, ok := style.StrokeCapper.(SquareCapper); ok {
 				fmt.Fprintf(b, ";stroke-linecap:square")
-			} else if _, ok := style.StrokeCapper.(buttCapper); !ok {
+			} else if _, ok := style.StrokeCapper.(ButtCapper); !ok {
 				panic("SVG: line cap not support")
 			}
-			if _, ok := style.StrokeJoiner.(bevelJoiner); ok {
+			if _, ok := style.StrokeJoiner.(BevelJoiner); ok {
 				fmt.Fprintf(b, ";stroke-linejoin:bevel")
-			} else if _, ok := style.StrokeJoiner.(roundJoiner); ok {
+			} else if _, ok := style.StrokeJoiner.(RoundJoiner); ok {
 				fmt.Fprintf(b, ";stroke-linejoin:round")
-			} else if arcs, ok := style.StrokeJoiner.(arcsJoiner); ok && !math.IsNaN(arcs.limit) {
+			} else if arcs, ok := style.StrokeJoiner.(ArcsJoiner); ok && !math.IsNaN(arcs.Limit) {
 				fmt.Fprintf(b, ";stroke-linejoin:arcs")
-				if !equal(arcs.limit, 4.0) {
-					fmt.Fprintf(b, ";stroke-miterlimit:%v", dec(arcs.limit))
+				if !equal(arcs.Limit, 4.0) {
+					fmt.Fprintf(b, ";stroke-miterlimit:%v", dec(arcs.Limit))
 				}
-			} else if miter, ok := style.StrokeJoiner.(miterJoiner); ok && !math.IsNaN(miter.limit) {
+			} else if miter, ok := style.StrokeJoiner.(MiterJoiner); ok && !math.IsNaN(miter.Limit) {
 				// a miter line join is the default
-				if !equal(miter.limit*2.0/style.StrokeWidth, 4.0) {
-					fmt.Fprintf(b, ";stroke-miterlimit:%v", dec(miter.limit*2.0/style.StrokeWidth))
+				if !equal(miter.Limit*2.0/style.StrokeWidth, 4.0) {
+					fmt.Fprintf(b, ";stroke-miterlimit:%v", dec(miter.Limit*2.0/style.StrokeWidth))
 				}
 			} else {
 				panic("SVG: line join not support")
@@ -170,7 +170,7 @@ func (r *svg) RenderPath(path *Path, style Style, m Matrix) {
 		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
 		fmt.Fprintf(r.w, `<path d="%s`, path.ToSVG())
 		if style.StrokeColor != Black {
-			fmt.Fprintf(r.w, `" fill="%v`, cssColor(style.StrokeColor))
+			fmt.Fprintf(r.w, `" fill="%v`, CSSColor(style.StrokeColor))
 		}
 		if style.FillRule == EvenOdd {
 			fmt.Fprintf(r.w, `" fill-rule="evenodd`)
@@ -215,10 +215,10 @@ func (r *svg) writeFontStyle(ff, ffMain FontFace) {
 		buf.WriteTo(r.w)
 
 		if ff.color != ffMain.color {
-			fmt.Fprintf(r.w, `;fill:%v`, cssColor(ff.color))
+			fmt.Fprintf(r.w, `;fill:%v`, CSSColor(ff.color))
 		}
 	} else if differences == 1 && ff.color != ffMain.color {
-		fmt.Fprintf(r.w, `" fill="%v`, cssColor(ff.color))
+		fmt.Fprintf(r.w, `" fill="%v`, CSSColor(ff.color))
 	} else if 0 < differences {
 		fmt.Fprintf(r.w, `" style="`)
 		buf := &bytes.Buffer{}
@@ -232,7 +232,7 @@ func (r *svg) writeFontStyle(ff, ffMain FontFace) {
 			fmt.Fprintf(buf, `;font-variant:small-caps`)
 		}
 		if ff.color != ffMain.color {
-			fmt.Fprintf(buf, `;fill:%v`, cssColor(ff.color))
+			fmt.Fprintf(buf, `;fill:%v`, CSSColor(ff.color))
 		}
 		buf.ReadByte()
 		buf.WriteTo(r.w)
@@ -270,7 +270,7 @@ func (r *svg) RenderText(text *Text, m Matrix) {
 	}
 	fmt.Fprintf(r.w, ` %vpx %s`, num(ffMain.size*ffMain.scale), ffMain.font.name)
 	if ffMain.color != Black {
-		fmt.Fprintf(r.w, `;fill:%v`, cssColor(ffMain.color))
+		fmt.Fprintf(r.w, `;fill:%v`, CSSColor(ffMain.color))
 	}
 	fmt.Fprintf(r.w, `">`)
 
