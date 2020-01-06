@@ -111,6 +111,7 @@ func draw(c *canvas.Context) {
 	//ellipse = ellipse.Dash(0.0, 2.0, 4.0, 2.0).Stroke(0.5, canvas.RoundCap, canvas.RoundJoin)
 	c.DrawPath(110, 40, ellipse)
 	c.SetStrokeColor(canvas.Transparent)
+	c.SetDashes(0.0)
 
 	// Draw a raster image
 	lenna, err := os.Open("../lenna.png")
@@ -131,9 +132,21 @@ func draw(c *canvas.Context) {
 	polyline.Add(0.0, 30.0)
 	polyline.Add(0.0, 0.0)
 	c.SetFillColor(canvas.Seagreen)
+	c.FillColor.R = byte(float64(c.FillColor.R) * 0.25)
+	c.FillColor.G = byte(float64(c.FillColor.G) * 0.25)
+	c.FillColor.B = byte(float64(c.FillColor.B) * 0.25)
+	c.FillColor.A = byte(float64(c.FillColor.A) * 0.25)
+	c.SetStrokeColor(canvas.Seagreen)
 	c.DrawPath(155, 35, polyline.Smoothen())
-	c.SetFillColor(color.RGBA{0, 0, 0, 255})
-	c.DrawPath(155, 35, polyline.ToPath().Stroke(0.5, canvas.RoundCap, canvas.RoundJoin))
+
+	c.SetFillColor(canvas.Transparent)
+	c.SetStrokeColor(canvas.Black)
+	c.SetStrokeWidth(0.5)
+	c.DrawPath(155, 35, polyline.ToPath())
+	c.SetStrokeWidth(0.75)
+	for _, coord := range polyline.Coords() {
+		c.DrawPath(155, 35, canvas.Circle(2.0).Translate(coord.X, coord.Y))
+	}
 
 	// Draw a open set of points being smoothed
 	polyline = &canvas.Polyline{}
@@ -142,10 +155,10 @@ func draw(c *canvas.Context) {
 	polyline.Add(40.0, 30.0)
 	polyline.Add(60.0, 40.0)
 	polyline.Add(80.0, 20.0)
-	c.SetFillColor(canvas.Seagreen)
-	c.DrawPath(10, 15, polyline.Smoothen().Stroke(0.75, canvas.RoundCap, canvas.RoundJoin))
-	c.SetFillColor(canvas.Black)
+	c.SetStrokeColor(canvas.Dodgerblue)
+	c.DrawPath(10, 15, polyline.Smoothen())
+	c.SetStrokeColor(canvas.Black)
 	for _, coord := range polyline.Coords() {
-		c.DrawPath(10, 15, canvas.Circle(2.0).Translate(coord.X, coord.Y).Stroke(0.75, canvas.RoundCap, canvas.RoundJoin))
+		c.DrawPath(10, 15, canvas.Circle(2.0).Translate(coord.X, coord.Y))
 	}
 }

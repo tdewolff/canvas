@@ -60,16 +60,16 @@ type Renderer interface {
 type Context struct {
 	Renderer
 
-	path       *Path
-	view       Matrix
-	style      Style
-	viewStack  []Matrix
+	path *Path
+	Style
 	styleStack []Style
+	view       Matrix
+	viewStack  []Matrix
 }
 
 // NewContext returns a new Context.
 func NewContext(r Renderer) *Context {
-	return &Context{r, &Path{}, Identity, DefaultStyle, nil, nil}
+	return &Context{r, &Path{}, DefaultStyle, nil, Identity, nil}
 }
 
 func (c *Context) Width() float64 {
@@ -85,7 +85,7 @@ func (c *Context) Height() float64 {
 // Push saves the current draw state, so that it can be popped later on.
 func (c *Context) Push() {
 	c.viewStack = append(c.viewStack, c.view)
-	c.styleStack = append(c.styleStack, c.style)
+	c.styleStack = append(c.styleStack, c.Style)
 }
 
 // Pop restores the last pushed draw state and uses that as the current draw state. If there are no states on the stack, this will do nothing.
@@ -94,7 +94,7 @@ func (c *Context) Pop() {
 		return
 	}
 	c.view = c.viewStack[len(c.viewStack)-1]
-	c.style = c.styleStack[len(c.styleStack)-1]
+	c.Style = c.styleStack[len(c.styleStack)-1]
 	c.viewStack = c.viewStack[:len(c.viewStack)-1]
 	c.styleStack = c.styleStack[:len(c.styleStack)-1]
 }
@@ -176,52 +176,44 @@ func (c *Context) ShearAbout(sx, sy, x, y float64) {
 // SetFillColor sets the color to be used for filling operations.
 func (c *Context) SetFillColor(col color.Color) {
 	r, g, b, a := col.RGBA()
-	c.style.FillColor = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+	c.Style.FillColor = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
 }
 
 // SetStrokeColor sets the color to be used for stroking operations.
 func (c *Context) SetStrokeColor(col color.Color) {
 	r, g, b, a := col.RGBA()
-	c.style.StrokeColor = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+	c.Style.StrokeColor = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
 }
 
 // SetStrokeWidth sets the width in mm for stroking operations.
 func (c *Context) SetStrokeWidth(width float64) {
-	c.style.StrokeWidth = width
+	c.Style.StrokeWidth = width
 }
 
 // SetStrokeCapper sets the line cap function to be used for stroke endpoints.
 func (c *Context) SetStrokeCapper(capper Capper) {
-	c.style.StrokeCapper = capper
+	c.Style.StrokeCapper = capper
 }
 
 // SetStrokeJoiner sets the line join function to be used for stroke midpoints.
 func (c *Context) SetStrokeJoiner(joiner Joiner) {
-	c.style.StrokeJoiner = joiner
+	c.Style.StrokeJoiner = joiner
 }
 
 // SetDashes sets the dash pattern to be used for stroking operations. The dash offset denotes the offset into the dash array in mm from where to start. Negative values are allowed.
 func (c *Context) SetDashes(offset float64, dashes ...float64) {
-	c.style.DashOffset = offset
-	c.style.Dashes = dashes
+	c.Style.DashOffset = offset
+	c.Style.Dashes = dashes
 }
 
 // SetFillRule sets the fill rule to be used for filling paths.
 func (c *Context) SetFillRule(rule FillRule) {
-	c.style.FillRule = rule
-}
-
-func (c *Context) Style() Style {
-	return c.style
-}
-
-func (c *Context) SetStyle(style Style) {
-	c.style = style
+	c.Style.FillRule = rule
 }
 
 // ResetStyle resets the draw state to its default (colors, stroke widths, dashes, ...).
 func (c *Context) ResetStyle() {
-	c.style = DefaultStyle
+	c.Style = DefaultStyle
 }
 
 func (c *Context) Pos() (float64, float64) {
@@ -261,39 +253,39 @@ func (c *Context) ClosePath() {
 }
 
 func (c *Context) Fill() {
-	style := c.style
+	style := c.Style
 	style.StrokeColor = Transparent
 	c.RenderPath(c.path, style, c.view)
 	c.path = &Path{}
 }
 
 func (c *Context) Stroke() {
-	style := c.style
+	style := c.Style
 	style.FillColor = Transparent
 	c.RenderPath(c.path, style, c.view)
 	c.path = &Path{}
 }
 
 func (c *Context) FillStroke() {
-	c.RenderPath(c.path, c.style, c.view)
+	c.RenderPath(c.path, c.Style, c.view)
 	c.path = &Path{}
 }
 
 func (c *Context) DrawPath(x, y float64, paths ...*Path) {
-	if c.style.FillColor.A == 0 && (c.style.StrokeColor.A == 0 || c.style.StrokeWidth == 0.0) {
+	if c.Style.FillColor.A == 0 && (c.Style.StrokeColor.A == 0 || c.Style.StrokeWidth == 0.0) {
 		return
 	}
 
 	m := c.view.Translate(x, y)
 	for _, path := range paths {
 		var dashes []float64
-		path, dashes = path.checkDash(c.style.DashOffset, c.style.Dashes)
+		path, dashes = path.checkDash(c.Style.DashOffset, c.Style.Dashes)
 		if path.Empty() {
 			continue
 		}
-		style := c.style
+		style := c.Style
 		style.Dashes = dashes
-		c.RenderPath(path, c.style, m)
+		c.RenderPath(path, style, m)
 	}
 }
 
