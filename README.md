@@ -39,7 +39,7 @@ Papers
 
 ## Status
 ### Targets
-| Feature | Image | SVG | PDF | EPS | HTML Canvas (WASM) | OpenGL |
+| Feature | Image | SVG | PDF | EPS | WASM Canvas | OpenGL |
 | ------- | ----- | --- | --- | --- | ----------------- | ------ |
 | Draw path fill | yes | yes | yes | yes | yes | no |
 | Draw path stroke | yes | yes | yes | no | yes | no |
