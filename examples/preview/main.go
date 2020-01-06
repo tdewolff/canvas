@@ -18,7 +18,7 @@ func main() {
 		panic(err)
 	}
 
-	c := canvas.New(200, 80)
+	c := canvas.New(200, 100)
 	ctx := canvas.NewContext(c)
 	draw(ctx)
 
@@ -27,12 +27,12 @@ func main() {
 	c.SaveSVG("out.svg")
 	c.SavePDF("out.pdf")
 	c.SaveEPS("out.eps")
-	c.SavePNG("out.png", 10.0)
+	c.SavePNG("out.png", 3.2)
 }
 
 func drawText(c *canvas.Context, x, y float64, face canvas.FontFace, rich *canvas.RichText) {
 	metrics := face.Metrics()
-	width, height := 80.0, 25.0
+	width, height := 90.0, 35.0
 
 	text := rich.ToText(width, height, canvas.Justify, canvas.Top, 0.0, 0.0)
 
@@ -51,37 +51,39 @@ func drawText(c *canvas.Context, x, y float64, face canvas.FontFace, rich *canva
 
 func draw(c *canvas.Context) {
 	// Draw a comprehensive text box
-	face := fontFamily.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	fontSize := 14.0
+	face := fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	rich := canvas.NewRichText()
 	rich.Add(face, "\"Lorem ")
 	rich.Add(face, " dolor ")
 	rich.Add(face, "ipsum")
 	rich.Add(face, "\". Confiscator")
-	rich.Add(fontFamily.Face(12.0, canvas.Black, canvas.FontBold, canvas.FontNormal), " faux bold")
+	rich.Add(face, " Curabitur mattis dui tellus vel.")
+	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontBold, canvas.FontNormal), " faux bold")
 	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(12.0, canvas.Black, canvas.FontItalic, canvas.FontNormal), "faux italic")
+	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontItalic, canvas.FontNormal), "faux italic")
 	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontUnderline), "underline")
+	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontUnderline), "underline")
 	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(12.0, canvas.White, canvas.FontRegular, canvas.FontNormal, canvas.FontDoubleUnderline), "double underline")
+	rich.Add(fontFamily.Face(fontSize, canvas.White, canvas.FontRegular, canvas.FontNormal, canvas.FontDoubleUnderline), "double underline")
 	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontSineUnderline), "sine")
+	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontSineUnderline), "sine")
 	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontSawtoothUnderline), "sawtooth")
+	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontSawtoothUnderline), "sawtooth")
 	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontDottedUnderline), "dotted")
+	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontDottedUnderline), "dotted")
 	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontDashedUnderline), "dashed")
+	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontDashedUnderline), "dashed")
 	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontOverline), "overline ")
-	rich.Add(fontFamily.Face(12.0, canvas.Black, canvas.FontItalic, canvas.FontNormal, canvas.FontStrikethrough, canvas.FontSineUnderline, canvas.FontOverline), "combi")
+	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontOverline), "overline ")
+	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontItalic, canvas.FontNormal, canvas.FontStrikethrough, canvas.FontSineUnderline, canvas.FontOverline), "combi")
 	rich.Add(face, ".")
-	drawText(c, 10, 70, face, rich)
+	drawText(c, 5, 95, face, rich)
 
 	// Draw the word Stroke being stroked
 	face = fontFamily.Face(80.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	p, _ := face.ToPath("Stroke")
-	c.DrawPath(5, 10, p.Stroke(0.75, canvas.RoundCap, canvas.RoundJoin))
+	c.DrawPath(100, 5, p.Stroke(0.75, canvas.RoundCap, canvas.RoundJoin))
 
 	// Draw a LaTeX formula
 	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
@@ -90,10 +92,10 @@ func draw(c *canvas.Context) {
 	}
 	latex = latex.Transform(canvas.Identity.Rotate(-30))
 	c.SetFillColor(canvas.Black)
-	c.DrawPath(140, 65, latex)
+	c.DrawPath(140, 85, latex)
 
 	// Draw an elliptic arc being dashed
-	ellipse, err := canvas.ParseSVG(fmt.Sprintf("A10 20 30 1 0 20 0z"))
+	ellipse, err := canvas.ParseSVG(fmt.Sprintf("A10 30 30 1 0 30 0z"))
 	if err != nil {
 		panic(err)
 	}
@@ -102,39 +104,13 @@ func draw(c *canvas.Context) {
 
 	c.SetFillColor(canvas.Transparent)
 	c.SetStrokeColor(canvas.Black)
-	c.SetStrokeWidth(0.5)
+	c.SetStrokeWidth(0.75)
 	c.SetStrokeCapper(canvas.RoundCap)
 	c.SetStrokeJoiner(canvas.RoundJoin)
 	c.SetDashes(0.0, 2.0, 4.0, 2.0, 2.0, 4.0, 2.0)
 	//ellipse = ellipse.Dash(0.0, 2.0, 4.0, 2.0).Stroke(0.5, canvas.RoundCap, canvas.RoundJoin)
 	c.DrawPath(110, 40, ellipse)
 	c.SetStrokeColor(canvas.Transparent)
-
-	// Draw an closed set of points being smoothed
-	polyline := &canvas.Polyline{}
-	polyline.Add(0.0, 0.0)
-	polyline.Add(20.0, 0.0)
-	polyline.Add(20.0, 10.0)
-	polyline.Add(0.0, 20.0)
-	polyline.Add(0.0, 0.0)
-	c.SetFillColor(canvas.Seagreen)
-	c.DrawPath(170, 10, polyline.Smoothen())
-	c.SetFillColor(color.RGBA{0, 0, 0, 255})
-	c.DrawPath(170, 10, polyline.ToPath().Stroke(0.25, canvas.RoundCap, canvas.RoundJoin))
-
-	// Draw a open set of points being smoothed
-	polyline = &canvas.Polyline{}
-	polyline.Add(0.0, 0.0)
-	polyline.Add(10.0, 5.0)
-	polyline.Add(20.0, 15.0)
-	polyline.Add(30.0, 20.0)
-	polyline.Add(40.0, 10.0)
-	c.SetFillColor(canvas.Seagreen)
-	c.DrawPath(120, 5, polyline.Smoothen().Stroke(0.5, canvas.RoundCap, canvas.RoundJoin))
-	c.SetFillColor(canvas.Black)
-	for _, coord := range polyline.Coords() {
-		c.DrawPath(120, 5, canvas.Circle(1.0).Translate(coord.X, coord.Y).Stroke(0.5, canvas.RoundCap, canvas.RoundJoin))
-	}
 
 	// Draw a raster image
 	lenna, err := os.Open("../lenna.png")
@@ -145,5 +121,31 @@ func draw(c *canvas.Context) {
 	if err != nil {
 		panic(err)
 	}
-	c.DrawImage(105.0, 15.0, img, 25.6)
+	c.DrawImage(48.0, 5.0, img, 15)
+
+	// Draw an closed set of points being smoothed
+	polyline := &canvas.Polyline{}
+	polyline.Add(0.0, 0.0)
+	polyline.Add(30.0, 0.0)
+	polyline.Add(30.0, 15.0)
+	polyline.Add(0.0, 30.0)
+	polyline.Add(0.0, 0.0)
+	c.SetFillColor(canvas.Seagreen)
+	c.DrawPath(155, 35, polyline.Smoothen())
+	c.SetFillColor(color.RGBA{0, 0, 0, 255})
+	c.DrawPath(155, 35, polyline.ToPath().Stroke(0.5, canvas.RoundCap, canvas.RoundJoin))
+
+	// Draw a open set of points being smoothed
+	polyline = &canvas.Polyline{}
+	polyline.Add(0.0, 0.0)
+	polyline.Add(20.0, 10.0)
+	polyline.Add(40.0, 30.0)
+	polyline.Add(60.0, 40.0)
+	polyline.Add(80.0, 20.0)
+	c.SetFillColor(canvas.Seagreen)
+	c.DrawPath(10, 15, polyline.Smoothen().Stroke(0.75, canvas.RoundCap, canvas.RoundJoin))
+	c.SetFillColor(canvas.Black)
+	for _, coord := range polyline.Coords() {
+		c.DrawPath(10, 15, canvas.Circle(2.0).Translate(coord.X, coord.Y).Stroke(0.75, canvas.RoundCap, canvas.RoundJoin))
+	}
 }
