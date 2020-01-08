@@ -43,6 +43,7 @@ type eps struct {
 	color         color.RGBA
 }
 
+// EPS is an encapsulated PostScript renderer.
 func EPS(w io.Writer, width, height float64) *eps {
 	fmt.Fprintf(w, "%%!PS-Adobe-3.0 EPSF-3.0\n%%%%BoundingBox: 0 0 %v %v\n", dec(width), dec(height))
 	fmt.Fprintf(w, psEllipseDef)

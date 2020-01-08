@@ -23,6 +23,7 @@ type pdf struct {
 	imgEnc        ImageEncoding
 }
 
+// PDF is a portable document format renderer.
 func PDF(w io.Writer, width, height float64) *pdf {
 	return &pdf{
 		w:      newPDFWriter(w).NewPage(width, height),

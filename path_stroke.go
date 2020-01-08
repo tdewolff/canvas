@@ -16,8 +16,10 @@ type Capper interface {
 // RoundCap caps the start or end of a path by a round cap.
 var RoundCap Capper = RoundCapper{}
 
+// RoundCapper is a round capper.
 type RoundCapper struct{}
 
+// Cap adds a cap to path p of width 2*halfWidth, at a pivot point and initial normal direction of n0.
 func (RoundCapper) Cap(p *Path, halfWidth float64, pivot, n0 Point) {
 	end := pivot.Sub(n0)
 	p.ArcTo(halfWidth, halfWidth, 0, false, true, end.X, end.Y)
@@ -30,8 +32,10 @@ func (RoundCapper) String() string {
 // ButtCap caps the start or end of a path by a butt cap.
 var ButtCap Capper = ButtCapper{}
 
+// ButtCapper is a butt capper.
 type ButtCapper struct{}
 
+// Cap adds a cap to path p of width 2*halfWidth, at a pivot point and initial normal direction of n0.
 func (ButtCapper) Cap(p *Path, halfWidth float64, pivot, n0 Point) {
 	end := pivot.Sub(n0)
 	p.LineTo(end.X, end.Y)
@@ -44,8 +48,10 @@ func (ButtCapper) String() string {
 // SquareCap caps the start or end of a path by a square cap.
 var SquareCap Capper = SquareCapper{}
 
+// SquareCapper is a square capper.
 type SquareCapper struct{}
 
+// Cap adds a cap to path p of width 2*halfWidth, at a pivot point and initial normal direction of n0.
 func (SquareCapper) Cap(p *Path, halfWidth float64, pivot, n0 Point) {
 	e := n0.Rot90CCW()
 	corner1 := pivot.Add(e).Add(n0)
@@ -72,8 +78,10 @@ type Joiner interface {
 // BevelJoin connects two path elements by a linear join.
 var BevelJoin Joiner = BevelJoiner{}
 
+// BevelJoiner is a bevel joiner.
 type BevelJoiner struct{}
 
+// Join adds a join to a right-hand-side and left-hand-side path, of width 2*halfWidth, around a pivot point with starting and ending normals of n0 and n1, and radius of curvatures of the previous and next segments.
 func (BevelJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
 	rEnd := pivot.Add(n1)
 	lEnd := pivot.Sub(n1)
@@ -88,8 +96,10 @@ func (BevelJoiner) String() string {
 // RoundJoin connects two path elements by a round join.
 var RoundJoin Joiner = RoundJoiner{}
 
+// RoundJoiner is a round joiner.
 type RoundJoiner struct{}
 
+// Join adds a join to a right-hand-side and left-hand-side path, of width 2*halfWidth, around a pivot point with starting and ending normals of n0 and n1, and radius of curvatures of the previous and next segments.
 func (RoundJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
 	rEnd := pivot.Add(n1)
 	lEnd := pivot.Sub(n1)
@@ -115,11 +125,13 @@ func MiterClipJoin(gapJoiner Joiner, limit float64) Joiner {
 	return MiterJoiner{gapJoiner, limit}
 }
 
+// MiterJoiner is a miter joiner.
 type MiterJoiner struct {
 	GapJoiner Joiner
 	Limit     float64
 }
 
+// Join adds a join to a right-hand-side and left-hand-side path, of width 2*halfWidth, around a pivot point with starting and ending normals of n0 and n1, and radius of curvatures of the previous and next segments.
 func (j MiterJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
 	if n0.Equals(n1.Neg()) {
 		BevelJoin.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
@@ -167,11 +179,13 @@ func ArcsClipJoin(gapJoiner Joiner, limit float64) Joiner {
 	return ArcsJoiner{gapJoiner, limit}
 }
 
+// ArcsJoiner is an arcs joiner.
 type ArcsJoiner struct {
 	GapJoiner Joiner
 	Limit     float64
 }
 
+// Join adds a join to a right-hand-side and left-hand-side path, of width 2*halfWidth, around a pivot point with starting and ending normals of n0 and n1, and radius of curvatures of the previous and next segments.
 func (j ArcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
 	if n0.Equals(n1.Neg()) {
 		BevelJoin.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)

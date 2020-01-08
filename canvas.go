@@ -26,6 +26,7 @@ const (
 
 ////////////////////////////////////////////////////////////////
 
+// Style is the path style that defines how to draw the path. When FillColor is transparent it will not fill the path. If StrokeColor is transparent or StrokeWidth is zero, it will not stroke the path. If Dashes is an empty array, it will not draw dashes but instead a solid stroke line. FillRule determines how to fill the path when paths overlap and have certain directions (clockwise, counter clockwise).
 type Style struct {
 	FillColor    color.RGBA
 	StrokeColor  color.RGBA
@@ -37,6 +38,7 @@ type Style struct {
 	FillRule
 }
 
+// DefaultStyle is the default style for paths. It fills the path with a black color.
 var DefaultStyle = Style{
 	FillColor:    Black,
 	StrokeColor:  Transparent,
@@ -48,6 +50,7 @@ var DefaultStyle = Style{
 	FillRule:     NonZero,
 }
 
+// Renderer is an interface that renderers implement. It defines the size of the target (in mm) and functions to render paths, text objects and raster images.
 type Renderer interface {
 	Size() (float64, float64)
 	RenderPath(path *Path, style Style, m Matrix)
@@ -57,6 +60,7 @@ type Renderer interface {
 
 ////////////////////////////////////////////////////////////////
 
+// Context maintains the state for the current path, path style, and view transformation matrix.
 type Context struct {
 	Renderer
 
@@ -67,16 +71,18 @@ type Context struct {
 	viewStack  []Matrix
 }
 
-// NewContext returns a new Context.
+// NewContext returns a new Context which is a wrapper around a Renderer. Context maintains state for the current path, path style, and view transformation matrix.
 func NewContext(r Renderer) *Context {
 	return &Context{r, &Path{}, DefaultStyle, nil, Identity, nil}
 }
 
+// Width returns the width of the canvas.
 func (c *Context) Width() float64 {
 	w, _ := c.Size()
 	return w
 }
 
+// Height returns the height of the canvas.
 func (c *Context) Height() float64 {
 	_, h := c.Size()
 	return h
@@ -99,6 +105,7 @@ func (c *Context) Pop() {
 	c.styleStack = c.styleStack[:len(c.styleStack)-1]
 }
 
+// View returns the current affine transformation matrix.
 func (c *Context) View() Matrix {
 	return c.view
 }
@@ -128,17 +135,17 @@ func (c *Context) ReflectX() {
 	c.view = c.view.Mul(Identity.ReflectX())
 }
 
-// ReflectXAt inverts the X axis of the view.
+// ReflectXAbout inverts the X axis of the view.
 func (c *Context) ReflectXAbout(x float64) {
 	c.view = c.view.Mul(Identity.ReflectXAbout(x))
 }
 
-// ReflectX inverts the Y axis of the view.
+// ReflectY inverts the Y axis of the view.
 func (c *Context) ReflectY() {
 	c.view = c.view.Mul(Identity.ReflectY())
 }
 
-// ReflectX inverts the Y axis of the view.
+// ReflectYAbout inverts the Y axis of the view.
 func (c *Context) ReflectYAbout(y float64) {
 	c.view = c.view.Mul(Identity.ReflectYAbout(y))
 }
@@ -148,7 +155,7 @@ func (c *Context) Rotate(rot float64) {
 	c.view = c.view.Mul(Identity.Rotate(rot))
 }
 
-// RotateAt rotates the view around (x,y) with rot in degrees.
+// RotateAbout rotates the view around (x,y) with rot in degrees.
 func (c *Context) RotateAbout(rot, x, y float64) {
 	c.view = c.view.Mul(Identity.RotateAbout(rot, x, y))
 }
@@ -216,42 +223,55 @@ func (c *Context) ResetStyle() {
 	c.Style = DefaultStyle
 }
 
+// Pos returns the current position of the path, which is the end point of the last command.
 func (c *Context) Pos() (float64, float64) {
 	return c.path.Pos().X, c.path.Pos().Y
 }
 
-func (c *Context) Path() *Path {
-	return c.path
-}
-
+// MoveTo moves the path to x,y without connecting the path. It starts a new independent subpath. Multiple subpaths can be
+// useful when negating parts of a previous path by overlapping it with a path in the opposite direction. The behaviour for
+// overlapping paths depend on the FillRule.
 func (c *Context) MoveTo(x, y float64) {
 	c.path.MoveTo(x, y)
 }
 
+// LineTo adds a linear path to x,y.
 func (c *Context) LineTo(x, y float64) {
 	c.path.LineTo(x, y)
 }
 
+// QuadTo adds a quadratic Bézier path with control point cpx,cpy and end point x,y.
 func (c *Context) QuadTo(cpx, cpy, x, y float64) {
 	c.path.QuadTo(cpx, cpy, x, y)
 }
 
+// CubeTo adds a cubic Bézier path with control points cpx1,cpy1 and cpx2,cpy2 and end point x,y.
 func (c *Context) CubeTo(cpx1, cpy1, cpx2, cpy2, x, y float64) {
 	c.path.CubeTo(cpx1, cpy1, cpx2, cpy2, x, y)
 }
 
+// ArcTo adds an arc with radii rx and ry, with rot the counter clockwise rotation with respect to the coordinate system in degrees,
+// large and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
+// and x,y the end position of the pen. The start position of the pen was given by a previous command end point.
+// When sweep is true it means following the arc in a CCW direction in the Cartesian coordinate system, ie. that is CW in the upper-left coordinate system as is the case in SVGs.
 func (c *Context) ArcTo(rx, ry, rot float64, large, sweep bool, x, y float64) {
 	c.path.ArcTo(rx, ry, rot, large, sweep, x, y)
 }
 
+// Arc adds an elliptical arc with radii rx and ry, with rot the counter clockwise rotation in degrees, and theta0 and theta1
+// the angles in degrees of the ellipse (before rot is applies) between which the arc will run. If theta0 < theta1, the arc will
+// run in a CCW direction. If the difference between theta0 and theta1 is bigger than 360 degrees, one full circle will be drawn
+// and the remaining part of diff % 360 (eg. a difference of 810 degrees will draw one full circle and an arc over 90 degrees).
 func (c *Context) Arc(rx, ry, rot, theta0, theta1 float64) {
 	c.path.Arc(rx, ry, rot, theta0, theta1)
 }
 
-func (c *Context) ClosePath() {
+// Close closes the current path.
+func (c *Context) Close() {
 	c.path.Close()
 }
 
+// Fill fills the current path and resets it.
 func (c *Context) Fill() {
 	style := c.Style
 	style.StrokeColor = Transparent
@@ -259,6 +279,7 @@ func (c *Context) Fill() {
 	c.path = &Path{}
 }
 
+// Stroke strokes the current path and resets it.
 func (c *Context) Stroke() {
 	style := c.Style
 	style.FillColor = Transparent
@@ -266,11 +287,13 @@ func (c *Context) Stroke() {
 	c.path = &Path{}
 }
 
+// FillStroke fills and then strokes the current path and resets it.
 func (c *Context) FillStroke() {
 	c.RenderPath(c.path, c.Style, c.view)
 	c.path = &Path{}
 }
 
+// DrawPath draws a path at position (x,y) using the current draw state.
 func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 	if c.Style.FillColor.A == 0 && (c.Style.StrokeColor.A == 0 || c.Style.StrokeWidth == 0.0) {
 		return
@@ -289,6 +312,7 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 	}
 }
 
+// DrawText draws text at position (x,y) using the current draw state. In particular, it only uses the current affine transformation matrix.
 func (c *Context) DrawText(x, y float64, texts ...*Text) {
 	m := c.view.Translate(x, y)
 	for _, text := range texts {
@@ -299,6 +323,7 @@ func (c *Context) DrawText(x, y float64, texts ...*Text) {
 	}
 }
 
+// DrawImage draws an image at position (x,y), using an image encoding (Lossy or Lossless) and DPM (dots-per-millimeter). A higher DPM will draw a smaller image.
 func (c *Context) DrawImage(x, y float64, img image.Image, dpm float64) {
 	if img.Bounds().Size().Eq(image.Point{}) {
 		return
@@ -322,11 +347,13 @@ type layer struct {
 	style Style // only for path
 }
 
+// Canvas stores all drawing operations as layers that can be re-rendered to other renderers.
 type Canvas struct {
 	layers []layer
 	W, H   float64
 }
 
+// New returns a new Canvas that records all drawing operations into layers. The canvas can then be rendered to any other renderer.
 func New(width, height float64) *Canvas {
 	return &Canvas{
 		layers: []layer{},
@@ -335,27 +362,33 @@ func New(width, height float64) *Canvas {
 	}
 }
 
+// Size returns the size of the canvas in mm.
 func (c *Canvas) Size() (float64, float64) {
 	return c.W, c.H
 }
 
+// RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (c *Canvas) RenderPath(path *Path, style Style, m Matrix) {
 	path = path.Copy()
 	c.layers = append(c.layers, layer{path: path, m: m, style: style})
 }
 
+// RenderText renders a text object to the canvas using a transformation matrix.
 func (c *Canvas) RenderText(text *Text, m Matrix) {
 	c.layers = append(c.layers, layer{text: text, m: m})
 }
 
+// RenderImage renders an image to the canvas using a transformation matrix.
 func (c *Canvas) RenderImage(img image.Image, m Matrix) {
 	c.layers = append(c.layers, layer{img: img, m: m})
 }
 
+// Empty return true if the canvas is empty.
 func (c *Canvas) Empty() bool {
 	return len(c.layers) == 0
 }
 
+// Reset empties the canvas.
 func (c *Canvas) Reset() {
 	c.layers = c.layers[:0]
 }
@@ -400,6 +433,7 @@ func (c *Canvas) Fit(margin float64) {
 	c.H = rect.H + 2*margin
 }
 
+// Render renders the accumulated canvas drawing operations to another renderer.
 func (c *Canvas) Render(r Renderer) {
 	view := Identity
 	if viewer, ok := r.(interface{ View() Matrix }); ok {
@@ -417,7 +451,7 @@ func (c *Canvas) Render(r Renderer) {
 	}
 }
 
-// SaveSVG writes the stored drawing operations in Context in the SVG file format.
+// SaveSVG saves the canvas to an SVG file.
 func (c *Canvas) SaveSVG(filename string) error {
 	f, err := os.Create(filename)
 	if err != nil {
@@ -430,7 +464,7 @@ func (c *Canvas) SaveSVG(filename string) error {
 	return svg.Close()
 }
 
-// SavePDF writes the stored drawing operations in Context in the PDF file format.
+// SavePDF saves the canvas to a PDF file.
 func (c *Canvas) SavePDF(filename string) error {
 	f, err := os.Create(filename)
 	if err != nil {
@@ -443,7 +477,7 @@ func (c *Canvas) SavePDF(filename string) error {
 	return pdf.Close()
 }
 
-// SaveEPS writes the stored drawing operations in Context in the EPS file format.
+// SaveEPS saves the canvas to an EPS file.
 // Be aware that EPS does not support transparency of colors.
 func (c *Canvas) SaveEPS(filename string) error {
 	f, err := os.Create(filename)
@@ -456,7 +490,7 @@ func (c *Canvas) SaveEPS(filename string) error {
 	return f.Close()
 }
 
-// WriteImage writes the stored drawing operations in Context as a rasterized image with given DPM (dots-per-millimeter). Higher DPM will result in bigger images.
+// WriteImage saves the canvas as a rasterized image with given DPM (dots-per-millimeter). Higher DPM will result in bigger images.
 func (c *Canvas) WriteImage(dpm float64) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0.0, 0.0, int(c.W*dpm+0.5), int(c.H*dpm+0.5)))
 	draw.Draw(img, img.Bounds(), image.NewUniform(White), image.Point{}, draw.Src)
@@ -466,6 +500,7 @@ func (c *Canvas) WriteImage(dpm float64) *image.RGBA {
 	return img
 }
 
+// SavePNG saves the canvas to a PNG file.
 func (c *Canvas) SavePNG(filename string, dpm float64) error {
 	f, err := os.Create(filename)
 	if err != nil {
@@ -481,6 +516,7 @@ func (c *Canvas) SavePNG(filename string, dpm float64) error {
 	return f.Close()
 }
 
+// SaveJPG saves the canvas to a JPG file.
 func (c *Canvas) SaveJPG(filename string, dpm float64, opts *jpeg.Options) error {
 	f, err := os.Create(filename)
 	if err != nil {
@@ -495,6 +531,7 @@ func (c *Canvas) SaveJPG(filename string, dpm float64, opts *jpeg.Options) error
 	return f.Close()
 }
 
+// SaveGIF saves the canvas to a GIF file.
 func (c *Canvas) SaveGIF(filename string, dpm float64, opts *gif.Options) error {
 	f, err := os.Create(filename)
 	if err != nil {

@@ -320,7 +320,7 @@ func quadraticToCubicBezier(p0, p1, p2 Point) (Point, Point) {
 func cubicToQuadraticBeziers(p0, p1, p2, p3 Point) [][3]Point {
 	// TODO: misses theoretic background for optimal number of quads
 	quads := [][3]Point{}
-	end_quads := [][3]Point{}
+	endQuads := [][3]Point{}
 	for {
 		// dist = sqrt(3)/36 * ||p3 - 3*p2 + 3*p1 - p0||
 		dist := math.Sqrt(3.0) / 36.0 * p3.Sub(p2.Mul(3.0)).Add(p1.Mul(3.0)).Sub(p0).Length()
@@ -346,10 +346,10 @@ func cubicToQuadraticBeziers(p0, p1, p2, p3 Point) [][3]Point {
 			rcp := r2.Mul(3.0).Sub(r3).Add(r1.Mul(3.0)).Sub(r0).Div(4.0)
 			qcp := q2.Mul(3.0).Sub(q3).Add(q1.Mul(3.0)).Sub(q0).Div(4.0)
 			quads = append(quads, [3]Point{r0, rcp, r3})
-			end_quads = append([][3]Point{{q0, qcp, q3}}, end_quads...)
+			endQuads = append([][3]Point{{q0, qcp, q3}}, endQuads...)
 		}
 	}
-	return append(quads, end_quads...)
+	return append(quads, endQuads...)
 }
 
 func quadraticBezierPos(p0, p1, p2 Point, t float64) Point {

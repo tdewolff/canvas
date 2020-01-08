@@ -4,6 +4,7 @@ import (
 	"github.com/ByteArena/poly2tri-go"
 )
 
+// Tessellate tessellates the path and returns the triangles that fill the path. WIP
 func (p *Path) Tessellate() ([][3]Point, [][5]Point) {
 	p = p.replace(nil, nil, nil, arcToCube)
 

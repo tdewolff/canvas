@@ -55,9 +55,9 @@ func (p *Polyline) FillCount(x, y float64) int {
 		if (test.Y < coord.Y) != (test.Y < prevCoord.Y) &&
 			test.X < (prevCoord.X-coord.X)*(test.Y-coord.Y)/(prevCoord.Y-coord.Y)+coord.X {
 			if prevCoord.Y < coord.Y {
-				count -= 1
+				count--
 			} else {
-				count += 1
+				count++
 			}
 		}
 		prevCoord = coord

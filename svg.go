@@ -22,6 +22,7 @@ type svg struct {
 	imgEnc        ImageEncoding
 }
 
+// SVG is a scalable vector graphics renderer.
 func SVG(w io.Writer, width, height float64) *svg {
 	fmt.Fprintf(w, `<svg version="1.1" width="%v" height="%v" viewBox="0 0 %v %v" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, dec(width), dec(height), dec(width), dec(height))
 	return &svg{

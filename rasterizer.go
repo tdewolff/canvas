@@ -13,6 +13,7 @@ type rasterizer struct {
 	dpm float64
 }
 
+// Rasterizer is a renderer that draws to a rasterized image.
 func Rasterizer(img draw.Image, dpm float64) *rasterizer {
 	return &rasterizer{
 		img: img,

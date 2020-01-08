@@ -196,7 +196,9 @@ func (p *Path) Coords() []Point {
 
 ////////////////////////////////////////////////////////////////
 
-// MoveTo moves the path to x,y without connecting the path. It starts a new independent subpath. Multiple subpaths can be useful when negating parts of a previous path by overlapping it with a path in the opposite direction. The behaviour for overlapping paths depend on the FillRule.
+// MoveTo moves the path to x,y without connecting the path. It starts a new independent subpath. Multiple subpaths can be
+// useful when negating parts of a previous path by overlapping it with a path in the opposite direction. The behaviour for
+// overlapping paths depend on the FillRule.
 func (p *Path) MoveTo(x, y float64) *Path {
 	if 0 < len(p.d) && p.d[len(p.d)-1] == moveToCmd {
 		p.d[len(p.d)-3] = x
@@ -317,7 +319,10 @@ func (p *Path) ArcTo(rx, ry, rot float64, large, sweep bool, x, y float64) *Path
 	return p
 }
 
-// Arc adds an elliptical arc with radii rx and ry, with rot the counter clockwise rotation in degrees, and theta0 and theta1 the angles in degrees of the ellipse (before rot is applies) between which the arc will run. If theta0 < theta1, the arc will run in a CCW direction. If the difference between theta0 and theta1 is bigger than 360 degrees, one full circle will be drawn and the remaining part of diff % 360 (eg. a difference of 810 degrees will draw one full circle and an arc over 90 degrees).
+// Arc adds an elliptical arc with radii rx and ry, with rot the counter clockwise rotation in degrees, and theta0 and theta1
+// the angles in degrees of the ellipse (before rot is applies) between which the arc will run. If theta0 < theta1, the arc will
+// run in a CCW direction. If the difference between theta0 and theta1 is bigger than 360 degrees, one full circle will be drawn
+// and the remaining part of diff % 360 (eg. a difference of 810 degrees will draw one full circle and an arc over 90 degrees).
 func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
 	phi := rot * math.Pi / 180.0
 	theta0 *= math.Pi / 180.0
@@ -1188,11 +1193,10 @@ func (p *Path) checkDash(offset float64, d []float64) (*Path, []float64) {
 	length := p.Length()
 	i, pos := dashStart(offset, d)
 	if length <= d[i]-pos {
-		if i%2 == 0 { // first dash covers whole path
-			return p, nil
-		} else { // first space covers whole path
-			return &Path{}, nil
+		if i%2 == 0 {
+			return p, nil // first dash covers whole path
 		}
+		return &Path{}, nil // first space covers whole path
 	}
 	return p, d
 }
@@ -1315,6 +1319,7 @@ func (p *Path) Reverse() *Path {
 	return rp
 }
 
+// Iterate iterates oves the path commands and calls the respective functions move, line, quad, cube, arc, close when encountering a MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close command.
 func (p *Path) Iterate(
 	move func(Point, Point),
 	line func(Point, Point),

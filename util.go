@@ -69,6 +69,7 @@ func (f dec) String() string {
 	return s
 }
 
+// CSSColor is a string formatter to convert a color.RGBA to a CSS color (hexadecimal or using rgba()).
 type CSSColor color.RGBA
 
 func (color CSSColor) String() string {
