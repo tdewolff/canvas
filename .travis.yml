@@ -7,7 +7,7 @@ before_install:
   - go get github.com/mattn/goveralls
   - sudo apt-get update
   - sudo apt-get install -qq libgl1-mesa-dev xorg-dev
-  - rm -Rf htmlcanvas examples/html-canvas
+  - rm -Rf htmlcanvas examples/html-canvas examples/opengl
 script:
   - go test -covermode=count -coverprofile=profile.cov .
   - goveralls -coverprofile=profile.cov -service=travis-ci
