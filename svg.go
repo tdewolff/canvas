@@ -20,6 +20,8 @@ type SVG struct {
 	fonts         map[*Font]bool
 	maskID        int
 	imgEnc        ImageEncoding
+
+	classes []string
 }
 
 // NewSVG creates a scalable vector graphics renderer.
@@ -33,6 +35,7 @@ func NewSVG(w io.Writer, width, height float64) *SVG {
 		fonts:      map[*Font]bool{},
 		maskID:     0,
 		imgEnc:     Lossless,
+		classes:    []string{},
 	}
 }
 
@@ -41,7 +44,34 @@ func (r *SVG) Close() error {
 	return err
 }
 
-func (r *svg) EmbedFonts(embedFonts bool) {
+func (r *SVG) AddClass(class string) {
+	if class == "" {
+		return
+	}
+	for _, c := range r.classes {
+		if c == class {
+			return
+		}
+	}
+	r.classes = append(r.classes, class)
+}
+
+func (r *SVG) RemoveClass(class string) {
+	for i, c := range r.classes {
+		if c == class {
+			r.classes = append(r.classes[:i], r.classes[i+1:]...)
+			return
+		}
+	}
+}
+
+func (r *SVG) writeClasses(w io.Writer) {
+	if len(r.classes) != 0 {
+		fmt.Fprintf(w, `" class="%s`, strings.Join(r.classes, " "))
+	}
+}
+
+func (r *SVG) EmbedFonts(embedFonts bool) {
 	r.embedFonts = embedFonts
 }
 
@@ -161,6 +191,7 @@ func (r *SVG) RenderPath(path *Path, style Style, m Matrix) {
 			fmt.Fprintf(r.w, `" style="%s`, b.String()[1:])
 		}
 	}
+	r.writeClasses(r.w)
 	fmt.Fprintf(r.w, `"/>`)
 
 	if stroke && strokeUnsupported {
@@ -274,6 +305,7 @@ func (r *SVG) RenderText(text *Text, m Matrix) {
 	if ffMain.color != Black {
 		fmt.Fprintf(r.w, `;fill:%v`, CSSColor(ffMain.color))
 	}
+	r.writeClasses(r.w)
 	fmt.Fprintf(r.w, `">`)
 
 	decoPaths := []*Path{}
@@ -290,6 +322,7 @@ func (r *SVG) RenderText(text *Text, m Matrix) {
 			r.writeFontStyle(span.ff, ffMain)
 			s := span.text
 			s = strings.ReplaceAll(s, `"`, `&quot;`)
+			r.writeClasses(r.w)
 			fmt.Fprintf(r.w, `">%s</tspan>`, s)
 		}
 		for _, deco := range line.decos {
@@ -371,5 +404,6 @@ func (r *SVG) RenderImage(img image.Image, m Matrix) {
 	if refMask != "" {
 		fmt.Fprintf(r.w, `" mask="url(#%s)`, refMask)
 	}
+	r.writeClasses(r.w)
 	fmt.Fprintf(r.w, `"/>`)
 }
