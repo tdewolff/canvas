@@ -17,15 +17,15 @@ import (
 	"golang.org/x/image/font"
 )
 
-type pdf struct {
+type PDF struct {
 	w             *pdfPageWriter
 	width, height float64
 	imgEnc        ImageEncoding
 }
 
-// PDF is a portable document format renderer.
-func PDF(w io.Writer, width, height float64) *pdf {
-	return &pdf{
+// NewPDF creates a portable document format renderer.
+func NewPDF(w io.Writer, width, height float64) *PDF {
+	return &PDF{
 		w:      newPDFWriter(w).NewPage(width, height),
 		width:  width,
 		height: height,
@@ -33,23 +33,23 @@ func PDF(w io.Writer, width, height float64) *pdf {
 	}
 }
 
-func (r *pdf) SetImageEncoding(enc ImageEncoding) {
+func (r *PDF) SetImageEncoding(enc ImageEncoding) {
 	r.imgEnc = enc
 }
 
-func (r *pdf) SetCompression(compress bool) {
+func (r *PDF) SetCompression(compress bool) {
 	r.w.pdf.SetCompression(compress)
 }
 
-func (r *pdf) Close() error {
+func (r *PDF) Close() error {
 	return r.w.pdf.Close()
 }
 
-func (r *pdf) Size() (float64, float64) {
+func (r *PDF) Size() (float64, float64) {
 	return r.width, r.height
 }
 
-func (r *pdf) RenderPath(path *Path, style Style, m Matrix) {
+func (r *PDF) RenderPath(path *Path, style Style, m Matrix) {
 	fill := style.FillColor.A != 0
 	stroke := style.StrokeColor.A != 0 && 0.0 < style.StrokeWidth
 	differentAlpha := fill && stroke && style.FillColor.A != style.StrokeColor.A
@@ -176,7 +176,7 @@ func (r *pdf) RenderPath(path *Path, style Style, m Matrix) {
 	}
 }
 
-func (r *pdf) RenderText(text *Text, m Matrix) {
+func (r *PDF) RenderText(text *Text, m Matrix) {
 	r.w.StartTextObject()
 	decoPaths := []*Path{}
 	decoColors := []color.RGBA{}
@@ -223,7 +223,7 @@ func (r *pdf) RenderText(text *Text, m Matrix) {
 	}
 }
 
-func (r *pdf) RenderImage(img image.Image, m Matrix) {
+func (r *PDF) RenderImage(img image.Image, m Matrix) {
 	r.w.DrawImage(img, r.imgEnc, m)
 }
 

@@ -8,25 +8,25 @@ import (
 	"golang.org/x/image/vector"
 )
 
-type rasterizer struct {
+type Rasterizer struct {
 	img draw.Image
 	dpm float64
 }
 
-// Rasterizer is a renderer that draws to a rasterized image.
-func Rasterizer(img draw.Image, dpm float64) *rasterizer {
-	return &rasterizer{
+// NewRasterizer creates a renderer that draws to a rasterized image.
+func NewRasterizer(img draw.Image, dpm float64) *Rasterizer {
+	return &Rasterizer{
 		img: img,
 		dpm: dpm,
 	}
 }
 
-func (r *rasterizer) Size() (float64, float64) {
+func (r *Rasterizer) Size() (float64, float64) {
 	size := r.img.Bounds().Size()
 	return float64(size.X) / r.dpm, float64(size.Y) / r.dpm
 }
 
-func (r *rasterizer) RenderPath(path *Path, style Style, m Matrix) {
+func (r *Rasterizer) RenderPath(path *Path, style Style, m Matrix) {
 	// TODO: use fill rule (EvenOdd, NonZero) for rasterizer
 	path = path.Transform(m)
 
@@ -82,7 +82,7 @@ func (r *rasterizer) RenderPath(path *Path, style Style, m Matrix) {
 	}
 }
 
-func (r *rasterizer) RenderText(text *Text, m Matrix) {
+func (r *Rasterizer) RenderText(text *Text, m Matrix) {
 	paths, colors := text.ToPaths()
 	for i, path := range paths {
 		style := DefaultStyle
@@ -91,7 +91,7 @@ func (r *rasterizer) RenderText(text *Text, m Matrix) {
 	}
 }
 
-func (r *rasterizer) RenderImage(img image.Image, m Matrix) {
+func (r *Rasterizer) RenderImage(img image.Image, m Matrix) {
 	origin := m.Dot(Point{0, float64(img.Bounds().Size().Y)}).Mul(r.dpm)
 	m = m.Scale(r.dpm, r.dpm)
 

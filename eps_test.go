@@ -7,7 +7,7 @@ import (
 
 func TestEPS(t *testing.T) {
 	w := &bytes.Buffer{}
-	eps := EPS(w, 100, 80)
+	eps := NewEPS(w, 100, 80)
 	eps.setColor(Red)
 	//test.String(t, string(w.Bytes()), "")
 }

@@ -205,15 +205,15 @@ func (r *GoChart) Save(w io.Writer) error {
 	width, height := r.c.Size()
 	switch r.output {
 	case OutputSVG:
-		svg := SVG(w, width, height)
+		svg := NewSVG(w, width, height)
 		r.c.Render(svg)
 		return svg.Close()
 	case OutputPDF:
-		pdf := PDF(w, width, height)
+		pdf := NewPDF(w, width, height)
 		r.c.Render(pdf)
 		return pdf.Close()
 	case OutputEPS:
-		eps := EPS(w, width, height)
+		eps := NewEPS(w, width, height)
 		r.c.Render(eps)
 		return nil
 	case OutputPNG:

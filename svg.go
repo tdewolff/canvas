@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-type svg struct {
+type SVG struct {
 	w             io.Writer
 	width, height float64
 	embedFonts    bool
@@ -22,10 +22,10 @@ type svg struct {
 	imgEnc        ImageEncoding
 }
 
-// SVG is a scalable vector graphics renderer.
-func SVG(w io.Writer, width, height float64) *svg {
+// NewSVG creates a scalable vector graphics renderer.
+func NewSVG(w io.Writer, width, height float64) *SVG {
 	fmt.Fprintf(w, `<svg version="1.1" width="%v" height="%v" viewBox="0 0 %v %v" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, dec(width), dec(height), dec(width), dec(height))
-	return &svg{
+	return &SVG{
 		w:          w,
 		width:      width,
 		height:     height,
@@ -36,7 +36,7 @@ func SVG(w io.Writer, width, height float64) *svg {
 	}
 }
 
-func (r *svg) Close() error {
+func (r *SVG) Close() error {
 	_, err := fmt.Fprintf(r.w, "</svg>")
 	return err
 }
@@ -45,11 +45,11 @@ func (r *svg) EmbedFonts(embedFonts bool) {
 	r.embedFonts = embedFonts
 }
 
-func (r *svg) SetImageEncoding(enc ImageEncoding) {
+func (r *SVG) SetImageEncoding(enc ImageEncoding) {
 	r.imgEnc = enc
 }
 
-func (r *svg) writeFonts(fonts []*Font) {
+func (r *SVG) writeFonts(fonts []*Font) {
 	is := []int{}
 	for i, font := range fonts {
 		if _, ok := r.fonts[font]; !ok {
@@ -72,11 +72,11 @@ func (r *svg) writeFonts(fonts []*Font) {
 	}
 }
 
-func (r *svg) Size() (float64, float64) {
+func (r *SVG) Size() (float64, float64) {
 	return r.width, r.height
 }
 
-func (r *svg) RenderPath(path *Path, style Style, m Matrix) {
+func (r *SVG) RenderPath(path *Path, style Style, m Matrix) {
 	fill := style.FillColor.A != 0
 	stroke := style.StrokeColor.A != 0 && 0.0 < style.StrokeWidth
 
@@ -176,11 +176,12 @@ func (r *svg) RenderPath(path *Path, style Style, m Matrix) {
 		if style.FillRule == EvenOdd {
 			fmt.Fprintf(r.w, `" fill-rule="evenodd`)
 		}
+		r.writeClasses(r.w)
 		fmt.Fprintf(r.w, `"/>`)
 	}
 }
 
-func (r *svg) writeFontStyle(ff, ffMain FontFace) {
+func (r *SVG) writeFontStyle(ff, ffMain FontFace) {
 	boldness := ff.boldness()
 	differences := 0
 	if ff.style&FontItalic != ffMain.style&FontItalic {
@@ -240,7 +241,7 @@ func (r *svg) writeFontStyle(ff, ffMain FontFace) {
 	}
 }
 
-func (r *svg) RenderText(text *Text, m Matrix) {
+func (r *SVG) RenderText(text *Text, m Matrix) {
 	if r.embedFonts {
 		r.writeFonts(text.Fonts())
 	}
@@ -306,7 +307,7 @@ func (r *svg) RenderText(text *Text, m Matrix) {
 	}
 }
 
-func (r *svg) RenderImage(img image.Image, m Matrix) {
+func (r *SVG) RenderImage(img image.Image, m Matrix) {
 	refMask := ""
 	mimetype := "image/png"
 	if r.imgEnc == Lossy {

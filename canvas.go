@@ -459,7 +459,7 @@ func (c *Canvas) SaveSVG(filename string) error {
 	}
 	defer f.Close()
 
-	svg := SVG(f, c.W, c.H)
+	svg := NewSVG(f, c.W, c.H)
 	c.Render(svg)
 	return svg.Close()
 }
@@ -472,7 +472,7 @@ func (c *Canvas) SavePDF(filename string) error {
 	}
 	defer f.Close()
 
-	pdf := PDF(f, c.W, c.H)
+	pdf := NewPDF(f, c.W, c.H)
 	c.Render(pdf)
 	return pdf.Close()
 }
@@ -485,7 +485,7 @@ func (c *Canvas) SaveEPS(filename string) error {
 		return err
 	}
 
-	eps := EPS(f, c.W, c.H)
+	eps := NewEPS(f, c.W, c.H)
 	c.Render(eps)
 	return f.Close()
 }
@@ -495,7 +495,7 @@ func (c *Canvas) WriteImage(dpm float64) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, int(c.W*dpm+0.5), int(c.H*dpm+0.5)))
 	draw.Draw(img, img.Bounds(), image.NewUniform(White), image.Point{}, draw.Src)
 
-	ras := Rasterizer(img, dpm)
+	ras := NewRasterizer(img, dpm)
 	c.Render(ras)
 	return img
 }
