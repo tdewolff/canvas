@@ -97,5 +97,12 @@ func (r *rasterizer) RenderImage(img image.Image, m Matrix) {
 
 	h := float64(r.img.Bounds().Size().Y)
 	aff3 := f64.Aff3{m[0][0], -m[0][1], origin.X, -m[1][0], m[1][1], h - origin.Y}
-	draw.CatmullRom.Transform(r.img, aff3, img, img.Bounds(), draw.Over, nil)
+
+	// add transparent margin to image for smooth borders when rotating
+	margin := 4
+	size := img.Bounds().Size()
+	img2 := image.NewRGBA(image.Rect(0, 0, size.X+margin*2, size.Y+margin*2))
+	draw.Draw(img2, image.Rect(margin, margin, size.X, size.Y), img, image.Point{}, draw.Over)
+
+	draw.CatmullRom.Transform(r.img, aff3, img2, img2.Bounds(), draw.Over, nil)
 }

@@ -133,7 +133,7 @@ func (r *GoChart) ArcTo(cx, cy int, rx, ry, startAngle, delta float64) {
 
 // Close finalizes a shape as drawn by LineTo.
 func (r *GoChart) Close() {
-	r.ctx.ClosePath()
+	r.ctx.Close()
 	r.ctx.MoveTo(0.0, 0.0)
 }
 
