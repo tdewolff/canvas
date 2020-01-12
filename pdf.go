@@ -868,8 +868,18 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 }
 
 func (w *pdfPageWriter) DrawImage(img image.Image, enc ImageEncoding, m Matrix) {
-	name := w.embedImage(img, enc)
 	size := img.Bounds().Size()
+
+	// add clipping path around image for smooth edges when rotating
+	outerRect := Rect{0.0, 0.0, float64(size.X), float64(size.Y)}.Transform(m)
+	bl := m.Dot(Point{0, 0})
+	br := m.Dot(Point{float64(size.X), 0})
+	tl := m.Dot(Point{0, float64(size.Y)})
+	tr := m.Dot(Point{float64(size.X), float64(size.Y)})
+	fmt.Fprintf(w, " %v %v %v %v re W n", dec(outerRect.X), dec(outerRect.Y), dec(outerRect.W), dec(outerRect.H))
+	fmt.Fprintf(w, " %v %v m %v %v l %v %v l %v %v l h W n", dec(bl.X), dec(bl.Y), dec(tl.X), dec(tl.Y), dec(tr.X), dec(tr.Y), dec(br.X), dec(br.Y))
+
+	name := w.embedImage(img, enc)
 	m = m.Scale(float64(size.X), float64(size.Y))
 	w.SetAlpha(1.0)
 	fmt.Fprintf(w, " q %v %v %v %v %v %v cm /%v Do Q", dec(m[0][0]), dec(m[1][0]), dec(m[0][1]), dec(m[1][1]), dec(m[0][2]), dec(m[1][2]), name)
