@@ -336,7 +336,7 @@ func (r *SVG) RenderText(text *Text, m Matrix) {
 	style := DefaultStyle
 	for i := range decoPaths {
 		style.FillColor = decoColors[i]
-		r.RenderPath(decoPaths[i], style, m)
+		r.RenderPath(decoPaths[i], style, Identity)
 	}
 }
 
