@@ -88,5 +88,5 @@ func TestPDFImage(t *testing.T) {
 	buf := &bytes.Buffer{}
 	pdf := newPDFWriter(buf).NewPage(210.0, 297.0)
 	pdf.DrawImage(img, Lossless, Identity)
-	test.String(t, pdf.String(), " q 2 0 0 2 0 0 cm /Im0 Do Q")
+	test.String(t, pdf.String(), " q 0 0 2 2 re W n 0 0 m 0 2 l 2 2 l 2 0 l h W n 2 0 0 2 0 0 cm /Im0 Do Q")
 }
