@@ -12,6 +12,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"time"
 
 	canvasFont "github.com/tdewolff/canvas/font"
 	"golang.org/x/image/font"
@@ -39,6 +40,13 @@ func (r *PDF) SetImageEncoding(enc ImageEncoding) {
 
 func (r *PDF) SetCompression(compress bool) {
 	r.w.pdf.SetCompression(compress)
+}
+
+func (r *PDF) SetInfo(title, subject, keywords, author string) {
+	r.w.pdf.SetTitle(title)
+	r.w.pdf.SetSubject(subject)
+	r.w.pdf.SetKeywords(keywords)
+	r.w.pdf.SetAuthor(author)
 }
 
 func (r *PDF) Close() error {
@@ -237,6 +245,10 @@ type pdfWriter struct {
 	fonts    map[*Font]pdfRef
 	pages    []*pdfPageWriter
 	compress bool
+	title    string
+	subject  string
+	keywords string
+	author   string
 }
 
 func newPDFWriter(writer io.Writer) *pdfWriter {
@@ -251,6 +263,22 @@ func newPDFWriter(writer io.Writer) *pdfWriter {
 
 func (w *pdfWriter) SetCompression(compress bool) {
 	w.compress = compress
+}
+
+func (w *pdfWriter) SetTitle(title string) {
+	w.title = title
+}
+
+func (w *pdfWriter) SetSubject(subject string) {
+	w.subject = subject
+}
+
+func (w *pdfWriter) SetKeywords(keywords string) {
+	w.keywords = keywords
+}
+
+func (w *pdfWriter) SetAuthor(author string) {
+	w.author = author
 }
 
 func (w *pdfWriter) writeBytes(b []byte) {
@@ -496,7 +524,7 @@ func (w *pdfWriter) getFont(font *Font) pdfRef {
 }
 
 func (w *pdfWriter) Close() error {
-	parent := pdfRef(len(w.objOffsets) + 1 + len(w.pages))
+	parent := pdfRef(len(w.objOffsets) + 2 + len(w.pages))
 	kids := pdfArray{}
 	for _, p := range w.pages {
 		kids = append(kids, p.writePage(parent))
@@ -507,6 +535,24 @@ func (w *pdfWriter) Close() error {
 		"Kids":  pdfArray(kids),
 		"Count": len(kids),
 	})
+
+	info := pdfDict{
+		"Producer":     "tdewolff/canvas",
+		"CreationDate": time.Now().Format("D:20060102150405Z0700"),
+	}
+	if w.title != "" {
+		info["title"] = w.title
+	}
+	if w.subject != "" {
+		info["subject"] = w.subject
+	}
+	if w.keywords != "" {
+		info["keywords"] = w.keywords
+	}
+	if w.author != "" {
+		info["author"] = w.author
+	}
+	refInfo := w.writeObject(info)
 
 	refCatalog := w.writeObject(pdfDict{
 		"Type":  pdfName("Catalog"),
@@ -521,9 +567,10 @@ func (w *pdfWriter) Close() error {
 	w.write("trailer\n")
 	w.writeVal(pdfDict{
 		"Root": refCatalog,
-		"Size": len(w.objOffsets),
+		"Size": len(w.objOffsets) + 1,
+		"Info": refInfo,
 	})
-	w.write("\nstarxref\n%v\n%%%%EOF", xrefOffset)
+	w.write("\nstartxref\n%v\n%%%%EOF", xrefOffset)
 	return w.err
 }
 
