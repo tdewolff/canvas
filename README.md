@@ -20,6 +20,32 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster i
 
 Flattening is the act of converting the QuadTo, CubeTo and ArcTo segments into LineTos so that all path segments are linear.
 
+### Getting Started
+With modules enabled, add the following imports and run the project with `go get`
+
+```go
+import (
+    "github.com/tdewolff/canvas"
+)
+```
+
+#### Examples
+**[Preview](https://github.com/tdewolff/canvas/tree/master/examples/preview)**: canvas preview (as shown above) showing most of the functionality and exporting as PNG, SVG, PDF and EPS. It shows image and text rendering as well as LaTeX support and path functionality.
+
+**[Map](https://github.com/tdewolff/canvas/tree/master/examples/map)**: data is loaded from Open Street Map of the city centre of Amsterdam and rendered to a PNG.
+
+**[Graph](https://github.com/tdewolff/canvas/tree/master/examples/graph)**: a simple graph is being plotted using the CO2 data from the Mauna Loa observatory.
+
+**[Text document](https://github.com/tdewolff/canvas/tree/master/examples/document)**: a simple text document is rendered to PNG.
+
+**[go-chart](https://github.com/tdewolff/canvas/tree/master/examples/go-chart)**: using the [go-chart](https://github.com/wcharczuk/go-chart) library a financial graph is plotted.
+
+**[HTML Canvas](https://github.com/tdewolff/canvas/tree/master/examples/html-canvas)**: using WASM, a HTML Canvas is used as target. [Live demo](https://tdewolff.github.io/canvas/examples/html-canvas/index.html).
+
+**[TeX/PGF](https://github.com/tdewolff/canvas/tree/master/examples/tex)**: using the PGF (TikZ) LaTeX package, the output can be directly included in the main TeX file.
+
+**[OpenGL](https://github.com/tdewolff/canvas/tree/master/examples/opengl)**: rendering example to an OpenGL target (WIP).
+
 ### Articles
 * [Numerically stable quadratic formula](https://math.stackexchange.com/questions/866331/numerically-stable-algorithm-for-solving-the-quadratic-equation-when-a-is-very/2007723#2007723)
 * [Quadratic Bézier length](https://malczak.linuxpl.com/blog/quadratic-bezier-curve-length/)
