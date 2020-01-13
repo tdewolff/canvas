@@ -150,3 +150,5 @@ func StarPolygon(n int, R, r float64, up bool) *Path {
 	p.Close()
 	return p
 }
+
+// TODO: Grid

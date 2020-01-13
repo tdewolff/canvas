@@ -490,6 +490,20 @@ func (c *Canvas) SaveEPS(filename string) error {
 	return f.Close()
 }
 
+// SaveTeX saves the canvas to a TeX file using PGF (\usepackage{pgf}).
+// Be aware that TeX/PGF does not support transparency of colors.
+func (c *Canvas) SaveTeX(filename string) error {
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	tex := NewTeX(f, c.W, c.H)
+	c.Render(tex)
+	return tex.Close()
+}
+
 // WriteImage saves the canvas as a rasterized image with given DPM (dots-per-millimeter). Higher DPM will result in bigger images.
 func (c *Canvas) WriteImage(dpm float64) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, int(c.W*dpm+0.5), int(c.H*dpm+0.5)))
