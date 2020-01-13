@@ -65,7 +65,9 @@ func (r *htmlCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 			r.context.Set("lineCap", "round")
 		} else if _, ok := style.StrokeCapper.(canvas.SquareCapper); ok {
 			r.context.Set("lineCap", "square")
-		} else if _, ok := style.StrokeCapper.(canvas.ButtCapper); !ok {
+		} else if _, ok := style.StrokeCapper.(canvas.ButtCapper); ok {
+			r.context.Set("lineCap", "butt")
+		} else {
 			panic("HTML Canvas: line cap not support")
 		}
 
