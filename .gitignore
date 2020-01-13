@@ -12,4 +12,9 @@ test/*
 *.z
 *.map
 *.json
+*.aux
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.log
 cov
