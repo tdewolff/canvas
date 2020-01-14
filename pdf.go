@@ -754,18 +754,7 @@ func (w *pdfPageWriter) SetDashes(dashPhase float64, dashArray []float64) {
 	}
 
 	dashes := append(dashArray, dashPhase)
-	equal := false
-	if len(dashes) == len(w.dashes) {
-		equal = true
-		for i, dash := range dashes {
-			if dash != w.dashes[i] {
-				equal = false
-				break
-			}
-		}
-	}
-
-	if !equal {
+	if !float64sEqual(dashes, w.dashes) {
 		if len(dashes) == 1 {
 			fmt.Fprintf(w, " [] 0 d")
 			dashes[0] = 0.0
