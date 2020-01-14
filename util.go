@@ -42,6 +42,18 @@ func angleBetween(theta, lower, upper float64) bool {
 	return false
 }
 
+func float64sEqual(a, b []float64) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, f := range a {
+		if f != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 ////////////////////////////////////////////////////////////////
 
 type num float64
