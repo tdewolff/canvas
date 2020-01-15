@@ -367,7 +367,7 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 			}
 
 			signInt16 := func(flag byte, pos int) int16 {
-				if flag&(1<<pos) != 0 {
+				if flag&(1<<uint(pos)) != 0 {
 					return 1 // positive if bit on position is set
 				}
 				return -1

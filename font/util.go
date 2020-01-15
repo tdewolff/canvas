@@ -125,7 +125,7 @@ func (r *bitmapReader) Read() bool {
 		r.eof = true
 		return false
 	}
-	bit := r.buf[r.pos]&(1<<r.bit) == 1
+	bit := r.buf[r.pos]&(1<<uint(r.bit)) == 1
 	r.bit++
 	if r.bit == 8 {
 		r.bit = 0
