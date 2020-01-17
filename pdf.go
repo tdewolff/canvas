@@ -599,7 +599,7 @@ type pdfPageWriter struct {
 
 func (w *pdfWriter) NewPage(width, height float64) *pdfPageWriter {
 	// for defaults see https://help.adobe.com/pdfl_sdk/15/PDFL_SDK_HTMLHelp/PDFL_SDK_HTMLHelp/API_References/PDFL_API_Reference/PDFEdit_Layer/General.html#_t_PDEGraphicState
-	w.pages = append(w.pages, &pdfPageWriter{
+	page := &pdfPageWriter{
 		Buffer:         &bytes.Buffer{},
 		pdf:            w,
 		width:          width,
@@ -620,8 +620,12 @@ func (w *pdfWriter) NewPage(width, height float64) *pdfPageWriter {
 		textPosition:   Identity,
 		textCharSpace:  0.0,
 		textRenderMode: 0,
-	})
-	return w.pages[len(w.pages)-1]
+	}
+	w.pages = append(w.pages, page)
+
+	m := Identity.Scale(ptPerMm, ptPerMm)
+	fmt.Fprintf(page, " %v %v %v %v %v %v cm", dec(m[0][0]), dec(m[1][0]), dec(m[0][1]), dec(m[1][1]), dec(m[0][2]), dec(m[1][2]))
+	return page
 }
 
 func (w *pdfPageWriter) writePage(parent pdfRef) pdfRef {
@@ -640,7 +644,7 @@ func (w *pdfPageWriter) writePage(parent pdfRef) pdfRef {
 	return w.pdf.writeObject(pdfDict{
 		"Type":      pdfName("Page"),
 		"Parent":    parent,
-		"MediaBox":  pdfArray{0.0, 0.0, w.width, w.height},
+		"MediaBox":  pdfArray{0.0, 0.0, w.width * ptPerMm, w.height * ptPerMm},
 		"Resources": w.resources,
 		"Group": pdfDict{
 			"Type": pdfName("Group"),
