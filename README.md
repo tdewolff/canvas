@@ -38,13 +38,15 @@ import (
 
 **[Text document](https://github.com/tdewolff/canvas/tree/master/examples/document)**: a simple text document is rendered to PNG.
 
-**[go-chart](https://github.com/tdewolff/canvas/tree/master/examples/go-chart)**: using the [go-chart](https://github.com/wcharczuk/go-chart) library a financial graph is plotted.
-
 **[HTML Canvas](https://github.com/tdewolff/canvas/tree/master/examples/html-canvas)**: using WASM, a HTML Canvas is used as target. [Live demo](https://tdewolff.github.io/canvas/examples/html-canvas/index.html).
 
 **[TeX/PGF](https://github.com/tdewolff/canvas/tree/master/examples/tex)**: using the PGF (TikZ) LaTeX package, the output can be directly included in the main TeX file.
 
 **[OpenGL](https://github.com/tdewolff/canvas/tree/master/examples/opengl)**: rendering example to an OpenGL target (WIP).
+
+**[go-chart](https://github.com/tdewolff/canvas/tree/master/examples/go-chart)**: using the [go-chart](https://github.com/wcharczuk/go-chart) library a financial graph is plotted.
+
+**[gonum/plot](https://github.com/tdewolff/canvas/tree/master/examples/gonum-plot)**: using the [gonum/plot](https://github.com/gonum/plot) library an example is plotted.
 
 ### Articles
 * [Numerically stable quadratic formula](https://math.stackexchange.com/questions/866331/numerically-stable-algorithm-for-solving-the-quadratic-equation-when-a-is-very/2007723#2007723)
