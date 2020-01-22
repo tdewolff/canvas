@@ -10,8 +10,6 @@ import (
 	"golang.org/x/image/font/sfnt"
 )
 
-var sfntBuffer sfnt.Buffer
-
 // TypographicOptions are the options that can be enabled to make typographic or ligature substitutions automatically.
 type TypographicOptions int
 
@@ -27,10 +25,11 @@ const (
 // Font defines a font of type TTF or OTF which which a FontFace can be generated for use in text drawing operations.
 type Font struct {
 	// TODO: extend to fully read in sfnt data and read liga tables, generate Raw font data (base on used glyphs), etc
-	name     string
-	mimetype string
-	raw      []byte
-	sfnt     *sfnt.Font
+	name       string
+	mimetype   string
+	raw        []byte
+	sfnt       *sfnt.Font
+	sfntBuffer sfnt.Buffer
 
 	// TODO: use sub/superscript Unicode transformations in ToPath etc. if they exist
 	typography  bool
@@ -76,7 +75,7 @@ func (f *Font) pdfInfo() (Rect, float64, float64, float64, float64, []int) {
 	units := float64(f.sfnt.UnitsPerEm())
 
 	bounds := Rect{}
-	rect, err := f.sfnt.Bounds(&sfntBuffer, toI26_6(units), font.HintingNone)
+	rect, err := f.sfnt.Bounds(&f.sfntBuffer, toI26_6(units), font.HintingNone)
 	if err == nil {
 		x0, y0 := fromI26_6(rect.Min.X)*1000.0/units, fromI26_6(rect.Min.Y)*1000.0/units
 		x1, y1 := fromI26_6(rect.Max.X)*1000.0/units, fromI26_6(rect.Max.Y)*1000.0/units
@@ -89,7 +88,7 @@ func (f *Font) pdfInfo() (Rect, float64, float64, float64, float64, []int) {
 	}
 
 	ascent, descent, capHeight := 0.0, 0.0, 0.0
-	metrics, err := f.sfnt.Metrics(&sfntBuffer, toI26_6(units), font.HintingNone)
+	metrics, err := f.sfnt.Metrics(&f.sfntBuffer, toI26_6(units), font.HintingNone)
 	if err == nil {
 		ascent = fromI26_6(metrics.Ascent) * 1000.0 / units
 		descent = fromI26_6(metrics.Descent) * 1000.0 / units
@@ -99,7 +98,7 @@ func (f *Font) pdfInfo() (Rect, float64, float64, float64, float64, []int) {
 	widths := []int{}
 	for i := 0; i < f.sfnt.NumGlyphs(); i++ {
 		index := sfnt.GlyphIndex(i)
-		advance, err := f.sfnt.GlyphAdvance(&sfntBuffer, index, toI26_6(units), font.HintingNone)
+		advance, err := f.sfnt.GlyphAdvance(&f.sfntBuffer, index, toI26_6(units), font.HintingNone)
 		if err == nil {
 			widths = append(widths, int(fromI26_6(advance)*1000.0/units+0.5))
 		}
@@ -111,7 +110,7 @@ func (f *Font) toIndices(s string) []uint16 {
 	runes := []rune(s)
 	indices := make([]uint16, len(runes))
 	for i, r := range runes {
-		index, err := f.sfnt.GlyphIndex(&sfntBuffer, r)
+		index, err := f.sfnt.GlyphIndex(&f.sfntBuffer, r)
 		if err == nil {
 			indices[i] = uint16(index)
 		}
@@ -185,7 +184,7 @@ var subscriptSubstitutes = []textSubstitution{
 func (f *Font) supportedSubstitutions(substitutions []textSubstitution) []textSubstitution {
 	supported := []textSubstitution{}
 	for _, stn := range substitutions {
-		if _, err := f.sfnt.GlyphIndex(&sfntBuffer, stn.dst); err == nil {
+		if _, err := f.sfnt.GlyphIndex(&f.sfntBuffer, stn.dst); err == nil {
 			supported = append(supported, stn)
 		}
 	}

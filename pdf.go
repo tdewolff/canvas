@@ -16,6 +16,7 @@ import (
 
 	canvasFont "github.com/tdewolff/canvas/font"
 	"golang.org/x/image/font"
+	"golang.org/x/image/font/sfnt"
 )
 
 type PDF struct {
@@ -876,6 +877,7 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 		fmt.Fprintf(w, ")")
 	}
 
+	var sfntBuffer sfnt.Buffer
 	fmt.Fprintf(w, "[")
 	for _, tj := range TJ {
 		switch val := tj.(type) {

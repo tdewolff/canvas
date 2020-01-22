@@ -212,7 +212,7 @@ type FontMetrics struct {
 
 // Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explanation of the different metrics.
 func (ff FontFace) Metrics() FontMetrics {
-	m, _ := ff.font.sfnt.Metrics(&sfntBuffer, toI26_6(ff.size*ff.scale), font.HintingNone)
+	m, _ := ff.font.sfnt.Metrics(&ff.font.sfntBuffer, toI26_6(ff.size*ff.scale), font.HintingNone)
 	return FontMetrics{
 		Size:       ff.size,
 		LineHeight: math.Abs(fromI26_6(m.Height)),
@@ -225,17 +225,17 @@ func (ff FontFace) Metrics() FontMetrics {
 
 // Kerning returns the kerning between two runes in mm (ie. the adjustment on the advance).
 func (ff FontFace) Kerning(rPrev, rNext rune) float64 {
-	prevIndex, err := ff.font.sfnt.GlyphIndex(&sfntBuffer, rPrev)
+	prevIndex, err := ff.font.sfnt.GlyphIndex(&ff.font.sfntBuffer, rPrev)
 	if err != nil {
 		return 0.0
 	}
 
-	nextIndex, err := ff.font.sfnt.GlyphIndex(&sfntBuffer, rNext)
+	nextIndex, err := ff.font.sfnt.GlyphIndex(&ff.font.sfntBuffer, rNext)
 	if err != nil {
 		return 0.0
 	}
 
-	kern, err := ff.font.sfnt.Kern(&sfntBuffer, prevIndex, nextIndex, toI26_6(ff.size*ff.scale), font.HintingNone)
+	kern, err := ff.font.sfnt.Kern(&ff.font.sfntBuffer, prevIndex, nextIndex, toI26_6(ff.size*ff.scale), font.HintingNone)
 	if err == nil {
 		return fromI26_6(kern)
 	}
@@ -247,18 +247,18 @@ func (ff FontFace) TextWidth(s string) float64 {
 	w := 0.0
 	var prevIndex sfnt.GlyphIndex
 	for i, r := range s {
-		index, err := ff.font.sfnt.GlyphIndex(&sfntBuffer, r)
+		index, err := ff.font.sfnt.GlyphIndex(&ff.font.sfntBuffer, r)
 		if err != nil {
 			continue
 		}
 
 		if i != 0 {
-			kern, err := ff.font.sfnt.Kern(&sfntBuffer, prevIndex, index, toI26_6(ff.size*ff.scale), font.HintingNone)
+			kern, err := ff.font.sfnt.Kern(&ff.font.sfntBuffer, prevIndex, index, toI26_6(ff.size*ff.scale), font.HintingNone)
 			if err == nil {
 				w += fromI26_6(kern)
 			}
 		}
-		advance, err := ff.font.sfnt.GlyphAdvance(&sfntBuffer, index, toI26_6(ff.size*ff.scale), font.HintingNone)
+		advance, err := ff.font.sfnt.GlyphAdvance(&ff.font.sfntBuffer, index, toI26_6(ff.size*ff.scale), font.HintingNone)
 		if err == nil {
 			w += fromI26_6(advance)
 		}
@@ -284,12 +284,12 @@ func (ff FontFace) ToPath(s string) (*Path, float64) {
 	x := 0.0
 	var prevIndex sfnt.GlyphIndex
 	for i, r := range s {
-		index, err := ff.font.sfnt.GlyphIndex(&sfntBuffer, r)
+		index, err := ff.font.sfnt.GlyphIndex(&ff.font.sfntBuffer, r)
 		if err != nil {
 			return p, 0.0
 		}
 
-		segments, err := ff.font.sfnt.LoadGlyph(&sfntBuffer, index, toI26_6(ff.size*ff.scale), nil)
+		segments, err := ff.font.sfnt.LoadGlyph(&ff.font.sfntBuffer, index, toI26_6(ff.size*ff.scale), nil)
 		if err != nil {
 			return p, 0.0
 		}
@@ -333,12 +333,12 @@ func (ff FontFace) ToPath(s string) (*Path, float64) {
 		}
 
 		if i != 0 {
-			kern, err := ff.font.sfnt.Kern(&sfntBuffer, prevIndex, index, toI26_6(ff.size*ff.scale), font.HintingNone)
+			kern, err := ff.font.sfnt.Kern(&ff.font.sfntBuffer, prevIndex, index, toI26_6(ff.size*ff.scale), font.HintingNone)
 			if err == nil {
 				x += fromI26_6(kern)
 			}
 		}
-		advance, err := ff.font.sfnt.GlyphAdvance(&sfntBuffer, index, toI26_6(ff.size*ff.scale), font.HintingNone)
+		advance, err := ff.font.sfnt.GlyphAdvance(&ff.font.sfntBuffer, index, toI26_6(ff.size*ff.scale), font.HintingNone)
 		if err == nil {
 			x += fromI26_6(advance)
 		}
