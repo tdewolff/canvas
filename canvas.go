@@ -3,7 +3,6 @@ package canvas
 import (
 	"image"
 	"image/color"
-	"image/draw"
 	"image/gif"
 	"image/jpeg"
 	"image/png"
@@ -507,8 +506,6 @@ func (c *Canvas) SaveTeX(filename string) error {
 // WriteImage saves the canvas as a rasterized image with given DPM (dots-per-millimeter). Higher DPM will result in bigger images.
 func (c *Canvas) WriteImage(dpm float64) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, int(c.W*dpm+0.5), int(c.H*dpm+0.5)))
-	draw.Draw(img, img.Bounds(), image.NewUniform(White), image.Point{}, draw.Src)
-
 	ras := NewRasterizer(img, dpm)
 	c.Render(ras)
 	return img
