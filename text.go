@@ -433,8 +433,22 @@ func (t *Text) Height() float64 {
 	return -lastLine.y + descent
 }
 
-// Bounds returns the rectangle that contains the entire text box, ie. the glyph outlines.
+// Bounds returns the bounding rectangle that defines the text box.
 func (t *Text) Bounds() Rect {
+	if len(t.lines) == 0 || len(t.lines[0].spans) == 0 {
+		return Rect{}
+	}
+	r := Rect{}
+	for _, line := range t.lines {
+		for _, span := range line.spans {
+			r = r.Add(Rect{span.dx, line.y - span.ff.Metrics().Descent, span.ff.TextWidth(span.text), span.ff.Metrics().Ascent + span.ff.Metrics().Descent})
+		}
+	}
+	return r
+}
+
+// OutlineBounds returns the rectangle that contains the entire text box, ie. the glyph outlines (slow).
+func (t *Text) OutlineBounds() Rect {
 	if len(t.lines) == 0 || len(t.lines[0].spans) == 0 {
 		return Rect{}
 	}
@@ -655,6 +669,7 @@ func (span textSpan) Split(width float64) ([]textSpan, bool) {
 }
 
 // TODO: transform to Draw to canvas and cache the glyph rasterizations?
+// TODO: remove width argument and use span.width?
 func (span textSpan) ToPath(width float64) (*Path, *Path, color.RGBA) {
 	iBoundary := 0
 

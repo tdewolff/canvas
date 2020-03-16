@@ -165,6 +165,12 @@ func TestTextBounds(t *testing.T) {
 
 	bounds := text.Bounds()
 	test.Float(t, bounds.X, 0.0)
+	test.Float(t, bounds.Y, -13.96875)
+	test.Float(t, bounds.W, face8.TextWidth("test")+face12.TextWidth("test"))
+	test.Float(t, bounds.H, 13.96875)
+
+	bounds = text.OutlineBounds()
+	test.Float(t, bounds.X, 0.0)
 	test.Float(t, bounds.Y, -13.390625)
 	test.Float(t, bounds.W, face8.TextWidth("test")+face12.TextWidth("test"))
 	test.Float(t, bounds.H, 10.40625)

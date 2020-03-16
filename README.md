@@ -149,7 +149,7 @@ ctx.SetDashes(offset float64, lengths ...float64)
 
 ctx.DrawPath(x, y float64, *Path)
 ctx.DrawText(x, y float64, *Text)
-ctx.DrawImage(x, y float64, image.Image, ImageEncoding, dpm float64)
+ctx.DrawImage(x, y float64, image.Image, dpm float64)
 
 c.Fit(margin float64)  // resize canvas to fit all elements with a given margin
 c.SaveSVG(filename string)
