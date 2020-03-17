@@ -3,6 +3,7 @@ package canvas
 import (
 	"bytes"
 	"image"
+	"strings"
 	"testing"
 
 	"github.com/tdewolff/test"
@@ -89,4 +90,18 @@ func TestPDFImage(t *testing.T) {
 	pdf := newPDFWriter(buf).NewPage(210.0, 297.0)
 	pdf.DrawImage(img, Lossless, Identity)
 	test.String(t, pdf.String(), " 2.8346457 0 0 2.8346457 0 0 cm q 0 0 2 2 re W n 0 0 m 0 2 l 2 2 l 2 0 l h W n 2 0 0 2 0 0 cm /Im0 Do Q")
+}
+
+func TestPDFMultipage(t *testing.T) {
+	buf := &bytes.Buffer{}
+	pdf := NewPDF(buf, 210, 297)
+	pdf.NewPage(210, 297)
+	err := pdf.Close()
+	test.Error(t, err)
+	out := buf.String()
+
+	test.That(t, strings.Contains(out, "/Type /Pages /Count 2"), `could not find "/Type /Pages /Count 2" in output`)
+
+	nbPages := strings.Count(out, "/Type /Page ")
+	test.That(t, nbPages == 2, "expected 2 pages, got", nbPages)
 }

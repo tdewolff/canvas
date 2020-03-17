@@ -50,6 +50,11 @@ func (r *PDF) SetInfo(title, subject, keywords, author string) {
 	r.w.pdf.SetAuthor(author)
 }
 
+// NewPage starts adds a new page where further rendering will be written to
+func (r *PDF) NewPage(width, height float64) {
+	r.w = r.w.pdf.NewPage(width, height)
+}
+
 func (r *PDF) Close() error {
 	return r.w.pdf.Close()
 }
