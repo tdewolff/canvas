@@ -339,9 +339,14 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			} else {
 				spans, ok = spans[0].Split(width - dx)
 			}
-			if !ok && len(ss) != 0 {
-				// span couln't fit, but we have no choice as it's the only span on the line
-				break
+
+			if !ok {
+				if len(ss) != 0 {
+					// span couln't fit, but we have no choice as it's the only span on the line
+					break
+				}
+				// the current span is too large, take the smallest part
+				spans = spans[0].splitFirst()
 			}
 
 			newline := 1 < len(spans[0].boundaries) && spans[0].boundaries[len(spans[0].boundaries)-2].kind == lineBoundary
@@ -646,6 +651,16 @@ func (span textSpan) split(i int) (textSpan, textSpan) {
 		span1.altBoundaries[j].pos -= span.altBoundaries[i].pos + span.altBoundaries[i].size
 	}
 	return span0, span1
+}
+
+func (span textSpan) splitFirst() []textSpan {
+	for i := 0; i <= len(span.boundaries)-2; i++ {
+		if span.boundaries[i].pos > 0 {
+			s1, s2 := span.split(i)
+			return []textSpan{s1, s2}
+		}
+	}
+	return []textSpan{span}
 }
 
 func (span textSpan) Split(width float64) ([]textSpan, bool) {
