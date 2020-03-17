@@ -778,7 +778,7 @@ func (w *pdfPageWriter) SetFont(font *Font, size float64) {
 	if !w.inTextObject {
 		panic("must be in text object")
 	}
-	if font != w.font {
+	if font != w.font || w.fontSize != size {
 		w.font = font
 		w.fontSize = size
 
