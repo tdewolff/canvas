@@ -4,6 +4,7 @@ import (
 	"image/color"
 
 	"github.com/tdewolff/canvas"
+	"github.com/tdewolff/canvas/rasterizer"
 )
 
 var fontFamily *canvas.FontFamily
@@ -18,7 +19,7 @@ func main() {
 	c := canvas.New(265, 90)
 	ctx := canvas.NewContext(c)
 	draw(ctx)
-	c.SavePNG("out.png", 5.0)
+	c.WriteFile("out.png", rasterizer.PNGWriter(5.0))
 }
 
 func drawText(c *canvas.Context, x, y float64, halign, valign canvas.TextAlign, indent float64) {

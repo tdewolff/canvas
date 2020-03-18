@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/tdewolff/canvas"
+	"github.com/tdewolff/canvas/rasterizer"
 )
 
 var fontFamily *canvas.FontFamily
@@ -24,7 +25,7 @@ func main() {
 	c := canvas.New(140, 110)
 	ctx := canvas.NewContext(c)
 	draw(ctx)
-	c.SavePNG("out.png", 5.0)
+	c.WriteFile("out.png", rasterizer.PNGWriter(5.0))
 }
 
 func draw(c *canvas.Context) {

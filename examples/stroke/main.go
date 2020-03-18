@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/tdewolff/canvas"
+	"github.com/tdewolff/canvas/rasterizer"
 )
 
 var fontFamily *canvas.FontFamily
@@ -21,7 +22,7 @@ func main() {
 	ctx := canvas.NewContext(c)
 	draw(ctx)
 	c.Fit(1.0)
-	c.SavePNG("out.png", 5.0)
+	c.WriteFile("out.png", rasterizer.PNGWriter(5.0))
 }
 
 func drawStrokedPath(c *canvas.Context, x, y float64, path string, cr canvas.Capper, jr canvas.Joiner) {

@@ -1,10 +1,6 @@
 package canvas
 
 import (
-	"fmt"
-	"image/gif"
-	"image/jpeg"
-	"image/png"
 	"io"
 	"math"
 
@@ -13,26 +9,12 @@ import (
 	"github.com/wcharczuk/go-chart/drawing"
 )
 
-// Output defines the output format for the GoChart renders.
-// TODO: pass renderer to GoChart instead?
-type Output int
-
-// Output defines the output format for the GoChart renders.
-const (
-	OutputSVG Output = iota
-	OutputPDF
-	OutputEPS
-	OutputPNG
-	OutputJPG
-	OutputGIF
-)
-
 // GoChart is a github.com/wcharczuk/go-chart renderer.
 type GoChart struct {
 	c            *Canvas
 	ctx          *Context
 	height       float64
-	output       Output
+	writer       Writer
 	dpi          float64
 	font         *FontFamily
 	fontSize     float64
@@ -41,7 +23,7 @@ type GoChart struct {
 }
 
 // NewGoChart returns a new github.com/wcharczuk/go-chart renderer.
-func NewGoChart(output Output) func(int, int) (chart.Renderer, error) {
+func NewGoChart(writer Writer) func(int, int) (chart.Renderer, error) {
 	return func(w, h int) (chart.Renderer, error) {
 		font := NewFontFamily("font")
 		font.LoadLocalFont("Arimo", FontRegular)
@@ -51,7 +33,7 @@ func NewGoChart(output Output) func(int, int) (chart.Renderer, error) {
 			c:      c,
 			ctx:    NewContext(c),
 			height: float64(h),
-			output: output,
+			writer: writer,
 			dpi:    72.0,
 			font:   font,
 		}, nil
@@ -202,38 +184,5 @@ func (r *GoChart) ClearTextRotation() {
 
 // Save writes the image to the given writer.
 func (r *GoChart) Save(w io.Writer) error {
-	width, height := r.c.Size()
-	switch r.output {
-	case OutputSVG:
-		svg := NewSVG(w, width, height)
-		r.c.Render(svg)
-		return svg.Close()
-	case OutputPDF:
-		pdf := NewPDF(w, width, height)
-		r.c.Render(pdf)
-		return pdf.Close()
-	case OutputEPS:
-		eps := NewEPS(w, width, height)
-		r.c.Render(eps)
-		return nil
-	case OutputPNG:
-		img := r.c.WriteImage(1.0)
-		if err := png.Encode(w, img); err != nil {
-			return err
-		}
-		return nil
-	case OutputJPG:
-		img := r.c.WriteImage(1.0)
-		if err := jpeg.Encode(w, img, nil); err != nil {
-			return err
-		}
-		return nil
-	case OutputGIF:
-		img := r.c.WriteImage(1.0)
-		if err := gif.Encode(w, img, nil); err != nil {
-			return err
-		}
-		return nil
-	}
-	return fmt.Errorf("unknown output format")
+	return r.writer(w, r.c)
 }

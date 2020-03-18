@@ -3,9 +3,7 @@ package canvas
 import (
 	"image"
 	"image/color"
-	"image/gif"
-	"image/jpeg"
-	"image/png"
+	"io"
 	"os"
 )
 
@@ -22,6 +20,12 @@ const (
 	Lossless ImageEncoding = iota
 	Lossy
 )
+
+// DPMM (Dots-per-Millimetter) for the resolution of raster images. Higher DPMM will result in bigger images.
+type DPMM float64
+
+// DPI is a shortcut for Dots-per-Inch for the resolution of raster images.
+const DPI = DPMM(1 / 25.4)
 
 ////////////////////////////////////////////////////////////////
 
@@ -450,107 +454,17 @@ func (c *Canvas) Render(r Renderer) {
 	}
 }
 
-// SaveSVG saves the canvas to an SVG file.
-func (c *Canvas) SaveSVG(filename string) error {
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
+// Writer can write a canvas to a writer
+type Writer func(w io.Writer, c *Canvas) error
 
-	svg := NewSVG(f, c.W, c.H)
-	c.Render(svg)
-	return svg.Close()
-}
-
-// SavePDF saves the canvas to a PDF file.
-func (c *Canvas) SavePDF(filename string) error {
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	pdf := NewPDF(f, c.W, c.H)
-	c.Render(pdf)
-	return pdf.Close()
-}
-
-// SaveEPS saves the canvas to an EPS file.
-// Be aware that EPS does not support transparency of colors.
-func (c *Canvas) SaveEPS(filename string) error {
+// WriteFile writes the canvas to a file named by filename using the given Writer (for the encoding).
+func (c *Canvas) WriteFile(filename string, w Writer) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
 
-	eps := NewEPS(f, c.W, c.H)
-	c.Render(eps)
-	return f.Close()
-}
-
-// SaveTeX saves the canvas to a TeX file using PGF (\usepackage{pgf}).
-// Be aware that TeX/PGF does not support transparency of colors.
-func (c *Canvas) SaveTeX(filename string) error {
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	tex := NewTeX(f, c.W, c.H)
-	c.Render(tex)
-	return tex.Close()
-}
-
-// WriteImage saves the canvas as a rasterized image with given DPM (dots-per-millimeter). Higher DPM will result in bigger images.
-func (c *Canvas) WriteImage(dpm float64) *image.RGBA {
-	img := image.NewRGBA(image.Rect(0, 0, int(c.W*dpm+0.5), int(c.H*dpm+0.5)))
-	ras := NewRasterizer(img, dpm)
-	c.Render(ras)
-	return img
-}
-
-// SavePNG saves the canvas to a PNG file.
-func (c *Canvas) SavePNG(filename string, dpm float64) error {
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-
-	img := c.WriteImage(dpm)
-	// TODO: optimization: cache img until canvas changes
-	if err = png.Encode(f, img); err != nil {
-		f.Close()
-		return err
-	}
-	return f.Close()
-}
-
-// SaveJPG saves the canvas to a JPG file.
-func (c *Canvas) SaveJPG(filename string, dpm float64, opts *jpeg.Options) error {
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-
-	img := c.WriteImage(dpm)
-	if err = jpeg.Encode(f, img, opts); err != nil {
-		f.Close()
-		return err
-	}
-	return f.Close()
-}
-
-// SaveGIF saves the canvas to a GIF file.
-func (c *Canvas) SaveGIF(filename string, dpm float64, opts *gif.Options) error {
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-
-	img := c.WriteImage(dpm)
-	if err = gif.Encode(f, img, opts); err != nil {
+	if err = w(f, c); err != nil {
 		f.Close()
 		return err
 	}

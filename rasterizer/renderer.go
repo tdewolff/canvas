@@ -1,32 +1,43 @@
-package canvas
+package rasterizer
 
 import (
 	"image"
 
+	"github.com/tdewolff/canvas"
 	"golang.org/x/image/draw"
 	"golang.org/x/image/math/f64"
 	"golang.org/x/image/vector"
 )
 
-type Rasterizer struct {
-	img draw.Image
-	dpm float64
+// Draw draws the canvas on a new image with given resolution (in dots-per-millimeter).
+// Higher resolution will result in bigger images.
+func Draw(c *canvas.Canvas, resolution canvas.DPMM) *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, int(c.W*float64(resolution)+0.5), int(c.H*float64(resolution)+0.5)))
+	ras := New(img, resolution)
+	c.Render(ras)
+	return img
 }
 
-// NewRasterizer creates a renderer that draws to a rasterized image.
-func NewRasterizer(img draw.Image, dpm float64) *Rasterizer {
-	return &Rasterizer{
-		img: img,
-		dpm: dpm,
+type Renderer struct {
+	img        draw.Image
+	resolution canvas.DPMM
+}
+
+// New creates a renderer that draws to a rasterized image.
+func New(img draw.Image, resolution canvas.DPMM) *Renderer {
+	return &Renderer{
+		img:        img,
+		resolution: resolution,
 	}
 }
 
-func (r *Rasterizer) Size() (float64, float64) {
+// Size returns the width and height in millimeters
+func (r *Renderer) Size() (float64, float64) {
 	size := r.img.Bounds().Size()
-	return float64(size.X) / r.dpm, float64(size.Y) / r.dpm
+	return float64(size.X) / float64(r.resolution), float64(size.Y) / float64(r.resolution)
 }
 
-func (r *Rasterizer) RenderPath(path *Path, style Style, m Matrix) {
+func (r *Renderer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
 	// TODO: use fill rule (EvenOdd, NonZero) for rasterizer
 	path = path.Transform(m)
 
@@ -38,10 +49,11 @@ func (r *Rasterizer) RenderPath(path *Path, style Style, m Matrix) {
 	size := r.img.Bounds().Size()
 	bounds := path.Bounds()
 	dx, dy := 0, 0
-	x := int((bounds.X - strokeWidth) * r.dpm)
-	y := int((bounds.Y - strokeWidth) * r.dpm)
-	w := int((bounds.W+2*strokeWidth)*r.dpm) + 1
-	h := int((bounds.H+2*strokeWidth)*r.dpm) + 1
+	resolution := float64(r.resolution)
+	x := int((bounds.X - strokeWidth) * resolution)
+	y := int((bounds.Y - strokeWidth) * resolution)
+	w := int((bounds.W+2*strokeWidth)*resolution) + 1
+	h := int((bounds.H+2*strokeWidth)*resolution) + 1
 	if (x+w <= 0 || size.X <= x) && (y+h <= 0 || size.Y <= y) {
 		return // outside canvas
 	}
@@ -64,10 +76,10 @@ func (r *Rasterizer) RenderPath(path *Path, style Style, m Matrix) {
 		return // has no size
 	}
 
-	path = path.Translate(-float64(x)/r.dpm, -float64(y)/r.dpm)
+	path = path.Translate(-float64(x)/resolution, -float64(y)/resolution)
 	if style.FillColor.A != 0 {
 		ras := vector.NewRasterizer(w, h)
-		path.ToRasterizer(ras, r.dpm)
+		path.ToRasterizer(ras, resolution)
 		ras.Draw(r.img, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(style.FillColor), image.Point{dx, dy})
 	}
 	if style.StrokeColor.A != 0 && 0.0 < style.StrokeWidth {
@@ -77,21 +89,21 @@ func (r *Rasterizer) RenderPath(path *Path, style Style, m Matrix) {
 		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
 
 		ras := vector.NewRasterizer(w, h)
-		path.ToRasterizer(ras, r.dpm)
+		path.ToRasterizer(ras, resolution)
 		ras.Draw(r.img, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(style.StrokeColor), image.Point{dx, dy})
 	}
 }
 
-func (r *Rasterizer) RenderText(text *Text, m Matrix) {
+func (r *Renderer) RenderText(text *canvas.Text, m canvas.Matrix) {
 	paths, colors := text.ToPaths()
 	for i, path := range paths {
-		style := DefaultStyle
+		style := canvas.DefaultStyle
 		style.FillColor = colors[i]
 		r.RenderPath(path, style, m)
 	}
 }
 
-func (r *Rasterizer) RenderImage(img image.Image, m Matrix) {
+func (r *Renderer) RenderImage(img image.Image, m canvas.Matrix) {
 	// add transparent margin to image for smooth borders when rotating
 	margin := 4
 	size := img.Bounds().Size()
@@ -100,8 +112,8 @@ func (r *Rasterizer) RenderImage(img image.Image, m Matrix) {
 
 	// draw to destination image
 	// note that we need to correct for the added margin in origin and m
-	origin := m.Dot(Point{-float64(margin), float64(img2.Bounds().Size().Y - margin)}).Mul(r.dpm)
-	m = m.Scale(r.dpm*(float64(size.X+margin)/float64(size.X)), r.dpm*(float64(size.Y+margin)/float64(size.Y)))
+	origin := m.Dot(canvas.Point{-float64(margin), float64(img2.Bounds().Size().Y - margin)}).Mul(float64(r.resolution))
+	m = m.Scale(float64(r.resolution)*(float64(size.X+margin)/float64(size.X)), float64(r.resolution)*(float64(size.Y+margin)/float64(size.Y)))
 
 	h := float64(r.img.Bounds().Size().Y)
 	aff3 := f64.Aff3{m[0][0], -m[0][1], origin.X, -m[1][0], m[1][1], h - origin.Y}
