@@ -650,22 +650,23 @@ func (span textSpan) split(i int) (textSpan, textSpan) {
 
 func (span textSpan) Split(width float64) ([]textSpan, bool) {
 	if width == 0.0 || span.width <= width {
-		return []textSpan{span}, true
+		return []textSpan{span}, true // span fits
 	}
 	for i := len(span.boundaries) - 2; i >= 0; i-- {
 		if span.boundaries[i].pos == 0 {
-			return []textSpan{span}, false // TODO: reachable?
+			return []textSpan{span}, false // boundary is at the beginning, do not split
 		}
 
 		span0, span1 := span.split(i)
-		if span0.width <= width {
+		if ok := span0.width <= width; ok || i == 0 {
+			// span fits up to this boundary
 			if span1.width == 0.0 {
-				return []textSpan{span0}, true
+				return []textSpan{span0}, ok // there is no text between the last two boundaries (e.g. space followed by end)
 			}
-			return []textSpan{span0, span1}, true
+			return []textSpan{span0, span1}, ok
 		}
 	}
-	return []textSpan{span}, false
+	return []textSpan{span}, false // does not fit, but there are no boundaries to split
 }
 
 // TODO: transform to Draw to canvas and cache the glyph rasterizations?
