@@ -58,8 +58,6 @@ type Text struct {
 
 // NewTextLine is a simple text line using a font face, a string (supporting new lines) and horizontal alignment (Left, Center, Right).
 func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
-	s, _, _ = ff.font.substituteTypography(s, false, false)
-
 	ascent, descent, spacing := ff.Metrics().Ascent, ff.Metrics().Descent, ff.Metrics().LineHeight-ff.Metrics().Ascent-ff.Metrics().Descent
 
 	i := 0
@@ -97,10 +95,9 @@ func NewTextBox(ff FontFace, s string, width, height float64, halign, valign Tex
 
 // RichText allows to build up a rich text with text spans of different font faces and by fitting that into a box.
 type RichText struct {
-	spans                        []textSpan
-	fonts                        map[*Font]bool
-	inSingleQuote, inDoubleQuote bool
-	text                         string
+	spans []textSpan
+	fonts map[*Font]bool
+	text  string
 }
 
 // NewRichText returns a new RichText.
@@ -123,7 +120,6 @@ func (rt *RichText) Add(ff FontFace, s string) *RichText {
 		}
 	}
 
-	s, rt.inSingleQuote, rt.inDoubleQuote = ff.font.substituteTypography(s, rt.inSingleQuote, rt.inDoubleQuote)
 	start := len(rt.text)
 	rt.text += s
 
@@ -147,7 +143,7 @@ func (rt *RichText) Add(ff FontFace, s string) *RichText {
 				}
 
 				if extendPrev {
-					diff := len(rt.spans[len(rt.spans)-1].altText)
+					diff := len(rt.spans[len(rt.spans)-1].text)
 					rt.spans[len(rt.spans)-1] = newTextSpan(ff, rt.text[:start+j], start+i-diff)
 				} else {
 					rt.spans = append(rt.spans, newTextSpan(ff, rt.text[:start+j], start+i))
@@ -190,7 +186,7 @@ func (rt *RichText) halign(lines []line, yoverflow bool, width float64, halign T
 						words++
 					}
 				}
-				glyphs := utf8.RuneCountInString(span.altText)
+				glyphs := span.CountGlyphs()
 				if i+1 == len(l.spans) {
 					glyphs--
 				}
@@ -208,11 +204,13 @@ func (rt *RichText) halign(lines []line, yoverflow bool, width float64, halign T
 
 			// use non-ligature versions so we can stretch glyph spacings
 			if textWidth+maxSentenceSpacing+maxWordSpacing < width && width <= textWidth+maxSentenceSpacing+maxWordSpacing+maxGlyphSpacing {
-				for i := range l.spans {
-					textWidth += l.spans[i].altWidth - l.spans[i].width
-					l.spans[i].text = l.spans[i].altText
-					l.spans[i].width = l.spans[i].altWidth
-					l.spans[i].boundaries = l.spans[i].altBoundaries
+				textWidth = 0.0
+				for i, span := range l.spans {
+					l.spans[i] = span.ReplaceLigatures()
+					textWidth += span.width
+					if i == 0 {
+						textWidth += span.dx
+					}
 				}
 			}
 
@@ -565,13 +563,10 @@ type decoSpan struct {
 }
 
 type textSpan struct {
-	ff            FontFace
-	text          string
-	width         float64
-	boundaries    []textBoundary
-	altText       string
-	altWidth      float64
-	altBoundaries []textBoundary
+	ff         FontFace
+	text       string
+	width      float64
+	boundaries []textBoundary
 
 	dx              float64
 	sentenceSpacing float64
@@ -580,19 +575,11 @@ type textSpan struct {
 }
 
 func newTextSpan(ff FontFace, text string, i int) textSpan {
-	altText := text[i:]
-	altWidth := ff.TextWidth(text[i:])
-	altBoundaries := calcTextBoundaries(text, i, len(text))
-
-	text = text[:i] + ff.font.substituteLigatures(text[i:])
 	return textSpan{
 		ff:              ff,
 		text:            text[i:],
 		width:           ff.TextWidth(text[i:]),
 		boundaries:      calcTextBoundaries(text, i, len(text)),
-		altText:         altText,
-		altWidth:        altWidth,
-		altBoundaries:   altBoundaries,
 		dx:              0.0,
 		sentenceSpacing: 0.0,
 		wordSpacing:     0.0,
@@ -633,9 +620,6 @@ func (span textSpan) split(i int) (textSpan, textSpan) {
 	span0.text = span.text[:span.boundaries[i].pos] + dash
 	span0.width = span.ff.TextWidth(span0.text)
 	span0.boundaries = append(span.boundaries[:i:i], textBoundary{eofBoundary, len(span0.text), 0})
-	span0.altText = span.altText[:span.altBoundaries[i].pos] + dash
-	span0.altWidth = span.ff.TextWidth(span0.altText)
-	span0.altBoundaries = append(span.altBoundaries[:i:i], textBoundary{eofBoundary, len(span0.altText), 0})
 	span0.dx = span.dx
 
 	span1 := textSpan{}
@@ -644,14 +628,9 @@ func (span textSpan) split(i int) (textSpan, textSpan) {
 	span1.width = span.ff.TextWidth(span1.text)
 	span1.boundaries = make([]textBoundary, len(span.boundaries)-i-1)
 	copy(span1.boundaries, span.boundaries[i+1:])
-	span1.altText = span.altText[span.altBoundaries[i].pos+span.altBoundaries[i].size:]
-	span1.altWidth = span.ff.TextWidth(span1.altText)
-	span1.altBoundaries = make([]textBoundary, len(span.altBoundaries)-i-1)
-	copy(span1.altBoundaries, span.altBoundaries[i+1:])
 	span1.dx = span.dx
 	for j := range span1.boundaries {
 		span1.boundaries[j].pos -= span.boundaries[i].pos + span.boundaries[i].size
-		span1.altBoundaries[j].pos -= span.altBoundaries[i].pos + span.altBoundaries[i].size
 	}
 	return span0, span1
 }
@@ -675,6 +654,37 @@ func (span textSpan) Split(width float64) ([]textSpan, bool) {
 		}
 	}
 	return []textSpan{span}, false // does not fit, but there are no boundaries to split
+}
+
+// CountGlyphs counts all the glyphs, where ligatures are separated into their constituent parts
+func (span textSpan) CountGlyphs() int {
+	n := 0
+	for _, r := range span.text {
+		if s, ok := ligatures[r]; ok {
+			n += len(s)
+		} else {
+			n++
+		}
+	}
+	return n
+}
+
+// ReplaceLigatures replaces all ligatures by their constituent parts
+func (span textSpan) ReplaceLigatures() textSpan {
+	shift := 0
+	iBoundary := 0
+	for i, r := range span.text {
+		if span.boundaries[iBoundary].pos == i {
+			span.boundaries[iBoundary].pos += shift
+			iBoundary++
+		} else if s, ok := ligatures[r]; ok {
+			span.text = span.text[:i] + s + span.text[i+utf8.RuneLen(r):]
+			shift += len(s) - 1
+		}
+	}
+	span.boundaries[len(span.boundaries)-1].pos = len(span.text)
+	span.width = span.ff.TextWidth(span.text)
+	return span
 }
 
 // TODO: transform to Draw to canvas and cache the glyph rasterizations?
