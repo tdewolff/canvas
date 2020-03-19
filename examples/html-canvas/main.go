@@ -1,3 +1,5 @@
+// +build js
+
 package main
 
 //go:generate go-bindata -o files.go ../../font/DejaVuSerif.ttf ../lenna.png ../../test/lenna.png
