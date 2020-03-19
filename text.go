@@ -127,6 +127,7 @@ func (rt *RichText) Add(ff FontFace, s string) *RichText {
 	start := len(rt.text)
 	rt.text += s
 
+	// TODO: can we simplify this? Just merge adjacent spans, don't split at newlines or sentences?
 	i := 0
 	for _, boundary := range calcTextBoundaries(s, 0, len(s)) {
 		if boundary.kind == lineBoundary || boundary.kind == sentenceBoundary || boundary.kind == eofBoundary {
@@ -333,17 +334,24 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		ss := []textSpan{}
 		for {
 			// space or inter-word splitting
-			var ok bool
-			if width == 0.0 {
-				spans, ok = spans[0].Split(0.0)
-			} else {
+			if width != 0.0 {
+				// there is a width limit
+				var ok bool
 				spans, ok = spans[0].Split(width - dx)
-			}
-			if !ok && len(ss) != 0 {
-				// span couln't fit, but we have no choice as it's the only span on the line
-				break
+				if !ok {
+					// span couln't fit...
+					if len(ss) != 0 {
+						// ...but this line already has a span, try next line
+						break
+					} else if 1 < len(spans[0].boundaries) {
+						// ...but it's the only span on this line, so we make it as short as possible
+						span0, span1 := spans[0].split(0)
+						spans = []textSpan{span0, span1}
+					}
+				}
 			}
 
+			// if this span ends with a newline, split off that newline boundary
 			newline := 1 < len(spans[0].boundaries) && spans[0].boundaries[len(spans[0].boundaries)-2].kind == lineBoundary
 			if newline {
 				spans[0], _ = spans[0].split(len(spans[0].boundaries) - 2)
@@ -658,12 +666,12 @@ func (span textSpan) Split(width float64) ([]textSpan, bool) {
 		}
 
 		span0, span1 := span.split(i)
-		if ok := span0.width <= width; ok || i == 0 {
+		if span0.width <= width {
 			// span fits up to this boundary
 			if span1.width == 0.0 {
-				return []textSpan{span0}, ok // there is no text between the last two boundaries (e.g. space followed by end)
+				return []textSpan{span0}, true // there is no text between the last two boundaries (e.g. space followed by end)
 			}
-			return []textSpan{span0, span1}, ok
+			return []textSpan{span0, span1}, true
 		}
 	}
 	return []textSpan{span}, false // does not fit, but there are no boundaries to split
