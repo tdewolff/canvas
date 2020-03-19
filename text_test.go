@@ -142,6 +142,11 @@ func TestRichText(t *testing.T) {
 	rt.Add(face, "\u200bmm")
 	text = rt.ToText(20.0, 50.0, Left, Top, 0.0, 0.0) // wrap at space
 	test.T(t, len(text.lines), 1)
+
+	rt = NewRichText()
+	rt.Add(face, "mmmm mmmm")                         // the first word is longer than the line
+	text = rt.ToText(40.0, 50.0, Left, Top, 0.0, 0.0) // wrap at space
+	test.T(t, len(text.lines), 2)
 }
 
 func TestTextBounds(t *testing.T) {

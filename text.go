@@ -334,10 +334,12 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		for {
 			// space or inter-word splitting
 			var ok bool
-			if width == 0.0 {
-				spans, ok = spans[0].Split(0.0)
-			} else {
-				spans, ok = spans[0].Split(width - dx)
+			if len(spans) == 1 {
+				if width == 0.0 {
+					spans, ok = spans[0].Split(0.0)
+				} else {
+					spans, ok = spans[0].Split(width - dx)
+				}
 			}
 			if !ok && len(ss) != 0 {
 				// span couln't fit, but we have no choice as it's the only span on the line
