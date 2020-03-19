@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/pkg/browser"
 )
 
 func main() {
@@ -16,6 +18,7 @@ func main() {
 
 	http.Handle("/", http.FileServer(http.Dir(".")))
 
-	log.Println("Serving on HTTP port:", port)
+	log.Println("Opening http://localhost:8080 in the browser")
+	browser.OpenURL("http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }

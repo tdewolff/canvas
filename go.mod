@@ -10,6 +10,7 @@ require (
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/paulmach/orb v0.1.3
 	github.com/paulmach/osm v0.0.1
+	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4 // indirect
 	github.com/tdewolff/minify/v2 v2.7.1-0.20200112204046-70870d25a935
 	github.com/tdewolff/parse/v2 v2.4.2
 	github.com/tdewolff/test v1.0.6
