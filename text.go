@@ -332,20 +332,13 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		ss := []textSpan{}
 		for {
 			// space or inter-word splitting
-			if width != 0.0 {
-				// there is a width limit
+			if width != 0.0 && len(spans) == 1 {
+				// there is a width limit and we have only one (unsplit) span to process
 				var ok bool
 				spans, ok = spans[0].Split(width - dx)
-				if !ok {
-					// span couln't fit...
-					if len(ss) != 0 {
-						// ...but this line already has a span, try next line
-						break
-					} else if 1 < len(spans[0].boundaries) {
-						// ...but it's the only span on this line, so we make it as short as possible
-						span0, span1 := spans[0].split(0)
-						spans = []textSpan{span0, span1}
-					}
+				if !ok && len(ss) != 0 {
+					// span couln't fit but this line already has a span, try next line
+					break
 				}
 			}
 
