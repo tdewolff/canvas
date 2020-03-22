@@ -859,8 +859,12 @@ func (w *pdfPageWriter) EndTextObject() {
 	w.inTextObject = false
 }
 
-/*
-The strings must conform to the syntax for string objects. When a string is written by enclosing the data in parentheses, bytes whose values are the same as thoseof  the  ASCII  characters  left  parenthesis  (40),  right  parenthesis  (41),  and  back-slash  (92)  must  be  preceded  by  a  backslash  character.  All  other  byte  values  be-tween  0  and  255  may  be  used  in  a  string  object.  These  rules  apply  to  each individual  byte  in  a  string  object,  whether  the  string  is  interpreted  by  the  text-showing operators as single-byte or multiple-byte character codes.
+/* Extract from the pdf specification:
+When a string is written by enclosing the data in parentheses, bytes whose values are the
+same as thoseof  the  ASCII  characters  left  parenthesis  (40),  right  parenthesis  (41),
+and  back-slash  (92)  must  be  preceded  by  a  backslash  character. (...)
+These  rules  apply  to  each individual  byte  in  a  string  object, whether  the  string
+is  interpreted  by  the  text-showing operators as single-byte or multiple-byte character codes.
 */
 type stringBytesEscaper struct {
 	w           io.Writer
