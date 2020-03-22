@@ -302,6 +302,7 @@ type pdfStream struct {
 const (
 	pdfFilterASCII85 pdfFilter = "ASCII85Decode"
 	pdfFilterFlate   pdfFilter = "FlateDecode"
+	pdfFilterDCT     pdfFilter = "DCTDecode"
 )
 
 func (w *pdfWriter) writeVal(i interface{}) {
@@ -369,6 +370,8 @@ func (w *pdfWriter) writeVal(i interface{}) {
 		if filter, ok := v.dict["Filter"].(pdfFilter); ok {
 			filters = append(filters, filter)
 		} else if filterArray, ok := v.dict["Filter"].(pdfArray); ok {
+			// filters must be applied in reverse order
+			// For  example,  data  encoded  using  LZW  and  ASCII  base-85  encoding (in that order) shall be decoded using the following entry in the stream dictionary: EXAMPLE 2/Filter  [ /ASCII85Decode /LZWDecode ]
 			for i := len(filterArray) - 1; i >= 0; i-- {
 				if filter, ok := filterArray[i].(pdfFilter); ok {
 					filters = append(filters, filter)
@@ -388,6 +391,13 @@ func (w *pdfWriter) writeVal(i interface{}) {
 				w := zlib.NewWriter(&b2)
 				w.Write(b)
 				w.Close()
+			case pdfFilterDCT:
+				// This filter is used by JPEG images
+				// we consider that the buffer is already encoded
+				if len(filters) > 1 {
+					panic("pdfFilterDCT can't be combined with other filters")
+				}
+				break
 			}
 			b = b2.Bytes()
 		}
@@ -940,6 +950,9 @@ func (w *pdfPageWriter) DrawImage(img image.Image, enc canvas.ImageEncoding, m c
 }
 
 func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pdfName {
+	if i, ok := img.(canvas.JPEGImage); ok {
+		return w.embedJpeg(i)
+	}
 	size := img.Bounds().Size()
 	sp := img.Bounds().Min // starting point
 	b := make([]byte, size.X*size.Y*3)
@@ -992,6 +1005,45 @@ func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pd
 	ref := w.pdf.writeObject(pdfStream{
 		dict:   dict,
 		stream: b,
+	})
+
+	if _, ok := w.resources["XObject"]; !ok {
+		w.resources["XObject"] = pdfDict{}
+	}
+	name := pdfName(fmt.Sprintf("Im%d", len(w.resources["XObject"].(pdfDict))))
+	w.resources["XObject"].(pdfDict)[name] = ref
+	return name
+}
+
+func (w *pdfPageWriter) embedJpeg(img canvas.JPEGImage) pdfName {
+	size := img.Bounds().Size()
+	dict := pdfDict{
+		"Type":    pdfName("XObject"),
+		"Subtype": pdfName("Image"),
+		"Width":   size.X,
+		"Height":  size.Y,
+
+		// "ColorSpace":       will be set below
+		"BitsPerComponent": 8, // bpc
+		// "Interpolate":      true,
+		"Filter": pdfFilterDCT, // f
+	}
+
+	switch img.ColorModel() {
+	case color.GrayModel:
+		dict["ColorSpace"] = pdfName("DeviceGray")
+	case color.YCbCrModel:
+		dict["ColorSpace"] = pdfName("DeviceRGB")
+	case color.CMYKModel:
+		dict["ColorSpace"] = pdfName("DeviceCMYK")
+		dict["Decode"] = pdfArray([]interface{}{1, 0, 1, 0, 1, 0, 1, 0})
+	default:
+		panic("image JPEG buffer has unsupported color space: " + fmt.Sprint(img.ColorModel()))
+	}
+
+	ref := w.pdf.writeObject(pdfStream{
+		dict:   dict,
+		stream: img.JPEGBytes(),
 	})
 
 	if _, ok := w.resources["XObject"]; !ok {
