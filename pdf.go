@@ -877,9 +877,18 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 		} else {
 			fmt.Fprintf(w, " (")
 		}
+
+		buf := &bytes.Buffer{}
 		indices := w.font.toIndices(s)
-		binary.Write(w, binary.BigEndian, indices)
-		fmt.Fprintf(w, ")")
+		binary.Write(buf, binary.BigEndian, indices)
+
+		s = buf.String()
+		s = strings.Replace(s, "\\", "\\\\", -1)
+		s = strings.Replace(s, "(", "\\(", -1)
+		s = strings.Replace(s, ")", "\\)", -1)
+		s = strings.Replace(s, "\r", "\\r", -1)
+
+		fmt.Fprintf(w, "%s)", s)
 	}
 
 	var sfntBuffer sfnt.Buffer
