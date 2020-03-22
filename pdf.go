@@ -859,6 +859,41 @@ func (w *pdfPageWriter) EndTextObject() {
 	w.inTextObject = false
 }
 
+/*
+The strings must conform to the syntax for string objects. When a string is written by enclosing the data in parentheses, bytes whose values are the same as thoseof  the  ASCII  characters  left  parenthesis  (40),  right  parenthesis  (41),  and  back-slash  (92)  must  be  preceded  by  a  backslash  character.  All  other  byte  values  be-tween  0  and  255  may  be  used  in  a  string  object.  These  rules  apply  to  each individual  byte  in  a  string  object,  whether  the  string  is  interpreted  by  the  text-showing operators as single-byte or multiple-byte character codes.
+*/
+type stringBytesEscaper struct {
+	w           io.Writer
+	escapeChars []byte
+}
+
+func (r stringBytesEscaper) Write(p []byte) (n int, err error) {
+	var k int
+	i := 0
+	for j, b := range p {
+		if b != '(' && b != ')' && b != '\\' {
+			continue
+		}
+		if i != j {
+			k, err = r.w.Write(p[i:j])
+			n += k
+			if err != nil {
+				return
+			}
+		}
+		_, err = r.w.Write(r.escapeChars)
+		if err != nil {
+			return
+		}
+		i = j
+	}
+	if i < len(p) {
+		k, err = r.w.Write(p[i:])
+		n += k
+	}
+	return
+}
+
 func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 	if !w.inTextObject {
 		panic("must be in text object")
@@ -870,6 +905,10 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 	units := float64(w.font.sfnt.UnitsPerEm())
 
 	first := true
+	escapedWriter := stringBytesEscaper{
+		w:           w,
+		escapeChars: []byte{'\\'},
+	}
 	write := func(s string) {
 		if first {
 			fmt.Fprintf(w, "(")
@@ -878,7 +917,7 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 			fmt.Fprintf(w, " (")
 		}
 		indices := w.font.toIndices(s)
-		binary.Write(w, binary.BigEndian, indices)
+		binary.Write(escapedWriter, binary.BigEndian, indices)
 		fmt.Fprintf(w, ")")
 	}
 

@@ -3,6 +3,8 @@ package canvas
 import (
 	"bytes"
 	"image"
+	"io"
+	"io/ioutil"
 	"strings"
 	"testing"
 
@@ -104,4 +106,54 @@ func TestPDFMultipage(t *testing.T) {
 
 	nbPages := strings.Count(out, "/Type /Page ")
 	test.That(t, nbPages == 2, "expected 2 pages, got", nbPages)
+}
+
+func TestStringBytesEscaper(t *testing.T) {
+	fn := func(w io.Writer) io.Writer {
+		return stringBytesEscaper{
+			w:           w,
+			escapeChars: []byte{'\\'},
+		}
+	}
+
+	cc := []struct {
+		input  string
+		output string
+	}{
+		{"", ""},
+		{"abc", "abc"},
+		{"(abc)", "\\(abc\\)"},
+		{"a\\bc", "a\\\\bc"},
+		{"€\\\\bc", "€\\\\\\\\bc"},
+	}
+	for _, c := range cc {
+		t.Run(c.input, func(t *testing.T) {
+			var b bytes.Buffer
+			rep := fn(&b)
+			n, err := strings.NewReader(c.input).WriteTo(rep)
+			test.Error(t, err, "")
+			test.T(t, int64(len(c.input)), n)
+			test.T(t, c.output, b.String())
+		})
+	}
+}
+
+func BenchmarkStringBytesEscaper(b *testing.B) {
+	sbe := stringBytesEscaper{
+		w:           ioutil.Discard,
+		escapeChars: []byte{'\\'},
+	}
+
+	s := strings.NewReader(strings.Repeat("(escape me)", 2000))
+
+	for i := 0; i < b.N; i++ {
+		_, err := s.Seek(0, io.SeekStart)
+		if err != nil {
+			b.Error(err)
+		}
+		_, err = s.WriteTo(sbe)
+		if err != nil {
+			b.Error(err)
+		}
+	}
 }
