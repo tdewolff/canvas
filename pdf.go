@@ -886,8 +886,6 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 		s = strings.Replace(s, "\\", "\\\\", -1)
 		s = strings.Replace(s, "(", "\\(", -1)
 		s = strings.Replace(s, ")", "\\)", -1)
-		s = strings.Replace(s, "\r", "\\r", -1)
-
 		fmt.Fprintf(w, "%s)", s)
 	}
 
