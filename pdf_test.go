@@ -108,14 +108,7 @@ func TestPDFMultipage(t *testing.T) {
 	test.That(t, nbPages == 2, "expected 2 pages, got", nbPages)
 }
 
-func TestStringBytesEscaper(t *testing.T) {
-	fn := func(w io.Writer) io.Writer {
-		return stringBytesEscaper{
-			w:           w,
-			escapeChars: []byte{'\\'},
-		}
-	}
-
+func TestEscaper(t *testing.T) {
 	cc := []struct {
 		input  string
 		output string
@@ -129,20 +122,17 @@ func TestStringBytesEscaper(t *testing.T) {
 	for _, c := range cc {
 		t.Run(c.input, func(t *testing.T) {
 			var b bytes.Buffer
-			rep := fn(&b)
-			n, err := strings.NewReader(c.input).WriteTo(rep)
+			w := newStringEscaper(&b)
+			n, err := strings.NewReader(c.input).WriteTo(w)
+			test.T(t, b.String(), c.output)
+			test.T(t, n, int64(len(c.input)))
 			test.Error(t, err, "")
-			test.T(t, int64(len(c.input)), n)
-			test.T(t, c.output, b.String())
 		})
 	}
 }
 
-func BenchmarkStringBytesEscaper(b *testing.B) {
-	sbe := stringBytesEscaper{
-		w:           ioutil.Discard,
-		escapeChars: []byte{'\\'},
-	}
+func BenchmarkEscaper(b *testing.B) {
+	w := newStringEscaper(ioutil.Discard)
 
 	s := strings.NewReader(strings.Repeat("(escape me)", 2000))
 
@@ -151,7 +141,7 @@ func BenchmarkStringBytesEscaper(b *testing.B) {
 		if err != nil {
 			b.Error(err)
 		}
-		_, err = s.WriteTo(sbe)
+		_, err = s.WriteTo(w)
 		if err != nil {
 			b.Error(err)
 		}

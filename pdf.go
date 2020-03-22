@@ -859,40 +859,49 @@ func (w *pdfPageWriter) EndTextObject() {
 	w.inTextObject = false
 }
 
-/* Extract from the pdf specification:
-When a string is written by enclosing the data in parentheses, bytes whose values are the
-same as thoseof  the  ASCII  characters  left  parenthesis  (40),  right  parenthesis  (41),
-and  back-slash  (92)  must  be  preceded  by  a  backslash  character. (...)
-These  rules  apply  to  each individual  byte  in  a  string  object, whether  the  string
-is  interpreted  by  the  text-showing operators as single-byte or multiple-byte character codes.
-*/
-type stringBytesEscaper struct {
-	w           io.Writer
-	escapeChars []byte
+// newStringEscaper adds a backlash byte before following bytes: ( ) \
+//
+// According to the PDF spec:
+// When a string is written by enclosing the data in parentheses, bytes whose values are the
+// same as thoseof  the  ASCII  characters  left  parenthesis  (40),  right  parenthesis  (41),
+// and  back-slash  (92)  must  be  preceded  by  a  backslash  character. (...)
+// These  rules  apply  to  each individual  byte  in  a  string  object, whether  the  string
+// is  interpreted  by  the  text-showing operators as single-byte or multiple-byte character codes.
+func newStringEscaper(w io.Writer) escaper {
+	return escaper{
+		w:             w,
+		bytesToEscape: []byte{'\\', '(', ')'},
+		escapeBytes:   []byte{'\\'},
+	}
 }
 
-func (r stringBytesEscaper) Write(p []byte) (n int, err error) {
-	var k int
-	i := 0
-	for j, b := range p {
-		if b != '(' && b != ')' && b != '\\' {
+type escaper struct {
+	w             io.Writer
+	bytesToEscape []byte
+	escapeBytes   []byte
+}
+
+func (r escaper) Write(buf []byte) (n int, err error) {
+	var i, k int
+	for j, b := range buf {
+		if bytes.IndexByte(r.bytesToEscape, b) == -1 {
 			continue
 		}
-		if i != j {
-			k, err = r.w.Write(p[i:j])
+		if j != 0 {
+			k, err = r.w.Write(buf[i:j])
 			n += k
 			if err != nil {
 				return
 			}
 		}
-		_, err = r.w.Write(r.escapeChars)
+		_, err = r.w.Write(r.escapeBytes)
 		if err != nil {
 			return
 		}
 		i = j
 	}
-	if i < len(p) {
-		k, err = r.w.Write(p[i:])
+	if i < len(buf) {
+		k, err = r.w.Write(buf[i:])
 		n += k
 	}
 	return
@@ -909,10 +918,7 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 	units := float64(w.font.sfnt.UnitsPerEm())
 
 	first := true
-	escapedWriter := stringBytesEscaper{
-		w:           w,
-		escapeChars: []byte{'\\'},
-	}
+	escapedWriter := newStringEscaper(w)
 	write := func(s string) {
 		if first {
 			fmt.Fprintf(w, "(")
