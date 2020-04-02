@@ -182,6 +182,8 @@ text = richText.ToText(width, height, halign, valign, indent, lineStretch)
 ctx.DrawText(0.0, 0.0, text)
 ```
 
+Note that the `LoadLocalFont` function will use `fc-match "font name"` to find the closest matching font.
+
 
 ## Paths
 A large deal of this library implements functionality for building paths. Any path can be constructed from a few basic commands, see below. Successive commands build up segments that start from the current pen position (which is the previous segments's end point) and are drawn towards a new end point. A path can consist of multiple subpaths which each start with a MoveTo command (there is an implicit MoveTo after each Close command), but be aware that overlapping paths can cancel each other depending on the FillRule.

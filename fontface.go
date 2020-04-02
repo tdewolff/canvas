@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"fmt"
 	"image/color"
 	"io/ioutil"
 	"math"
@@ -88,7 +89,7 @@ func (family *FontFamily) LoadLocalFont(name string, style FontStyle) error {
 func (family *FontFamily) LoadFontFile(filename string, style FontStyle) error {
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load font file '%s': %w", filename, err)
 	}
 	return family.LoadFont(b, style)
 }
