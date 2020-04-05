@@ -1,14 +1,15 @@
 language: go
 go:
   - 1.13.x
+  - master
 env:
-  - GO111MODULE=on
+  - GO111MODULE=on CGO_ENABLED=0
 before_install:
   - go get github.com/mattn/goveralls
   - sudo apt-get update
   - sudo apt-get install -qq libgl1-mesa-dev xorg-dev
   - rm -Rf htmlcanvas examples/html-canvas examples/opengl
 script:
-  - go test -covermode=count -coverprofile=profile.cov .
+  - go test -covermode=count -coverprofile=profile.cov ./...
   - goveralls -coverprofile=profile.cov -service=travis-ci
 

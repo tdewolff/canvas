@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/tdewolff/canvas"
+	"github.com/tdewolff/canvas/svg"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
@@ -33,5 +34,5 @@ func main() {
 	gonumCanvas := canvas.NewGonumPlot(c)
 	p.Draw(gonumCanvas)
 
-	c.SaveSVG("output.svg")
+	c.WriteFile("output.svg", svg.Writer)
 }

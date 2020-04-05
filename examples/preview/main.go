@@ -7,6 +7,10 @@ import (
 	"os"
 
 	"github.com/tdewolff/canvas"
+	"github.com/tdewolff/canvas/eps"
+	"github.com/tdewolff/canvas/pdf"
+	"github.com/tdewolff/canvas/rasterizer"
+	"github.com/tdewolff/canvas/svg"
 )
 
 var fontFamily *canvas.FontFamily
@@ -24,10 +28,10 @@ func main() {
 
 	////////////////
 
-	c.SaveSVG("out.svg")
-	c.SavePDF("out.pdf")
-	c.SaveEPS("out.eps")
-	c.SavePNG("out.png", 3.2)
+	c.WriteFile("out.svg", svg.Writer)
+	c.WriteFile("out.pdf", pdf.Writer)
+	c.WriteFile("out.eps", eps.Writer)
+	c.WriteFile("out.png", rasterizer.PNGWriter(3.2))
 }
 
 func drawText(c *canvas.Context, x, y float64, face canvas.FontFace, rich *canvas.RichText) {

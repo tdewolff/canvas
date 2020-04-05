@@ -10,6 +10,7 @@ import (
 	"github.com/paulmach/osm/osmapi"
 	"github.com/paulmach/osm/osmgeojson"
 	"github.com/tdewolff/canvas"
+	"github.com/tdewolff/canvas/rasterizer"
 )
 
 var dejaVuSerif *canvas.FontFamily
@@ -24,7 +25,7 @@ func main() {
 	c := canvas.New(100, 100)
 	ctx := canvas.NewContext(c)
 	draw(ctx)
-	c.SavePNG("out.png", 8.0)
+	c.WriteFile("out.png", rasterizer.PNGWriter(8.0))
 }
 
 func draw(c *canvas.Context) {

@@ -1,10 +1,15 @@
-package canvas
+package eps
 
 import (
 	"fmt"
 	"image"
 	"image/color"
 	"io"
+	"math"
+	"strings"
+
+	"github.com/tdewolff/canvas"
+	"github.com/tdewolff/minify/v2"
 )
 
 var psEllipseDef = `/ellipse {
@@ -37,38 +42,38 @@ xrad yrad scale
 savematrix setmatrix
 } def`
 
-type EPS struct {
+type Renderer struct {
 	w             io.Writer
 	width, height float64
 	color         color.RGBA
 }
 
-// NewEPS creates an encapsulated PostScript renderer.
-func NewEPS(w io.Writer, width, height float64) *EPS {
+// New creates an encapsulated PostScript renderer.
+func New(w io.Writer, width, height float64) *Renderer {
 	fmt.Fprintf(w, "%%!PS-Adobe-3.0 EPSF-3.0\n%%%%BoundingBox: 0 0 %v %v\n", dec(width), dec(height))
 	fmt.Fprintf(w, psEllipseDef)
 	// TODO: (EPS) generate and add preview
 
-	return &EPS{
+	return &Renderer{
 		w:      w,
 		width:  width,
 		height: height,
-		color:  Black,
+		color:  canvas.Black,
 	}
 }
 
-func (r *EPS) setColor(color color.RGBA) {
+func (r *Renderer) setColor(color color.RGBA) {
 	if color != r.color {
 		fmt.Fprintf(r.w, " %v %v %v setrgbcolor", dec(float64(color.R)/255.0), dec(float64(color.G)/255.0), dec(float64(color.B)/255.0))
 		r.color = color
 	}
 }
 
-func (r *EPS) Size() (float64, float64) {
+func (r *Renderer) Size() (float64, float64) {
 	return r.width, r.height
 }
 
-func (r *EPS) RenderPath(path *Path, style Style, m Matrix) {
+func (r *Renderer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
 	// TODO: (EPS) test ellipse, rotations etc
 	// TODO: (EPS) add drawState support
 	// TODO: (EPS) use dither to fake transparency
@@ -78,16 +83,29 @@ func (r *EPS) RenderPath(path *Path, style Style, m Matrix) {
 	r.w.Write([]byte(" fill"))
 }
 
-func (r *EPS) RenderText(text *Text, m Matrix) {
+func (r *Renderer) RenderText(text *canvas.Text, m canvas.Matrix) {
 	// TODO: (EPS) write text natively
 	paths, colors := text.ToPaths()
 	for i, path := range paths {
-		style := DefaultStyle
+		style := canvas.DefaultStyle
 		style.FillColor = colors[i]
 		r.RenderPath(path, style, m)
 	}
 }
 
-func (r *EPS) RenderImage(img image.Image, m Matrix) {
+func (r *Renderer) RenderImage(img image.Image, m canvas.Matrix) {
 	// TODO: (EPS) write image
+}
+
+type dec float64
+
+func (f dec) String() string {
+	s := fmt.Sprintf("%.*f", canvas.Precision, f)
+	s = string(minify.Decimal([]byte(s), canvas.Precision))
+	if dec(math.MaxInt32) < f || f < dec(math.MinInt32) {
+		if i := strings.IndexByte(s, '.'); i == -1 {
+			s += ".0"
+		}
+	}
+	return s
 }
