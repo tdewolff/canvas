@@ -109,7 +109,7 @@ func (r *Renderer) RenderImage(img image.Image, m canvas.Matrix) {
 	size := img.Bounds().Size()
 	sp := img.Bounds().Min // starting point
 	img2 := image.NewRGBA(image.Rect(0, 0, size.X+margin*2, size.Y+margin*2))
-	draw.Draw(img2, image.Rect(margin, margin, size.X, size.Y), img, sp, draw.Over)
+	draw.Draw(img2, image.Rect(margin, margin, size.X+margin, size.Y+margin), img, sp, draw.Over)
 
 	// draw to destination image
 	// note that we need to correct for the added margin in origin and m
