@@ -941,13 +941,14 @@ func (w *pdfPageWriter) DrawImage(img image.Image, enc ImageEncoding, m Matrix) 
 
 func (w *pdfPageWriter) embedImage(img image.Image, enc ImageEncoding) pdfName {
 	size := img.Bounds().Size()
+	sp := img.Bounds().Min // starting point
 	b := make([]byte, size.X*size.Y*3)
 	bMask := make([]byte, size.X*size.Y)
 	hasMask := false
 	for y := 0; y < size.Y; y++ {
 		for x := 0; x < size.X; x++ {
 			i := (y*size.X + x) * 3
-			R, G, B, A := img.At(x, y).RGBA()
+			R, G, B, A := img.At(sp.X+x, sp.Y+y).RGBA()
 			if A != 0 {
 				b[i+0] = byte((R * 65535 / A) >> 8)
 				b[i+1] = byte((G * 65535 / A) >> 8)
