@@ -548,6 +548,21 @@ func (t *Text) ToPaths() ([]*Path, []color.RGBA) {
 	return paths, colors
 }
 
+// RenderDecoration renders the text decorations using the RenderPath method of the Renderer.
+// TODO: check text decoration z-positions when text lines are overlapping https://github.com/tdewolff/canvas/pull/40#pullrequestreview-400951503
+// TODO: check compliance with https://drafts.csswg.org/css-text-decor-4/#text-line-constancy
+func (t *Text) RenderDecoration(r Renderer, m Matrix) {
+	style := DefaultStyle
+	for _, line := range t.lines {
+		for _, deco := range line.decos {
+			p := deco.ff.Decorate(deco.x1 - deco.x0)
+			p = p.Transform(Identity.Mul(m).Translate(deco.x0, line.y+deco.ff.voffset))
+			style.FillColor = deco.ff.color
+			r.RenderPath(p, style, Identity)
+		}
+	}
+}
+
 ////////////////////////////////////////////////////////////////
 
 type decoSpan struct {

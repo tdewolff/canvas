@@ -308,8 +308,6 @@ func (r *SVG) RenderText(text *Text, m Matrix) {
 	r.writeClasses(r.w)
 	fmt.Fprintf(r.w, `">`)
 
-	decoPaths := []*Path{}
-	decoColors := []color.RGBA{}
 	for _, line := range text.lines {
 		for _, span := range line.spans {
 			fmt.Fprintf(r.w, `<tspan x="%v" y="%v`, num(x0+span.dx), num(y0-line.y-span.ff.voffset))
@@ -325,19 +323,9 @@ func (r *SVG) RenderText(text *Text, m Matrix) {
 			r.writeClasses(r.w)
 			fmt.Fprintf(r.w, `">%s</tspan>`, s)
 		}
-		for _, deco := range line.decos {
-			p := deco.ff.Decorate(deco.x1 - deco.x0)
-			p = p.Transform(Identity.Mul(m).Translate(deco.x0, line.y+deco.ff.voffset))
-			decoPaths = append(decoPaths, p)
-			decoColors = append(decoColors, deco.ff.color)
-		}
 	}
 	fmt.Fprintf(r.w, `</text>`)
-	style := DefaultStyle
-	for i := range decoPaths {
-		style.FillColor = decoColors[i]
-		r.RenderPath(decoPaths[i], style, Identity)
-	}
+	text.RenderDecoration(r, m)
 }
 
 func (r *SVG) RenderImage(img image.Image, m Matrix) {
