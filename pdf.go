@@ -192,8 +192,6 @@ func (r *PDF) RenderPath(path *Path, style Style, m Matrix) {
 
 func (r *PDF) RenderText(text *Text, m Matrix) {
 	r.w.StartTextObject()
-	decoPaths := []*Path{}
-	decoColors := []color.RGBA{}
 	for _, line := range text.lines {
 		for _, span := range line.spans {
 			r.w.SetFillColor(span.ff.color)
@@ -222,19 +220,10 @@ func (r *PDF) RenderText(text *Text, m Matrix) {
 			}
 			r.w.WriteText(TJ...)
 		}
-		for _, deco := range line.decos {
-			p := deco.ff.Decorate(deco.x1 - deco.x0)
-			p = p.Transform(Identity.Mul(m).Translate(deco.x0, line.y+deco.ff.voffset))
-			decoPaths = append(decoPaths, p)
-			decoColors = append(decoColors, deco.ff.color)
-		}
 	}
 	r.w.EndTextObject()
-	style := DefaultStyle
-	for i := range decoPaths {
-		style.FillColor = decoColors[i]
-		r.RenderPath(decoPaths[i], style, Identity)
-	}
+
+	text.RenderDecoration(r, m)
 }
 
 func (r *PDF) RenderImage(img image.Image, m Matrix) {
