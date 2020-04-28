@@ -194,14 +194,14 @@ func (r *PDF) RenderText(text *Text, m Matrix) {
 	r.w.StartTextObject()
 	for _, line := range text.lines {
 		for _, span := range line.spans {
-			r.w.SetFillColor(span.ff.color)
-			r.w.SetFont(span.ff.font, span.ff.size*span.ff.scale)
-			r.w.SetTextPosition(m.Translate(span.dx, line.y).Shear(span.ff.fauxItalic, 0.0))
-			r.w.SetTextCharSpace(span.glyphSpacing)
+			r.w.SetFillColor(span.Face.Color)
+			r.w.SetFont(span.Face.font, span.Face.size*span.Face.Scale)
+			r.w.SetTextPosition(m.Translate(span.dx, line.y).Shear(span.Face.fauxItalic, 0.0))
+			r.w.SetTextCharSpace(span.GlyphSpacing)
 
-			if 0.0 < span.ff.fauxBold {
+			if 0.0 < span.Face.fauxBold {
 				r.w.SetTextRenderMode(2)
-				fmt.Fprintf(r.w, " %v w", dec(span.ff.fauxBold*2.0))
+				fmt.Fprintf(r.w, " %v w", dec(span.Face.fauxBold*2.0))
 			} else {
 				r.w.SetTextRenderMode(0)
 			}
@@ -211,9 +211,9 @@ func (r *PDF) RenderText(text *Text, m Matrix) {
 			for _, boundary := range span.boundaries {
 				if boundary.kind == wordBoundary || boundary.kind == eofBoundary {
 					j := boundary.pos + boundary.size
-					TJ = append(TJ, span.text[i:j])
+					TJ = append(TJ, span.Text[i:j])
 					if boundary.kind == wordBoundary {
-						TJ = append(TJ, span.wordSpacing)
+						TJ = append(TJ, span.WordSpacing)
 					}
 					i = j
 				}

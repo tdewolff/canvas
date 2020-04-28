@@ -8,7 +8,7 @@ import (
 
 // Writer writes the canvas as a SVG file
 func Writer(w io.Writer, c *canvas.Canvas) error {
-	svg := canvas.NewSVG(w, c.W, c.H)
+	svg := New(w, c.W, c.H)
 	c.Render(svg)
 	return svg.Close()
 }
