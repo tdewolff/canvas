@@ -112,6 +112,7 @@ func (r *Renderer) RenderImage(img image.Image, m canvas.Matrix) {
 
 	// draw to destination image
 	// note that we need to correct for the added margin in origin and m
+	// TODO: optimize when transformation is only translation or stretch
 	origin := m.Dot(canvas.Point{-float64(margin), float64(img2.Bounds().Size().Y - margin)}).Mul(float64(r.resolution))
 	m = m.Scale(float64(r.resolution)*(float64(size.X+margin)/float64(size.X)), float64(r.resolution)*(float64(size.Y+margin)/float64(size.Y)))
 
