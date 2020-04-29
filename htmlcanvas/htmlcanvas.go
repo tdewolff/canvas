@@ -166,11 +166,12 @@ func jsAwait(v js.Value) (result js.Value, ok bool) {
 
 func (r *htmlCanvas) RenderImage(img image.Image, m canvas.Matrix) {
 	size := img.Bounds().Size()
+	sp := img.Bounds().Min // starting point
 	buf := make([]byte, 4*size.X*size.Y)
 	for y := 0; y < size.Y; y++ {
 		for x := 0; x < size.X; x++ {
 			i := (y*size.X + x) * 4
-			r, g, b, a := img.At(x, y).RGBA()
+			r, g, b, a := img.At(sp.X+x, sp.Y+y).RGBA()
 			alpha := float64(a>>8) / 256.0
 			buf[i+0] = byte(float64(r>>8) / alpha)
 			buf[i+1] = byte(float64(g>>8) / alpha)
