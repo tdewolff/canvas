@@ -248,8 +248,9 @@ type pdfWriter struct {
 
 func newPDFWriter(writer io.Writer) *pdfWriter {
 	w := &pdfWriter{
-		w:     writer,
-		fonts: map[*Font]pdfRef{},
+		w:          writer,
+		fonts:      map[*Font]pdfRef{},
+		objOffsets: []int{0, 0, 0}, // catalog, metadata, page tree
 	}
 
 	w.write("%%PDF-1.7\n")
@@ -519,18 +520,22 @@ func (w *pdfWriter) getFont(font *Font) pdfRef {
 }
 
 func (w *pdfWriter) Close() error {
-	parent := pdfRef(len(w.objOffsets) + 2 + len(w.pages))
+	// TODO: write pages directly to stream instead of using bytes.Buffer
 	kids := pdfArray{}
 	for _, p := range w.pages {
-		kids = append(kids, p.writePage(parent))
+		kids = append(kids, p.writePage(pdfRef(3)))
 	}
 
-	refPages := w.writeObject(pdfDict{
-		"Type":  pdfName("Pages"),
-		"Kids":  pdfArray(kids),
-		"Count": len(kids),
+	// document catalog
+	w.objOffsets[0] = w.pos
+	w.write("%v 0 obj\n", 1)
+	w.writeVal(pdfDict{
+		"Type":  pdfName("Catalog"),
+		"Pages": pdfRef(3),
 	})
+	w.write("\nendobj\n")
 
+	// metadata
 	info := pdfDict{
 		"Producer":     "tdewolff/canvas",
 		"CreationDate": time.Now().Format("D:20060102150405Z0700"),
@@ -547,12 +552,21 @@ func (w *pdfWriter) Close() error {
 	if w.author != "" {
 		info["author"] = w.author
 	}
-	refInfo := w.writeObject(info)
 
-	refCatalog := w.writeObject(pdfDict{
-		"Type":  pdfName("Catalog"),
-		"Pages": refPages,
+	w.objOffsets[1] = w.pos
+	w.write("%v 0 obj\n", 2)
+	w.writeVal(info)
+	w.write("\nendobj\n")
+
+	// page tree
+	w.objOffsets[2] = w.pos
+	w.write("%v 0 obj\n", 3)
+	w.writeVal(pdfDict{
+		"Type":  pdfName("Pages"),
+		"Kids":  pdfArray(kids),
+		"Count": len(kids),
 	})
+	w.write("\nendobj\n")
 
 	xrefOffset := w.pos
 	w.write("xref\n0 %d\n0000000000 65535 f\n", len(w.objOffsets)+1)
@@ -561,9 +575,9 @@ func (w *pdfWriter) Close() error {
 	}
 	w.write("trailer\n")
 	w.writeVal(pdfDict{
-		"Root": refCatalog,
+		"Root": pdfRef(1),
 		"Size": len(w.objOffsets) + 1,
-		"Info": refInfo,
+		"Info": pdfRef(2),
 	})
 	w.write("\nstartxref\n%v\n%%%%EOF", xrefOffset)
 	return w.err
