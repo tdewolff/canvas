@@ -540,10 +540,10 @@ func (t *Text) ToPaths() ([]*Path, []color.RGBA) {
 			colors = append(colors, col)
 		}
 		for _, deco := range line.decos {
-			p := deco.ff.Decorate(deco.x1 - deco.x0)
+			p := deco.face.Decorate(deco.x1 - deco.x0)
 			p = p.Translate(deco.x0, line.y)
 			paths = append(paths, p)
-			colors = append(colors, deco.ff.Color)
+			colors = append(colors, deco.face.Color)
 		}
 	}
 	return paths, colors
@@ -556,9 +556,9 @@ func (t *Text) RenderDecoration(r Renderer, m Matrix) {
 	style := DefaultStyle
 	for _, line := range t.lines {
 		for _, deco := range line.decos {
-			p := deco.ff.Decorate(deco.x1 - deco.x0)
-			p = p.Transform(Identity.Mul(m).Translate(deco.x0, line.y+deco.ff.Voffset))
-			style.FillColor = deco.ff.Color
+			p := deco.face.Decorate(deco.x1 - deco.x0)
+			p = p.Transform(Identity.Mul(m).Translate(deco.x0, line.y+deco.face.Voffset))
+			style.FillColor = deco.face.Color
 			r.RenderPath(p, style, Identity)
 		}
 	}
@@ -575,7 +575,7 @@ func (t *Text) WalkSpans(cb func(y, dx float64, span TextSpan)) {
 ////////////////////////////////////////////////////////////////
 
 type decoSpan struct {
-	ff     FontFace
+	face   FontFace
 	x0, x1 float64
 }
 
