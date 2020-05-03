@@ -489,9 +489,9 @@ func (t *Text) MostCommonFontFace() FontFace {
 	for _, line := range t.lines {
 		for _, span := range line.spans {
 			families[span.Face.family]++
-			sizes[span.Face.size]++
-			styles[span.Face.style]++
-			variants[span.Face.variant]++
+			sizes[span.Face.Size]++
+			styles[span.Face.Style]++
+			variants[span.Face.Variant]++
 			colors[span.Face.Color]++
 		}
 	}

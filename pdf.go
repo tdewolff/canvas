@@ -195,7 +195,7 @@ func (r *PDF) RenderText(text *Text, m Matrix) {
 	for _, line := range text.lines {
 		for _, span := range line.spans {
 			r.w.SetFillColor(span.Face.Color)
-			r.w.SetFont(span.Face.font, span.Face.size*span.Face.Scale)
+			r.w.SetFont(span.Face.font, span.Face.Size*span.Face.Scale)
 			r.w.SetTextPosition(m.Translate(span.dx, line.y).Shear(span.Face.fauxItalic, 0.0))
 			r.w.SetTextCharSpace(span.GlyphSpacing)
 

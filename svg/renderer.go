@@ -217,25 +217,24 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 func (r *SVG) writeFontStyle(ff, ffMain canvas.FontFace) {
 	boldness := ff.Boldness()
 	differences := 0
-	name, size, style, variant := ff.Info()
-	nameMain, sizeMain, styleMain, variantMain := ffMain.Info()
-	if style&canvas.FontItalic != styleMain&canvas.FontItalic {
+
+	if ff.Style&canvas.FontItalic != ffMain.Style&canvas.FontItalic {
 		differences++
 	}
 	if boldness != ffMain.Boldness() {
 		differences++
 	}
-	if variant&canvas.FontSmallcaps != variantMain&canvas.FontSmallcaps {
+	if ff.Variant&canvas.FontSmallcaps != ffMain.Variant&canvas.FontSmallcaps {
 		differences++
 	}
 	if ff.Color != ffMain.Color {
 		differences++
 	}
-	if name != nameMain || size*ff.Scale != sizeMain || differences == 3 {
+	if ff.Name() != ffMain.Name() || ff.Size*ff.Scale != ffMain.Size || differences == 3 {
 		fmt.Fprintf(r.w, `" style="font:`)
 
 		buf := &bytes.Buffer{}
-		if style&canvas.FontItalic != styleMain&canvas.FontItalic {
+		if ff.Style&canvas.FontItalic != ffMain.Style&canvas.FontItalic {
 			fmt.Fprintf(buf, ` italic`)
 		}
 
@@ -243,11 +242,11 @@ func (r *SVG) writeFontStyle(ff, ffMain canvas.FontFace) {
 			fmt.Fprintf(buf, ` %d`, boldness)
 		}
 
-		if variant&canvas.FontSmallcaps != variantMain&canvas.FontSmallcaps {
+		if ff.Variant&canvas.FontSmallcaps != ffMain.Variant&canvas.FontSmallcaps {
 			fmt.Fprintf(buf, ` small-caps`)
 		}
 
-		fmt.Fprintf(buf, ` %vpx %s`, num(size*ff.Scale), name)
+		fmt.Fprintf(buf, ` %vpx %s`, num(ff.Size*ff.Scale), ff.Name())
 		buf.ReadByte()
 		buf.WriteTo(r.w)
 
@@ -259,13 +258,13 @@ func (r *SVG) writeFontStyle(ff, ffMain canvas.FontFace) {
 	} else if 0 < differences {
 		fmt.Fprintf(r.w, `" style="`)
 		buf := &bytes.Buffer{}
-		if style&canvas.FontItalic != styleMain&canvas.FontItalic {
+		if ff.Style&canvas.FontItalic != ffMain.Style&canvas.FontItalic {
 			fmt.Fprintf(buf, `;font-style:italic`)
 		}
 		if boldness != ffMain.Boldness() {
 			fmt.Fprintf(buf, `;font-weight:%d`, boldness)
 		}
-		if variant&canvas.FontSmallcaps != variantMain&canvas.FontSmallcaps {
+		if ff.Variant&canvas.FontSmallcaps != ffMain.Variant&canvas.FontSmallcaps {
 			fmt.Fprintf(buf, `;font-variant:small-caps`)
 		}
 		if ff.Color != ffMain.Color {
@@ -286,7 +285,6 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 	}
 
 	ffMain := text.MostCommonFontFace()
-	nameMain, sizeMain, styleMain, variantMain := ffMain.Info()
 
 	x0, y0 := 0.0, 0.0
 	if m.IsTranslation() {
@@ -297,16 +295,16 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 		fmt.Fprintf(r.w, `<text transform="%s`, m.ToSVG(r.height))
 	}
 	fmt.Fprintf(r.w, `" style="font:`)
-	if styleMain&canvas.FontItalic != 0 {
+	if ffMain.Style&canvas.FontItalic != 0 {
 		fmt.Fprintf(r.w, ` italic`)
 	}
 	if boldness := ffMain.Boldness(); boldness != 400 {
 		fmt.Fprintf(r.w, ` %d`, boldness)
 	}
-	if variantMain&canvas.FontSmallcaps != 0 {
+	if ffMain.Variant&canvas.FontSmallcaps != 0 {
 		fmt.Fprintf(r.w, ` small-caps`)
 	}
-	fmt.Fprintf(r.w, ` %vpx %s`, num(sizeMain*ffMain.Scale), nameMain)
+	fmt.Fprintf(r.w, ` %vpx %s`, num(ffMain.Size*ffMain.Scale), ffMain.Name())
 	if ffMain.Color != canvas.Black {
 		fmt.Fprintf(r.w, `;fill:%v`, canvas.CSSColor(ffMain.Color))
 	}
