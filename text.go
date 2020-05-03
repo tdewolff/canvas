@@ -85,7 +85,7 @@ func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 			i = j
 		}
 	}
-	return &Text{lines, map[*Font]bool{ff.font: true}}
+	return &Text{lines, map[*Font]bool{ff.Font: true}}
 }
 
 // NewTextBox is an advanced text formatter that will calculate text placement based on the setteings. It takes a font face, a string, the width or height of the box (can be zero for no limit), horizontal and vertical alignment (Left, Center, Right, Top, Bottom or Justify), text indentation for the first line and line stretch (percentage to stretch the line based on the line height).
@@ -152,7 +152,7 @@ func (rt *RichText) Add(ff FontFace, s string) *RichText {
 			i = j
 		}
 	}
-	rt.fonts[ff.font] = true
+	rt.fonts[ff.Font] = true
 	return rt
 }
 
@@ -734,6 +734,24 @@ func (span TextSpan) ToPath(width float64) (*Path, *Path, color.RGBA) {
 		rPrev = r
 	}
 	return p, span.Face.Decorate(width), span.Face.Color
+}
+
+// Words returns the text of the span, split on wordBoundaries
+func (span TextSpan) Words() []string {
+	var words []string
+	i := 0
+	for _, boundary := range span.boundaries {
+		if boundary.kind != wordBoundary {
+			continue
+		}
+		j := boundary.pos + boundary.size
+		words = append(words, span.Text[i:j])
+		i = j
+	}
+	if i < len(span.Text) {
+		words = append(words, span.Text[i:])
+	}
+	return words
 }
 
 ////////////////////////////////////////////////////////////////

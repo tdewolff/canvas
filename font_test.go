@@ -16,7 +16,7 @@ func TestParseTTF(t *testing.T) {
 	test.Error(t, err)
 	test.That(t, font.sfnt.UnitsPerEm() == 2048)
 
-	bounds, italicAngle, ascent, descent, capHeight, widths := font.pdfInfo()
+	bounds, italicAngle, ascent, descent, capHeight, widths := font.PdfInfo()
 	test.T(t, bounds, Rect{-769.53125, -1109.375, 2875, 1456.0546875})
 	test.Float(t, italicAngle, 0)
 	test.Float(t, ascent, 928.22265625)
@@ -24,7 +24,7 @@ func TestParseTTF(t *testing.T) {
 	test.Float(t, capHeight, -729.00390625)
 	test.T(t, len(widths), 3528)
 
-	indices := font.toIndices("test")
+	indices := font.IndicesOf("test")
 	test.T(t, len(indices), 4)
 }
 

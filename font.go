@@ -70,7 +70,25 @@ func (f *Font) Raw() (string, []byte) {
 	return f.mimetype, f.raw
 }
 
-func (f *Font) pdfInfo() (Rect, float64, float64, float64, float64, []int) {
+// Kerning returns the horizontal adjustment for the rune pair. A positive kern means to move the glyphs further apart.
+func (f *Font) Kerning(left, right rune, ppem float64) (float64, error) {
+	var sfntBuffer sfnt.Buffer
+
+	iLeft, err := f.sfnt.GlyphIndex(&sfntBuffer, left)
+	if err != nil {
+		return 0, err
+	}
+	iRight, err := f.sfnt.GlyphIndex(&sfntBuffer, right)
+	if err != nil {
+		return 0, err
+	}
+
+	kern, err := f.sfnt.Kern(&sfntBuffer, iLeft, iRight, toI26_6(ppem), font.HintingNone)
+
+	return fromI26_6(kern), err
+}
+
+func (f *Font) PdfInfo() (Rect, float64, float64, float64, float64, []int) {
 	buffer := &sfnt.Buffer{}
 	units := float64(f.sfnt.UnitsPerEm())
 
@@ -106,7 +124,7 @@ func (f *Font) pdfInfo() (Rect, float64, float64, float64, float64, []int) {
 	return bounds, italicAngle, ascent, descent, capHeight, widths
 }
 
-func (f *Font) toIndices(s string) []uint16 {
+func (f *Font) IndicesOf(s string) []uint16 {
 	buffer := &sfnt.Buffer{}
 	runes := []rune(s)
 	indices := make([]uint16, len(runes))

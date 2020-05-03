@@ -1,4 +1,4 @@
-package canvas
+package pdf
 
 import (
 	"bytes"
@@ -6,12 +6,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/test"
 )
 
 func TestPDF(t *testing.T) {
-	c := New(10, 10)
-	c.RenderPath(MustParseSVG("L10 0"), DefaultStyle, Identity)
+	c := canvas.New(10, 10)
+	c.RenderPath(canvas.MustParseSVG("L10 0"), canvas.DefaultStyle, canvas.Identity)
 
 	//	pdfCompress = false
 	//	buf := &bytes.Buffer{}
@@ -49,11 +50,11 @@ func TestPDFPath(t *testing.T) {
 	buf := &bytes.Buffer{}
 	pdf := newPDFWriter(buf).NewPage(210.0, 297.0)
 	pdf.SetAlpha(0.5)
-	pdf.SetFillColor(Red)
-	pdf.SetStrokeColor(Blue)
+	pdf.SetFillColor(canvas.Red)
+	pdf.SetStrokeColor(canvas.Blue)
 	pdf.SetLineWidth(5.0)
-	pdf.SetLineCap(RoundCap)
-	pdf.SetLineJoin(RoundJoin)
+	pdf.SetLineCap(canvas.RoundCap)
+	pdf.SetLineJoin(canvas.RoundJoin)
 	pdf.SetDashes(2.0, []float64{1.0, 2.0, 3.0})
 	test.String(t, pdf.String(), " 2.8346457 0 0 2.8346457 0 0 cm /A0 gs 1 0 0 rg /A1 gs 0 0 1 RG 5 w 1 J 1 j [1 2 3 1 2 3] 2 d")
 }
@@ -88,13 +89,13 @@ func TestPDFImage(t *testing.T) {
 
 	buf := &bytes.Buffer{}
 	pdf := newPDFWriter(buf).NewPage(210.0, 297.0)
-	pdf.DrawImage(img, Lossless, Identity)
+	pdf.DrawImage(img, canvas.Lossless, canvas.Identity)
 	test.String(t, pdf.String(), " 2.8346457 0 0 2.8346457 0 0 cm q 0 0 2 2 re W n 0 0 m 0 2 l 2 2 l 2 0 l h W n 2 0 0 2 0 0 cm /Im0 Do Q")
 }
 
 func TestPDFMultipage(t *testing.T) {
 	buf := &bytes.Buffer{}
-	pdf := NewPDF(buf, 210, 297)
+	pdf := New(buf, 210, 297)
 	pdf.NewPage(210, 297)
 	err := pdf.Close()
 	test.Error(t, err)
