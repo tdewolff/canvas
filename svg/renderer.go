@@ -167,12 +167,12 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 				fmt.Fprintf(b, ";stroke-linejoin:round")
 			} else if arcs, ok := style.StrokeJoiner.(canvas.ArcsJoiner); ok && !math.IsNaN(arcs.Limit) {
 				fmt.Fprintf(b, ";stroke-linejoin:arcs")
-				if !equal(arcs.Limit, 4.0) {
+				if !canvas.Equal(arcs.Limit, 4.0) {
 					fmt.Fprintf(b, ";stroke-miterlimit:%v", dec(arcs.Limit))
 				}
 			} else if miter, ok := style.StrokeJoiner.(canvas.MiterJoiner); ok && !math.IsNaN(miter.Limit) {
 				// a miter line join is the default
-				if !equal(miter.Limit*2.0/style.StrokeWidth, 4.0) {
+				if !canvas.Equal(miter.Limit*2.0/style.StrokeWidth, 4.0) {
 					fmt.Fprintf(b, ";stroke-miterlimit:%v", dec(miter.Limit*2.0/style.StrokeWidth))
 				}
 			} else {

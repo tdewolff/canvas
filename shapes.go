@@ -6,7 +6,7 @@ import (
 
 // Rectangle returns a rectangle with width w and height h.
 func Rectangle(w, h float64) *Path {
-	if equal(w, 0.0) || equal(h, 0.0) {
+	if Equal(w, 0.0) || Equal(h, 0.0) {
 		return &Path{}
 	}
 
@@ -20,9 +20,9 @@ func Rectangle(w, h float64) *Path {
 
 // RoundedRectangle returns a rectangle with width w and height h with rounded corners of radius r. A negative radius will cast the corners inwards (ie. concave).
 func RoundedRectangle(w, h, r float64) *Path {
-	if equal(w, 0.0) || equal(h, 0.0) {
+	if Equal(w, 0.0) || Equal(h, 0.0) {
 		return &Path{}
-	} else if equal(r, 0.0) {
+	} else if Equal(r, 0.0) {
 		return Rectangle(w, h)
 	}
 
@@ -49,9 +49,9 @@ func RoundedRectangle(w, h, r float64) *Path {
 
 // BeveledRectangle returns a rectangle with width w and height h with beveled corners at distance r from the corner.
 func BeveledRectangle(w, h, r float64) *Path {
-	if equal(w, 0.0) || equal(h, 0.0) {
+	if Equal(w, 0.0) || Equal(h, 0.0) {
 		return &Path{}
-	} else if equal(r, 0.0) {
+	} else if Equal(r, 0.0) {
 		return Rectangle(w, h)
 	}
 
@@ -79,7 +79,7 @@ func Circle(r float64) *Path {
 
 // Ellipse returns an ellipse with radii rx,ry.
 func Ellipse(rx, ry float64) *Path {
-	if equal(rx, 0.0) || equal(ry, 0.0) {
+	if Equal(rx, 0.0) || Equal(ry, 0.0) {
 		return &Path{}
 	}
 
@@ -98,7 +98,7 @@ func RegularPolygon(n int, r float64, up bool) *Path {
 
 // RegularStarPolygon returns a regular star polygon with radius r and rotation rot in degrees. It uses n vertices of density d. This will result in a self-intersection star in counter clockwise direction. If n/2 < d the star will be clockwise and if n and d are not coprime a regular polygon will be obtained, possible with multiple windings. n must be 3 or more and d 2 or more. The up boolean defines whether the first point will point north or not.
 func RegularStarPolygon(n, d int, r float64, up bool) *Path {
-	if n < 3 || d < 1 || n == d*2 || equal(r, 0.0) {
+	if n < 3 || d < 1 || n == d*2 || Equal(r, 0.0) {
 		return &Path{}
 	}
 
@@ -124,7 +124,7 @@ func RegularStarPolygon(n, d int, r float64, up bool) *Path {
 
 // StarPolygon returns a star polygon of n points with alternating radius R and r. The up boolean defines whether the first point (true) or second point (false) will be pointing north.
 func StarPolygon(n int, R, r float64, up bool) *Path {
-	if n < 3 || equal(R, 0.0) || equal(r, 0.0) {
+	if n < 3 || Equal(R, 0.0) || Equal(r, 0.0) {
 		return &Path{}
 	}
 

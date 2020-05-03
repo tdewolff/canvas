@@ -816,7 +816,7 @@ func (w *pdfPageWriter) SetTextPosition(m Matrix) {
 		return
 	}
 
-	if equal(m[0][0], w.textPosition[0][0]) && equal(m[0][1], w.textPosition[0][1]) && equal(m[1][0], w.textPosition[1][0]) && equal(m[1][1], w.textPosition[1][1]) {
+	if Equal(m[0][0], w.textPosition[0][0]) && Equal(m[0][1], w.textPosition[0][1]) && Equal(m[1][0], w.textPosition[1][0]) && Equal(m[1][1], w.textPosition[1][1]) {
 		d := w.textPosition.Inv().Dot(Point{m[0][2], m[1][2]})
 		fmt.Fprintf(w, " %v %v Td", dec(d.X), dec(d.Y))
 	} else {
@@ -839,7 +839,7 @@ func (w *pdfPageWriter) SetTextCharSpace(space float64) {
 	if !w.inTextObject {
 		panic("must be in text object")
 	}
-	if !equal(w.textCharSpace, space) {
+	if !Equal(w.textCharSpace, space) {
 		fmt.Fprintf(w, " %v Tc", dec(space))
 		w.textCharSpace = space
 	}

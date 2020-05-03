@@ -17,8 +17,8 @@ var Epsilon = 1e-10
 // Precision is the number of significant digits at which floating point value will be printed to output formats.
 var Precision = 8
 
-// equal returns true if a and b are equal with tolerance Epsilon.
-func equal(a, b float64) bool {
+// Equal returns true if a and b are Equal with tolerance Epsilon.
+func Equal(a, b float64) bool {
 	return math.Abs(a-b) < Epsilon
 }
 
@@ -134,7 +134,7 @@ func (p Point) IsZero() bool {
 
 // Equals returns true if P and Q are equal with tolerance Epsilon.
 func (p Point) Equals(q Point) bool {
-	return equal(p.X, q.X) && equal(p.Y, q.Y)
+	return Equal(p.X, q.X) && Equal(p.Y, q.Y)
 }
 
 // Neg negates x and y.
@@ -214,7 +214,7 @@ func (p Point) AngleBetween(q Point) float64 {
 // Norm normalized OP to be of given length.
 func (p Point) Norm(length float64) Point {
 	d := p.Length()
-	if equal(d, 0.0) {
+	if Equal(d, 0.0) {
 		return Point{}
 	}
 	return Point{p.X / d * length, p.Y / d * length}
@@ -239,7 +239,7 @@ type Rect struct {
 
 // Equals returns true if rectangles are equal with tolerance Epsilon.
 func (r Rect) Equals(q Rect) bool {
-	return equal(r.X, q.X) && equal(r.Y, q.Y) && equal(r.W, q.W) && equal(r.H, q.H)
+	return Equal(r.X, q.X) && Equal(r.Y, q.Y) && Equal(r.W, q.W) && Equal(r.H, q.H)
 }
 
 // Move translates the rect.
@@ -400,7 +400,7 @@ func (m Matrix) Det() float64 {
 // Inv returns the matrix inverse.
 func (m Matrix) Inv() Matrix {
 	det := m.Det()
-	if equal(det, 0.0) {
+	if Equal(det, 0.0) {
 		panic("determinant of affine transformation matrix is zero")
 	}
 	return Matrix{{
@@ -416,7 +416,7 @@ func (m Matrix) Inv() Matrix {
 
 // Eigen returns the matrix eigenvalues and eigenvectors. The first eigenvalue is related to the first eigenvector, and so for the second pair. Eigenvectors are normalized.
 func (m Matrix) Eigen() (float64, float64, Point, Point) {
-	if equal(m[1][0], 0.0) && equal(m[0][1], 0.0) {
+	if Equal(m[1][0], 0.0) && Equal(m[0][1], 0.0) {
 		return m[0][0], m[1][1], Point{1.0, 0.0}, Point{0.0, 1.0}
 	}
 
@@ -430,10 +430,10 @@ func (m Matrix) Eigen() (float64, float64, Point, Point) {
 
 	// see http://www.math.harvard.edu/archive/21b_fall_04/exhibits/2dmatrices/index.html
 	var v1, v2 Point
-	if !equal(m[1][0], 0.0) {
+	if !Equal(m[1][0], 0.0) {
 		v1 = Point{lambda1 - m[1][1], m[1][0]}.Norm(1.0)
 		v2 = Point{lambda2 - m[1][1], m[1][0]}.Norm(1.0)
-	} else if !equal(m[0][1], 0.0) {
+	} else if !Equal(m[0][1], 0.0) {
 		v1 = Point{m[0][1], lambda1 - m[0][0]}.Norm(1.0)
 		v2 = Point{m[0][1], lambda2 - m[0][0]}.Norm(1.0)
 	}
@@ -459,7 +459,7 @@ func (m Matrix) Decompose() (float64, float64, float64, float64, float64, float6
 	a1, a2 := math.Atan2(G, F), math.Atan2(H, E)
 	theta := (a2 - a1) / 2.0 * 180.0 / math.Pi
 	phi := (a2 + a1) / 2.0 * 180.0 / math.Pi
-	if equal(sx, 1.0) && equal(sy, 1.0) {
+	if Equal(sx, 1.0) && Equal(sy, 1.0) {
 		theta += phi
 		phi = 0.0
 	}
@@ -468,12 +468,12 @@ func (m Matrix) Decompose() (float64, float64, float64, float64, float64, float6
 
 // IsTranslation is true if the matrix consists of only translational components, ie. no rotation, scaling or skew.
 func (m Matrix) IsTranslation() bool {
-	return equal(m[0][0], 1.0) && equal(m[0][1], 0.0) && equal(m[1][0], 0.0) && equal(m[1][1], 1.0)
+	return Equal(m[0][0], 1.0) && Equal(m[0][1], 0.0) && Equal(m[1][0], 0.0) && Equal(m[1][1], 1.0)
 }
 
 // IsRigid is true if the matrix consists of only (proper) rigid transformations, ie. no scaling or skew.
 func (m Matrix) IsRigid() bool {
-	if !equal(m.Det(), 1.0) {
+	if !Equal(m.Det(), 1.0) {
 		return false
 	}
 	invM := m.Inv()
@@ -484,7 +484,7 @@ func (m Matrix) IsRigid() bool {
 
 // Equals returns true if both matrices are equal with a tolerance of Epsilon.
 func (m Matrix) Equals(q Matrix) bool {
-	return equal(m[0][0], q[0][0]) && equal(m[0][1], q[0][1]) && equal(m[1][0], q[1][0]) && equal(m[1][1], q[1][1]) && equal(m[0][2], q[0][2]) && equal(m[1][2], q[1][2])
+	return Equal(m[0][0], q[0][0]) && Equal(m[0][1], q[0][1]) && Equal(m[1][0], q[1][0]) && Equal(m[1][1], q[1][1]) && Equal(m[0][2], q[0][2]) && Equal(m[1][2], q[1][2])
 }
 
 // String returns a string representation of the affine transformation matrix as six values, where [a b c; d e f; g h i] will be written as "a b d e c f" as g, h and i have fixed values (0, 0 and 1 respectively).
@@ -497,16 +497,16 @@ func (m Matrix) ToSVG(h float64) string {
 	tx, ty, theta, sx, sy, phi := m.Decompose()
 
 	s := &strings.Builder{}
-	if !equal(m[0][2], 0.0) || !equal(m[1][2], 0.0) {
+	if !Equal(m[0][2], 0.0) || !Equal(m[1][2], 0.0) {
 		fmt.Fprintf(s, " translate(%v,%v)", dec(tx), dec(h-ty))
 	}
-	if !equal(theta, 0.0) {
+	if !Equal(theta, 0.0) {
 		fmt.Fprintf(s, " rotate(%v)", dec(theta))
 	}
-	if !equal(sx, 1.0) || !equal(sy, 1.0) {
+	if !Equal(sx, 1.0) || !Equal(sy, 1.0) {
 		fmt.Fprintf(s, " scale(%v,%v)", dec(sx), dec(sy))
 	}
-	if !equal(phi, 0.0) {
+	if !Equal(phi, 0.0) {
 		fmt.Fprintf(s, " rotate(%v)", dec(phi))
 	}
 
@@ -567,7 +567,7 @@ func solveQuadraticFormula(a, b, c float64) (float64, float64) {
 // see https://github.com/thelonious/kld-polynomial/blob/development/lib/Polynomial.js
 func solveCubicFormula(a, b, c, d float64) (float64, float64, float64) {
 	x1, x2, x3 := math.NaN(), math.NaN(), math.NaN()
-	if equal(a, 0.0) {
+	if Equal(a, 0.0) {
 		x1, x2 = solveQuadraticFormula(b, c, d)
 	} else {
 		// eliminate a
@@ -578,8 +578,8 @@ func solveCubicFormula(a, b, c, d float64) (float64, float64, float64) {
 		bthird := b / 3.0
 		c0 := d - bthird*(c-2.0*bthird*bthird)
 		c1 := c - b*bthird
-		if equal(c0, 0.0) {
-			if equal(c1, 0.0) {
+		if Equal(c0, 0.0) {
+			if Equal(c1, 0.0) {
 				x1 = 0.0 - bthird
 			} else if c1 < 0.0 {
 				tmp := math.Sqrt(-c1)
@@ -587,7 +587,7 @@ func solveCubicFormula(a, b, c, d float64) (float64, float64, float64) {
 				x2 = tmp - bthird
 				x3 = 0.0 - bthird
 			}
-		} else if equal(c1, 0.0) {
+		} else if Equal(c1, 0.0) {
 			if 0.0 < c0 {
 				x1 = -math.Cbrt(c0) - bthird
 			} else {
@@ -595,7 +595,7 @@ func solveCubicFormula(a, b, c, d float64) (float64, float64, float64) {
 			}
 		} else {
 			delta := -(4.0*c1*c1*c1 + 27.0*c0*c0)
-			if equal(delta, 0.0) {
+			if Equal(delta, 0.0) {
 				delta = 0.0
 			}
 

@@ -36,7 +36,7 @@ func ellipseCurvatureRadius(rx, ry float64, sweep bool, theta float64) float64 {
 	dp := ellipseDeriv(rx, ry, 0.0, sweep, theta)
 	ddp := ellipseDeriv2(rx, ry, 0.0, sweep, theta)
 	a := dp.PerpDot(ddp)
-	if equal(a, 0.0) {
+	if Equal(a, 0.0) {
 		return math.NaN()
 	}
 	return math.Pow(dp.X*dp.X+dp.Y*dp.Y, 1.5) / a
@@ -63,7 +63,7 @@ func ellipseLength(rx, ry, theta1, theta2 float64) float64 {
 // when angleFrom with range [0, 2*PI) is bigger than angleTo with range (-2*PI, 4*PI), the ellipse runs clockwise. The angles are from before the ellipse has been stretched and rotated.
 // See https://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
 func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 float64) (float64, float64, float64, float64) {
-	if equal(x1, x2) && equal(y1, y2) {
+	if Equal(x1, x2) && Equal(y1, y2) {
 		return x1, y1, 0.0, 0.0
 	}
 
@@ -373,7 +373,7 @@ func quadraticBezierLength(p0, p1, p2 Point) float64 {
 	A := 4.0 * a.Dot(a)
 	B := 4.0 * a.Dot(b)
 	C := b.Dot(b)
-	if equal(A, 0.0) {
+	if Equal(A, 0.0) {
 		// p1 is in the middle between p0 and p2, so it is a straight line from p0 to p2
 		return p2.Sub(p0).Length()
 	}
@@ -427,7 +427,7 @@ func cubicBezierCurvatureRadius(p0, p1, p2, p3 Point, t float64) float64 {
 	dp := cubicBezierDeriv(p0, p1, p2, p3, t)
 	ddp := cubicBezierDeriv2(p0, p1, p2, p3, t)
 	a := dp.PerpDot(ddp) // negative when bending right ie. curve is CW at this point
-	if equal(a, 0.0) {
+	if Equal(a, 0.0) {
 		return math.NaN()
 	}
 	return math.Pow(dp.X*dp.X+dp.Y*dp.Y, 1.5) / a
@@ -609,25 +609,25 @@ func findInflectionPointRangeCubicBezier(p0, p1, p2, p3 Point, t, flatness float
 	// then we impose that s(tf) = flatness and find tf
 	// at inflection points however, s2 = 0, so that s(t) = s3*t^3
 
-	if !equal(t, 0.0) {
+	if !Equal(t, 0.0) {
 		_, _, _, _, p0, p1, p2, p3 = cubicBezierSplit(p0, p1, p2, p3, t)
 	}
 	nr := p1.Sub(p0)
 	ns := p3.Sub(p0)
-	if equal(nr.X, 0.0) && equal(nr.Y, 0.0) {
+	if Equal(nr.X, 0.0) && Equal(nr.Y, 0.0) {
 		// if p0=p1, then rn (the velocity at t=0) needs adjustment
 		// nr = lim[t->0](B'(t)) = 3*(p1-p0) + 6*t*((p1-p0)+(p2-p1)) + second order terms of t
 		// if (p1-p0)->0, we use (p2-p1)=(p2-p0)
 		nr = p2.Sub(p0)
 	}
 
-	if equal(nr.X, 0.0) && equal(nr.Y, 0.0) {
+	if Equal(nr.X, 0.0) && Equal(nr.Y, 0.0) {
 		// if rn is still zero, this curve has p0=p1=p2, so it is straight
 		return 0.0, 1.0
 	}
 
 	s3 := math.Abs(ns.X*nr.Y-ns.Y*nr.X) / math.Hypot(nr.X, nr.Y)
-	if equal(s3, 0.0) {
+	if Equal(s3, 0.0) {
 		return 0.0, 1.0 // can approximate whole curve linearly
 	}
 

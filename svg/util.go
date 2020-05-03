@@ -9,11 +9,6 @@ import (
 	"github.com/tdewolff/minify/v2"
 )
 
-// equal returns true if a and b are equal with tolerance Epsilon.
-func equal(a, b float64) bool {
-	return math.Abs(a-b) < canvas.Epsilon
-}
-
 ////////////////////////////////////////////////////////////////
 
 type num float64
