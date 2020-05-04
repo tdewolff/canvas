@@ -8,7 +8,7 @@ func intersectionLineLine(a0, a1, b0, b1 Point) (Point, bool) {
 	da := a1.Sub(a0)
 	db := b1.Sub(b0)
 	div := da.PerpDot(db)
-	if equal(div, 0.0) {
+	if Equal(div, 0.0) {
 		return Point{}, false
 	}
 

@@ -12,18 +12,18 @@ func TestFontFamily(t *testing.T) {
 
 	face := family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal)
 	test.Float(t, face.fauxBold, 0.0)
-	test.T(t, face.boldness(), 400)
+	test.T(t, face.Boldness(), 400)
 
 	face = family.Face(12.0*ptPerMm, Black, FontBold|FontItalic, FontNormal)
 	test.Float(t, face.fauxBold, 0.24)
 	test.Float(t, face.fauxItalic, 0.3)
-	test.T(t, face.boldness(), 700)
+	test.T(t, face.Boldness(), 700)
 
 	face = family.Face(12.0*ptPerMm, Black, FontBold|FontItalic, FontSubscript)
-	test.Float(t, face.voffset, -12.0*0.33)
+	test.Float(t, face.Voffset, -12.0*0.33)
 	test.Float(t, face.fauxBold, 0.48*0.583)
 	test.Float(t, face.fauxItalic, 0.3)
-	test.T(t, face.boldness(), 1000)
+	test.T(t, face.Boldness(), 1000)
 }
 
 func TestFontFace(t *testing.T) {

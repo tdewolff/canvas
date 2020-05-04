@@ -82,7 +82,7 @@ func (p *Path) Equals(q *Path) bool {
 		return false
 	}
 	for i := 0; i < len(p.d); i++ {
-		if !equal(p.d[i], q.d[i]) {
+		if !Equal(p.d[i], q.d[i]) {
 			return false
 		}
 	}
@@ -119,7 +119,7 @@ func (p *Path) Join(q *Path) *Path {
 		return q
 	}
 
-	if !equal(p.d[len(p.d)-3], q.d[1]) || !equal(p.d[len(p.d)-2], q.d[2]) {
+	if !Equal(p.d[len(p.d)-3], q.d[1]) || !Equal(p.d[len(p.d)-2], q.d[2]) {
 		return p.Append(q)
 	}
 
@@ -187,7 +187,7 @@ func (p *Path) Coords() []Point {
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		i += cmdLen(cmd)
-		if cmd != closeCmd || !equal(coords[len(coords)-1].X, p.d[i-3]) || !equal(coords[len(coords)-1].Y, p.d[i-2]) {
+		if cmd != closeCmd || !Equal(coords[len(coords)-1].X, p.d[i-3]) || !Equal(coords[len(coords)-1].Y, p.d[i-2]) {
 			coords = append(coords, Point{p.d[i-3], p.d[i-2]})
 		}
 	}
@@ -220,7 +220,7 @@ func (p *Path) LineTo(x, y float64) *Path {
 		if cmdLen(lineToCmd) < len(p.d) {
 			prevStart = Point{p.d[len(p.d)-cmdLen(lineToCmd)-3], p.d[len(p.d)-cmdLen(lineToCmd)-2]}
 		}
-		if equal(end.Sub(start).AngleBetween(start.Sub(prevStart)), 0.0) {
+		if Equal(end.Sub(start).AngleBetween(start.Sub(prevStart)), 0.0) {
 			p.d[len(p.d)-3] = x
 			p.d[len(p.d)-2] = y
 			return p
@@ -243,7 +243,7 @@ func (p *Path) QuadTo(cpx, cpy, x, y float64) *Path {
 	end := Point{x, y}
 	if start.Equals(end) && start.Equals(cp) {
 		return p
-	} else if !start.Equals(end) && equal(end.Sub(start).AngleBetween(cp.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp)), 0.0) {
+	} else if !start.Equals(end) && Equal(end.Sub(start).AngleBetween(cp.Sub(start)), 0.0) && Equal(end.Sub(start).AngleBetween(end.Sub(cp)), 0.0) {
 		return p.LineTo(end.X, end.Y)
 	}
 
@@ -264,7 +264,7 @@ func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x, y float64) *Path {
 	end := Point{x, y}
 	if start.Equals(end) && start.Equals(cp1) && start.Equals(cp2) {
 		return p
-	} else if !start.Equals(end) && equal(end.Sub(start).AngleBetween(cp1.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp1)), 0.0) && equal(end.Sub(start).AngleBetween(cp2.Sub(start)), 0.0) && equal(end.Sub(start).AngleBetween(end.Sub(cp2)), 0.0) {
+	} else if !start.Equals(end) && Equal(end.Sub(start).AngleBetween(cp1.Sub(start)), 0.0) && Equal(end.Sub(start).AngleBetween(end.Sub(cp1)), 0.0) && Equal(end.Sub(start).AngleBetween(cp2.Sub(start)), 0.0) && Equal(end.Sub(start).AngleBetween(end.Sub(cp2)), 0.0) {
 		return p.LineTo(end.X, end.Y)
 	}
 
@@ -287,7 +287,7 @@ func (p *Path) ArcTo(rx, ry, rot float64, large, sweep bool, x, y float64) *Path
 	if start.Equals(end) {
 		return p
 	}
-	if equal(rx, 0.0) || equal(ry, 0.0) {
+	if Equal(rx, 0.0) || Equal(ry, 0.0) {
 		return p.LineTo(end.X, end.Y)
 	}
 
@@ -340,7 +340,7 @@ func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
 		startOpposite := center.Sub(p0)
 		p.ArcTo(rx, ry, rot, large, sweep, startOpposite.X, startOpposite.Y)
 		p.ArcTo(rx, ry, rot, large, sweep, start.X, start.Y)
-		if equal(math.Mod(dtheta, 2.0*math.Pi), 0.0) {
+		if Equal(math.Mod(dtheta, 2.0*math.Pi), 0.0) {
 			return p
 		}
 	}
@@ -357,7 +357,7 @@ func (p *Path) Close() *Path {
 	} else if p.d[len(p.d)-1] == moveToCmd {
 		p.d = p.d[:len(p.d)-cmdLen(moveToCmd)]
 		return p
-	} else if p.d[len(p.d)-1] == lineToCmd && equal(p.d[len(p.d)-3], end.X) && equal(p.d[len(p.d)-2], end.Y) {
+	} else if p.d[len(p.d)-1] == lineToCmd && Equal(p.d[len(p.d)-3], end.X) && Equal(p.d[len(p.d)-2], end.Y) {
 		p.d[len(p.d)-1] = closeCmd
 		p.d[len(p.d)-cmdLen(lineToCmd)] = closeCmd
 		return p
@@ -367,7 +367,7 @@ func (p *Path) Close() *Path {
 		if cmdLen(lineToCmd) < len(p.d) {
 			prevStart = Point{p.d[len(p.d)-cmdLen(lineToCmd)-3], p.d[len(p.d)-cmdLen(lineToCmd)-2]}
 		}
-		if equal(end.Sub(start).AngleBetween(start.Sub(prevStart)), 0.0) {
+		if Equal(end.Sub(start).AngleBetween(start.Sub(prevStart)), 0.0) {
 			p.d[len(p.d)-cmdLen(lineToCmd)] = closeCmd
 			p.d[len(p.d)-3] = end.X
 			p.d[len(p.d)-2] = end.Y
@@ -409,7 +409,7 @@ func (p *Path) simplifyToCoords() []Point {
 				coords = append(coords, coord)
 			}
 			i += cmdLen(cmd)
-			if cmd != closeCmd || !equal(coords[len(coords)-1].X, p.d[i-3]) || !equal(coords[len(coords)-1].Y, p.d[i-2]) {
+			if cmd != closeCmd || !Equal(coords[len(coords)-1].X, p.d[i-3]) || !Equal(coords[len(coords)-1].Y, p.d[i-2]) {
 				coords = append(coords, Point{p.d[i-3], p.d[i-2]})
 			}
 		}
@@ -984,7 +984,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 						q.MoveTo(r0.X, r0.Y)
 						j++
 					}
-					if !equal(t0, 1.0) {
+					if !Equal(t0, 1.0) {
 						q.QuadTo(r1.X, r1.Y, r2.X, r2.Y)
 					}
 					T += dT
@@ -1019,7 +1019,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 						q.MoveTo(r0.X, r0.Y)
 						j++
 					}
-					if !equal(t0, 1.0) {
+					if !Equal(t0, 1.0) {
 						q.CubeTo(r1.X, r1.Y, r2.X, r2.Y, r3.X, r3.Y)
 					}
 					T += dT
@@ -1054,7 +1054,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 						nextLarge = large2
 						j++
 					}
-					if !equal(startTheta, theta2) {
+					if !Equal(startTheta, theta2) {
 						q.ArcTo(rx, ry, phi*180.0/math.Pi, nextLarge, sweep, end.X, end.Y)
 					}
 					T += dT
@@ -1134,7 +1134,7 @@ func dashCanonical(offset float64, d []float64) (float64, []float64) {
 
 	// remove zeros except first and last
 	for i := 1; i < len(d)-1; i++ {
-		if equal(d[i], 0.0) {
+		if Equal(d[i], 0.0) {
 			d[i-1] += d[i+1]
 			d = append(d[:i], d[i+2:]...)
 			i--
@@ -1142,7 +1142,7 @@ func dashCanonical(offset float64, d []float64) (float64, []float64) {
 	}
 
 	// remove first zero, collapse with second and last
-	if equal(d[0], 0.0) {
+	if Equal(d[0], 0.0) {
 		if len(d) < 3 {
 			return 0.0, []float64{0.0}
 		}
@@ -1152,7 +1152,7 @@ func dashCanonical(offset float64, d []float64) (float64, []float64) {
 	}
 
 	// remove last zero, collapse with fist and second to last
-	if equal(d[len(d)-1], 0.0) {
+	if Equal(d[len(d)-1], 0.0) {
 		if len(d) < 3 {
 			return 0.0, []float64{}
 		}
@@ -1163,7 +1163,7 @@ func dashCanonical(offset float64, d []float64) (float64, []float64) {
 
 	// if there are zeros or negatives, don't draw any dashes
 	for i := 0; i < len(d); i++ {
-		if d[i] < 0.0 || equal(d[i], 0.0) {
+		if d[i] < 0.0 || Equal(d[i], 0.0) {
 			return 0.0, []float64{0.0}
 		}
 	}
@@ -1173,7 +1173,7 @@ REPEAT:
 	for len(d)%2 == 0 {
 		mid := len(d) / 2
 		for i := 0; i < mid; i++ {
-			if !equal(d[i], d[mid+i]) {
+			if !Equal(d[i], d[mid+i]) {
 				break REPEAT
 			}
 		}
@@ -1594,11 +1594,11 @@ func (p *Path) ToSVG() string {
 		case lineToCmd:
 			xStart, yStart := x, y
 			x, y = p.d[i+1], p.d[i+2]
-			if equal(x, xStart) && equal(y, yStart) {
+			if Equal(x, xStart) && Equal(y, yStart) {
 				// nothing
-			} else if equal(x, xStart) {
+			} else if Equal(x, xStart) {
 				fmt.Fprintf(&sb, "V%v", num(y))
-			} else if equal(y, yStart) {
+			} else if Equal(y, yStart) {
 				fmt.Fprintf(&sb, "H%v", num(x))
 			} else {
 				fmt.Fprintf(&sb, "L%v %v", num(x), num(y))

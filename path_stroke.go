@@ -378,7 +378,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			})
 		case closeCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
-			if !equal(start.X, end.X) || !equal(start.Y, end.Y) {
+			if !Equal(start.X, end.X) || !Equal(start.Y, end.Y) {
 				n := end.Sub(start).Rot90CW().Norm(halfWidth)
 				states = append(states, pathStrokeState{
 					cmd: lineToCmd,
@@ -519,7 +519,7 @@ func closeInnerBends(p *Path, indices []int, closed bool) {
 
 // Offset offsets the path to expand by w and returns a new path. If w is negative it will contract. Path must be closed.
 func (p *Path) Offset(w float64, fillRule FillRule) *Path {
-	if equal(w, 0.0) {
+	if Equal(w, 0.0) {
 		return p
 	}
 

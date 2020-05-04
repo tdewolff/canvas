@@ -165,13 +165,13 @@ func (family *FontFamily) Face(size float64, col color.Color, style FontStyle, v
 	return FontFace{
 		family:     family,
 		font:       font,
-		size:       size,
-		style:      style,
-		variant:    variant,
-		color:      color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)},
+		Size:       size,
+		Style:      style,
+		Variant:    variant,
+		Color:      color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)},
 		deco:       deco,
-		scale:      scale,
-		voffset:    voffset,
+		Scale:      scale,
+		Voffset:    voffset,
 		fauxItalic: fauxItalic,
 		fauxBold:   fauxBold * size * scale,
 	}
@@ -182,23 +182,23 @@ type FontFace struct {
 	family *FontFamily
 	font   *Font
 
-	size    float64
-	style   FontStyle
-	variant FontVariant
-	color   color.RGBA
+	Size    float64
+	Style   FontStyle
+	Variant FontVariant
+	Color   color.RGBA
 	deco    []FontDecorator
 
-	scale, voffset, fauxBold, fauxItalic float64 // consequences of font style and variant
+	Scale, Voffset, fauxBold, fauxItalic float64 // consequences of font style and variant
 }
 
 // Equals returns true when two font face are equal. In particular this allows two adjacent text spans that use the same decoration to allow the decoration to span both elements instead of two separately.
 func (ff FontFace) Equals(other FontFace) bool {
-	return ff.font == other.font && ff.size == other.size && ff.style == other.style && ff.variant == other.variant && ff.color == other.color && reflect.DeepEqual(ff.deco, other.deco)
+	return ff.font == other.font && ff.Size == other.Size && ff.Style == other.Style && ff.Variant == other.Variant && ff.Color == other.Color && reflect.DeepEqual(ff.deco, other.deco)
 }
 
-// Info returns the font name, size and style.
-func (ff FontFace) Info() (name string, size float64, style FontStyle, variant FontVariant) {
-	return ff.font.name, ff.size, ff.style, ff.variant
+// Name returns the name of the underlying font
+func (ff FontFace) Name() string {
+	return ff.font.name
 }
 
 // FontMetrics contains a number of metrics that define a font face.
@@ -214,9 +214,9 @@ type FontMetrics struct {
 // Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explanation of the different metrics.
 func (ff FontFace) Metrics() FontMetrics {
 	buffer := &sfnt.Buffer{}
-	m, _ := ff.font.sfnt.Metrics(buffer, toI26_6(ff.size*ff.scale), font.HintingNone)
+	m, _ := ff.font.sfnt.Metrics(buffer, toI26_6(ff.Size*ff.Scale), font.HintingNone)
 	return FontMetrics{
-		Size:       ff.size,
+		Size:       ff.Size,
 		LineHeight: math.Abs(fromI26_6(m.Height)),
 		Ascent:     math.Abs(fromI26_6(m.Ascent)),
 		Descent:    math.Abs(fromI26_6(m.Descent)),
@@ -238,7 +238,7 @@ func (ff FontFace) Kerning(rPrev, rNext rune) float64 {
 		return 0.0
 	}
 
-	kern, err := ff.font.sfnt.Kern(buffer, prevIndex, nextIndex, toI26_6(ff.size*ff.scale), font.HintingNone)
+	kern, err := ff.font.sfnt.Kern(buffer, prevIndex, nextIndex, toI26_6(ff.Size*ff.Scale), font.HintingNone)
 	if err == nil {
 		return fromI26_6(kern)
 	}
@@ -257,12 +257,12 @@ func (ff FontFace) TextWidth(s string) float64 {
 		}
 
 		if i != 0 {
-			kern, err := ff.font.sfnt.Kern(buffer, prevIndex, index, toI26_6(ff.size*ff.scale), font.HintingNone)
+			kern, err := ff.font.sfnt.Kern(buffer, prevIndex, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
 			if err == nil {
 				w += fromI26_6(kern)
 			}
 		}
-		advance, err := ff.font.sfnt.GlyphAdvance(buffer, index, toI26_6(ff.size*ff.scale), font.HintingNone)
+		advance, err := ff.font.sfnt.GlyphAdvance(buffer, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
 		if err == nil {
 			w += fromI26_6(advance)
 		}
@@ -294,7 +294,7 @@ func (ff FontFace) ToPath(s string) (*Path, float64) {
 			return p, 0.0
 		}
 
-		segments, err := ff.font.sfnt.LoadGlyph(buffer, index, toI26_6(ff.size*ff.scale), nil)
+		segments, err := ff.font.sfnt.LoadGlyph(buffer, index, toI26_6(ff.Size*ff.Scale), nil)
 		if err != nil {
 			return p, 0.0
 		}
@@ -308,18 +308,18 @@ func (ff FontFace) ToPath(s string) (*Path, float64) {
 				}
 				end = fromP26_6(segment.Args[0])
 				end.X += ff.fauxItalic * -end.Y
-				p.MoveTo(x+end.X, ff.voffset-end.Y)
+				p.MoveTo(x+end.X, ff.Voffset-end.Y)
 				start0 = end
 			case sfnt.SegmentOpLineTo:
 				end = fromP26_6(segment.Args[0])
 				end.X += ff.fauxItalic * -end.Y
-				p.LineTo(x+end.X, ff.voffset-end.Y)
+				p.LineTo(x+end.X, ff.Voffset-end.Y)
 			case sfnt.SegmentOpQuadTo:
 				cp := fromP26_6(segment.Args[0])
 				end = fromP26_6(segment.Args[1])
 				cp.X += ff.fauxItalic * -cp.Y
 				end.X += ff.fauxItalic * -end.Y
-				p.QuadTo(x+cp.X, ff.voffset-cp.Y, x+end.X, ff.voffset-end.Y)
+				p.QuadTo(x+cp.X, ff.Voffset-cp.Y, x+end.X, ff.Voffset-end.Y)
 			case sfnt.SegmentOpCubeTo:
 				cp1 := fromP26_6(segment.Args[0])
 				cp2 := fromP26_6(segment.Args[1])
@@ -327,7 +327,7 @@ func (ff FontFace) ToPath(s string) (*Path, float64) {
 				cp1.X += ff.fauxItalic * -cp1.Y
 				cp2.X += ff.fauxItalic * -cp2.Y
 				end.X += ff.fauxItalic * -end.Y
-				p.CubeTo(x+cp1.X, ff.voffset-cp1.Y, x+cp2.X, ff.voffset-cp2.Y, x+end.X, ff.voffset-end.Y)
+				p.CubeTo(x+cp1.X, ff.Voffset-cp1.Y, x+cp2.X, ff.Voffset-cp2.Y, x+end.X, ff.Voffset-end.Y)
 			}
 		}
 		if !p.Empty() && start0.Equals(end) {
@@ -338,12 +338,12 @@ func (ff FontFace) ToPath(s string) (*Path, float64) {
 		}
 
 		if i != 0 {
-			kern, err := ff.font.sfnt.Kern(buffer, prevIndex, index, toI26_6(ff.size*ff.scale), font.HintingNone)
+			kern, err := ff.font.sfnt.Kern(buffer, prevIndex, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
 			if err == nil {
 				x += fromI26_6(kern)
 			}
 		}
-		advance, err := ff.font.sfnt.GlyphAdvance(buffer, index, toI26_6(ff.size*ff.scale), font.HintingNone)
+		advance, err := ff.font.sfnt.GlyphAdvance(buffer, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
 		if err == nil {
 			x += fromI26_6(advance)
 		}
@@ -352,26 +352,26 @@ func (ff FontFace) ToPath(s string) (*Path, float64) {
 	return p, x
 }
 
-func (ff FontFace) boldness() int {
+func (ff FontFace) Boldness() int {
 	boldness := 400
-	if ff.style&FontExtraLight == FontExtraLight {
+	if ff.Style&FontExtraLight == FontExtraLight {
 		boldness = 100
-	} else if ff.style&FontLight == FontLight {
+	} else if ff.Style&FontLight == FontLight {
 		boldness = 200
-	} else if ff.style&FontBook == FontBook {
+	} else if ff.Style&FontBook == FontBook {
 		boldness = 300
-	} else if ff.style&FontMedium == FontMedium {
+	} else if ff.Style&FontMedium == FontMedium {
 		boldness = 500
-	} else if ff.style&FontSemibold == FontSemibold {
+	} else if ff.Style&FontSemibold == FontSemibold {
 		boldness = 600
-	} else if ff.style&FontBold == FontBold {
+	} else if ff.Style&FontBold == FontBold {
 		boldness = 700
-	} else if ff.style&FontBlack == FontBlack {
+	} else if ff.Style&FontBlack == FontBlack {
 		boldness = 800
-	} else if ff.style&FontExtraBlack == FontExtraBlack {
+	} else if ff.Style&FontExtraBlack == FontExtraBlack {
 		boldness = 900
 	}
-	if ff.variant&FontSubscript != 0 || ff.variant&FontSuperscript != 0 {
+	if ff.Variant&FontSubscript != 0 || ff.Variant&FontSuperscript != 0 {
 		boldness += 300
 		if 1000 < boldness {
 			boldness = 1000

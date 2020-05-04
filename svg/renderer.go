@@ -1,4 +1,4 @@
-package canvas
+package svg
 
 import (
 	"bytes"
@@ -11,30 +11,32 @@ import (
 	"io"
 	"math"
 	"strings"
+
+	"github.com/tdewolff/canvas"
 )
 
 type SVG struct {
 	w             io.Writer
 	width, height float64
 	embedFonts    bool
-	fonts         map[*Font]bool
+	fonts         map[*canvas.Font]bool
 	maskID        int
-	imgEnc        ImageEncoding
+	imgEnc        canvas.ImageEncoding
 
 	classes []string
 }
 
-// NewSVG creates a scalable vector graphics renderer.
-func NewSVG(w io.Writer, width, height float64) *SVG {
+// New creates a scalable vector graphics (SVG) renderer.
+func New(w io.Writer, width, height float64) *SVG {
 	fmt.Fprintf(w, `<svg version="1.1" width="%vmm" height="%vmm" viewBox="0 0 %v %v" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, dec(width), dec(height), dec(width), dec(height))
 	return &SVG{
 		w:          w,
 		width:      width,
 		height:     height,
 		embedFonts: true,
-		fonts:      map[*Font]bool{},
+		fonts:      map[*canvas.Font]bool{},
 		maskID:     0,
-		imgEnc:     Lossless,
+		imgEnc:     canvas.Lossless,
 		classes:    []string{},
 	}
 }
@@ -75,11 +77,11 @@ func (r *SVG) EmbedFonts(embedFonts bool) {
 	r.embedFonts = embedFonts
 }
 
-func (r *SVG) SetImageEncoding(enc ImageEncoding) {
+func (r *SVG) SetImageEncoding(enc canvas.ImageEncoding) {
 	r.imgEnc = enc
 }
 
-func (r *SVG) writeFonts(fonts []*Font) {
+func (r *SVG) writeFonts(fonts []*canvas.Font) {
 	is := []int{}
 	for i, font := range fonts {
 		if _, ok := r.fonts[font]; !ok {
@@ -92,7 +94,7 @@ func (r *SVG) writeFonts(fonts []*Font) {
 		fmt.Fprintf(r.w, "<style>")
 		for _, i := range is {
 			mimetype, raw := fonts[i].Raw()
-			fmt.Fprintf(r.w, "\n@font-face{font-family:'%s';src:url('data:%s;base64,", fonts[i].name, mimetype)
+			fmt.Fprintf(r.w, "\n@font-face{font-family:'%s';src:url('data:%s;base64,", fonts[i].Name(), mimetype)
 			encoder := base64.NewEncoder(base64.StdEncoding, r.w)
 			encoder.Write(raw)
 			encoder.Close()
@@ -106,30 +108,30 @@ func (r *SVG) Size() (float64, float64) {
 	return r.width, r.height
 }
 
-func (r *SVG) RenderPath(path *Path, style Style, m Matrix) {
+func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
 	fill := style.FillColor.A != 0
 	stroke := style.StrokeColor.A != 0 && 0.0 < style.StrokeWidth
 
-	path = path.Transform(Identity.ReflectYAbout(r.height / 2.0).Mul(m))
+	path = path.Transform(canvas.Identity.ReflectYAbout(r.height / 2.0).Mul(m))
 	fmt.Fprintf(r.w, `<path d="%s`, path.ToSVG())
 
 	strokeUnsupported := false
-	if arcs, ok := style.StrokeJoiner.(ArcsJoiner); ok && math.IsNaN(arcs.Limit) {
+	if arcs, ok := style.StrokeJoiner.(canvas.ArcsJoiner); ok && math.IsNaN(arcs.Limit) {
 		strokeUnsupported = true
-	} else if miter, ok := style.StrokeJoiner.(MiterJoiner); ok {
+	} else if miter, ok := style.StrokeJoiner.(canvas.MiterJoiner); ok {
 		if math.IsNaN(miter.Limit) {
 			strokeUnsupported = true
-		} else if _, ok := miter.GapJoiner.(BevelJoiner); !ok {
+		} else if _, ok := miter.GapJoiner.(canvas.BevelJoiner); !ok {
 			strokeUnsupported = true
 		}
 	}
 
 	if !stroke {
 		if fill {
-			if style.FillColor != Black {
-				fmt.Fprintf(r.w, `" fill="%v`, CSSColor(style.FillColor))
+			if style.FillColor != canvas.Black {
+				fmt.Fprintf(r.w, `" fill="%v`, canvas.CSSColor(style.FillColor))
 			}
-			if style.FillRule == EvenOdd {
+			if style.FillRule == canvas.EvenOdd {
 				fmt.Fprintf(r.w, `" fill-rule="evenodd`)
 			}
 		} else {
@@ -138,39 +140,39 @@ func (r *SVG) RenderPath(path *Path, style Style, m Matrix) {
 	} else {
 		b := &strings.Builder{}
 		if fill {
-			if style.FillColor != Black {
-				fmt.Fprintf(b, ";fill:%v", CSSColor(style.FillColor))
+			if style.FillColor != canvas.Black {
+				fmt.Fprintf(b, ";fill:%v", canvas.CSSColor(style.FillColor))
 			}
-			if style.FillRule == EvenOdd {
+			if style.FillRule == canvas.EvenOdd {
 				fmt.Fprintf(b, ";fill-rule:evenodd")
 			}
 		} else {
 			fmt.Fprintf(b, ";fill:none")
 		}
 		if stroke && !strokeUnsupported {
-			fmt.Fprintf(b, `;stroke:%v`, CSSColor(style.StrokeColor))
+			fmt.Fprintf(b, `;stroke:%v`, canvas.CSSColor(style.StrokeColor))
 			if style.StrokeWidth != 1.0 {
 				fmt.Fprintf(b, ";stroke-width:%v", dec(style.StrokeWidth))
 			}
-			if _, ok := style.StrokeCapper.(RoundCapper); ok {
+			if _, ok := style.StrokeCapper.(canvas.RoundCapper); ok {
 				fmt.Fprintf(b, ";stroke-linecap:round")
-			} else if _, ok := style.StrokeCapper.(SquareCapper); ok {
+			} else if _, ok := style.StrokeCapper.(canvas.SquareCapper); ok {
 				fmt.Fprintf(b, ";stroke-linecap:square")
-			} else if _, ok := style.StrokeCapper.(ButtCapper); !ok {
+			} else if _, ok := style.StrokeCapper.(canvas.ButtCapper); !ok {
 				panic("SVG: line cap not support")
 			}
-			if _, ok := style.StrokeJoiner.(BevelJoiner); ok {
+			if _, ok := style.StrokeJoiner.(canvas.BevelJoiner); ok {
 				fmt.Fprintf(b, ";stroke-linejoin:bevel")
-			} else if _, ok := style.StrokeJoiner.(RoundJoiner); ok {
+			} else if _, ok := style.StrokeJoiner.(canvas.RoundJoiner); ok {
 				fmt.Fprintf(b, ";stroke-linejoin:round")
-			} else if arcs, ok := style.StrokeJoiner.(ArcsJoiner); ok && !math.IsNaN(arcs.Limit) {
+			} else if arcs, ok := style.StrokeJoiner.(canvas.ArcsJoiner); ok && !math.IsNaN(arcs.Limit) {
 				fmt.Fprintf(b, ";stroke-linejoin:arcs")
-				if !equal(arcs.Limit, 4.0) {
+				if !canvas.Equal(arcs.Limit, 4.0) {
 					fmt.Fprintf(b, ";stroke-miterlimit:%v", dec(arcs.Limit))
 				}
-			} else if miter, ok := style.StrokeJoiner.(MiterJoiner); ok && !math.IsNaN(miter.Limit) {
+			} else if miter, ok := style.StrokeJoiner.(canvas.MiterJoiner); ok && !math.IsNaN(miter.Limit) {
 				// a miter line join is the default
-				if !equal(miter.Limit*2.0/style.StrokeWidth, 4.0) {
+				if !canvas.Equal(miter.Limit*2.0/style.StrokeWidth, 4.0) {
 					fmt.Fprintf(b, ";stroke-miterlimit:%v", dec(miter.Limit*2.0/style.StrokeWidth))
 				}
 			} else {
@@ -201,10 +203,10 @@ func (r *SVG) RenderPath(path *Path, style Style, m Matrix) {
 		}
 		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
 		fmt.Fprintf(r.w, `<path d="%s`, path.ToSVG())
-		if style.StrokeColor != Black {
-			fmt.Fprintf(r.w, `" fill="%v`, CSSColor(style.StrokeColor))
+		if style.StrokeColor != canvas.Black {
+			fmt.Fprintf(r.w, `" fill="%v`, canvas.CSSColor(style.StrokeColor))
 		}
-		if style.FillRule == EvenOdd {
+		if style.FillRule == canvas.EvenOdd {
 			fmt.Fprintf(r.w, `" fill-rule="evenodd`)
 		}
 		r.writeClasses(r.w)
@@ -212,76 +214,77 @@ func (r *SVG) RenderPath(path *Path, style Style, m Matrix) {
 	}
 }
 
-func (r *SVG) writeFontStyle(ff, ffMain FontFace) {
-	boldness := ff.boldness()
+func (r *SVG) writeFontStyle(ff, ffMain canvas.FontFace) {
+	boldness := ff.Boldness()
 	differences := 0
-	if ff.style&FontItalic != ffMain.style&FontItalic {
+
+	if ff.Style&canvas.FontItalic != ffMain.Style&canvas.FontItalic {
 		differences++
 	}
-	if boldness != ffMain.boldness() {
+	if boldness != ffMain.Boldness() {
 		differences++
 	}
-	if ff.variant&FontSmallcaps != ffMain.variant&FontSmallcaps {
+	if ff.Variant&canvas.FontSmallcaps != ffMain.Variant&canvas.FontSmallcaps {
 		differences++
 	}
-	if ff.color != ffMain.color {
+	if ff.Color != ffMain.Color {
 		differences++
 	}
-	if ff.font.name != ffMain.font.name || ff.size*ff.scale != ffMain.size || differences == 3 {
+	if ff.Name() != ffMain.Name() || ff.Size*ff.Scale != ffMain.Size || differences == 3 {
 		fmt.Fprintf(r.w, `" style="font:`)
 
 		buf := &bytes.Buffer{}
-		if ff.style&FontItalic != ffMain.style&FontItalic {
+		if ff.Style&canvas.FontItalic != ffMain.Style&canvas.FontItalic {
 			fmt.Fprintf(buf, ` italic`)
 		}
 
-		if boldness != ffMain.boldness() {
+		if boldness != ffMain.Boldness() {
 			fmt.Fprintf(buf, ` %d`, boldness)
 		}
 
-		if ff.variant&FontSmallcaps != ffMain.variant&FontSmallcaps {
+		if ff.Variant&canvas.FontSmallcaps != ffMain.Variant&canvas.FontSmallcaps {
 			fmt.Fprintf(buf, ` small-caps`)
 		}
 
-		fmt.Fprintf(buf, ` %vpx %s`, num(ff.size*ff.scale), ff.font.name)
+		fmt.Fprintf(buf, ` %vpx %s`, num(ff.Size*ff.Scale), ff.Name())
 		buf.ReadByte()
 		buf.WriteTo(r.w)
 
-		if ff.color != ffMain.color {
-			fmt.Fprintf(r.w, `;fill:%v`, CSSColor(ff.color))
+		if ff.Color != ffMain.Color {
+			fmt.Fprintf(r.w, `;fill:%v`, canvas.CSSColor(ff.Color))
 		}
-	} else if differences == 1 && ff.color != ffMain.color {
-		fmt.Fprintf(r.w, `" fill="%v`, CSSColor(ff.color))
+	} else if differences == 1 && ff.Color != ffMain.Color {
+		fmt.Fprintf(r.w, `" fill="%v`, canvas.CSSColor(ff.Color))
 	} else if 0 < differences {
 		fmt.Fprintf(r.w, `" style="`)
 		buf := &bytes.Buffer{}
-		if ff.style&FontItalic != ffMain.style&FontItalic {
+		if ff.Style&canvas.FontItalic != ffMain.Style&canvas.FontItalic {
 			fmt.Fprintf(buf, `;font-style:italic`)
 		}
-		if boldness != ffMain.boldness() {
+		if boldness != ffMain.Boldness() {
 			fmt.Fprintf(buf, `;font-weight:%d`, boldness)
 		}
-		if ff.variant&FontSmallcaps != ffMain.variant&FontSmallcaps {
+		if ff.Variant&canvas.FontSmallcaps != ffMain.Variant&canvas.FontSmallcaps {
 			fmt.Fprintf(buf, `;font-variant:small-caps`)
 		}
-		if ff.color != ffMain.color {
-			fmt.Fprintf(buf, `;fill:%v`, CSSColor(ff.color))
+		if ff.Color != ffMain.Color {
+			fmt.Fprintf(buf, `;fill:%v`, canvas.CSSColor(ff.Color))
 		}
 		buf.ReadByte()
 		buf.WriteTo(r.w)
 	}
 }
 
-func (r *SVG) RenderText(text *Text, m Matrix) {
+func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 	if r.embedFonts {
 		r.writeFonts(text.Fonts())
 	}
 
-	if len(text.lines) == 0 || len(text.lines[0].spans) == 0 {
+	if text.Empty() {
 		return
 	}
 
-	ffMain := text.mostCommonFontFace()
+	ffMain := text.MostCommonFontFace()
 
 	x0, y0 := 0.0, 0.0
 	if m.IsTranslation() {
@@ -292,46 +295,44 @@ func (r *SVG) RenderText(text *Text, m Matrix) {
 		fmt.Fprintf(r.w, `<text transform="%s`, m.ToSVG(r.height))
 	}
 	fmt.Fprintf(r.w, `" style="font:`)
-	if ffMain.style&FontItalic != 0 {
+	if ffMain.Style&canvas.FontItalic != 0 {
 		fmt.Fprintf(r.w, ` italic`)
 	}
-	if boldness := ffMain.boldness(); boldness != 400 {
+	if boldness := ffMain.Boldness(); boldness != 400 {
 		fmt.Fprintf(r.w, ` %d`, boldness)
 	}
-	if ffMain.variant&FontSmallcaps != 0 {
+	if ffMain.Variant&canvas.FontSmallcaps != 0 {
 		fmt.Fprintf(r.w, ` small-caps`)
 	}
-	fmt.Fprintf(r.w, ` %vpx %s`, num(ffMain.size*ffMain.scale), ffMain.font.name)
-	if ffMain.color != Black {
-		fmt.Fprintf(r.w, `;fill:%v`, CSSColor(ffMain.color))
+	fmt.Fprintf(r.w, ` %vpx %s`, num(ffMain.Size*ffMain.Scale), ffMain.Name())
+	if ffMain.Color != canvas.Black {
+		fmt.Fprintf(r.w, `;fill:%v`, canvas.CSSColor(ffMain.Color))
 	}
 	r.writeClasses(r.w)
 	fmt.Fprintf(r.w, `">`)
 
-	for _, line := range text.lines {
-		for _, span := range line.spans {
-			fmt.Fprintf(r.w, `<tspan x="%v" y="%v`, num(x0+span.dx), num(y0-line.y-span.ff.voffset))
-			if span.wordSpacing > 0.0 {
-				fmt.Fprintf(r.w, `" word-spacing="%v`, num(span.wordSpacing))
-			}
-			if span.glyphSpacing > 0.0 {
-				fmt.Fprintf(r.w, `" letter-spacing="%v`, num(span.glyphSpacing))
-			}
-			r.writeFontStyle(span.ff, ffMain)
-			s := span.text
-			s = strings.ReplaceAll(s, `"`, `&quot;`)
-			r.writeClasses(r.w)
-			fmt.Fprintf(r.w, `">%s</tspan>`, s)
+	text.WalkSpans(func(y, dx float64, span canvas.TextSpan) {
+		fmt.Fprintf(r.w, `<tspan x="%v" y="%v`, num(x0+dx), num(y0-y-span.Face.Voffset))
+		if span.WordSpacing > 0.0 {
+			fmt.Fprintf(r.w, `" word-spacing="%v`, num(span.WordSpacing))
 		}
-	}
+		if span.GlyphSpacing > 0.0 {
+			fmt.Fprintf(r.w, `" letter-spacing="%v`, num(span.GlyphSpacing))
+		}
+		r.writeFontStyle(span.Face, ffMain)
+		s := span.Text
+		s = strings.ReplaceAll(s, `"`, `&quot;`)
+		r.writeClasses(r.w)
+		fmt.Fprintf(r.w, `">%s</tspan>`, s)
+	})
 	fmt.Fprintf(r.w, `</text>`)
 	text.RenderDecoration(r, m)
 }
 
-func (r *SVG) RenderImage(img image.Image, m Matrix) {
+func (r *SVG) RenderImage(img image.Image, m canvas.Matrix) {
 	refMask := ""
 	mimetype := "image/png"
-	if r.imgEnc == Lossy {
+	if r.imgEnc == canvas.Lossy {
 		mimetype = "image/jpg"
 		if opaqueImg, ok := img.(interface{ Opaque() bool }); !ok || !opaqueImg.Opaque() {
 			hasMask := false

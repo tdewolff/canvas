@@ -123,7 +123,7 @@ func TestRichText(t *testing.T) {
 	test.T(t, len(text.lines), 2)
 	test.Float(t, text.lines[0].spans[0].dx, 0.0)
 	test.Float(t, text.lines[0].spans[0].width, 75.0)
-	test.Float(t, text.lines[0].spans[0].glyphSpacing, (75.0-22.75-3.8125-MaxWordSpacing*face.Metrics().XHeight-22.75)/4)
+	test.Float(t, text.lines[0].spans[0].GlyphSpacing, (75.0-22.75-3.8125-MaxWordSpacing*face.Metrics().XHeight-22.75)/4)
 	test.Float(t, text.lines[1].spans[0].dx, 0.0)
 	test.Float(t, text.lines[1].spans[0].width, 45.5) // cannot stretch in any reasonable way
 
@@ -136,7 +136,7 @@ func TestRichText(t *testing.T) {
 	rt.Add(face, "mm\u200bmm \r\nmm")
 	text = rt.ToText(30.0, 50.0, Left, Top, 0.0, 0.0) // wrap at word break
 	test.T(t, len(text.lines), 3)
-	test.T(t, text.lines[0].spans[0].text, "mm-")
+	test.T(t, text.lines[0].spans[0].Text, "mm-")
 
 	rt = NewRichText()
 	rt.Add(face, "\u200bmm")
