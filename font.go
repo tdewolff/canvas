@@ -70,6 +70,11 @@ func (f *Font) Raw() (string, []byte) {
 	return f.mimetype, f.raw
 }
 
+// UnitsPerEm returns the number of units per em for f.
+func (f *Font) UnitsPerEm() float64 {
+	return float64(f.sfnt.UnitsPerEm())
+}
+
 // Kerning returns the horizontal adjustment for the rune pair. A positive kern means to move the glyphs further apart.
 func (f *Font) Kerning(left, right rune, ppem float64) (float64, error) {
 	var sfntBuffer sfnt.Buffer

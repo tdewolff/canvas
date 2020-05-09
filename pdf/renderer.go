@@ -884,6 +884,7 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 		fmt.Fprintf(w, "%s)", s)
 	}
 
+	units := w.font.UnitsPerEm()
 	fmt.Fprintf(w, "[")
 	for _, tj := range TJ {
 		switch val := tj.(type) {
@@ -892,9 +893,9 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 			var rPrev rune
 			for j, r := range val {
 				if i < j {
-					if kern, err := w.font.Kerning(rPrev, r, 1000); err == nil && kern != 0 {
+					if kern, err := w.font.Kerning(rPrev, r, units); err == nil && kern != 0.0 {
 						write(val[i:j])
-						fmt.Fprintf(w, " %d", -int(kern+0.5))
+						fmt.Fprintf(w, " %d", -int(kern*1000/units+0.5))
 						i = j
 					}
 				}
