@@ -225,12 +225,9 @@ func (ff FontFace) Metrics() FontMetrics {
 	}
 }
 
-// Kerning returns the kerning between two runes in mm (ie. the adjustment on the advance).
+// Kerning returns the eventual kerning between two runes in mm (ie. the adjustment on the advance).
 func (ff FontFace) Kerning(rPrev, rNext rune) float64 {
-	k, err := ff.Font.Kerning(rPrev, rNext, ff.Size*ff.Scale)
-	if err != nil {
-		return 0
-	}
+	k, _ := ff.Font.Kerning(rPrev, rNext, ff.Size*ff.Scale)
 	return k
 }
 

@@ -76,6 +76,7 @@ func (f *Font) UnitsPerEm() float64 {
 }
 
 // Kerning returns the horizontal adjustment for the rune pair. A positive kern means to move the glyphs further apart.
+// Returns 0 if there is an error.
 func (f *Font) Kerning(left, right rune, ppem float64) (float64, error) {
 	var sfntBuffer sfnt.Buffer
 
@@ -89,8 +90,11 @@ func (f *Font) Kerning(left, right rune, ppem float64) (float64, error) {
 	}
 
 	kern, err := f.sfnt.Kern(&sfntBuffer, iLeft, iRight, toI26_6(ppem), font.HintingNone)
+	if err != nil {
+		return 0, err
+	}
 
-	return fromI26_6(kern), err
+	return fromI26_6(kern), nil
 }
 
 func (f *Font) PdfInfo() (Rect, float64, float64, float64, float64, []int) {
