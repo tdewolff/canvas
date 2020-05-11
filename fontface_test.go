@@ -32,7 +32,7 @@ func TestFontFace(t *testing.T) {
 	face := family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal)
 
 	metrics := face.Metrics()
-	test.Float(t, metrics.Size, 12.0)
+	test.Float(t, face.Size, 12.0)
 	test.Float(t, metrics.LineHeight, 13.96875)
 	test.Float(t, metrics.Ascent, 11.140625)
 	test.Float(t, metrics.Descent, 2.828125)

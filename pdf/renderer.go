@@ -437,7 +437,14 @@ func (w *pdfWriter) getFont(font *canvas.Font) pdfRef {
 		cidSubtype = "CIDFontType0"
 	}
 
-	bounds, italicAngle, ascent, descent, capHeight, widths := font.PdfInfo()
+	units := font.UnitsPerEm()
+	f := 1000 / units // factor to cancel the units and scale to 1000 (pdf spec)
+
+	fWidths := font.Widths(units)
+	widths := make([]int, 0, len(fWidths))
+	for _, w := range fWidths {
+		widths = append(widths, int(w*f+0.5))
+	}
 
 	// shorten glyph widths array
 	DW := widths[0]
@@ -470,6 +477,8 @@ func (w *pdfWriter) getFont(font *canvas.Font) pdfRef {
 	}
 
 	baseFont := strings.ReplaceAll(font.Name(), " ", "_")
+	bounds := font.Bounds(units)
+	metrics := font.Metrics(units)
 	fontfileRef := w.writeObject(pdfStream{
 		dict: pdfDict{
 			"Subtype": pdfName(ffSubtype),
@@ -498,11 +507,11 @@ func (w *pdfWriter) getFont(font *canvas.Font) pdfRef {
 				"Type":        pdfName("FontDescriptor"),
 				"FontName":    pdfName(baseFont),
 				"Flags":       4,
-				"FontBBox":    pdfArray{int(bounds.X), -int(bounds.Y + bounds.H), int(bounds.X + bounds.W), -int(bounds.Y)},
-				"ItalicAngle": italicAngle,
-				"Ascent":      int(ascent),
-				"Descent":     -int(descent),
-				"CapHeight":   -int(capHeight),
+				"FontBBox":    pdfArray{int(f * bounds.X), -int(f * (bounds.Y + bounds.H)), int(f * (bounds.X + bounds.W)), -int(f * bounds.Y)},
+				"ItalicAngle": font.ItalicAngle(),
+				"Ascent":      int(f * metrics.Ascent),
+				"Descent":     -int(f * metrics.Descent),
+				"CapHeight":   -int(f * metrics.CapHeight),
 				"StemV":       80, // taken from Inkscape, should be calculated somehow
 				"StemH":       80,
 				"FontFile3":   fontfileRef,

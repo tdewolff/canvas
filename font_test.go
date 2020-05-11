@@ -16,13 +16,16 @@ func TestParseTTF(t *testing.T) {
 	test.Error(t, err)
 	test.That(t, font.sfnt.UnitsPerEm() == 2048)
 
-	bounds, italicAngle, ascent, descent, capHeight, widths := font.PdfInfo()
-	test.T(t, bounds, Rect{-769.53125, -1109.375, 2875, 1456.0546875})
-	test.Float(t, italicAngle, 0)
-	test.Float(t, ascent, 928.22265625)
-	test.Float(t, descent, 235.83984375)
-	test.Float(t, capHeight, -729.00390625)
-	test.T(t, len(widths), 3528)
+	units := font.UnitsPerEm()
+
+	test.T(t, font.Bounds(units), Rect{-1576, -2272, 5888, 2982})
+	test.Float(t, font.ItalicAngle(), 0)
+
+	metrics := font.Metrics(units)
+	test.Float(t, metrics.Ascent*1000/units, 928.22265625)
+	test.Float(t, metrics.Descent*1000/units, 235.83984375)
+	test.Float(t, metrics.CapHeight*1000/units, -729.00390625)
+	test.T(t, len(font.Widths(units)), 3528)
 
 	indices := font.IndicesOf("test")
 	test.T(t, len(indices), 4)

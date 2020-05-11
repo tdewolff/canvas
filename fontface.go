@@ -201,27 +201,15 @@ func (ff FontFace) Name() string {
 	return ff.Font.name
 }
 
-// FontMetrics contains a number of metrics that define a font face.
-type FontMetrics struct {
-	Size       float64
-	LineHeight float64
-	Ascent     float64
-	Descent    float64
-	XHeight    float64
-	CapHeight  float64
-}
-
 // Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explanation of the different metrics.
 func (ff FontFace) Metrics() FontMetrics {
-	buffer := &sfnt.Buffer{}
-	m, _ := ff.Font.sfnt.Metrics(buffer, toI26_6(ff.Size*ff.Scale), font.HintingNone)
+	m := ff.Font.Metrics(ff.Size * ff.Scale)
 	return FontMetrics{
-		Size:       ff.Size,
-		LineHeight: math.Abs(fromI26_6(m.Height)),
-		Ascent:     math.Abs(fromI26_6(m.Ascent)),
-		Descent:    math.Abs(fromI26_6(m.Descent)),
-		XHeight:    math.Abs(fromI26_6(m.XHeight)),
-		CapHeight:  math.Abs(fromI26_6(m.CapHeight)),
+		LineHeight: math.Abs(m.LineHeight),
+		Ascent:     math.Abs(m.Ascent),
+		Descent:    math.Abs(m.Descent),
+		XHeight:    math.Abs(m.XHeight),
+		CapHeight:  math.Abs(m.CapHeight),
 	}
 }
 
@@ -382,8 +370,8 @@ var FontUnderline FontDecorator = underline{}
 type underline struct{}
 
 func (underline) Decorate(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness
-	y := -ff.Metrics().Size * underlineDistance
+	r := ff.Size * underlineThickness
+	y := -ff.Size * underlineDistance
 
 	p := &Path{}
 	p.MoveTo(0.0, y)
@@ -397,8 +385,8 @@ var FontOverline FontDecorator = overline{}
 type overline struct{}
 
 func (overline) Decorate(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness
-	y := ff.Metrics().XHeight + ff.Metrics().Size*underlineDistance
+	r := ff.Size * underlineThickness
+	y := ff.Metrics().XHeight + ff.Size*underlineDistance
 
 	dx := ff.FauxItalic * y
 	w += ff.FauxItalic * y
@@ -415,7 +403,7 @@ var FontStrikethrough FontDecorator = strikethrough{}
 type strikethrough struct{}
 
 func (strikethrough) Decorate(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness
+	r := ff.Size * underlineThickness
 	y := ff.Metrics().XHeight / 2.0
 
 	dx := ff.FauxItalic * y
@@ -433,8 +421,8 @@ var FontDoubleUnderline FontDecorator = doubleUnderline{}
 type doubleUnderline struct{}
 
 func (doubleUnderline) Decorate(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness
-	y := -ff.Metrics().Size * underlineDistance * 0.75
+	r := ff.Size * underlineThickness
+	y := -ff.Size * underlineDistance * 0.75
 
 	p := &Path{}
 	p.MoveTo(0.0, y)
@@ -450,10 +438,10 @@ var FontDottedUnderline FontDecorator = dottedUnderline{}
 type dottedUnderline struct{}
 
 func (dottedUnderline) Decorate(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness * 0.8
+	r := ff.Size * underlineThickness * 0.8
 	w -= r
 
-	y := -ff.Metrics().Size * underlineDistance
+	y := -ff.Size * underlineDistance
 	d := 15.0 * underlineThickness
 	n := int((w-r)/d) + 1
 	d = (w - r) / float64(n-1)
@@ -471,8 +459,8 @@ var FontDashedUnderline FontDecorator = dashedUnderline{}
 type dashedUnderline struct{}
 
 func (dashedUnderline) Decorate(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness
-	y := -ff.Metrics().Size * underlineDistance
+	r := ff.Size * underlineThickness
+	y := -ff.Size * underlineDistance
 	d := 12.0 * underlineThickness
 	n := int(w / (2.0 * d))
 	d = w / float64(2*n-1)
@@ -490,11 +478,11 @@ var FontSineUnderline FontDecorator = sineUnderline{}
 type sineUnderline struct{}
 
 func (sineUnderline) Decorate(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness
+	r := ff.Size * underlineThickness
 	w -= r
 
-	dh := -ff.Metrics().Size * 0.15
-	y := -ff.Metrics().Size * underlineDistance
+	dh := -ff.Size * 0.15
+	y := -ff.Size * underlineDistance
 	d := 12.0 * underlineThickness
 	n := int(0.5 + w/d)
 	d = (w - r) / float64(n)
@@ -519,12 +507,12 @@ var FontSawtoothUnderline FontDecorator = sawtoothUnderline{}
 type sawtoothUnderline struct{}
 
 func (sawtoothUnderline) Decorate(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness
+	r := ff.Size * underlineThickness
 	dx := 0.707 * r
 	w -= 2.0 * dx
 
-	dh := -ff.Metrics().Size * 0.15
-	y := -ff.Metrics().Size * underlineDistance
+	dh := -ff.Size * 0.15
+	y := -ff.Size * underlineDistance
 	d := 8.0 * underlineThickness
 	n := int(0.5 + w/d)
 	d = w / float64(n)
