@@ -7,8 +7,8 @@ import (
 	"os"
 )
 
-const mmPerPt = 0.3527777777777778
-const ptPerMm = 2.8346456692913384
+const mmPerPt = 25.4 / 72
+const ptPerMm = 72 / 25.4
 const mmPerInch = 25.4
 const inchPerMm = 1 / 25.4
 

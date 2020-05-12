@@ -1,4 +1,4 @@
-package canvas
+package pdf
 
 import (
 	"bytes"
@@ -14,28 +14,27 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tdewolff/canvas"
 	canvasFont "github.com/tdewolff/canvas/font"
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/sfnt"
 )
 
 type PDF struct {
 	w             *pdfPageWriter
 	width, height float64
-	imgEnc        ImageEncoding
+	imgEnc        canvas.ImageEncoding
 }
 
 // NewPDF creates a portable document format renderer.
-func NewPDF(w io.Writer, width, height float64) *PDF {
+func New(w io.Writer, width, height float64) *PDF {
 	return &PDF{
 		w:      newPDFWriter(w).NewPage(width, height),
 		width:  width,
 		height: height,
-		imgEnc: Lossless,
+		imgEnc: canvas.Lossless,
 	}
 }
 
-func (r *PDF) SetImageEncoding(enc ImageEncoding) {
+func (r *PDF) SetImageEncoding(enc canvas.ImageEncoding) {
 	r.imgEnc = enc
 }
 
@@ -63,19 +62,19 @@ func (r *PDF) Size() (float64, float64) {
 	return r.width, r.height
 }
 
-func (r *PDF) RenderPath(path *Path, style Style, m Matrix) {
+func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
 	fill := style.FillColor.A != 0
 	stroke := style.StrokeColor.A != 0 && 0.0 < style.StrokeWidth
 	differentAlpha := fill && stroke && style.FillColor.A != style.StrokeColor.A
 
 	// PDFs don't support the arcs joiner, miter joiner (not clipped), or miter joiner (clipped) with non-bevel fallback
 	strokeUnsupported := false
-	if _, ok := style.StrokeJoiner.(ArcsJoiner); ok {
+	if _, ok := style.StrokeJoiner.(canvas.ArcsJoiner); ok {
 		strokeUnsupported = true
-	} else if miter, ok := style.StrokeJoiner.(MiterJoiner); ok {
+	} else if miter, ok := style.StrokeJoiner.(canvas.MiterJoiner); ok {
 		if math.IsNaN(miter.Limit) {
 			strokeUnsupported = true
-		} else if _, ok := miter.GapJoiner.(BevelJoiner); !ok {
+		} else if _, ok := miter.GapJoiner.(canvas.BevelJoiner); !ok {
 			strokeUnsupported = true
 		}
 	}
@@ -99,7 +98,7 @@ func (r *PDF) RenderPath(path *Path, style Style, m Matrix) {
 			r.w.Write([]byte(" "))
 			r.w.Write([]byte(data))
 			r.w.Write([]byte(" f"))
-			if style.FillRule == EvenOdd {
+			if style.FillRule == canvas.EvenOdd {
 				r.w.Write([]byte("*"))
 			}
 		} else if !fill && stroke {
@@ -115,7 +114,7 @@ func (r *PDF) RenderPath(path *Path, style Style, m Matrix) {
 			} else {
 				r.w.Write([]byte(" S"))
 			}
-			if style.FillRule == EvenOdd {
+			if style.FillRule == canvas.EvenOdd {
 				r.w.Write([]byte("*"))
 			}
 		} else if fill && stroke {
@@ -133,7 +132,7 @@ func (r *PDF) RenderPath(path *Path, style Style, m Matrix) {
 				} else {
 					r.w.Write([]byte(" B"))
 				}
-				if style.FillRule == EvenOdd {
+				if style.FillRule == canvas.EvenOdd {
 					r.w.Write([]byte("*"))
 				}
 			} else {
@@ -141,7 +140,7 @@ func (r *PDF) RenderPath(path *Path, style Style, m Matrix) {
 				r.w.Write([]byte(" "))
 				r.w.Write([]byte(data))
 				r.w.Write([]byte(" f"))
-				if style.FillRule == EvenOdd {
+				if style.FillRule == canvas.EvenOdd {
 					r.w.Write([]byte("*"))
 				}
 
@@ -157,7 +156,7 @@ func (r *PDF) RenderPath(path *Path, style Style, m Matrix) {
 				} else {
 					r.w.Write([]byte(" S"))
 				}
-				if style.FillRule == EvenOdd {
+				if style.FillRule == canvas.EvenOdd {
 					r.w.Write([]byte("*"))
 				}
 			}
@@ -169,7 +168,7 @@ func (r *PDF) RenderPath(path *Path, style Style, m Matrix) {
 			r.w.Write([]byte(" "))
 			r.w.Write([]byte(data))
 			r.w.Write([]byte(" f"))
-			if style.FillRule == EvenOdd {
+			if style.FillRule == canvas.EvenOdd {
 				r.w.Write([]byte("*"))
 			}
 		}
@@ -184,49 +183,44 @@ func (r *PDF) RenderPath(path *Path, style Style, m Matrix) {
 		r.w.Write([]byte(" "))
 		r.w.Write([]byte(path.ToPDF()))
 		r.w.Write([]byte(" f"))
-		if style.FillRule == EvenOdd {
+		if style.FillRule == canvas.EvenOdd {
 			r.w.Write([]byte("*"))
 		}
 	}
 }
 
-func (r *PDF) RenderText(text *Text, m Matrix) {
+func (r *PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 	r.w.StartTextObject()
-	for _, line := range text.lines {
-		for _, span := range line.spans {
-			r.w.SetFillColor(span.Face.Color)
-			r.w.SetFont(span.Face.font, span.Face.Size*span.Face.Scale)
-			r.w.SetTextPosition(m.Translate(span.dx, line.y).Shear(span.Face.fauxItalic, 0.0))
-			r.w.SetTextCharSpace(span.GlyphSpacing)
 
-			if 0.0 < span.Face.fauxBold {
-				r.w.SetTextRenderMode(2)
-				fmt.Fprintf(r.w, " %v w", dec(span.Face.fauxBold*2.0))
-			} else {
-				r.w.SetTextRenderMode(0)
-			}
+	text.WalkSpans(func(y, dx float64, span canvas.TextSpan) {
+		r.w.SetFillColor(span.Face.Color)
+		r.w.SetFont(span.Face.Font, span.Face.Size*span.Face.Scale)
+		r.w.SetTextPosition(m.Translate(dx, y).Shear(span.Face.FauxItalic, 0.0))
+		r.w.SetTextCharSpace(span.GlyphSpacing)
 
-			i := 0
-			TJ := []interface{}{}
-			for _, boundary := range span.boundaries {
-				if boundary.kind == wordBoundary || boundary.kind == eofBoundary {
-					j := boundary.pos + boundary.size
-					TJ = append(TJ, span.Text[i:j])
-					if boundary.kind == wordBoundary {
-						TJ = append(TJ, span.WordSpacing)
-					}
-					i = j
-				}
-			}
-			r.w.WriteText(TJ...)
+		if 0.0 < span.Face.FauxBold {
+			r.w.SetTextRenderMode(2)
+			fmt.Fprintf(r.w, " %v w", dec(span.Face.FauxBold*2.0))
+		} else {
+			r.w.SetTextRenderMode(0)
 		}
-	}
+
+		TJ := []interface{}{}
+		words := span.Words()
+		for i, w := range words {
+			TJ = append(TJ, w)
+			if i != len(words)-1 {
+				TJ = append(TJ, span.WordSpacing)
+			}
+		}
+		r.w.WriteText(TJ...)
+	})
 	r.w.EndTextObject()
 
 	text.RenderDecoration(r, m)
 }
 
-func (r *PDF) RenderImage(img image.Image, m Matrix) {
+func (r *PDF) RenderImage(img image.Image, m canvas.Matrix) {
 	r.w.DrawImage(img, r.imgEnc, m)
 }
 
@@ -237,7 +231,7 @@ type pdfWriter struct {
 	pos        int
 	objOffsets []int
 
-	fonts    map[*Font]pdfRef
+	fonts    map[*canvas.Font]pdfRef
 	pages    []*pdfPageWriter
 	compress bool
 	title    string
@@ -249,7 +243,7 @@ type pdfWriter struct {
 func newPDFWriter(writer io.Writer) *pdfWriter {
 	w := &pdfWriter{
 		w:          writer,
-		fonts:      map[*Font]pdfRef{},
+		fonts:      map[*canvas.Font]pdfRef{},
 		objOffsets: []int{0, 0, 0}, // catalog, metadata, page tree
 	}
 
@@ -416,7 +410,7 @@ func (w *pdfWriter) writeObject(val interface{}) pdfRef {
 	return pdfRef(len(w.objOffsets))
 }
 
-func (w *pdfWriter) getFont(font *Font) pdfRef {
+func (w *pdfWriter) getFont(font *canvas.Font) pdfRef {
 	if ref, ok := w.fonts[font]; ok {
 		return ref
 	}
@@ -443,7 +437,14 @@ func (w *pdfWriter) getFont(font *Font) pdfRef {
 		cidSubtype = "CIDFontType0"
 	}
 
-	bounds, italicAngle, ascent, descent, capHeight, widths := font.pdfInfo()
+	units := font.UnitsPerEm()
+	f := 1000 / units // factor to cancel the units and scale to 1000 (pdf spec)
+
+	fWidths := font.Widths(units)
+	widths := make([]int, 0, len(fWidths))
+	for _, w := range fWidths {
+		widths = append(widths, int(w*f+0.5))
+	}
 
 	// shorten glyph widths array
 	DW := widths[0]
@@ -475,7 +476,9 @@ func (w *pdfWriter) getFont(font *Font) pdfRef {
 		W = append(W, i, arr)
 	}
 
-	baseFont := strings.ReplaceAll(font.name, " ", "_")
+	baseFont := strings.ReplaceAll(font.Name(), " ", "_")
+	bounds := font.Bounds(units)
+	metrics := font.Metrics(units)
 	fontfileRef := w.writeObject(pdfStream{
 		dict: pdfDict{
 			"Subtype": pdfName(ffSubtype),
@@ -504,11 +507,11 @@ func (w *pdfWriter) getFont(font *Font) pdfRef {
 				"Type":        pdfName("FontDescriptor"),
 				"FontName":    pdfName(baseFont),
 				"Flags":       4,
-				"FontBBox":    pdfArray{int(bounds.X), -int(bounds.Y + bounds.H), int(bounds.X + bounds.W), -int(bounds.Y)},
-				"ItalicAngle": italicAngle,
-				"Ascent":      int(ascent),
-				"Descent":     -int(descent),
-				"CapHeight":   -int(capHeight),
+				"FontBBox":    pdfArray{int(f * bounds.X), -int(f * (bounds.Y + bounds.H)), int(f * (bounds.X + bounds.W)), -int(f * bounds.Y)},
+				"ItalicAngle": font.ItalicAngle(),
+				"Ascent":      int(f * metrics.Ascent),
+				"Descent":     -int(f * metrics.Descent),
+				"CapHeight":   -int(f * metrics.CapHeight),
 				"StemV":       80, // taken from Inkscape, should be calculated somehow
 				"StemH":       80,
 				"FontFile3":   fontfileRef,
@@ -598,10 +601,10 @@ type pdfPageWriter struct {
 	lineJoin       int
 	miterLimit     float64
 	dashes         []float64
-	font           *Font
+	font           *canvas.Font
 	fontSize       float64
 	inTextObject   bool
-	textPosition   Matrix
+	textPosition   canvas.Matrix
 	textCharSpace  float64
 	textRenderMode int
 }
@@ -616,8 +619,8 @@ func (w *pdfWriter) NewPage(width, height float64) *pdfPageWriter {
 		resources:      pdfDict{},
 		graphicsStates: map[float64]pdfName{},
 		alpha:          1.0,
-		fillColor:      Black,
-		strokeColor:    Black,
+		fillColor:      canvas.Black,
+		strokeColor:    canvas.Black,
 		lineWidth:      1.0,
 		lineCap:        0,
 		lineJoin:       0,
@@ -626,13 +629,13 @@ func (w *pdfWriter) NewPage(width, height float64) *pdfPageWriter {
 		font:           nil,
 		fontSize:       0.0,
 		inTextObject:   false,
-		textPosition:   Identity,
+		textPosition:   canvas.Identity,
 		textCharSpace:  0.0,
 		textRenderMode: 0,
 	}
 	w.pages = append(w.pages, page)
 
-	m := Identity.Scale(ptPerMm, ptPerMm)
+	m := canvas.Identity.Scale(ptPerMm, ptPerMm)
 	fmt.Fprintf(page, " %v %v %v %v %v %v cm", dec(m[0][0]), dec(m[1][0]), dec(m[0][1]), dec(m[1][1]), dec(m[0][2]), dec(m[1][2]))
 	return page
 }
@@ -706,13 +709,13 @@ func (w *pdfPageWriter) SetLineWidth(lineWidth float64) {
 	}
 }
 
-func (w *pdfPageWriter) SetLineCap(capper Capper) {
+func (w *pdfPageWriter) SetLineCap(capper canvas.Capper) {
 	var lineCap int
-	if _, ok := capper.(ButtCapper); ok {
+	if _, ok := capper.(canvas.ButtCapper); ok {
 		lineCap = 0
-	} else if _, ok := capper.(RoundCapper); ok {
+	} else if _, ok := capper.(canvas.RoundCapper); ok {
 		lineCap = 1
-	} else if _, ok := capper.(SquareCapper); ok {
+	} else if _, ok := capper.(canvas.SquareCapper); ok {
 		lineCap = 2
 	} else {
 		panic("PDF: line cap not support")
@@ -723,14 +726,14 @@ func (w *pdfPageWriter) SetLineCap(capper Capper) {
 	}
 }
 
-func (w *pdfPageWriter) SetLineJoin(joiner Joiner) {
+func (w *pdfPageWriter) SetLineJoin(joiner canvas.Joiner) {
 	var lineJoin int
 	var miterLimit float64
-	if _, ok := joiner.(BevelJoiner); ok {
+	if _, ok := joiner.(canvas.BevelJoiner); ok {
 		lineJoin = 2
-	} else if _, ok := joiner.(RoundJoiner); ok {
+	} else if _, ok := joiner.(canvas.RoundJoiner); ok {
 		lineJoin = 1
-	} else if miter, ok := joiner.(MiterJoiner); ok {
+	} else if miter, ok := joiner.(canvas.MiterJoiner); ok {
 		lineJoin = 0
 		if math.IsNaN(miter.Limit) {
 			panic("PDF: line join not support")
@@ -782,7 +785,7 @@ func (w *pdfPageWriter) SetDashes(dashPhase float64, dashArray []float64) {
 	}
 }
 
-func (w *pdfPageWriter) SetFont(font *Font, size float64) {
+func (w *pdfPageWriter) SetFont(font *canvas.Font, size float64) {
 	if !w.inTextObject {
 		panic("must be in text object")
 	}
@@ -808,7 +811,7 @@ func (w *pdfPageWriter) SetFont(font *Font, size float64) {
 	}
 }
 
-func (w *pdfPageWriter) SetTextPosition(m Matrix) {
+func (w *pdfPageWriter) SetTextPosition(m canvas.Matrix) {
 	if !w.inTextObject {
 		panic("must be in text object")
 	}
@@ -816,8 +819,8 @@ func (w *pdfPageWriter) SetTextPosition(m Matrix) {
 		return
 	}
 
-	if Equal(m[0][0], w.textPosition[0][0]) && Equal(m[0][1], w.textPosition[0][1]) && Equal(m[1][0], w.textPosition[1][0]) && Equal(m[1][1], w.textPosition[1][1]) {
-		d := w.textPosition.Inv().Dot(Point{m[0][2], m[1][2]})
+	if canvas.Equal(m[0][0], w.textPosition[0][0]) && canvas.Equal(m[0][1], w.textPosition[0][1]) && canvas.Equal(m[1][0], w.textPosition[1][0]) && canvas.Equal(m[1][1], w.textPosition[1][1]) {
+		d := w.textPosition.Inv().Dot(canvas.Point{m[0][2], m[1][2]})
 		fmt.Fprintf(w, " %v %v Td", dec(d.X), dec(d.Y))
 	} else {
 		fmt.Fprintf(w, " %v %v %v %v %v %v Tm", dec(m[0][0]), dec(m[1][0]), dec(m[0][1]), dec(m[1][1]), dec(m[0][2]), dec(m[1][2]))
@@ -839,7 +842,7 @@ func (w *pdfPageWriter) SetTextCharSpace(space float64) {
 	if !w.inTextObject {
 		panic("must be in text object")
 	}
-	if !Equal(w.textCharSpace, space) {
+	if !canvas.Equal(w.textCharSpace, space) {
 		fmt.Fprintf(w, " %v Tc", dec(space))
 		w.textCharSpace = space
 	}
@@ -850,7 +853,7 @@ func (w *pdfPageWriter) StartTextObject() {
 		panic("already in text object")
 	}
 	fmt.Fprintf(w, " BT")
-	w.textPosition = Identity
+	w.textPosition = canvas.Identity
 	w.inTextObject = true
 }
 
@@ -870,8 +873,6 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 		return
 	}
 
-	units := float64(w.font.sfnt.UnitsPerEm())
-
 	first := true
 	write := func(s string) {
 		if first {
@@ -882,7 +883,7 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 		}
 
 		buf := &bytes.Buffer{}
-		indices := w.font.toIndices(s)
+		indices := w.font.IndicesOf(s)
 		binary.Write(buf, binary.BigEndian, indices)
 
 		s = buf.String()
@@ -892,7 +893,7 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 		fmt.Fprintf(w, "%s)", s)
 	}
 
-	var sfntBuffer sfnt.Buffer
+	units := w.font.UnitsPerEm()
 	fmt.Fprintf(w, "[")
 	for _, tj := range TJ {
 		switch val := tj.(type) {
@@ -901,15 +902,10 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 			var rPrev rune
 			for j, r := range val {
 				if i < j {
-					i0, err0 := w.font.sfnt.GlyphIndex(&sfntBuffer, rPrev)
-					i1, err1 := w.font.sfnt.GlyphIndex(&sfntBuffer, r)
-					if err0 == nil && err1 == nil {
-						kern, err := w.font.sfnt.Kern(&sfntBuffer, i0, i1, toI26_6(units), font.HintingNone)
-						if err == nil && kern != 0.0 {
-							write(val[i:j])
-							fmt.Fprintf(w, " %d", -int(fromI26_6(kern)*1000.0/units+0.5))
-							i = j
-						}
+					if kern, err := w.font.Kerning(rPrev, r, units); err == nil && kern != 0.0 {
+						write(val[i:j])
+						fmt.Fprintf(w, " %d", -int(kern*1000/units+0.5))
+						i = j
 					}
 				}
 				rPrev = r
@@ -924,15 +920,15 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 	fmt.Fprintf(w, "]TJ")
 }
 
-func (w *pdfPageWriter) DrawImage(img image.Image, enc ImageEncoding, m Matrix) {
+func (w *pdfPageWriter) DrawImage(img image.Image, enc canvas.ImageEncoding, m canvas.Matrix) {
 	size := img.Bounds().Size()
 
 	// add clipping path around image for smooth edges when rotating
-	outerRect := Rect{0.0, 0.0, float64(size.X), float64(size.Y)}.Transform(m)
-	bl := m.Dot(Point{0, 0})
-	br := m.Dot(Point{float64(size.X), 0})
-	tl := m.Dot(Point{0, float64(size.Y)})
-	tr := m.Dot(Point{float64(size.X), float64(size.Y)})
+	outerRect := canvas.Rect{0.0, 0.0, float64(size.X), float64(size.Y)}.Transform(m)
+	bl := m.Dot(canvas.Point{0, 0})
+	br := m.Dot(canvas.Point{float64(size.X), 0})
+	tl := m.Dot(canvas.Point{0, float64(size.Y)})
+	tr := m.Dot(canvas.Point{float64(size.X), float64(size.Y)})
 	fmt.Fprintf(w, " q %v %v %v %v re W n", dec(outerRect.X), dec(outerRect.Y), dec(outerRect.W), dec(outerRect.H))
 	fmt.Fprintf(w, " %v %v m %v %v l %v %v l %v %v l h W n", dec(bl.X), dec(bl.Y), dec(tl.X), dec(tl.Y), dec(tr.X), dec(tr.Y), dec(br.X), dec(br.Y))
 
@@ -942,7 +938,7 @@ func (w *pdfPageWriter) DrawImage(img image.Image, enc ImageEncoding, m Matrix) 
 	fmt.Fprintf(w, " %v %v %v %v %v %v cm /%v Do Q", dec(m[0][0]), dec(m[1][0]), dec(m[0][1]), dec(m[1][1]), dec(m[0][2]), dec(m[1][2]), name)
 }
 
-func (w *pdfPageWriter) embedImage(img image.Image, enc ImageEncoding) pdfName {
+func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pdfName {
 	size := img.Bounds().Size()
 	sp := img.Bounds().Min // starting point
 	b := make([]byte, size.X*size.Y*3)

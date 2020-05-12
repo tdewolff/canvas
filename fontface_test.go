@@ -11,18 +11,18 @@ func TestFontFamily(t *testing.T) {
 	family.LoadFontFile("font/DejaVuSerif.ttf", FontRegular)
 
 	face := family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal)
-	test.Float(t, face.fauxBold, 0.0)
+	test.Float(t, face.FauxBold, 0.0)
 	test.T(t, face.Boldness(), 400)
 
 	face = family.Face(12.0*ptPerMm, Black, FontBold|FontItalic, FontNormal)
-	test.Float(t, face.fauxBold, 0.24)
-	test.Float(t, face.fauxItalic, 0.3)
+	test.Float(t, face.FauxBold, 0.24)
+	test.Float(t, face.FauxItalic, 0.3)
 	test.T(t, face.Boldness(), 700)
 
 	face = family.Face(12.0*ptPerMm, Black, FontBold|FontItalic, FontSubscript)
 	test.Float(t, face.Voffset, -12.0*0.33)
-	test.Float(t, face.fauxBold, 0.48*0.583)
-	test.Float(t, face.fauxItalic, 0.3)
+	test.Float(t, face.FauxBold, 0.48*0.583)
+	test.Float(t, face.FauxItalic, 0.3)
 	test.T(t, face.Boldness(), 1000)
 }
 
@@ -32,7 +32,7 @@ func TestFontFace(t *testing.T) {
 	face := family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal)
 
 	metrics := face.Metrics()
-	test.Float(t, metrics.Size, 12.0)
+	test.Float(t, face.Size, 12.0)
 	test.Float(t, metrics.LineHeight, 13.96875)
 	test.Float(t, metrics.Ascent, 11.140625)
 	test.Float(t, metrics.Descent, 2.828125)

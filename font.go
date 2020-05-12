@@ -70,43 +70,94 @@ func (f *Font) Raw() (string, []byte) {
 	return f.mimetype, f.raw
 }
 
-func (f *Font) pdfInfo() (Rect, float64, float64, float64, float64, []int) {
-	buffer := &sfnt.Buffer{}
-	units := float64(f.sfnt.UnitsPerEm())
-
-	bounds := Rect{}
-	rect, err := f.sfnt.Bounds(buffer, toI26_6(units), font.HintingNone)
-	if err == nil {
-		x0, y0 := fromI26_6(rect.Min.X)*1000.0/units, fromI26_6(rect.Min.Y)*1000.0/units
-		x1, y1 := fromI26_6(rect.Max.X)*1000.0/units, fromI26_6(rect.Max.Y)*1000.0/units
-		bounds = Rect{x0, y0, x1 - x0, y1 - y0}
-	}
-
-	italicAngle := 0.0
-	if f.sfnt.PostTable() != nil {
-		italicAngle = f.sfnt.PostTable().ItalicAngle
-	}
-
-	ascent, descent, capHeight := 0.0, 0.0, 0.0
-	metrics, err := f.sfnt.Metrics(buffer, toI26_6(units), font.HintingNone)
-	if err == nil {
-		ascent = fromI26_6(metrics.Ascent) * 1000.0 / units
-		descent = fromI26_6(metrics.Descent) * 1000.0 / units
-		capHeight = fromI26_6(metrics.CapHeight) * 1000.0 / units
-	}
-
-	widths := []int{}
-	for i := 0; i < f.sfnt.NumGlyphs(); i++ {
-		index := sfnt.GlyphIndex(i)
-		advance, err := f.sfnt.GlyphAdvance(buffer, index, toI26_6(units), font.HintingNone)
-		if err == nil {
-			widths = append(widths, int(fromI26_6(advance)*1000.0/units+0.5))
-		}
-	}
-	return bounds, italicAngle, ascent, descent, capHeight, widths
+// UnitsPerEm returns the number of units per em for f.
+func (f *Font) UnitsPerEm() float64 {
+	return float64(f.sfnt.UnitsPerEm())
 }
 
-func (f *Font) toIndices(s string) []uint16 {
+// Kerning returns the horizontal adjustment for the rune pair. A positive kern means to move the glyphs further apart.
+// Returns 0 if there is an error.
+func (f *Font) Kerning(left, right rune, ppem float64) (float64, error) {
+	var sfntBuffer sfnt.Buffer
+
+	iLeft, err := f.sfnt.GlyphIndex(&sfntBuffer, left)
+	if err != nil {
+		return 0, err
+	}
+	iRight, err := f.sfnt.GlyphIndex(&sfntBuffer, right)
+	if err != nil {
+		return 0, err
+	}
+
+	kern, err := f.sfnt.Kern(&sfntBuffer, iLeft, iRight, toI26_6(ppem), font.HintingNone)
+	if err != nil {
+		return 0, err
+	}
+
+	return fromI26_6(kern), nil
+}
+
+// Bounds returns the union of a Font's glyphs' bounds.
+func (f *Font) Bounds(ppem float64) Rect {
+	rect, err := f.sfnt.Bounds(nil, toI26_6(ppem), font.HintingNone)
+	if err != nil {
+		// never happens in sfnt
+		return Rect{}
+	}
+	x0, y0 := fromI26_6(rect.Min.X), fromI26_6(rect.Min.Y)
+	x1, y1 := fromI26_6(rect.Max.X), fromI26_6(rect.Max.Y)
+	return Rect{x0, y0, x1 - x0, y1 - y0}
+}
+
+// ItalicAngle in counter-clockwise degrees from the vertical. Zero for
+// upright text, negative for text that leans to the right (forward).
+func (f *Font) ItalicAngle() float64 {
+	table := f.sfnt.PostTable()
+	if table == nil {
+		return 0
+	}
+	return table.ItalicAngle
+}
+
+// FontMetrics contains a number of metrics that define a font face.
+// See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explanation of the different metrics.
+type FontMetrics struct {
+	LineHeight float64
+	Ascent     float64
+	Descent    float64
+	XHeight    float64
+	CapHeight  float64
+}
+
+// Metrics returns the font metrics.
+func (f *Font) Metrics(ppem float64) FontMetrics {
+	metrics, err := f.sfnt.Metrics(nil, toI26_6(ppem), font.HintingNone)
+	if err != nil {
+		return FontMetrics{}
+	}
+	return FontMetrics{
+		LineHeight: fromI26_6(metrics.Height),
+		Ascent:     fromI26_6(metrics.Ascent),
+		Descent:    fromI26_6(metrics.Descent),
+		XHeight:    fromI26_6(metrics.XHeight),
+		CapHeight:  fromI26_6(metrics.CapHeight),
+	}
+}
+
+func (f *Font) Widths(ppem float64) []float64 {
+	buffer := &sfnt.Buffer{}
+	widths := []float64{}
+	for i := 0; i < f.sfnt.NumGlyphs(); i++ {
+		index := sfnt.GlyphIndex(i)
+		advance, err := f.sfnt.GlyphAdvance(buffer, index, toI26_6(ppem), font.HintingNone)
+		if err == nil {
+			widths = append(widths, fromI26_6(advance))
+		}
+	}
+	return widths
+}
+
+func (f *Font) IndicesOf(s string) []uint16 {
 	buffer := &sfnt.Buffer{}
 	runes := []rune(s)
 	indices := make([]uint16, len(runes))

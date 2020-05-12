@@ -164,7 +164,7 @@ func (family *FontFamily) Face(size float64, col color.Color, style FontStyle, v
 	r, g, b, a := col.RGBA()
 	return FontFace{
 		family:     family,
-		font:       font,
+		Font:       font,
 		Size:       size,
 		Style:      style,
 		Variant:    variant,
@@ -172,15 +172,15 @@ func (family *FontFamily) Face(size float64, col color.Color, style FontStyle, v
 		deco:       deco,
 		Scale:      scale,
 		Voffset:    voffset,
-		fauxItalic: fauxItalic,
-		fauxBold:   fauxBold * size * scale,
+		FauxItalic: fauxItalic,
+		FauxBold:   fauxBold * size * scale,
 	}
 }
 
 // FontFace defines a font face from a given font. It allows setting the font size, its color, faux styles and font decorations.
 type FontFace struct {
 	family *FontFamily
-	font   *Font
+	Font   *Font
 
 	Size    float64
 	Style   FontStyle
@@ -188,61 +188,35 @@ type FontFace struct {
 	Color   color.RGBA
 	deco    []FontDecorator
 
-	Scale, Voffset, fauxBold, fauxItalic float64 // consequences of font style and variant
+	Scale, Voffset, FauxBold, FauxItalic float64 // consequences of font style and variant
 }
 
 // Equals returns true when two font face are equal. In particular this allows two adjacent text spans that use the same decoration to allow the decoration to span both elements instead of two separately.
 func (ff FontFace) Equals(other FontFace) bool {
-	return ff.font == other.font && ff.Size == other.Size && ff.Style == other.Style && ff.Variant == other.Variant && ff.Color == other.Color && reflect.DeepEqual(ff.deco, other.deco)
+	return ff.Font == other.Font && ff.Size == other.Size && ff.Style == other.Style && ff.Variant == other.Variant && ff.Color == other.Color && reflect.DeepEqual(ff.deco, other.deco)
 }
 
 // Name returns the name of the underlying font
 func (ff FontFace) Name() string {
-	return ff.font.name
-}
-
-// FontMetrics contains a number of metrics that define a font face.
-type FontMetrics struct {
-	Size       float64
-	LineHeight float64
-	Ascent     float64
-	Descent    float64
-	XHeight    float64
-	CapHeight  float64
+	return ff.Font.name
 }
 
 // Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explanation of the different metrics.
 func (ff FontFace) Metrics() FontMetrics {
-	buffer := &sfnt.Buffer{}
-	m, _ := ff.font.sfnt.Metrics(buffer, toI26_6(ff.Size*ff.Scale), font.HintingNone)
+	m := ff.Font.Metrics(ff.Size * ff.Scale)
 	return FontMetrics{
-		Size:       ff.Size,
-		LineHeight: math.Abs(fromI26_6(m.Height)),
-		Ascent:     math.Abs(fromI26_6(m.Ascent)),
-		Descent:    math.Abs(fromI26_6(m.Descent)),
-		XHeight:    math.Abs(fromI26_6(m.XHeight)),
-		CapHeight:  math.Abs(fromI26_6(m.CapHeight)),
+		LineHeight: math.Abs(m.LineHeight),
+		Ascent:     math.Abs(m.Ascent),
+		Descent:    math.Abs(m.Descent),
+		XHeight:    math.Abs(m.XHeight),
+		CapHeight:  math.Abs(m.CapHeight),
 	}
 }
 
-// Kerning returns the kerning between two runes in mm (ie. the adjustment on the advance).
+// Kerning returns the eventual kerning between two runes in mm (ie. the adjustment on the advance).
 func (ff FontFace) Kerning(rPrev, rNext rune) float64 {
-	buffer := &sfnt.Buffer{}
-	prevIndex, err := ff.font.sfnt.GlyphIndex(buffer, rPrev)
-	if err != nil {
-		return 0.0
-	}
-
-	nextIndex, err := ff.font.sfnt.GlyphIndex(buffer, rNext)
-	if err != nil {
-		return 0.0
-	}
-
-	kern, err := ff.font.sfnt.Kern(buffer, prevIndex, nextIndex, toI26_6(ff.Size*ff.Scale), font.HintingNone)
-	if err == nil {
-		return fromI26_6(kern)
-	}
-	return 0.0
+	k, _ := ff.Font.Kerning(rPrev, rNext, ff.Size*ff.Scale)
+	return k
 }
 
 // TextWidth returns the width of a given string in mm.
@@ -251,18 +225,18 @@ func (ff FontFace) TextWidth(s string) float64 {
 	w := 0.0
 	var prevIndex sfnt.GlyphIndex
 	for i, r := range s {
-		index, err := ff.font.sfnt.GlyphIndex(buffer, r)
+		index, err := ff.Font.sfnt.GlyphIndex(buffer, r)
 		if err != nil {
 			continue
 		}
 
 		if i != 0 {
-			kern, err := ff.font.sfnt.Kern(buffer, prevIndex, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
+			kern, err := ff.Font.sfnt.Kern(buffer, prevIndex, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
 			if err == nil {
 				w += fromI26_6(kern)
 			}
 		}
-		advance, err := ff.font.sfnt.GlyphAdvance(buffer, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
+		advance, err := ff.Font.sfnt.GlyphAdvance(buffer, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
 		if err == nil {
 			w += fromI26_6(advance)
 		}
@@ -289,12 +263,12 @@ func (ff FontFace) ToPath(s string) (*Path, float64) {
 	x := 0.0
 	var prevIndex sfnt.GlyphIndex
 	for i, r := range s {
-		index, err := ff.font.sfnt.GlyphIndex(buffer, r)
+		index, err := ff.Font.sfnt.GlyphIndex(buffer, r)
 		if err != nil {
 			return p, 0.0
 		}
 
-		segments, err := ff.font.sfnt.LoadGlyph(buffer, index, toI26_6(ff.Size*ff.Scale), nil)
+		segments, err := ff.Font.sfnt.LoadGlyph(buffer, index, toI26_6(ff.Size*ff.Scale), nil)
 		if err != nil {
 			return p, 0.0
 		}
@@ -307,43 +281,43 @@ func (ff FontFace) ToPath(s string) (*Path, float64) {
 					p.Close()
 				}
 				end = fromP26_6(segment.Args[0])
-				end.X += ff.fauxItalic * -end.Y
+				end.X += ff.FauxItalic * -end.Y
 				p.MoveTo(x+end.X, ff.Voffset-end.Y)
 				start0 = end
 			case sfnt.SegmentOpLineTo:
 				end = fromP26_6(segment.Args[0])
-				end.X += ff.fauxItalic * -end.Y
+				end.X += ff.FauxItalic * -end.Y
 				p.LineTo(x+end.X, ff.Voffset-end.Y)
 			case sfnt.SegmentOpQuadTo:
 				cp := fromP26_6(segment.Args[0])
 				end = fromP26_6(segment.Args[1])
-				cp.X += ff.fauxItalic * -cp.Y
-				end.X += ff.fauxItalic * -end.Y
+				cp.X += ff.FauxItalic * -cp.Y
+				end.X += ff.FauxItalic * -end.Y
 				p.QuadTo(x+cp.X, ff.Voffset-cp.Y, x+end.X, ff.Voffset-end.Y)
 			case sfnt.SegmentOpCubeTo:
 				cp1 := fromP26_6(segment.Args[0])
 				cp2 := fromP26_6(segment.Args[1])
 				end = fromP26_6(segment.Args[2])
-				cp1.X += ff.fauxItalic * -cp1.Y
-				cp2.X += ff.fauxItalic * -cp2.Y
-				end.X += ff.fauxItalic * -end.Y
+				cp1.X += ff.FauxItalic * -cp1.Y
+				cp2.X += ff.FauxItalic * -cp2.Y
+				end.X += ff.FauxItalic * -end.Y
 				p.CubeTo(x+cp1.X, ff.Voffset-cp1.Y, x+cp2.X, ff.Voffset-cp2.Y, x+end.X, ff.Voffset-end.Y)
 			}
 		}
 		if !p.Empty() && start0.Equals(end) {
 			p.Close()
 		}
-		if ff.fauxBold != 0.0 {
-			p = p.Offset(ff.fauxBold, NonZero)
+		if ff.FauxBold != 0.0 {
+			p = p.Offset(ff.FauxBold, NonZero)
 		}
 
 		if i != 0 {
-			kern, err := ff.font.sfnt.Kern(buffer, prevIndex, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
+			kern, err := ff.Font.sfnt.Kern(buffer, prevIndex, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
 			if err == nil {
 				x += fromI26_6(kern)
 			}
 		}
-		advance, err := ff.font.sfnt.GlyphAdvance(buffer, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
+		advance, err := ff.Font.sfnt.GlyphAdvance(buffer, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
 		if err == nil {
 			x += fromI26_6(advance)
 		}
@@ -396,8 +370,8 @@ var FontUnderline FontDecorator = underline{}
 type underline struct{}
 
 func (underline) Decorate(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness
-	y := -ff.Metrics().Size * underlineDistance
+	r := ff.Size * underlineThickness
+	y := -ff.Size * underlineDistance
 
 	p := &Path{}
 	p.MoveTo(0.0, y)
@@ -411,11 +385,11 @@ var FontOverline FontDecorator = overline{}
 type overline struct{}
 
 func (overline) Decorate(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness
-	y := ff.Metrics().XHeight + ff.Metrics().Size*underlineDistance
+	r := ff.Size * underlineThickness
+	y := ff.Metrics().XHeight + ff.Size*underlineDistance
 
-	dx := ff.fauxItalic * y
-	w += ff.fauxItalic * y
+	dx := ff.FauxItalic * y
+	w += ff.FauxItalic * y
 
 	p := &Path{}
 	p.MoveTo(dx, y)
@@ -429,11 +403,11 @@ var FontStrikethrough FontDecorator = strikethrough{}
 type strikethrough struct{}
 
 func (strikethrough) Decorate(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness
+	r := ff.Size * underlineThickness
 	y := ff.Metrics().XHeight / 2.0
 
-	dx := ff.fauxItalic * y
-	w += ff.fauxItalic * y
+	dx := ff.FauxItalic * y
+	w += ff.FauxItalic * y
 
 	p := &Path{}
 	p.MoveTo(dx, y)
@@ -447,8 +421,8 @@ var FontDoubleUnderline FontDecorator = doubleUnderline{}
 type doubleUnderline struct{}
 
 func (doubleUnderline) Decorate(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness
-	y := -ff.Metrics().Size * underlineDistance * 0.75
+	r := ff.Size * underlineThickness
+	y := -ff.Size * underlineDistance * 0.75
 
 	p := &Path{}
 	p.MoveTo(0.0, y)
@@ -464,10 +438,10 @@ var FontDottedUnderline FontDecorator = dottedUnderline{}
 type dottedUnderline struct{}
 
 func (dottedUnderline) Decorate(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness * 0.8
+	r := ff.Size * underlineThickness * 0.8
 	w -= r
 
-	y := -ff.Metrics().Size * underlineDistance
+	y := -ff.Size * underlineDistance
 	d := 15.0 * underlineThickness
 	n := int((w-r)/d) + 1
 	d = (w - r) / float64(n-1)
@@ -485,8 +459,8 @@ var FontDashedUnderline FontDecorator = dashedUnderline{}
 type dashedUnderline struct{}
 
 func (dashedUnderline) Decorate(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness
-	y := -ff.Metrics().Size * underlineDistance
+	r := ff.Size * underlineThickness
+	y := -ff.Size * underlineDistance
 	d := 12.0 * underlineThickness
 	n := int(w / (2.0 * d))
 	d = w / float64(2*n-1)
@@ -504,11 +478,11 @@ var FontSineUnderline FontDecorator = sineUnderline{}
 type sineUnderline struct{}
 
 func (sineUnderline) Decorate(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness
+	r := ff.Size * underlineThickness
 	w -= r
 
-	dh := -ff.Metrics().Size * 0.15
-	y := -ff.Metrics().Size * underlineDistance
+	dh := -ff.Size * 0.15
+	y := -ff.Size * underlineDistance
 	d := 12.0 * underlineThickness
 	n := int(0.5 + w/d)
 	d = (w - r) / float64(n)
@@ -533,12 +507,12 @@ var FontSawtoothUnderline FontDecorator = sawtoothUnderline{}
 type sawtoothUnderline struct{}
 
 func (sawtoothUnderline) Decorate(ff FontFace, w float64) *Path {
-	r := ff.Metrics().Size * underlineThickness
+	r := ff.Size * underlineThickness
 	dx := 0.707 * r
 	w -= 2.0 * dx
 
-	dh := -ff.Metrics().Size * 0.15
-	y := -ff.Metrics().Size * underlineDistance
+	dh := -ff.Size * 0.15
+	y := -ff.Size * underlineDistance
 	d := 8.0 * underlineThickness
 	n := int(0.5 + w/d)
 	d = w / float64(n)
