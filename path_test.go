@@ -603,12 +603,13 @@ func TestPathParseSVGErrors(t *testing.T) {
 		err  string
 	}{
 		{"5", "bad path: path should start with command"},
-		{"MM", "bad path: 2 numbers should follow command 'M' at position 1"},
-		{"A10 10 000 20 0", "bad path: largeArc and sweep flags should be 0 or 1 in command 'A' at position 11"},
-		{"A10 10 0 23 20 0", "bad path: largeArc and sweep flags should be 0 or 1 in command 'A' at position 9"},
+		{"MM", "bad path: 2 numbers should follow command 'M' at position 2"},
+		{"A10 10 000 20 0", "bad path: largeArc and sweep flags should be 0 or 1 in command 'A' at position 12"},
+		{"A10 10 0 23 20 0", "bad path: largeArc and sweep flags should be 0 or 1 in command 'A' at position 10"},
 
 		// go-fuzz
-		{"V4-z\n0ìGßIzØ", "bad path: unknown command '0' at position 6"},
+		{"V4-z\n0ìGßIzØ", "bad path: unknown command '-' at position 3"},
+		{"ae000e000e00", "bad path: 7 numbers should follow command 'a' at position 2"},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {

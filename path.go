@@ -1417,8 +1417,10 @@ func ParseSVG(s string) (*Path, error) {
 		}
 
 		cmd := prevCmd
+		repeat := true
 		if cmd == 'z' || cmd == 'Z' || !(path[i] >= '0' && path[i] <= '9' || path[i] == '.' || path[i] == '-' || path[i] == '+') {
 			cmd = path[i]
+			repeat = false
 			i++
 		}
 
@@ -1435,13 +1437,17 @@ func ParseSVG(s string) (*Path, error) {
 				} else if path[i] == '0' {
 					f[j] = 0.0
 				} else {
-					return nil, fmt.Errorf("bad path: largeArc and sweep flags should be 0 or 1 in command '%c' at position %d", cmd, i)
+					return nil, fmt.Errorf("bad path: largeArc and sweep flags should be 0 or 1 in command '%c' at position %d", cmd, i+1)
 				}
 				i++
 			} else {
 				num, n := strconv.ParseFloat(path[i:])
 				if n == 0 {
-					return nil, fmt.Errorf("bad path: %d numbers should follow command '%c' at position %d", cmdLens[CMD], cmd, i)
+					if repeat {
+						return nil, fmt.Errorf("bad path: unknown command '%c' at position %d", path[i], i+1)
+					} else {
+						return nil, fmt.Errorf("bad path: %d numbers should follow command '%c' at position %d", cmdLens[CMD], cmd, i+1)
+					}
 				}
 				f[j] = num
 				i += n
@@ -1535,7 +1541,7 @@ func ParseSVG(s string) (*Path, error) {
 			}
 			p.ArcTo(rx, ry, rot, large, sweep, p1.X, p1.Y)
 		default:
-			return nil, fmt.Errorf("bad path: unknown command '%c' at position %d", cmd, i)
+			return nil, fmt.Errorf("bad path: unknown command '%c' at position %d", cmd, i+1)
 		}
 		prevCmd = cmd
 		p0 = p1
