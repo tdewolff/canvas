@@ -18,3 +18,8 @@ test/*
 *.synctex.gz
 *.log
 cov
+tests/*/fuzz-fuzz.zip
+tests/*/crashers
+tests/*/suppressions
+tests/*/corpus/*
+!tests/*/corpus/*.*
