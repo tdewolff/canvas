@@ -1422,6 +1422,7 @@ func ParseSVG(s string) (*Path, error) {
 			cmd = path[i]
 			repeat = false
 			i++
+			i += skipCommaWhitespace(path[i:])
 		}
 
 		CMD := cmd
@@ -1429,12 +1430,11 @@ func ParseSVG(s string) (*Path, error) {
 			CMD -= 'a' - 'A'
 		}
 		for j := 0; j < cmdLens[CMD]; j++ {
-			i += skipCommaWhitespace(path[i:])
 			if CMD == 'A' && (j == 3 || j == 4) {
 				// parse largeArc and sweep booleans for A command
-				if path[i] == '1' {
+				if i < len(path) && path[i] == '1' {
 					f[j] = 1.0
-				} else if path[i] == '0' {
+				} else if i < len(path) && path[i] == '0' {
 					f[j] = 0.0
 				} else {
 					return nil, fmt.Errorf("bad path: largeArc and sweep flags should be 0 or 1 in command '%c' at position %d", cmd, i+1)
@@ -1443,15 +1443,18 @@ func ParseSVG(s string) (*Path, error) {
 			} else {
 				num, n := strconv.ParseFloat(path[i:])
 				if n == 0 {
-					if repeat {
+					if repeat && j == 0 && i < len(path) {
 						return nil, fmt.Errorf("bad path: unknown command '%c' at position %d", path[i], i+1)
+					} else if 1 < cmdLens[CMD] {
+						return nil, fmt.Errorf("bad path: sets of %d numbers should follow command '%c' at position %d", cmdLens[CMD], cmd, i+1)
 					} else {
-						return nil, fmt.Errorf("bad path: %d numbers should follow command '%c' at position %d", cmdLens[CMD], cmd, i+1)
+						return nil, fmt.Errorf("bad path: number should follow command '%c' at position %d", cmd, i+1)
 					}
 				}
 				f[j] = num
 				i += n
 			}
+			i += skipCommaWhitespace(path[i:])
 		}
 
 		switch cmd {
