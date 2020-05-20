@@ -151,6 +151,9 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 		if tables[i].transformLength != 0 {
 			n = tables[i].transformLength
 		}
+		if len(data) < int(offset)+int(n) {
+			return nil, ErrInvalidFontData
+		}
 		tables[i].data = data[offset : offset+n : offset+n]
 		offset += n
 
