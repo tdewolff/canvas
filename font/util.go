@@ -36,7 +36,7 @@ func newBinaryReader(buf []byte) *binaryReader {
 }
 
 func (r *binaryReader) ReadBytes(n uint32) []byte {
-	if r.eof || uint32(len(r.buf)) < r.pos+n {
+	if r.eof || len(r.buf) < int(r.pos)+int(n) {
 		r.eof = true
 		return nil
 	}
