@@ -3,6 +3,7 @@ package font
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 )
 
 var ErrInvalidFontData = fmt.Errorf("invalid font data")
@@ -32,11 +33,14 @@ type binaryReader struct {
 }
 
 func newBinaryReader(buf []byte) *binaryReader {
+	if math.MaxUint32 < len(buf) {
+		return &binaryReader{nil, 0, true}
+	}
 	return &binaryReader{buf, 0, false}
 }
 
 func (r *binaryReader) ReadBytes(n uint32) []byte {
-	if r.eof || len(r.buf) < int(r.pos)+int(n) {
+	if r.eof || uint32(len(r.buf))-r.pos < n {
 		r.eof = true
 		return nil
 	}
@@ -117,17 +121,23 @@ type bitmapReader struct {
 }
 
 func newBitmapReader(buf []byte) *bitmapReader {
+	if math.MaxUint32 < len(buf) {
+		return &bitmapReader{nil, 0, 0, true}
+	}
 	return &bitmapReader{buf, 0, 0, false}
 }
 
 func (r *bitmapReader) Read() bool {
-	if r.eof || uint32(len(r.buf)) <= r.pos {
-		r.eof = true
+	if r.eof {
 		return false
 	}
 	bit := r.buf[r.pos]&(1<<uint(r.bit)) == 1
 	r.bit++
 	if r.bit == 8 {
+		if uint32(len(r.buf))-r.pos < 1 {
+			r.eof = true
+			return false
+		}
 		r.bit = 0
 		r.pos++
 	}

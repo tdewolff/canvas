@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 )
 
 type woffTable struct {
@@ -53,32 +54,37 @@ func ParseWOFF(b []byte) ([]byte, error) {
 	r := newBinaryReader(b)
 	signature := r.ReadString(4)
 	if signature != "wOFF" {
-		return nil, ErrInvalidFontData
+		return nil, fmt.Errorf("bad signature")
 	}
 	flavor := r.ReadUint32()
 	if uint32ToString(flavor) == "ttcf" {
 		return nil, fmt.Errorf("collections are unsupported")
 	}
-	_ = r.ReadUint32() // length
-	numTables := r.ReadUint16()
-	reserved := r.ReadUint16()      // reserved
-	totalSfntSize := r.ReadUint32() // totalSfntSize
-	_ = r.ReadUint16()              // majorVersion
-	_ = r.ReadUint16()              // minorVersion
-	metaOffset := r.ReadUint32()    // metaOffset
-	metaLength := r.ReadUint32()    // metaLength
-	_ = r.ReadUint32()              // metaOrigLength
-	privOffset := r.ReadUint32()    // privOffset
-	privLength := r.ReadUint32()    // privLength
+	length := r.ReadUint32()         // length
+	numTables := r.ReadUint16()      // numTables
+	reserved := r.ReadUint16()       // reserved
+	totalSfntSize := r.ReadUint32()  // totalSfntSize
+	_ = r.ReadUint16()               // majorVersion
+	_ = r.ReadUint16()               // minorVersion
+	metaOffset := r.ReadUint32()     // metaOffset
+	metaLength := r.ReadUint32()     // metaLength
+	metaOrigLength := r.ReadUint32() // metaOrigLength
+	privOffset := r.ReadUint32()     // privOffset
+	privLength := r.ReadUint32()     // privLength
 
-	frontSize := uint32(12 + 16*int(numTables))
-	if r.EOF() || numTables == 0 || r.Len() < frontSize || reserved != 0 {
+	frontSize := 44 + 20*uint32(numTables) // can never exceed uint32 as numTables is uint16
+	if length != uint32(len(b)) || numTables == 0 || length <= frontSize || reserved != 0 {
+		// file size does not match length in header
+		// or numTables is zero
+		// or table directory is bigger or equal to the file size
+		// or reserved is not zero (stated explicitly by the spec)
 		return nil, ErrInvalidFontData
 	}
 
 	tables := []woffTable{}
 	tablePos := &tablePositions{[]uint32{}, []uint32{}}
 	tablePos.Add(0, frontSize)
+	sfntOffset := 12 + 16*uint32(numTables) // can never exceed uint32 as numTables is uint16
 	for i := 0; i < int(numTables); i++ {
 		// EOF already checked above
 		tag := uint32ToString(r.ReadUint32())
@@ -86,15 +92,18 @@ func ParseWOFF(b []byte) ([]byte, error) {
 		compLength := r.ReadUint32()
 		origLength := r.ReadUint32()
 		origChecksum := r.ReadUint32()
-		if len(b) < int(offset)+int(compLength) {
-			return nil, ErrInvalidFontData // table extends beyond file
-		}
-		if 0 < i && tag < tables[i-1].tag {
-			return nil, ErrInvalidFontData // tables not sorted alphabetically
-		}
-		if origLength < compLength {
+		if length-compLength < offset || origLength < compLength || 0 < i && tag < tables[i-1].tag {
+			// table extends beyond file
+			// or compressed size larger then uncompressed
+			// or tables not sorted alphabetically
 			return nil, ErrInvalidFontData
 		}
+		sfntOrigLength := (origLength + 3) & 0xFFFFFFFC // add padding
+		if math.MaxUint32-sfntOrigLength < sfntOffset {
+			return nil, ErrInvalidFontData
+		}
+		sfntOffset += sfntOrigLength
+
 		tables = append(tables, woffTable{
 			tag:          tag,
 			offset:       offset,
@@ -105,10 +114,18 @@ func ParseWOFF(b []byte) ([]byte, error) {
 		tablePos.Add(offset, compLength)
 	}
 
-	if metaOffset != 0 || metaLength != 0 {
+	if totalSfntSize != sfntOffset {
+		// totalSfntSize does not coincide with sfnt header + table directory + data blocks
+		return nil, ErrInvalidFontData
+	}
+	if (metaOffset == 0) != (metaLength == 0) || (metaOffset == 0) != (metaOrigLength == 0) {
+		return nil, ErrInvalidFontData
+	} else if metaOffset != 0 {
 		tablePos.Add(metaOffset, metaLength)
 	}
-	if privOffset != 0 || privLength != 0 {
+	if (privOffset == 0) != (privLength == 0) {
+		return nil, ErrInvalidFontData
+	} else if privOffset != 0 {
 		tablePos.Add(privOffset, privLength)
 	}
 	if tablePos.HasOverlap() {
@@ -135,14 +152,13 @@ func ParseWOFF(b []byte) ([]byte, error) {
 	w.WriteUint16(entrySelector)
 	w.WriteUint16(rangeShift)
 
-	sfntOffset := uint32(12 + 16*int(numTables))
+	sfntOffset = 12 + 16*uint32(numTables) // can never exceed uint32 as numTables is uint16
 	for _, table := range tables {
 		w.WriteUint32(binary.BigEndian.Uint32([]byte(table.tag)))
 		w.WriteUint32(table.origChecksum)
-		w.WriteUint32(sfntOffset)
+		w.WriteUint32(sfntOffset) // offset already verified
 		w.WriteUint32(table.origLength)
-		sfntOffset += table.origLength
-		sfntOffset = (sfntOffset + 3) & 0xFFFFFFFC // add padding
+		sfntOffset += (table.origLength + 3) & 0xFFFFFFFC // add padding
 	}
 
 	var iCheckSumAdjustment uint32
