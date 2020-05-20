@@ -86,7 +86,7 @@ func ParseWOFF(b []byte) ([]byte, error) {
 		compLength := r.ReadUint32()
 		origLength := r.ReadUint32()
 		origChecksum := r.ReadUint32()
-		if uint32(len(b)) < offset+compLength {
+		if len(b) < int(offset)+int(compLength) {
 			return nil, ErrInvalidFontData // table extends beyond file
 		}
 		if 0 < i && tag < tables[i-1].tag {
