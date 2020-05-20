@@ -116,36 +116,28 @@ func (r *binaryReader) EOF() bool {
 type bitmapReader struct {
 	buf []byte
 	pos uint32
-	bit int
 	eof bool
 }
 
 func newBitmapReader(buf []byte) *bitmapReader {
 	if math.MaxUint32 < len(buf) {
-		return &bitmapReader{nil, 0, 0, true}
+		return &bitmapReader{nil, 0, true}
 	}
-	return &bitmapReader{buf, 0, 0, false}
+	return &bitmapReader{buf, 0, false}
 }
 
 func (r *bitmapReader) Read() bool {
-	if r.eof {
+	if r.eof || uint32(len(r.buf)) <= (r.pos+1)/8 {
+		r.eof = true
 		return false
 	}
-	bit := r.buf[r.pos]&(1<<uint(r.bit)) == 1
-	r.bit++
-	if r.bit == 8 {
-		if uint32(len(r.buf))-r.pos < 1 {
-			r.eof = true
-			return false
-		}
-		r.bit = 0
-		r.pos++
-	}
+	bit := r.buf[r.pos>>3]&(0x80>>(r.pos&7)) != 0
+	r.pos += 1
 	return bit
 }
 
 func (r *bitmapReader) Pos() uint32 {
-	return r.pos*8 + uint32(r.bit)
+	return r.pos
 }
 
 func (r *bitmapReader) EOF() bool {

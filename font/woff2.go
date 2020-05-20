@@ -336,9 +336,17 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 	bboxBitmap := newBitmapReader(r.ReadBytes(bboxBitmapSize))
 	bboxStream := newBinaryReader(r.ReadBytes(bboxStreamSize - bboxBitmapSize))
 	instructionStream := newBinaryReader(r.ReadBytes(instructionStreamSize))
+	if r.EOF() {
+		return nil, nil, ErrInvalidFontData
+	}
+
+	locaLength := (numGlyphs + 1) * 2
+	if indexFormat != 0 {
+		locaLength *= 2
+	}
 
 	w := newBinaryWriter(make([]byte, 0))
-	loca := newBinaryWriter(make([]byte, 0))
+	loca := newBinaryWriter(make([]byte, locaLength))
 	for iGlyph := uint16(0); iGlyph < numGlyphs; iGlyph++ {
 		if indexFormat == 0 {
 			loca.WriteUint16(uint16(w.Len() / 2))
@@ -346,16 +354,12 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 			loca.WriteUint32(w.Len())
 		}
 
+		explicitBbox := bboxBitmap.Read()       // EOF cannot occur
 		nContours := nContourStream.ReadInt16() // EOF cannot occur
-
-		explicitBbox := bboxBitmap.Read() // EOF cannot occur
-		if nContours == 0 && explicitBbox {
-			return nil, nil, fmt.Errorf("glyf: empty glyph cannot have bbox definition")
-		} else if nContours == -1 && !explicitBbox {
-			return nil, nil, fmt.Errorf("glyf: composite glyph must have bbox definition")
-		}
-
-		if nContours == 0 { // empty glyph
+		if nContours == 0 {                     // empty glyph
+			if explicitBbox {
+				return nil, nil, fmt.Errorf("glyf: empty glyph cannot have bbox definition")
+			}
 			continue
 		} else if nContours > 0 { // simple glyph
 			var xMin, yMin, xMax, yMax int16
@@ -490,6 +494,10 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 				w.WriteInt16(yCoordinate)
 			}
 		} else { // composite glyph
+			if !explicitBbox {
+				return nil, nil, fmt.Errorf("glyf: composite glyph must have bbox definition")
+			}
+
 			xMin := bboxStream.ReadInt16()
 			yMin := bboxStream.ReadInt16()
 			xMax := bboxStream.ReadInt16()
