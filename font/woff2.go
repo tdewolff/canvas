@@ -136,7 +136,7 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 	}
 
 	data = dataBuf.Bytes()
-	if uint32(len(data)) != uncompressedSize {
+	if len(data) != int(uncompressedSize) {
 		return nil, ErrInvalidFontData
 	}
 
