@@ -10,13 +10,15 @@ import (
 func TestWOFF2Error(t *testing.T) {
 	var tts = []struct {
 		data string
+		err  string
 	}{
-		{"wOF200000000\x00\x00000000\xff\xff\xff\xff000000000000000000000000"},
+		{"wOF200000000\x00\x00000000\xff\xff\xff\xff000000000000000000000000", ErrInvalidFontData.Error()},
+		{"wOF200000000\x00\x00000000\x00\x00\x00\b00000000000000000000000030000000", "head: must be present"},
 	}
 	for i, tt := range tts {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			_, err := ParseWOFF2([]byte(tt.data))
-			test.T(t, err, ErrInvalidFontData)
+			test.T(t, err.Error(), tt.err)
 		})
 	}
 }

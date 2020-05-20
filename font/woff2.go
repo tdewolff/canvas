@@ -177,7 +177,7 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 	// detransform font data tables
 	iGlyf, hasGlyf := tagTableIndex["glyf"]
 	iLoca, hasLoca := tagTableIndex["loca"]
-	if hasGlyf != hasLoca || tables[iGlyf].transformVersion != tables[iLoca].transformVersion {
+	if hasGlyf != hasLoca || hasGlyf && tables[iGlyf].transformVersion != tables[iLoca].transformVersion {
 		return nil, fmt.Errorf("glyf and loca tables must be both present and either be both transformed or not")
 	}
 	if hasGlyf {
