@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"sort"
 
 	"github.com/dsnet/compress/brotli"
@@ -53,7 +54,7 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 	if uint32ToString(flavor) == "ttcf" {
 		return nil, fmt.Errorf("collections are unsupported")
 	}
-	_ = r.ReadUint32() // length
+	length := r.ReadUint32() // length
 	numTables := r.ReadUint16()
 	_ = r.ReadUint16()                    // reserved
 	totalSfntSize := r.ReadUint32()       // totalSfntSize
@@ -65,7 +66,7 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 	_ = r.ReadUint32()                    // metaOrigLength
 	_ = r.ReadUint32()                    // privOffset
 	_ = r.ReadUint32()                    // privLength
-	if r.EOF() {
+	if r.EOF() || uint32(len(b)) != length {
 		return nil, ErrInvalidFontData
 	}
 
@@ -96,8 +97,14 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
+			if math.MaxUint32-uncompressedSize < transformLength {
+				return nil, ErrInvalidFontData
+			}
 			uncompressedSize += transformLength
 		} else {
+			if math.MaxUint32-uncompressedSize < origLength {
+				return nil, ErrInvalidFontData
+			}
 			uncompressedSize += origLength
 		}
 
@@ -136,7 +143,7 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 	}
 
 	data = dataBuf.Bytes()
-	if len(data) != int(uncompressedSize) {
+	if uint32(len(data)) != uncompressedSize {
 		return nil, ErrInvalidFontData
 	}
 
@@ -151,7 +158,7 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 		if tables[i].transformLength != 0 {
 			n = tables[i].transformLength
 		}
-		if len(data) < int(offset)+int(n) {
+		if uint32(len(data))-offset < n {
 			return nil, ErrInvalidFontData
 		}
 		tables[i].data = data[offset : offset+n : offset+n]
@@ -265,21 +272,25 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 
 	// write table record entries, sorted alphabetically
 	sort.Strings(tags)
-	sfntOffset := uint32(12 + 16*int(numTables))
+	sfntOffset := 12 + 16*uint32(numTables) // can never exceed uint32 as numTables is uint16
 	for _, tag := range tags {
 		i := tagTableIndex[tag]
-		actualLength := len(tables[i].data)
+		actualLength := uint32(len(tables[i].data))
 
 		// add padding
 		nPadding := (4 - actualLength&3) & 3
-		for j := 0; j < nPadding; j++ {
+		if math.MaxUint32-actualLength < nPadding || math.MaxUint32-actualLength-nPadding < sfntOffset {
+			// both actualLength and sfntOffset can overflow, check for both
+			return nil, ErrInvalidFontData
+		}
+		for j := 0; j < int(nPadding); j++ {
 			tables[i].data = append(tables[i].data, 0x00)
 		}
 
 		w.WriteUint32(binary.BigEndian.Uint32([]byte(tables[i].tag)))
 		w.WriteUint32(calcChecksum(tables[i].data))
 		w.WriteUint32(sfntOffset)
-		w.WriteUint32(uint32(actualLength))
+		w.WriteUint32(actualLength)
 		sfntOffset += uint32(len(tables[i].data))
 	}
 

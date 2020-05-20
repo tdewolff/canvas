@@ -98,11 +98,12 @@ func ParseWOFF(b []byte) ([]byte, error) {
 			// or tables not sorted alphabetically
 			return nil, ErrInvalidFontData
 		}
-		sfntOrigLength := (origLength + 3) & 0xFFFFFFFC // add padding
-		if math.MaxUint32-sfntOrigLength < sfntOffset {
+		nPadding := (4 - origLength&3) & 3
+		if math.MaxUint32-origLength < nPadding || math.MaxUint32-origLength-nPadding < sfntOffset {
+			// both origLength and sfntOffset can overflow, check for both
 			return nil, ErrInvalidFontData
 		}
-		sfntOffset += sfntOrigLength
+		sfntOffset += origLength + nPadding
 
 		tables = append(tables, woffTable{
 			tag:          tag,
@@ -180,17 +181,18 @@ func ParseWOFF(b []byte) ([]byte, error) {
 			data = buf.Bytes()
 		}
 
-		if len(data) != int(table.origLength) {
+		dataLength := uint32(len(data))
+		if dataLength != table.origLength {
 			return nil, ErrInvalidFontData
 		}
 
 		// add padding
-		nPadding := (4 - len(data)&3) & 3
-		for i := 0; i < nPadding; i++ {
+		nPadding := (4 - dataLength&3) & 3
+		for i := 0; i < int(nPadding); i++ {
 			data = append(data, 0x00)
 		}
 		if table.tag == "head" {
-			if len(data) < 12 {
+			if dataLength < 12 {
 				return nil, ErrInvalidFontData
 			}
 			checkSumAdjustment = binary.BigEndian.Uint32(data[8:])
