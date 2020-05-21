@@ -311,6 +311,7 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 }
 
 // Remarkable! This code was written on a Sunday evening, and after fixing the compiler errors it worked flawlessly!
+// Edit: oops, there was actually a subtle bug fixed in this commit
 func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 	r := newBinaryReader(b)
 	_ = r.ReadUint32() // version
@@ -377,6 +378,9 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 			endPtsOfContours := make([]uint16, nContours)
 			for iContour := int16(0); iContour < nContours; iContour++ {
 				nPoint := read255Uint16(nPointsStream)
+				if math.MaxUint16-nPoints < nPoint {
+					return nil, nil, ErrInvalidFontData
+				}
 				nPoints += nPoint
 				endPtsOfContours[iContour] = nPoints - 1
 			}
@@ -401,6 +405,7 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 				flag &= 0x7f
 
 				// used for reference: https://github.com/fonttools/fonttools/blob/master/Lib/fontTools/ttLib/woff2.py
+				// as well as: https://github.com/google/woff2/blob/master/src/woff2_dec.cc
 				var dx, dy int16
 				if flag < 10 {
 					coord0 := int16(glyphStream.ReadByte())
@@ -415,7 +420,7 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 				} else if flag < 120 {
 					coord0 := int16(glyphStream.ReadByte())
 					coord1 := int16(glyphStream.ReadByte())
-					dx = signInt16(flag, 0) * (1 + int16((flag-84)/12) + coord0)
+					dx = signInt16(flag, 0) * (1 + int16((flag-84)/12)<<8 + coord0)
 					dy = signInt16(flag, 1) * (1 + (int16((flag-84)%12)>>2)<<8 + coord1)
 				} else if flag < 124 {
 					coord0 := int16(glyphStream.ReadByte())
@@ -561,8 +566,8 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 			}
 		}
 
-		// padding to allow short version for loca table
-		if w.Len()%2 == 1 {
+		// offsets for loca table should be 4-byte aligned
+		for w.Len()%4 != 0 {
 			w.WriteByte(0x00)
 		}
 	}
