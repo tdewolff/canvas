@@ -11,6 +11,17 @@ import (
 	"github.com/dsnet/compress/brotli"
 )
 
+// Specification:
+// https://www.w3.org/TR/WOFF2/
+
+// Validation tests:
+// https://github.com/w3c/woff2-tests
+
+// Other implementations:
+// http://git.savannah.gnu.org/cgit/freetype/freetype2.git/tree/src/sfnt/sfwoff2.c
+// https://github.com/google/woff2/tree/master/src
+// https://github.com/fonttools/fonttools/blob/master/Lib/fontTools/ttLib/woff2.py
+
 type woff2Table struct {
 	tag              string
 	origLength       uint32
