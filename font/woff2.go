@@ -92,10 +92,13 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 		}
 
 		var transformLength uint32
-		if transformVersion == 0 && (tag == "glyf" || tag == "loca") || transformVersion != 0 {
+		if (tag == "glyf" || tag == "loca") && transformVersion == 0 || tag == "hmtx" && transformVersion != 0 {
 			transformLength, err = readUintBase128(r)
 			if err != nil {
 				return nil, err
+			}
+			if tag != "loca" && transformLength == 0 {
+				return nil, fmt.Errorf("%s: transformLength must be not be zero", tag)
 			}
 			if math.MaxUint32-uncompressedSize < transformLength {
 				return nil, ErrInvalidFontData
@@ -109,11 +112,8 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 		}
 
 		if tag == "loca" {
-			if transformLength != 0 {
-				return nil, fmt.Errorf("loca: transformLength must be zero")
-			}
 			if _, ok := tagTableIndex["glyf"]; !ok {
-				return nil, fmt.Errorf("loca: must follow 'glyf' table")
+				return nil, fmt.Errorf("loca: must come after glyf table")
 			}
 		}
 
@@ -125,6 +125,15 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 			transformVersion: transformVersion,
 			transformLength:  transformLength,
 		})
+	}
+
+	iGlyf, hasGlyf := tagTableIndex["glyf"]
+	iLoca, hasLoca := tagTableIndex["loca"]
+	if hasGlyf != hasLoca || hasGlyf && tables[iGlyf].transformVersion != tables[iLoca].transformVersion {
+		return nil, fmt.Errorf("glyf and loca tables must be both present and either be both transformed or untransformed")
+	}
+	if hasLoca && tables[iLoca].transformLength != 0 {
+		return nil, fmt.Errorf("loca: transformLength must be zero")
 	}
 
 	// TODO: (WOFF2) parse collection directory format
@@ -139,7 +148,7 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 	rBrotli, _ := brotli.NewReader(bytes.NewReader(data), nil) // err is always nil
 	io.Copy(&dataBuf, rBrotli)
 	if err := rBrotli.Close(); err != nil {
-		return nil, fmt.Errorf("brotli: %v", err)
+		return nil, err
 	}
 
 	data = dataBuf.Bytes()
@@ -185,11 +194,6 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 	}
 
 	// detransform font data tables
-	iGlyf, hasGlyf := tagTableIndex["glyf"]
-	iLoca, hasLoca := tagTableIndex["loca"]
-	if hasGlyf != hasLoca || hasGlyf && tables[iGlyf].transformVersion != tables[iLoca].transformVersion {
-		return nil, fmt.Errorf("glyf and loca tables must be both present and either be both transformed or not")
-	}
 	if hasGlyf {
 		if tables[iGlyf].transformVersion == 0 {
 			var err error
@@ -449,6 +453,10 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 
 				// calculate bbox
 				if !explicitBbox {
+					if 0 < x && math.MaxInt16-x < dx || x < 0 && dx < math.MinInt16-x ||
+						0 < y && math.MaxInt16-y < dy || y < 0 && dy < math.MinInt16-y {
+						return nil, nil, ErrInvalidFontData
+					}
 					x += dx
 					y += dy
 					if iPoint == 0 {
@@ -489,6 +497,8 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 			}
 			w.WriteUint16(instructionLength)
 			w.WriteBytes(instructions)
+
+			// we could write this more compactly, but is that really necessary?
 			for _, outlineFlag := range outlineFlags {
 				w.WriteByte(outlineFlag) // flag
 			}
