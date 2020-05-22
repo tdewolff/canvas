@@ -77,7 +77,7 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 	for i := 0; i < int(numTables); i++ {
 		flags := r.ReadByte()
 		tagIndex := int(flags & 0x3F)
-		transformVersion := int((flags & 0xC0) >> 5)
+		transformVersion := int((flags & 0xC0) >> 6)
 
 		var tag string
 		if tagIndex == 63 {
