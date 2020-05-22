@@ -23,3 +23,8 @@ tests/*/crashers
 tests/*/suppressions
 tests/*/corpus/*
 !tests/*/corpus/*.*
+font/tests/*/fuzz-fuzz.zip
+font/tests/*/crashers
+font/tests/*/suppressions
+font/tests/*/corpus/*
+!font/tests/*/corpus/*.*
