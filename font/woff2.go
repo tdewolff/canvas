@@ -105,6 +105,9 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 		} else {
 			tag = woff2TableTags[tagIndex]
 		}
+		if _, ok := tagTableIndex[tag]; ok {
+			return nil, fmt.Errorf("%s: table defined more than once", tag)
+		}
 
 		origLength, err := readUintBase128(r) // if EOF is encountered above, this will return ErrInvalidFontData
 		if err != nil {
