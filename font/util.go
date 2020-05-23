@@ -101,6 +101,15 @@ func (r *binaryReader) ReadInt16LE() int16 {
 	return int16(r.ReadUint16LE())
 }
 
+func (r *binaryReader) Seek(pos uint32) {
+	if uint32(len(r.buf)) < pos {
+		r.eof = true
+		return
+	}
+	r.pos = pos
+	r.eof = false
+}
+
 func (r *binaryReader) Pos() uint32 {
 	return r.pos
 }

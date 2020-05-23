@@ -59,15 +59,15 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 	r := newBinaryReader(b)
 	signature := r.ReadString(4)
 	if signature != "wOF2" {
-		return nil, ErrInvalidFontData
+		return nil, fmt.Errorf("bad signature")
 	}
 	flavor := r.ReadUint32()
 	if uint32ToString(flavor) == "ttcf" {
 		return nil, fmt.Errorf("collections are unsupported")
 	}
-	length := r.ReadUint32() // length
-	numTables := r.ReadUint16()
-	_ = r.ReadUint16()                    // reserved
+	length := r.ReadUint32()              // length
+	numTables := r.ReadUint16()           // numTables
+	reserved := r.ReadUint16()            // reserved
 	totalSfntSize := r.ReadUint32()       // totalSfntSize
 	totalCompressedSize := r.ReadUint32() // totalCompressedSize
 	_ = r.ReadUint16()                    // majorVersion
@@ -77,8 +77,17 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 	_ = r.ReadUint32()                    // metaOrigLength
 	_ = r.ReadUint32()                    // privOffset
 	_ = r.ReadUint32()                    // privLength
-	if r.EOF() || uint32(len(b)) != length {
+	if r.EOF() {
 		return nil, ErrInvalidFontData
+	}
+	if uint32(len(b)) != length {
+		return nil, fmt.Errorf("length in header must match file size")
+	}
+	if numTables == 0 {
+		return nil, fmt.Errorf("numTables in header must not be zero")
+	}
+	if reserved != 0 {
+		return nil, fmt.Errorf("reserved in header must be zero")
 	}
 
 	tags := []string{}
@@ -105,11 +114,8 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 		var transformLength uint32
 		if (tag == "glyf" || tag == "loca") && transformVersion == 0 || tag == "hmtx" && transformVersion != 0 {
 			transformLength, err = readUintBase128(r)
-			if err != nil {
-				return nil, err
-			}
-			if tag != "loca" && transformLength == 0 {
-				return nil, fmt.Errorf("%s: transformLength must be not be zero", tag)
+			if err != nil || tag != "loca" && transformLength == 0 {
+				return nil, fmt.Errorf("%s: transformLength must be set", tag)
 			}
 			if math.MaxUint32-uncompressedSize < transformLength {
 				return nil, ErrInvalidFontData
@@ -123,7 +129,11 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 		}
 
 		if tag == "loca" {
-			if _, ok := tagTableIndex["glyf"]; !ok {
+			iGlyf, hasGlyf := tagTableIndex["glyf"]
+			if uint32ToString(flavor) == "ttcf" && (!hasGlyf || i-1 != iGlyf) {
+				// TODO: should find last glyf table, map lookup probably doesn't work here
+				return nil, fmt.Errorf("loca: must come directly after glyf table")
+			} else if !hasGlyf {
 				return nil, fmt.Errorf("loca: must come after glyf table")
 			}
 		}
@@ -164,7 +174,7 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 
 	data = dataBuf.Bytes()
 	if uint32(len(data)) != uncompressedSize {
-		return nil, ErrInvalidFontData
+		return nil, fmt.Errorf("sum of table lengths must match decompressed font data size")
 	}
 
 	// read font data
@@ -208,7 +218,7 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 	if hasGlyf {
 		if tables[iGlyf].transformVersion == 0 {
 			var err error
-			tables[iGlyf].data, tables[iLoca].data, err = parseGlyfTransformed(tables[iGlyf].data)
+			tables[iGlyf].data, tables[iLoca].data, err = reconstructGlyfLoca(tables[iGlyf].data, tables[iLoca].origLength)
 			if err != nil {
 				return nil, err
 			}
@@ -230,6 +240,16 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 	}
 
 	if iHmtx, hasHmtx := tagTableIndex["hmtx"]; hasHmtx && tables[iHmtx].transformVersion == 1 {
+		iHead, ok := tagTableIndex["head"]
+		if !ok {
+			return nil, fmt.Errorf("hmtx: head table must be defined in order to rebuild hmtx table")
+		}
+		if !hasGlyf {
+			return nil, fmt.Errorf("hmtx: glyf table must be defined in order to rebuild hmtx table")
+		}
+		if !hasLoca {
+			return nil, fmt.Errorf("hmtx: loca table must be defined in order to rebuild hmtx table")
+		}
 		iMaxp, ok := tagTableIndex["maxp"]
 		if !ok {
 			return nil, fmt.Errorf("hmtx: maxp table must be defined in order to rebuild hmtx table")
@@ -239,7 +259,7 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 			return nil, fmt.Errorf("hmtx: hhea table must be defined in order to rebuild hmtx table")
 		}
 		var err error
-		tables[iHmtx].data, err = parseHmtxTransformed(tables[iHmtx].data, tables[iGlyf].data, tables[iMaxp].data, tables[iHhea].data)
+		tables[iHmtx].data, err = reconstructHmtx(tables[iHmtx].data, tables[iHead].data, tables[iGlyf].data, tables[iLoca].data, tables[iMaxp].data, tables[iHhea].data)
 		if err != nil {
 			return nil, err
 		}
@@ -252,15 +272,13 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 		return nil, fmt.Errorf("head: must be present")
 	} else {
 		binary.BigEndian.PutUint32(tables[iHead].data[8:], 0x00000000) // clear checkSumAdjustment
-
-		flags := binary.BigEndian.Uint16(tables[iHead].data[16:])
-		flags &= ^(uint16(1 << 11)) // clear bit 11
-		binary.BigEndian.PutUint16(tables[iHead].data[16:], flags)
+		if flags := binary.BigEndian.Uint16(tables[iHead].data[16:]); flags&0x0800 == 0 {
+			return nil, fmt.Errorf("head: bit 11 in flags must be set")
+		}
 	}
 
-	// remove DSIG table
-	if iDSIG, hasDSIG := tagTableIndex["DSIG"]; hasDSIG {
-		tags = append(tags[:iDSIG], tags[iDSIG+1:]...)
+	if _, hasDSIG := tagTableIndex["DSIG"]; hasDSIG {
+		return nil, fmt.Errorf("DSIG: must be removed")
 	}
 
 	// find values for offset table
@@ -327,7 +345,7 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 
 // Remarkable! This code was written on a Sunday evening, and after fixing the compiler errors it worked flawlessly!
 // Edit: oops, there was actually a subtle bug fixed in this commit
-func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
+func reconstructGlyfLoca(b []byte, origLocaLength uint32) ([]byte, []byte, error) {
 	r := newBinaryReader(b)
 	_ = r.ReadUint32() // version
 	numGlyphs := r.ReadUint16()
@@ -356,9 +374,12 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 		return nil, nil, ErrInvalidFontData
 	}
 
-	locaLength := (numGlyphs + 1) * 2
+	locaLength := (uint32(numGlyphs) + 1) * 2
 	if indexFormat != 0 {
 		locaLength *= 2
+	}
+	if locaLength != origLocaLength {
+		return nil, nil, fmt.Errorf("loca: origLength must match numGlyphs+1 entries")
 	}
 
 	w := newBinaryWriter(make([]byte, 0))
@@ -603,139 +624,187 @@ func parseGlyfTransformed(b []byte) ([]byte, []byte, error) {
 	return w.Bytes(), loca.Bytes(), nil
 }
 
-func parseHmtxTransformed(b []byte, glyf []byte, maxp []byte, hhea []byte) ([]byte, error) {
-	r := newBinaryReader(b)
-	flags := r.ReadByte() // flags
-	if flags&0xFC != 0 {
-		return nil, fmt.Errorf("hmtx: the flag's 6 most significant bits must be zero")
-	}
-	reconstructLsb := flags&0x01 != 0
-	reconstructLeftSideBearing := flags&0x02 != 0
-	if !reconstructLsb && !reconstructLeftSideBearing {
-		return nil, fmt.Errorf("hmtx: must either reconstruct lsb or LeftSideBearing arrays")
+func reconstructHmtx(b, head, glyf, loca, maxp, hhea []byte) ([]byte, error) {
+	// get indexFormat
+	rHead := newBinaryReader(head)
+	_ = rHead.ReadBytes(50) // skip
+	indexFormat := rHead.ReadInt16()
+	if rHead.EOF() {
+		return nil, ErrInvalidFontData
 	}
 
 	// get numGlyphs
+	// TODO: Google's code uses metadata? What is better?
 	rMaxp := newBinaryReader(maxp)
 	_ = rMaxp.ReadUint32() // version
-	numGlyphs := uint32(rMaxp.ReadUint16())
+	numGlyphs := rMaxp.ReadUint16()
 	if rMaxp.EOF() {
 		return nil, ErrInvalidFontData
 	}
 
 	// get numHMetrics
+	// TODO: Google's code uses metadata? What is better?
 	rHhea := newBinaryReader(hhea)
 	_ = rHhea.ReadBytes(34) // skip all but the last header field
-	numHMetrics := uint32(rHhea.ReadUint16())
+	numHMetrics := rHhea.ReadUint16()
 	if rHhea.EOF() {
+		return nil, ErrInvalidFontData
+	} else if numHMetrics < 1 {
+		return nil, fmt.Errorf("hmtx: must have at least one entry")
+	} else if numGlyphs < numHMetrics {
+		return nil, fmt.Errorf("hmtx: more entries than glyphs in glyf")
+	}
+
+	locaLength := 2 * uint32(numGlyphs+1)
+	if indexFormat != 0 {
+		locaLength *= 2
+	}
+	if locaLength != uint32(len(loca)) {
 		return nil, ErrInvalidFontData
 	}
 
-	n := numHMetrics * 2
-	if !reconstructLsb {
-		n += numHMetrics * 2
-	} else if !reconstructLeftSideBearing {
-		n += (numGlyphs - numHMetrics) * 2
+	r := newBinaryReader(b)
+	flags := r.ReadByte() // flags
+	reconstructProportional := flags&0x01 != 0
+	reconstructMonospaced := flags&0x02 != 0
+	if flags&0xFC != 0 {
+		return nil, fmt.Errorf("hmtx: reserved bits in flags must not be set")
+	} else if !reconstructProportional && !reconstructMonospaced {
+		return nil, fmt.Errorf("hmtx: must reconstruct at least one left side bearing array")
 	}
-	fmt.Println("hmtx", n, "==?", r.Len())
-	if n != r.Len() {
+
+	n := 1 + uint32(numHMetrics)*2
+	if !reconstructProportional {
+		n += uint32(numHMetrics) * 2
+	} else if !reconstructMonospaced {
+		n += (uint32(numGlyphs) - uint32(numHMetrics)) * 2
+	}
+	if n != uint32(len(b)) {
 		return nil, ErrInvalidFontData
+	}
+
+	advanceWidths := make([]uint16, numHMetrics)
+	lsbs := make([]int16, numGlyphs)
+	for iHMetric := uint16(0); iHMetric < numHMetrics; iHMetric++ {
+		advanceWidths[iHMetric] = r.ReadUint16()
+	}
+	if !reconstructProportional {
+		for iHMetric := uint16(0); iHMetric < numHMetrics; iHMetric++ {
+			lsbs[iHMetric] = r.ReadInt16()
+		}
+	}
+	if !reconstructMonospaced {
+		for iLeftSideBearing := numHMetrics; iLeftSideBearing < numGlyphs; iLeftSideBearing++ {
+			lsbs[iLeftSideBearing] = r.ReadInt16()
+		}
+	}
+
+	// extract xMin values from glyf table byt skip through the rest of the table
+	rLoca := newBinaryReader(loca)
+	rGlyf := newBinaryReader(glyf)
+	for iGlyph := uint16(0); iGlyph < numGlyphs; iGlyph++ {
+		var offset uint32
+		if indexFormat != 0 {
+			offset = rLoca.ReadUint32()
+		} else {
+			offset = uint32(rLoca.ReadUint16())
+		}
+
+		rGlyf.Seek(offset)
+		if rGlyf.EOF() || rGlyf.Len() < 4 {
+			return nil, ErrInvalidFontData
+		}
+
+		_ = rGlyf.ReadInt16() // numContours
+		xMin := rGlyf.ReadInt16()
+		if reconstructProportional || reconstructMonospaced {
+			lsbs[iGlyph] = xMin
+		}
+
+		// skip through the rest
+		//_ = rGlyf.ReadBytes(6) // yMin, xMax, yMax
+		//if 0 < numContours {
+		//	_ = rGlyf.ReadBytes(2 * uint32(numContours-1)) // endPtsOfContours except last
+		//	numPoints := rGlyf.ReadUint16() + 1
+		//	instructionLength := rGlyf.ReadUint16()
+		//	_ = rGlyf.ReadBytes(uint32(instructionLength)) // instructions
+
+		//	var xLength, yLength uint32
+		//	for iPoint := uint16(0); iPoint < numPoints; iPoint++ {
+		//		flag := rGlyf.ReadByte()
+		//		xShort := (flag & 0x02) != 0
+		//		yShort := (flag & 0x04) != 0
+		//		repeat := (flag & 0x08) != 0
+		//		xSame := (flag & 0x10) != 0
+		//		ySame := (flag & 0x20) != 0
+
+		//		var dx, dy uint32
+		//		if xShort {
+		//			dx = 1
+		//		} else if !xSame {
+		//			dx = 2
+		//		}
+		//		if yShort {
+		//			dy = 1
+		//		} else if !ySame {
+		//			dy = 2
+		//		}
+		//		if repeat {
+		//			n := rGlyf.ReadByte()
+		//			dx *= uint32(n)
+		//			dy *= uint32(n)
+		//			iPoint += uint16(n)
+		//		}
+		//		xLength += dx
+		//		yLength += dy
+		//	}
+		//	_ = rGlyf.ReadBytes(xLength) // xCoordinates
+		//	_ = rGlyf.ReadBytes(yLength) // yCoordinates
+		//} else if numContours < 0 {
+		//	hasInstructions := false
+		//	for {
+		//		compositeFlag := rGlyf.ReadUint16()
+		//		argsAreWords := (compositeFlag & 0x0001) != 0
+		//		haveScale := (compositeFlag & 0x0008) != 0
+		//		moreComponents := (compositeFlag & 0x0020) != 0
+		//		haveXYScales := (compositeFlag & 0x0040) != 0
+		//		have2by2 := (compositeFlag & 0x0080) != 0
+		//		haveInstructions := (compositeFlag & 0x0100) != 0
+
+		//		numBytes := 4 // 2 for glyphIndex and 2 for XY bytes
+		//		if argsAreWords {
+		//			numBytes += 2
+		//		}
+		//		if haveScale {
+		//			numBytes += 2
+		//		} else if haveXYScales {
+		//			numBytes += 4
+		//		} else if have2by2 {
+		//			numBytes += 8
+		//		}
+		//		_ = rGlyf.ReadBytes(uint32(numBytes))
+		//		if haveInstructions {
+		//			hasInstructions = true
+		//		}
+		//		if !moreComponents {
+		//			break
+		//		}
+		//	}
+		//	if hasInstructions {
+		//		n := rGlyf.ReadUint16()
+		//		_ = rGlyf.ReadBytes(uint32(n))
+		//	}
+		//}
 	}
 
 	w := newBinaryWriter(make([]byte, 0))
-
-	advanceWidths := make([]uint16, numHMetrics)
-	for iHMetric := uint32(0); iHMetric < numHMetrics; iHMetric++ {
-		advanceWidths[iHMetric] = r.ReadUint16()
+	for iHMetric := uint16(0); iHMetric < numHMetrics; iHMetric++ {
+		w.WriteUint16(advanceWidths[iHMetric])
+		w.WriteInt16(lsbs[iHMetric])
 	}
-	if !reconstructLsb {
-		for iHMetric := uint32(0); iHMetric < numHMetrics; iHMetric++ {
-			w.WriteUint16(advanceWidths[iHMetric])
-			w.WriteInt16(r.ReadInt16()) // lsb
-		}
+	for iLeftSideBearing := numHMetrics; iLeftSideBearing < numGlyphs; iLeftSideBearing++ {
+		w.WriteInt16(lsbs[iLeftSideBearing])
 	}
-
-	rGlyf := newBinaryReader(glyf)
-	for iGlyph := uint32(0); iGlyph < numGlyphs; iGlyph++ {
-		numContours := rGlyf.ReadInt16()
-		xMin := rGlyf.ReadInt16()
-		if reconstructLsb && iGlyph < numHMetrics {
-			w.WriteUint16(advanceWidths[iGlyph])
-			w.WriteInt16(xMin) // lsb
-		} else if reconstructLeftSideBearing && numHMetrics <= iGlyph {
-			w.WriteInt16(xMin) // leftSideBearing
-		}
-
-		// skip through rest of glyf table
-		_ = rGlyf.ReadBytes(6) // yMin, xMax, yMax
-		if 0 < numContours {
-			_ = rGlyf.ReadBytes(2 * uint32(numContours)) // endPtsOfContours except last
-			numPoints := rGlyf.ReadUint16() + 1
-			instructionLength := rGlyf.ReadUint16()
-			_ = rGlyf.ReadBytes(uint32(instructionLength)) // instructions
-
-			var xLength, yLength uint32
-			for iPoint := uint16(0); iPoint < numPoints; iPoint++ {
-				flag := rGlyf.ReadByte()
-				xShort := (flag & 0x02) != 0
-				yShort := (flag & 0x04) != 0
-				repeat := (flag & 0x08) != 0
-				xSame := (flag & 0x10) != 0
-				ySame := (flag & 0x20) != 0
-
-				var dx, dy uint32
-				if xShort {
-					dx = 1
-				} else if !xSame {
-					dx = 2
-				}
-				if yShort {
-					dy = 1
-				} else if !ySame {
-					dy = 2
-				}
-				if repeat {
-					n := rGlyf.ReadByte()
-					dx *= uint32(n)
-					dy *= uint32(n)
-					iPoint += uint16(n)
-				}
-				xLength += dx
-				yLength += dy
-			}
-			_ = rGlyf.ReadBytes(xLength) // xCoordinates
-			_ = rGlyf.ReadBytes(yLength) // yCoordinates
-		} else if numContours < 0 {
-			for {
-				compositeFlag := rGlyf.ReadUint16()
-				argsAreWords := (compositeFlag & 0x0001) != 0
-				haveScale := (compositeFlag & 0x0008) != 0
-				moreComponents := (compositeFlag & 0x0020) != 0
-				haveXYScales := (compositeFlag & 0x0040) != 0
-				have2by2 := (compositeFlag & 0x0080) != 0
-
-				numBytes := 4 // 2 for glyphIndex and 2 for XY bytes
-				if argsAreWords {
-					numBytes += 2
-				}
-				if haveScale {
-					numBytes += 2
-				} else if haveXYScales {
-					numBytes += 4
-				} else if have2by2 {
-					numBytes += 8
-				}
-				_ = rGlyf.ReadBytes(uint32(numBytes))
-				if !moreComponents {
-					break
-				}
-			}
-		}
-		if rGlyf.EOF() {
-			return nil, ErrInvalidFontData
-		}
-	}
-	fmt.Println("hmtx left:", r.Len())
 	return w.Bytes(), nil
 }
 
