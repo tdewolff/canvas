@@ -347,7 +347,7 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 }
 
 // Remarkable! This code was written on a Sunday evening, and after fixing the compiler errors it worked flawlessly!
-// Edit: oops, there was actually a subtle bug fixed in this commit
+// Edit: oops, there was actually a subtle bug fixed in dx of flag < 120 of simple glyphs.
 func reconstructGlyfLoca(b []byte, origLocaLength uint32) ([]byte, []byte, error) {
 	r := newBinaryReader(b)
 	_ = r.ReadUint32() // version
@@ -389,7 +389,7 @@ func reconstructGlyfLoca(b []byte, origLocaLength uint32) ([]byte, []byte, error
 	loca := newBinaryWriter(make([]byte, locaLength))
 	for iGlyph := uint16(0); iGlyph < numGlyphs; iGlyph++ {
 		if indexFormat == 0 {
-			loca.WriteUint16(uint16(w.Len() / 2))
+			loca.WriteUint16(uint16(w.Len() >> 1))
 		} else {
 			loca.WriteUint32(w.Len())
 		}
@@ -619,11 +619,10 @@ func reconstructGlyfLoca(b []byte, origLocaLength uint32) ([]byte, []byte, error
 
 	// last entry in loca table
 	if indexFormat == 0 {
-		loca.WriteUint16(uint16(w.Len() / 2))
+		loca.WriteUint16(uint16(w.Len() >> 1))
 	} else {
 		loca.WriteUint32(w.Len())
 	}
-
 	return w.Bytes(), loca.Bytes(), nil
 }
 
@@ -637,7 +636,6 @@ func reconstructHmtx(b, head, glyf, loca, maxp, hhea []byte) ([]byte, error) {
 	}
 
 	// get numGlyphs
-	// TODO: Google's code uses metadata? What is better?
 	rMaxp := newBinaryReader(maxp)
 	_ = rMaxp.ReadUint32() // version
 	numGlyphs := rMaxp.ReadUint16()
@@ -646,7 +644,6 @@ func reconstructHmtx(b, head, glyf, loca, maxp, hhea []byte) ([]byte, error) {
 	}
 
 	// get numHMetrics
-	// TODO: Google's code uses metadata? What is better?
 	rHhea := newBinaryReader(hhea)
 	_ = rHhea.ReadBytes(34) // skip all but the last header field
 	numHMetrics := rHhea.ReadUint16()
@@ -658,13 +655,15 @@ func reconstructHmtx(b, head, glyf, loca, maxp, hhea []byte) ([]byte, error) {
 		return nil, fmt.Errorf("hmtx: more entries than glyphs in glyf")
 	}
 
-	locaLength := 2 * uint32(numGlyphs+1)
+	// check loca table
+	locaLength := (uint32(numGlyphs) + 1) * 2
 	if indexFormat != 0 {
 		locaLength *= 2
 	}
 	if locaLength != uint32(len(loca)) {
 		return nil, ErrInvalidFontData
 	}
+	rLoca := newBinaryReader(loca)
 
 	r := newBinaryReader(b)
 	flags := r.ReadByte() // flags
@@ -702,105 +701,48 @@ func reconstructHmtx(b, head, glyf, loca, maxp, hhea []byte) ([]byte, error) {
 		}
 	}
 
-	// extract xMin values from glyf table byt skip through the rest of the table
-	rLoca := newBinaryReader(loca)
+	// extract xMin values from glyf table using loca indices
 	rGlyf := newBinaryReader(glyf)
-	for iGlyph := uint16(0); iGlyph < numGlyphs; iGlyph++ {
-		var offset uint32
+	iGlyphMin := uint16(0)
+	iGlyphMax := numGlyphs
+	if !reconstructProportional {
+		iGlyphMin = numHMetrics
 		if indexFormat != 0 {
-			offset = rLoca.ReadUint32()
+			_ = rLoca.ReadBytes(4 * uint32(iGlyphMin))
 		} else {
-			offset = uint32(rLoca.ReadUint16())
+			_ = rLoca.ReadBytes(2 * uint32(iGlyphMin))
+		}
+	} else if !reconstructMonospaced {
+		iGlyphMax = numHMetrics
+	}
+	var offset, offsetNext uint32
+	if indexFormat != 0 {
+		offset = rLoca.ReadUint32()
+	} else {
+		offset = uint32(rLoca.ReadUint16()) << 1
+	}
+	for iGlyph := iGlyphMin; iGlyph < iGlyphMax; iGlyph++ {
+		if indexFormat != 0 {
+			offsetNext = rLoca.ReadUint32()
+		} else {
+			offsetNext = uint32(rLoca.ReadUint16()) << 1
 		}
 
-		rGlyf.Seek(offset)
-		if rGlyf.EOF() || rGlyf.Len() < 4 {
-			return nil, ErrInvalidFontData
-		}
-
-		_ = rGlyf.ReadInt16() // numContours
-		xMin := rGlyf.ReadInt16()
-		if reconstructProportional || reconstructMonospaced {
+		if offsetNext == offset {
+			lsbs[iGlyph] = 0
+		} else {
+			rGlyf.Seek(offset)
+			_ = rGlyf.ReadInt16() // numContours
+			xMin := rGlyf.ReadInt16()
+			if rGlyf.EOF() {
+				return nil, ErrInvalidFontData
+			}
 			lsbs[iGlyph] = xMin
 		}
-
-		// skip through the rest
-		//_ = rGlyf.ReadBytes(6) // yMin, xMax, yMax
-		//if 0 < numContours {
-		//	_ = rGlyf.ReadBytes(2 * uint32(numContours-1)) // endPtsOfContours except last
-		//	numPoints := rGlyf.ReadUint16() + 1
-		//	instructionLength := rGlyf.ReadUint16()
-		//	_ = rGlyf.ReadBytes(uint32(instructionLength)) // instructions
-
-		//	var xLength, yLength uint32
-		//	for iPoint := uint16(0); iPoint < numPoints; iPoint++ {
-		//		flag := rGlyf.ReadByte()
-		//		xShort := (flag & 0x02) != 0
-		//		yShort := (flag & 0x04) != 0
-		//		repeat := (flag & 0x08) != 0
-		//		xSame := (flag & 0x10) != 0
-		//		ySame := (flag & 0x20) != 0
-
-		//		var dx, dy uint32
-		//		if xShort {
-		//			dx = 1
-		//		} else if !xSame {
-		//			dx = 2
-		//		}
-		//		if yShort {
-		//			dy = 1
-		//		} else if !ySame {
-		//			dy = 2
-		//		}
-		//		if repeat {
-		//			n := rGlyf.ReadByte()
-		//			dx *= uint32(n)
-		//			dy *= uint32(n)
-		//			iPoint += uint16(n)
-		//		}
-		//		xLength += dx
-		//		yLength += dy
-		//	}
-		//	_ = rGlyf.ReadBytes(xLength) // xCoordinates
-		//	_ = rGlyf.ReadBytes(yLength) // yCoordinates
-		//} else if numContours < 0 {
-		//	hasInstructions := false
-		//	for {
-		//		compositeFlag := rGlyf.ReadUint16()
-		//		argsAreWords := (compositeFlag & 0x0001) != 0
-		//		haveScale := (compositeFlag & 0x0008) != 0
-		//		moreComponents := (compositeFlag & 0x0020) != 0
-		//		haveXYScales := (compositeFlag & 0x0040) != 0
-		//		have2by2 := (compositeFlag & 0x0080) != 0
-		//		haveInstructions := (compositeFlag & 0x0100) != 0
-
-		//		numBytes := 4 // 2 for glyphIndex and 2 for XY bytes
-		//		if argsAreWords {
-		//			numBytes += 2
-		//		}
-		//		if haveScale {
-		//			numBytes += 2
-		//		} else if haveXYScales {
-		//			numBytes += 4
-		//		} else if have2by2 {
-		//			numBytes += 8
-		//		}
-		//		_ = rGlyf.ReadBytes(uint32(numBytes))
-		//		if haveInstructions {
-		//			hasInstructions = true
-		//		}
-		//		if !moreComponents {
-		//			break
-		//		}
-		//	}
-		//	if hasInstructions {
-		//		n := rGlyf.ReadUint16()
-		//		_ = rGlyf.ReadBytes(uint32(n))
-		//	}
-		//}
+		offset = offsetNext
 	}
 
-	w := newBinaryWriter(make([]byte, 0))
+	w := newBinaryWriter(make([]byte, 2*numGlyphs+2*numHMetrics))
 	for iHMetric := uint16(0); iHMetric < numHMetrics; iHMetric++ {
 		w.WriteUint16(advanceWidths[iHMetric])
 		w.WriteInt16(lsbs[iHMetric])
