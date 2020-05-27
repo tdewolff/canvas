@@ -38,7 +38,7 @@ func ToSFNT(b []byte) ([]byte, string, error) {
 	}
 
 	if mimetype == "font/woff" {
-		b, err = ParseWOFF(b)
+		b, err = ParseWOFF1(b)
 		if err != nil {
 			return nil, "", fmt.Errorf("WOFF: %w", err)
 		}

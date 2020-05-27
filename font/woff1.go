@@ -37,16 +37,16 @@ func (table *tablePositions) Add(offset, length uint32) {
 
 func (table *tablePositions) HasOverlap() bool {
 	for i := 1; i < len(table.offsets); i++ {
-		if table.offsets[i] < table.offsets[i-1]+table.lengths[i-1] {
+		if table.offsets[i]-table.offsets[i-1] < table.lengths[i-1] {
 			return true
 		}
 	}
 	return false
 }
 
-// ParseWOFF parses the WOFF font format and returns its contained SFNT font format (TTF or OTF).
+// ParseWOFF1 parses the WOFF font format and returns its contained SFNT font format (TTF or OTF).
 // See https://www.w3.org/TR/WOFF/
-func ParseWOFF(b []byte) ([]byte, error) {
+func ParseWOFF1(b []byte) ([]byte, error) {
 	if len(b) < 44 {
 		return nil, ErrInvalidFontData
 	}
@@ -60,25 +60,28 @@ func ParseWOFF(b []byte) ([]byte, error) {
 	if uint32ToString(flavor) == "ttcf" {
 		return nil, fmt.Errorf("collections are unsupported")
 	}
-	length := r.ReadUint32()         // length
-	numTables := r.ReadUint16()      // numTables
-	reserved := r.ReadUint16()       // reserved
-	totalSfntSize := r.ReadUint32()  // totalSfntSize
-	_ = r.ReadUint16()               // majorVersion
-	_ = r.ReadUint16()               // minorVersion
-	metaOffset := r.ReadUint32()     // metaOffset
-	metaLength := r.ReadUint32()     // metaLength
-	metaOrigLength := r.ReadUint32() // metaOrigLength
-	privOffset := r.ReadUint32()     // privOffset
-	privLength := r.ReadUint32()     // privLength
+	length := r.ReadUint32()        // length
+	numTables := r.ReadUint16()     // numTables
+	reserved := r.ReadUint16()      // reserved
+	totalSfntSize := r.ReadUint32() // totalSfntSize
+	_ = r.ReadUint16()              // majorVersion
+	_ = r.ReadUint16()              // minorVersion
+	_ = r.ReadUint32()              // metaOffset
+	_ = r.ReadUint32()              // metaLength
+	_ = r.ReadUint32()              // metaOrigLength
+	_ = r.ReadUint32()              // privOffset
+	_ = r.ReadUint32()              // privLength
 
 	frontSize := 44 + 20*uint32(numTables) // can never exceed uint32 as numTables is uint16
-	if length != uint32(len(b)) || numTables == 0 || length <= frontSize || reserved != 0 {
-		// file size does not match length in header
-		// or numTables is zero
-		// or table directory is bigger or equal to the file size
-		// or reserved is not zero (stated explicitly by the spec)
+	if length <= frontSize {
+		// table directory is bigger or equal to the file size
 		return nil, ErrInvalidFontData
+	} else if length != uint32(len(b)) {
+		return nil, fmt.Errorf("length in header must match file size")
+	} else if numTables == 0 {
+		return nil, fmt.Errorf("numTables in header must not be zero")
+	} else if reserved != 0 {
+		return nil, fmt.Errorf("reserved in header must be zero")
 	}
 
 	tables := []woffTable{}
@@ -92,18 +95,19 @@ func ParseWOFF(b []byte) ([]byte, error) {
 		compLength := r.ReadUint32()
 		origLength := r.ReadUint32()
 		origChecksum := r.ReadUint32()
-		if length-compLength < offset || origLength < compLength || 0 < i && tag < tables[i-1].tag {
-			// table extends beyond file
-			// or compressed size larger then uncompressed
-			// or tables not sorted alphabetically
-			return nil, ErrInvalidFontData
+		if length-compLength < offset {
+			return nil, fmt.Errorf("table extends beyond file size")
+		} else if origLength < compLength {
+			return nil, fmt.Errorf("compressed table size is larger than decompressed size")
+		} else if 0 < i && tag < tables[i-1].tag {
+			return nil, fmt.Errorf("tables are not sorted alphabetically")
 		}
-		nPadding := (4 - origLength&3) & 3
-		if math.MaxUint32-origLength < nPadding || math.MaxUint32-origLength-nPadding < sfntOffset {
+		padding := (4 - origLength&3) & 3
+		if math.MaxUint32-origLength < padding || math.MaxUint32-origLength-padding < sfntOffset {
 			// both origLength and sfntOffset can overflow, check for both
 			return nil, ErrInvalidFontData
 		}
-		sfntOffset += origLength + nPadding
+		sfntOffset += origLength + padding
 
 		tables = append(tables, woffTable{
 			tag:          tag,
@@ -116,21 +120,10 @@ func ParseWOFF(b []byte) ([]byte, error) {
 	}
 
 	if totalSfntSize != sfntOffset {
-		// totalSfntSize does not coincide with sfnt header + table directory + data blocks
-		return nil, ErrInvalidFontData
-	}
-	if (metaOffset == 0) != (metaLength == 0) || (metaOffset == 0) != (metaOrigLength == 0) {
-		return nil, ErrInvalidFontData
-	} else if metaOffset != 0 {
-		tablePos.Add(metaOffset, metaLength)
-	}
-	if (privOffset == 0) != (privLength == 0) {
-		return nil, ErrInvalidFontData
-	} else if privOffset != 0 {
-		tablePos.Add(privOffset, privLength)
+		return nil, fmt.Errorf("totalSfntSize is incorrect")
 	}
 	if tablePos.HasOverlap() {
-		return nil, ErrInvalidFontData
+		return nil, fmt.Errorf("tables can not overlap")
 	}
 
 	var searchRange uint16 = 1
@@ -183,7 +176,7 @@ func ParseWOFF(b []byte) ([]byte, error) {
 
 		dataLength := uint32(len(data))
 		if dataLength != table.origLength {
-			return nil, ErrInvalidFontData
+			return nil, fmt.Errorf("decompressed table length must be equal to origLength")
 		}
 
 		// add padding
@@ -216,11 +209,12 @@ func ParseWOFF(b []byte) ([]byte, error) {
 	if iCheckSumAdjustment == 0 {
 		return nil, ErrInvalidFontData
 	} else {
+		checksum := 0xB1B0AFBA - calcChecksum(w.Bytes())
 		// TODO: (WOFF) overal checksum is off by a little...
-		//fmt.Println(binary.BigEndian.Uint32(w.Bytes()[iCheckSumAdjustment:]))
-		//checksum := 0xB1B0AFBA - calcChecksum(w.Bytes())
 		//if checkSumAdjustment != checksum {
-		//return nil, 0, fmt.Errorf("bad checksum")
+		//	return nil, fmt.Errorf("bad checksum")
+		//}
+		checkSumAdjustment = checksum
 	}
 
 	// replace overal checksum in head table

@@ -17,7 +17,7 @@ func TestWOFFError(t *testing.T) {
 	}
 	for i, tt := range tts {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			_, err := ParseWOFF([]byte(tt.data))
+			_, err := ParseWOFF1([]byte(tt.data))
 			test.T(t, err.Error(), tt.err)
 		})
 	}
