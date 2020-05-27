@@ -79,14 +79,11 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 	_ = r.ReadUint32()                    // privLength
 	if r.EOF() {
 		return nil, ErrInvalidFontData
-	}
-	if uint32(len(b)) != length {
+	} else if length != uint32(len(b)) {
 		return nil, fmt.Errorf("length in header must match file size")
-	}
-	if numTables == 0 {
+	} else if numTables == 0 {
 		return nil, fmt.Errorf("numTables in header must not be zero")
-	}
-	if reserved != 0 {
+	} else if reserved != 0 {
 		return nil, fmt.Errorf("reserved in header must be zero")
 	}
 
@@ -109,7 +106,7 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 			return nil, fmt.Errorf("%s: table defined more than once", tag)
 		}
 
-		origLength, err := readUintBase128(r) // if EOF is encountered above, this will return ErrInvalidFontData
+		origLength, err := readUintBase128(r) // if EOF is encountered above
 		if err != nil {
 			return nil, err
 		}
@@ -385,7 +382,7 @@ func reconstructGlyfLoca(b []byte, origLocaLength uint32) ([]byte, []byte, error
 		return nil, nil, fmt.Errorf("loca: origLength must match numGlyphs+1 entries")
 	}
 
-	w := newBinaryWriter(make([]byte, 0))
+	w := newBinaryWriter(make([]byte, 0)) // size unknown
 	loca := newBinaryWriter(make([]byte, locaLength))
 	for iGlyph := uint16(0); iGlyph < numGlyphs; iGlyph++ {
 		if indexFormat == 0 {

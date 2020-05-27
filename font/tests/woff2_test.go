@@ -34,7 +34,6 @@ func TestWOFF2ValidationDecoderRoundtrip(t *testing.T) {
 	filenames := []string{
 		//"roundtrip-collection-dsig-001",
 		//"roundtrip-collection-order-001",
-		"roundtrip-hmtx-lsb-001-ft",
 		//"roundtrip-hmtx-lsb-001", // the woff2 test file seems to be broken, advanceWidth is in reverse order
 		//"roundtrip-offset-tables-001",
 	}
@@ -358,6 +357,51 @@ func TestWOFF2ValidationFormat(t *testing.T) {
 	for _, tt := range tts {
 		t.Run(tt.filename, func(t *testing.T) {
 			b, err := ioutil.ReadFile("testdata/woff2_format/" + tt.filename + ".woff2")
+			test.Error(t, err)
+			_, err = font.ParseWOFF2(b)
+			if tt.err == "" {
+				test.Error(t, err)
+			} else if err == nil {
+				test.Fail(t, "must give error")
+			} else {
+				test.T(t, err.Error(), tt.err)
+			}
+		})
+	}
+}
+
+func TestWOFF2ValidationUserAgent(t *testing.T) {
+	var tts = []struct {
+		filename string
+		err      string
+	}{
+		//{"available-002", ""},
+		//{"blocks-extraneous-data-001", "err"}, // not sure how to test this
+		//{"blocks-overlap-001", ""},
+		//{"blocks-overlap-002", ""},
+		//{"blocks-overlap-003", ""},
+		//{"datatypes-alt-255uint16-001", ""}, // bad test, has wrong length of hmtx table
+		{"datatypes-invalid-base128-001", "readUintBase128: must not start with leading zeros"},
+		{"datatypes-invalid-base128-002", "readUintBase128: overflow"},
+		{"datatypes-invalid-base128-003", "readUintBase128: exceeds 5 bytes"},
+		{"directory-knowntags-001", ""},
+		//{"directory-mismatched-tables-001", "err"},
+		{"header-totalsfntsize-001", ""},
+		{"header-totalsfntsize-002", ""},
+		{"tabledata-bad-origlength-loca-001", "loca: origLength must match numGlyphs+1 entries"},
+		{"tabledata-bad-origlength-loca-002", "loca: origLength must match numGlyphs+1 entries"},
+		{"tabledata-glyf-bbox-002", "glyf: composite glyph must have bbox definition"},
+		{"tabledata-glyf-bbox-003", "glyf: empty glyph cannot have bbox definition"},
+		{"tabledata-glyf-origlength-001", ""},
+		{"tabledata-glyf-origlength-002", ""},
+		{"tabledata-glyf-origlength-003", ""},
+		{"tabledata-non-zero-loca-001", "loca: transformLength must be zero"},
+		//{"tabledata-transform-bad-flag-001", "head: invalid transformation"}, // TODO: test fixed with CFF support
+		//{"tabledata-transform-bad-flag-002", "glyf: invalid transformation"}, // TODO: test fixed with CFF support
+	}
+	for _, tt := range tts {
+		t.Run(tt.filename, func(t *testing.T) {
+			b, err := ioutil.ReadFile("testdata/woff2_useragent/" + tt.filename + ".woff2")
 			test.Error(t, err)
 			_, err = font.ParseWOFF2(b)
 			if tt.err == "" {
