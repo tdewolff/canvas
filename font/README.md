@@ -2,7 +2,7 @@
 
 This library contains font parsers for WOFF, WOFF2, and EOT. It takes a byte-slice as input and converts it to SFNT formats (either TTF or OTF). As font formats for the web, WOFF, WOFF2, and EOT are really just containers for SFNT fonts (such as TTF and OTF) that have better compression.
 
-The WOFF and WOFF2 converters have been testing using the validation tests from the W3C. Font collections (such as TTC and OTC) are not yet supported, but will be in the near future.
+The WOFF and WOFF2 converters have been testing using the validation tests from the W3C. Font collections (such as TTC and OTC) are not yet supported, but will be in the near future. Compression in EOT files are also not yet supported.
 
 ## Usage
 Import using:

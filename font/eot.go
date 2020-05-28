@@ -80,11 +80,12 @@ func ParseEOT(b []byte) ([]byte, error) {
 	}
 
 	_ = checkSumAdjustment
-	// TODO: (WOFF) overal checksum is off by a little...
+	// TODO: (EOT) verify or recalculate master checksum
 	//fmt.Println(binary.BigEndian.Uint32(w.Bytes()[iCheckSumAdjustment:]))
 	//checksum := 0xB1B0AFBA - calcChecksum(w.Bytes())
 	//if checkSumAdjustment != checksum {
 	//return nil, 0, fmt.Errorf("bad checksum")
+	//}
 
 	// replace overal checksum in head table
 	//buf := w.Bytes()
