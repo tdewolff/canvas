@@ -44,9 +44,9 @@ func (table *tablePositions) HasOverlap() bool {
 	return false
 }
 
-// ParseWOFF1 parses the WOFF font format and returns its contained SFNT font format (TTF or OTF).
+// ParseWOFF parses the WOFF font format and returns its contained SFNT font format (TTF or OTF).
 // See https://www.w3.org/TR/WOFF/
-func ParseWOFF1(b []byte) ([]byte, error) {
+func ParseWOFF(b []byte) ([]byte, error) {
 	if len(b) < 44 {
 		return nil, ErrInvalidFontData
 	}
@@ -210,7 +210,7 @@ func ParseWOFF1(b []byte) ([]byte, error) {
 		return nil, ErrInvalidFontData
 	} else {
 		checksum := 0xB1B0AFBA - calcChecksum(w.Bytes())
-		// TODO: (WOFF) overal checksum is off by a little...
+		// TODO: (WOFF) master checksum seems right, but we don't throw an error if it is off
 		//if checkSumAdjustment != checksum {
 		//	return nil, fmt.Errorf("bad checksum")
 		//}

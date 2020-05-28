@@ -8,7 +8,7 @@ import (
 	"github.com/tdewolff/test"
 )
 
-func TestWOFF1ValidationFormat(t *testing.T) {
+func TestWOFFValidationFormat(t *testing.T) {
 	var tts = []struct {
 		filename string
 		err      string
@@ -68,12 +68,9 @@ func TestWOFF1ValidationFormat(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.filename, func(t *testing.T) {
-			b, err := ioutil.ReadFile("testdata/woff1_format/" + tt.filename + ".woff")
+			b, err := ioutil.ReadFile("testdata/woff_format/" + tt.filename + ".woff")
 			test.Error(t, err)
-			a, err := font.ParseWOFF1(b)
-			if tt.filename == "valid-001" {
-				ioutil.WriteFile("out.ttf", a, 0644)
-			}
+			_, err = font.ParseWOFF(b)
 			if tt.err == "" {
 				test.Error(t, err)
 			} else if err == nil {
