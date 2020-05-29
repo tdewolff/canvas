@@ -31,6 +31,8 @@ github.com/paulmach/osm v0.0.1/go.mod h1:d6Ez0X1es6TaiYBxNmn1WbutRRQleZdvpoqeWdH
 github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4/go.mod h1:4OwLy04Bl9Ef3GJJCoec+30X3LQs/0/m4HFRt/2LUSA=
 github.com/remyoudompheng/bigfft v0.0.0-20170806203942-52369c62f446/go.mod h1:uYEyJGbgTkfkS4+E/PavXkNJcbFIpEtjt2B0KDQ5+9M=
 github.com/spf13/pflag v1.0.3/go.mod h1:DYY7MBk1bdzusC3SYhjObp+wFpr4gzcvqqNjLnInEg4=
+github.com/tdewolff/canvas v0.0.0-20200528174219-d419a64af7aa h1:2Z6m8t7bfGcCoJb57zlwSnQ7em8FOrTlu1Nf0nqRDRg=
+github.com/tdewolff/canvas v0.0.0-20200528174219-d419a64af7aa/go.mod h1:DCuQBGs+Nm73wH9S/z1tlUKDbAPCGa6W7A/DHU1ENmQ=
 github.com/tdewolff/minify/v2 v2.7.1-0.20200112204046-70870d25a935 h1:nRG5jPGtwJpQ8KtrqhGVdLAuOnk4YWfNxh4Kx9XMuAw=
 github.com/tdewolff/minify/v2 v2.7.1-0.20200112204046-70870d25a935/go.mod h1:BkDSm8aMMT0ALGmpt7j3Ra7nLUgZL0qhyrAHXwxcy5w=
 github.com/tdewolff/parse/v2 v2.4.2 h1:Bu2Qv6wepkc+Ou7iB/qHjAhEImlAP5vedzlQRUdj3BI=
