@@ -25,6 +25,7 @@ func MediaType(b []byte) (string, error) {
 	} else if tag == "wOF2" {
 		return "font/woff2", nil
 	} else if tag == "true" || binary.BigEndian.Uint32(b[:4]) == 0x00010000 {
+		// TODO: what about "typ1" from MacOS? Is it a TrueType file format?
 		return "font/truetype", nil
 	} else if tag == "OTTO" {
 		return "font/opentype", nil

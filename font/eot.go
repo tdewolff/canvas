@@ -22,7 +22,7 @@ func ParseEOT(b []byte) ([]byte, error) {
 	_ = r.ReadUint16LE()            // fsType
 	magicNumber := r.ReadUint16LE() // MagicNumber
 	if magicNumber != 0x504C {
-		return nil, ErrInvalidFontData
+		return nil, fmt.Errorf("invalid magic number")
 	}
 	_ = r.ReadBytes(24) // Unicode and CodePage ranges
 	checkSumAdjustment := r.ReadUint32LE()
