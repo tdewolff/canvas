@@ -160,19 +160,19 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 	// TODO: (WOFF2) parse collection directory format
 
 	// decompress font data using Brotli
-	data := r.ReadBytes(totalCompressedSize)
+	compData := r.ReadBytes(totalCompressedSize)
 	if r.EOF() {
 		return nil, ErrInvalidFontData
+	} else if MaxMemory < uncompressedSize {
+		return nil, ErrExceedsMemory
 	}
-
-	var dataBuf bytes.Buffer
-	rBrotli, _ := brotli.NewReader(bytes.NewReader(data), nil) // err is always nil
-	io.Copy(&dataBuf, rBrotli)
+	rBrotli, _ := brotli.NewReader(bytes.NewReader(compData), nil) // err is always nil
+	dataBuf := bytes.NewBuffer(make([]byte, 0, uncompressedSize))
+	io.Copy(dataBuf, rBrotli)
 	if err := rBrotli.Close(); err != nil {
 		return nil, err
 	}
-
-	data = dataBuf.Bytes()
+	data := dataBuf.Bytes()
 	if uint32(len(data)) != uncompressedSize {
 		return nil, fmt.Errorf("sum of table lengths must match decompressed font data size")
 	}
