@@ -296,6 +296,9 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 	rangeShift = numTables*16 - searchRange
 
 	// write offset table
+	if MaxMemory < totalSfntSize {
+		return nil, ErrExceedsMemory
+	}
 	w := newBinaryWriter(make([]byte, totalSfntSize)) // initial guess, will be bigger
 	w.WriteUint32(flavor)
 	w.WriteUint16(numTables)

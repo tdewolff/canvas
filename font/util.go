@@ -6,6 +6,13 @@ import (
 	"math"
 )
 
+// MaxMemory is the maximum memory that can be allocated by a font.
+var MaxMemory uint32 = 30 * 1024 * 1024
+
+// ErrExceedsMemory is returned if the font is malformed.
+var ErrExceedsMemory = fmt.Errorf("memory limit exceded")
+
+// ErrInvalidFontData is returned if the font is malformed.
 var ErrInvalidFontData = fmt.Errorf("invalid font data")
 
 func calcChecksum(b []byte) uint32 {

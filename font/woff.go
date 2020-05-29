@@ -139,6 +139,10 @@ func ParseWOFF(b []byte) ([]byte, error) {
 	searchRange *= 16
 	rangeShift = numTables*16 - searchRange
 
+	// write offset table
+	if MaxMemory < totalSfntSize {
+		return nil, ErrExceedsMemory
+	}
 	w := newBinaryWriter(make([]byte, totalSfntSize))
 	w.WriteUint32(flavor)
 	w.WriteUint16(numTables)
@@ -146,6 +150,7 @@ func ParseWOFF(b []byte) ([]byte, error) {
 	w.WriteUint16(entrySelector)
 	w.WriteUint16(rangeShift)
 
+	// write table record entries
 	sfntOffset = 12 + 16*uint32(numTables) // can never exceed uint32 as numTables is uint16
 	for _, table := range tables {
 		w.WriteUint32(binary.BigEndian.Uint32([]byte(table.tag)))
@@ -155,8 +160,8 @@ func ParseWOFF(b []byte) ([]byte, error) {
 		sfntOffset += (table.origLength + 3) & 0xFFFFFFFC // add padding
 	}
 
-	var iCheckSumAdjustment uint32
-	var checkSumAdjustment uint32
+	// write tables
+	var checksumAdjustment, checksumAdjustmentPos uint32
 	for _, table := range tables {
 		data := b[table.offset : table.offset+table.length : table.offset+table.length]
 		if table.length != table.origLength {
@@ -188,8 +193,8 @@ func ParseWOFF(b []byte) ([]byte, error) {
 			if dataLength < 12 {
 				return nil, ErrInvalidFontData
 			}
-			checkSumAdjustment = binary.BigEndian.Uint32(data[8:])
-			iCheckSumAdjustment = w.Len() + 8
+			checksumAdjustment = binary.BigEndian.Uint32(data[8:])
+			checksumAdjustmentPos = w.Len() + 8
 
 			// to check checksum for head table, replace the overal checksum with zero and reset it at the end
 			binary.BigEndian.PutUint32(data[8:], 0x00000000)
@@ -206,7 +211,7 @@ func ParseWOFF(b []byte) ([]byte, error) {
 		return nil, ErrInvalidFontData
 	}
 
-	if iCheckSumAdjustment == 0 {
+	if checksumAdjustmentPos == 0 {
 		return nil, ErrInvalidFontData
 	} else {
 		checksum := 0xB1B0AFBA - calcChecksum(w.Bytes())
@@ -214,11 +219,11 @@ func ParseWOFF(b []byte) ([]byte, error) {
 		//if checkSumAdjustment != checksum {
 		//	return nil, fmt.Errorf("bad checksum")
 		//}
-		checkSumAdjustment = checksum
+		checksumAdjustment = checksum
 	}
 
 	// replace overal checksum in head table
 	buf := w.Bytes()
-	binary.BigEndian.PutUint32(buf[iCheckSumAdjustment:], checkSumAdjustment)
+	binary.BigEndian.PutUint32(buf[checksumAdjustmentPos:], checksumAdjustment)
 	return buf, nil
 }
