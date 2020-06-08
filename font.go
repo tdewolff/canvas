@@ -25,10 +25,10 @@ const (
 // Font defines a font of type TTF or OTF which which a FontFace can be generated for use in text drawing operations.
 type Font struct {
 	// TODO: extend to fully read in sfnt data and read liga tables, generate Raw font data (base on used glyphs), etc
-	name     string
-	mimetype string
-	raw      []byte
-	sfnt     *sfnt.Font
+	name      string
+	mediatype string
+	raw       []byte
+	sfnt      *sfnt.Font
 
 	// TODO: use sub/superscript Unicode transformations in ToPath etc. if they exist
 	typography  bool
@@ -38,7 +38,7 @@ type Font struct {
 }
 
 func parseFont(name string, b []byte) (*Font, error) {
-	mimetype, err := canvasFont.Mimetype(b)
+	mediatype, err := canvasFont.MediaType(b)
 	if err != nil {
 		return nil, err
 	}
@@ -49,10 +49,10 @@ func parseFont(name string, b []byte) (*Font, error) {
 	}
 
 	f := &Font{
-		name:     name,
-		mimetype: mimetype,
-		raw:      b,
-		sfnt:     (*sfnt.Font)(sfntFont),
+		name:      name,
+		mediatype: mediatype,
+		raw:       b,
+		sfnt:      (*sfnt.Font)(sfntFont),
 	}
 	f.superscript = f.supportedSubstitutions(superscriptSubstitutes)
 	f.subscript = f.supportedSubstitutions(subscriptSubstitutes)
@@ -67,7 +67,7 @@ func (f *Font) Name() string {
 
 // Raw returns the mimetype and raw binary data of the font.
 func (f *Font) Raw() (string, []byte) {
-	return f.mimetype, f.raw
+	return f.mediatype, f.raw
 }
 
 // UnitsPerEm returns the number of units per em for f.

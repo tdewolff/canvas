@@ -93,8 +93,8 @@ func (r *SVG) writeFonts(fonts []*canvas.Font) {
 	if 0 < len(is) {
 		fmt.Fprintf(r.w, "<style>")
 		for _, i := range is {
-			mimetype, raw := fonts[i].Raw()
-			fmt.Fprintf(r.w, "\n@font-face{font-family:'%s';src:url('data:%s;base64,", fonts[i].Name(), mimetype)
+			mediatype, raw := fonts[i].Raw()
+			fmt.Fprintf(r.w, "\n@font-face{font-family:'%s';src:url('data:%s;base64,", fonts[i].Name(), mediatype)
 			encoder := base64.NewEncoder(base64.StdEncoding, r.w)
 			encoder.Write(raw)
 			encoder.Close()

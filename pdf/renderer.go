@@ -415,24 +415,25 @@ func (w *pdfWriter) getFont(font *canvas.Font) pdfRef {
 		return ref
 	}
 
-	mimetype, b := font.Raw()
-	if mimetype != "font/truetype" && mimetype != "font/opentype" {
+	mediatype, b := font.Raw()
+	if mediatype != "font/truetype" && mediatype != "font/opentype" {
 		var err error
-		b, mimetype, err = canvasFont.ToSFNT(b)
+		b, err = canvasFont.ToSFNT(b)
 		if err != nil {
 			panic(err)
 		}
-		if mimetype != "font/truetype" && mimetype != "font/opentype" {
-			panic("only TTF and OTF formats supported for embedding fonts in PDFs")
+		mediatype, err = canvasFont.MediaType(b)
+		if err != nil || mediatype != "font/truetype" && mediatype != "font/opentype" {
+			panic("only TTF and OTF formats (potentially embedded in WOFF, WOFF2 or EOT formats) supported for embedding fonts in PDFs")
 		}
 	}
 
 	ffSubtype := ""
 	cidSubtype := ""
-	if mimetype == "font/truetype" {
+	if mediatype == "font/truetype" {
 		ffSubtype = "TrueType"
 		cidSubtype = "CIDFontType2"
-	} else if mimetype == "font/opentype" {
+	} else if mediatype == "font/opentype" {
 		ffSubtype = "OpenType"
 		cidSubtype = "CIDFontType0"
 	}
