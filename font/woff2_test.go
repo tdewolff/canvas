@@ -91,7 +91,7 @@ func TestWOFF2ValidationDecoder(t *testing.T) {
 	}
 	for _, filename := range filenames {
 		t.Run(filename, func(t *testing.T) {
-			b, err := ioutil.ReadFile("testdata/woff2_decoder/" + filename + ".woff2")
+			b, err := ioutil.ReadFile("./testdata/woff2_decoder/" + filename + ".woff2")
 			test.Error(t, err)
 			_, err = ParseWOFF2(b)
 			test.Error(t, err)
@@ -108,9 +108,9 @@ func TestWOFF2ValidationDecoderRoundtrip(t *testing.T) {
 	}
 	for _, filename := range filenames {
 		t.Run(filename, func(t *testing.T) {
-			a, err := ioutil.ReadFile("testdata/woff2_decoder/" + filename + ".ttf")
+			a, err := ioutil.ReadFile("./testdata/woff2_decoder/" + filename + ".ttf")
 			test.Error(t, err)
-			b, err := ioutil.ReadFile("testdata/woff2_decoder/" + filename + ".woff2")
+			b, err := ioutil.ReadFile("./testdata/woff2_decoder/" + filename + ".woff2")
 			test.Error(t, err)
 			b, err = ParseWOFF2(b)
 			test.Error(t, err)
@@ -425,7 +425,7 @@ func TestWOFF2ValidationFormat(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.filename, func(t *testing.T) {
-			b, err := ioutil.ReadFile("testdata/woff2_format/" + tt.filename + ".woff2")
+			b, err := ioutil.ReadFile("./testdata/woff2_format/" + tt.filename + ".woff2")
 			test.Error(t, err)
 			_, err = ParseWOFF2(b)
 			if tt.err == "" {
@@ -470,7 +470,7 @@ func TestWOFF2ValidationUserAgent(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.filename, func(t *testing.T) {
-			b, err := ioutil.ReadFile("testdata/woff2_useragent/" + tt.filename + ".woff2")
+			b, err := ioutil.ReadFile("./testdata/woff2_useragent/" + tt.filename + ".woff2")
 			test.Error(t, err)
 			_, err = ParseWOFF2(b)
 			if tt.err == "" {

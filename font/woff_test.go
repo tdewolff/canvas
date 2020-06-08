@@ -3,6 +3,8 @@ package font
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
+	"os"
 	"testing"
 
 	"github.com/tdewolff/test"
@@ -83,8 +85,9 @@ func TestWOFFValidationFormat(t *testing.T) {
 		{"tabledata-zlib-001", "name: zlib: invalid header"},
 	}
 	for _, tt := range tts {
+		log.Fatalln(os.Getwd())
 		t.Run(tt.filename, func(t *testing.T) {
-			b, err := ioutil.ReadFile("testdata/woff_format/" + tt.filename + ".woff")
+			b, err := ioutil.ReadFile("./testdata/woff_format/" + tt.filename + ".woff")
 			test.Error(t, err)
 			_, err = ParseWOFF(b)
 			if tt.err == "" {
