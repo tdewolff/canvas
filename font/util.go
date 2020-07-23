@@ -40,7 +40,7 @@ type binaryReader struct {
 }
 
 func newBinaryReader(buf []byte) *binaryReader {
-	if math.MaxUint32 < len(buf) {
+	if math.MaxUint32 < uint32(len(buf)) {
 		return &binaryReader{nil, 0, true}
 	}
 	return &binaryReader{buf, 0, false}
@@ -136,7 +136,7 @@ type bitmapReader struct {
 }
 
 func newBitmapReader(buf []byte) *bitmapReader {
-	if math.MaxUint32 < len(buf) {
+	if math.MaxUint32 < uint32(len(buf)) {
 		return &bitmapReader{nil, 0, true}
 	}
 	return &bitmapReader{buf, 0, false}
