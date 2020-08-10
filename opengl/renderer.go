@@ -1,4 +1,4 @@
-package canvas
+package opengl
 
 //import (
 //	"fmt"

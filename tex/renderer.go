@@ -1,4 +1,4 @@
-package canvas
+package tex
 
 import (
 	"fmt"
@@ -6,13 +6,15 @@ import (
 	"image/color"
 	"io"
 	"math"
+
+	"github.com/tdewolff/canvas"
 )
 
 type TeX struct {
 	w             io.Writer
 	width, height float64
 
-	style  Style
+	style  canvas.Style
 	colors map[color.RGBA]string
 }
 
@@ -23,7 +25,7 @@ func NewTeX(w io.Writer, width, height float64) *TeX {
 		w:      w,
 		width:  width,
 		height: height,
-		style:  DefaultStyle,
+		style:  canvas.DefaultStyle,
 		colors: map[color.RGBA]string{},
 	}
 }
@@ -52,22 +54,22 @@ func (r *TeX) getColor(col color.RGBA) string {
 	return name
 }
 
-func (r *TeX) RenderPath(path *Path, style Style, m Matrix) {
+func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
 	if path.Empty() {
 		return
 	}
 	path = path.Transform(m)
 	path = path.ReplaceArcs()
 
-	path.Iterate(func(start, end Point) {
+	path.Iterate(func(start, end canvas.Point) {
 		fmt.Fprintf(r.w, "\n\\pgfpathmoveto{\\pgfpoint{%vmm}{%vmm}}", dec(end.X), dec(end.Y))
-	}, func(start, end Point) {
+	}, func(start, end canvas.Point) {
 		fmt.Fprintf(r.w, "\n\\pgfpathlineto{\\pgfpoint{%vmm}{%vmm}}", dec(end.X), dec(end.Y))
-	}, func(start, cp, end Point) {
+	}, func(start, cp, end canvas.Point) {
 		fmt.Fprintf(r.w, "\n\\pgfpathquadraticcurveto{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%vmm}{%vmm}}", dec(cp.X), dec(cp.Y), dec(end.X), dec(end.Y))
-	}, func(start, cp1, cp2, end Point) {
+	}, func(start, cp1, cp2, end canvas.Point) {
 		fmt.Fprintf(r.w, "\n\\pgfpathcurveto{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%vmm}{%vmm}}", dec(cp1.X), dec(cp1.Y), dec(cp2.X), dec(cp2.Y), dec(end.X), dec(end.Y))
-	}, func(start Point, rx, ry, rot float64, large, sweep bool, end Point) {
+	}, func(start canvas.Point, rx, ry, rot float64, large, sweep bool, end canvas.Point) {
 		iLarge := 0
 		if large {
 			iLarge = 1
@@ -77,7 +79,7 @@ func (r *TeX) RenderPath(path *Path, style Style, m Matrix) {
 			iSweep = 1
 		}
 		fmt.Fprintf(r.w, "\n\\pgfpatharcto{%vmm}{%vmm}{%v}{%v}{%v}{\\pgfpoint{%vmm}{%vmm}}", dec(rx), dec(ry), dec(rot), iLarge, iSweep, dec(end.X), dec(end.Y))
-	}, func(start, end Point) {
+	}, func(start, end canvas.Point) {
 		fmt.Fprintf(r.w, "\n\\pgfpathclose")
 	})
 
@@ -95,11 +97,11 @@ func (r *TeX) RenderPath(path *Path, style Style, m Matrix) {
 
 	if stroke {
 		if style.StrokeCapper != r.style.StrokeCapper {
-			if _, ok := style.StrokeCapper.(RoundCapper); ok {
+			if _, ok := style.StrokeCapper.(canvas.RoundCapper); ok {
 				fmt.Fprintf(r.w, "\n\\pgfsetroundcap")
-			} else if _, ok := style.StrokeCapper.(SquareCapper); ok {
+			} else if _, ok := style.StrokeCapper.(canvas.SquareCapper); ok {
 				fmt.Fprintf(r.w, "\n\\pgfsetrectcap")
-			} else if _, ok := style.StrokeCapper.(ButtCapper); ok {
+			} else if _, ok := style.StrokeCapper.(canvas.ButtCapper); ok {
 				fmt.Fprintf(r.w, "\n\\pgfsetbuttcap")
 			} else {
 				panic("TeX: line cap not support")
@@ -107,11 +109,11 @@ func (r *TeX) RenderPath(path *Path, style Style, m Matrix) {
 		}
 
 		if style.StrokeJoiner != r.style.StrokeJoiner {
-			if _, ok := style.StrokeJoiner.(BevelJoiner); ok {
+			if _, ok := style.StrokeJoiner.(canvas.BevelJoiner); ok {
 				fmt.Fprintf(r.w, "\n\\pgfsetbeveljoin")
-			} else if _, ok := style.StrokeJoiner.(RoundJoiner); ok {
+			} else if _, ok := style.StrokeJoiner.(canvas.RoundJoiner); ok {
 				fmt.Fprintf(r.w, "\n\\pgfsetroundjoin")
-			} else if miter, ok := style.StrokeJoiner.(MiterJoiner); ok && !math.IsNaN(miter.Limit) && miter.GapJoiner == BevelJoin {
+			} else if miter, ok := style.StrokeJoiner.(canvas.MiterJoiner); ok && !math.IsNaN(miter.Limit) && miter.GapJoiner == canvas.BevelJoin {
 				fmt.Fprintf(r.w, "\n\\pgfsetmiterjoin")
 				fmt.Fprintf(r.w, "\n\\pgfsetmiterlimit{%vmm}", dec(miter.Limit))
 			} else {
@@ -152,16 +154,16 @@ func (r *TeX) RenderPath(path *Path, style Style, m Matrix) {
 	r.style = style
 }
 
-func (r *TeX) RenderText(text *Text, m Matrix) {
+func (r *TeX) RenderText(text *canvas.Text, m canvas.Matrix) {
 	// TODO: (TeX) write text natively
 	paths, colors := text.ToPaths()
 	for i, path := range paths {
-		style := DefaultStyle
+		style := canvas.DefaultStyle
 		style.FillColor = colors[i]
 		r.RenderPath(path, style, m)
 	}
 }
 
-func (r *TeX) RenderImage(img image.Image, m Matrix) {
+func (r *TeX) RenderImage(img image.Image, m canvas.Matrix) {
 	// TODO: (TeX) write image
 }
