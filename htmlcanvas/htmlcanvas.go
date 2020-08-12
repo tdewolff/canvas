@@ -127,12 +127,7 @@ func (r *htmlCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 }
 
 func (r *htmlCanvas) RenderText(text *canvas.Text, m canvas.Matrix) {
-	paths, colors := text.ToPaths()
-	for i, path := range paths {
-		style := canvas.DefaultStyle
-		style.FillColor = colors[i]
-		r.RenderPath(path, style, m)
-	}
+	canvas.RenderTextAsPath(r, text, m)
 }
 
 func jsAwait(v js.Value) (result js.Value, ok bool) {
