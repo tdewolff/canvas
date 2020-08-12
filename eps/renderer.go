@@ -85,12 +85,7 @@ func (r *Renderer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Ma
 
 func (r *Renderer) RenderText(text *canvas.Text, m canvas.Matrix) {
 	// TODO: (EPS) write text natively
-	paths, colors := text.ToPaths()
-	for i, path := range paths {
-		style := canvas.DefaultStyle
-		style.FillColor = colors[i]
-		r.RenderPath(path, style, m)
-	}
+	canvas.RenderTextAsPath(r, text, m)
 }
 
 func (r *Renderer) RenderImage(img image.Image, m canvas.Matrix) {
