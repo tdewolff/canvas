@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/tdewolff/canvas"
+	"github.com/tdewolff/canvas/tex"
 )
 
 var fontFamily *canvas.FontFamily
@@ -24,7 +25,7 @@ func main() {
 	}
 	defer f.Close()
 
-	c := canvas.NewTeX(f, 20, 10)
+	c := tex.New(f, 20, 10)
 	defer c.Close()
 
 	ctx := canvas.NewContext(c)

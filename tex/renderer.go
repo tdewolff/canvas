@@ -18,8 +18,8 @@ type TeX struct {
 	colors map[color.RGBA]string
 }
 
-// NewTeX creates a TeX/pgf renderer.
-func NewTeX(w io.Writer, width, height float64) *TeX {
+// New creates a TeX/pgf renderer.
+func New(w io.Writer, width, height float64) *TeX {
 	fmt.Fprintf(w, "\\begin{pgfpicture}")
 	return &TeX{
 		w:      w,
