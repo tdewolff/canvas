@@ -63,20 +63,31 @@ type Renderer interface {
 
 ////////////////////////////////////////////////////////////////
 
+type CoordSystem int
+
+const (
+	CartesianI CoordSystem = iota
+	CartesianII
+	CartesianIII
+	CartesianIV
+)
+
 // Context maintains the state for the current path, path style, and view transformation matrix.
 type Context struct {
 	Renderer
 
 	path *Path
 	Style
-	styleStack []Style
-	view       Matrix
-	viewStack  []Matrix
+	styleStack     []Style
+	view           Matrix
+	viewStack      []Matrix
+	coordView      Matrix
+	coordViewStack []Matrix
 }
 
 // NewContext returns a new Context which is a wrapper around a Renderer. Context maintains state for the current path, path style, and view transformation matrix.
 func NewContext(r Renderer) *Context {
-	return &Context{r, &Path{}, DefaultStyle, nil, Identity, nil}
+	return &Context{r, &Path{}, DefaultStyle, nil, Identity, nil, Identity, nil}
 }
 
 // Width returns the width of the canvas.
@@ -93,19 +104,42 @@ func (c *Context) Height() float64 {
 
 // Push saves the current draw state, so that it can be popped later on.
 func (c *Context) Push() {
-	c.viewStack = append(c.viewStack, c.view)
 	c.styleStack = append(c.styleStack, c.Style)
+	c.viewStack = append(c.viewStack, c.view)
+	c.coordViewStack = append(c.coordViewStack, c.coordView)
 }
 
 // Pop restores the last pushed draw state and uses that as the current draw state. If there are no states on the stack, this will do nothing.
 func (c *Context) Pop() {
-	if len(c.viewStack) == 0 {
+	if len(c.styleStack) == 0 {
 		return
 	}
-	c.view = c.viewStack[len(c.viewStack)-1]
 	c.Style = c.styleStack[len(c.styleStack)-1]
-	c.viewStack = c.viewStack[:len(c.viewStack)-1]
 	c.styleStack = c.styleStack[:len(c.styleStack)-1]
+	c.view = c.viewStack[len(c.viewStack)-1]
+	c.viewStack = c.viewStack[:len(c.viewStack)-1]
+	c.coordView = c.coordViewStack[len(c.coordViewStack)-1]
+	c.coordViewStack = c.coordViewStack[:len(c.coordViewStack)-1]
+}
+
+// SetCoordView sets the current affine transformation matrix through which all operation coordinates will be transformed.
+func (c *Context) SetCoordView(rect Rect, width, height float64) {
+	c.coordView = Identity.Translate(rect.X, rect.Y).Scale(rect.W/width, rect.H/height)
+}
+
+// SetCoordSystem sets the current affine transformation matrix through which all operation coordinates will be transformed as a Cartesian coordinate system.
+func (c *Context) SetCoordSystem(coordSystem CoordSystem) {
+	w, h := c.Size()
+	switch coordSystem {
+	case CartesianI:
+		c.coordView = Identity
+	case CartesianII:
+		c.coordView = Identity.ReflectXAbout(w / 2.0)
+	case CartesianIII:
+		c.coordView = Identity.ReflectXAbout(w / 2.0).ReflectYAbout(h / 2.0)
+	case CartesianIV:
+		c.coordView = Identity.ReflectYAbout(h / 2.0)
+	}
 }
 
 // View returns the current affine transformation matrix.
@@ -302,7 +336,8 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 		return
 	}
 
-	m := c.view.Translate(x, y)
+	coord := c.coordView.Dot(Point{x, y})
+	m := c.view.Translate(coord.X, coord.Y)
 	for _, path := range paths {
 		var dashes []float64
 		path, dashes = path.checkDash(c.Style.DashOffset, c.Style.Dashes)
@@ -317,7 +352,8 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 
 // DrawText draws text at position (x,y) using the current draw state. In particular, it only uses the current affine transformation matrix.
 func (c *Context) DrawText(x, y float64, texts ...*Text) {
-	m := c.view.Translate(x, y)
+	coord := c.coordView.Dot(Point{x, y})
+	m := c.view.Translate(coord.X, coord.Y)
 	for _, text := range texts {
 		if text.Empty() {
 			continue
@@ -342,7 +378,8 @@ func (c *Context) DrawImage(x, y float64, img image.Image, dpm float64) {
 		return
 	}
 
-	m := c.view.Translate(x, y).Scale(1.0/dpm, 1.0/dpm)
+	coord := c.coordView.Dot(Point{x, y})
+	m := c.view.Translate(coord.X, coord.Y).Scale(1.0/dpm, 1.0/dpm)
 	c.RenderImage(img, m)
 }
 
