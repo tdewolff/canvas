@@ -156,7 +156,8 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 
 func (r *TeX) RenderText(text *canvas.Text, m canvas.Matrix) {
 	// TODO: (TeX) write text natively
-	text.RenderAsPath(r, m)
+	text.RenderLetters(r, m)
+	text.RenderDecoration(r, m)
 }
 
 func (r *TeX) RenderImage(img image.Image, m canvas.Matrix) {

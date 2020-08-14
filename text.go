@@ -528,35 +528,18 @@ func (t *Text) MostCommonFontFace() FontFace {
 	return family.Face(size*ptPerMm, col, style, variant)
 }
 
-// RenderAsPath renders the text converted to paths (calling r.RenderPath)
-func (t *Text) RenderAsPath(r Renderer, m Matrix) {
-	paths, colors := t.toPaths()
-	for i, path := range paths {
-		style := DefaultStyle
-		style.FillColor = colors[i]
-		r.RenderPath(path, style, m)
-	}
-}
-
-// toPaths makes a path out of the text, with x,y the top-left point of the rectangle that fits the text (ie. y is not the text base)
-func (t *Text) toPaths() ([]*Path, []color.RGBA) {
-	paths := []*Path{}
-	colors := []color.RGBA{}
+// RenderLetters renders the text converted to paths (calling r.RenderPath)
+// Don't forget to call RenderDecoration as well
+func (t *Text) RenderLetters(r Renderer, m Matrix) {
+	style := DefaultStyle
 	for _, line := range t.lines {
 		for _, span := range line.spans {
 			p, _, col := span.ToPath(span.width)
-			p = p.Translate(span.dx, line.y)
-			paths = append(paths, p)
-			colors = append(colors, col)
-		}
-		for _, deco := range line.decos {
-			p := deco.face.Decorate(deco.x1 - deco.x0)
-			p = p.Translate(deco.x0, line.y)
-			paths = append(paths, p)
-			colors = append(colors, deco.face.Color)
+			p = p.Translate(span.dx, line.y) // +deco.face.Voffset ?
+			style.FillColor = col
+			r.RenderPath(p, style, m)
 		}
 	}
-	return paths, colors
 }
 
 // RenderDecoration renders the text decorations using the RenderPath method of the Renderer.
@@ -567,9 +550,9 @@ func (t *Text) RenderDecoration(r Renderer, m Matrix) {
 	for _, line := range t.lines {
 		for _, deco := range line.decos {
 			p := deco.face.Decorate(deco.x1 - deco.x0)
-			p = p.Transform(Identity.Mul(m).Translate(deco.x0, line.y+deco.face.Voffset))
+			p = p.Translate(deco.x0, line.y+deco.face.Voffset)
 			style.FillColor = deco.face.Color
-			r.RenderPath(p, style, Identity)
+			r.RenderPath(p, style, m)
 		}
 	}
 }
