@@ -528,8 +528,18 @@ func (t *Text) MostCommonFontFace() FontFace {
 	return family.Face(size*ptPerMm, col, style, variant)
 }
 
-// ToPaths makes a path out of the text, with x,y the top-left point of the rectangle that fits the text (ie. y is not the text base)
-func (t *Text) ToPaths() ([]*Path, []color.RGBA) {
+// RenderAsPath renders the text converted to paths (calling r.RenderPath)
+func (t *Text) RenderAsPath(r Renderer, m Matrix) {
+	paths, colors := t.toPaths()
+	for i, path := range paths {
+		style := DefaultStyle
+		style.FillColor = colors[i]
+		r.RenderPath(path, style, m)
+	}
+}
+
+// toPaths makes a path out of the text, with x,y the top-left point of the rectangle that fits the text (ie. y is not the text base)
+func (t *Text) toPaths() ([]*Path, []color.RGBA) {
 	paths := []*Path{}
 	colors := []color.RGBA{}
 	for _, line := range t.lines {
