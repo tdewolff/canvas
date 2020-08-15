@@ -573,9 +573,9 @@ func (w *pdfWriter) Close() error {
 	w.write("\nendobj\n")
 
 	xrefOffset := w.pos
-	w.write("xref\n0 %d\n0000000000 65535 f\n", len(w.objOffsets)+1)
+	w.write("xref\n0 %d\n0000000000 65535 f \n", len(w.objOffsets)+1)
 	for _, objOffset := range w.objOffsets {
-		w.write("%010d 00000 n\n", objOffset)
+		w.write("%010d 00000 n \n", objOffset)
 	}
 	w.write("trailer\n")
 	w.writeVal(pdfDict{
