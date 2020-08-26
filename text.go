@@ -528,18 +528,18 @@ func (t *Text) MostCommonFontFace() FontFace {
 	return family.Face(size*ptPerMm, col, style, variant)
 }
 
-// RenderLetters renders the text converted to paths (calling r.RenderPath)
-// Don't forget to call RenderDecoration as well
-func (t *Text) RenderLetters(r Renderer, m Matrix) {
+// RenderAsPath renders the text (and its decorations) converted to paths (calling r.RenderPath)
+func (t *Text) RenderAsPath(r Renderer, m Matrix) {
 	style := DefaultStyle
 	for _, line := range t.lines {
 		for _, span := range line.spans {
 			p, _, col := span.ToPath(span.width)
-			p = p.Translate(span.dx, line.y) // +deco.face.Voffset ?
+			p = p.Translate(span.dx, line.y)
 			style.FillColor = col
 			r.RenderPath(p, style, m)
 		}
 	}
+	t.RenderDecoration(r, m)
 }
 
 // RenderDecoration renders the text decorations using the RenderPath method of the Renderer.
