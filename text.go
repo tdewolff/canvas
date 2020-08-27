@@ -531,15 +531,12 @@ func (t *Text) MostCommonFontFace() FontFace {
 // RenderAsPath renders the text (and its decorations) converted to paths (calling r.RenderPath)
 func (t *Text) RenderAsPath(r Renderer, m Matrix) {
 	style := DefaultStyle
-	for _, line := range t.lines {
-		for _, span := range line.spans {
-			p, _, col := span.ToPath(span.width)
-			p = p.Translate(span.dx, line.y)
-			style.FillColor = col
-			r.RenderPath(p, style, m)
-		}
-	}
-	t.RenderDecoration(r, m)
+	t.WalkLines(func(y, dx float64, span TextSpan) {
+		p, _, col := span.ToPath(span.width)
+		p = p.Translate(dx, y)
+		style.FillColor = col
+		r.RenderPath(p, style, m)
+	}, r.RenderPath, m)
 }
 
 // RenderDecoration renders the text decorations using the RenderPath method of the Renderer.
@@ -561,6 +558,21 @@ func (t *Text) WalkSpans(cb func(y, dx float64, span TextSpan)) {
 	for _, line := range t.lines {
 		for _, span := range line.spans {
 			cb(line.y, span.dx, span)
+		}
+	}
+}
+
+func (t *Text) WalkLines(spanCallback func(y, dx float64, span TextSpan), renderDeco func(path *Path, style Style, m Matrix), m Matrix) {
+	decoStyle := DefaultStyle
+	for _, line := range t.lines {
+		for _, span := range line.spans {
+			spanCallback(line.y, span.dx, span)
+		}
+		for _, deco := range line.decos {
+			p := deco.face.Decorate(deco.x1 - deco.x0)
+			p = p.Translate(deco.x0, line.y+deco.face.Voffset)
+			decoStyle.FillColor = deco.face.Color
+			renderDeco(p, decoStyle, m)
 		}
 	}
 }
