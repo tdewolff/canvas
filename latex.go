@@ -12,6 +12,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/tdewolff/parse/v2"
 	"github.com/tdewolff/parse/v2/strconv"
 	"github.com/tdewolff/parse/v2/xml"
 )
@@ -77,7 +78,7 @@ func ParseLaTeX(s string) (*Path, error) {
 	height := 0.0
 
 	p := &Path{}
-	l := xml.NewLexer(r)
+	l := xml.NewLexer(parse.NewInput(r))
 	for {
 		tt, _ := l.Next()
 		switch tt {
