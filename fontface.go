@@ -273,6 +273,13 @@ func (ff FontFace) ToPath(s string) (*Path, float64) {
 			return p, 0.0
 		}
 
+		if i != 0 {
+			kern, err := ff.Font.sfnt.Kern(buffer, prevIndex, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
+			if err == nil {
+				x += fromI26_6(kern)
+			}
+		}
+
 		var start0, end Point
 		for i, segment := range segments {
 			switch segment.Op {
@@ -311,12 +318,6 @@ func (ff FontFace) ToPath(s string) (*Path, float64) {
 			p = p.Offset(ff.FauxBold, NonZero)
 		}
 
-		if i != 0 {
-			kern, err := ff.Font.sfnt.Kern(buffer, prevIndex, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
-			if err == nil {
-				x += fromI26_6(kern)
-			}
-		}
 		advance, err := ff.Font.sfnt.GlyphAdvance(buffer, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
 		if err == nil {
 			x += fromI26_6(advance)
