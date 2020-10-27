@@ -391,8 +391,7 @@ type ZIndexer interface {
 // Set the z-index of the render if it supports it
 // or ignore if it does not
 func (c *Context) SetZIndex(z int) {
-	zIdexer, ok := interface{}(c.Renderer).(ZIndexer)
-	if ok {
+	if zIdexer, ok := c.Renderer.(ZIndexer); ok {
 		zIdexer.SetZIndex(z)
 	}
 }
@@ -436,6 +435,10 @@ func (c *Canvas) Size() (float64, float64) {
 
 // Set the z-index and the position to insert the next layer
 func (c *Canvas) SetZIndex(z int) {
+	// no new index to set
+	if c.zIndex == z {
+		return
+	}
 	// set the z-index to be used for the next layers
 	c.zIndex = z
 
@@ -551,8 +554,12 @@ func (c *Canvas) Render(r Renderer) {
 	if viewer, ok := r.(interface{ View() Matrix }); ok {
 		view = viewer.View()
 	}
+	zindexer, isZIndexer := r.(ZIndexer)
 	for _, l := range c.layers {
 		m := view.Mul(l.m)
+		if isZIndexer {
+			zindexer.SetZIndex(l.zIndex)
+		}
 		if l.path != nil {
 			r.RenderPath(l.path, l.style, m)
 		} else if l.text != nil {
