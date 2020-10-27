@@ -39,6 +39,16 @@ func TestCanvas(t *testing.T) {
 	test.Float(t, c.W, 72.5) // img upper bound - (path lower bound - path half stroke width) + margin
 	test.Float(t, c.H, 113)  // path bounds + path stroke width + margin
 
+	// draw a yellow background
+	ctx.SetZIndex(-100)
+	test.That(t, c.zIndex == -100)
+	test.That(t, c.zPos == 0)
+	ctx.SetFillColor(Yellow)
+	ctx.DrawPath(0, 0, Rectangle(c.W, c.H))
+	test.That(t, c.layers[0].zIndex == -100)
+	test.That(t, c.zPos == 1)
+	test.That(t, c.layers[1].zIndex == 0)
+
 	//buf := &bytes.Buffer{}
 	//c.WriteSVG(buf)
 	//ioutil.WriteFile("test/canvas.svg", buf.Bytes(), 0644)

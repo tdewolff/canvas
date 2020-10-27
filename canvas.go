@@ -383,6 +383,20 @@ func (c *Context) DrawImage(x, y float64, img image.Image, dpm float64) {
 	c.RenderImage(img, m)
 }
 
+// Some renderers may support a z-indexing, like Canvas
+type ZIndexer interface {
+	SetZIndex(z int)
+}
+
+// Set the z-index of the render if it supports it
+// or ignore if it does not
+func (c *Context) SetZIndex(z int) {
+	zIdexer, ok := interface{}(c.Renderer).(ZIndexer)
+	if ok {
+		zIdexer.SetZIndex(z)
+	}
+}
+
 ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
@@ -393,22 +407,25 @@ type layer struct {
 	text *Text
 	img  image.Image
 
-	m     Matrix
+	m      Matrix
+	zIndex int
+
 	style Style // only for path
 }
 
 // Canvas stores all drawing operations as layers that can be re-rendered to other renderers.
+// Canvas support a z-index in a way to be able to "draw behind"
 type Canvas struct {
-	layers []layer
-	W, H   float64
+	layers       []layer
+	W, H         float64
+	zIndex, zPos int
 }
 
 // New returns a new Canvas that records all drawing operations into layers. The canvas can then be rendered to any other renderer.
 func New(width, height float64) *Canvas {
 	return &Canvas{
-		layers: []layer{},
-		W:      width,
-		H:      height,
+		W: width,
+		H: height,
 	}
 }
 
@@ -417,20 +434,64 @@ func (c *Canvas) Size() (float64, float64) {
 	return c.W, c.H
 }
 
+// Set the z-index and the position to insert the next layer
+func (c *Canvas) SetZIndex(z int) {
+	// set the z-index to be used for the next layers
+	c.zIndex = z
+
+	// search for the position of the next layer
+	// first check if we are in a trivial case
+	n := len(c.layers)
+	if n == 0 || z < c.layers[0].zIndex {
+		c.zPos = 0
+		return
+	}
+	if z >= c.layers[n-1].zIndex {
+		c.zPos = n
+		return
+	}
+	// not in a trivial case and we must find the insert position
+	// such that c.layers[c.zPos-1].zIndex <= z < c.layers[c.zPos].zIndex
+	c.zPos = n - 1
+	for a := 0; c.zPos-a > 1; {
+		mid := (a + c.zPos) / 2
+		if z < c.layers[mid].zIndex {
+			c.zPos = mid
+		} else {
+			a = mid
+		}
+	}
+}
+
+// insert a new layer at the current zPos
+func (c *Canvas) insert(newL layer) {
+	// set the z-index of the new layer
+	newL.zIndex = c.zIndex
+	// insert the new layer
+	if c.zPos == len(c.layers) {
+		c.layers = append(c.layers, newL)
+	} else {
+		c.layers = append(c.layers[:c.zPos+1], c.layers[c.zPos:]...)
+		c.layers[c.zPos] = newL
+	}
+	// set the position for the next layer with the same z-index
+	c.zPos++
+}
+
 // RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (c *Canvas) RenderPath(path *Path, style Style, m Matrix) {
 	path = path.Copy()
-	c.layers = append(c.layers, layer{path: path, m: m, style: style})
+	c.insert(layer{path: path, m: m, style: style})
 }
 
 // RenderText renders a text object to the canvas using a transformation matrix.
 func (c *Canvas) RenderText(text *Text, m Matrix) {
-	c.layers = append(c.layers, layer{text: text, m: m})
+	c.insert(layer{text: text, m: m})
 }
 
 // RenderImage renders an image to the canvas using a transformation matrix.
 func (c *Canvas) RenderImage(img image.Image, m Matrix) {
-	c.layers = append(c.layers, layer{img: img, m: m})
+	c.insert(layer{img: img, m: m})
 }
 
 // Empty return true if the canvas is empty.
@@ -441,6 +502,7 @@ func (c *Canvas) Empty() bool {
 // Reset empties the canvas.
 func (c *Canvas) Reset() {
 	c.layers = c.layers[:0]
+	c.zIndex, c.zPos = 0, 0
 }
 
 // Fit shrinks the canvas size so all elements fit. The elements are translated towards the origin when any left/bottom margins exist and the canvas size is decreased if any margins exist. It will maintain a given margin.
