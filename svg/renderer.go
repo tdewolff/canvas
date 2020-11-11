@@ -3,6 +3,7 @@ package svg
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/xml"
 	"fmt"
 	"image"
 	"image/color"
@@ -320,10 +321,10 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 			fmt.Fprintf(r.w, `" letter-spacing="%v`, num(span.GlyphSpacing))
 		}
 		r.writeFontStyle(span.Face, ffMain)
-		s := span.Text
-		s = strings.ReplaceAll(s, `"`, `&quot;`)
 		r.writeClasses(r.w)
-		fmt.Fprintf(r.w, `">%s</tspan>`, s)
+		fmt.Fprintf(r.w, `">`)
+		xml.EscapeText(r.w, []byte(span.Text))
+		fmt.Fprintf(r.w, `</tspan>`)
 	})
 	fmt.Fprintf(r.w, `</text>`)
 	text.RenderDecoration(r, m)
