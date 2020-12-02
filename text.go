@@ -528,25 +528,15 @@ func (t *Text) MostCommonFontFace() FontFace {
 	return family.Face(size*ptPerMm, col, style, variant)
 }
 
-// ToPaths makes a path out of the text, with x,y the top-left point of the rectangle that fits the text (ie. y is not the text base)
-func (t *Text) ToPaths() ([]*Path, []color.RGBA) {
-	paths := []*Path{}
-	colors := []color.RGBA{}
-	for _, line := range t.lines {
-		for _, span := range line.spans {
-			p, _, col := span.ToPath(span.width)
-			p = p.Translate(span.dx, line.y)
-			paths = append(paths, p)
-			colors = append(colors, col)
-		}
-		for _, deco := range line.decos {
-			p := deco.face.Decorate(deco.x1 - deco.x0)
-			p = p.Translate(deco.x0, line.y)
-			paths = append(paths, p)
-			colors = append(colors, deco.face.Color)
-		}
-	}
-	return paths, colors
+// RenderAsPath renders the text (and its decorations) converted to paths (calling r.RenderPath)
+func (t *Text) RenderAsPath(r Renderer, m Matrix) {
+	style := DefaultStyle
+	t.WalkLines(func(y, dx float64, span TextSpan) {
+		p, _, col := span.ToPath(span.width)
+		p = p.Translate(dx, y)
+		style.FillColor = col
+		r.RenderPath(p, style, m)
+	}, r.RenderPath, m)
 }
 
 // RenderDecoration renders the text decorations using the RenderPath method of the Renderer.
@@ -557,9 +547,9 @@ func (t *Text) RenderDecoration(r Renderer, m Matrix) {
 	for _, line := range t.lines {
 		for _, deco := range line.decos {
 			p := deco.face.Decorate(deco.x1 - deco.x0)
-			p = p.Transform(Identity.Mul(m).Translate(deco.x0, line.y+deco.face.Voffset))
+			p = p.Translate(deco.x0, line.y+deco.face.Voffset)
 			style.FillColor = deco.face.Color
-			r.RenderPath(p, style, Identity)
+			r.RenderPath(p, style, m)
 		}
 	}
 }
@@ -568,6 +558,21 @@ func (t *Text) WalkSpans(cb func(y, dx float64, span TextSpan)) {
 	for _, line := range t.lines {
 		for _, span := range line.spans {
 			cb(line.y, span.dx, span)
+		}
+	}
+}
+
+func (t *Text) WalkLines(spanCallback func(y, dx float64, span TextSpan), renderDeco func(path *Path, style Style, m Matrix), m Matrix) {
+	decoStyle := DefaultStyle
+	for _, line := range t.lines {
+		for _, span := range line.spans {
+			spanCallback(line.y, span.dx, span)
+		}
+		for _, deco := range line.decos {
+			p := deco.face.Decorate(deco.x1 - deco.x0)
+			p = p.Translate(deco.x0, line.y+deco.face.Voffset)
+			decoStyle.FillColor = deco.face.Color
+			renderDeco(p, decoStyle, m)
 		}
 	}
 }
