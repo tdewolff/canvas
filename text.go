@@ -88,7 +88,7 @@ func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 	return &Text{lines, map[*Font]bool{ff.Font: true}}
 }
 
-// NewTextBox is an advanced text formatter that will calculate text placement based on the setteings. It takes a font face, a string, the width or height of the box (can be zero for no limit), horizontal and vertical alignment (Left, Center, Right, Top, Bottom or Justify), text indentation for the first line and line stretch (percentage to stretch the line based on the line height).
+// NewTextBox is an advanced text formatter that will calculate text placement based on the settings. It takes a font face, a string, the width or height of the box (can be zero for no limit), horizontal and vertical alignment (Left, Center, Right, Top, Bottom or Justify), text indentation for the first line and line stretch (percentage to stretch the line based on the line height).
 func NewTextBox(ff FontFace, s string, width, height float64, halign, valign TextAlign, indent, lineStretch float64) *Text {
 	return NewRichText().Add(ff, s).ToText(width, height, halign, valign, indent, lineStretch)
 }
