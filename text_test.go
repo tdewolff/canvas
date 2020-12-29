@@ -161,7 +161,9 @@ func TestTextBounds(t *testing.T) {
 	test.Float(t, descent, 2.828125)
 	test.Float(t, bottom, 2.828125)
 
-	test.Float(t, text.Height(), face12.Metrics().LineHeight)
+	ascent, descent = text.Heights()
+	test.Float(t, ascent, 0.0)
+	test.Float(t, descent, face12.Metrics().LineHeight)
 
 	bounds := text.Bounds()
 	test.Float(t, bounds.X, 0.0)
