@@ -65,7 +65,7 @@ func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 	lines := []line{}
 	for _, boundary := range calcTextBoundaries(s, 0, len(s)) {
 		if boundary.kind == lineBoundary || boundary.kind == eofBoundary {
-			j := boundary.pos + boundary.size
+			j := boundary.pos
 			if i < j {
 				l := line{y: y}
 				span := newTextSpan(ff, s[:j], i)
@@ -82,7 +82,7 @@ func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 				lines = append(lines, l)
 			}
 			y -= spacing + ascent + descent + spacing
-			i = j
+			i = j + boundary.size
 		}
 	}
 	return &Text{lines, map[*Font]bool{ff.Font: true}}
@@ -423,13 +423,15 @@ func (t *Text) Empty() bool {
 }
 
 // Height returns the height of the text using the font metrics, this is usually more than the bounds of the glyph outlines.
-func (t *Text) Height() float64 {
+func (t *Text) Heights() (float64, float64) {
 	if len(t.lines) == 0 {
-		return 0.0
+		return 0.0, 0.0
 	}
+	firstLine := t.lines[0]
 	lastLine := t.lines[len(t.lines)-1]
+	_, ascent, _, _ := firstLine.Heights()
 	_, _, descent, _ := lastLine.Heights()
-	return -lastLine.y + descent
+	return firstLine.y + ascent, -lastLine.y + descent
 }
 
 // Bounds returns the bounding rectangle that defines the text box.
