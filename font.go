@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"fmt"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -9,6 +10,97 @@ import (
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/sfnt"
 )
+
+func StringPath(sfnt *canvasFont.SFNT, s string, size, y float64) (*Path, float64) {
+	f := size * mmPerPt / float64(sfnt.Head.UnitsPerEm)
+
+	p := &Path{}
+	x := int32(0)
+	var prevGlyphID uint16
+	for i, r := range s {
+		glyphID := sfnt.Cmap.Map(r)
+		if i != 0 {
+			x += int32(sfnt.Kern.Get(prevGlyphID, glyphID))
+		}
+		path, err := GlyphPath(sfnt, glyphID, size, float64(x)*f, y)
+		if err != nil {
+			return p, 0.0
+		}
+		if path != nil {
+			p = p.Append(path)
+		}
+		x += int32(sfnt.Hmtx.Advance(glyphID))
+		prevGlyphID = glyphID
+	}
+	return p, float64(x) * f
+}
+
+func GlyphPath(sfnt *canvasFont.SFNT, glyphID uint16, size, x, y float64) (*Path, error) {
+	if sfnt.IsTrueType {
+		contour, err := sfnt.Glyf.Contour(glyphID)
+		if err != nil || contour == nil {
+			return nil, err
+		}
+
+		f := size * mmPerPt / float64(sfnt.Head.UnitsPerEm)
+		p := &Path{}
+		var i uint16
+		for _, endPoint := range contour.EndPoints {
+			j := i
+			first := true
+			firstOff := false
+			prevOff := false
+			for ; i <= endPoint; i++ {
+				if first {
+					if contour.OnCurve[i] {
+						p.MoveTo(x+float64(contour.XCoordinates[i])*f, y+float64(contour.YCoordinates[i])*f)
+						first = false
+					} else if !prevOff {
+						// first point is off
+						firstOff = true
+						prevOff = true
+					} else {
+						// first and second point are off
+						xMid := float64(contour.XCoordinates[i-1]+contour.XCoordinates[i]) / 2.0
+						yMid := float64(contour.YCoordinates[i-1]+contour.YCoordinates[i]) / 2.0
+						p.MoveTo(x+xMid*f, y+yMid*f)
+					}
+				} else if !prevOff {
+					if contour.OnCurve[i] {
+						p.LineTo(x+float64(contour.XCoordinates[i])*f, y+float64(contour.YCoordinates[i])*f)
+					} else {
+						prevOff = true
+					}
+				} else {
+					if contour.OnCurve[i] {
+						p.QuadTo(x+float64(contour.XCoordinates[i-1])*f, y+float64(contour.YCoordinates[i-1])*f, x+float64(contour.XCoordinates[i])*f, y+float64(contour.YCoordinates[i])*f)
+						prevOff = false
+					} else {
+						xMid := float64(contour.XCoordinates[i-1]+contour.XCoordinates[i]) / 2.0
+						yMid := float64(contour.YCoordinates[i-1]+contour.YCoordinates[i]) / 2.0
+						p.QuadTo(x+float64(contour.XCoordinates[i-1])*f, y+float64(contour.YCoordinates[i-1])*f, x+xMid*f, y+yMid*f)
+					}
+				}
+			}
+			start := p.StartPos()
+			if firstOff {
+				if prevOff {
+					xMid := float64(contour.XCoordinates[i-1]+contour.XCoordinates[j]) / 2.0
+					yMid := float64(contour.YCoordinates[i-1]+contour.YCoordinates[j]) / 2.0
+					p.QuadTo(x+xMid*f, y+yMid*f, start.X, start.Y)
+				} else {
+					p.QuadTo(x+float64(contour.XCoordinates[i-1])*f, y+float64(contour.YCoordinates[i-1])*f, start.X, start.Y)
+				}
+			} else if prevOff {
+				p.QuadTo(x+float64(contour.XCoordinates[i-1])*f, y+float64(contour.YCoordinates[i-1])*f, start.X, start.Y)
+			}
+			p.Close()
+		}
+		return p, nil
+	} else {
+		return nil, fmt.Errorf("CFF not supported")
+	}
+}
 
 // TypographicOptions are the options that can be enabled to make typographic or ligature substitutions automatically.
 type TypographicOptions int

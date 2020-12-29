@@ -27,6 +27,20 @@ func calcChecksum(b []byte) uint32 {
 	return sum
 }
 
+func uint16ToFlags(v uint16) (flags [16]bool) {
+	for i := 0; i < 16; i++ {
+		flags[i] = v&(1<<i) != 0
+	}
+	return
+}
+
+func uint8ToFlags(v uint8) (flags [8]bool) {
+	for i := 0; i < 8; i++ {
+		flags[i] = v&(1<<i) != 0
+	}
+	return
+}
+
 func uint32ToString(v uint32) string {
 	b := make([]byte, 4)
 	binary.BigEndian.PutUint32(b, v)
@@ -68,6 +82,10 @@ func (r *binaryReader) ReadString(n uint32) string {
 	return string(r.ReadBytes(n))
 }
 
+func (r *binaryReader) ReadUint8() uint8 {
+	return r.ReadByte()
+}
+
 func (r *binaryReader) ReadUint16() uint16 {
 	b := r.ReadBytes(2)
 	if b == nil {
@@ -82,6 +100,14 @@ func (r *binaryReader) ReadUint32() uint32 {
 		return 0
 	}
 	return binary.BigEndian.Uint32(b)
+}
+
+func (r *binaryReader) ReadUint64() uint64 {
+	b := r.ReadBytes(8)
+	if b == nil {
+		return 0
+	}
+	return binary.BigEndian.Uint64(b)
 }
 
 func (r *binaryReader) ReadInt16() int16 {

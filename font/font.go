@@ -104,5 +104,6 @@ func ParseFont(b []byte) (*Font, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ParseSFNT(sfntBytes)
+	font, err := sfnt.Parse(sfntBytes)
+	return (*Font)(font), err //return ParseSFNT(sfntBytes) // TODO
 }
