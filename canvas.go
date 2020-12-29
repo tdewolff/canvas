@@ -362,16 +362,6 @@ func (c *Context) DrawText(x, y float64, texts ...*Text) {
 	}
 }
 
-// RenderTextAsPath renders the text converted to paths (calling r.RenderPath)
-func RenderTextAsPath(r Renderer, text *Text, m Matrix) {
-	paths, colors := text.ToPaths()
-	for i, path := range paths {
-		style := DefaultStyle
-		style.FillColor = colors[i]
-		r.RenderPath(path, style, m)
-	}
-}
-
 // DrawImage draws an image at position (x,y), using an image encoding (Lossy or Lossless) and DPM (dots-per-millimeter). A higher DPM will draw a smaller image.
 func (c *Context) DrawImage(x, y float64, img image.Image, dpm float64) {
 	if img.Bounds().Size().Eq(image.Point{}) {
