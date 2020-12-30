@@ -15,16 +15,10 @@ func TestSFNTDejaVuSerifTTF(t *testing.T) {
 	font, err := ParseSFNT(b)
 	test.Error(t, err)
 
-	var x0, x1 uint16
-	x0 = 3314 //font.Cmap.Map('A')
-	x1 = 1933 //font.Cmap.Map('V')
+	id := font.GlyphIndex(' ')
+	fmt.Println(font.GlyphName(id))
 
-	fmt.Println(x0, x1, font.Kern.Get(x0, x1))
-	return
-
-	if font.IsTrueType {
-		contour, err := font.Glyf.Contour(20)
-		test.Error(t, err)
-		fmt.Println(contour)
-	}
+	contour, err := font.GlyphContour(id)
+	test.Error(t, err)
+	fmt.Println(contour)
 }

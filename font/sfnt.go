@@ -12,6 +12,7 @@ import (
 const MaxCmapSegments = 20000
 
 type SFNT struct {
+	Data              []byte
 	IsCFF, IsTrueType bool // only one can be true
 	Tables            map[string][]byte
 
@@ -31,10 +32,35 @@ type SFNT struct {
 
 	// CFF
 	//CFF  *cffTable
-	//CFF2 *cff2Table
 
 	// optional
 	Kern *kernTable
+	//Gpos *gposTable
+	//Gasp *gaspTable
+
+}
+
+func (sfnt *SFNT) GlyphIndex(r rune) uint16 {
+	return sfnt.Cmap.Get(r)
+}
+
+func (sfnt *SFNT) GlyphName(glyphID uint16) string {
+	return sfnt.Post.Get(glyphID)
+}
+
+func (sfnt *SFNT) GlyphContour(glyphID uint16) (*glyfContour, error) {
+	if !sfnt.IsTrueType {
+		return nil, fmt.Errorf("CFF not supported")
+	}
+	return sfnt.Glyf.Contour(glyphID)
+}
+
+func (sfnt *SFNT) GlyphAdvance(glyphID uint16) uint16 {
+	return sfnt.Hmtx.Advance(glyphID)
+}
+
+func (sfnt *SFNT) Kerning(left, right uint16) int16 {
+	return sfnt.Kern.Get(left, right)
 }
 
 func ParseSFNT(b []byte) (*SFNT, error) {
@@ -90,6 +116,7 @@ func ParseSFNT(b []byte) (*SFNT, error) {
 	// TODO: check file checksum
 
 	sfnt := &SFNT{}
+	sfnt.Data = b
 	sfnt.IsCFF = sfntVersion == "OTTO"
 	sfnt.IsTrueType = binary.BigEndian.Uint32([]byte(sfntVersion)) == 0x00010000
 	sfnt.Tables = tables
@@ -167,7 +194,7 @@ type cmapFormat0 struct {
 	GlyphIdArray [256]uint8
 }
 
-func (subtable *cmapFormat0) Map(r rune) (uint16, bool) {
+func (subtable *cmapFormat0) Get(r rune) (uint16, bool) {
 	if r < 0 || 256 <= r {
 		return 0, false
 	}
@@ -182,8 +209,7 @@ type cmapFormat4 struct {
 	GlyphIdArray  []uint16
 }
 
-func (subtable *cmapFormat4) Map(r rune) (uint16, bool) {
-	return 0, false
+func (subtable *cmapFormat4) Get(r rune) (uint16, bool) {
 	if r < 0 || 65536 <= r {
 		return 0, false
 	}
@@ -209,7 +235,7 @@ type cmapFormat6 struct {
 	GlyphIdArray []uint16
 }
 
-func (subtable *cmapFormat6) Map(r rune) (uint16, bool) {
+func (subtable *cmapFormat6) Get(r rune) (uint16, bool) {
 	if r < int32(subtable.FirstCode) || uint32(len(subtable.GlyphIdArray)) <= uint32(r)-uint32(subtable.FirstCode) {
 		return 0, false
 	}
@@ -222,8 +248,7 @@ type cmapFormat12 struct {
 	StartGlyphID  []uint32
 }
 
-func (subtable *cmapFormat12) Map(r rune) (uint16, bool) {
-	return 0, false
+func (subtable *cmapFormat12) Get(r rune) (uint16, bool) {
 	if r < 0 {
 		return 0, false
 	}
@@ -243,7 +268,7 @@ type cmapEncodingRecord struct {
 }
 
 type cmapSubtable interface {
-	Map(rune) (uint16, bool)
+	Get(rune) (uint16, bool)
 }
 
 type cmapTable struct {
@@ -251,9 +276,9 @@ type cmapTable struct {
 	Subtables       []cmapSubtable
 }
 
-func (t *cmapTable) Map(r rune) uint16 {
+func (t *cmapTable) Get(r rune) uint16 {
 	for _, subtable := range t.Subtables {
-		if glyphID, ok := subtable.Map(r); ok {
+		if glyphID, ok := subtable.Get(r); ok {
 			return glyphID
 		}
 	}
@@ -527,22 +552,6 @@ type glyfTable struct {
 	loca *locaTable
 }
 
-func (sfnt *SFNT) parseGlyf() error {
-	// requires data from loca
-	b, ok := sfnt.Tables["glyf"]
-	if !ok {
-		return fmt.Errorf("glyf: missing table")
-	} else if uint32(len(b)) != sfnt.Loca.Offsets[len(sfnt.Loca.Offsets)-1] {
-		return fmt.Errorf("glyf: bad table")
-	}
-
-	sfnt.Glyf = &glyfTable{
-		data: b,
-		loca: sfnt.Loca,
-	}
-	return nil
-}
-
 func (glyf *glyfTable) Get(glyphID uint16) []byte {
 	if len(glyf.loca.Offsets) <= int(glyphID)+1 {
 		return nil
@@ -658,6 +667,22 @@ func (glyf *glyfTable) Contour(glyphID uint16) (*glyfContour, error) {
 		fmt.Println("composite", glyphID)
 	}
 	return contour, nil
+}
+
+func (sfnt *SFNT) parseGlyf() error {
+	// requires data from loca
+	b, ok := sfnt.Tables["glyf"]
+	if !ok {
+		return fmt.Errorf("glyf: missing table")
+	} else if uint32(len(b)) != sfnt.Loca.Offsets[len(sfnt.Loca.Offsets)-1] {
+		return fmt.Errorf("glyf: bad table")
+	}
+
+	sfnt.Glyf = &glyfTable{
+		data: b,
+		loca: sfnt.Loca,
+	}
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -1234,6 +1259,13 @@ type postTable struct {
 	MinMemType1        uint32
 	MaxMemType1        uint32
 	GlyphName          []string
+}
+
+func (post *postTable) Get(glyphID uint16) string {
+	if uint16(len(post.GlyphName)) <= glyphID {
+		return ""
+	}
+	return post.GlyphName[glyphID]
 }
 
 func (sfnt *SFNT) parsePost() error {

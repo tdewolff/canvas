@@ -7,32 +7,35 @@ import (
 	"unicode/utf8"
 
 	canvasFont "github.com/tdewolff/canvas/font"
+	"github.com/tdewolff/canvas/text/shaping"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/sfnt"
 )
 
-func StringPath(sfnt *canvasFont.SFNT, s string, size, y float64) (*Path, float64) {
-	f := size * mmPerPt / float64(sfnt.Head.UnitsPerEm)
+func StringPath(sfnt *canvasFont.SFNT, text string, size float64) (*Path, error) {
+	fontShaping, err := shaping.NewFont(sfnt.Data, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer fontShaping.Destroy()
+
+	f := size / float64(sfnt.Head.UnitsPerEm)
 
 	p := &Path{}
-	x := int32(0)
-	var prevGlyphID uint16
-	for i, r := range s {
-		glyphID := sfnt.Cmap.Map(r)
-		if i != 0 {
-			x += int32(sfnt.Kern.Get(prevGlyphID, glyphID))
-		}
-		path, err := GlyphPath(sfnt, glyphID, size, float64(x)*f, y)
+	var x, y int32
+	glyphs := fontShaping.Shape(text, size, shaping.LeftToRight, shaping.Latin)
+	for _, glyph := range glyphs {
+		path, err := GlyphPath(sfnt, glyph.ID, size, float64(x+glyph.XOffset)*f, float64(y+glyph.YOffset)*f)
 		if err != nil {
-			return p, 0.0
+			return p, err
 		}
 		if path != nil {
 			p = p.Append(path)
 		}
-		x += int32(sfnt.Hmtx.Advance(glyphID))
-		prevGlyphID = glyphID
+		x += glyph.XAdvance
+		y += glyph.YAdvance
 	}
-	return p, float64(x) * f
+	return p, nil
 }
 
 func GlyphPath(sfnt *canvasFont.SFNT, glyphID uint16, size, x, y float64) (*Path, error) {
@@ -42,7 +45,7 @@ func GlyphPath(sfnt *canvasFont.SFNT, glyphID uint16, size, x, y float64) (*Path
 			return nil, err
 		}
 
-		f := size * mmPerPt / float64(sfnt.Head.UnitsPerEm)
+		f := size / float64(sfnt.Head.UnitsPerEm)
 		p := &Path{}
 		var i uint16
 		for _, endPoint := range contour.EndPoints {
