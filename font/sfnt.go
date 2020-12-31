@@ -52,7 +52,7 @@ func (sfnt *SFNT) GlyphContour(glyphID uint16) (*glyfContour, error) {
 	if !sfnt.IsTrueType {
 		return nil, fmt.Errorf("CFF not supported")
 	}
-	return sfnt.Glyf.Contour(glyphID)
+	return sfnt.Glyf.Contour(glyphID, 0)
 }
 
 func (sfnt *SFNT) GlyphAdvance(glyphID uint16) uint16 {
@@ -561,7 +561,7 @@ func (glyf *glyfTable) Get(glyphID uint16) []byte {
 	return glyf.data[start:end]
 }
 
-func (glyf *glyfTable) Contour(glyphID uint16) (*glyfContour, error) {
+func (glyf *glyfTable) Contour(glyphID uint16, level int) (*glyfContour, error) {
 	b := glyf.Get(glyphID)
 	if b == nil {
 		return nil, fmt.Errorf("glyf: bad glyphID %v", glyphID)
@@ -662,9 +662,87 @@ func (glyf *glyfTable) Contour(glyphID uint16) (*glyfContour, error) {
 			contour.YCoordinates[i] = y
 		}
 	} else {
+		if 7 < level {
+			return nil, fmt.Errorf("glyf: compound glyphs too deeply nested")
+		}
+
 		// composite glyph
-		// TODO
-		fmt.Println("composite", glyphID)
+		for {
+			if r.Len() < 4 {
+				return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
+			}
+
+			flags := r.ReadUint16()
+			subGlyphID := r.ReadUint16()
+			if flags&0x0002 == 0 { // ARGS_ARE_XY_VALUES
+				return nil, fmt.Errorf("glyf: composite glyph not supported")
+			}
+			var dx, dy int16
+			if flags&0x0001 != 0 { // ARG_1_AND_2_ARE_WORDS
+				if r.Len() < 4 {
+					return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
+				}
+				dx = r.ReadInt16()
+				dy = r.ReadInt16()
+			} else {
+				if r.Len() < 2 {
+					return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
+				}
+				dx = int16(r.ReadInt8())
+				dy = int16(r.ReadInt8())
+			}
+			var txx, txy, tyx, tyy int16
+			if flags&0x0008 != 0 { // WE_HAVE_A_SCALE
+				if r.Len() < 2 {
+					return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
+				}
+				txx = r.ReadInt16()
+				tyy = txx
+			} else if flags&0x0040 != 0 { // WE_HAVE_AN_X_AND_Y_SCALE
+				if r.Len() < 4 {
+					return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
+				}
+				txx = r.ReadInt16()
+				tyy = r.ReadInt16()
+			} else if flags&0x0080 != 0 { // WE_HAVE_A_TWO_BY_TWO
+				if r.Len() < 8 {
+					return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
+				}
+				txx = r.ReadInt16()
+				txy = r.ReadInt16()
+				tyx = r.ReadInt16()
+				tyy = r.ReadInt16()
+			}
+
+			subContour, err := glyf.Contour(subGlyphID, level+1)
+			if err != nil {
+				return nil, err
+			}
+
+			var numPoints uint16
+			if 0 < len(contour.EndPoints) {
+				numPoints = contour.EndPoints[len(contour.EndPoints)-1] + 1
+			}
+			for i := 0; i < len(subContour.EndPoints); i++ {
+				contour.EndPoints = append(contour.EndPoints, numPoints+subContour.EndPoints[i])
+			}
+			contour.OnCurve = append(contour.OnCurve, subContour.OnCurve...)
+			for i := 0; i < len(subContour.XCoordinates); i++ {
+				x := subContour.XCoordinates[i]
+				y := subContour.YCoordinates[i]
+				if flags&0x00C8 != 0 { // has transformation
+					const half = 1 << 13
+					xt := int16((int64(x)*int64(txx)+half)>>14) + int16((int64(y)*int64(tyx)+half)>>14)
+					yt := int16((int64(x)*int64(txy)+half)>>14) + int16((int64(y)*int64(tyy)+half)>>14)
+					x, y = xt, yt
+				}
+				contour.XCoordinates = append(contour.XCoordinates, dx+x)
+				contour.YCoordinates = append(contour.YCoordinates, dy+y)
+			}
+			if flags&0x0020 == 0 { // MORE_COMPONENTS
+				break
+			}
+		}
 	}
 	return contour, nil
 }

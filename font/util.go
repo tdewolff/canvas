@@ -110,6 +110,10 @@ func (r *binaryReader) ReadUint64() uint64 {
 	return binary.BigEndian.Uint64(b)
 }
 
+func (r *binaryReader) ReadInt8() int8 {
+	return int8(r.ReadByte())
+}
+
 func (r *binaryReader) ReadInt16() int16 {
 	return int16(r.ReadUint16())
 }

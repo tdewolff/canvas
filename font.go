@@ -40,7 +40,7 @@ func StringPath(sfnt *canvasFont.SFNT, text string, size float64) (*Path, error)
 
 func GlyphPath(sfnt *canvasFont.SFNT, glyphID uint16, size, x, y float64) (*Path, error) {
 	if sfnt.IsTrueType {
-		contour, err := sfnt.Glyf.Contour(glyphID)
+		contour, err := sfnt.GlyphContour(glyphID)
 		if err != nil || contour == nil {
 			return nil, err
 		}
