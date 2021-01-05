@@ -14,7 +14,6 @@ var fontFamily *canvas.FontFamily
 
 func main() {
 	fontFamily = canvas.NewFontFamily("DejaVu Serif")
-	fontFamily.Use(canvas.CommonLigatures)
 	if err := fontFamily.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
 		panic(err)
 	}

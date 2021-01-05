@@ -11,7 +11,6 @@ var font *canvas.FontFamily
 
 func main() {
 	font = canvas.NewFontFamily("font")
-	font.Use(canvas.CommonLigatures)
 	if err := font.LoadLocalFont("Dynalight", canvas.FontRegular); err != nil {
 		panic(err)
 	}

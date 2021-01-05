@@ -112,19 +112,17 @@ type Font struct {
 }
 
 func parseFont(name string, b []byte) (*Font, error) {
-	sfntFont, err := canvasFont.ParseFont(b)
+	SFNT, err := canvasFont.ParseFont(b)
 	if err != nil {
 		return nil, err
 	}
 
-	SFNT, err := canvasFont.ParseSFNT(b)
-	if err != nil {
-		return nil, err
-	}
+	bSFNT, _ := canvasFont.ToSFNT(b)
+	sfntFont, _ := sfnt.Parse(bSFNT)
 
 	font := &Font{
 		name:    name,
-		sfnt:    (*sfnt.Font)(sfntFont),
+		sfnt:    sfntFont,
 		SFNT:    SFNT,
 		usedIDs: map[uint16]bool{},
 	}
@@ -153,8 +151,8 @@ type FontMetrics struct {
 	XHeight    float64
 	CapHeight  float64
 
-	XMin, XMax float64
-	YMin, YMax float64
+	XMin, YMin float64
+	XMax, YMax float64
 }
 
 func (font *Font) Metrics(ppem float64) FontMetrics {
@@ -167,8 +165,8 @@ func (font *Font) Metrics(ppem float64) FontMetrics {
 		XHeight:    f * float64(font.SFNT.OS2.SxHeight),
 		CapHeight:  f * float64(font.SFNT.OS2.SCapHeight),
 		XMin:       f * float64(font.SFNT.Head.XMin),
-		XMax:       f * float64(font.SFNT.Head.XMax),
 		YMin:       f * float64(font.SFNT.Head.YMin),
+		XMax:       f * float64(font.SFNT.Head.XMax),
 		YMax:       f * float64(font.SFNT.Head.YMax),
 	}
 }

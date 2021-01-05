@@ -1,7 +1,6 @@
 package font
 
 import (
-	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -12,13 +11,21 @@ func TestSFNTDejaVuSerifTTF(t *testing.T) {
 	b, err := ioutil.ReadFile("DejaVuSerif.ttf")
 	test.Error(t, err)
 
-	font, err := ParseSFNT(b)
+	sfnt, err := ParseSFNT(b)
 	test.Error(t, err)
 
-	id := font.GlyphIndex(' ')
-	fmt.Println(font.GlyphName(id))
+	test.T(t, sfnt.Head.UnitsPerEm, uint16(2048))
+	test.T(t, sfnt.Hhea.Ascender, int16(1901))
+	test.T(t, sfnt.Hhea.Descender, int16(-483))
+	test.T(t, sfnt.OS2.SCapHeight, int16(1493)) // height of H glyph
+	test.T(t, sfnt.Head.XMin, int16(-1576))
+	test.T(t, sfnt.Head.YMin, int16(-710))
+	test.T(t, sfnt.Head.XMax, int16(4312))
+	test.T(t, sfnt.Head.YMax, int16(2272))
 
-	contour, err := font.GlyphContour(id)
+	id := sfnt.GlyphIndex(' ')
+	contour, err := sfnt.GlyphContour(id)
 	test.Error(t, err)
-	fmt.Println(contour)
+	test.T(t, contour.GlyphID, id)
+	test.T(t, len(contour.XCoordinates), 0)
 }

@@ -6,12 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-
-	"golang.org/x/image/font/sfnt"
 )
-
-// Font currently uses golang.org/x/image/font/sfnt
-type Font sfnt.Font
 
 // MediaType returns the media type (MIME) for a given font.
 func MediaType(b []byte) (string, error) {
@@ -25,7 +20,6 @@ func MediaType(b []byte) (string, error) {
 	} else if tag == "wOF2" {
 		return "font/woff2", nil
 	} else if tag == "true" || binary.BigEndian.Uint32(b[:4]) == 0x00010000 {
-		// TODO: what about "typ1" from MacOS? Is it a TrueType file format?
 		return "font/truetype", nil
 	} else if tag == "OTTO" {
 		return "font/opentype", nil
@@ -98,12 +92,11 @@ func NewSFNTReader(r io.Reader) (*bytes.Reader, error) {
 	return bytes.NewReader(b), nil
 }
 
-// ParseFont parses a byte slice and recognized whether it is a TTF, OTF, WOFF, WOFF2, or EOT font format. It will return the parsed font and its mimetype. Currently returns instance of golang.org/x/image/font/sfnt.
-func ParseFont(b []byte) (*Font, error) {
+// ParseFont parses a byte slice and recognized whether it is a TTF, OTF, WOFF, WOFF2, or EOT font format. It will return the parsed font and its mimetype.
+func ParseFont(b []byte) (*SFNT, error) {
 	sfntBytes, err := ToSFNT(b)
 	if err != nil {
 		return nil, err
 	}
-	font, err := sfnt.Parse(sfntBytes)
-	return (*Font)(font), err //return ParseSFNT(sfntBytes) // TODO
+	return ParseSFNT(sfntBytes)
 }

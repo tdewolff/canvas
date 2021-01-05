@@ -721,7 +721,7 @@ func (glyf *glyfTable) Contour(glyphID uint16, level int) (*glyfContour, error) 
 	if b == nil {
 		return nil, fmt.Errorf("glyf: bad glyphID %v", glyphID)
 	} else if len(b) == 0 {
-		return nil, nil
+		return &glyfContour{GlyphID: glyphID, EndPoints: []uint16{0}}, nil
 	}
 	r := newBinaryReader(b)
 	if r.Len() < 10 {
