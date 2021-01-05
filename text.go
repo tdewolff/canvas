@@ -683,31 +683,31 @@ func (span TextSpan) Split(width float64) ([]TextSpan, bool) {
 // CountGlyphs counts all the glyphs, where ligatures are separated into their constituent parts
 func (span TextSpan) CountGlyphs() int {
 	n := 0
-	for _, r := range span.Text {
-		if s, ok := ligatures[r]; ok {
-			n += len(s)
-		} else {
-			n++
-		}
+	for _, _ = range span.Text {
+		//if s, ok := ligatures[r]; ok {
+		//	n += len(s)
+		//} else {
+		n++
+		//}
 	}
 	return n
 }
 
 // ReplaceLigatures replaces all ligatures by their constituent parts
 func (span TextSpan) ReplaceLigatures() TextSpan {
-	shift := 0
-	iBoundary := 0
-	for i, r := range span.Text {
-		if span.boundaries[iBoundary].pos == i {
-			span.boundaries[iBoundary].pos += shift
-			iBoundary++
-		} else if s, ok := ligatures[r]; ok {
-			span.Text = span.Text[:i] + s + span.Text[i+utf8.RuneLen(r):]
-			shift += len(s) - 1
-		}
-	}
-	span.boundaries[len(span.boundaries)-1].pos = len(span.Text)
-	span.width = span.Face.TextWidth(span.Text)
+	//shift := 0
+	//iBoundary := 0
+	//for i, r := range span.Text {
+	//	if span.boundaries[iBoundary].pos == i {
+	//		span.boundaries[iBoundary].pos += shift
+	//		iBoundary++
+	//	} else if s, ok := ligatures[r]; ok {
+	//		span.Text = span.Text[:i] + s + span.Text[i+utf8.RuneLen(r):]
+	//		shift += len(s) - 1
+	//	}
+	//}
+	//span.boundaries[len(span.boundaries)-1].pos = len(span.Text)
+	//span.width = span.Face.TextWidth(span.Text)
 	return span
 }
 

@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/tdewolff/canvas"
-	canvasFont "github.com/tdewolff/canvas/font"
 )
 
 type PDF struct {
@@ -414,113 +413,140 @@ func (w *pdfWriter) getFont(font *canvas.Font) pdfRef {
 	if ref, ok := w.fonts[font]; ok {
 		return ref
 	}
-
-	mediatype, b := font.Raw()
-	if mediatype != "font/truetype" && mediatype != "font/opentype" {
-		var err error
-		b, err = canvasFont.ToSFNT(b)
-		if err != nil {
-			panic(err)
-		}
-		mediatype, err = canvasFont.MediaType(b)
-		if err != nil || mediatype != "font/truetype" && mediatype != "font/opentype" {
-			panic("only TTF and OTF formats (potentially embedded in WOFF, WOFF2 or EOT formats) supported for embedding fonts in PDFs")
-		}
-	}
-
-	ffSubtype := ""
-	cidSubtype := ""
-	if mediatype == "font/truetype" {
-		ffSubtype = "TrueType"
-		cidSubtype = "CIDFontType2"
-	} else if mediatype == "font/opentype" {
-		ffSubtype = "OpenType"
-		cidSubtype = "CIDFontType0"
-	}
-
-	units := font.UnitsPerEm()
-	f := 1000 / units // factor to cancel the units and scale to 1000 (pdf spec)
-
-	fWidths := font.Widths(units)
-	widths := make([]int, 0, len(fWidths))
-	for _, w := range fWidths {
-		widths = append(widths, int(w*f+0.5))
-	}
-
-	// shorten glyph widths array
-	DW := widths[0]
-	W := pdfArray{}
-	i, j := 1, 1
-	for k, width := range widths {
-		if k != 0 && width != widths[j] {
-			if 4 < k-j { // at about 5 equal widths, it would be shorter using the other notation format
-				if i < j {
-					arr := pdfArray{}
-					for _, w := range widths[i:j] {
-						arr = append(arr, w)
-					}
-					W = append(W, i, arr)
-				}
-				if widths[j] != DW {
-					W = append(W, j, k-1, widths[j])
-				}
-				i = k
-			}
-			j = k
-		}
-	}
-	if i < len(widths) {
-		arr := pdfArray{}
-		for _, w := range widths[i:] {
-			arr = append(arr, w)
-		}
-		W = append(W, i, arr)
-	}
-
-	baseFont := strings.ReplaceAll(font.Name(), " ", "_")
-	bounds := font.Bounds(units)
-	metrics := font.Metrics(units)
-	fontfileRef := w.writeObject(pdfStream{
-		dict: pdfDict{
-			"Subtype": pdfName(ffSubtype),
-			"Filter":  pdfFilterFlate,
-		},
-		stream: b,
-	})
-	ref := w.writeObject(pdfDict{
-		"Type":     pdfName("Font"),
-		"Subtype":  pdfName("Type0"),
-		"BaseFont": pdfName(baseFont),
-		"Encoding": pdfName("Identity-H"),
-		"DescendantFonts": pdfArray{pdfDict{
-			"Type":        pdfName("Font"),
-			"Subtype":     pdfName(cidSubtype),
-			"BaseFont":    pdfName(baseFont),
-			"CIDToGIDMap": pdfName("Identity"),
-			"DW":          DW,
-			"W":           W,
-			"CIDSystemInfo": pdfDict{
-				"Registry":   "Adobe",
-				"Ordering":   "Identity",
-				"Supplement": 0,
-			},
-			"FontDescriptor": pdfDict{
-				"Type":        pdfName("FontDescriptor"),
-				"FontName":    pdfName(baseFont),
-				"Flags":       4,
-				"FontBBox":    pdfArray{int(f * bounds.X), -int(f * (bounds.Y + bounds.H)), int(f * (bounds.X + bounds.W)), -int(f * bounds.Y)},
-				"ItalicAngle": font.ItalicAngle(),
-				"Ascent":      int(f * metrics.Ascent),
-				"Descent":     -int(f * metrics.Descent),
-				"CapHeight":   -int(f * metrics.CapHeight),
-				"StemV":       80, // taken from Inkscape, should be calculated somehow
-				"StemH":       80,
-				"FontFile3":   fontfileRef,
-			},
-		}},
-	})
+	w.objOffsets = append(w.objOffsets, 0)
+	ref := pdfRef(len(w.objOffsets))
 	w.fonts[font] = ref
 	return ref
+}
+
+func (w *pdfWriter) writeFonts() {
+	for font, ref := range w.fonts {
+		cidSubtype := ""
+		if font.SFNT.IsTrueType {
+			cidSubtype = "CIDFontType2"
+		} else if font.SFNT.IsCFF {
+			cidSubtype = "CIDFontType0"
+		}
+
+		usedIndices := font.UsedIndices()
+
+		fWidths := font.Widths(usedIndices, 1000.0)
+		widths := make([]int, 0, len(fWidths))
+		for _, w := range fWidths {
+			widths = append(widths, int(w+0.5))
+		}
+
+		// shorten glyph widths array
+		DW := widths[0]
+		W := pdfArray{}
+		i, j := 1, 1
+		for k, width := range widths {
+			if k != 0 && width != widths[j] {
+				if 4 < k-j { // at about 5 equal widths, it would be shorter using the other notation format
+					if i < j {
+						arr := pdfArray{}
+						for _, w := range widths[i:j] {
+							arr = append(arr, w)
+						}
+						W = append(W, i, arr)
+					}
+					if widths[j] != DW {
+						W = append(W, j, k-1, widths[j])
+					}
+					i = k
+				}
+				j = k
+			}
+		}
+		if i < len(widths) {
+			arr := pdfArray{}
+			for _, w := range widths[i:] {
+				arr = append(arr, w)
+			}
+			W = append(W, i, arr)
+		}
+
+		toUnicode := []byte(fmt.Sprintf(`/CIDInit /ProcSet findresource begin
+12 dict begin
+begincmap
+/CIDSystemInfo
+<< /Registry (Adobe)
+   /Ordering (UCS)
+   /Supplement 0
+>> def
+/CMapName /Adobe-Identity-UCS def
+/CMapType 2 def
+1 begincodespacerange
+  <0000> <FFFF>
+endcodespacerange
+%d beginbfchar
+`, len(usedIndices)))
+		for _, glyphID := range usedIndices {
+			unicode := uint32(font.SFNT.Cmap.ToUnicode(glyphID))
+			if 0x010000 <= unicode && unicode <= 0x10FFFF {
+				// UTF-16 surrogates
+				unicode -= 0x10000
+				unicode = (0xD800+(unicode>>10)&0x3FF)<<16 + 0xDC00 + unicode&0x3FF
+			}
+			toUnicode = append(toUnicode, []byte(fmt.Sprintf("  <%04X> <%04X>\n", glyphID, unicode))...)
+		}
+		toUnicode = append(toUnicode, []byte(`endbfchar
+endcmap
+CMapName currentdict /CMap defineresource pop
+end
+end
+`)...)
+		toUnicodeRef := w.writeObject(pdfStream{
+			stream: toUnicode,
+		})
+
+		// TODO: use name table to get PostScript name
+		baseFont := "SUBSET+" + strings.ReplaceAll(font.Name(), " ", "")
+		metrics := font.Metrics(1000.0)
+		fontfileRef := w.writeObject(pdfStream{
+			dict: pdfDict{
+				"Subtype": pdfName("OpenType"),
+				"Filter":  pdfFilterFlate,
+			},
+			stream: font.SFNT.Data,
+		})
+		// in order to support more than 256 characters, we need to use a CIDFont dictionary which must be inside a Type0 font. Character codes in the stream are glyph IDs.
+		w.objOffsets[ref-1] = w.pos
+		w.write("%v 0 obj\n", ref)
+		w.writeVal(pdfDict{
+			"Type":      pdfName("Font"),
+			"Subtype":   pdfName("Type0"),
+			"BaseFont":  pdfName(baseFont),
+			"Encoding":  pdfName("Identity-H"), // map character codes in the stream to CID with identity encoding
+			"ToUnicode": toUnicodeRef,
+			"DescendantFonts": pdfArray{pdfDict{
+				"Type":     pdfName("Font"),
+				"Subtype":  pdfName(cidSubtype),
+				"BaseFont": pdfName(baseFont),
+				"DW":       DW,
+				"W":        W,
+				"CIDSystemInfo": pdfDict{
+					"Registry":   "Adobe",
+					"Ordering":   "Identity",
+					"Supplement": 0,
+				},
+				"FontDescriptor": pdfDict{
+					"Type":        pdfName("FontDescriptor"),
+					"FontName":    pdfName(baseFont),
+					"Flags":       4, // Symbolic
+					"FontBBox":    pdfArray{int(metrics.XMin), int(metrics.YMin), int(metrics.XMax), int(metrics.YMax)},
+					"ItalicAngle": float64(font.SFNT.Post.ItalicAngle),
+					"Ascent":      int(metrics.Ascent),
+					"Descent":     -int(metrics.Descent),
+					"CapHeight":   int(metrics.CapHeight),
+					"StemV":       80, // taken from Inkscape, should be calculated somehow
+					"StemH":       80, // idem
+					"FontFile3":   fontfileRef,
+				},
+			}},
+		})
+		w.write("\nendobj\n")
+	}
 }
 
 func (w *pdfWriter) Close() error {
@@ -529,6 +555,8 @@ func (w *pdfWriter) Close() error {
 	for _, p := range w.pages {
 		kids = append(kids, p.writePage(pdfRef(3)))
 	}
+
+	w.writeFonts()
 
 	// document catalog
 	w.objOffsets[0] = w.pos
@@ -894,7 +922,7 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 		fmt.Fprintf(w, "%s)", s)
 	}
 
-	units := w.font.UnitsPerEm()
+	units := float64(w.font.SFNT.Head.UnitsPerEm)
 	fmt.Fprintf(w, "[")
 	for _, tj := range TJ {
 		switch val := tj.(type) {
@@ -903,9 +931,9 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 			var rPrev rune
 			for j, r := range val {
 				if i < j {
-					if kern, err := w.font.Kerning(rPrev, r, units); err == nil && kern != 0.0 {
+					if kern := float64(w.font.Kerning(rPrev, r, units)); kern != 0.0 {
 						write(val[i:j])
-						fmt.Fprintf(w, " %d", -int(kern*1000/units+0.5))
+						fmt.Fprintf(w, " %d", -int(kern*1000.0/units+0.5))
 						i = j
 					}
 				}

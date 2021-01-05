@@ -1,4 +1,4 @@
-package shaping
+package text
 
 type Glyph struct {
 	ID       uint16

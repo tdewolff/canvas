@@ -1,6 +1,6 @@
 // +build harfbuzz
 
-package shaping
+package text
 
 //#cgo CPPFLAGS: -I/usr/include/harfbuzz
 //#cgo LDFLAGS: -L/usr/lib -lharfbuzz

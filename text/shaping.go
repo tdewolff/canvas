@@ -1,6 +1,6 @@
 // +build !harfbuzz
 
-package shaping
+package text
 
 import (
 	"fmt"

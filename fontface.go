@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image/color"
 	"io/ioutil"
-	"math"
 	"os/exec"
 	"reflect"
 
@@ -42,9 +41,8 @@ const (
 
 // FontFamily contains a family of fonts (bold, italic, ...). Selecting an italic style will pick the native italic font or use faux italic if not present.
 type FontFamily struct {
-	name    string
-	fonts   map[FontStyle]*Font
-	options TypographicOptions
+	name  string
+	fonts map[FontStyle]*Font
 }
 
 // NewFontFamily returns a new FontFamily.
@@ -100,17 +98,8 @@ func (family *FontFamily) LoadFont(b []byte, style FontStyle) error {
 	if err != nil {
 		return err
 	}
-	font.Use(family.options)
 	family.fonts[style] = font
 	return nil
-}
-
-// Use specifies which typographic options shall be used, ie. whether to use common typographic substitutions and which ligatures classes to use.
-func (family *FontFamily) Use(options TypographicOptions) {
-	family.options = options
-	for _, font := range family.fonts {
-		font.Use(options)
-	}
 }
 
 // Face gets the font face given by the font size (in pt).
@@ -203,20 +192,12 @@ func (ff FontFace) Name() string {
 
 // Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explanation of the different metrics.
 func (ff FontFace) Metrics() FontMetrics {
-	m := ff.Font.Metrics(ff.Size * ff.Scale)
-	return FontMetrics{
-		LineHeight: math.Abs(m.LineHeight),
-		Ascent:     math.Abs(m.Ascent),
-		Descent:    math.Abs(m.Descent),
-		XHeight:    math.Abs(m.XHeight),
-		CapHeight:  math.Abs(m.CapHeight),
-	}
+	return ff.Font.Metrics(ff.Size * ff.Scale)
 }
 
 // Kerning returns the eventual kerning between two runes in mm (ie. the adjustment on the advance).
 func (ff FontFace) Kerning(rPrev, rNext rune) float64 {
-	k, _ := ff.Font.Kerning(rPrev, rNext, ff.Size*ff.Scale)
-	return k
+	return ff.Font.Kerning(rPrev, rNext, ff.Size*ff.Scale)
 }
 
 // TextWidth returns the width of a given string in mm.
