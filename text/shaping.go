@@ -10,8 +10,8 @@ type Font struct {
 	sfnt *font.SFNT
 }
 
-func NewFont(b []byte, index uint) (Font, error) {
-	sfnt, err := font.ParseSFNT(b)
+func NewFont(b []byte, index int) (Font, error) {
+	sfnt, err := font.ParseSFNT(b, index)
 	if err != nil {
 		return Font{}, err
 	}

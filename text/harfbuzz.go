@@ -27,7 +27,7 @@ type Font struct {
 	fonts map[float64]*C.struct_hb_font_t
 }
 
-func NewFont(b []byte, index uint) (Font, error) {
+func NewFont(b []byte, index int) (Font, error) {
 	cb := (*C.char)(C.CBytes(b))
 	blob := C.hb_blob_create(cb, C.uint(len(b)), C.HB_MEMORY_MODE_WRITABLE, nil, nil)
 	face := C.hb_face_create(blob, C.uint(index))

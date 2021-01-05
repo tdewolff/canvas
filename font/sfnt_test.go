@@ -11,7 +11,7 @@ func TestSFNTDejaVuSerifTTF(t *testing.T) {
 	b, err := ioutil.ReadFile("DejaVuSerif.ttf")
 	test.Error(t, err)
 
-	sfnt, err := ParseSFNT(b)
+	sfnt, err := ParseSFNT(b, 0)
 	test.Error(t, err)
 
 	test.T(t, sfnt.Head.UnitsPerEm, uint16(2048))
@@ -34,11 +34,11 @@ func TestSFNTSubset(t *testing.T) {
 	b, err := ioutil.ReadFile("DejaVuSerif.ttf")
 	test.Error(t, err)
 
-	sfnt, err := ParseSFNT(b)
+	sfnt, err := ParseSFNT(b, 0)
 	test.Error(t, err)
 
 	subset, glyphIDs := sfnt.Subset([]uint16{0, 3, 6, 36, 55, 131}) // .notdef, space, #, A, T, Á
-	_, err = ParseSFNT(subset)
+	_, err = ParseSFNT(subset, 0)
 	test.Error(t, err)
 
 	test.T(t, len(glyphIDs), 7) // Á is a composite glyph containing two simple glyphs: 36 and 3452

@@ -19,7 +19,7 @@ func MediaType(b []byte) (string, error) {
 		return "font/woff", nil
 	} else if tag == "wOF2" {
 		return "font/woff2", nil
-	} else if tag == "true" || binary.BigEndian.Uint32(b[:4]) == 0x00010000 {
+	} else if tag == "true" || binary.BigEndian.Uint32(b[:4]) == 0x00010000 || tag == "ttcf" {
 		return "font/truetype", nil
 	} else if tag == "OTTO" {
 		return "font/opentype", nil
@@ -93,10 +93,10 @@ func NewSFNTReader(r io.Reader) (*bytes.Reader, error) {
 }
 
 // ParseFont parses a byte slice and recognized whether it is a TTF, OTF, WOFF, WOFF2, or EOT font format. It will return the parsed font and its mimetype.
-func ParseFont(b []byte) (*SFNT, error) {
+func ParseFont(b []byte, index int) (*SFNT, error) {
 	sfntBytes, err := ToSFNT(b)
 	if err != nil {
 		return nil, err
 	}
-	return ParseSFNT(sfntBytes)
+	return ParseSFNT(sfntBytes, index)
 }

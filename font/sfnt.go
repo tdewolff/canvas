@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
-	"runtime/debug"
 	"sort"
 	"strings"
 	"time"
@@ -64,23 +63,44 @@ func (sfnt *SFNT) Kerning(left, right uint16) int16 {
 	return sfnt.Kern.Get(left, right)
 }
 
-func ParseSFNT(b []byte) (*SFNT, error) {
+func ParseSFNT(b []byte, index int) (*SFNT, error) {
 	if len(b) < 12 || math.MaxUint32 < len(b) {
 		return nil, ErrInvalidFontData
 	}
 
 	r := newBinaryReader(b)
 	sfntVersion := r.ReadString(4)
+	if sfntVersion == "ttcf" {
+		majorVersion := r.ReadUint16()
+		minorVersion := r.ReadUint16()
+		if majorVersion != 1 && majorVersion != 2 || minorVersion != 0 {
+			return nil, fmt.Errorf("bad TTC version")
+		}
+		numFonts := r.ReadUint32()
+		if index < 0 || numFonts <= uint32(index) {
+			return nil, fmt.Errorf("bad font index %d", index)
+		}
+		if r.Len() < 4*numFonts {
+			return nil, ErrInvalidFontData
+		}
+		_ = r.ReadBytes(uint32(4 * index))
+		offset := r.ReadUint32()
+		if uint32(len(b))-8 < offset {
+			return nil, ErrInvalidFontData
+		}
+		r.Seek(offset)
+		sfntVersion = r.ReadString(4)
+	} else if index != 0 {
+		return nil, fmt.Errorf("bad font index %d", index)
+	}
 	if sfntVersion != "OTTO" && binary.BigEndian.Uint32([]byte(sfntVersion)) != 0x00010000 {
 		return nil, fmt.Errorf("bad SFNT version")
 	}
 	numTables := r.ReadUint16()
-	_ = r.ReadUint16() // searchRange
-	_ = r.ReadUint16() // entrySelector
-	_ = r.ReadUint16() // rangeShift
-
-	frontSize := 12 + 16*uint32(numTables) // can never exceed uint32 as numTables is uint16
-	if uint32(len(b)) < frontSize {
+	_ = r.ReadUint16()                  // searchRange
+	_ = r.ReadUint16()                  // entrySelector
+	_ = r.ReadUint16()                  // rangeShift
+	if r.Len() < 16*uint32(numTables) { // can never exceed uint32 as numTables is uint16
 		return nil, ErrInvalidFontData
 	}
 
@@ -107,7 +127,6 @@ func ParseSFNT(b []byte) (*SFNT, error) {
 			binary.BigEndian.PutUint32(b[offset+8:], 0x00000000)
 		}
 		if calcChecksum(b[offset:offset+length+padding]) != checksum {
-			debug.PrintStack()
 			return nil, fmt.Errorf("%s: bad checksum", tag)
 		}
 		if tag == "head" {

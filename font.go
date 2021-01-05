@@ -107,8 +107,8 @@ type Font struct {
 	usedIDs map[uint16]bool
 }
 
-func parseFont(name string, b []byte) (*Font, error) {
-	SFNT, err := canvasFont.ParseFont(b)
+func parseFont(name string, b []byte, index int) (*Font, error) {
+	SFNT, err := canvasFont.ParseFont(b, index)
 	if err != nil {
 		return nil, err
 	}

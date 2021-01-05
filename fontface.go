@@ -88,12 +88,21 @@ func (family *FontFamily) LoadFontFile(filename string, style FontStyle) error {
 	if err != nil {
 		return fmt.Errorf("failed to load font file '%s': %w", filename, err)
 	}
-	return family.LoadFont(b, style)
+	return family.LoadFont(b, 0, style)
+}
+
+// LoadFontCollection loads a font from a collection file and uses the font at the specified index.
+func (family *FontFamily) LoadFontCollection(filename string, index int, style FontStyle) error {
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("failed to load font file '%s': %w", filename, err)
+	}
+	return family.LoadFont(b, index, style)
 }
 
 // LoadFont loads a font from memory.
-func (family *FontFamily) LoadFont(b []byte, style FontStyle) error {
-	font, err := parseFont(family.name, b)
+func (family *FontFamily) LoadFont(b []byte, index int, style FontStyle) error {
+	font, err := parseFont(family.name, b, index)
 	if err != nil {
 		return err
 	}
