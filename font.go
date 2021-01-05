@@ -2,12 +2,9 @@ package canvas
 
 import (
 	"fmt"
-	"sort"
-	"unicode"
 
 	canvasFont "github.com/tdewolff/canvas/font"
 	canvasText "github.com/tdewolff/canvas/text"
-	"golang.org/x/image/font/sfnt"
 )
 
 func StringPath(sfnt *canvasFont.SFNT, text string, size float64) (*Path, error) {
@@ -39,7 +36,7 @@ func StringPath(sfnt *canvasFont.SFNT, text string, size float64) (*Path, error)
 func GlyphPath(sfnt *canvasFont.SFNT, glyphID uint16, size, x, y float64) (*Path, error) {
 	if sfnt.IsTrueType {
 		contour, err := sfnt.GlyphContour(glyphID)
-		if err != nil || contour == nil {
+		if err != nil {
 			return nil, err
 		}
 
@@ -106,7 +103,6 @@ func GlyphPath(sfnt *canvasFont.SFNT, glyphID uint16, size, x, y float64) (*Path
 // Font defines a font of type TTF or OTF which which a FontFace can be generated for use in text drawing operations.
 type Font struct {
 	name    string
-	sfnt    *sfnt.Font
 	SFNT    *canvasFont.SFNT
 	usedIDs map[uint16]bool
 }
@@ -117,12 +113,8 @@ func parseFont(name string, b []byte) (*Font, error) {
 		return nil, err
 	}
 
-	bSFNT, _ := canvasFont.ToSFNT(b)
-	sfntFont, _ := sfnt.Parse(bSFNT)
-
 	font := &Font{
 		name:    name,
-		sfnt:    sfntFont,
 		SFNT:    SFNT,
 		usedIDs: map[uint16]bool{},
 	}
@@ -134,61 +126,8 @@ func (font *Font) Name() string {
 	return font.name
 }
 
-// Kerning returns the horizontal adjustment for the rune pair. A positive kern means to move the glyphs further apart.
-// Returns 0 if there is an error.
-func (font *Font) Kerning(left, right rune, ppem float64) float64 {
-	f := ppem / float64(font.SFNT.Head.UnitsPerEm)
-	return f * float64(font.SFNT.Kerning(font.SFNT.GlyphIndex(left), font.SFNT.GlyphIndex(right)))
-}
-
-// FontMetrics contains a number of metrics that define a font face.
-// See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explanation of the different metrics.
-type FontMetrics struct {
-	LineHeight float64
-	Ascent     float64
-	Descent    float64
-	LineGap    float64
-	XHeight    float64
-	CapHeight  float64
-
-	XMin, YMin float64
-	XMax, YMax float64
-}
-
-func (font *Font) Metrics(ppem float64) FontMetrics {
-	f := ppem / float64(font.SFNT.Head.UnitsPerEm)
-	return FontMetrics{
-		LineHeight: f * float64(font.SFNT.Hhea.Ascender-font.SFNT.Hhea.Descender+font.SFNT.Hhea.LineGap),
-		Ascent:     f * float64(font.SFNT.Hhea.Ascender),
-		Descent:    f * float64(-font.SFNT.Hhea.Descender),
-		LineGap:    f * float64(font.SFNT.Hhea.LineGap),
-		XHeight:    f * float64(font.SFNT.OS2.SxHeight),
-		CapHeight:  f * float64(font.SFNT.OS2.SCapHeight),
-		XMin:       f * float64(font.SFNT.Head.XMin),
-		YMin:       f * float64(font.SFNT.Head.YMin),
-		XMax:       f * float64(font.SFNT.Head.XMax),
-		YMax:       f * float64(font.SFNT.Head.YMax),
-	}
-}
-
-func (font *Font) Widths(indices []uint16, ppem float64) []float64 {
-	f := ppem / float64(font.SFNT.Head.UnitsPerEm)
-	widths := []float64{}
-	for i := uint16(0); i < font.SFNT.Maxp.NumGlyphs; i++ {
-		widths = append(widths, f*float64(font.SFNT.GlyphAdvance(i)))
-	}
-	return widths
-}
-
-func (font *Font) IndicesOf(s string) []uint16 {
-	rs := []rune(s)
-	indices := make([]uint16, len(rs))
-	for i, r := range rs {
-		index := font.SFNT.GlyphIndex(r)
-		indices[i] = uint16(index)
-		font.usedIDs[index] = true
-	}
-	return indices
+func (font *Font) Use(glyphID uint16) {
+	font.usedIDs[glyphID] = true
 }
 
 func (font *Font) UsedIndices() []uint16 {
@@ -196,23 +135,5 @@ func (font *Font) UsedIndices() []uint16 {
 	for glyphID, _ := range font.usedIDs {
 		glyphIDs = append(glyphIDs, glyphID)
 	}
-	sort.Sort(canvasFont.GlyphIDList(glyphIDs))
 	return glyphIDs
-}
-
-func isWordBoundary(r rune) bool {
-	return r == 0 || isSpace(r) || isPunct(r)
-}
-
-func isSpace(r rune) bool {
-	return unicode.IsSpace(r)
-}
-
-func isPunct(r rune) bool {
-	for _, punct := range "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~" {
-		if r == punct {
-			return true
-		}
-	}
-	return false
 }

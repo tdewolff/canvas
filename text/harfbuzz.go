@@ -14,6 +14,8 @@ hb_glyph_position_t *get_glyph_position(hb_glyph_position_t *, unsigned int);
 import "C"
 import (
 	"unsafe"
+
+	"github.com/tdewolff/canvas/font"
 )
 
 // Design inspired by https://github.com/npillmayer/tyse/blob/main/engine/text/textshaping/
@@ -35,6 +37,10 @@ func NewFont(b []byte, index uint) (Font, error) {
 		face:  face,
 		fonts: map[float64]*C.struct_hb_font_t{},
 	}, nil
+}
+
+func NewSFNTFont(sfnt *font.SFNT) (Font, error) {
+	return NewFont(sfnt.Data)
 }
 
 func (f Font) Destroy() {
@@ -80,19 +86,6 @@ func (f Font) Shape(text string, size float64, direction Direction, script Scrip
 	C.free(unsafe.Pointer(ctext))
 	return glyphs
 }
-
-//func main() {
-//	b, err := ioutil.ReadFile("../../font/DejaVuSerif.ttf")
-//	if err != nil {
-//		panic(err)
-//	}
-//
-//	text := "Taco aâ̈a"
-//	font := NewFont(b, 0)
-//	glyphs := font.Shape(text, 12.0, LeftToRight, Latin)
-//	font.Destroy()
-//	fmt.Println(glyphs)
-//}
 
 type Direction int
 

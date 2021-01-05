@@ -724,7 +724,7 @@ func (span TextSpan) ToPath(width float64) (*Path, *Path, color.RGBA) {
 			x += span.Face.Kerning(rPrev, r)
 		}
 
-		pr, advance := span.Face.ToPath(string(r))
+		pr, advance, _ := span.Face.ToPath(string(r))
 		pr = pr.Translate(x, 0.0)
 		p = p.Append(pr)
 

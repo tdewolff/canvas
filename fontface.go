@@ -7,8 +7,7 @@ import (
 	"os/exec"
 	"reflect"
 
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/sfnt"
+	canvasText "github.com/tdewolff/canvas/text"
 )
 
 // FontStyle defines the font style to be used for the font.
@@ -190,38 +189,62 @@ func (ff FontFace) Name() string {
 	return ff.Font.name
 }
 
+// FontMetrics contains a number of metrics that define a font face.
+// See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explanation of the different metrics.
+type FontMetrics struct {
+	LineHeight float64
+	Ascent     float64
+	Descent    float64
+	LineGap    float64
+	XHeight    float64
+	CapHeight  float64
+
+	XMin, YMin float64
+	XMax, YMax float64
+}
+
 // Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explanation of the different metrics.
 func (ff FontFace) Metrics() FontMetrics {
-	return ff.Font.Metrics(ff.Size * ff.Scale)
+	ppem := ff.Size * ff.Scale
+	sfnt := ff.Font.SFNT
+	f := ppem / float64(sfnt.Head.UnitsPerEm)
+	return FontMetrics{
+		LineHeight: f * float64(sfnt.Hhea.Ascender-sfnt.Hhea.Descender+sfnt.Hhea.LineGap),
+		Ascent:     f * float64(sfnt.Hhea.Ascender),
+		Descent:    f * float64(-sfnt.Hhea.Descender),
+		LineGap:    f * float64(sfnt.Hhea.LineGap),
+		XHeight:    f * float64(sfnt.OS2.SxHeight),
+		CapHeight:  f * float64(sfnt.OS2.SCapHeight),
+		XMin:       f * float64(sfnt.Head.XMin),
+		YMin:       f * float64(sfnt.Head.YMin),
+		XMax:       f * float64(sfnt.Head.XMax),
+		YMax:       f * float64(sfnt.Head.YMax),
+	}
 }
 
 // Kerning returns the eventual kerning between two runes in mm (ie. the adjustment on the advance).
-func (ff FontFace) Kerning(rPrev, rNext rune) float64 {
-	return ff.Font.Kerning(rPrev, rNext, ff.Size*ff.Scale)
+func (ff FontFace) Kerning(left, right rune) float64 {
+	ppem := ff.Size * ff.Scale
+	sfnt := ff.Font.SFNT
+	f := ppem / float64(sfnt.Head.UnitsPerEm)
+	return f * float64(sfnt.Kerning(sfnt.GlyphIndex(left), sfnt.GlyphIndex(right)))
 }
 
 // TextWidth returns the width of a given string in mm.
 func (ff FontFace) TextWidth(s string) float64 {
-	buffer := &sfnt.Buffer{}
-	w := 0.0
-	var prevIndex sfnt.GlyphIndex
-	for i, r := range s {
-		index, err := ff.Font.sfnt.GlyphIndex(buffer, r)
-		if err != nil {
-			continue
-		}
+	ppem := ff.Size * ff.Scale
+	sfnt := ff.Font.SFNT
+	f := ppem / float64(sfnt.Head.UnitsPerEm)
 
+	w := 0.0
+	var prevGlyphID uint16
+	for i, r := range s {
+		glyphID := sfnt.GlyphIndex(r)
 		if i != 0 {
-			kern, err := ff.Font.sfnt.Kern(buffer, prevIndex, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
-			if err == nil {
-				w += fromI26_6(kern)
-			}
+			w += f * float64(sfnt.Kerning(prevGlyphID, glyphID))
 		}
-		advance, err := ff.Font.sfnt.GlyphAdvance(buffer, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
-		if err == nil {
-			w += fromI26_6(advance)
-		}
-		prevIndex = index
+		w += f * float64(sfnt.GlyphAdvance(glyphID))
+		prevGlyphID = glyphID
 	}
 	return w
 }
@@ -237,75 +260,104 @@ func (ff FontFace) Decorate(width float64) *Path {
 	return p
 }
 
-// ToPath converts a string to a path and also returns its advance in mm.
-func (ff FontFace) ToPath(s string) (*Path, float64) {
-	buffer := &sfnt.Buffer{}
+func (ff FontFace) ToPath(text string) (*Path, float64, error) {
+	sfnt := ff.Font.SFNT
+	ppem := ff.Size * ff.Scale
+	f := ppem / float64(sfnt.Head.UnitsPerEm)
+
 	p := &Path{}
-	x := 0.0
-	var prevIndex sfnt.GlyphIndex
-	for i, r := range s {
-		index, err := ff.Font.sfnt.GlyphIndex(buffer, r)
+	fontShaping, err := canvasText.NewSFNTFont(sfnt) // TODO: only load once
+	if err != nil {
+		fmt.Println(err)
+		return p, 0.0, err
+	}
+	defer fontShaping.Destroy()
+
+	var x, y int32
+	glyphs := fontShaping.Shape(text, ppem, canvasText.LeftToRight, canvasText.Latin)
+	for _, glyph := range glyphs {
+		path, err := ff.Contour(glyph.ID, f*float64(x+glyph.XOffset), f*float64(y+glyph.YOffset))
 		if err != nil {
-			return p, 0.0
+			fmt.Println(err)
+			return p, 0.0, err
 		}
+		if path != nil {
+			p = p.Append(path)
+		}
+		x += glyph.XAdvance
+		y += glyph.YAdvance
+	}
+	return p, f * float64(x), nil
+}
 
-		segments, err := ff.Font.sfnt.LoadGlyph(buffer, index, toI26_6(ff.Size*ff.Scale), nil)
+func (ff FontFace) Contour(glyphID uint16, x, y float64) (*Path, error) {
+	sfnt := ff.Font.SFNT
+	ppem := ff.Size * ff.Scale
+	f := ppem / float64(sfnt.Head.UnitsPerEm)
+
+	p := &Path{}
+	if sfnt.IsTrueType {
+		contour, err := sfnt.GlyphContour(glyphID)
 		if err != nil {
-			return p, 0.0
+			return p, err
 		}
 
-		if i != 0 {
-			kern, err := ff.Font.sfnt.Kern(buffer, prevIndex, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
-			if err == nil {
-				x += fromI26_6(kern)
-			}
-		}
-
-		var start0, end Point
-		for i, segment := range segments {
-			switch segment.Op {
-			case sfnt.SegmentOpMoveTo:
-				if i != 0 && start0.Equals(end) {
-					p.Close()
+		var i uint16
+		for _, endPoint := range contour.EndPoints {
+			j := i
+			first := true
+			firstOff := false
+			prevOff := false
+			for ; i <= endPoint; i++ {
+				if first {
+					if contour.OnCurve[i] {
+						p.MoveTo(x+f*float64(contour.XCoordinates[i]), y+f*float64(contour.YCoordinates[i]))
+						first = false
+					} else if !prevOff {
+						// first point is off
+						firstOff = true
+						prevOff = true
+					} else {
+						// first and second point are off
+						xMid := float64(contour.XCoordinates[i-1]+contour.XCoordinates[i]) / 2.0
+						yMid := float64(contour.YCoordinates[i-1]+contour.YCoordinates[i]) / 2.0
+						p.MoveTo(x+f*xMid, y+f*yMid)
+					}
+				} else if !prevOff {
+					if contour.OnCurve[i] {
+						p.LineTo(x+f*float64(contour.XCoordinates[i]), y+f*float64(contour.YCoordinates[i]))
+					} else {
+						prevOff = true
+					}
+				} else {
+					if contour.OnCurve[i] {
+						p.QuadTo(x+f*float64(contour.XCoordinates[i-1]), y+f*float64(contour.YCoordinates[i-1]), x+f*float64(contour.XCoordinates[i]), y+f*float64(contour.YCoordinates[i]))
+						prevOff = false
+					} else {
+						xMid := float64(contour.XCoordinates[i-1]+contour.XCoordinates[i]) / 2.0
+						yMid := float64(contour.YCoordinates[i-1]+contour.YCoordinates[i]) / 2.0
+						p.QuadTo(x+f*float64(contour.XCoordinates[i-1]), y+f*float64(contour.YCoordinates[i-1]), x+f*xMid, y+f*yMid)
+					}
 				}
-				end = fromP26_6(segment.Args[0])
-				end.X += ff.FauxItalic * -end.Y
-				p.MoveTo(x+end.X, ff.Voffset-end.Y)
-				start0 = end
-			case sfnt.SegmentOpLineTo:
-				end = fromP26_6(segment.Args[0])
-				end.X += ff.FauxItalic * -end.Y
-				p.LineTo(x+end.X, ff.Voffset-end.Y)
-			case sfnt.SegmentOpQuadTo:
-				cp := fromP26_6(segment.Args[0])
-				end = fromP26_6(segment.Args[1])
-				cp.X += ff.FauxItalic * -cp.Y
-				end.X += ff.FauxItalic * -end.Y
-				p.QuadTo(x+cp.X, ff.Voffset-cp.Y, x+end.X, ff.Voffset-end.Y)
-			case sfnt.SegmentOpCubeTo:
-				cp1 := fromP26_6(segment.Args[0])
-				cp2 := fromP26_6(segment.Args[1])
-				end = fromP26_6(segment.Args[2])
-				cp1.X += ff.FauxItalic * -cp1.Y
-				cp2.X += ff.FauxItalic * -cp2.Y
-				end.X += ff.FauxItalic * -end.Y
-				p.CubeTo(x+cp1.X, ff.Voffset-cp1.Y, x+cp2.X, ff.Voffset-cp2.Y, x+end.X, ff.Voffset-end.Y)
 			}
-		}
-		if !p.Empty() && start0.Equals(end) {
+			start := p.StartPos()
+			if firstOff {
+				if prevOff {
+					xMid := float64(contour.XCoordinates[i-1]+contour.XCoordinates[j]) / 2.0
+					yMid := float64(contour.YCoordinates[i-1]+contour.YCoordinates[j]) / 2.0
+					p.QuadTo(x+f*xMid, y+f*yMid, start.X, start.Y)
+				} else {
+					p.QuadTo(x+f*float64(contour.XCoordinates[i-1]), y+f*float64(contour.YCoordinates[i-1]), start.X, start.Y)
+				}
+			} else if prevOff {
+				p.QuadTo(x+f*float64(contour.XCoordinates[i-1]), y+f*float64(contour.YCoordinates[i-1]), start.X, start.Y)
+			}
 			p.Close()
 		}
-		if ff.FauxBold != 0.0 {
-			p = p.Offset(ff.FauxBold, NonZero)
-		}
-
-		advance, err := ff.Font.sfnt.GlyphAdvance(buffer, index, toI26_6(ff.Size*ff.Scale), font.HintingNone)
-		if err == nil {
-			x += fromI26_6(advance)
-		}
-		prevIndex = index
+	} else {
+		return p, fmt.Errorf("CFF not supported") // TODO
 	}
-	return p, x
+	return p, nil
 }
 
 func (ff FontFace) Boldness() int {

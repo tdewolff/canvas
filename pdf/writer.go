@@ -222,12 +222,13 @@ func (w *pdfWriter) writeFonts() {
 			cidSubtype = "CIDFontType0"
 		}
 
+		f := 1000.0 / float64(font.SFNT.Head.UnitsPerEm)
 		usedIndices := font.UsedIndices()
+		subset, glyphIDs := font.SFNT.Subset(usedIndices)
 
-		fWidths := font.Widths(usedIndices, 1000.0)
-		widths := make([]int, 0, len(fWidths))
-		for _, w := range fWidths {
-			widths = append(widths, int(w+0.5))
+		widths := make([]int, len(glyphIDs))
+		for i, glyphID := range glyphIDs {
+			widths[i] = int(f*float64(font.SFNT.GlyphAdvance(glyphID)) + 0.5)
 		}
 
 		// shorten glyph widths array
@@ -275,7 +276,7 @@ begincmap
 endcodespacerange
 %d beginbfchar
 `, len(usedIndices)))
-		for _, glyphID := range usedIndices {
+		for _, glyphID := range glyphIDs {
 			unicode := uint32(font.SFNT.Cmap.ToUnicode(glyphID))
 			if 0x010000 <= unicode && unicode <= 0x10FFFF {
 				// UTF-16 surrogates
@@ -296,13 +297,12 @@ end
 
 		// TODO: use name table to get PostScript name
 		baseFont := "SUBSET+" + strings.ReplaceAll(font.Name(), " ", "")
-		metrics := font.Metrics(1000.0)
 		fontfileRef := w.writeObject(pdfStream{
 			dict: pdfDict{
 				"Subtype": pdfName("OpenType"),
 				"Filter":  pdfFilterFlate,
 			},
-			stream: font.SFNT.Data,
+			stream: subset,
 		})
 		// in order to support more than 256 characters, we need to use a CIDFont dictionary which must be inside a Type0 font. Character codes in the stream are glyph IDs.
 		w.objOffsets[ref-1] = w.pos
@@ -325,14 +325,19 @@ end
 					"Supplement": 0,
 				},
 				"FontDescriptor": pdfDict{
-					"Type":        pdfName("FontDescriptor"),
-					"FontName":    pdfName(baseFont),
-					"Flags":       4, // Symbolic
-					"FontBBox":    pdfArray{int(metrics.XMin), int(metrics.YMin), int(metrics.XMax), int(metrics.YMax)},
+					"Type":     pdfName("FontDescriptor"),
+					"FontName": pdfName(baseFont),
+					"Flags":    4, // Symbolic
+					"FontBBox": pdfArray{
+						int(f * float64(font.SFNT.Head.XMin)),
+						int(f * float64(font.SFNT.Head.YMin)),
+						int(f * float64(font.SFNT.Head.XMax)),
+						int(f * float64(font.SFNT.Head.YMax)),
+					},
 					"ItalicAngle": float64(font.SFNT.Post.ItalicAngle),
-					"Ascent":      int(metrics.Ascent),
-					"Descent":     -int(metrics.Descent),
-					"CapHeight":   int(metrics.CapHeight),
+					"Ascent":      int(f * float64(font.SFNT.Hhea.Ascender)),
+					"Descent":     -int(f * float64(font.SFNT.Hhea.Descender)),
+					"CapHeight":   int(f * float64(font.SFNT.OS2.SCapHeight)),
 					"StemV":       80, // taken from Inkscape, should be calculated somehow
 					"StemH":       80, // idem
 					"FontFile3":   fontfileRef,
@@ -706,17 +711,19 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 		}
 
 		buf := &bytes.Buffer{}
-		indices := w.font.IndicesOf(s)
-		binary.Write(buf, binary.BigEndian, indices)
-
+		for _, r := range []rune(s) {
+			glyphID := w.font.SFNT.GlyphIndex(r)
+			w.font.Use(glyphID)
+			binary.Write(buf, binary.BigEndian, glyphID)
+		}
 		s = buf.String()
-		s = strings.Replace(s, "\\", "\\\\", -1)
+		s = strings.Replace(s, "\\", "\\\\", -1) // TODO: optimize
 		s = strings.Replace(s, "(", "\\(", -1)
 		s = strings.Replace(s, ")", "\\)", -1)
 		fmt.Fprintf(w, "%s)", s)
 	}
 
-	units := float64(w.font.SFNT.Head.UnitsPerEm)
+	f := 1000.0 / float64(w.font.SFNT.Head.UnitsPerEm)
 	fmt.Fprintf(w, "[")
 	for _, tj := range TJ {
 		switch val := tj.(type) {
@@ -725,9 +732,10 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 			var rPrev rune
 			for j, r := range val {
 				if i < j {
-					if kern := float64(w.font.Kerning(rPrev, r, units)); kern != 0.0 {
+					kern := w.font.SFNT.Kerning(w.font.SFNT.GlyphIndex(rPrev), w.font.SFNT.GlyphIndex(r))
+					if kern != 0 {
 						write(val[i:j])
-						fmt.Fprintf(w, " %d", -int(kern*1000.0/units+0.5))
+						fmt.Fprintf(w, " %d", -int(f*float64(kern)+0.5))
 						i = j
 					}
 				}

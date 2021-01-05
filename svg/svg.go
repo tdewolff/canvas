@@ -50,8 +50,32 @@ func New(w io.Writer, width, height float64) *SVG {
 }
 
 func (r *SVG) Close() error {
+	if r.embedFonts {
+		r.writeFonts()
+	}
 	_, err := fmt.Fprintf(r.w, "</svg>")
 	return err
+}
+
+func (r *SVG) writeFonts() {
+	if 0 < len(r.fonts) {
+		fmt.Fprintf(r.w, "<style>")
+		for font, _ := range r.fonts {
+			b, _ := font.SFNT.Subset(font.UsedIndices())
+			fmt.Fprintf(r.w, "\n@font-face{font-family:'%s';src:url('data:type/opentype;base64,", font.Name())
+			encoder := base64.NewEncoder(base64.StdEncoding, r.w)
+			encoder.Write(b)
+			encoder.Close()
+			fmt.Fprintf(r.w, "');}")
+		}
+		fmt.Fprintf(r.w, "\n</style>")
+	}
+}
+
+func (r *SVG) writeClasses(w io.Writer) {
+	if len(r.classes) != 0 {
+		fmt.Fprintf(w, `" class="%s`, strings.Join(r.classes, " "))
+	}
 }
 
 func (r *SVG) AddClass(class string) {
@@ -75,40 +99,12 @@ func (r *SVG) RemoveClass(class string) {
 	}
 }
 
-func (r *SVG) writeClasses(w io.Writer) {
-	if len(r.classes) != 0 {
-		fmt.Fprintf(w, `" class="%s`, strings.Join(r.classes, " "))
-	}
-}
-
 func (r *SVG) EmbedFonts(embedFonts bool) {
 	r.embedFonts = embedFonts
 }
 
 func (r *SVG) SetImageEncoding(enc canvas.ImageEncoding) {
 	r.imgEnc = enc
-}
-
-func (r *SVG) writeFonts(fonts []*canvas.Font) {
-	is := []int{}
-	for i, font := range fonts {
-		if _, ok := r.fonts[font]; !ok {
-			is = append(is, i)
-			r.fonts[font] = true
-		}
-	}
-
-	if 0 < len(is) {
-		fmt.Fprintf(r.w, "<style>")
-		for _, i := range is {
-			fmt.Fprintf(r.w, "\n@font-face{font-family:'%s';src:url('data:type/opentype;base64,", fonts[i].Name())
-			encoder := base64.NewEncoder(base64.StdEncoding, r.w)
-			encoder.Write(fonts[i].SFNT.Data)
-			encoder.Close()
-			fmt.Fprintf(r.w, "');}")
-		}
-		fmt.Fprintf(r.w, "\n</style>")
-	}
 }
 
 func (r *SVG) Size() (float64, float64) {
@@ -283,10 +279,6 @@ func (r *SVG) writeFontStyle(ff, ffMain canvas.FontFace) {
 }
 
 func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
-	if r.embedFonts {
-		r.writeFonts(text.Fonts())
-	}
-
 	if text.Empty() {
 		return
 	}
@@ -319,6 +311,12 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 	fmt.Fprintf(r.w, `">`)
 
 	text.WalkSpans(func(y, dx float64, span canvas.TextSpan) {
+		r.fonts[span.Face.Font] = true
+		for _, r := range []rune(span.Text) {
+			glyphID := span.Face.Font.SFNT.GlyphIndex(r)
+			span.Face.Font.Use(glyphID)
+		}
+
 		fmt.Fprintf(r.w, `<tspan x="%v" y="%v`, num(x0+dx), num(y0-y-span.Face.Voffset))
 		if span.WordSpacing > 0.0 {
 			fmt.Fprintf(r.w, `" word-spacing="%v`, num(span.WordSpacing))

@@ -85,7 +85,7 @@ func draw(c *canvas.Context) {
 
 	// Draw the word Stroke being stroked
 	face = fontFamily.Face(80.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
-	p, _ := face.ToPath("Stroke")
+	p, _, _ := face.ToPath("Stroke")
 	c.DrawPath(100, 5, p.Stroke(0.75, canvas.RoundCap, canvas.RoundJoin))
 
 	// Draw a LaTeX formula

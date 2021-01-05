@@ -126,7 +126,7 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 }
 
 func (r *Rasterizer) RenderText(text *canvas.Text, m canvas.Matrix) {
-	text.RenderAsPath(r, m)
+	text.RenderAsPath(r, m) // TODO: use resolution
 }
 
 func (r *Rasterizer) RenderImage(img image.Image, m canvas.Matrix) {

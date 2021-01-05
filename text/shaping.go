@@ -3,8 +3,6 @@
 package text
 
 import (
-	"fmt"
-
 	"github.com/tdewolff/canvas/font"
 )
 
@@ -22,6 +20,12 @@ func NewFont(b []byte, index uint) (Font, error) {
 	}, nil
 }
 
+func NewSFNTFont(sfnt *font.SFNT) (Font, error) {
+	return Font{
+		sfnt: sfnt,
+	}, nil
+}
+
 func (f Font) Destroy() {
 }
 
@@ -31,7 +35,6 @@ func (f Font) Shape(text string, size float64, direction Direction, script Scrip
 	var prevIndex uint16
 	for i, r := range rs {
 		index := f.sfnt.GlyphIndex(r)
-		fmt.Printf("%X %s => %d\n", r, string(r), index)
 		glyphs[i].ID = index
 		glyphs[i].XAdvance = int32(f.sfnt.GlyphAdvance(index))
 		if 0 < i {

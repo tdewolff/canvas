@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"time"
@@ -106,6 +107,7 @@ func ParseSFNT(b []byte) (*SFNT, error) {
 			binary.BigEndian.PutUint32(b[offset+8:], 0x00000000)
 		}
 		if calcChecksum(b[offset:offset+length+padding]) != checksum {
+			debug.PrintStack()
 			return nil, fmt.Errorf("%s: bad checksum", tag)
 		}
 		if tag == "head" {
@@ -191,20 +193,33 @@ func ParseSFNT(b []byte) (*SFNT, error) {
 	return sfnt, nil
 }
 
-type GlyphIDList []uint16
-
-func (p GlyphIDList) Len() int           { return len(p) }
-func (p GlyphIDList) Less(i, j int) bool { return p[i] < p[j] }
-func (p GlyphIDList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
-func (sfnt *SFNT) Subset(glyphIDs []uint16) []byte {
-	// sort glyph IDs and make sure the default glyph is present
-	sort.Sort(GlyphIDList(glyphIDs))
+func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
+	// add dependencies for composite glyphs
+	origLen := len(glyphIDs)
+	for i := 0; i < origLen; i++ {
+		deps, _ := sfnt.Glyf.Dependencies(glyphIDs[i], 0)
+		if 0 < len(deps) {
+			glyphIDs = append(glyphIDs, deps[1:]...)
+		}
+	}
+	// sort ascending and add default glyph
+	sort.Slice(glyphIDs, func(i, j int) bool { return glyphIDs[i] < glyphIDs[j] })
 	if len(glyphIDs) == 0 || glyphIDs[0] != 0 {
 		glyphIDs = append([]uint16{0}, glyphIDs...)
 	}
-	for 0 < len(glyphIDs) && sfnt.Maxp.NumGlyphs <= glyphIDs[len(glyphIDs)-1] {
-		glyphIDs = glyphIDs[:len(glyphIDs)-1]
+	// remove duplicate and invalid glyphIDs
+	for i := 0; i < len(glyphIDs); i++ {
+		if sfnt.Maxp.NumGlyphs <= glyphIDs[i] {
+			glyphIDs = glyphIDs[:i]
+			break
+		} else if 0 < i && glyphIDs[i] == glyphIDs[i-1] {
+			glyphIDs = append(glyphIDs[:i], glyphIDs[i+1:]...)
+			i--
+		}
+	}
+	glyphMap := make(map[uint16]uint16, len(glyphIDs))
+	for i, glyphID := range glyphIDs {
+		glyphMap[glyphID] = uint16(i)
 	}
 
 	// specify tables to include
@@ -214,9 +229,61 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) []byte {
 	} else if sfnt.IsCFF {
 		// TODO
 	}
-	for _, tag := range []string{"kern"} {
+
+	// preserve tables
+	for _, tag := range []string{"cvt ", "fpgm", "prep"} {
 		if _, ok := sfnt.Tables[tag]; ok {
 			tags = append(tags, tag)
+		}
+	}
+
+	// handle kern table that could be removed
+	kernSubtables := []kernFormat0{}
+	if _, ok := sfnt.Tables["kern"]; ok {
+		for _, subtable := range sfnt.Kern.Subtables {
+			pairs := []kernPair{}
+			iLeft := 0
+			iRight := 0
+			for _, pair := range subtable.Pairs {
+				if pair.Key < uint32(glyphIDs[iLeft])<<16+uint32(glyphIDs[iRight]) {
+					continue
+				}
+				for iLeft < len(glyphIDs) && uint32(glyphIDs[iLeft])<<16 < pair.Key&0xFFFF0000 {
+					iLeft++
+					iRight = 0
+				}
+				if iLeft == len(glyphIDs) {
+					break
+				}
+				if uint32(glyphIDs[iLeft])<<16 == pair.Key&0xFFFF0000 {
+					for iRight < len(glyphIDs) && uint32(glyphIDs[iRight]) < pair.Key&0x0000FFFF {
+						iRight++
+					}
+					if iRight == len(glyphIDs) {
+						iLeft++
+						iRight = 0
+						if iLeft == len(glyphIDs) {
+							break
+						}
+						continue
+					}
+					if uint32(glyphIDs[iRight]) == pair.Key&0x0000FFFF {
+						pairs = append(pairs, kernPair{
+							Key:   uint32(glyphMap[glyphIDs[iLeft]])<<16 + uint32(glyphMap[glyphIDs[iRight]]),
+							Value: pair.Value,
+						})
+					}
+				}
+			}
+			if 0 < len(pairs) {
+				kernSubtables = append(kernSubtables, kernFormat0{
+					Coverage: subtable.Coverage,
+					Pairs:    pairs,
+				})
+			}
+		}
+		if 0 < len(kernSubtables) {
+			tags = append(tags, "kern")
 		}
 	}
 	sort.Strings(tags)
@@ -250,10 +317,39 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) []byte {
 			w.WriteBytes(head[:8])
 			checksumAdjustmentPos = w.Len()
 			w.WriteUint32(0) // checksumAdjustment
-			w.WriteBytes(head[12:])
+			w.WriteBytes(head[12:28])
+			w.WriteInt64(int64(time.Now().UTC().Sub(time.Date(1904, 1, 1, 0, 0, 0, 0, time.UTC)) / 1e9)) // modified
+			w.WriteBytes(head[36:])
 		case "glyf":
 			for _, glyphID := range glyphIDs {
-				w.WriteBytes(sfnt.Glyf.Get(glyphID))
+				b := sfnt.Glyf.Get(glyphID)
+
+				// update glyphIDs for composite glyphs, make sure not to write to b
+				glyphIDPositions, newGlyphIDs := []uint32{}, []uint16{}
+				if 0 < len(b) {
+					numberOfContours := int16(binary.BigEndian.Uint16(b))
+					if numberOfContours < 0 {
+						offset := uint32(10)
+						for {
+							flags := binary.BigEndian.Uint16(b[offset:])
+							subGlyphID := binary.BigEndian.Uint16(b[offset+2:])
+							glyphIDPositions = append(glyphIDPositions, offset+2)
+							newGlyphIDs = append(newGlyphIDs, glyphMap[subGlyphID])
+
+							length, more := glyfCompositeLength(flags)
+							if !more {
+								break
+							}
+							offset += length
+						}
+					}
+				}
+
+				start := w.Len()
+				w.WriteBytes(b)
+				for i := 0; i < len(glyphIDPositions); i++ {
+					binary.BigEndian.PutUint16(w.buf[start+glyphIDPositions[i]:], newGlyphIDs[i])
+				}
 			}
 		case "loca":
 			// TODO: change to short format if possible
@@ -272,6 +368,105 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) []byte {
 				}
 				w.WriteUint32(pos)
 			}
+		case "maxp":
+			maxp := sfnt.Tables["maxp"]
+			w.WriteBytes(maxp[:4])
+			w.WriteUint16(uint16(len(glyphIDs))) // numGlyphs
+			w.WriteBytes(maxp[6:])
+		case "hhea":
+			numberOfHMetrics := uint16(0)
+			for _, glyphID := range glyphIDs {
+				if sfnt.Hhea.NumberOfHMetrics <= glyphID {
+					break
+				}
+				numberOfHMetrics++
+			}
+			hhea := sfnt.Tables["hhea"]
+			w.WriteBytes(hhea[:34])
+			w.WriteUint16(numberOfHMetrics) // numberOfHMetrics
+		case "hmtx":
+			for _, glyphID := range glyphIDs {
+				if glyphID < sfnt.Hhea.NumberOfHMetrics {
+					w.WriteUint16(sfnt.Hmtx.Advance(glyphID))
+				}
+				w.WriteInt16(sfnt.Hmtx.LeftSideBearing(glyphID))
+			}
+		case "post":
+			post := sfnt.Tables["post"]
+			w.WriteBytes(post[:32])
+			if binary.BigEndian.Uint32(post) == 0x00020000 {
+				w.WriteUint16(uint16(len(glyphIDs))) // numGlyphs
+
+				i := 0
+				b := []byte{}
+				for _, glyphID := range glyphIDs {
+					if sfnt.Post.GlyphNameIndex[glyphID] < 258 {
+						w.WriteUint16(sfnt.Post.GlyphNameIndex[glyphID])
+					} else {
+						w.WriteUint16(uint16(258 + i))
+						name := sfnt.Post.Get(glyphID)
+						b = append(b, byte(len(name)))
+						b = append(b, []byte(name)...)
+						i++
+					}
+				}
+				w.WriteBytes(b)
+			}
+		case "cmap":
+			w.WriteUint16(0)  // version
+			w.WriteUint16(1)  // numTables
+			w.WriteUint16(0)  // platformID
+			w.WriteUint16(4)  // encodingID
+			w.WriteUint32(12) // subtableOffset
+
+			// format 12
+			start := w.Len()
+			w.WriteUint16(12) // format
+			w.WriteUint16(0)  // reserved
+			w.WriteUint32(0)  // length
+			w.WriteUint32(0)  // language
+
+			rs := make([]rune, 0, len(glyphIDs))
+			runeMap := make(map[rune]uint16, len(glyphIDs))
+			for i, glyphID := range glyphIDs {
+				if r := sfnt.Cmap.ToUnicode(glyphID); r != 0 {
+					rs = append(rs, r)
+					runeMap[r] = uint16(i)
+				}
+			}
+			sort.Slice(rs, func(i, j int) bool { return rs[i] < rs[j] })
+			// TODO: optimize ranges
+			w.WriteUint32(uint32(len(rs))) // numGroups
+			for i, r := range rs {
+				if 0 < i && r == rs[i-1] {
+					continue
+				}
+				w.WriteUint32(uint32(r))          // startCharCode
+				w.WriteUint32(uint32(r))          // endCharCode
+				w.WriteUint32(uint32(runeMap[r])) // startGlyphID
+			}
+			binary.BigEndian.PutUint32(w.buf[start+4:], w.Len()-start) // set length
+		case "kern":
+			w.WriteUint16(0)                          // version
+			w.WriteUint16(uint16(len(kernSubtables))) // nTables
+			for _, subtable := range kernSubtables {
+				w.WriteUint16(0)                                     // version
+				w.WriteUint16(6 + 8 + 6*uint16(len(subtable.Pairs))) // length
+				w.WriteUint8(0)                                      // format
+				w.WriteUint8(flagsToUint8(subtable.Coverage))        // coverage
+
+				nPairs := uint16(len(subtable.Pairs))
+				entrySelector := uint16(math.Log2(float64(nPairs)))
+				searchRange := uint16(1 << (entrySelector + 4))
+				w.WriteUint16(nPairs)
+				w.WriteUint16(searchRange)
+				w.WriteUint16(entrySelector)
+				w.WriteUint16(nPairs<<4 - searchRange)
+				for _, pair := range subtable.Pairs {
+					w.WriteUint32(pair.Key)
+					w.WriteInt16(pair.Value)
+				}
+			}
 		default:
 			w.WriteBytes(sfnt.Tables[tag])
 		}
@@ -288,14 +483,14 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) []byte {
 	for i, tag := range tags {
 		pos := 12 + i<<4
 		copy(buf[pos:], []byte(tag))
-		paddedLength := lengths[i] + (4-lengths[i]&3)&3
-		checksum := calcChecksum(buf[offsets[i]:paddedLength])
+		padding := (4 - lengths[i]&3) & 3
+		checksum := calcChecksum(buf[offsets[i] : offsets[i]+lengths[i]+padding])
 		binary.BigEndian.PutUint32(w.buf[pos+4:], checksum)
 		binary.BigEndian.PutUint32(w.buf[pos+8:], offsets[i])
 		binary.BigEndian.PutUint32(w.buf[pos+12:], lengths[i])
 	}
 	binary.BigEndian.PutUint32(w.buf[checksumAdjustmentPos:], 0xB1B0AFBA-calcChecksum(buf))
-	return buf
+	return buf, glyphIDs
 }
 
 ////////////////////////////////////////////////////////////////
@@ -633,6 +828,11 @@ func (sfnt *SFNT) parseCmap() error {
 					endCharCode := rs.ReadUint32()
 					startGlyphID := rs.ReadUint32()
 					if endCharCode < startCharCode || 0 < i && startCharCode <= subtable.EndCharCode[i-1] {
+						if 0 < i {
+							fmt.Println(startCharCode, endCharCode, "prev", subtable.EndCharCode[i-1])
+						} else {
+							fmt.Println(startCharCode, endCharCode)
+						}
 						return fmt.Errorf("cmap: bad character code range in subtable %d", j)
 					} else if uint32(sfnt.Maxp.NumGlyphs) <= endCharCode-startCharCode || uint32(sfnt.Maxp.NumGlyphs)-(endCharCode-startCharCode) <= startGlyphID {
 						return fmt.Errorf("cmap: bad glyphID in subtable %d", j)
@@ -716,12 +916,74 @@ func (glyf *glyfTable) Get(glyphID uint16) []byte {
 	return glyf.data[start:end]
 }
 
+func (glyf *glyfTable) Dependencies(glyphID uint16, level int) ([]uint16, error) {
+	deps := []uint16{glyphID}
+	b := glyf.Get(glyphID)
+	if b == nil {
+		return nil, fmt.Errorf("glyf: bad glyphID %v", glyphID)
+	} else if len(b) == 0 {
+		return deps, nil
+	}
+	r := newBinaryReader(b)
+	if r.Len() < 10 {
+		return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
+	}
+	numberOfContours := r.ReadInt16()
+	_ = r.ReadBytes(8)
+	if numberOfContours < 0 {
+		if 7 < level {
+			return nil, fmt.Errorf("glyf: compound glyphs too deeply nested")
+		}
+
+		// composite glyph
+		for {
+			if r.Len() < 4 {
+				return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
+			}
+
+			flags := r.ReadUint16()
+			subGlyphID := r.ReadUint16()
+			subDeps, err := glyf.Dependencies(subGlyphID, level+1)
+			if err != nil {
+				return nil, err
+			}
+			deps = append(deps, subDeps...)
+
+			length, more := glyfCompositeLength(flags)
+			if r.Len() < length-4 {
+				return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
+			}
+			_ = r.ReadBytes(length - 4)
+			if !more {
+				break
+			}
+		}
+	}
+	return deps, nil
+}
+
+func glyfCompositeLength(flags uint16) (length uint32, more bool) {
+	length = 4 + 2
+	if flags&0x0001 != 0 { // ARG_1_AND_2_ARE_WORDS
+		length += 2
+	}
+	if flags&0x0008 != 0 { // WE_HAVE_A_SCALE
+		length += 2
+	} else if flags&0x0040 != 0 { // WE_HAVE_AN_X_AND_Y_SCALE
+		length += 4
+	} else if flags&0x0080 != 0 { // WE_HAVE_A_TWO_BY_TWO
+		length += 8
+	}
+	more = flags&0x0020 != 0 // MORE_COMPONENTS
+	return
+}
+
 func (glyf *glyfTable) Contour(glyphID uint16, level int) (*glyfContour, error) {
 	b := glyf.Get(glyphID)
 	if b == nil {
 		return nil, fmt.Errorf("glyf: bad glyphID %v", glyphID)
 	} else if len(b) == 0 {
-		return &glyfContour{GlyphID: glyphID, EndPoints: []uint16{0}}, nil
+		return &glyfContour{GlyphID: glyphID}, nil
 	}
 	r := newBinaryReader(b)
 	if r.Len() < 10 {
@@ -822,6 +1084,7 @@ func (glyf *glyfTable) Contour(glyphID uint16, level int) (*glyfContour, error) 
 		}
 
 		// composite glyph
+		hasInstructions := false
 		for {
 			if r.Len() < 4 {
 				return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
@@ -868,6 +1131,9 @@ func (glyf *glyfTable) Contour(glyphID uint16, level int) (*glyfContour, error) 
 				tyx = r.ReadInt16()
 				tyy = r.ReadInt16()
 			}
+			if flags&0x0100 != 0 {
+				hasInstructions = true
+			}
 
 			subContour, err := glyf.Contour(subGlyphID, level+1)
 			if err != nil {
@@ -897,6 +1163,13 @@ func (glyf *glyfTable) Contour(glyphID uint16, level int) (*glyfContour, error) 
 			if flags&0x0020 == 0 { // MORE_COMPONENTS
 				break
 			}
+		}
+		if hasInstructions {
+			instructionLength := r.ReadUint16()
+			if r.Len() < uint32(instructionLength) {
+				return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
+			}
+			contour.Instructions = r.ReadBytes(uint32(instructionLength))
 		}
 	}
 	return contour, nil
@@ -1517,14 +1790,21 @@ type postTable struct {
 	MaxMemType42       uint32
 	MinMemType1        uint32
 	MaxMemType1        uint32
-	GlyphName          []string
+	GlyphNameIndex     []uint16
+	stringData         []string
 }
 
 func (post *postTable) Get(glyphID uint16) string {
-	if uint16(len(post.GlyphName)) <= glyphID {
+	if len(post.GlyphNameIndex) <= int(glyphID) {
 		return ""
 	}
-	return post.GlyphName[glyphID]
+	index := post.GlyphNameIndex[glyphID]
+	if index < 258 {
+		return macintoshGlyphNames[index]
+	} else if len(post.stringData) < int(index)-258 {
+		return ""
+	}
+	return post.stringData[index-258]
 }
 
 func (sfnt *SFNT) parsePost() error {
@@ -1559,29 +1839,25 @@ func (sfnt *SFNT) parsePost() error {
 
 		// get string data first
 		r.Seek(34 + 2*uint32(sfnt.Maxp.NumGlyphs))
-		stringData := []string{}
 		for 2 <= r.Len() {
 			length := r.ReadUint8()
 			if r.Len() < uint32(length) {
 				return fmt.Errorf("post: bad table")
 			}
-			stringData = append(stringData, r.ReadString(uint32(length)))
+			sfnt.Post.stringData = append(sfnt.Post.stringData, r.ReadString(uint32(length)))
 		}
 		if r.Len() != 0 {
 			return fmt.Errorf("post: bad table")
 		}
 
 		r.Seek(34)
-		sfnt.Post.GlyphName = make([]string, sfnt.Maxp.NumGlyphs)
+		sfnt.Post.GlyphNameIndex = make([]uint16, sfnt.Maxp.NumGlyphs)
 		for i := 0; i < int(sfnt.Maxp.NumGlyphs); i++ {
 			index := r.ReadUint16()
-			if index < 258 {
-				sfnt.Post.GlyphName[i] = macintoshGlyphNames[index]
-			} else if len(stringData) < int(index)-258 {
+			if 258 <= index && len(sfnt.Post.stringData) < int(index)-258 {
 				return fmt.Errorf("post: bad table")
-			} else {
-				sfnt.Post.GlyphName[i] = stringData[index-258]
 			}
+			sfnt.Post.GlyphNameIndex[i] = index
 		}
 		return nil
 	} else if binary.BigEndian.Uint32(version) == 0x00025000 && len(b) == 32 {
