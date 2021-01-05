@@ -2,12 +2,43 @@ package rasterizer
 
 import (
 	"image"
+	"image/gif"
+	"image/jpeg"
+	"image/png"
+	"io"
 
 	"github.com/tdewolff/canvas"
 	"golang.org/x/image/draw"
 	"golang.org/x/image/math/f64"
 	"golang.org/x/image/vector"
 )
+
+// PNGWriter writes the canvas as a PNG file
+func PNGWriter(resolution canvas.DPMM) canvas.Writer {
+	return func(w io.Writer, c *canvas.Canvas) error {
+		img := Draw(c, resolution)
+		// TODO: optimization: cache img until canvas changes
+		return png.Encode(w, img)
+	}
+}
+
+// JPGWriter writes the canvas as a JPG file
+func JPGWriter(resolution canvas.DPMM, opts *jpeg.Options) canvas.Writer {
+	return func(w io.Writer, c *canvas.Canvas) error {
+		img := Draw(c, resolution)
+		// TODO: optimization: cache img until canvas changes
+		return jpeg.Encode(w, img, opts)
+	}
+}
+
+// GIFWriter writes the canvas as a GIF file
+func GIFWriter(resolution canvas.DPMM, opts *gif.Options) canvas.Writer {
+	return func(w io.Writer, c *canvas.Canvas) error {
+		img := Draw(c, resolution)
+		// TODO: optimization: cache img until canvas changes
+		return gif.Encode(w, img, opts)
+	}
+}
 
 // Draw draws the canvas on a new image with given resolution (in dots-per-millimeter).
 // Higher resolution will result in bigger images.
@@ -18,26 +49,26 @@ func Draw(c *canvas.Canvas, resolution canvas.DPMM) *image.RGBA {
 	return img
 }
 
-type Renderer struct {
+type Rasterizer struct {
 	img        draw.Image
 	resolution canvas.DPMM
 }
 
 // New creates a renderer that draws to a rasterized image.
-func New(img draw.Image, resolution canvas.DPMM) *Renderer {
-	return &Renderer{
+func New(img draw.Image, resolution canvas.DPMM) *Rasterizer {
+	return &Rasterizer{
 		img:        img,
 		resolution: resolution,
 	}
 }
 
 // Size returns the width and height in millimeters
-func (r *Renderer) Size() (float64, float64) {
+func (r *Rasterizer) Size() (float64, float64) {
 	size := r.img.Bounds().Size()
 	return float64(size.X) / float64(r.resolution), float64(size.Y) / float64(r.resolution)
 }
 
-func (r *Renderer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
+func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
 	// TODO: use fill rule (EvenOdd, NonZero) for rasterizer
 	path = path.Transform(m)
 
@@ -94,11 +125,11 @@ func (r *Renderer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Ma
 	}
 }
 
-func (r *Renderer) RenderText(text *canvas.Text, m canvas.Matrix) {
+func (r *Rasterizer) RenderText(text *canvas.Text, m canvas.Matrix) {
 	text.RenderAsPath(r, m)
 }
 
-func (r *Renderer) RenderImage(img image.Image, m canvas.Matrix) {
+func (r *Rasterizer) RenderImage(img image.Image, m canvas.Matrix) {
 	// add transparent margin to image for smooth borders when rotating
 	margin := 4
 	size := img.Bounds().Size()

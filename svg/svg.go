@@ -16,6 +16,13 @@ import (
 	"github.com/tdewolff/canvas"
 )
 
+// Writer writes the canvas as a SVG file
+func Writer(w io.Writer, c *canvas.Canvas) error {
+	svg := New(w, c.W, c.H)
+	c.Render(svg)
+	return svg.Close()
+}
+
 type SVG struct {
 	w             io.Writer
 	width, height float64
@@ -94,10 +101,9 @@ func (r *SVG) writeFonts(fonts []*canvas.Font) {
 	if 0 < len(is) {
 		fmt.Fprintf(r.w, "<style>")
 		for _, i := range is {
-			mediatype, raw := fonts[i].Raw()
-			fmt.Fprintf(r.w, "\n@font-face{font-family:'%s';src:url('data:%s;base64,", fonts[i].Name(), mediatype)
+			fmt.Fprintf(r.w, "\n@font-face{font-family:'%s';src:url('data:type/opentype;base64,", fonts[i].Name())
 			encoder := base64.NewEncoder(base64.StdEncoding, r.w)
-			encoder.Write(raw)
+			encoder.Write(fonts[i].SFNT.Data)
 			encoder.Close()
 			fmt.Fprintf(r.w, "');}")
 		}
