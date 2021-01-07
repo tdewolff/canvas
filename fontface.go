@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"reflect"
 
+	"github.com/tdewolff/canvas/font"
 	canvasText "github.com/tdewolff/canvas/text"
 )
 
@@ -277,7 +278,6 @@ func (ff FontFace) ToPath(text string) (*Path, float64, error) {
 	p := &Path{}
 	fontShaping, err := canvasText.NewSFNTFont(sfnt) // TODO: only load once
 	if err != nil {
-		fmt.Println(err)
 		return p, 0.0, err
 	}
 	defer fontShaping.Destroy()
@@ -285,88 +285,14 @@ func (ff FontFace) ToPath(text string) (*Path, float64, error) {
 	var x, y int32
 	glyphs := fontShaping.Shape(text, ppem, canvasText.LeftToRight, canvasText.Latin)
 	for _, glyph := range glyphs {
-		path, err := ff.Contour(glyph.ID, f*float64(x+glyph.XOffset), f*float64(y+glyph.YOffset))
+		err := ff.Font.SFNT.GlyphToPath(p, f*float64(x+glyph.XOffset), f*float64(y+glyph.YOffset), glyph.ID, ppem, font.NoHinting)
 		if err != nil {
-			fmt.Println(err)
 			return p, 0.0, err
-		}
-		if path != nil {
-			p = p.Append(path)
 		}
 		x += glyph.XAdvance
 		y += glyph.YAdvance
 	}
 	return p, f * float64(x), nil
-}
-
-func (ff FontFace) Contour(glyphID uint16, x, y float64) (*Path, error) {
-	sfnt := ff.Font.SFNT
-	ppem := ff.Size * ff.Scale
-	f := ppem / float64(sfnt.Head.UnitsPerEm)
-
-	p := &Path{}
-	if sfnt.IsTrueType {
-		contour, err := sfnt.GlyphContour(glyphID)
-		if err != nil {
-			return p, err
-		}
-
-		var i uint16
-		for _, endPoint := range contour.EndPoints {
-			j := i
-			first := true
-			firstOff := false
-			prevOff := false
-			for ; i <= endPoint; i++ {
-				if first {
-					if contour.OnCurve[i] {
-						p.MoveTo(x+f*float64(contour.XCoordinates[i]), y+f*float64(contour.YCoordinates[i]))
-						first = false
-					} else if !prevOff {
-						// first point is off
-						firstOff = true
-						prevOff = true
-					} else {
-						// first and second point are off
-						xMid := float64(contour.XCoordinates[i-1]+contour.XCoordinates[i]) / 2.0
-						yMid := float64(contour.YCoordinates[i-1]+contour.YCoordinates[i]) / 2.0
-						p.MoveTo(x+f*xMid, y+f*yMid)
-					}
-				} else if !prevOff {
-					if contour.OnCurve[i] {
-						p.LineTo(x+f*float64(contour.XCoordinates[i]), y+f*float64(contour.YCoordinates[i]))
-					} else {
-						prevOff = true
-					}
-				} else {
-					if contour.OnCurve[i] {
-						p.QuadTo(x+f*float64(contour.XCoordinates[i-1]), y+f*float64(contour.YCoordinates[i-1]), x+f*float64(contour.XCoordinates[i]), y+f*float64(contour.YCoordinates[i]))
-						prevOff = false
-					} else {
-						xMid := float64(contour.XCoordinates[i-1]+contour.XCoordinates[i]) / 2.0
-						yMid := float64(contour.YCoordinates[i-1]+contour.YCoordinates[i]) / 2.0
-						p.QuadTo(x+f*float64(contour.XCoordinates[i-1]), y+f*float64(contour.YCoordinates[i-1]), x+f*xMid, y+f*yMid)
-					}
-				}
-			}
-			start := p.StartPos()
-			if firstOff {
-				if prevOff {
-					xMid := float64(contour.XCoordinates[i-1]+contour.XCoordinates[j]) / 2.0
-					yMid := float64(contour.YCoordinates[i-1]+contour.YCoordinates[j]) / 2.0
-					p.QuadTo(x+f*xMid, y+f*yMid, start.X, start.Y)
-				} else {
-					p.QuadTo(x+f*float64(contour.XCoordinates[i-1]), y+f*float64(contour.YCoordinates[i-1]), start.X, start.Y)
-				}
-			} else if prevOff {
-				p.QuadTo(x+f*float64(contour.XCoordinates[i-1]), y+f*float64(contour.YCoordinates[i-1]), start.X, start.Y)
-			}
-			p.Close()
-		}
-	} else {
-		return p, fmt.Errorf("CFF not supported") // TODO
-	}
-	return p, nil
 }
 
 func (ff FontFace) Boldness() int {

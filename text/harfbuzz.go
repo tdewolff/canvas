@@ -40,7 +40,7 @@ func NewFont(b []byte, index int) (Font, error) {
 }
 
 func NewSFNTFont(sfnt *font.SFNT) (Font, error) {
-	return NewFont(sfnt.Data)
+	return NewFont(sfnt.Data, 0)
 }
 
 func (f Font) Destroy() {
