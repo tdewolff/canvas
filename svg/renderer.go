@@ -337,7 +337,7 @@ func (r *SVG) RenderImage(img image.Image, m canvas.Matrix) {
 	case canvas.JPEGImage:
 		mimetype = "image/jpg"
 	case canvas.PNGImage:
-		mimetype = "image/jpg"
+		mimetype = "image/png"
 	default:
 		if r.imgEnc == canvas.Lossy {
 			mimetype = "image/jpg"
@@ -352,7 +352,23 @@ func (r *SVG) RenderImage(img image.Image, m canvas.Matrix) {
 		m.ToSVG(r.height), img.Bounds().Size().X, img.Bounds().Size().Y, mimetype)
 
 	encoder := base64.NewEncoder(base64.StdEncoding, r.w)
-	if err := writeImageBytes(img, mimetype, encoder); err != nil {
+	var err error
+	switch j := img.(type) {
+	case canvas.JPEGImage:
+		_, err = encoder.Write(j.JPEGBytes())
+	case canvas.PNGImage:
+		_, err = encoder.Write(j.PNGBytes())
+	default:
+		if mimetype == "image/jpg" {
+			err = jpeg.Encode(encoder, img, nil)
+		} else if mimetype == "image/png" {
+			err = png.Encode(encoder, img)
+		} else {
+			err = fmt.Errorf("unexpected mimetype: %s", mimetype)
+		}
+	}
+
+	if err != nil {
 		panic(err)
 	}
 	if err := encoder.Close(); err != nil {
@@ -364,21 +380,6 @@ func (r *SVG) RenderImage(img image.Image, m canvas.Matrix) {
 	}
 	r.writeClasses(r.w)
 	fmt.Fprintf(r.w, `"/>`)
-}
-
-func writeImageBytes(img image.Image, mimetype string, w io.Writer) error {
-	if j, ok := img.(canvas.JPEGImage); ok {
-		_, err := w.Write(j.JPEGBytes())
-		return err
-	}
-	if p, ok := img.(canvas.PNGImage); ok {
-		_, err := w.Write(p.PNGBytes())
-		return err
-	}
-	if mimetype == "image/jpg" {
-		return jpeg.Encode(w, img, nil)
-	}
-	return png.Encode(w, img)
 }
 
 func (r *SVG) renderOpacityMask(img image.Image) (image.Image, string) {
