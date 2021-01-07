@@ -10,6 +10,7 @@ import (
 	"github.com/tdewolff/canvas"
 	"golang.org/x/image/draw"
 	"golang.org/x/image/math/f64"
+	"golang.org/x/image/tiff"
 	"golang.org/x/image/vector"
 )
 
@@ -37,6 +38,15 @@ func GIFWriter(resolution canvas.DPMM, opts *gif.Options) canvas.Writer {
 		img := Draw(c, resolution)
 		// TODO: optimization: cache img until canvas changes
 		return gif.Encode(w, img, opts)
+	}
+}
+
+// TIFFWriter writes the canvas as a TIFF file
+func TIFFWriter(resolution canvas.DPMM, opts *tiff.Options) canvas.Writer {
+	return func(w io.Writer, c *canvas.Canvas) error {
+		img := Draw(c, resolution)
+		// TODO: optimization: cache img until canvas changes
+		return tiff.Encode(w, img, opts)
 	}
 }
 
