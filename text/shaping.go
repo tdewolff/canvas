@@ -29,7 +29,7 @@ func NewSFNTFont(sfnt *font.SFNT) (Font, error) {
 func (f Font) Destroy() {
 }
 
-func (f Font) Shape(text string, size float64, direction Direction, script Script) []Glyph {
+func (f Font) Shape(text string, ppem float64, direction Direction, script Script) []Glyph {
 	rs := []rune(text)
 	glyphs := make([]Glyph, len(rs))
 	var prevIndex uint16

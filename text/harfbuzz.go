@@ -52,7 +52,7 @@ func (f Font) Destroy() {
 	C.free(unsafe.Pointer(f.cb))
 }
 
-func (f Font) Shape(text string, size float64, direction Direction, script Script) []Glyph {
+func (f Font) Shape(text string, ppem float64, direction Direction, script Script) []Glyph {
 	font, ok := f.fonts[size]
 	if !ok {
 		font = C.hb_font_create(f.face)

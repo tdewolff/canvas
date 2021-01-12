@@ -28,27 +28,31 @@ func (contour *glyfContour) String() string {
 	fmt.Fprintf(&b, "  YMax: %v\n", contour.YMax)
 	fmt.Fprintf(&b, "  EndPoints: %v\n", contour.EndPoints)
 	fmt.Fprintf(&b, "  Instruction length: %v\n", len(contour.Instructions))
-	fmt.Fprintf(&b, "  Coordinates:\n")
-	for i := 0; i <= int(contour.EndPoints[len(contour.EndPoints)-1]); i++ {
-		fmt.Fprintf(&b, "    ")
-		if i < len(contour.XCoordinates) {
-			fmt.Fprintf(&b, "%8v", contour.XCoordinates[i])
-		} else {
-			fmt.Fprintf(&b, "  ----  ")
-		}
-		if i < len(contour.YCoordinates) {
-			fmt.Fprintf(&b, " %8v", contour.YCoordinates[i])
-		} else {
-			fmt.Fprintf(&b, "   ----  ")
-		}
-		if i < len(contour.OnCurve) {
-			onCurve := "Off"
-			if contour.OnCurve[i] {
-				onCurve = "On"
+	if len(contour.EndPoints) == 0 {
+		fmt.Fprintf(&b, "  Empty glyph\n")
+	} else {
+		fmt.Fprintf(&b, "  Coordinates:\n")
+		for i := 0; i <= int(contour.EndPoints[len(contour.EndPoints)-1]); i++ {
+			fmt.Fprintf(&b, "    ")
+			if i < len(contour.XCoordinates) {
+				fmt.Fprintf(&b, "%8v", contour.XCoordinates[i])
+			} else {
+				fmt.Fprintf(&b, "  ----  ")
 			}
-			fmt.Fprintf(&b, " %3v\n", onCurve)
-		} else {
-			fmt.Fprintf(&b, " ---\n")
+			if i < len(contour.YCoordinates) {
+				fmt.Fprintf(&b, " %8v", contour.YCoordinates[i])
+			} else {
+				fmt.Fprintf(&b, "   ----  ")
+			}
+			if i < len(contour.OnCurve) {
+				onCurve := "Off"
+				if contour.OnCurve[i] {
+					onCurve = "On"
+				}
+				fmt.Fprintf(&b, " %3v\n", onCurve)
+			} else {
+				fmt.Fprintf(&b, " ---\n")
+			}
 		}
 	}
 	return b.String()
@@ -61,9 +65,9 @@ type glyfTable struct {
 }
 
 func (glyf *glyfTable) Get(glyphID uint16) []byte {
-	start := glyf.loca.Get(glyphID)
-	end := glyf.loca.Get(glyphID + 1)
-	if end == 0 {
+	start, ok1 := glyf.loca.Get(glyphID)
+	end, ok2 := glyf.loca.Get(glyphID + 1)
+	if !ok1 || !ok2 {
 		return nil
 	}
 	return glyf.data[start:end]
@@ -397,7 +401,7 @@ func (sfnt *SFNT) parseGlyf() error {
 	b, ok := sfnt.Tables["glyf"]
 	if !ok {
 		return fmt.Errorf("glyf: missing table")
-	} else if uint32(len(b)) != sfnt.Loca.Get(sfnt.Maxp.NumGlyphs) {
+	} else if length, _ := sfnt.Loca.Get(sfnt.Maxp.NumGlyphs); uint32(len(b)) != length {
 		return fmt.Errorf("glyf: bad table")
 	}
 
@@ -416,13 +420,13 @@ type locaTable struct {
 	data   []byte
 }
 
-func (loca *locaTable) Get(glyphID uint16) uint32 {
+func (loca *locaTable) Get(glyphID uint16) (uint32, bool) {
 	if loca.format == 0 && int(glyphID)*2 <= len(loca.data) {
-		return binary.BigEndian.Uint32(loca.data[int(glyphID)*2:])
+		return binary.BigEndian.Uint32(loca.data[int(glyphID)*2:]), true
 	} else if loca.format == 1 && int(glyphID)*4 <= len(loca.data) {
-		return binary.BigEndian.Uint32(loca.data[int(glyphID)*4:])
+		return binary.BigEndian.Uint32(loca.data[int(glyphID)*4:]), true
 	}
-	return 0
+	return 0, false
 }
 
 func (sfnt *SFNT) parseLoca() error {

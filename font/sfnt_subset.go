@@ -135,6 +135,7 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 
 	// write tables
 	var checksumAdjustmentPos uint32
+	iGlyf := 0
 	offsets, lengths := make([]uint32, numTables), make([]uint32, numTables)
 	for i, tag := range tags {
 		offsets[i] = w.Len()
@@ -146,8 +147,17 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 			w.WriteUint32(0) // checksumAdjustment
 			w.WriteBytes(head[12:28])
 			w.WriteInt64(int64(time.Now().UTC().Sub(time.Date(1904, 1, 1, 0, 0, 0, 0, time.UTC)) / 1e9)) // modified
-			w.WriteBytes(head[36:])
+			w.WriteBytes(head[36:50])
+
+			// glyf comes before head
+			if lengths[iGlyf] <= math.MaxUint16 {
+				w.WriteInt16(0) // indexToLocFormat
+			} else {
+				w.WriteInt16(1) // indexToLocFormat
+			}
+			w.WriteBytes(head[52:])
 		case "glyf":
+			iGlyf = i
 			for _, glyphID := range glyphIDs {
 				b := sfnt.Glyf.Get(glyphID)
 
@@ -179,19 +189,23 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 				}
 			}
 		case "loca":
-			// TODO: change to short format if possible
-			if sfnt.Head.IndexToLocFormat == 0 {
+			// glyf comes before loca
+			if lengths[iGlyf] <= math.MaxUint16 {
 				pos := uint16(0)
 				for _, glyphID := range glyphIDs {
-					w.WriteUint16(pos)
-					pos += uint16(sfnt.Loca.Get(glyphID+1) - sfnt.Loca.Get(glyphID))
+					w.WriteUint16(uint16(pos))
+					pos1, _ := sfnt.Loca.Get(glyphID)
+					pos2, _ := sfnt.Loca.Get(glyphID + 1)
+					pos += uint16(pos2 - pos1)
 				}
 				w.WriteUint16(pos)
-			} else if sfnt.Head.IndexToLocFormat == 1 {
+			} else {
 				pos := uint32(0)
 				for _, glyphID := range glyphIDs {
 					w.WriteUint32(pos)
-					pos += sfnt.Loca.Get(glyphID+1) - sfnt.Loca.Get(glyphID)
+					pos1, _ := sfnt.Loca.Get(glyphID)
+					pos2, _ := sfnt.Loca.Get(glyphID + 1)
+					pos += pos2 - pos1
 				}
 				w.WriteUint32(pos)
 			}

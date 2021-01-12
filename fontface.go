@@ -271,6 +271,7 @@ func (ff FontFace) Decorate(width float64) *Path {
 }
 
 func (ff FontFace) ToPath(text string) (*Path, float64, error) {
+	// TODO: accept ppem for images
 	sfnt := ff.Font.SFNT
 	ppem := ff.Size * ff.Scale
 	f := ppem / float64(sfnt.Head.UnitsPerEm)
