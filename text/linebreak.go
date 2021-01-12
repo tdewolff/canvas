@@ -9,6 +9,7 @@ import (
 )
 
 // See: Donald E. Knuth and Michael F. Plass, "Breaking Paragraphs into Lines", 1981
+// Also https://github.com/bramstein/typeset is of great help for a working implentation in JavaScript
 
 const FairyTales = "In olden times when wish\u200Bing still helped one, there lived a king whose daugh\u200Bters were all beau\u200Bti\u200Bful; and the young\u200Best was so beautiful that the sun it\u200Bself, which has seen so much, was aston\u200Bished when\u200Bever it shone in her face. Close by the king's castle lay a great dark for\u200Best, and un\u200Bder an old lime-tree in the for\u200Best was a well, and when the day was very warm, the king's child went out into the for\u200Best and sat down by the side of the cool foun\u200Btain; and when she was bored she took a golden ball, and threw it up on high and caught it; and this ball was her favor\u200Bite play\u200Bthing."
 
@@ -16,8 +17,8 @@ const FairyTales = "In olden times when wish\u200Bing still helped one, there li
 var FrenchSpacing = false
 
 // stretchability and shrinkability of spaces
-var SpaceStretch = 1 / 2.0
-var SpaceShrink = 1 / 3.0
+var SpaceStretch = 1.0 / 2.0
+var SpaceShrink = 1.0 / 3.0
 
 // stretchability and shrinkability factors for inter-sentence and other types of spaces
 // not used if FrenchSpacing is set
@@ -27,12 +28,21 @@ var SemicolonFactor = 1.5
 var CommaFactor = 1.25
 
 // algorithmic parameters
-var Tolerance = 10.0
+var Tolerance = 2.0
 var DemeritsLine = 10.0
 var DemeritsFlagged = 100.0
 var DemeritsFitness = 3000.0
 var InfPenalty = 1000.0
-var HyphenPenalty = 100.0
+var HyphenPenalty = 50.0
+
+type Align int
+
+const (
+	Left Align = iota
+	Right
+	Centered
+	Justified
+)
 
 type Type int
 
@@ -113,11 +123,6 @@ func (list *Breakpoints) Remove(b *Breakpoint) {
 	b.next = nil
 }
 
-type Break struct {
-	position int
-	ratio    float64
-}
-
 type Linebreaker struct {
 	items       []Item
 	activeNodes *Breakpoints
@@ -135,68 +140,6 @@ func NewLinebreaker(items []Item, width float64) *Linebreaker {
 	}
 }
 
-func createItems(sfnt *font.SFNT, ppem, indent float64, glyphs []Glyph) []Item {
-	f := ppem / float64(sfnt.Head.UnitsPerEm)
-
-	hyphenWidth := f * float64(sfnt.GlyphAdvance(sfnt.GlyphIndex('-')))
-
-	items := []Item{}
-	if indent != 0.0 {
-		items = append(items, Item{Type: Box, w: indent})
-	} else {
-		items = append(items, Item{Type: Box, w: 0.0})
-	}
-	rs := make([]rune, len(glyphs))
-	for i, glyph := range glyphs {
-		r := sfnt.Cmap.ToUnicode(glyph.ID)
-		if r == ' ' {
-			spaceFactor := 1.0
-			if !FrenchSpacing {
-				j := i - 1
-				if 0 <= j && (rs[j] == ')' || rs[j] == ']' || rs[j] == '\'' || rs[j] == '"') {
-					j--
-				}
-				if 0 <= j && (j == 0 || !unicode.IsUpper(rs[j-1])) {
-					switch rs[j] {
-					case '.', '!', '?':
-						spaceFactor = SentenceFactor
-					case ':':
-						spaceFactor = ColonFactor
-					case ';':
-						spaceFactor = SemicolonFactor
-					case ',':
-						spaceFactor = CommaFactor
-					}
-				}
-			}
-			w := f * float64(glyph.XAdvance)
-			y := f * float64(glyph.XAdvance) * SpaceStretch * spaceFactor
-			z := f * float64(glyph.XAdvance) * SpaceShrink / spaceFactor
-			if items[len(items)-1].Type == Glue {
-				items[len(items)-1].w += w
-				items[len(items)-1].y += y
-				items[len(items)-1].z += z
-			} else {
-				items = append(items, Item{Type: Glue, w: w, y: y, z: z})
-			}
-		} else if r == '\u200B' {
-			items = append(items, Item{Type: Penalty, w: hyphenWidth, penalty: HyphenPenalty, flagged: true})
-		} else if items[len(items)-1].Type == Box {
-			items[len(items)-1].w += f * float64(glyph.XAdvance)
-			items[len(items)-1].glyphs = append(items[len(items)-1].glyphs, glyph)
-		} else {
-			items = append(items, Item{Type: Box, w: f * float64(glyph.XAdvance), glyphs: []Glyph{glyph}})
-		}
-		if r == '-' {
-			items = append(items, Item{Type: Penalty, w: 0.0, penalty: HyphenPenalty, flagged: true})
-		}
-		rs[i] = r
-	}
-	items = append(items, Item{Type: Glue, w: 0.0, y: math.Inf(1.0), z: 0.0})
-	items = append(items, Item{Type: Penalty, w: 0.0, penalty: -InfPenalty})
-	return items
-}
-
 func (lb *Linebreaker) computeAdjustmentRatio(b int, active *Breakpoint) float64 {
 	// compute the adjustment ratio r from a to b
 	L := lb.W - active.width
@@ -205,14 +148,12 @@ func (lb *Linebreaker) computeAdjustmentRatio(b int, active *Breakpoint) float64
 	}
 	//j := active.line + 1
 	if L < lb.width {
-		Y := lb.Y - active.stretch
-		if 0.0 < Y {
+		if Y := lb.Y - active.stretch; 0.0 < Y {
 			return (lb.width - L) / Y
 		}
 		return math.Inf(1.0)
 	} else if lb.width < L {
-		Z := lb.Z - active.shrink
-		if 0.0 < Z {
+		if Z := lb.Z - active.shrink; 0.0 < Z {
 			return (lb.width - L) / Z
 		}
 		return math.Inf(1.0)
@@ -236,17 +177,17 @@ func (lb *Linebreaker) computeSum(b int) (float64, float64, float64) {
 }
 
 func (lb *Linebreaker) mainLoop(b int, tolerance float64, exceed bool) {
-	j := 0
 	item := lb.items[b]
 	active := lb.activeNodes.head
 	for active != nil {
 		Dmin := math.Inf(1.0)
+		// per fitness class, we have demerits (D), active nodes (A), and ratios (R)
 		D := [4]float64{Dmin, Dmin, Dmin, Dmin}
 		A := [4]*Breakpoint{}
 		R := [4]float64{}
 		for active != nil {
 			next := active.next
-			j = active.line + 1
+			j := active.line + 1
 			ratio := lb.computeAdjustmentRatio(b, active)
 			if ratio < -1.0 || item.Type == Penalty && item.penalty == -InfPenalty {
 				lb.activeNodes.Remove(active)
@@ -256,8 +197,8 @@ func (lb *Linebreaker) mainLoop(b int, tolerance float64, exceed bool) {
 			}
 			if -1.0 <= ratio && ratio <= tolerance {
 				// compute demerits d and fitness class c
-				demerits := 0.0
 				badness := 100.0 * math.Pow(math.Abs(ratio), 3.0)
+				demerits := 0.0
 				if item.Type == Penalty && 0.0 <= item.penalty {
 					// positive penalty
 					demerits = math.Pow(DemeritsLine+badness+item.penalty, 2.0)
@@ -329,10 +270,14 @@ func (lb *Linebreaker) mainLoop(b int, tolerance float64, exceed bool) {
 	}
 }
 
-func Linebreak(sfnt *font.SFNT, ppem float64, glyphs []Glyph, indent, width float64) [][]Glyph {
-	const q = 0 // looseness
+type Line struct {
+	Position int
+	Ratio    float64
+	Width    float64
+}
 
-	items := createItems(sfnt, ppem, indent, glyphs)
+func Linebreak(items []Item, indent, width float64, align Align) []Line {
+	q := 0 // looseness
 	tolerance := Tolerance
 	exceed := false
 
@@ -340,18 +285,18 @@ START:
 	// create an active node representing the beginning of the paragraph
 	lb := NewLinebreaker(items, width)
 	// if index is a legal breakpoint then main loop
-	for index, item := range items {
+	for b, item := range lb.items {
 		if item.Type == Box {
 			lb.W += item.w
 		} else if item.Type == Glue {
-			if items[index-1].Type == Box {
-				lb.mainLoop(index, tolerance, exceed)
+			if 0 < b && lb.items[b-1].Type == Box {
+				lb.mainLoop(b, tolerance, exceed)
 			}
 			lb.W += item.w
 			lb.Y += item.y
 			lb.Z += item.z
 		} else if item.Type == Penalty && item.penalty != InfPenalty {
-			lb.mainLoop(index, tolerance, exceed)
+			lb.mainLoop(b, tolerance, exceed)
 		}
 	}
 
@@ -386,52 +331,186 @@ START:
 	}
 
 	// use the chosen node to determine the optimum breakpoint sequence
-	breaks := []Break{}
+	lines := []Line{}
 	for b != nil {
-		breaks = append(breaks, Break{
-			position: b.position,
-			ratio:    b.ratio,
+		if 0 < len(lines) {
+			lines[len(lines)-1].Width -= b.width
+		}
+		lines = append(lines, Line{
+			Position: b.position,
+			Ratio:    b.ratio,
+			Width:    b.width,
 		})
 		b = b.parent
 	}
-	// reverse order of breaks
-	for i, j := 0, len(breaks)-1; i < j; i, j = i+1, j-1 {
-		breaks[i], breaks[j] = breaks[j], breaks[i]
+	// reverse order of lines
+	for i, j := 0, len(lines)-1; i < j; i, j = i+1, j-1 {
+		lines[i], lines[j] = lines[j], lines[i]
 	}
-	breaks = breaks[1:]
-	if len(breaks) == 0 {
-		breaks = append(breaks, Break{position: len(items)})
+	lines = lines[1:]
+	// TODO clean up, make sure there is always a break at the end of the paragraph
+	if len(lines) == 0 {
+		lines = append(lines, Line{Position: len(items)})
 	}
-	for j, br := range breaks {
-		fmt.Println(j, br.ratio)
+	for i, line := range lines {
+		if 0 < i {
+			fmt.Println(line.Width - lines[i-1].Width)
+		} else {
+			fmt.Println(line.Width)
+		}
 	}
+	return lines
+}
 
+func glyphsToItems(sfnt *font.SFNT, ppem, indent float64, align Align, glyphs []Glyph) []Item {
+	f := ppem / float64(sfnt.Head.UnitsPerEm)
+	spaceWidth := f * float64(sfnt.GlyphAdvance(sfnt.GlyphIndex(' ')))
+	hyphenWidth := f * float64(sfnt.GlyphAdvance(sfnt.GlyphIndex('-')))
+
+	items := []Item{}
+	items = append(items, Item{Type: Box, w: indent})
+	if align == Centered {
+		items = append(items, Item{Type: Glue, w: 0.0, y: 2.0 * spaceWidth, z: 0.0})
+	}
+	rs := make([]rune, len(glyphs))
+	for i, glyph := range glyphs {
+		r := sfnt.Cmap.ToUnicode(glyph.ID)
+		if r == ' ' {
+			// spaces TODO more
+			spaceWidth := f * float64(glyph.XAdvance)
+			spaceFactor := 1.0
+			if !FrenchSpacing && align == Justified {
+				j := i - 1
+				if 0 <= j && (rs[j] == ')' || rs[j] == ']' || rs[j] == '\'' || rs[j] == '"') {
+					j--
+				}
+				if 0 <= j && (j == 0 || !unicode.IsUpper(rs[j-1])) {
+					switch rs[j] {
+					case '.', '!', '?':
+						spaceFactor = SentenceFactor
+					case ':':
+						spaceFactor = ColonFactor
+					case ';':
+						spaceFactor = SemicolonFactor
+					case ',':
+						spaceFactor = CommaFactor
+					}
+				}
+			}
+			var w, y, z float64
+			if align == Justified {
+				w = spaceWidth
+				y = spaceWidth * SpaceStretch * spaceFactor
+				z = spaceWidth * SpaceShrink / spaceFactor
+			} else if align == Left || align == Right || align == Centered {
+				w = 0.0
+				y = 2.0 * spaceWidth
+				z = 0.0
+			}
+			if items[len(items)-1].Type == Glue {
+				items[len(items)-1].w += w
+				items[len(items)-1].y += y
+				items[len(items)-1].z += z
+			} else {
+				items = append(items, Item{Type: Glue, w: w, y: y, z: z})
+			}
+			if align == Left || align == Right {
+				items = append(items, Item{Type: Penalty, w: 0.0, penalty: 0.0, flagged: false})
+				items = append(items, Item{Type: Glue, w: spaceWidth, y: -2.0 * spaceWidth, z: 0.0})
+			} else if align == Centered {
+				items = append(items, Item{Type: Penalty, w: 0.0, penalty: 0.0, flagged: false})
+				items = append(items, Item{Type: Glue, w: spaceWidth, y: -4.0 * spaceWidth, z: 0.0})
+				items = append(items, Item{Type: Box, w: 0.0})
+				items = append(items, Item{Type: Penalty, w: 0.0, penalty: InfPenalty, flagged: false})
+				items = append(items, Item{Type: Glue, w: 0.0, y: 2.0 * spaceWidth, z: 0.0})
+			}
+		} else if r == '\u200B' {
+			// optional hyphens
+			if align == Justified {
+				items = append(items, Item{Type: Penalty, w: hyphenWidth, penalty: HyphenPenalty, flagged: true})
+			} else if align == Left || align == Right {
+				items = append(items, Item{Type: Penalty, w: 0.0, penalty: InfPenalty, flagged: false})
+				items = append(items, Item{Type: Glue, w: 0.0, y: 2.0 * hyphenWidth, z: 0.0})
+				items = append(items, Item{Type: Penalty, w: hyphenWidth, penalty: 10.0 * HyphenPenalty, flagged: true})
+				items = append(items, Item{Type: Glue, w: 0.0, y: -2.0 * hyphenWidth, z: 0.0})
+			} else if align == Centered {
+				// nothing
+			}
+		} else if items[len(items)-1].Type == Box {
+			// glyphs
+			items[len(items)-1].w += f * float64(glyph.XAdvance)
+			items[len(items)-1].glyphs = append(items[len(items)-1].glyphs, glyph)
+		} else {
+			// glyphs
+			items = append(items, Item{Type: Box, w: f * float64(glyph.XAdvance), glyphs: []Glyph{glyph}})
+		}
+		if r == '-' {
+			// optional break after hyphen
+			items = append(items, Item{Type: Penalty, w: 0.0, penalty: HyphenPenalty, flagged: true})
+		}
+		rs[i] = r
+	}
+	if align == Centered {
+		items = append(items, Item{Type: Glue, w: 0.0, y: 2.0 * spaceWidth, z: 0.0})
+		items = append(items, Item{Type: Penalty, w: 0.0, penalty: -InfPenalty, flagged: false})
+	} else {
+		items = append(items, Item{Type: Glue, w: 0.0, y: math.Inf(1.0), z: 0.0})
+		items = append(items, Item{Type: Penalty, w: 0.0, penalty: -InfPenalty, flagged: true})
+	}
+	return items
+}
+
+func itemsToGlyphs(sfnt *font.SFNT, ppem, width float64, align Align, items []Item, lines []Line) [][]Glyph {
 	spaceID := sfnt.GlyphIndex(' ')
 	hyphenID := sfnt.GlyphIndex('-')
 	fInv := float64(sfnt.Head.UnitsPerEm) / ppem
 
 	j := 0
+	atStart := true
 	glyphLines := [][]Glyph{[]Glyph{}}
+	if align == Right {
+		glyphLines[j] = append(glyphLines[j], Glyph{ID: spaceID, XAdvance: int32((width - lines[0].Width) * fInv)})
+	}
 	for position, item := range items {
-		if position == breaks[j].position {
+		if position == lines[j].Position {
 			if item.Type == Penalty && item.flagged && item.w != 0.0 {
 				glyphLines[j] = append(glyphLines[j], Glyph{ID: hyphenID, XAdvance: int32(item.w * fInv)})
 			}
 			glyphLines = append(glyphLines, []Glyph{})
-			if j+1 < len(breaks) {
+			if j+1 < len(lines) {
 				j++
 			}
+			if align == Right {
+				glyphLines[j] = append(glyphLines[j], Glyph{ID: spaceID, XAdvance: int32((width - lines[j].Width) * fInv)})
+			}
+			atStart = true
 		} else if item.Type == Box {
 			glyphLines[j] = append(glyphLines[j], item.glyphs...)
-		} else if item.Type == Glue {
+			atStart = false
+		} else if item.Type == Glue && !atStart {
 			width := item.w
-			if 0.0 <= breaks[j].ratio {
-				width += breaks[j].ratio * item.y
-			} else {
-				width += breaks[j].ratio * item.z
+			if 0.0 <= lines[j].Ratio {
+				if !math.IsInf(item.y, 0.0) {
+					width += lines[j].Ratio * item.y
+				}
+			} else if !math.IsInf(item.z, 0.0) {
+				width += lines[j].Ratio * item.z
 			}
-			glyphLines[j] = append(glyphLines[j], Glyph{ID: spaceID, XAdvance: int32(width * fInv)})
+			if 0 < len(glyphLines[j]) && glyphLines[j][len(glyphLines[j])-1].ID == spaceID {
+				glyphLines[j][len(glyphLines[j])-1].XAdvance += int32(width * fInv)
+			} else {
+				glyphLines[j] = append(glyphLines[j], Glyph{ID: spaceID, XAdvance: int32(width * fInv)})
+			}
 		}
 	}
+	if 0 < len(glyphLines[j]) && glyphLines[j][len(glyphLines[j])-1].ID == spaceID {
+		glyphLines[j] = glyphLines[j][:len(glyphLines[j])-1]
+	}
 	return glyphLines
+}
+
+func LinebreakGlyphs(sfnt *font.SFNT, ppem float64, glyphs []Glyph, indent, width float64, align Align) [][]Glyph {
+	items := glyphsToItems(sfnt, ppem, indent, align, glyphs)
+	lines := Linebreak(items, indent, width, align)
+	return itemsToGlyphs(sfnt, ppem, width, align, items, lines)
 }
