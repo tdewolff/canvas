@@ -268,7 +268,7 @@ func (lb *Linebreaker) mainLoop(b int, tolerance float64, exceed bool) {
 					// other cases
 					demerits = math.Pow(DemeritsLine+badness, 2.0)
 				}
-				if item.flagged && item.flagged {
+				if lb.items[active.position].flagged && item.flagged {
 					demerits += DemeritsFlagged
 				}
 

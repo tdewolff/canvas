@@ -421,9 +421,9 @@ type locaTable struct {
 }
 
 func (loca *locaTable) Get(glyphID uint16) (uint32, bool) {
-	if loca.format == 0 && int(glyphID)*2 <= len(loca.data) {
-		return binary.BigEndian.Uint32(loca.data[int(glyphID)*2:]), true
-	} else if loca.format == 1 && int(glyphID)*4 <= len(loca.data) {
+	if loca.format == 0 && int(glyphID)*2 < len(loca.data) {
+		return uint32(binary.BigEndian.Uint16(loca.data[int(glyphID)*2:])), true
+	} else if loca.format == 1 && int(glyphID)*4 < len(loca.data) {
 		return binary.BigEndian.Uint32(loca.data[int(glyphID)*4:]), true
 	}
 	return 0, false
