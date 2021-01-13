@@ -13,7 +13,7 @@ import (
 //   https://github.com/robertknight/tex-linebreak (JavaScript)
 //   https://github.com/akuchling/texlib (Python)
 
-const FairyTales = "In olden times when wish\u200Bing still helped one there lived a king whose daugh\u200Bters were all beau\u200Bti\u200Bful; and the young\u200Best was so beautiful that the sun it\u200Bself, which has seen so much, was aston\u200Bished when\u200Bever it shone in her face. Close by the king's castle lay a great dark for\u200Best, and un\u200Bder an old lime-tree in the for\u200Best was a well, and when the day was very warm, the king's child went out into the for\u200Best and sat down by the side of the cool foun\u200Btain; and when she was bored she took a golden ball, and threw it up on high and caught it; and this ball was her favor\u200Bite play\u200Bthing."
+const FairyTales = "In olden times when wish\u200Bing still helped one there\u2001lived a king\u2001whose daugh\u200Bters were all beau\u200Bti\u200Bful; and the young\u200Best was so beautiful that the sun it\u200Bself, which has seen so much, was aston\u200Bished when\u200Bever it shone in her face. Close by the king's castle lay a great dark for\u200Best, and un\u200Bder an old lime-tree in the for\u200Best was a well, and when the day was very warm, the king's child went out into the for\u200Best and sat down by the side of the cool foun\u200Btain; and when she was bored she took a golden ball, and threw it up on high and caught it; and this ball was her favor\u200Bite play\u200Bthing."
 
 // FrenchSpacing enforces equal widths for inter-word and inter-sentence spaces
 var FrenchSpacing = false
@@ -373,9 +373,17 @@ START:
 }
 
 func glyphsToItems(sfnt *font.SFNT, indent float64, align Align, glyphs []Glyph) []Item {
+	// no-break spaces such as U+00A0, U+202F, and U+FEFF are used as boxes
+	isSpace := map[uint16]bool{}
+	for _, r := range " \u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u205F" {
+		if glyphID := sfnt.GlyphIndex(r); glyphID != 0 {
+			isSpace[glyphID] = true
+		}
+	}
+
 	spaceID := sfnt.GlyphIndex(' ')
-	breakID := sfnt.GlyphIndex('\u200B')
 	hyphenID := sfnt.GlyphIndex('-')
+	breakID := sfnt.GlyphIndex('\u200B')
 	rightParenthesisID := sfnt.GlyphIndex(')')
 	rightBracketID := sfnt.GlyphIndex(']')
 	singleQuoteID := sfnt.GlyphIndex('\'')
@@ -386,6 +394,7 @@ func glyphsToItems(sfnt *font.SFNT, indent float64, align Align, glyphs []Glyph)
 	colonID := sfnt.GlyphIndex(':')
 	semicolonID := sfnt.GlyphIndex(';')
 	commaID := sfnt.GlyphIndex(',')
+
 	spaceWidth := float64(sfnt.GlyphAdvance(spaceID))
 	hyphenWidth := float64(sfnt.GlyphAdvance(hyphenID))
 
@@ -395,8 +404,7 @@ func glyphsToItems(sfnt *font.SFNT, indent float64, align Align, glyphs []Glyph)
 		items = append(items, Glue(0.0, 2.0*spaceWidth, 0.0))
 	}
 	for i, glyph := range glyphs {
-		if glyph.ID == spaceID {
-			// spaces TODO more
+		if isSpace[glyph.ID] {
 			spaceWidth := float64(glyph.XAdvance)
 			spaceFactor := 1.0
 			if !FrenchSpacing && align == Justified {
