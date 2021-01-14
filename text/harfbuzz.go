@@ -89,7 +89,6 @@ func (f Font) Shape(text string, ppem float64, direction Direction, script Scrip
 
 type Direction int
 
-//go:generate stringer -type=Direction
 const (
 	DirectionInvalid Direction = C.HB_DIRECTION_INVALID
 	LeftToRight                = C.HB_DIRECTION_LTR
@@ -101,7 +100,6 @@ const (
 type Script uint32
 
 // Taken from github.com/npillmayer/gotype
-//go:generate stringer -type=Script
 const (
 	Common    Script = C.HB_SCRIPT_COMMON
 	Inherited        = C.HB_SCRIPT_INHERITED

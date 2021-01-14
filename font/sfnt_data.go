@@ -1,5 +1,31 @@
 package font
 
+type PlatformID int
+
+const (
+	PlatformUnicode   PlatformID = 0
+	PlatformMacintosh            = 1
+	PlatformWindows              = 3
+	PlatformCustom               = 4
+)
+
+type EncodingID int
+
+const (
+	EncodingUnicode2BMP                 EncodingId = 3
+	EncodingUnicode2FullRepertoir                  = 4
+	EncodingUnicodeVariationSequences              = 5
+	EncodingUnicodeFullRepertoire                  = 6
+	EncodingWindowsSymbol                          = 0
+	EncodingWindowsUnicodeBMP                      = 1
+	EncodingWindowsShiftJIS                        = 2
+	EncodingWindowsPRC                             = 3
+	EncodingWindowsBig5                            = 4
+	EncodingWindowsWansung                         = 5
+	EncodingWindowsJohab                           = 6
+	EncodingWindowsUnicodeFullRepertoir            = 10
+)
+
 var macintoshGlyphNames []string = []string{
 	"notdef",
 	".null",
