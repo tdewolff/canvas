@@ -266,6 +266,7 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 			w.WriteUint16(0)  // reserved
 			w.WriteUint32(0)  // length
 			w.WriteUint32(0)  // language
+			w.WriteUint32(0)  // numGroups
 
 			rs := make([]rune, 0, len(glyphIDs))
 			runeMap := make(map[rune]uint16, len(glyphIDs))
@@ -275,18 +276,37 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 					runeMap[r] = uint16(i)
 				}
 			}
-			sort.Slice(rs, func(i, j int) bool { return rs[i] < rs[j] })
-			// TODO: optimize ranges
-			w.WriteUint32(uint32(len(rs))) // numGroups
-			for i, r := range rs {
-				if 0 < i && r == rs[i-1] {
-					continue
+			if 0 < len(rs) {
+				sort.Slice(rs, func(i, j int) bool { return rs[i] < rs[j] })
+
+				numGroups := uint32(1)
+				startCharCode := uint32(rs[0])
+				startGlyphID := uint32(runeMap[rs[0]])
+				n := uint32(1)
+				for i := 1; i < len(rs); i++ {
+					r := rs[i]
+					glyphID := runeMap[r]
+					if r == rs[i-1] {
+						continue
+					} else if uint32(r) == startCharCode+n && uint32(glyphID) == startGlyphID+n {
+						n++
+					} else {
+						w.WriteUint32(uint32(startCharCode))         // startCharCode
+						w.WriteUint32(uint32(startCharCode + n - 1)) // endCharCode
+						w.WriteUint32(uint32(startGlyphID))          // startGlyphID
+						numGroups++
+						startCharCode = uint32(r)
+						startGlyphID = uint32(glyphID)
+						n = 1
+					}
 				}
-				w.WriteUint32(uint32(r))          // startCharCode
-				w.WriteUint32(uint32(r))          // endCharCode
-				w.WriteUint32(uint32(runeMap[r])) // startGlyphID
+				w.WriteUint32(uint32(startCharCode))         // startCharCode
+				w.WriteUint32(uint32(startCharCode + n - 1)) // endCharCode
+				w.WriteUint32(uint32(startGlyphID))          // startGlyphID
+
+				binary.BigEndian.PutUint32(w.buf[start+4:], w.Len()-start) // set length
+				binary.BigEndian.PutUint32(w.buf[start+12:], numGroups)    // set numGroups
 			}
-			binary.BigEndian.PutUint32(w.buf[start+4:], w.Len()-start) // set length
 		case "kern":
 			w.WriteUint16(0)                          // version
 			w.WriteUint16(uint16(len(kernSubtables))) // nTables
@@ -309,6 +329,7 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 				}
 			}
 		default:
+			// TODO: compress name table
 			w.WriteBytes(sfnt.Tables[tag])
 		}
 		lengths[i] = w.Len() - offsets[i]

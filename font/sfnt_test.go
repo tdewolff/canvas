@@ -37,12 +37,16 @@ func TestSFNTSubset(t *testing.T) {
 	sfnt, err := ParseSFNT(b, 0)
 	test.Error(t, err)
 
-	subset, glyphIDs := sfnt.Subset([]uint16{0, 3, 6, 36, 55, 131}) // .notdef, space, #, A, T, Á
-	_, err = ParseSFNT(subset, 0)
+	subset, glyphIDs := sfnt.Subset([]uint16{0, 3, 6, 36, 37, 38, 55, 131}) // .notdef, space, #, A, B, C, T, Á
+	sfntSubset, err := ParseSFNT(subset, 0)
 	test.Error(t, err)
 
-	test.T(t, len(glyphIDs), 7) // Á is a composite glyph containing two simple glyphs: 36 and 3452
-	test.T(t, glyphIDs[6], uint16(3452))
+	test.T(t, len(glyphIDs), 9) // Á is a composite glyph containing two simple glyphs: 36 and 3452
+	test.T(t, glyphIDs[8], uint16(3452))
 
-	ioutil.WriteFile("out.otf", subset, 0644)
+	test.T(t, sfntSubset.GlyphIndex('A'), uint16(3))
+	test.T(t, sfntSubset.GlyphIndex('B'), uint16(4))
+	test.T(t, sfntSubset.GlyphIndex('C'), uint16(5))
+
+	//ioutil.WriteFile("out.otf", subset, 0644)
 }
