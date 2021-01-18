@@ -967,6 +967,16 @@ func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pd
 }
 
 func (w *pdfPageWriter) jpegStream(img canvas.Image) pdfStream {
+	// ignore progressive jpeg (contains 0xff 0xc2 marker)
+	markerStarted := false
+	for _, b := range img.Bytes {
+		if markerStarted && b == 0xc2 {
+			// fallback to generic imageStream
+			return w.imageStream(img)
+		}
+		markerStarted = (b == 0xff)
+	}
+
 	size := img.Bounds().Size()
 	dict := pdfDict{
 		"Type":    pdfName("XObject"),

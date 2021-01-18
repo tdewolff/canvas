@@ -34,8 +34,6 @@ type Image struct {
 }
 
 // NewJPEGImage parses a reader to later give access to the JPEG raw bytes.
-// For PDF rendering, only pass baseline JPEGs to this function
-// (progressive might not be displayed properly)
 func NewJPEGImage(r io.Reader) (Image, error) {
 	return newImage(ImageJPEG, jpeg.Decode, r)
 }
