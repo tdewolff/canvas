@@ -331,43 +331,15 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 }
 
 func (r *SVG) RenderImage(img image.Image, m canvas.Matrix) {
-	refMask := ""
-	mimetype := "image/png"
-	switch img.(type) {
-	case canvas.JPEGImage:
-		mimetype = "image/jpg"
-	case canvas.PNGImage:
-		mimetype = "image/png"
-	default:
-		if r.imgEnc == canvas.Lossy {
-			mimetype = "image/jpg"
-			if opaqueImg, ok := img.(interface{ Opaque() bool }); !ok || !opaqueImg.Opaque() {
-				img, refMask = r.renderOpacityMask(img)
-			}
-		}
-	}
+	size := img.Bounds().Size()
+	writeTo, refMask, mimetype := r.prepareImage(img)
 
-	m = m.Translate(0.0, float64(img.Bounds().Size().Y))
+	m = m.Translate(0.0, float64(size.Y))
 	fmt.Fprintf(r.w, `<image transform="%s" width="%d" height="%d" xlink:href="data:%s;base64,`,
-		m.ToSVG(r.height), img.Bounds().Size().X, img.Bounds().Size().Y, mimetype)
+		m.ToSVG(r.height), size.X, size.Y, mimetype.String())
 
 	encoder := base64.NewEncoder(base64.StdEncoding, r.w)
-	var err error
-	switch j := img.(type) {
-	case canvas.JPEGImage:
-		_, err = encoder.Write(j.JPEGBytes())
-	case canvas.PNGImage:
-		_, err = encoder.Write(j.PNGBytes())
-	default:
-		if mimetype == "image/jpg" {
-			err = jpeg.Encode(encoder, img, nil)
-		} else if mimetype == "image/png" {
-			err = png.Encode(encoder, img)
-		} else {
-			err = fmt.Errorf("unexpected mimetype: %s", mimetype)
-		}
-	}
-
+	err := writeTo(encoder)
 	if err != nil {
 		panic(err)
 	}
@@ -382,8 +354,55 @@ func (r *SVG) RenderImage(img image.Image, m canvas.Matrix) {
 	fmt.Fprintf(r.w, `"/>`)
 }
 
+// return a WriterTo, a refMask and a mimetype
+func (r *SVG) prepareImage(img image.Image) (func(io.Writer) error, string, canvas.ImageMimetype) {
+	if cimg, ok := img.(canvas.Image); ok && len(cimg.Bytes) > 0 {
+		if cimg.Mimetype == canvas.ImageJPEG || cimg.Mimetype == canvas.ImagePNG {
+			return cimg.WriteTo, "", cimg.Mimetype
+		}
+	}
+
+	// lossy: jpeg
+	if r.imgEnc == canvas.Lossy {
+		var refMask string
+		if opaqueImg, ok := img.(interface{ Opaque() bool }); !ok || !opaqueImg.Opaque() {
+			img, refMask = r.renderOpacityMask(img)
+		}
+		return func(w io.Writer) error {
+			return jpeg.Encode(w, img, nil)
+		}, refMask, canvas.ImageJPEG
+	}
+
+	// lossless: png
+	return func(w io.Writer) error {
+		return png.Encode(w, img)
+	}, "", canvas.ImagePNG
+}
+
 func (r *SVG) renderOpacityMask(img image.Image) (image.Image, string) {
-	refMask := ""
+	opaque, mask := getOpacityMask(img)
+	if mask == nil {
+		return opaque, ""
+	}
+
+	refMask := fmt.Sprintf("m%v", r.maskID)
+	r.maskID++
+
+	size := img.Bounds().Size()
+	fmt.Fprintf(r.w, `<mask id="%s"><image width="%d" height="%d" xlink:href="data:image/jpg;base64,`, refMask, size.X, size.Y)
+
+	encoder := base64.NewEncoder(base64.StdEncoding, r.w)
+	if err := jpeg.Encode(encoder, mask, nil); err != nil {
+		panic(err)
+	}
+	if err := encoder.Close(); err != nil {
+		panic(err)
+	}
+	fmt.Fprintf(r.w, `"/></mask>`)
+	return opaque, refMask
+}
+
+func getOpacityMask(img image.Image) (image.Image, image.Image) {
 	hasMask := false
 	size := img.Bounds().Size()
 	opaque := image.NewRGBA(img.Bounds())
@@ -403,20 +422,9 @@ func (r *SVG) renderOpacityMask(img image.Image) (image.Image, string) {
 			}
 		}
 	}
-	if hasMask {
-		img = opaque
-		refMask = fmt.Sprintf("m%v", r.maskID)
-		r.maskID++
-
-		fmt.Fprintf(r.w, `<mask id="%s"><image width="%d" height="%d" xlink:href="data:image/jpg;base64,`, refMask, size.X, size.Y)
-		encoder := base64.NewEncoder(base64.StdEncoding, r.w)
-		if err := jpeg.Encode(encoder, mask, nil); err != nil {
-			panic(err)
-		}
-		if err := encoder.Close(); err != nil {
-			panic(err)
-		}
-		fmt.Fprintf(r.w, `"/></mask>`)
+	if !hasMask {
+		return img, nil
 	}
-	return img, refMask
+
+	return opaque, mask
 }

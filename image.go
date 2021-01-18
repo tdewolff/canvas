@@ -8,68 +8,55 @@ import (
 	"io"
 )
 
-// JPEGImage gives access to the raw bytes.
-// Should be used with PDF, only for baseline JPEGs
-// (progressive might not be displayed properly)
-type JPEGImage interface {
+type ImageMimetype int
+
+const (
+	ImageUnknown ImageMimetype = iota
+	ImageJPEG
+	ImagePNG
+)
+
+func (m ImageMimetype) String() string {
+	switch m {
+	case ImageJPEG:
+		return "image/jpg"
+	case ImagePNG:
+		return "image/png"
+	}
+	return "image/unknown"
+}
+
+// Image allows the renderer to optimize specific cases
+type Image struct {
 	image.Image
-	JPEGBytes() []byte
+	Bytes    []byte
+	Mimetype ImageMimetype
 }
 
-type jpegImage struct {
-	bufferedImage
-}
-
-func (i jpegImage) JPEGBytes() []byte {
-	return i.bytes
+func (img Image) WriteTo(w io.Writer) error {
+	_, err := w.Write(img.Bytes)
+	return err
 }
 
 // NewJPEGImage parses a reader to later give access to the JPEG raw bytes.
-// Should be used with PDF, only for baseline JPEGs
+// For PDF rendering, only pass baseline JPEGs to this function
 // (progressive might not be displayed properly)
-func NewJPEGImage(r io.Reader) (JPEGImage, error) {
-	bi, err := newBufferedImage(jpeg.Decode, r)
-	if err != nil {
-		return nil, err
-	}
-	return jpegImage{bi}, nil
-}
-
-// PNGImage gives access to the raw bytes
-type PNGImage interface {
-	image.Image
-	PNGBytes() []byte
-}
-
-type pngImage struct {
-	bufferedImage
-}
-
-func (i pngImage) PNGBytes() []byte {
-	return i.bytes
+func NewJPEGImage(r io.Reader) (Image, error) {
+	return newImage(ImageJPEG, jpeg.Decode, r)
 }
 
 // NewPNGImage parses a reader to later give access to the PNG raw bytes
-func NewPNGImage(r io.Reader) (PNGImage, error) {
-	bi, err := newBufferedImage(png.Decode, r)
-	if err != nil {
-		return nil, err
-	}
-	return pngImage{bi}, nil
+func NewPNGImage(r io.Reader) (Image, error) {
+	return newImage(ImagePNG, png.Decode, r)
 }
 
-// bufferedImage is a generic struct for holding specific decoders
-type bufferedImage struct {
-	image.Image
-	bytes []byte
-}
-
-func newBufferedImage(decode func(io.Reader) (image.Image, error), r io.Reader) (bufferedImage, error) {
+func newImage(mimetype ImageMimetype, decode func(io.Reader) (image.Image, error), r io.Reader) (Image, error) {
 	var buffer bytes.Buffer
 	r = io.TeeReader(r, &buffer)
 	img, err := decode(r)
-	return bufferedImage{
-		Image: img,
-		bytes: buffer.Bytes(),
+	return Image{
+		Image:    img,
+		Bytes:    buffer.Bytes(),
+		Mimetype: mimetype,
 	}, err
 }

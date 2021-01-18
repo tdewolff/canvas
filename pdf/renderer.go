@@ -951,7 +951,7 @@ func (w *pdfPageWriter) DrawImage(img image.Image, enc canvas.ImageEncoding, m c
 
 func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pdfName {
 	var ref pdfStream
-	if i, ok := img.(canvas.JPEGImage); ok {
+	if i, ok := img.(canvas.Image); ok && i.Mimetype == canvas.ImageJPEG {
 		ref = w.jpegStream(i)
 	} else {
 		ref = w.imageStream(img)
@@ -965,7 +965,7 @@ func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pd
 	return name
 }
 
-func (w *pdfPageWriter) jpegStream(img canvas.JPEGImage) pdfStream {
+func (w *pdfPageWriter) jpegStream(img canvas.Image) pdfStream {
 	size := img.Bounds().Size()
 	dict := pdfDict{
 		"Type":    pdfName("XObject"),
@@ -995,7 +995,7 @@ func (w *pdfPageWriter) jpegStream(img canvas.JPEGImage) pdfStream {
 
 	return pdfStream{
 		dict:   dict,
-		stream: img.JPEGBytes(),
+		stream: img.Bytes,
 	}
 }
 
