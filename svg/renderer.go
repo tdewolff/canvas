@@ -392,7 +392,7 @@ func (r *SVG) renderOpacityMask(img image.Image) (image.Image, string) {
 	r.maskID++
 
 	size := img.Bounds().Size()
-	fmt.Fprintf(r.w, `<mask id="%s"><image width="%d" height="%d" xlink:href="data:image/jpg;base64,`, refMask, size.X, size.Y)
+	fmt.Fprintf(r.w, `<mask id="%s"><image width="%d" height="%d" xlink:href="data:image/jpeg;base64,`, refMask, size.X, size.Y)
 
 	encoder := base64.NewEncoder(base64.StdEncoding, r.w)
 	if err := jpeg.Encode(encoder, mask, nil); err != nil {

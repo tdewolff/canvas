@@ -19,7 +19,7 @@ const (
 func (m ImageMimetype) String() string {
 	switch m {
 	case ImageJPEG:
-		return "image/jpg"
+		return "image/jpeg"
 	case ImagePNG:
 		return "image/png"
 	}
