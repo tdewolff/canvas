@@ -33,11 +33,6 @@ type Image struct {
 	Mimetype ImageMimetype
 }
 
-func (img Image) WriteTo(w io.Writer) error {
-	_, err := w.Write(img.Bytes)
-	return err
-}
-
 // NewJPEGImage parses a reader to later give access to the JPEG raw bytes.
 // For PDF rendering, only pass baseline JPEGs to this function
 // (progressive might not be displayed properly)

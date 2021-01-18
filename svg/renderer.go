@@ -358,7 +358,10 @@ func (r *SVG) RenderImage(img image.Image, m canvas.Matrix) {
 func (r *SVG) prepareImage(img image.Image) (func(io.Writer) error, string, canvas.ImageMimetype) {
 	if cimg, ok := img.(canvas.Image); ok && len(cimg.Bytes) > 0 {
 		if cimg.Mimetype == canvas.ImageJPEG || cimg.Mimetype == canvas.ImagePNG {
-			return cimg.WriteTo, "", cimg.Mimetype
+			return func(w io.Writer) error {
+				_, err := w.Write(cimg.Bytes)
+				return err
+			}, "", cimg.Mimetype
 		}
 	}
 
