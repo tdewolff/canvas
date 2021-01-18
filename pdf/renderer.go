@@ -397,7 +397,7 @@ func (w *pdfWriter) writeVal(i interface{}) {
 				if len(filters) > 1 {
 					panic("pdfFilterDCT can't be combined with other filters")
 				}
-				break
+				b2.Write(b)
 			}
 			b = b2.Bytes()
 		}
@@ -950,13 +950,14 @@ func (w *pdfPageWriter) DrawImage(img image.Image, enc canvas.ImageEncoding, m c
 }
 
 func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pdfName {
-	var ref pdfStream
-	if i, ok := img.(canvas.Image); ok && i.Mimetype == canvas.ImageJPEG {
-		ref = w.jpegStream(i)
+	var stream pdfStream
+	if i, ok := img.(canvas.Image); ok && i.Mimetype == canvas.ImageJPEG && len(i.Bytes) > 0 {
+		stream = w.jpegStream(i)
 	} else {
-		ref = w.imageStream(img)
+		stream = w.imageStream(img)
 	}
 
+	ref := w.pdf.writeObject(stream)
 	if _, ok := w.resources["XObject"]; !ok {
 		w.resources["XObject"] = pdfDict{}
 	}
