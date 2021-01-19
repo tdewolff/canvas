@@ -394,7 +394,7 @@ func (w *pdfWriter) writeVal(i interface{}) {
 			case pdfFilterDCT:
 				// This filter is used by JPEG images
 				// we consider that the buffer is already encoded
-				if len(filters) > 1 {
+				if 1 < len(filters) {
 					panic("pdfFilterDCT can't be combined with other filters")
 				}
 				b2.Write(b)
@@ -951,7 +951,7 @@ func (w *pdfPageWriter) DrawImage(img image.Image, enc canvas.ImageEncoding, m c
 
 func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pdfName {
 	var stream pdfStream
-	if i, ok := img.(canvas.Image); ok && i.Mimetype == canvas.ImageJPEG && len(i.Bytes) > 0 {
+	if i, ok := img.(canvas.Image); ok && i.Mimetype == canvas.ImageJPEG && 0 < len(i.Bytes) {
 		stream = w.jpegStream(i)
 	} else {
 		stream = w.imageStream(img)
