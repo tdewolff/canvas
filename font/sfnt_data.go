@@ -12,7 +12,7 @@ const (
 type EncodingID int
 
 const (
-	EncodingUnicode2BMP                 EncodingId = 3
+	EncodingUnicode2BMP                 EncodingID = 3
 	EncodingUnicode2FullRepertoir                  = 4
 	EncodingUnicodeVariationSequences              = 5
 	EncodingUnicodeFullRepertoire                  = 6

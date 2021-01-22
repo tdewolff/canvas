@@ -150,10 +150,10 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 			w.WriteBytes(head[36:50])
 
 			// glyf comes before head
-			if lengths[iGlyf] <= math.MaxUint16 {
-				w.WriteInt16(0) // indexToLocFormat
+			if lengths[iGlyf]/2 <= math.MaxUint16 {
+				w.WriteInt16(0) // short indexToLocFormat
 			} else {
-				w.WriteInt16(1) // indexToLocFormat
+				w.WriteInt16(1) // long indexToLocFormat
 			}
 			w.WriteBytes(head[52:])
 		case "glyf":
@@ -190,15 +190,15 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 			}
 		case "loca":
 			// glyf comes before loca
-			if lengths[iGlyf] <= math.MaxUint16 {
+			if lengths[iGlyf]/2 <= math.MaxUint16 {
 				pos := uint16(0)
 				for _, glyphID := range glyphIDs {
-					w.WriteUint16(uint16(pos))
+					w.WriteUint16(pos / 2)
 					pos1, _ := sfnt.Loca.Get(glyphID)
 					pos2, _ := sfnt.Loca.Get(glyphID + 1)
 					pos += uint16(pos2 - pos1)
 				}
-				w.WriteUint16(pos)
+				w.WriteUint16(pos / 2)
 			} else {
 				pos := uint32(0)
 				for _, glyphID := range glyphIDs {
@@ -276,6 +276,7 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 					runeMap[r] = uint16(i)
 				}
 			}
+
 			if 0 < len(rs) {
 				sort.Slice(rs, func(i, j int) bool { return rs[i] < rs[j] })
 
@@ -318,11 +319,11 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 
 				nPairs := uint16(len(subtable.Pairs))
 				entrySelector := uint16(math.Log2(float64(nPairs)))
-				searchRange := uint16(1 << (entrySelector + 4))
+				searchRange := uint16(1 << entrySelector * 6)
 				w.WriteUint16(nPairs)
 				w.WriteUint16(searchRange)
 				w.WriteUint16(entrySelector)
-				w.WriteUint16(nPairs<<4 - searchRange)
+				w.WriteUint16(nPairs*6 - searchRange)
 				for _, pair := range subtable.Pairs {
 					w.WriteUint32(pair.Key)
 					w.WriteInt16(pair.Value)
