@@ -53,11 +53,11 @@ func (f Font) Destroy() {
 }
 
 func (f Font) Shape(text string, ppem float64, direction Direction, script Script) []Glyph {
-	font, ok := f.fonts[size]
+	font, ok := f.fonts[ppem]
 	if !ok {
 		font = C.hb_font_create(f.face)
-		C.hb_font_set_ptem(font, C.float(size)) // set font size in points
-		f.fonts[size] = font
+		C.hb_font_set_ptem(font, C.float(ppem)) // set font size in points
+		f.fonts[ppem] = font
 	}
 
 	ctext := C.CString(text)
@@ -65,7 +65,9 @@ func (f Font) Shape(text string, ppem float64, direction Direction, script Scrip
 	C.hb_buffer_add_utf8(buf, ctext, -1, 0, -1)
 	C.hb_buffer_set_direction(buf, C.hb_direction_t(direction))
 	C.hb_buffer_set_script(buf, C.hb_script_t(script))
-	C.hb_shape(font, buf, nil, 0)
+	// TODO: set language
+	C.hb_buffer_set_cluster_level(buf, C.HB_BUFFER_CLUSTER_LEVEL_MONOTONE_CHARACTERS)
+	C.hb_shape(font, buf, nil, 0) // TODO: set features (liga,clig,sups,subs,unic,titl,smcp,pcap,c2sc,c2pc,swsh,cswh,salt,ornm,nalt)
 
 	length := C.hb_buffer_get_length(buf)
 	infos := C.hb_buffer_get_glyph_infos(buf, nil)
@@ -76,6 +78,7 @@ func (f Font) Shape(text string, ppem float64, direction Direction, script Scrip
 		info := C.get_glyph_info(infos, C.uint(i))
 		position := C.get_glyph_position(positions, C.uint(i))
 		glyphs[i].ID = uint16(info.codepoint)
+		glyphs[i].Cluster = uint32(info.cluster)
 		glyphs[i].XAdvance = int32(position.x_advance)
 		glyphs[i].YAdvance = int32(position.y_advance)
 		glyphs[i].XOffset = int32(position.x_offset)

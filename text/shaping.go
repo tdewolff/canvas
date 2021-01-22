@@ -36,6 +36,7 @@ func (f Font) Shape(text string, ppem float64, direction Direction, script Scrip
 	for i, r := range rs {
 		index := f.sfnt.GlyphIndex(r)
 		glyphs[i].ID = index
+		glyphs[i].Cluster = uint32(i)
 		glyphs[i].XAdvance = int32(f.sfnt.GlyphAdvance(index))
 		if 0 < i {
 			glyphs[i-1].XAdvance += int32(f.sfnt.Kerning(prevIndex, index))
