@@ -67,11 +67,13 @@ func (sfnt *SFNT) GlyphContour(glyphID uint16) (*glyfContour, error) {
 	return sfnt.Glyf.Contour(glyphID, 0)
 }
 
-func (sfnt *SFNT) GlyphToPath(p Pather, x, y float64, glyphID uint16, ppem float64, hinting Hinting) error {
+func (sfnt *SFNT) GlyphToPath(p Pather, glyphID, ppem uint16, xOffset, yOffset int32, xScale, yScale float64, hinting Hinting) error {
 	if !sfnt.IsTrueType {
 		return fmt.Errorf("CFF not supported")
 	}
-	return sfnt.Glyf.ToPath(p, x, y, glyphID, ppem, hinting)
+	x := float64(xOffset) / float64(sfnt.Head.UnitsPerEm)
+	y := float64(yOffset) / float64(sfnt.Head.UnitsPerEm)
+	return sfnt.Glyf.ToPath(p, glyphID, ppem, x, y, xScale, yScale, hinting)
 }
 
 func (sfnt *SFNT) GlyphAdvance(glyphID uint16) uint16 {

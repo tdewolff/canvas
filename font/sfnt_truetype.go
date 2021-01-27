@@ -332,13 +332,12 @@ func (glyf *glyfTable) Contour(glyphID uint16, level int) (*glyfContour, error) 
 	return contour, nil
 }
 
-func (glyf *glyfTable) ToPath(p Pather, x, y float64, glyphID uint16, ppem float64, hinting Hinting) error {
+func (glyf *glyfTable) ToPath(p Pather, glyphID, ppem uint16, x, y, fx, fy float64, hinting Hinting) error {
 	contour, err := glyf.Contour(glyphID, 0)
 	if err != nil {
 		return err
 	}
 
-	f := ppem / float64(glyf.head.UnitsPerEm)
 	var i uint16
 	for _, endPoint := range contour.EndPoints {
 		j := i
@@ -349,9 +348,9 @@ func (glyf *glyfTable) ToPath(p Pather, x, y float64, glyphID uint16, ppem float
 		for ; i <= endPoint; i++ {
 			if first {
 				if contour.OnCurve[i] {
-					startX = x + float64(contour.XCoordinates[i])*f
-					startY = y + float64(contour.YCoordinates[i])*f
-					p.MoveTo(startX, startY)
+					startX = x + float64(contour.XCoordinates[i])
+					startY = y + float64(contour.YCoordinates[i])
+					p.MoveTo(fx*startX, fy*startY)
 					first = false
 				} else if !prevOff {
 					// first point is off
@@ -359,37 +358,38 @@ func (glyf *glyfTable) ToPath(p Pather, x, y float64, glyphID uint16, ppem float
 					prevOff = true
 				} else {
 					// first and second point are off
-					xMid := float64(contour.XCoordinates[i-1]+contour.XCoordinates[i]) / 2.0
-					yMid := float64(contour.YCoordinates[i-1]+contour.YCoordinates[i]) / 2.0
-					p.MoveTo(x+xMid*f, y+yMid*f)
+					startX = x + float64(contour.XCoordinates[i-1]+contour.XCoordinates[i])/2.0
+					startY = y + float64(contour.YCoordinates[i-1]+contour.YCoordinates[i])/2.0
+					p.MoveTo(fx*startX, fy*startY)
+					first = false
 				}
 			} else if !prevOff {
 				if contour.OnCurve[i] {
-					p.LineTo(x+float64(contour.XCoordinates[i])*f, y+float64(contour.YCoordinates[i])*f)
+					p.LineTo(fx*(x+float64(contour.XCoordinates[i])), fy*(y+float64(contour.YCoordinates[i])))
 				} else {
 					prevOff = true
 				}
 			} else {
 				if contour.OnCurve[i] {
-					p.QuadTo(x+float64(contour.XCoordinates[i-1])*f, y+float64(contour.YCoordinates[i-1])*f, x+float64(contour.XCoordinates[i])*f, y+float64(contour.YCoordinates[i])*f)
+					p.QuadTo(fx*(x+float64(contour.XCoordinates[i-1])), fy*(y+float64(contour.YCoordinates[i-1])), fx*(x+float64(contour.XCoordinates[i])), fy*(y+float64(contour.YCoordinates[i])))
 					prevOff = false
 				} else {
-					xMid := float64(contour.XCoordinates[i-1]+contour.XCoordinates[i]) / 2.0
-					yMid := float64(contour.YCoordinates[i-1]+contour.YCoordinates[i]) / 2.0
-					p.QuadTo(x+float64(contour.XCoordinates[i-1])*f, y+float64(contour.YCoordinates[i-1])*f, x+xMid*f, y+yMid*f)
+					midX := x + float64(contour.XCoordinates[i-1]+contour.XCoordinates[i])/2.0
+					midY := y + float64(contour.YCoordinates[i-1]+contour.YCoordinates[i])/2.0
+					p.QuadTo(fx*(x+float64(contour.XCoordinates[i-1])), fy*(y+float64(contour.YCoordinates[i-1])), fx*midX, fy*midY)
 				}
 			}
 		}
 		if firstOff {
 			if prevOff {
-				xMid := float64(contour.XCoordinates[i-1]+contour.XCoordinates[j]) / 2.0
-				yMid := float64(contour.YCoordinates[i-1]+contour.YCoordinates[j]) / 2.0
-				p.QuadTo(x+xMid*f, y+yMid*f, startX, startY)
+				midX := x + float64(contour.XCoordinates[i-1]+contour.XCoordinates[j])/2.0
+				midY := y + float64(contour.YCoordinates[i-1]+contour.YCoordinates[j])/2.0
+				p.QuadTo(fx*midX, fy*midY, fx*startX, fy*startY)
 			} else {
-				p.QuadTo(x+float64(contour.XCoordinates[i-1])*f, y+float64(contour.YCoordinates[i-1])*f, startX, startY)
+				p.QuadTo(fx*(x+float64(contour.XCoordinates[i-1])), fy*(y+float64(contour.YCoordinates[i-1])), fx*startX, fy*startY)
 			}
 		} else if prevOff {
-			p.QuadTo(x+float64(contour.XCoordinates[i-1])*f, y+float64(contour.YCoordinates[i-1])*f, startX, startY)
+			p.QuadTo(fx*(x+float64(contour.XCoordinates[i-1])), fy*(y+float64(contour.YCoordinates[i-1])), fx*startX, fy*startY)
 		}
 		p.Close()
 	}
@@ -407,7 +407,6 @@ func (sfnt *SFNT) parseGlyf() error {
 
 	sfnt.Glyf = &glyfTable{
 		data: b,
-		head: sfnt.Head,
 		loca: sfnt.Loca,
 	}
 	return nil

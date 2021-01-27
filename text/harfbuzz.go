@@ -8,11 +8,17 @@ package text
 #include <stdlib.h>
 #include <hb.h>
 
-hb_glyph_info_t *get_glyph_info(hb_glyph_info_t *, unsigned int);
-hb_glyph_position_t *get_glyph_position(hb_glyph_position_t *, unsigned int);
+hb_glyph_info_t *get_glyph_info(hb_glyph_info_t *info, unsigned int i) {
+	return &info[i];
+}
+
+hb_glyph_position_t *get_glyph_position(hb_glyph_position_t *pos, unsigned int i) {
+	return &pos[i];
+}
 */
 import "C"
 import (
+	"strings"
 	"unsafe"
 
 	"github.com/tdewolff/canvas/font"
@@ -20,18 +26,18 @@ import (
 
 // Design inspired by https://github.com/npillmayer/tyse/blob/main/engine/text/textshaping/
 
-type Font struct {
+type Shaper struct {
 	cb    *C.char
 	blob  *C.struct_hb_blob_t
 	face  *C.struct_hb_face_t
 	fonts map[float64]*C.struct_hb_font_t
 }
 
-func NewFont(b []byte, index int) (Font, error) {
+func NewShaper(b []byte, index int) (Shaper, error) {
 	cb := (*C.char)(C.CBytes(b))
 	blob := C.hb_blob_create(cb, C.uint(len(b)), C.HB_MEMORY_MODE_WRITABLE, nil, nil)
 	face := C.hb_face_create(blob, C.uint(index))
-	return Font{
+	return Shaper{
 		cb:    cb,
 		blob:  blob,
 		face:  face,
@@ -39,35 +45,67 @@ func NewFont(b []byte, index int) (Font, error) {
 	}, nil
 }
 
-func NewSFNTFont(sfnt *font.SFNT) (Font, error) {
-	return NewFont(sfnt.Data, 0)
+func NewShaperSFNT(sfnt *font.SFNT) (Shaper, error) {
+	return NewShaper(sfnt.Data, 0)
 }
 
-func (f Font) Destroy() {
-	for _, font := range f.fonts {
+func (s Shaper) Destroy() {
+	for _, font := range s.fonts {
 		C.hb_font_destroy(font)
 	}
-	C.hb_face_destroy(f.face)
-	C.hb_blob_destroy(f.blob)
-	C.free(unsafe.Pointer(f.cb))
+	C.hb_face_destroy(s.face)
+	C.hb_blob_destroy(s.blob)
+	C.free(unsafe.Pointer(s.cb))
 }
 
-func (f Font) Shape(text string, ppem float64, direction Direction, script Script) []Glyph {
-	font, ok := f.fonts[ppem]
+func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Script, language string, features string, variations string) []Glyph {
+	font, ok := s.fonts[ppem]
 	if !ok {
-		font = C.hb_font_create(f.face)
-		C.hb_font_set_ptem(font, C.float(ppem)) // set font size in points
-		f.fonts[ppem] = font
+		font = C.hb_font_create(s.face)
+		C.hb_font_set_ppem(font, C.uint(ppem), C.uint(ppem)) // set font size in points
+		s.fonts[ppem] = font
+	}
+
+	if variations != "" {
+		var cvariations []C.hb_variation_t
+		for _, variation := range strings.Split(variations, ",") {
+			cvariation := C.CString(variation)
+			cvariations = append(cvariations, C.hb_variation_t{})
+			ok := C.hb_variation_from_string(cvariation, -1, &cvariations[len(cvariations)-1])
+			if ok == 0 {
+				cvariations = cvariations[:len(cvariations)-1]
+			}
+			C.free(unsafe.Pointer(cvariation))
+		}
+		C.hb_font_set_variations(font, &cvariations[0], C.uint(len(cvariations)))
 	}
 
 	ctext := C.CString(text)
 	buf := C.hb_buffer_create()
 	C.hb_buffer_add_utf8(buf, ctext, -1, 0, -1)
+	C.hb_buffer_set_cluster_level(buf, C.HB_BUFFER_CLUSTER_LEVEL_MONOTONE_CHARACTERS)
 	C.hb_buffer_set_direction(buf, C.hb_direction_t(direction))
 	C.hb_buffer_set_script(buf, C.hb_script_t(script))
-	// TODO: set language
-	C.hb_buffer_set_cluster_level(buf, C.HB_BUFFER_CLUSTER_LEVEL_MONOTONE_CHARACTERS)
-	C.hb_shape(font, buf, nil, 0) // TODO: set features (liga,clig,sups,subs,unic,titl,smcp,pcap,c2sc,c2pc,swsh,cswh,salt,ornm,nalt)
+	var clanguage *C.char
+	if language != "" {
+		clanguage = C.CString(language)
+		C.hb_buffer_set_language(buf, C.hb_language_from_string(clanguage, -1))
+	}
+	var cfeatures []C.hb_feature_t
+	for _, feature := range strings.Split(features, ",") {
+		cfeature := C.CString(feature)
+		cfeatures = append(cfeatures, C.hb_feature_t{})
+		ok := C.hb_feature_from_string(cfeature, -1, &cfeatures[len(cfeatures)-1])
+		if ok == 0 {
+			cfeatures = cfeatures[:len(cfeatures)-1]
+		}
+		C.free(unsafe.Pointer(cfeature))
+	}
+	if 0 < len(cfeatures) {
+		C.hb_shape(font, buf, &cfeatures[0], C.uint(len(cfeatures)))
+	} else {
+		C.hb_shape(font, buf, nil, 0)
+	}
 
 	length := C.hb_buffer_get_length(buf)
 	infos := C.hb_buffer_get_glyph_infos(buf, nil)
@@ -85,6 +123,9 @@ func (f Font) Shape(text string, ppem float64, direction Direction, script Scrip
 		glyphs[i].YOffset = int32(position.y_offset)
 	}
 
+	if language != "" {
+		C.free(unsafe.Pointer(clanguage))
+	}
 	C.hb_buffer_destroy(buf)
 	C.free(unsafe.Pointer(ctext))
 	return glyphs

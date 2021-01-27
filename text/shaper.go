@@ -6,40 +6,40 @@ import (
 	"github.com/tdewolff/canvas/font"
 )
 
-type Font struct {
+type Shaper struct {
 	sfnt *font.SFNT
 }
 
-func NewFont(b []byte, index int) (Font, error) {
+func NewShaper(b []byte, index int) (Shaper, error) {
 	sfnt, err := font.ParseSFNT(b, index)
 	if err != nil {
-		return Font{}, err
+		return Shaper{}, err
 	}
-	return Font{
+	return Shaper{
 		sfnt: sfnt,
 	}, nil
 }
 
-func NewSFNTFont(sfnt *font.SFNT) (Font, error) {
-	return Font{
+func NewShaperSFNT(sfnt *font.SFNT) (Shaper, error) {
+	return Shaper{
 		sfnt: sfnt,
 	}, nil
 }
 
-func (f Font) Destroy() {
+func (s Shaper) Destroy() {
 }
 
-func (f Font) Shape(text string, ppem float64, direction Direction, script Script) []Glyph {
+func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Script, language string, features string, variations string) []Glyph {
 	rs := []rune(text)
 	glyphs := make([]Glyph, len(rs))
 	var prevIndex uint16
 	for i, r := range rs {
-		index := f.sfnt.GlyphIndex(r)
+		index := s.sfnt.GlyphIndex(r)
 		glyphs[i].ID = index
 		glyphs[i].Cluster = uint32(i)
-		glyphs[i].XAdvance = int32(f.sfnt.GlyphAdvance(index))
+		glyphs[i].XAdvance = int32(s.sfnt.GlyphAdvance(index))
 		if 0 < i {
-			glyphs[i-1].XAdvance += int32(f.sfnt.Kerning(prevIndex, index))
+			glyphs[i-1].XAdvance += int32(s.sfnt.Kerning(prevIndex, index))
 		}
 		prevIndex = index
 	}

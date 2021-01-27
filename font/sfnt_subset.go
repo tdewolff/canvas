@@ -331,6 +331,7 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 			}
 		default:
 			// TODO: compress name table
+			// TODO: GDEF, GSUB, GPOS tables for ligatures
 			w.WriteBytes(sfnt.Tables[tag])
 		}
 		lengths[i] = w.Len() - offsets[i]
