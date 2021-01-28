@@ -6,6 +6,11 @@ import (
 	"math"
 	"sort"
 	"time"
+
+	"golang.org/x/text/encoding"
+	"golang.org/x/text/encoding/charmap"
+	"golang.org/x/text/encoding/unicode"
+	"golang.org/x/text/transform"
 )
 
 const MaxCmapSegments = 20000
@@ -71,8 +76,8 @@ func (sfnt *SFNT) GlyphToPath(p Pather, glyphID, ppem uint16, xOffset, yOffset i
 	if !sfnt.IsTrueType {
 		return fmt.Errorf("CFF not supported")
 	}
-	x := float64(xOffset) / float64(sfnt.Head.UnitsPerEm)
-	y := float64(yOffset) / float64(sfnt.Head.UnitsPerEm)
+	x := float64(xOffset) // / float64(sfnt.Head.UnitsPerEm)
+	y := float64(yOffset) // / float64(sfnt.Head.UnitsPerEm)
 	return sfnt.Glyf.ToPath(p, glyphID, ppem, x, y, xScale, yScale, hinting)
 }
 
@@ -566,11 +571,6 @@ func (sfnt *SFNT) parseCmap() error {
 					endCharCode := rs.ReadUint32()
 					startGlyphID := rs.ReadUint32()
 					if endCharCode < startCharCode || 0 < i && startCharCode <= subtable.EndCharCode[i-1] {
-						if 0 < i {
-							fmt.Println(startCharCode, endCharCode, "prev", subtable.EndCharCode[i-1])
-						} else {
-							fmt.Println(startCharCode, endCharCode)
-						}
 						return fmt.Errorf("cmap: bad character code range in subtable %d", j)
 					} else if uint32(sfnt.Maxp.NumGlyphs) <= endCharCode-startCharCode || uint32(sfnt.Maxp.NumGlyphs)-(endCharCode-startCharCode) <= startGlyphID {
 						return fmt.Errorf("cmap: bad glyphID in subtable %d", j)
@@ -918,24 +918,54 @@ func (sfnt *SFNT) parseMaxp() error {
 
 ////////////////////////////////////////////////////////////////
 
-type nameNameRecord struct {
-	PlatformID uint16
-	EncodingID uint16
-	LanguageID uint16
-	NameID     uint16
-	Offset     uint16
-	Length     uint16
+type nameRecord struct {
+	Platform PlatformID
+	Encoding EncodingID
+	Language uint16
+	Name     NameID
+	Value    []byte
+}
+
+func (record nameRecord) String() string {
+	var decoder *encoding.Decoder
+	if record.Platform == PlatformUnicode || record.Platform == PlatformWindows {
+		decoder = unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM).NewDecoder()
+	} else if record.Platform == PlatformMacintosh && record.Encoding == EncodingMacintoshRoman {
+		decoder = charmap.Macintosh.NewDecoder()
+	}
+	s, _, err := transform.String(decoder, string(record.Value))
+	if err == nil {
+		return s
+	}
+	return string(record.Value)
 }
 
 type nameLangTagRecord struct {
-	Offset uint16
-	Length uint16
+	Value []byte
+}
+
+func (record nameLangTagRecord) String() string {
+	decoder := unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM).NewDecoder()
+	s, _, err := transform.String(decoder, string(record.Value))
+	if err == nil {
+		return s
+	}
+	return string(record.Value)
 }
 
 type nameTable struct {
-	NameRecord    []nameNameRecord
-	LangTagRecord []nameLangTagRecord
-	Data          []byte
+	NameRecord []nameRecord
+	LangTag    []nameLangTagRecord
+}
+
+func (t *nameTable) Get(name NameID) []nameRecord {
+	records := []nameRecord{}
+	for _, record := range t.NameRecord {
+		if record.Name == name {
+			records = append(records, record)
+		}
+	}
+	return records
 }
 
 func (sfnt *SFNT) parseName() error {
@@ -953,18 +983,23 @@ func (sfnt *SFNT) parseName() error {
 		return fmt.Errorf("name: bad version")
 	}
 	count := r.ReadUint16()
-	_ = r.ReadUint16() // storageOffset
-	if uint32(len(b)) < 6+12*uint32(count) {
+	storageOffset := r.ReadUint16()
+	if uint32(len(b)) < 6+12*uint32(count) || uint16(len(b)) < storageOffset {
 		return fmt.Errorf("name: bad table")
 	}
-	sfnt.Name.NameRecord = make([]nameNameRecord, count)
+	sfnt.Name.NameRecord = make([]nameRecord, count)
 	for i := 0; i < int(count); i++ {
-		sfnt.Name.NameRecord[i].PlatformID = r.ReadUint16()
-		sfnt.Name.NameRecord[i].EncodingID = r.ReadUint16()
-		sfnt.Name.NameRecord[i].LanguageID = r.ReadUint16()
-		sfnt.Name.NameRecord[i].NameID = r.ReadUint16()
-		sfnt.Name.NameRecord[i].Length = r.ReadUint16()
-		sfnt.Name.NameRecord[i].Offset = r.ReadUint16()
+		sfnt.Name.NameRecord[i].Platform = PlatformID(r.ReadUint16())
+		sfnt.Name.NameRecord[i].Encoding = EncodingID(r.ReadUint16())
+		sfnt.Name.NameRecord[i].Language = r.ReadUint16()
+		sfnt.Name.NameRecord[i].Name = NameID(r.ReadUint16())
+
+		length := r.ReadUint16()
+		offset := r.ReadUint16()
+		if uint16(len(b))-storageOffset < offset || uint16(len(b))-storageOffset-offset < length {
+			return fmt.Errorf("name: bad table")
+		}
+		sfnt.Name.NameRecord[i].Value = b[storageOffset+offset : storageOffset+offset+length]
 	}
 	if version == 1 {
 		if uint32(len(b)) < 6+12*uint32(count)+2 {
@@ -974,12 +1009,19 @@ func (sfnt *SFNT) parseName() error {
 		if uint32(len(b)) < 6+12*uint32(count)+2+4*uint32(langTagCount) {
 			return fmt.Errorf("name: bad table")
 		}
+		sfnt.Name.LangTag = make([]nameLangTagRecord, langTagCount)
 		for i := 0; i < int(langTagCount); i++ {
-			sfnt.Name.LangTagRecord[i].Length = r.ReadUint16()
-			sfnt.Name.LangTagRecord[i].Offset = r.ReadUint16()
+			length := r.ReadUint16()
+			offset := r.ReadUint16()
+			if uint16(len(b))-storageOffset < offset || uint16(len(b))-storageOffset-offset < length {
+				return fmt.Errorf("name: bad table")
+			}
+			sfnt.Name.LangTag[i].Value = b[storageOffset+offset : storageOffset+offset+length]
 		}
 	}
-	sfnt.Name.Data = b[r.Pos():]
+	if r.Pos() != uint32(storageOffset) {
+		return fmt.Errorf("name: bad storageOffset")
+	}
 	return nil
 }
 
