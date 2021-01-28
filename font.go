@@ -2,9 +2,11 @@ package canvas
 
 import (
 	"fmt"
+	"image/color"
 	"io/ioutil"
 	"math"
 	"os/exec"
+	"reflect"
 
 	"github.com/tdewolff/canvas/font"
 	"github.com/tdewolff/canvas/text"
@@ -41,9 +43,11 @@ const (
 // Font defines a font of type TTF or OTF which which a FontFace can be generated for use in text drawing operations.
 type Font struct {
 	*font.SFNT
-	name    string
-	usedIDs map[uint16]bool
-	shaper  text.Shaper
+	name       string
+	subsetIDs  map[uint16]bool
+	shaper     text.Shaper
+	variations string
+	features   string
 }
 
 func parseFont(name string, b []byte, index int) (*Font, error) {
@@ -58,10 +62,10 @@ func parseFont(name string, b []byte, index int) (*Font, error) {
 	}
 
 	font := &Font{
-		SFNT:    SFNT,
-		name:    name,
-		usedIDs: map[uint16]bool{},
-		shaper:  shaper,
+		SFNT:      SFNT,
+		name:      name,
+		subsetIDs: map[uint16]bool{},
+		shaper:    shaper,
 	}
 	return font, nil
 }
@@ -76,15 +80,23 @@ func (f *Font) Name() string {
 }
 
 func (f *Font) Use(glyphID uint16) {
-	f.usedIDs[glyphID] = true
+	f.subsetIDs[glyphID] = true
 }
 
-func (f *Font) UsedIndices() []uint16 {
-	glyphIDs := make([]uint16, len(f.usedIDs))
-	for glyphID, _ := range f.usedIDs {
+func (f *Font) SubsetIDs() []uint16 {
+	glyphIDs := make([]uint16, 0, len(f.subsetIDs))
+	for glyphID, _ := range f.subsetIDs {
 		glyphIDs = append(glyphIDs, glyphID)
 	}
 	return glyphIDs
+}
+
+func (f *Font) SetVariations(variations string) {
+	f.variations = variations
+}
+
+func (f *Font) SetFeatures(features string) {
+	f.features = features
 }
 
 // FontFamily contains a family of fonts (bold, italic, ...). Selecting an italic style will pick the native italic font or use faux italic if not present.
@@ -104,6 +116,18 @@ func NewFontFamily(name string) *FontFamily {
 func (family *FontFamily) Destroy() {
 	for _, font := range family.fonts {
 		font.Destroy()
+	}
+}
+
+func (family *FontFamily) SetVariations(variations string) {
+	for _, font := range family.fonts {
+		font.SetVariations(variations)
+	}
+}
+
+func (family *FontFamily) SetFeatures(features string) {
+	for _, font := range family.fonts {
+		font.SetFeatures(features)
 	}
 }
 
@@ -166,49 +190,57 @@ func (family *FontFamily) LoadFont(b []byte, index int, style FontStyle) error {
 }
 
 // Face gets the font face given by the font size (in pt).
-func (family *FontFamily) Face(size float64, style FontStyle, variant FontVariant) (face FontFace) {
+func (family *FontFamily) Face(size float64, col color.Color, style FontStyle, variant FontVariant, deco ...FontDecorator) (face FontFace) {
+	face.Font = family.fonts[style]
 	face.Size = size * mmPerPt
 	face.Style = style
 	face.Variant = variant
-	face.Font = family.fonts[style]
+
+	r, g, b, a := col.RGBA()
+	face.Color = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+	face.Deco = deco
+
 	if face.Font == nil {
 		face.Font = family.fonts[FontRegular]
 		if face.Font == nil {
 			panic("requested font style not found")
 		}
 		if style&FontItalic != 0 {
-			face.fauxItalic = 0.3
+			face.FauxItalic = 0.3 // TODO: use post table
 		}
 		if style&FontExtraLight == FontExtraLight {
-			face.fauxBold = -0.02 * face.Size
+			face.FauxBold = -0.02 * face.Size
 		} else if style&FontLight == FontLight {
-			face.fauxBold = -0.01 * face.Size
+			face.FauxBold = -0.01 * face.Size
 		} else if style&FontBook == FontBook {
-			face.fauxBold = -0.005 * face.Size
+			face.FauxBold = -0.005 * face.Size
 		} else if style&FontMedium == FontMedium {
-			face.fauxBold = 0.005 * face.Size
+			face.FauxBold = 0.005 * face.Size
 		} else if style&FontSemibold == FontSemibold {
-			face.fauxBold = 0.01 * face.Size
+			face.FauxBold = 0.01 * face.Size
 		} else if style&FontBold == FontBold {
-			face.fauxBold = 0.02 * face.Size
+			face.FauxBold = 0.02 * face.Size
 		} else if style&FontBlack == FontBlack {
-			face.fauxBold = 0.03 * face.Size
+			face.FauxBold = 0.03 * face.Size
 		} else if style&FontExtraBlack == FontExtraBlack {
-			face.fauxBold = 0.04 * face.Size
+			face.FauxBold = 0.04 * face.Size
 		}
 	}
 
 	units := float64(face.Font.Head.UnitsPerEm)
 	if variant&FontSubscript != 0 {
-		face.xScale = float64(face.Font.OS2.YSubscriptXSize) / units
-		face.yScale = float64(face.Font.OS2.YSubscriptYSize) / units
-		face.xOffset = int32(face.Font.OS2.YSubscriptXOffset)
-		face.yOffset = int32(face.Font.OS2.YSubscriptYOffset)
+		face.XScale = float64(face.Font.OS2.YSubscriptXSize) / units
+		face.YScale = float64(face.Font.OS2.YSubscriptYSize) / units
+		face.XOffset = int32(face.Font.OS2.YSubscriptXOffset)
+		face.YOffset = int32(face.Font.OS2.YSubscriptYOffset)
 	} else if variant&FontSuperscript != 0 {
-		face.xScale = float64(face.Font.OS2.YSuperscriptXSize) / units
-		face.yScale = float64(face.Font.OS2.YSuperscriptYSize) / units
-		face.xOffset = int32(face.Font.OS2.YSuperscriptXOffset)
-		face.yOffset = -int32(face.Font.OS2.YSuperscriptYOffset)
+		face.XScale = float64(face.Font.OS2.YSuperscriptXSize) / units
+		face.YScale = float64(face.Font.OS2.YSuperscriptYSize) / units
+		face.XOffset = int32(face.Font.OS2.YSuperscriptXOffset)
+		face.YOffset = -int32(face.Font.OS2.YSuperscriptYOffset)
+	} else {
+		face.XScale = 1.0
+		face.YScale = 1.0
 	}
 	return face
 }
@@ -221,21 +253,27 @@ type FontFace struct {
 	Style   FontStyle
 	Variant FontVariant
 
+	Color color.RGBA
+	Deco  []FontDecorator
+
 	// faux styles for bold, italic, and sub- and superscript
-	fauxBold, fauxItalic float64
-	xScale, yScale       float64
-	xOffset, yOffset     int32
+	FauxBold, FauxItalic float64
+	XScale, YScale       float64
+	XOffset, YOffset     int32
 }
 
 // Equals returns true when two font face are equal. In particular this allows two adjacent text spans that use the same decoration to allow the decoration to span both elements instead of two separately.
 func (ff FontFace) Equals(other FontFace) bool {
-	return ff == other
-	//return ff.Font == other.Font && ff.Size == other.Size && ff.Style == other.Style && ff.Variant == other.Variant && ff.Color == other.Color && reflect.DeepEqual(ff.deco, other.deco)
+	return ff.Font == other.Font && ff.Size == other.Size && ff.Style == other.Style && ff.Variant == other.Variant && ff.Color == other.Color && reflect.DeepEqual(ff.Deco, other.Deco)
 }
 
 // Name returns the name of the underlying font
 func (ff FontFace) Name() string {
 	return ff.Font.name
+}
+
+func (ff FontFace) HasDecoration() bool {
+	return 0 < len(ff.Deco)
 }
 
 // FontMetrics contains a number of metrics that define a font face.
@@ -255,8 +293,8 @@ type FontMetrics struct {
 // Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explanation of the different metrics.
 func (ff FontFace) Metrics() FontMetrics {
 	sfnt := ff.Font.SFNT
-	fx := ff.Size * ff.xScale / float64(sfnt.Head.UnitsPerEm)
-	fy := ff.Size * ff.yScale / float64(sfnt.Head.UnitsPerEm)
+	fx := ff.Size * ff.XScale / float64(sfnt.Head.UnitsPerEm)
+	fy := ff.Size * ff.YScale / float64(sfnt.Head.UnitsPerEm)
 	return FontMetrics{
 		LineHeight: fy * float64(sfnt.Hhea.Ascender-sfnt.Hhea.Descender+sfnt.Hhea.LineGap),
 		Ascent:     fy * float64(sfnt.Hhea.Ascender),
@@ -271,53 +309,63 @@ func (ff FontFace) Metrics() FontMetrics {
 	}
 }
 
+func (ff FontFace) PPEM(dpmm DPMM) uint16 {
+	// ppem is for hinting purposes only, this does not influence glyph advances
+	return uint16(float64(dpmm) * ff.Size * math.Min(ff.XScale, ff.YScale))
+}
+
 // Kerning returns the eventual kerning between two runes in mm (ie. the adjustment on the advance).
 func (ff FontFace) Kerning(left, right rune) float64 {
 	sfnt := ff.Font.SFNT
-	fx := ff.Size * ff.xScale / float64(sfnt.Head.UnitsPerEm)
+	fx := ff.Size * ff.XScale / float64(sfnt.Head.UnitsPerEm)
 	return fx * float64(sfnt.Kerning(sfnt.GlyphIndex(left), sfnt.GlyphIndex(right)))
 }
 
 // TextWidth returns the width of a given string in mm.
 func (ff FontFace) TextWidth(s string) float64 {
+	ppem := ff.PPEM(DefaultDPMM)
+	glyphs := ff.Font.shaper.Shape(s, ppem, text.LeftToRight, text.Latin, "", "", "")
+	return ff.textWidth(glyphs)
+}
+
+func (ff FontFace) textWidth(glyphs []text.Glyph) float64 {
 	sfnt := ff.Font.SFNT
-	fx := ff.Size * ff.xScale / float64(sfnt.Head.UnitsPerEm)
+	fx := ff.Size * ff.XScale / float64(sfnt.Head.UnitsPerEm)
 
 	w := int32(0)
-	var prevGlyphID uint16
-	for i, r := range s {
-		glyphID := sfnt.GlyphIndex(r)
+	for i, glyph := range glyphs {
 		if i != 0 {
-			w += int32(sfnt.Kerning(prevGlyphID, glyphID))
+			w += int32(sfnt.Kerning(glyphs[i-1].ID, glyph.ID))
 		}
-		w += int32(sfnt.GlyphAdvance(glyphID))
-		prevGlyphID = glyphID
+		w += int32(sfnt.GlyphAdvance(glyph.ID))
 	}
 	return fx * float64(w)
 }
 
 // Decorate will return a path from the decorations specified in the FontFace over a given width in mm.
-//func (ff FontFace) Decorate(width float64) *Path {
-//	p := &Path{}
-//	if ff.deco != nil {
-//		for _, deco := range ff.deco {
-//			p = p.Append(deco.Decorate(ff, width))
-//		}
-//	}
-//	return p
-//}
+func (ff FontFace) Decorate(width float64) *Path {
+	p := &Path{}
+	if ff.Deco != nil {
+		for _, deco := range ff.Deco {
+			p = p.Append(deco.Decorate(ff, width))
+		}
+	}
+	return p
+}
 
 func (ff FontFace) ToPath(s string, dpmm DPMM) (*Path, float64, error) {
-	// dpmm is for hinting purposes only, this does not influence glyph advances
-	ppem := uint16(float64(dpmm) * ff.Size * math.Min(ff.xScale, ff.yScale))
+	ppem := ff.PPEM(dpmm)
+	glyphs := ff.Font.shaper.Shape(s, ppem, text.LeftToRight, text.Latin, "", "", "")
+	return ff.toPath(glyphs, ppem)
+}
 
+func (ff FontFace) toPath(glyphs []text.Glyph, ppem uint16) (*Path, float64, error) {
 	sfnt := ff.Font.SFNT
-	fx := ff.Size * ff.xScale / float64(sfnt.Head.UnitsPerEm)
-	fy := ff.Size * ff.yScale / float64(sfnt.Head.UnitsPerEm)
+	fx := ff.Size * ff.XScale / float64(sfnt.Head.UnitsPerEm)
+	fy := ff.Size * ff.YScale / float64(sfnt.Head.UnitsPerEm)
 
 	p := &Path{}
-	x, y := ff.xOffset, ff.yOffset
-	glyphs := ff.Font.shaper.Shape(s, ppem, text.LeftToRight, text.Latin, "", "", "")
+	x, y := ff.XOffset, ff.YOffset
 	for _, glyph := range glyphs {
 		err := ff.Font.GlyphToPath(p, glyph.ID, ppem, x+glyph.XOffset, y+glyph.YOffset, fx, fy, font.NoHinting)
 		if err != nil {
@@ -327,11 +375,11 @@ func (ff FontFace) ToPath(s string, dpmm DPMM) (*Path, float64, error) {
 		y += glyph.YAdvance
 	}
 
-	if ff.fauxBold != 0.0 {
-		p = p.Offset(ff.fauxBold, NonZero)
+	if ff.FauxBold != 0.0 {
+		p = p.Offset(ff.FauxBold, NonZero)
 	}
-	if ff.fauxItalic != 0.0 {
-		p = p.Transform(Identity.Shear(ff.fauxItalic, 0.0))
+	if ff.FauxItalic != 0.0 {
+		p = p.Transform(Identity.Shear(ff.FauxItalic, 0.0))
 	}
 	return p, fx * float64(x), nil
 }
@@ -380,6 +428,7 @@ var FontUnderline FontDecorator = underline{}
 type underline struct{}
 
 func (underline) Decorate(ff FontFace, w float64) *Path {
+	// TODO: use post table
 	r := ff.Size * underlineThickness
 	y := -ff.Size * underlineDistance
 
@@ -398,8 +447,8 @@ func (overline) Decorate(ff FontFace, w float64) *Path {
 	r := ff.Size * underlineThickness
 	y := ff.Metrics().XHeight + ff.Size*underlineDistance
 
-	dx := ff.fauxItalic * y
-	w += ff.fauxItalic * y
+	dx := ff.FauxItalic * y
+	w += ff.FauxItalic * y
 
 	p := &Path{}
 	p.MoveTo(dx, y)
@@ -413,11 +462,12 @@ var FontStrikethrough FontDecorator = strikethrough{}
 type strikethrough struct{}
 
 func (strikethrough) Decorate(ff FontFace, w float64) *Path {
+	// TODO: use OS/2 table
 	r := ff.Size * underlineThickness
 	y := ff.Metrics().XHeight / 2.0
 
-	dx := ff.fauxItalic * y
-	w += ff.fauxItalic * y
+	dx := ff.FauxItalic * y
+	w += ff.FauxItalic * y
 
 	p := &Path{}
 	p.MoveTo(dx, y)
