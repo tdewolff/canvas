@@ -40,6 +40,10 @@ func (r *PDF) SetCompression(compress bool) {
 	r.w.pdf.SetCompression(compress)
 }
 
+func (r *PDF) SetFontSubsetting(subset bool) {
+	r.w.pdf.SetFontSubsetting(subset)
+}
+
 func (r *PDF) SetInfo(title, subject, keywords, author string) {
 	r.w.pdf.SetTitle(title)
 	r.w.pdf.SetSubject(subject)
@@ -188,13 +192,12 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 }
 
 func (r *PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
-	r.w.StartTextObject()
-
-	text.WalkSpans(func(y, dx float64, span canvas.TextSpan) {
+	text.WalkSpans(func(y, x float64, span canvas.TextSpan) {
+		r.w.StartTextObject()
 		r.w.SetFillColor(span.Face.Color)
-		r.w.SetFont(span.Face.Font, span.Face.Size*span.Face.Scale)
-		r.w.SetTextPosition(m.Translate(dx, y).Shear(span.Face.FauxItalic, 0.0))
-		r.w.SetTextCharSpace(span.GlyphSpacing)
+		r.w.SetFont(span.Face.Font, span.Face.Size) // TODO: multiple by XScale or YScale? or in transform?
+		r.w.SetTextPosition(m.Translate(x, y).Shear(span.Face.FauxItalic, 0.0))
+		//r.w.SetTextCharSpace(span.GlyphSpacing)
 
 		if 0.0 < span.Face.FauxBold {
 			r.w.SetTextRenderMode(2)
@@ -202,20 +205,13 @@ func (r *PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 		} else {
 			r.w.SetTextRenderMode(0)
 		}
+		r.w.WriteText(span.Glyphs)
+		r.w.EndTextObject()
 
-		TJ := []interface{}{}
-		words := span.Words()
-		for i, w := range words {
-			TJ = append(TJ, w)
-			if i != len(words)-1 {
-				TJ = append(TJ, span.WordSpacing)
-			}
-		}
-		r.w.WriteText(TJ...)
+		style := canvas.DefaultStyle
+		style.FillColor = span.Face.Color
+		r.RenderPath(span.Face.Decorate(span.Width), style, m)
 	})
-	r.w.EndTextObject()
-
-	text.RenderDecoration(r, m)
 }
 
 func (r *PDF) RenderImage(img image.Image, m canvas.Matrix) {
