@@ -487,10 +487,10 @@ func glyphsToItems(sfnt *font.SFNT, indent float64, align Align, glyphs []Glyph)
 	return items
 }
 
-func LinebreakGlyphs(sfnt *font.SFNT, ppem float64, glyphs []Glyph, indent, width float64, align Align, looseness int) [][]Glyph {
+func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, indent, width float64, align Align, looseness int) [][]Glyph {
 	spaceID := sfnt.GlyphIndex(' ')
 	hyphenID := sfnt.GlyphIndex('-')
-	width *= float64(sfnt.Head.UnitsPerEm) / ppem
+	width *= float64(sfnt.Head.UnitsPerEm) / size
 
 	items := glyphsToItems(sfnt, indent, align, glyphs)
 	breaks := Linebreak(items, width, align, looseness)

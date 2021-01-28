@@ -26,6 +26,7 @@ type DPMM float64
 
 // DPI is a shortcut for Dots-per-Inch for the resolution of raster images.
 const DPI = DPMM(1 / 25.4)
+const DefaultDPMM = 72.0 * inchPerMm
 
 ////////////////////////////////////////////////////////////////
 

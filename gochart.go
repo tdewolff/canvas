@@ -158,7 +158,6 @@ func (r *GoChart) SetFontSize(size float64) {
 func (r *GoChart) Text(body string, x, y int) {
 	face := r.font.Face(r.fontSize*ptPerMm*r.dpi/72.0, r.fontColor, FontRegular, FontNormal)
 	r.ctx.Push()
-	r.ctx.SetFillColor(r.fontColor)
 	r.ctx.ComposeView(Identity.Rotate(-r.textRotation * 180.0 / math.Pi))
 	r.ctx.DrawText(float64(x), r.height-float64(y), NewTextLine(face, body, Left))
 	r.ctx.Pop()
@@ -166,7 +165,8 @@ func (r *GoChart) Text(body string, x, y int) {
 
 // MeasureText measures text.
 func (r *GoChart) MeasureText(body string) chart.Box {
-	p, _, _ := r.font.Face(r.fontSize*ptPerMm*r.dpi/72.0, r.fontColor, FontRegular, FontNormal).ToPath(body)
+	// TODO: use ascent+descent and text width
+	p, _, _ := r.font.Face(r.fontSize*ptPerMm*r.dpi/72.0, r.fontColor, FontRegular, FontNormal).ToPath(body, DefaultDPMM)
 	bounds := p.Bounds()
 	bounds = bounds.Transform(Identity.Rotate(-r.textRotation * 180.0 / math.Pi))
 	return chart.Box{Left: int(bounds.X + 0.5), Top: int(bounds.Y + 0.5), Right: int((bounds.W + bounds.X) + 0.5), Bottom: int((bounds.H + bounds.Y) + 0.5)}

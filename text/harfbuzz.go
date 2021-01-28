@@ -30,7 +30,7 @@ type Shaper struct {
 	cb    *C.char
 	blob  *C.struct_hb_blob_t
 	face  *C.struct_hb_face_t
-	fonts map[float64]*C.struct_hb_font_t
+	fonts map[uint16]*C.struct_hb_font_t
 }
 
 func NewShaper(b []byte, index int) (Shaper, error) {
@@ -41,7 +41,7 @@ func NewShaper(b []byte, index int) (Shaper, error) {
 		cb:    cb,
 		blob:  blob,
 		face:  face,
-		fonts: map[float64]*C.struct_hb_font_t{},
+		fonts: map[uint16]*C.struct_hb_font_t{},
 	}, nil
 }
 
