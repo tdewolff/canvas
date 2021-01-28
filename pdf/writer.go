@@ -273,7 +273,38 @@ func (w *pdfWriter) writeFonts() {
 		}
 
 		// create ToUnicode CMap
-		toUnicode := []byte(fmt.Sprintf(`/CIDInit /ProcSet findresource begin
+		var bfRange, bfChar strings.Builder
+		var bfRangeCount, bfCharCount int
+		startGlyphID := uint16(0)
+		startUnicode := uint32('\uFFFD')
+		length := uint16(1)
+		for _, glyphID := range glyphIDs[1:] {
+			unicode := uint32(font.SFNT.Cmap.ToUnicode(glyphID))
+			if 0x010000 <= unicode && unicode <= 0x10FFFF {
+				// UTF-16 surrogates
+				unicode -= 0x10000
+				unicode = (0xD800+(unicode>>10)&0x3FF)<<16 + 0xDC00 + unicode&0x3FF
+			}
+			if glyphID == startGlyphID+length && unicode == startUnicode+uint32(length) {
+				length++
+			} else {
+				if 1 < length {
+					fmt.Fprintf(&bfRange, "<%04X> <%04X> <%04X>\n", startGlyphID, startGlyphID+length-1, startUnicode)
+				} else {
+					fmt.Fprintf(&bfChar, "<%04X> <%04X>\n", startGlyphID, startUnicode)
+				}
+				startGlyphID = glyphID
+				startUnicode = unicode
+				length = 1
+			}
+		}
+		if 1 < length {
+			fmt.Fprintf(&bfRange, "<%04X> <%04X> <%04X>\n", startGlyphID, startGlyphID+length-1, startUnicode)
+		} else {
+			fmt.Fprintf(&bfChar, "<%04X> <%04X>\n", startGlyphID, startUnicode)
+		}
+
+		toUnicode := fmt.Sprintf(`/CIDInit /ProcSet findresource begin
 12 dict begin
 begincmap
 /CIDSystemInfo
@@ -284,28 +315,19 @@ begincmap
 /CMapName /Adobe-Identity-UCS def
 /CMapType 2 def
 1 begincodespacerange
-  <0000> <FFFF>
+<0000> <FFFF>
 endcodespacerange
+%d beginbfrange
+%sendbfrange
 %d beginbfchar
-`, len(glyphIDs)))
-		for _, glyphID := range glyphIDs {
-			// TODO: optimize using ranges
-			unicode := uint32(font.SFNT.Cmap.ToUnicode(glyphID))
-			if 0x010000 <= unicode && unicode <= 0x10FFFF {
-				// UTF-16 surrogates
-				unicode -= 0x10000
-				unicode = (0xD800+(unicode>>10)&0x3FF)<<16 + 0xDC00 + unicode&0x3FF
-			}
-			toUnicode = append(toUnicode, []byte(fmt.Sprintf("  <%04X> <%04X>\n", glyphID, unicode))...)
-		}
-		toUnicode = append(toUnicode, []byte(`endbfchar
+%sendbfchar
 endcmap
 CMapName currentdict /CMap defineresource pop
 end
-end`)...)
+end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 		toUnicodeStream := pdfStream{
 			dict:   pdfDict{},
-			stream: toUnicode,
+			stream: []byte(toUnicode),
 		}
 		if w.compress {
 			toUnicodeStream.dict["Filter"] = pdfFilterFlate
