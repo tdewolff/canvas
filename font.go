@@ -195,6 +195,8 @@ func (family *FontFamily) Face(size float64, col color.Color, style FontStyle, v
 	face.Size = size * mmPerPt
 	face.Style = style
 	face.Variant = variant
+	face.Script = text.Latin
+	face.Direction = text.LeftToRight
 
 	r, g, b, a := col.RGBA()
 	face.Color = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
@@ -260,6 +262,10 @@ type FontFace struct {
 	FauxBold, FauxItalic float64
 	XScale, YScale       float64
 	XOffset, YOffset     int32
+
+	Language  string
+	Script    text.Script
+	Direction text.Direction
 }
 
 // Equals returns true when two font face are equal. In particular this allows two adjacent text spans that use the same decoration to allow the decoration to span both elements instead of two separately.
@@ -324,7 +330,7 @@ func (ff FontFace) Kerning(left, right rune) float64 {
 // TextWidth returns the width of a given string in mm.
 func (ff FontFace) TextWidth(s string) float64 {
 	ppem := ff.PPEM(DefaultDPMM)
-	glyphs := ff.Font.shaper.Shape(s, ppem, text.LeftToRight, text.Latin, "", "", "")
+	glyphs := ff.Font.shaper.Shape(s, ppem, ff.Direction, ff.Script, ff.Language, ff.Font.features, ff.Font.variations)
 	return ff.textWidth(glyphs)
 }
 
@@ -355,7 +361,7 @@ func (ff FontFace) Decorate(width float64) *Path {
 
 func (ff FontFace) ToPath(s string, dpmm DPMM) (*Path, float64, error) {
 	ppem := ff.PPEM(dpmm)
-	glyphs := ff.Font.shaper.Shape(s, ppem, text.LeftToRight, text.Latin, "", "", "")
+	glyphs := ff.Font.shaper.Shape(s, ppem, ff.Direction, ff.Script, ff.Language, ff.Font.features, ff.Font.variations)
 	return ff.toPath(glyphs, ppem)
 }
 

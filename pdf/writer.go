@@ -45,7 +45,7 @@ func newPDFWriter(writer io.Writer) *pdfWriter {
 		subset:     true,
 	}
 
-	w.write("%%PDF-1.7\n")
+	w.write("%%PDF-1.7\n%%Ŧǟċơ\n")
 	return w
 }
 
@@ -348,7 +348,10 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 		if records := font.SFNT.Name.Get(canvasFont.NamePostScript); 0 < len(records) {
 			name = records[0].String()
 		}
-		baseFont := "SUBSET+" + strings.ReplaceAll(name, " ", "")
+		baseFont := strings.ReplaceAll(name, " ", "")
+		if w.subset {
+			baseFont = "SUBSET+" + baseFont
+		}
 
 		cidSubtype := ""
 		if font.SFNT.IsTrueType {
@@ -399,10 +402,10 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 		// add CIDToGIDMap as the characters use the original glyphIDs of the non-subsetted font
 		if w.subset {
 			cidToGIDMap := make([]byte, 2*glyphIDs[len(glyphIDs)-1]+2)
-			for glyphID, origGlyphID := range glyphIDs {
-				i := int(origGlyphID) * 2
-				cidToGIDMap[i+0] = byte((glyphID & 0xFF00) >> 8)
-				cidToGIDMap[i+1] = byte(glyphID & 0x00FF)
+			for i, glyphID := range glyphIDs {
+				j := int(glyphID) * 2
+				cidToGIDMap[j+0] = byte((i & 0xFF00) >> 8)
+				cidToGIDMap[j+1] = byte(i & 0x00FF)
 			}
 			cidToGIDMapStream := pdfStream{
 				dict:   pdfDict{},
@@ -411,7 +414,19 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 			if w.compress {
 				cidToGIDMapStream.dict["Filter"] = pdfFilterFlate
 			}
-			dict["DescendantFonts"].(pdfArray)[0].(pdfDict)["CIDToGIDMap"] = w.writeObject(cidToGIDMapStream)
+			dict["DescendantFonts"].(pdfArray)[0].(pdfDict)["CIDToGIDMap"] = cidToGIDMapStream
+
+			cidSetLength := (glyphIDs[len(glyphIDs)-1] + 1 + 7) / 8 // ceil of number of bytes
+			cidSet := make([]byte, cidSetLength)
+			for _, glyphID := range glyphIDs {
+				i := glyphID / 8
+				j := glyphID % 8
+				cidSet[i] |= 0x80 >> j
+			}
+			cidSetStream := pdfStream{
+				stream: cidSet,
+			}
+			dict["DescendantFonts"].(pdfArray)[0].(pdfDict)["CIDSet"] = cidSetStream
 		}
 
 		w.objOffsets[ref-1] = w.pos
@@ -482,6 +497,7 @@ func (w *pdfWriter) Close() error {
 		"Root": pdfRef(1),
 		"Size": len(w.objOffsets) + 1,
 		"Info": pdfRef(2),
+		// TODO: write document ID
 	})
 	w.write("\nstartxref\n%v\n%%%%EOF", xrefOffset)
 	return w.err
@@ -787,7 +803,6 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 			if r := rune(glyph.ID); r == '\\' || r == '(' || r == ')' {
 				binary.Write(w, binary.BigEndian, '\\')
 			}
-			fmt.Printf("%X\n", glyph.ID)
 			binary.Write(w, binary.BigEndian, glyph.ID)
 		}
 		fmt.Fprintf(w, ")")

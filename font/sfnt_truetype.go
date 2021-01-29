@@ -401,7 +401,7 @@ func (sfnt *SFNT) parseGlyf() error {
 	b, ok := sfnt.Tables["glyf"]
 	if !ok {
 		return fmt.Errorf("glyf: missing table")
-	} else if length, _ := sfnt.Loca.Get(sfnt.Maxp.NumGlyphs); uint32(len(b)) != length {
+	} else if length, _ := sfnt.Loca.Get(sfnt.Maxp.NumGlyphs); uint32(len(b)) < length {
 		return fmt.Errorf("glyf: bad table")
 	}
 

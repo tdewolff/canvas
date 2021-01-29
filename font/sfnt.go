@@ -86,6 +86,9 @@ func (sfnt *SFNT) GlyphAdvance(glyphID uint16) uint16 {
 }
 
 func (sfnt *SFNT) Kerning(left, right uint16) int16 {
+	if sfnt.Kern == nil {
+		return 0
+	}
 	return sfnt.Kern.Get(left, right)
 }
 

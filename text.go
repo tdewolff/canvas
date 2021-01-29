@@ -27,8 +27,8 @@ type Text struct {
 	fonts map[*Font]bool
 
 	//Language  string
-	//Direction text.Direction
 	//Script    text.Script
+	//Direction text.Direction
 }
 
 type line struct {
@@ -75,7 +75,7 @@ func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 			}
 			if i < j {
 				ppem := ff.PPEM(DefaultDPMM)
-				glyphs := ff.Font.shaper.Shape(s[i:j], ppem, text.LeftToRight, text.Latin, "", "", "")
+				glyphs := ff.Font.shaper.Shape(s[i:j], ppem, ff.Direction, ff.Script, ff.Language, ff.Font.features, ff.Font.variations)
 				span := TextSpan{
 					Width:  ff.textWidth(glyphs),
 					Face:   ff,
