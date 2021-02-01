@@ -3,7 +3,6 @@ module github.com/tdewolff/canvas
 require (
 	github.com/ByteArena/poly2tri-go v0.0.0-20170716161910-d102ad91854f
 	github.com/ajstarks/svgo v0.0.0-20200725142600-7a3c8b57fecb // indirect
-	github.com/blend/go-sdk v2.0.0+incompatible // indirect
 	github.com/dsnet/compress v0.0.1
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/paulmach/orb v0.1.6
