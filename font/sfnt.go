@@ -31,6 +31,7 @@ const (
 
 type SFNT struct {
 	Data              []byte
+	Version           string
 	IsCFF, IsTrueType bool // only one can be true
 	Tables            map[string][]byte
 
@@ -76,8 +77,8 @@ func (sfnt *SFNT) GlyphToPath(p Pather, glyphID, ppem uint16, xOffset, yOffset i
 	if !sfnt.IsTrueType {
 		return fmt.Errorf("CFF not supported")
 	}
-	x := float64(xOffset) // / float64(sfnt.Head.UnitsPerEm)
-	y := float64(yOffset) // / float64(sfnt.Head.UnitsPerEm)
+	x := float64(xOffset)
+	y := float64(yOffset)
 	return sfnt.Glyf.ToPath(p, glyphID, ppem, x, y, xScale, yScale, hinting)
 }
 
@@ -105,6 +106,7 @@ func ParseSFNT(b []byte, index int) (*SFNT, error) {
 		if majorVersion != 1 && majorVersion != 2 || minorVersion != 0 {
 			return nil, fmt.Errorf("bad TTC version")
 		}
+
 		numFonts := r.ReadUint32()
 		if index < 0 || numFonts <= uint32(index) {
 			return nil, fmt.Errorf("bad font index %d", index)
@@ -112,12 +114,21 @@ func ParseSFNT(b []byte, index int) (*SFNT, error) {
 		if r.Len() < 4*numFonts {
 			return nil, ErrInvalidFontData
 		}
+
 		_ = r.ReadBytes(uint32(4 * index))
 		offset := r.ReadUint32()
-		if uint32(len(b))-8 < offset {
+		var length uint32
+		if uint32(index)+1 == numFonts {
+			length = uint32(len(b)) - offset
+		} else {
+			length = r.ReadUint32() - offset
+		}
+		if uint32(len(b))-8 < offset || uint32(len(b))-8-offset < length {
 			return nil, ErrInvalidFontData
 		}
+
 		r.Seek(offset)
+		b = b[offset : offset+length]
 		sfntVersion = r.ReadString(4)
 	} else if index != 0 {
 		return nil, fmt.Errorf("bad font index %d", index)
@@ -167,6 +178,7 @@ func ParseSFNT(b []byte, index int) (*SFNT, error) {
 
 	sfnt := &SFNT{}
 	sfnt.Data = b
+	sfnt.Version = sfntVersion
 	sfnt.IsCFF = sfntVersion == "OTTO"
 	sfnt.IsTrueType = binary.BigEndian.Uint32([]byte(sfntVersion)) == 0x00010000
 	sfnt.Tables = tables

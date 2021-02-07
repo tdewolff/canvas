@@ -7,10 +7,10 @@ import (
 	"os"
 )
 
-const mmPerPt = 25.4 / 72
-const ptPerMm = 72 / 25.4
+const mmPerPt = 25.4 / 72.0
+const ptPerMm = 72.0 / 25.4
 const mmPerInch = 25.4
-const inchPerMm = 1 / 25.4
+const inchPerMm = 1.0 / 25.4
 
 // ImageEncoding defines whether the embedded image shall be embedded as Lossless (typically PNG) or Lossy (typically JPG).
 type ImageEncoding int
@@ -25,8 +25,10 @@ const (
 type DPMM float64
 
 // DPI is a shortcut for Dots-per-Inch for the resolution of raster images.
-const DPI = DPMM(1 / 25.4)
-const DefaultDPMM = 72.0 * inchPerMm
+const DPI = DPMM(1.0 / 25.4)
+
+//const DPMM = DPMM(1.0)
+const DefaultDPMM = 96.0 * inchPerMm
 
 ////////////////////////////////////////////////////////////////
 

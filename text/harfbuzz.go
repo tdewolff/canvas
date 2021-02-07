@@ -19,6 +19,7 @@ hb_glyph_position_t *get_glyph_position(hb_glyph_position_t *pos, unsigned int i
 import "C"
 import (
 	"strings"
+	"unicode/utf8"
 	"unsafe"
 
 	"github.com/tdewolff/canvas/font"
@@ -84,6 +85,7 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	buf := C.hb_buffer_create()
 	C.hb_buffer_add_utf8(buf, ctext, -1, 0, -1)
 	C.hb_buffer_set_cluster_level(buf, C.HB_BUFFER_CLUSTER_LEVEL_MONOTONE_CHARACTERS)
+
 	C.hb_buffer_set_direction(buf, C.hb_direction_t(direction))
 	C.hb_buffer_set_script(buf, C.hb_script_t(script))
 	var clanguage *C.char
@@ -91,6 +93,11 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 		clanguage = C.CString(language)
 		C.hb_buffer_set_language(buf, C.hb_language_from_string(clanguage, -1))
 	}
+	C.hb_buffer_guess_segment_properties(buf)
+	if FriBidi && Direction(C.hb_buffer_get_direction(buf)) == RightToLeft {
+		C.hb_buffer_set_direction(buf, C.hb_direction_t(LeftToRight))
+	}
+
 	var cfeatures []C.hb_feature_t
 	for _, feature := range strings.Split(features, ",") {
 		cfeature := C.CString(feature)
@@ -131,6 +138,25 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	return glyphs
 }
 
+func ScriptItemizer(text string) []string {
+	i := 0
+	items := []string{}
+	curScript := ScriptInvalid
+	funcs := C.hb_unicode_funcs_get_default()
+	for j := 0; j < len(text); {
+		r, n := utf8.DecodeRuneInString(text[j:])
+		script := Script(C.hb_unicode_script(funcs, C.uint(r)))
+		if j != 0 && script != curScript && script != ScriptInherited {
+			items = append(items, text[i:j])
+			curScript = script
+			i = j
+		}
+		j += n
+	}
+	items = append(items, text[i:])
+	return items
+}
+
 type Direction int
 
 const (
@@ -145,175 +171,175 @@ type Script uint32
 
 // Taken from github.com/npillmayer/gotype
 const (
-	Common    Script = C.HB_SCRIPT_COMMON
-	Inherited        = C.HB_SCRIPT_INHERITED
-	Unknown          = C.HB_SCRIPT_UNKNOWN
+	ScriptCommon    Script = C.HB_SCRIPT_COMMON
+	ScriptInherited Script = C.HB_SCRIPT_INHERITED
+	ScriptUnknown   Script = C.HB_SCRIPT_UNKNOWN
 
-	Arabic     = C.HB_SCRIPT_ARABIC
-	Armenian   = C.HB_SCRIPT_ARMENIAN
-	Bengali    = C.HB_SCRIPT_BENGALI
-	Cyrillic   = C.HB_SCRIPT_CYRILLIC
-	Devanagari = C.HB_SCRIPT_DEVANAGARI
-	Georgian   = C.HB_SCRIPT_GEORGIAN
-	Greek      = C.HB_SCRIPT_GREEK
-	Gujarati   = C.HB_SCRIPT_GUJARATI
-	Gurmukhi   = C.HB_SCRIPT_GURMUKHI
-	Hangul     = C.HB_SCRIPT_HANGUL
-	Han        = C.HB_SCRIPT_HAN
-	Hebrew     = C.HB_SCRIPT_HEBREW
-	Hiragana   = C.HB_SCRIPT_HIRAGANA
-	Kannada    = C.HB_SCRIPT_KANNADA
-	Katakana   = C.HB_SCRIPT_KATAKANA
-	Lao        = C.HB_SCRIPT_LAO
-	Latin      = C.HB_SCRIPT_LATIN
-	Malayalam  = C.HB_SCRIPT_MALAYALAM
-	Oriya      = C.HB_SCRIPT_ORIYA
-	Tamil      = C.HB_SCRIPT_TAMIL
-	Telugu     = C.HB_SCRIPT_TELUGU
-	Thai       = C.HB_SCRIPT_THAI
+	Arabic     Script = C.HB_SCRIPT_ARABIC
+	Armenian   Script = C.HB_SCRIPT_ARMENIAN
+	Bengali    Script = C.HB_SCRIPT_BENGALI
+	Cyrillic   Script = C.HB_SCRIPT_CYRILLIC
+	Devanagari Script = C.HB_SCRIPT_DEVANAGARI
+	Georgian   Script = C.HB_SCRIPT_GEORGIAN
+	Greek      Script = C.HB_SCRIPT_GREEK
+	Gujarati   Script = C.HB_SCRIPT_GUJARATI
+	Gurmukhi   Script = C.HB_SCRIPT_GURMUKHI
+	Hangul     Script = C.HB_SCRIPT_HANGUL
+	Han        Script = C.HB_SCRIPT_HAN
+	Hebrew     Script = C.HB_SCRIPT_HEBREW
+	Hiragana   Script = C.HB_SCRIPT_HIRAGANA
+	Kannada    Script = C.HB_SCRIPT_KANNADA
+	Katakana   Script = C.HB_SCRIPT_KATAKANA
+	Lao        Script = C.HB_SCRIPT_LAO
+	Latin      Script = C.HB_SCRIPT_LATIN
+	Malayalam  Script = C.HB_SCRIPT_MALAYALAM
+	Oriya      Script = C.HB_SCRIPT_ORIYA
+	Tamil      Script = C.HB_SCRIPT_TAMIL
+	Telugu     Script = C.HB_SCRIPT_TELUGU
+	Thai       Script = C.HB_SCRIPT_THAI
 
-	Tibetan = C.HB_SCRIPT_TIBETAN
+	Tibetan Script = C.HB_SCRIPT_TIBETAN
 
-	Bopomofo          = C.HB_SCRIPT_BOPOMOFO
-	Braille           = C.HB_SCRIPT_BRAILLE
-	CanadianSyllabics = C.HB_SCRIPT_CANADIAN_SYLLABICS
-	Cherokee          = C.HB_SCRIPT_CHEROKEE
-	Ethiopic          = C.HB_SCRIPT_ETHIOPIC
-	Khmer             = C.HB_SCRIPT_KHMER
-	Mongolian         = C.HB_SCRIPT_MYANMAR
-	Myanmar           = C.HB_SCRIPT_OGHAM
-	Ogham             = C.HB_SCRIPT_OGHAM
-	Runic             = C.HB_SCRIPT_RUNIC
-	Sinhala           = C.HB_SCRIPT_SINHALA
-	Syriac            = C.HB_SCRIPT_SYRIAC
-	Thaana            = C.HB_SCRIPT_THAANA
-	Yi                = C.HB_SCRIPT_YI
+	Bopomofo          Script = C.HB_SCRIPT_BOPOMOFO
+	Braille           Script = C.HB_SCRIPT_BRAILLE
+	CanadianSyllabics Script = C.HB_SCRIPT_CANADIAN_SYLLABICS
+	Cherokee          Script = C.HB_SCRIPT_CHEROKEE
+	Ethiopic          Script = C.HB_SCRIPT_ETHIOPIC
+	Khmer             Script = C.HB_SCRIPT_KHMER
+	Mongolian         Script = C.HB_SCRIPT_MYANMAR
+	Myanmar           Script = C.HB_SCRIPT_OGHAM
+	Ogham             Script = C.HB_SCRIPT_OGHAM
+	Runic             Script = C.HB_SCRIPT_RUNIC
+	Sinhala           Script = C.HB_SCRIPT_SINHALA
+	Syriac            Script = C.HB_SCRIPT_SYRIAC
+	Thaana            Script = C.HB_SCRIPT_THAANA
+	Yi                Script = C.HB_SCRIPT_YI
 
-	Deseret   = C.HB_SCRIPT_DESERET
-	Gothic    = C.HB_SCRIPT_GOTHIC
-	OldItalic = C.HB_SCRIPT_OLD_ITALIC
+	Deseret   Script = C.HB_SCRIPT_DESERET
+	Gothic    Script = C.HB_SCRIPT_GOTHIC
+	OldItalic Script = C.HB_SCRIPT_OLD_ITALIC
 
-	Buhid    = C.HB_SCRIPT_BUHID
-	Hanunoo  = C.HB_SCRIPT_HANUNOO
-	Tagalog  = C.HB_SCRIPT_TAGALOG
-	Tagbanwa = C.HB_SCRIPT_TAGBANWA
+	Buhid    Script = C.HB_SCRIPT_BUHID
+	Hanunoo  Script = C.HB_SCRIPT_HANUNOO
+	Tagalog  Script = C.HB_SCRIPT_TAGALOG
+	Tagbanwa Script = C.HB_SCRIPT_TAGBANWA
 
-	Cypriot  = C.HB_SCRIPT_CYPRIOT
-	Limbu    = C.HB_SCRIPT_LIMBU
-	LinearB  = C.HB_SCRIPT_LINEAR_B
-	Osmanya  = C.HB_SCRIPT_OSMANYA
-	Shavian  = C.HB_SCRIPT_SHAVIAN
-	TaiLe    = C.HB_SCRIPT_TAI_LE
-	Ugaritic = C.HB_SCRIPT_UGARITIC
+	Cypriot  Script = C.HB_SCRIPT_CYPRIOT
+	Limbu    Script = C.HB_SCRIPT_LIMBU
+	LinearB  Script = C.HB_SCRIPT_LINEAR_B
+	Osmanya  Script = C.HB_SCRIPT_OSMANYA
+	Shavian  Script = C.HB_SCRIPT_SHAVIAN
+	TaiLe    Script = C.HB_SCRIPT_TAI_LE
+	Ugaritic Script = C.HB_SCRIPT_UGARITIC
 
-	Buginese    = C.HB_SCRIPT_BUGINESE
-	Coptic      = C.HB_SCRIPT_COPTIC
-	Glagolitic  = C.HB_SCRIPT_GLAGOLITIC
-	Kharoshthi  = C.HB_SCRIPT_KHAROSHTHI
-	NewTaiLue   = C.HB_SCRIPT_NEW_TAI_LUE
-	OldPersian  = C.HB_SCRIPT_OLD_PERSIAN
-	SylotiNagri = C.HB_SCRIPT_SYLOTI_NAGRI
-	Tifinagh    = C.HB_SCRIPT_TIFINAGH
+	Buginese    Script = C.HB_SCRIPT_BUGINESE
+	Coptic      Script = C.HB_SCRIPT_COPTIC
+	Glagolitic  Script = C.HB_SCRIPT_GLAGOLITIC
+	Kharoshthi  Script = C.HB_SCRIPT_KHAROSHTHI
+	NewTaiLue   Script = C.HB_SCRIPT_NEW_TAI_LUE
+	OldPersian  Script = C.HB_SCRIPT_OLD_PERSIAN
+	SylotiNagri Script = C.HB_SCRIPT_SYLOTI_NAGRI
+	Tifinagh    Script = C.HB_SCRIPT_TIFINAGH
 
-	Balinese   = C.HB_SCRIPT_BALINESE
-	Cuneiform  = C.HB_SCRIPT_CUNEIFORM
-	Nko        = C.HB_SCRIPT_NKO
-	PhagsPa    = C.HB_SCRIPT_PHAGS_PA
-	Phoenician = C.HB_SCRIPT_PHOENICIAN
+	Balinese   Script = C.HB_SCRIPT_BALINESE
+	Cuneiform  Script = C.HB_SCRIPT_CUNEIFORM
+	Nko        Script = C.HB_SCRIPT_NKO
+	PhagsPa    Script = C.HB_SCRIPT_PHAGS_PA
+	Phoenician Script = C.HB_SCRIPT_PHOENICIAN
 
-	Carian     = C.HB_SCRIPT_CARIAN
-	Cham       = C.HB_SCRIPT_CHAM
-	KayahLi    = C.HB_SCRIPT_KAYAH_LI
-	Lepcha     = C.HB_SCRIPT_LEPCHA
-	Lycian     = C.HB_SCRIPT_LYCIAN
-	Lydian     = C.HB_SCRIPT_LYDIAN
-	OlChiki    = C.HB_SCRIPT_OL_CHIKI
-	Rejang     = C.HB_SCRIPT_REJANG
-	Saurashtra = C.HB_SCRIPT_SAURASHTRA
-	Sundanese  = C.HB_SCRIPT_SUNDANESE
-	Vai        = C.HB_SCRIPT_VAI
+	Carian     Script = C.HB_SCRIPT_CARIAN
+	Cham       Script = C.HB_SCRIPT_CHAM
+	KayahLi    Script = C.HB_SCRIPT_KAYAH_LI
+	Lepcha     Script = C.HB_SCRIPT_LEPCHA
+	Lycian     Script = C.HB_SCRIPT_LYCIAN
+	Lydian     Script = C.HB_SCRIPT_LYDIAN
+	OlChiki    Script = C.HB_SCRIPT_OL_CHIKI
+	Rejang     Script = C.HB_SCRIPT_REJANG
+	Saurashtra Script = C.HB_SCRIPT_SAURASHTRA
+	Sundanese  Script = C.HB_SCRIPT_SUNDANESE
+	Vai        Script = C.HB_SCRIPT_VAI
 
-	Avestan               = C.HB_SCRIPT_AVESTAN
-	Bamum                 = C.HB_SCRIPT_BAMUM
-	EgyptianHieroglyphs   = C.HB_SCRIPT_EGYPTIAN_HIEROGLYPHS
-	ImperialAramaic       = C.HB_SCRIPT_IMPERIAL_ARAMAIC
-	InscriptionalPahlavi  = C.HB_SCRIPT_INSCRIPTIONAL_PAHLAVI
-	InscriptionalParthian = C.HB_SCRIPT_INSCRIPTIONAL_PARTHIAN
-	Javanese              = C.HB_SCRIPT_JAVANESE
-	Kaithi                = C.HB_SCRIPT_KAITHI
-	Lisu                  = C.HB_SCRIPT_LISU
-	MeeteiMayek           = C.HB_SCRIPT_MEETEI_MAYEK
-	OldSouthArabian       = C.HB_SCRIPT_OLD_SOUTH_ARABIAN
-	OldTurkic             = C.HB_SCRIPT_OLD_TURKIC
-	Samaritan             = C.HB_SCRIPT_SAMARITAN
-	TaiTham               = C.HB_SCRIPT_TAI_THAM
-	TaiViet               = C.HB_SCRIPT_TAI_VIET
+	Avestan               Script = C.HB_SCRIPT_AVESTAN
+	Bamum                 Script = C.HB_SCRIPT_BAMUM
+	EgyptianHieroglyphs   Script = C.HB_SCRIPT_EGYPTIAN_HIEROGLYPHS
+	ImperialAramaic       Script = C.HB_SCRIPT_IMPERIAL_ARAMAIC
+	InscriptionalPahlavi  Script = C.HB_SCRIPT_INSCRIPTIONAL_PAHLAVI
+	InscriptionalParthian Script = C.HB_SCRIPT_INSCRIPTIONAL_PARTHIAN
+	Javanese              Script = C.HB_SCRIPT_JAVANESE
+	Kaithi                Script = C.HB_SCRIPT_KAITHI
+	Lisu                  Script = C.HB_SCRIPT_LISU
+	MeeteiMayek           Script = C.HB_SCRIPT_MEETEI_MAYEK
+	OldSouthArabian       Script = C.HB_SCRIPT_OLD_SOUTH_ARABIAN
+	OldTurkic             Script = C.HB_SCRIPT_OLD_TURKIC
+	Samaritan             Script = C.HB_SCRIPT_SAMARITAN
+	TaiTham               Script = C.HB_SCRIPT_TAI_THAM
+	TaiViet               Script = C.HB_SCRIPT_TAI_VIET
 
-	Batak   = C.HB_SCRIPT_BATAK
-	Brahmi  = C.HB_SCRIPT_BRAHMI
-	Mandaic = C.HB_SCRIPT_MANDAIC
+	Batak   Script = C.HB_SCRIPT_BATAK
+	Brahmi  Script = C.HB_SCRIPT_BRAHMI
+	Mandaic Script = C.HB_SCRIPT_MANDAIC
 
-	Chakma              = C.HB_SCRIPT_CHAKMA
-	MeroiticCursive     = C.HB_SCRIPT_MEROITIC_CURSIVE
-	MeroiticHieroglyphs = C.HB_SCRIPT_MEROITIC_HIEROGLYPHS
-	Miao                = C.HB_SCRIPT_MIAO
-	Sharada             = C.HB_SCRIPT_SHARADA
-	SoraSompeng         = C.HB_SCRIPT_SORA_SOMPENG
-	Takri               = C.HB_SCRIPT_TAKRI
+	Chakma              Script = C.HB_SCRIPT_CHAKMA
+	MeroiticCursive     Script = C.HB_SCRIPT_MEROITIC_CURSIVE
+	MeroiticHieroglyphs Script = C.HB_SCRIPT_MEROITIC_HIEROGLYPHS
+	Miao                Script = C.HB_SCRIPT_MIAO
+	Sharada             Script = C.HB_SCRIPT_SHARADA
+	SoraSompeng         Script = C.HB_SCRIPT_SORA_SOMPENG
+	Takri               Script = C.HB_SCRIPT_TAKRI
 
-	BassaVah          = C.HB_SCRIPT_BASSA_VAH
-	CaucasianAlbanian = C.HB_SCRIPT_CAUCASIAN_ALBANIAN
-	Duployan          = C.HB_SCRIPT_DUPLOYAN
-	Elbasan           = C.HB_SCRIPT_ELBASAN
-	Grantha           = C.HB_SCRIPT_GRANTHA
-	Khojki            = C.HB_SCRIPT_KHOJKI
-	Khudawadi         = C.HB_SCRIPT_KHUDAWADI
-	LinearA           = C.HB_SCRIPT_LINEAR_A
-	Mahajani          = C.HB_SCRIPT_MAHAJANI
-	Manichaean        = C.HB_SCRIPT_MANICHAEAN
-	MendeKikakui      = C.HB_SCRIPT_MENDE_KIKAKUI
-	Modi              = C.HB_SCRIPT_MODI
-	Mro               = C.HB_SCRIPT_MRO
-	Nabataean         = C.HB_SCRIPT_NABATAEAN
-	OldNorthArabian   = C.HB_SCRIPT_OLD_NORTH_ARABIAN
-	OldPermic         = C.HB_SCRIPT_OLD_PERMIC
-	PahawhHmong       = C.HB_SCRIPT_PAHAWH_HMONG
-	Palmyrene         = C.HB_SCRIPT_PALMYRENE
-	PauCinHau         = C.HB_SCRIPT_PAU_CIN_HAU
-	PsalterPahlavi    = C.HB_SCRIPT_PSALTER_PAHLAVI
-	Siddham           = C.HB_SCRIPT_SIDDHAM
-	Tirhuta           = C.HB_SCRIPT_TIRHUTA
-	WarangCiti        = C.HB_SCRIPT_WARANG_CITI
+	BassaVah          Script = C.HB_SCRIPT_BASSA_VAH
+	CaucasianAlbanian Script = C.HB_SCRIPT_CAUCASIAN_ALBANIAN
+	Duployan          Script = C.HB_SCRIPT_DUPLOYAN
+	Elbasan           Script = C.HB_SCRIPT_ELBASAN
+	Grantha           Script = C.HB_SCRIPT_GRANTHA
+	Khojki            Script = C.HB_SCRIPT_KHOJKI
+	Khudawadi         Script = C.HB_SCRIPT_KHUDAWADI
+	LinearA           Script = C.HB_SCRIPT_LINEAR_A
+	Mahajani          Script = C.HB_SCRIPT_MAHAJANI
+	Manichaean        Script = C.HB_SCRIPT_MANICHAEAN
+	MendeKikakui      Script = C.HB_SCRIPT_MENDE_KIKAKUI
+	Modi              Script = C.HB_SCRIPT_MODI
+	Mro               Script = C.HB_SCRIPT_MRO
+	Nabataean         Script = C.HB_SCRIPT_NABATAEAN
+	OldNorthArabian   Script = C.HB_SCRIPT_OLD_NORTH_ARABIAN
+	OldPermic         Script = C.HB_SCRIPT_OLD_PERMIC
+	PahawhHmong       Script = C.HB_SCRIPT_PAHAWH_HMONG
+	Palmyrene         Script = C.HB_SCRIPT_PALMYRENE
+	PauCinHau         Script = C.HB_SCRIPT_PAU_CIN_HAU
+	PsalterPahlavi    Script = C.HB_SCRIPT_PSALTER_PAHLAVI
+	Siddham           Script = C.HB_SCRIPT_SIDDHAM
+	Tirhuta           Script = C.HB_SCRIPT_TIRHUTA
+	WarangCiti        Script = C.HB_SCRIPT_WARANG_CITI
 
-	Adlam     = C.HB_SCRIPT_ADLAM
-	Bhaiksuki = C.HB_SCRIPT_BHAIKSUKI
-	Marchen   = C.HB_SCRIPT_MARCHEN
-	Osage     = C.HB_SCRIPT_OSAGE
-	Tangut    = C.HB_SCRIPT_TANGUT
-	Newa      = C.HB_SCRIPT_NEWA
+	Adlam     Script = C.HB_SCRIPT_ADLAM
+	Bhaiksuki Script = C.HB_SCRIPT_BHAIKSUKI
+	Marchen   Script = C.HB_SCRIPT_MARCHEN
+	Osage     Script = C.HB_SCRIPT_OSAGE
+	Tangut    Script = C.HB_SCRIPT_TANGUT
+	Newa      Script = C.HB_SCRIPT_NEWA
 
-	MasaramGondi    = C.HB_SCRIPT_MASARAM_GONDI
-	Nushu           = C.HB_SCRIPT_NUSHU
-	Soyombo         = C.HB_SCRIPT_SOYOMBO
-	ZanabazarSquare = C.HB_SCRIPT_ZANABAZAR_SQUARE
+	MasaramGondi    Script = C.HB_SCRIPT_MASARAM_GONDI
+	Nushu           Script = C.HB_SCRIPT_NUSHU
+	Soyombo         Script = C.HB_SCRIPT_SOYOMBO
+	ZanabazarSquare Script = C.HB_SCRIPT_ZANABAZAR_SQUARE
 
-	Dogra          = C.HB_SCRIPT_DOGRA
-	GunjalaGondi   = C.HB_SCRIPT_GUNJALA_GONDI
-	HanifiRohingya = C.HB_SCRIPT_HANIFI_ROHINGYA
-	Makasar        = C.HB_SCRIPT_MAKASAR
-	Medefaidrin    = C.HB_SCRIPT_MEDEFAIDRIN
-	OldSogdian     = C.HB_SCRIPT_OLD_SOGDIAN
-	Sogdian        = C.HB_SCRIPT_SOGDIAN
+	Dogra          Script = C.HB_SCRIPT_DOGRA
+	GunjalaGondi   Script = C.HB_SCRIPT_GUNJALA_GONDI
+	HanifiRohingya Script = C.HB_SCRIPT_HANIFI_ROHINGYA
+	Makasar        Script = C.HB_SCRIPT_MAKASAR
+	Medefaidrin    Script = C.HB_SCRIPT_MEDEFAIDRIN
+	OldSogdian     Script = C.HB_SCRIPT_OLD_SOGDIAN
+	Sogdian        Script = C.HB_SCRIPT_SOGDIAN
 
-	Elymaic              = C.HB_SCRIPT_ELYMAIC
-	Nandinagari          = C.HB_SCRIPT_NANDINAGARI
-	NyiakengPuachueHmong = C.HB_SCRIPT_NYIAKENG_PUACHUE_HMONG
-	Wancho               = C.HB_SCRIPT_WANCHO
+	Elymaic              Script = C.HB_SCRIPT_ELYMAIC
+	Nandinagari          Script = C.HB_SCRIPT_NANDINAGARI
+	NyiakengPuachueHmong Script = C.HB_SCRIPT_NYIAKENG_PUACHUE_HMONG
+	Wancho               Script = C.HB_SCRIPT_WANCHO
 
 	//Chorasmian        = C.HB_SCRIPT_CHORASMIAN
 	//DivesAkuru        = C.HB_SCRIPT_DIVES_AKURU
 	//KhitanSmallScript = C.HB_SCRIPT_KHITAN_SMALL_SCRIPT
 	//Yezidi            = C.HB_SCRIPT_YEZIDI
 
-	ScriptInvalid = C.HB_TAG_NONE
+	ScriptInvalid Script = C.HB_TAG_NONE
 )

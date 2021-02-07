@@ -195,8 +195,6 @@ func (family *FontFamily) Face(size float64, col color.Color, style FontStyle, v
 	face.Size = size * mmPerPt
 	face.Style = style
 	face.Variant = variant
-	face.Script = text.Latin
-	face.Direction = text.LeftToRight
 
 	r, g, b, a := col.RGBA()
 	face.Color = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}

@@ -25,10 +25,6 @@ const (
 type Text struct {
 	lines []line
 	fonts map[*Font]bool
-
-	//Language  string
-	//Script    text.Script
-	//Direction text.Direction
 }
 
 type line struct {
@@ -75,19 +71,30 @@ func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 			}
 			if i < j {
 				ppem := ff.PPEM(DefaultDPMM)
-				glyphs := ff.Font.shaper.Shape(s[i:j], ppem, ff.Direction, ff.Script, ff.Language, ff.Font.features, ff.Font.variations)
-				span := TextSpan{
-					Width:  ff.textWidth(glyphs),
-					Face:   ff,
-					Text:   s[i:j],
-					Glyphs: glyphs,
+				lineWidth := 0.0
+				line := line{y: y, spans: []TextSpan{}}
+				for _, ss := range text.ScriptItemizer(text.Bidi(s[i:j])) {
+					glyphs := ff.Font.shaper.Shape(ss, ppem, ff.Direction, ff.Script, ff.Language, ff.Font.features, ff.Font.variations)
+					width := ff.textWidth(glyphs)
+					line.spans = append(line.spans, TextSpan{
+						x:      lineWidth,
+						Width:  width,
+						Face:   ff,
+						Text:   ss,
+						Glyphs: glyphs,
+					})
+					lineWidth += width
 				}
 				if halign == Center {
-					span.x = -span.Width / 2.0
+					for k, _ := range line.spans {
+						line.spans[k].x = -lineWidth / 2.0
+					}
 				} else if halign == Right {
-					span.x = -span.Width
+					for k, _ := range line.spans {
+						line.spans[k].x = -lineWidth
+					}
 				}
-				lines = append(lines, line{y: y, spans: []TextSpan{span}})
+				lines = append(lines, line)
 			}
 			y -= spacing + ascent + descent + spacing
 			i = j + utf8.RuneLen(r)

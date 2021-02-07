@@ -49,11 +49,15 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 type Direction int
 
 const (
-	LeftToRight Direction = 0
+	DirectionInvalid Direction = iota
+	LeftToRight
+	RightToLeft
+	TopToBottom
+	BottomToTop
 )
 
 type Script uint32
 
 const (
-	Latin Script = 0
+	ScriptInvalid Script = 0
 )

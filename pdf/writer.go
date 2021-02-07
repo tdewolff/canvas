@@ -228,6 +228,7 @@ func (w *pdfWriter) writeFonts() {
 		var fontProgram []byte
 		var glyphIDs []uint16 // actual to original glyph ID, identical if we're not subsetting
 		if w.subset {
+			// TODO: remove all optional tables such as kern, GPOS, GSUB, ...
 			fontProgram, glyphIDs = font.SFNT.Subset(font.SubsetIDs())
 		} else {
 			fontProgram = font.SFNT.Data
