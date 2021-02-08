@@ -54,6 +54,8 @@ type SFNT struct {
 
 	// optional
 	Kern *kernTable
+	Vhea *vheaTable
+	Vmtx *vmtxTable
 	//Gpos *gposTable
 	//Gasp *gaspTable
 }
@@ -84,6 +86,13 @@ func (sfnt *SFNT) GlyphToPath(p Pather, glyphID, ppem uint16, xOffset, yOffset i
 
 func (sfnt *SFNT) GlyphAdvance(glyphID uint16) uint16 {
 	return sfnt.Hmtx.Advance(glyphID)
+}
+
+func (sfnt *SFNT) GlyphVerticalAdvance(glyphID uint16) uint16 {
+	if sfnt.Vmtx == nil {
+		return sfnt.Head.UnitsPerEm
+	}
+	return sfnt.Vmtx.Advance(glyphID)
 }
 
 func (sfnt *SFNT) Kerning(left, right uint16) int16 {
@@ -240,6 +249,10 @@ func ParseSFNT(b []byte, index int) (*SFNT, error) {
 			err = sfnt.parseOS2()
 		case "post":
 			err = sfnt.parsePost()
+		case "vhea":
+			err = sfnt.parseVhea()
+		case "vmtx":
+			err = sfnt.parseVmtx()
 		}
 		if err != nil {
 			return nil, err
@@ -755,9 +768,64 @@ func (sfnt *SFNT) parseHhea() error {
 
 ////////////////////////////////////////////////////////////////
 
+type vheaTable struct {
+	Ascent               int16
+	Descent              int16
+	LineGap              int16
+	AdvanceHeightMax     int16
+	MinTopSideBearing    int16
+	MinBottomSideBearing int16
+	YMaxExtent           int16
+	CaretSlopeRise       int16
+	CaretSlopeRun        int16
+	CaretOffset          int16
+	MetricDataFormat     int16
+	NumberOfVMetrics     uint16
+}
+
+func (sfnt *SFNT) parseVhea() error {
+	// requires data from maxp
+	b, ok := sfnt.Tables["vhea"]
+	if !ok {
+		return fmt.Errorf("vhea: missing table")
+	} else if len(b) != 36 {
+		return fmt.Errorf("vhea: bad table")
+	}
+
+	sfnt.Vhea = &vheaTable{}
+	r := newBinaryReader(b)
+	majorVersion := r.ReadUint16()
+	minorVersion := r.ReadUint16()
+	if majorVersion != 1 && minorVersion != 0 && minorVersion != 1 {
+		return fmt.Errorf("vhea: bad version")
+	}
+	sfnt.Vhea.Ascent = r.ReadInt16()
+	sfnt.Vhea.Descent = r.ReadInt16()
+	sfnt.Vhea.LineGap = r.ReadInt16()
+	sfnt.Vhea.AdvanceHeightMax = r.ReadInt16()
+	sfnt.Vhea.MinTopSideBearing = r.ReadInt16()
+	sfnt.Vhea.MinBottomSideBearing = r.ReadInt16()
+	sfnt.Vhea.YMaxExtent = r.ReadInt16()
+	sfnt.Vhea.CaretSlopeRise = r.ReadInt16()
+	sfnt.Vhea.CaretSlopeRun = r.ReadInt16()
+	sfnt.Vhea.CaretOffset = r.ReadInt16()
+	_ = r.ReadInt16() // reserved
+	_ = r.ReadInt16() // reserved
+	_ = r.ReadInt16() // reserved
+	_ = r.ReadInt16() // reserved
+	sfnt.Vhea.MetricDataFormat = r.ReadInt16()
+	sfnt.Vhea.NumberOfVMetrics = r.ReadUint16()
+	if sfnt.Maxp.NumGlyphs < sfnt.Vhea.NumberOfVMetrics || sfnt.Vhea.NumberOfVMetrics == 0 {
+		return fmt.Errorf("vhea: bad numberOfVMetrics")
+	}
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
+
 type hmtxLongHorMetric struct {
-	AdvanceWidth uint16
-	Lsb          int16
+	AdvanceWidth    uint16
+	LeftSideBearing int16
 }
 
 type hmtxTable struct {
@@ -769,7 +837,7 @@ func (hmtx *hmtxTable) LeftSideBearing(glyphID uint16) int16 {
 	if uint16(len(hmtx.HMetrics)) <= glyphID {
 		return hmtx.LeftSideBearings[glyphID-uint16(len(hmtx.HMetrics))]
 	}
-	return hmtx.HMetrics[glyphID].Lsb
+	return hmtx.HMetrics[glyphID].LeftSideBearing
 }
 
 func (hmtx *hmtxTable) Advance(glyphID uint16) uint16 {
@@ -797,10 +865,66 @@ func (sfnt *SFNT) parseHmtx() error {
 	r := newBinaryReader(b)
 	for i := 0; i < int(sfnt.Hhea.NumberOfHMetrics); i++ {
 		sfnt.Hmtx.HMetrics[i].AdvanceWidth = r.ReadUint16()
-		sfnt.Hmtx.HMetrics[i].Lsb = r.ReadInt16()
+		sfnt.Hmtx.HMetrics[i].LeftSideBearing = r.ReadInt16()
 	}
 	for i := 0; i < int(sfnt.Maxp.NumGlyphs-sfnt.Hhea.NumberOfHMetrics); i++ {
 		sfnt.Hmtx.LeftSideBearings[i] = r.ReadInt16()
+	}
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
+
+type vmtxLongVerMetric struct {
+	AdvanceHeight  uint16
+	TopSideBearing int16
+}
+
+type vmtxTable struct {
+	VMetrics        []vmtxLongVerMetric
+	TopSideBearings []int16
+}
+
+func (vmtx *vmtxTable) TopSideBearing(glyphID uint16) int16 {
+	if uint16(len(vmtx.VMetrics)) <= glyphID {
+		return vmtx.TopSideBearings[glyphID-uint16(len(vmtx.VMetrics))]
+	}
+	return vmtx.VMetrics[glyphID].TopSideBearing
+}
+
+func (vmtx *vmtxTable) Advance(glyphID uint16) uint16 {
+	if uint16(len(vmtx.VMetrics)) <= glyphID {
+		glyphID = uint16(len(vmtx.VMetrics)) - 1
+	}
+	return vmtx.VMetrics[glyphID].AdvanceHeight
+}
+
+func (sfnt *SFNT) parseVmtx() error {
+	// requires data from vhea and maxp
+	if sfnt.Vhea == nil {
+		return fmt.Errorf("vhea: missing table")
+	}
+
+	b, ok := sfnt.Tables["vmtx"]
+	length := 4*uint32(sfnt.Vhea.NumberOfVMetrics) + 2*uint32(sfnt.Maxp.NumGlyphs-sfnt.Vhea.NumberOfVMetrics)
+	if !ok {
+		return fmt.Errorf("vmtx: missing table")
+	} else if uint32(len(b)) != length {
+		return fmt.Errorf("vmtx: bad table")
+	}
+
+	sfnt.Vmtx = &vmtxTable{}
+	// numberOfVMetrics is smaller than numGlyphs
+	sfnt.Vmtx.VMetrics = make([]vmtxLongVerMetric, sfnt.Vhea.NumberOfVMetrics)
+	sfnt.Vmtx.TopSideBearings = make([]int16, sfnt.Maxp.NumGlyphs-sfnt.Vhea.NumberOfVMetrics)
+
+	r := newBinaryReader(b)
+	for i := 0; i < int(sfnt.Vhea.NumberOfVMetrics); i++ {
+		sfnt.Vmtx.VMetrics[i].AdvanceHeight = r.ReadUint16()
+		sfnt.Vmtx.VMetrics[i].TopSideBearing = r.ReadInt16()
+	}
+	for i := 0; i < int(sfnt.Maxp.NumGlyphs-sfnt.Vhea.NumberOfVMetrics); i++ {
+		sfnt.Vmtx.TopSideBearings[i] = r.ReadInt16()
 	}
 	return nil
 }

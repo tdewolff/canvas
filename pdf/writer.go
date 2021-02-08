@@ -28,7 +28,8 @@ type pdfWriter struct {
 	pages      []pdfRef
 
 	page     *pdfPageWriter
-	fonts    map[*canvas.Font]pdfRef
+	fontsH   map[*canvas.Font]pdfRef
+	fontsV   map[*canvas.Font]pdfRef
 	compress bool
 	subset   bool
 	title    string
@@ -41,7 +42,8 @@ func newPDFWriter(writer io.Writer) *pdfWriter {
 	w := &pdfWriter{
 		w:          writer,
 		objOffsets: []int{0, 0, 0}, // catalog, metadata, page tree
-		fonts:      map[*canvas.Font]pdfRef{},
+		fontsH:     map[*canvas.Font]pdfRef{},
+		fontsV:     map[*canvas.Font]pdfRef{},
 		compress:   true,
 		subset:     true,
 	}
@@ -213,100 +215,104 @@ func (w *pdfWriter) writeObject(val interface{}) pdfRef {
 	return pdfRef(len(w.objOffsets))
 }
 
-func (w *pdfWriter) getFont(font *canvas.Font) pdfRef {
-	if ref, ok := w.fonts[font]; ok {
+func (w *pdfWriter) getFont(font *canvas.Font, vertical bool) pdfRef {
+	fonts := w.fontsH
+	if vertical {
+		fonts = w.fontsV
+	}
+
+	if ref, ok := fonts[font]; ok {
 		return ref
 	}
 	w.objOffsets = append(w.objOffsets, 0)
 	ref := pdfRef(len(w.objOffsets))
-	w.fonts[font] = ref
+	fonts[font] = ref
 	return ref
 }
 
-func (w *pdfWriter) writeFonts() {
-	for font, ref := range w.fonts {
-		// subset the font
-		var fontProgram []byte
-		var glyphIDs []uint16 // subset to original glyph ID, identical if we're not subsetting
-		if w.subset {
-			// TODO: remove all optional tables such as kern, GPOS, GSUB, ...
-			fontProgram, glyphIDs = font.SFNT.Subset(font.SubsetIDs())
-		} else {
-			fontProgram = font.SFNT.Data
-			glyphIDs = make([]uint16, font.SFNT.Maxp.NumGlyphs)
-			for glyphID, _ := range glyphIDs {
-				glyphIDs[glyphID] = uint16(glyphID)
-			}
+func (w *pdfWriter) writeFont(ref pdfRef, font *canvas.Font, vertical bool) {
+	// subset the font
+	var fontProgram []byte
+	var glyphIDs []uint16 // subset to original glyph ID, identical if we're not subsetting
+	if w.subset {
+		// TODO: remove all optional tables such as kern, GPOS, GSUB, ...
+		fontProgram, glyphIDs = font.SFNT.Subset(font.SubsetIDs())
+	} else {
+		fontProgram = font.SFNT.Data
+		glyphIDs = make([]uint16, font.SFNT.Maxp.NumGlyphs)
+		for glyphID, _ := range glyphIDs {
+			glyphIDs[glyphID] = uint16(glyphID)
 		}
+	}
 
-		// calculate the character widths for the W array and shorten it
-		f := 1000.0 / float64(font.SFNT.Head.UnitsPerEm)
-		widths := make([]int, len(glyphIDs)+1)
-		for subsetGlyphID, glyphID := range glyphIDs {
-			widths[subsetGlyphID] = int(f*float64(font.SFNT.GlyphAdvance(glyphID)) + 0.5)
-		}
-		DW := widths[0]
-		W := pdfArray{}
-		i, j := 1, 1
-		for k, width := range widths {
-			if k != 0 && width != widths[j] {
-				if 4 < k-j { // at about 5 equal widths, it would be shorter using the other notation format
-					if i < j {
-						arr := pdfArray{}
-						for _, w := range widths[i:j] {
-							arr = append(arr, w)
-						}
-						W = append(W, i, arr)
+	// calculate the character widths for the W array and shorten it
+	f := 1000.0 / float64(font.SFNT.Head.UnitsPerEm)
+	widths := make([]int, len(glyphIDs)+1)
+	for subsetGlyphID, glyphID := range glyphIDs {
+		widths[subsetGlyphID] = int(f*float64(font.SFNT.GlyphAdvance(glyphID)) + 0.5)
+	}
+	DW := widths[0]
+	W := pdfArray{}
+	i, j := 1, 1
+	for k, width := range widths {
+		if k != 0 && width != widths[j] {
+			if 4 < k-j { // at about 5 equal widths, it would be shorter using the other notation format
+				if i < j {
+					arr := pdfArray{}
+					for _, w := range widths[i:j] {
+						arr = append(arr, w)
 					}
-					if widths[j] != DW {
-						W = append(W, j, k-1, widths[j])
-					}
-					i = k
+					W = append(W, i, arr)
 				}
-				j = k
+				if widths[j] != DW {
+					W = append(W, j, k-1, widths[j])
+				}
+				i = k
 			}
+			j = k
 		}
-		if i < len(widths) {
-			arr := pdfArray{}
-			for _, w := range widths[i:] {
-				arr = append(arr, w)
-			}
-			W = append(W, i, arr)
+	}
+	if i < len(widths) {
+		arr := pdfArray{}
+		for _, w := range widths[i:] {
+			arr = append(arr, w)
 		}
+		W = append(W, i, arr)
+	}
 
-		// create ToUnicode CMap
-		var bfRange, bfChar strings.Builder
-		var bfRangeCount, bfCharCount int
-		startGlyphID := uint16(0)
-		startUnicode := uint32('\uFFFD')
-		length := uint16(1)
-		for subsetGlyphID, glyphID := range glyphIDs[1:] {
-			unicode := uint32(font.SFNT.Cmap.ToUnicode(glyphID))
-			if 0x010000 <= unicode && unicode <= 0x10FFFF {
-				// UTF-16 surrogates
-				unicode -= 0x10000
-				unicode = (0xD800+(unicode>>10)&0x3FF)<<16 + 0xDC00 + unicode&0x3FF
-			}
-			if uint16(subsetGlyphID+1) == startGlyphID+length && unicode == startUnicode+uint32(length) {
-				length++
+	// create ToUnicode CMap
+	var bfRange, bfChar strings.Builder
+	var bfRangeCount, bfCharCount int
+	startGlyphID := uint16(0)
+	startUnicode := uint32('\uFFFD')
+	length := uint16(1)
+	for subsetGlyphID, glyphID := range glyphIDs[1:] {
+		unicode := uint32(font.SFNT.Cmap.ToUnicode(glyphID))
+		if 0x010000 <= unicode && unicode <= 0x10FFFF {
+			// UTF-16 surrogates
+			unicode -= 0x10000
+			unicode = (0xD800+(unicode>>10)&0x3FF)<<16 + 0xDC00 + unicode&0x3FF
+		}
+		if uint16(subsetGlyphID+1) == startGlyphID+length && unicode == startUnicode+uint32(length) {
+			length++
+		} else {
+			if 1 < length {
+				fmt.Fprintf(&bfRange, "<%04X> <%04X> <%04X>\n", startGlyphID, startGlyphID+length-1, startUnicode)
 			} else {
-				if 1 < length {
-					fmt.Fprintf(&bfRange, "<%04X> <%04X> <%04X>\n", startGlyphID, startGlyphID+length-1, startUnicode)
-				} else {
-					fmt.Fprintf(&bfChar, "<%04X> <%04X>\n", startGlyphID, startUnicode)
-				}
-				startGlyphID = uint16(subsetGlyphID + 1)
-				startUnicode = unicode
-				length = 1
+				fmt.Fprintf(&bfChar, "<%04X> <%04X>\n", startGlyphID, startUnicode)
 			}
+			startGlyphID = uint16(subsetGlyphID + 1)
+			startUnicode = unicode
+			length = 1
 		}
-		if 1 < length {
-			fmt.Fprintf(&bfRange, "<%04X> <%04X> <%04X>\n", startGlyphID, startGlyphID+length-1, startUnicode)
-		} else {
-			fmt.Fprintf(&bfChar, "<%04X> <%04X>\n", startGlyphID, startUnicode)
-		}
+	}
+	if 1 < length {
+		fmt.Fprintf(&bfRange, "<%04X> <%04X> <%04X>\n", startGlyphID, startGlyphID+length-1, startUnicode)
+	} else {
+		fmt.Fprintf(&bfChar, "<%04X> <%04X>\n", startGlyphID, startUnicode)
+	}
 
-		toUnicode := fmt.Sprintf(`/CIDInit /ProcSet findresource begin
+	toUnicode := fmt.Sprintf(`/CIDInit /ProcSet findresource begin
 12 dict begin
 begincmap
 /CIDSystemInfo
@@ -327,87 +333,91 @@ endcmap
 CMapName currentdict /CMap defineresource pop
 end
 end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
-		toUnicodeStream := pdfStream{
-			dict:   pdfDict{},
-			stream: []byte(toUnicode),
-		}
-		if w.compress {
-			toUnicodeStream.dict["Filter"] = pdfFilterFlate
-		}
-		toUnicodeRef := w.writeObject(toUnicodeStream)
-
-		// write font program
-		fontfileRef := w.writeObject(pdfStream{
-			dict: pdfDict{
-				//"Subtype": pdfName("OpenType"),
-				"Filter": pdfFilterFlate,
-			},
-			stream: fontProgram,
-		})
-
-		// get name and CID subtype
-		name := font.Name()
-		if records := font.SFNT.Name.Get(canvasFont.NamePostScript); 0 < len(records) {
-			name = records[0].String()
-		}
-		baseFont := strings.ReplaceAll(name, " ", "")
-		if w.subset {
-			baseFont = "SUBSET+" + baseFont
-		}
-
-		fontFile := ""
-		cidSubtype := ""
-		if font.SFNT.IsTrueType {
-			fontFile = "FontFile2"
-			cidSubtype = "CIDFontType2"
-		} else if font.SFNT.IsCFF {
-			fontFile = "FontFile"
-			cidSubtype = "CIDFontType0"
-		}
-
-		// in order to support more than 256 characters, we need to use a CIDFont dictionary which must be inside a Type0 font. Character codes in the stream are glyph IDs, however for subsetted fonts they are the _old_ glyph IDs, which is why we need the CIDToGIDMap
-		dict := pdfDict{
-			"Type":      pdfName("Font"),
-			"Subtype":   pdfName("Type0"),
-			"BaseFont":  pdfName(baseFont),
-			"Encoding":  pdfName("Identity-H"), // map character codes in the stream to CID with identity encoding, we additionally map CID to GID in the descendant font when subsetting, otherwise that is also identity
-			"ToUnicode": toUnicodeRef,
-			"DescendantFonts": pdfArray{pdfDict{
-				"Type":     pdfName("Font"),
-				"Subtype":  pdfName(cidSubtype),
-				"BaseFont": pdfName(baseFont),
-				"DW":       DW,
-				"W":        W,
-				"CIDSystemInfo": pdfDict{
-					"Registry":   "Adobe",
-					"Ordering":   "Identity",
-					"Supplement": 0,
-				},
-				"FontDescriptor": pdfDict{
-					"Type":     pdfName("FontDescriptor"),
-					"FontName": pdfName(baseFont),
-					"Flags":    4, // Symbolic
-					"FontBBox": pdfArray{
-						int(f * float64(font.SFNT.Head.XMin)),
-						int(f * float64(font.SFNT.Head.YMin)),
-						int(f * float64(font.SFNT.Head.XMax)),
-						int(f * float64(font.SFNT.Head.YMax)),
-					},
-					"ItalicAngle":     float64(font.SFNT.Post.ItalicAngle),
-					"Ascent":          int(f * float64(font.SFNT.Hhea.Ascender)),
-					"Descent":         -int(f * float64(font.SFNT.Hhea.Descender)),
-					"CapHeight":       int(f * float64(font.SFNT.OS2.SCapHeight)),
-					"StemV":           80, // taken from Inkscape, should be calculated somehow, maybe use: 10+220*(usWeightClass-50)/900
-					pdfName(fontFile): fontfileRef,
-				},
-			}},
-		}
-
-		w.objOffsets[ref-1] = w.pos
-		w.write("%v 0 obj\n", ref)
-		w.writeVal(dict)
-		w.write("\nendobj\n")
+	toUnicodeStream := pdfStream{
+		dict:   pdfDict{},
+		stream: []byte(toUnicode),
 	}
+	if w.compress {
+		toUnicodeStream.dict["Filter"] = pdfFilterFlate
+	}
+	toUnicodeRef := w.writeObject(toUnicodeStream)
+
+	// write font program
+	fontfileRef := w.writeObject(pdfStream{
+		dict: pdfDict{
+			//"Subtype": pdfName("OpenType"),
+			"Filter": pdfFilterFlate,
+		},
+		stream: fontProgram,
+	})
+
+	// get name and CID subtype
+	name := font.Name()
+	if records := font.SFNT.Name.Get(canvasFont.NamePostScript); 0 < len(records) {
+		name = records[0].String()
+	}
+	baseFont := strings.ReplaceAll(name, " ", "")
+	if w.subset {
+		baseFont = "SUBSET+" + baseFont
+	}
+
+	encoding := "Identity-H"
+	if vertical {
+		encoding = "Identity-V"
+	}
+
+	fontFile := ""
+	cidSubtype := ""
+	if font.SFNT.IsTrueType {
+		fontFile = "FontFile2"
+		cidSubtype = "CIDFontType2"
+	} else if font.SFNT.IsCFF {
+		fontFile = "FontFile"
+		cidSubtype = "CIDFontType0"
+	}
+
+	// in order to support more than 256 characters, we need to use a CIDFont dictionary which must be inside a Type0 font. Character codes in the stream are glyph IDs, however for subsetted fonts they are the _old_ glyph IDs, which is why we need the CIDToGIDMap
+	dict := pdfDict{
+		"Type":      pdfName("Font"),
+		"Subtype":   pdfName("Type0"),
+		"BaseFont":  pdfName(baseFont),
+		"Encoding":  pdfName(encoding), // map character codes in the stream to CID with identity encoding, we additionally map CID to GID in the descendant font when subsetting, otherwise that is also identity
+		"ToUnicode": toUnicodeRef,
+		"DescendantFonts": pdfArray{pdfDict{
+			"Type":     pdfName("Font"),
+			"Subtype":  pdfName(cidSubtype),
+			"BaseFont": pdfName(baseFont),
+			"DW":       DW,
+			"W":        W,
+			"CIDSystemInfo": pdfDict{
+				"Registry":   "Adobe",
+				"Ordering":   "Identity",
+				"Supplement": 0,
+			},
+			"FontDescriptor": pdfDict{
+				"Type":     pdfName("FontDescriptor"),
+				"FontName": pdfName(baseFont),
+				"Flags":    4, // Symbolic
+				"FontBBox": pdfArray{
+					int(f * float64(font.SFNT.Head.XMin)),
+					int(f * float64(font.SFNT.Head.YMin)),
+					int(f * float64(font.SFNT.Head.XMax)),
+					int(f * float64(font.SFNT.Head.YMax)),
+				},
+				"ItalicAngle":     float64(font.SFNT.Post.ItalicAngle),
+				"Ascent":          int(f * float64(font.SFNT.Hhea.Ascender)),
+				"Descent":         -int(f * float64(font.SFNT.Hhea.Descender)),
+				"CapHeight":       int(f * float64(font.SFNT.OS2.SCapHeight)),
+				"StemV":           80, // taken from Inkscape, should be calculated somehow, maybe use: 10+220*(usWeightClass-50)/900
+				pdfName(fontFile): fontfileRef,
+			},
+		}},
+	}
+
+	w.objOffsets[ref-1] = w.pos
+	w.write("%v 0 obj\n", ref)
+	w.writeVal(dict)
+	w.write("\nendobj\n")
 }
 
 func (w *pdfWriter) Close() error {
@@ -420,7 +430,12 @@ func (w *pdfWriter) Close() error {
 		kids = append(kids, page)
 	}
 
-	w.writeFonts()
+	for font, ref := range w.fontsH {
+		w.writeFont(ref, font, false)
+	}
+	for font, ref := range w.fontsV {
+		w.writeFont(ref, font, true)
+	}
 
 	// document catalog
 	w.objOffsets[0] = w.pos
@@ -497,6 +512,7 @@ type pdfPageWriter struct {
 	dashes         []float64
 	font           *canvas.Font
 	fontSize       float64
+	fontDirection  canvasText.Direction
 	inTextObject   bool
 	textPosition   canvas.Matrix
 	textCharSpace  float64
@@ -526,6 +542,7 @@ func (w *pdfWriter) NewPage(width, height float64) *pdfPageWriter {
 		dashes:         []float64{0.0}, // dashArray and dashPhase
 		font:           nil,
 		fontSize:       0.0,
+		fontDirection:  canvasText.LeftToRight,
 		inTextObject:   false,
 		textPosition:   canvas.Identity,
 		textCharSpace:  0.0,
@@ -682,15 +699,17 @@ func (w *pdfPageWriter) SetDashes(dashPhase float64, dashArray []float64) {
 	}
 }
 
-func (w *pdfPageWriter) SetFont(font *canvas.Font, size float64) {
+func (w *pdfPageWriter) SetFont(font *canvas.Font, size float64, direction canvasText.Direction) {
 	if !w.inTextObject {
 		panic("must be in text object")
 	}
-	if font != w.font || w.fontSize != size {
+	if font != w.font || w.fontSize != size || w.fontDirection != direction {
 		w.font = font
 		w.fontSize = size
+		w.fontDirection = direction
 
-		ref := w.pdf.getFont(font)
+		vertical := direction == canvasText.TopToBottom || direction == canvasText.BottomToTop
+		ref := w.pdf.getFont(font, vertical)
 		if _, ok := w.resources["Font"]; !ok {
 			w.resources["Font"] = pdfDict{}
 		} else {
@@ -802,28 +821,41 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 		switch val := tj.(type) {
 		case []canvasText.Glyph:
 			i := 0
-			for j, glyph := range val {
-				origXAdvance := int32(w.font.SFNT.GlyphAdvance(glyph.ID))
-				if glyph.XAdvance != origXAdvance {
-					write(val[i : j+1])
-					fmt.Fprintf(w, " %d", -int(f*float64(glyph.XAdvance-origXAdvance)+0.5))
-					i = j + 1
+			if w.fontDirection == canvasText.TopToBottom || w.fontDirection == canvasText.BottomToTop {
+				for j, glyph := range val {
+					origYAdvance := -int32(w.font.SFNT.GlyphVerticalAdvance(glyph.ID))
+					if glyph.YAdvance != origYAdvance {
+						write(val[i : j+1])
+						fmt.Fprintf(w, " %d", -int(f*float64(glyph.YAdvance-origYAdvance)+0.5))
+						i = j + 1
+					}
+				}
+			} else {
+				for j, glyph := range val {
+					origXAdvance := int32(w.font.SFNT.GlyphAdvance(glyph.ID))
+					if glyph.XAdvance != origXAdvance {
+						write(val[i : j+1])
+						fmt.Fprintf(w, " %d", -int(f*float64(glyph.XAdvance-origXAdvance)+0.5))
+						i = j + 1
+					}
 				}
 			}
 			write(val[i:])
 		case string:
 			i := 0
-			var rPrev rune
-			for j, r := range val {
-				if i < j {
-					kern := w.font.SFNT.Kerning(w.font.SFNT.GlyphIndex(rPrev), w.font.SFNT.GlyphIndex(r))
-					if kern != 0 {
-						writeString(val[i:j])
-						fmt.Fprintf(w, " %d", -int(f*float64(kern)+0.5))
-						i = j
+			if !(w.fontDirection == canvasText.TopToBottom || w.fontDirection == canvasText.BottomToTop) {
+				var rPrev rune
+				for j, r := range val {
+					if i < j {
+						kern := w.font.SFNT.Kerning(w.font.SFNT.GlyphIndex(rPrev), w.font.SFNT.GlyphIndex(r))
+						if kern != 0 {
+							writeString(val[i:j])
+							fmt.Fprintf(w, " %d", -int(f*float64(kern)+0.5))
+							i = j
+						}
 					}
+					rPrev = r
 				}
-				rPrev = r
 			}
 			writeString(val[i:])
 		case float64:
