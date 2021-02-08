@@ -255,6 +255,8 @@ func ParseSFNT(b []byte, index int) (*SFNT, error) {
 
 type cmapFormat0 struct {
 	GlyphIdArray [256]uint8
+
+	UnicodeMap map[uint16]rune
 }
 
 func (subtable *cmapFormat0) Get(r rune) (uint16, bool) {
@@ -267,13 +269,14 @@ func (subtable *cmapFormat0) Get(r rune) (uint16, bool) {
 func (subtable *cmapFormat0) ToUnicode(glyphID uint16) (rune, bool) {
 	if 256 <= glyphID {
 		return 0, false
-	}
-	for r, id := range subtable.GlyphIdArray {
-		if id == uint8(glyphID) {
-			return rune(r), true
+	} else if subtable.UnicodeMap == nil {
+		subtable.UnicodeMap = make(map[uint16]rune, 256)
+		for r, id := range subtable.GlyphIdArray {
+			subtable.UnicodeMap[uint16(id)] = rune(r)
 		}
 	}
-	return 0, false
+	r, ok := subtable.UnicodeMap[glyphID]
+	return r, ok
 }
 
 type cmapFormat4 struct {
@@ -282,6 +285,8 @@ type cmapFormat4 struct {
 	IdDelta       []int16
 	IdRangeOffset []uint16
 	GlyphIdArray  []uint16
+
+	UnicodeMap map[uint16]rune
 }
 
 func (subtable *cmapFormat4) Get(r rune) (uint16, bool) {
@@ -306,8 +311,28 @@ func (subtable *cmapFormat4) Get(r rune) (uint16, bool) {
 }
 
 func (subtable *cmapFormat4) ToUnicode(glyphID uint16) (rune, bool) {
-	// TODO
-	return 0, false
+	if subtable.UnicodeMap == nil {
+		subtable.UnicodeMap = map[uint16]rune{}
+		n := len(subtable.StartCode)
+		for i := 0; i < n; i++ {
+			for r := subtable.StartCode[i]; r < subtable.EndCode[i]; r++ {
+				var id uint16
+				if subtable.IdRangeOffset[i] == 0 {
+					// is modulo 65536 with the idDelta cast and addition overflow
+					id = uint16(subtable.IdDelta[i]) + r
+				} else {
+					// idRangeOffset/2  ->  offset value to index of words
+					// r-startCode  ->  difference of rune with startCode
+					// -(n-1)  ->  subtract offset from the current idRangeOffset item
+					index := int(subtable.IdRangeOffset[i]/2) + int(r-subtable.StartCode[i]) - (n - i)
+					id = subtable.GlyphIdArray[index]
+				}
+				subtable.UnicodeMap[id] = rune(r)
+			}
+		}
+	}
+	r, ok := subtable.UnicodeMap[glyphID]
+	return r, ok
 }
 
 type cmapFormat6 struct {
@@ -335,6 +360,8 @@ type cmapFormat12 struct {
 	StartCharCode []uint32
 	EndCharCode   []uint32
 	StartGlyphID  []uint32
+
+	UnicodeMap map[uint16]rune
 }
 
 func (subtable *cmapFormat12) Get(r rune) (uint16, bool) {
@@ -350,12 +377,17 @@ func (subtable *cmapFormat12) Get(r rune) (uint16, bool) {
 }
 
 func (subtable *cmapFormat12) ToUnicode(glyphID uint16) (rune, bool) {
-	for i := 0; i < len(subtable.StartCharCode); i++ {
-		if subtable.StartGlyphID[i] <= uint32(glyphID) && uint32(glyphID) <= subtable.StartGlyphID[i]+(subtable.EndCharCode[i]-subtable.StartCharCode[i]) {
-			return rune((uint32(glyphID) - subtable.StartGlyphID[i]) + subtable.StartCharCode[i]), true
+	if subtable.UnicodeMap == nil {
+		subtable.UnicodeMap = map[uint16]rune{}
+		for i := 0; i < len(subtable.StartCharCode); i++ {
+			for r := subtable.StartCharCode[i]; r < subtable.EndCharCode[i]; r++ {
+				id := uint16((uint32(r) - subtable.StartCharCode[i]) + subtable.StartGlyphID[i])
+				subtable.UnicodeMap[id] = rune(r)
+			}
 		}
 	}
-	return 0, false
+	r, ok := subtable.UnicodeMap[glyphID]
+	return r, ok
 }
 
 type cmapEncodingRecord struct {
@@ -376,8 +408,9 @@ type cmapTable struct {
 }
 
 func (cmap *cmapTable) Get(r rune) uint16 {
-	for _, subtable := range cmap.Subtables {
+	for j, subtable := range cmap.Subtables {
 		if glyphID, ok := subtable.Get(r); ok {
+			fmt.Println("get", j, string(r), glyphID)
 			return glyphID
 		}
 	}
@@ -385,8 +418,9 @@ func (cmap *cmapTable) Get(r rune) uint16 {
 }
 
 func (cmap *cmapTable) ToUnicode(glyphID uint16) rune {
-	for _, subtable := range cmap.Subtables {
+	for j, subtable := range cmap.Subtables {
 		if r, ok := subtable.ToUnicode(glyphID); ok {
+			fmt.Println("tounicode", j, string(r), glyphID)
 			return r
 		}
 	}
