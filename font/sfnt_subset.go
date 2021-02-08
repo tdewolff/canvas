@@ -25,24 +25,10 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 			glyphIDs = append(glyphIDs, deps[1:]...)
 		}
 	}
-	// sort ascending and add default glyph
-	sort.Slice(glyphIDs, func(i, j int) bool { return glyphIDs[i] < glyphIDs[j] })
-	if len(glyphIDs) == 0 || glyphIDs[0] != 0 {
-		glyphIDs = append([]uint16{0}, glyphIDs...)
-	}
-	// remove duplicate and invalid glyphIDs
-	for i := 0; i < len(glyphIDs); i++ {
-		if sfnt.Maxp.NumGlyphs <= glyphIDs[i] {
-			glyphIDs = glyphIDs[:i]
-			break
-		} else if 0 < i && glyphIDs[i] == glyphIDs[i-1] {
-			glyphIDs = append(glyphIDs[:i], glyphIDs[i+1:]...)
-			i--
-		}
-	}
+
 	glyphMap := make(map[uint16]uint16, len(glyphIDs))
-	for i, glyphID := range glyphIDs {
-		glyphMap[glyphID] = uint16(i)
+	for subsetGlyphID, glyphID := range glyphIDs {
+		glyphMap[glyphID] = uint16(subsetGlyphID)
 	}
 
 	// specify tables to include
@@ -280,10 +266,10 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 
 			rs := make([]rune, 0, len(glyphIDs))
 			runeMap := make(map[rune]uint16, len(glyphIDs))
-			for i, glyphID := range glyphIDs {
+			for subsetGlyphID, glyphID := range glyphIDs {
 				if r := sfnt.Cmap.ToUnicode(glyphID); r != 0 {
 					rs = append(rs, r)
-					runeMap[r] = uint16(i)
+					runeMap[r] = uint16(subsetGlyphID)
 				}
 			}
 
@@ -296,10 +282,10 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 				n := uint32(1)
 				for i := 1; i < len(rs); i++ {
 					r := rs[i]
-					glyphID := runeMap[r]
+					subsetGlyphID := runeMap[r]
 					if r == rs[i-1] {
 						continue
-					} else if uint32(r) == startCharCode+n && uint32(glyphID) == startGlyphID+n {
+					} else if uint32(r) == startCharCode+n && uint32(subsetGlyphID) == startGlyphID+n {
 						n++
 					} else {
 						w.WriteUint32(uint32(startCharCode))         // startCharCode
@@ -307,7 +293,7 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 						w.WriteUint32(uint32(startGlyphID))          // startGlyphID
 						numGroups++
 						startCharCode = uint32(r)
-						startGlyphID = uint32(glyphID)
+						startGlyphID = uint32(subsetGlyphID)
 						n = 1
 					}
 				}

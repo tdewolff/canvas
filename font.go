@@ -43,11 +43,12 @@ const (
 // Font defines a font of type TTF or OTF which which a FontFace can be generated for use in text drawing operations.
 type Font struct {
 	*font.SFNT
-	name       string
-	subsetIDs  map[uint16]bool
-	shaper     text.Shaper
-	variations string
-	features   string
+	name        string
+	subsetIDs   []uint16          // old glyphIDs for increasing new glyphIDs
+	subsetIDMap map[uint16]uint16 // old to new glyphID
+	shaper      text.Shaper
+	variations  string
+	features    string
 }
 
 func parseFont(name string, b []byte, index int) (*Font, error) {
@@ -62,10 +63,11 @@ func parseFont(name string, b []byte, index int) (*Font, error) {
 	}
 
 	font := &Font{
-		SFNT:      SFNT,
-		name:      name,
-		subsetIDs: map[uint16]bool{},
-		shaper:    shaper,
+		SFNT:        SFNT,
+		name:        name,
+		subsetIDs:   []uint16{0}, // .notdef should always be at zero
+		subsetIDMap: map[uint16]uint16{0: 0},
+		shaper:      shaper,
 	}
 	return font, nil
 }
@@ -79,16 +81,18 @@ func (f *Font) Name() string {
 	return f.name
 }
 
-func (f *Font) Use(glyphID uint16) {
-	f.subsetIDs[glyphID] = true
+func (f *Font) SubsetID(glyphID uint16) uint16 {
+	if subsetGlyphID, ok := f.subsetIDMap[glyphID]; ok {
+		return subsetGlyphID
+	}
+	subsetGlyphID := uint16(len(f.subsetIDs))
+	f.subsetIDs = append(f.subsetIDs, glyphID)
+	f.subsetIDMap[glyphID] = subsetGlyphID
+	return subsetGlyphID
 }
 
 func (f *Font) SubsetIDs() []uint16 {
-	glyphIDs := make([]uint16, 0, len(f.subsetIDs))
-	for glyphID, _ := range f.subsetIDs {
-		glyphIDs = append(glyphIDs, glyphID)
-	}
-	return glyphIDs
+	return f.subsetIDs
 }
 
 func (f *Font) SetVariations(variations string) {

@@ -226,7 +226,7 @@ func (w *pdfWriter) writeFonts() {
 	for font, ref := range w.fonts {
 		// subset the font
 		var fontProgram []byte
-		var glyphIDs []uint16 // actual to original glyph ID, identical if we're not subsetting
+		var glyphIDs []uint16 // subset to original glyph ID, identical if we're not subsetting
 		if w.subset {
 			// TODO: remove all optional tables such as kern, GPOS, GSUB, ...
 			fontProgram, glyphIDs = font.SFNT.Subset(font.SubsetIDs())
@@ -240,9 +240,9 @@ func (w *pdfWriter) writeFonts() {
 
 		// calculate the character widths for the W array and shorten it
 		f := 1000.0 / float64(font.SFNT.Head.UnitsPerEm)
-		widths := make([]int, glyphIDs[len(glyphIDs)-1]+1)
-		for _, glyphID := range glyphIDs {
-			widths[glyphID] = int(f*float64(font.SFNT.GlyphAdvance(glyphID)) + 0.5)
+		widths := make([]int, len(glyphIDs)+1)
+		for subsetGlyphID, glyphID := range glyphIDs {
+			widths[subsetGlyphID] = int(f*float64(font.SFNT.GlyphAdvance(glyphID)) + 0.5)
 		}
 		DW := widths[0]
 		W := pdfArray{}
@@ -279,14 +279,15 @@ func (w *pdfWriter) writeFonts() {
 		startGlyphID := uint16(0)
 		startUnicode := uint32('\uFFFD')
 		length := uint16(1)
-		for _, glyphID := range glyphIDs[1:] {
+		for subsetGlyphID, glyphID := range glyphIDs[1:] {
 			unicode := uint32(font.SFNT.Cmap.ToUnicode(glyphID))
+			fmt.Println(subsetGlyphID, glyphID, string(unicode), unicode)
 			if 0x010000 <= unicode && unicode <= 0x10FFFF {
 				// UTF-16 surrogates
 				unicode -= 0x10000
 				unicode = (0xD800+(unicode>>10)&0x3FF)<<16 + 0xDC00 + unicode&0x3FF
 			}
-			if glyphID == startGlyphID+length && unicode == startUnicode+uint32(length) {
+			if uint16(subsetGlyphID+1) == startGlyphID+length && unicode == startUnicode+uint32(length) {
 				length++
 			} else {
 				if 1 < length {
@@ -294,7 +295,7 @@ func (w *pdfWriter) writeFonts() {
 				} else {
 					fmt.Fprintf(&bfChar, "<%04X> <%04X>\n", startGlyphID, startUnicode)
 				}
-				startGlyphID = glyphID
+				startGlyphID = uint16(subsetGlyphID + 1)
 				startUnicode = unicode
 				length = 1
 			}
@@ -398,36 +399,6 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 					"FontFile3":   fontfileRef,
 				},
 			}},
-		}
-
-		// add CIDToGIDMap as the characters use the original glyphIDs of the non-subsetted font
-		if w.subset {
-			cidToGIDMap := make([]byte, 2*glyphIDs[len(glyphIDs)-1]+2)
-			for i, glyphID := range glyphIDs {
-				j := int(glyphID) * 2
-				cidToGIDMap[j+0] = byte((i & 0xFF00) >> 8)
-				cidToGIDMap[j+1] = byte(i & 0x00FF)
-			}
-			cidToGIDMapStream := pdfStream{
-				dict:   pdfDict{},
-				stream: cidToGIDMap,
-			}
-			if w.compress {
-				cidToGIDMapStream.dict["Filter"] = pdfFilterFlate
-			}
-			dict["DescendantFonts"].(pdfArray)[0].(pdfDict)["CIDToGIDMap"] = cidToGIDMapStream
-
-			cidSetLength := (glyphIDs[len(glyphIDs)-1] + 1 + 7) / 8 // ceil of number of bytes
-			cidSet := make([]byte, cidSetLength)
-			for _, glyphID := range glyphIDs {
-				i := glyphID / 8
-				j := glyphID % 8
-				cidSet[i] |= 0x80 >> j
-			}
-			cidSetStream := pdfStream{
-				stream: cidSet,
-			}
-			dict["DescendantFonts"].(pdfArray)[0].(pdfDict)["CIDSet"] = cidSetStream
 		}
 
 		w.objOffsets[ref-1] = w.pos
@@ -800,11 +771,11 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 			fmt.Fprintf(w, " (")
 		}
 		for _, glyph := range glyphs {
-			w.font.Use(glyph.ID)
-			if r := rune(glyph.ID); r == '\\' || r == '(' || r == ')' {
+			glyphID := w.font.SubsetID(glyph.ID)
+			if r := rune(glyphID); r == '\\' || r == '(' || r == ')' {
 				binary.Write(w, binary.BigEndian, '\\')
 			}
-			binary.Write(w, binary.BigEndian, glyph.ID)
+			binary.Write(w, binary.BigEndian, glyphID)
 		}
 		fmt.Fprintf(w, ")")
 	}
