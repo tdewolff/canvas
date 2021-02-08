@@ -339,8 +339,8 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 		// write font program
 		fontfileRef := w.writeObject(pdfStream{
 			dict: pdfDict{
-				"Subtype": pdfName("OpenType"),
-				"Filter":  pdfFilterFlate,
+				//"Subtype": pdfName("OpenType"),
+				"Filter": pdfFilterFlate,
 			},
 			stream: fontProgram,
 		})
@@ -355,10 +355,13 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 			baseFont = "SUBSET+" + baseFont
 		}
 
+		fontFile := ""
 		cidSubtype := ""
 		if font.SFNT.IsTrueType {
+			fontFile = "FontFile2"
 			cidSubtype = "CIDFontType2"
 		} else if font.SFNT.IsCFF {
+			fontFile = "FontFile"
 			cidSubtype = "CIDFontType0"
 		}
 
@@ -390,13 +393,13 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 						int(f * float64(font.SFNT.Head.XMax)),
 						int(f * float64(font.SFNT.Head.YMax)),
 					},
-					"ItalicAngle": float64(font.SFNT.Post.ItalicAngle),
-					"Ascent":      int(f * float64(font.SFNT.Hhea.Ascender)),
-					"Descent":     -int(f * float64(font.SFNT.Hhea.Descender)),
-					"CapHeight":   int(f * float64(font.SFNT.OS2.SCapHeight)),
-					"StemV":       80, // taken from Inkscape, should be calculated somehow, maybe use: 10+220*(usWeightClass-50)/900
-					"StemH":       80, // idem
-					"FontFile3":   fontfileRef,
+					"ItalicAngle":     float64(font.SFNT.Post.ItalicAngle),
+					"Ascent":          int(f * float64(font.SFNT.Hhea.Ascender)),
+					"Descent":         -int(f * float64(font.SFNT.Hhea.Descender)),
+					"CapHeight":       int(f * float64(font.SFNT.OS2.SCapHeight)),
+					"StemV":           80, // taken from Inkscape, should be calculated somehow, maybe use: 10+220*(usWeightClass-50)/900
+					"StemH":           80, // idem
+					pdfName(fontFile): fontfileRef,
 				},
 			}},
 		}
