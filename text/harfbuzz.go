@@ -146,7 +146,9 @@ func ScriptItemizer(text string) []string {
 	for j := 0; j < len(text); {
 		r, n := utf8.DecodeRuneInString(text[j:])
 		script := Script(C.hb_unicode_script(funcs, C.uint(r)))
-		if j != 0 && script != curScript && script != ScriptInherited {
+		if j == 0 {
+			curScript = script
+		} else if script != curScript && script != ScriptInherited && script != ScriptCommon {
 			items = append(items, text[i:j])
 			curScript = script
 			i = j

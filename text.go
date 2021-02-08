@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"fmt"
 	"math"
 	"sort"
 	"unicode/utf8"
@@ -74,6 +75,7 @@ func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 				lineWidth := 0.0
 				line := line{y: y, spans: []TextSpan{}}
 				for _, ss := range text.ScriptItemizer(text.Bidi(s[i:j])) {
+					fmt.Println("emb", ss)
 					glyphs := ff.Font.shaper.Shape(ss, ppem, ff.Direction, ff.Script, ff.Language, ff.Font.features, ff.Font.variations)
 					width := ff.textWidth(glyphs)
 					line.spans = append(line.spans, TextSpan{
