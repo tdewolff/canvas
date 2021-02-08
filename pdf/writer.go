@@ -25,9 +25,10 @@ type pdfWriter struct {
 
 	pos        int
 	objOffsets []int
+	pages      []pdfRef
 
+	page     *pdfPageWriter
 	fonts    map[*canvas.Font]pdfRef
-	pages    []*pdfPageWriter
 	compress bool
 	subset   bool
 	title    string
@@ -281,7 +282,6 @@ func (w *pdfWriter) writeFonts() {
 		length := uint16(1)
 		for subsetGlyphID, glyphID := range glyphIDs[1:] {
 			unicode := uint32(font.SFNT.Cmap.ToUnicode(glyphID))
-			fmt.Println(subsetGlyphID, glyphID, string(unicode), unicode)
 			if 0x010000 <= unicode && unicode <= 0x10FFFF {
 				// UTF-16 surrogates
 				unicode -= 0x10000
@@ -398,7 +398,6 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 					"Descent":         -int(f * float64(font.SFNT.Hhea.Descender)),
 					"CapHeight":       int(f * float64(font.SFNT.OS2.SCapHeight)),
 					"StemV":           80, // taken from Inkscape, should be calculated somehow, maybe use: 10+220*(usWeightClass-50)/900
-					"StemH":           80, // idem
 					pdfName(fontFile): fontfileRef,
 				},
 			}},
@@ -412,10 +411,13 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 }
 
 func (w *pdfWriter) Close() error {
-	// TODO: write pages directly to stream instead of using bytes.Buffer
+	if w.page != nil {
+		w.pages = append(w.pages, w.page.writePage(pdfRef(3)))
+	}
+
 	kids := pdfArray{}
-	for _, p := range w.pages {
-		kids = append(kids, p.writePage(pdfRef(3)))
+	for _, page := range w.pages {
+		kids = append(kids, page)
 	}
 
 	w.writeFonts()
@@ -502,8 +504,12 @@ type pdfPageWriter struct {
 }
 
 func (w *pdfWriter) NewPage(width, height float64) *pdfPageWriter {
+	if w.page != nil {
+		w.pages = append(w.pages, w.page.writePage(pdfRef(3)))
+	}
+
 	// for defaults see https://help.adobe.com/pdfl_sdk/15/PDFL_SDK_HTMLHelp/PDFL_SDK_HTMLHelp/API_References/PDFL_API_Reference/PDFEdit_Layer/General.html#_t_PDEGraphicState
-	page := &pdfPageWriter{
+	w.page = &pdfPageWriter{
 		Buffer:         &bytes.Buffer{},
 		pdf:            w,
 		width:          width,
@@ -525,11 +531,10 @@ func (w *pdfWriter) NewPage(width, height float64) *pdfPageWriter {
 		textCharSpace:  0.0,
 		textRenderMode: 0,
 	}
-	w.pages = append(w.pages, page)
 
 	m := canvas.Identity.Scale(ptPerMm, ptPerMm)
-	fmt.Fprintf(page, " %v %v %v %v %v %v cm", dec(m[0][0]), dec(m[1][0]), dec(m[0][1]), dec(m[1][1]), dec(m[0][2]), dec(m[1][2]))
-	return page
+	fmt.Fprintf(w.page, " %v %v %v %v %v %v cm", dec(m[0][0]), dec(m[1][0]), dec(m[0][1]), dec(m[1][1]), dec(m[0][2]), dec(m[1][2]))
+	return w.page
 }
 
 func (w *pdfPageWriter) writePage(parent pdfRef) pdfRef {

@@ -408,9 +408,8 @@ type cmapTable struct {
 }
 
 func (cmap *cmapTable) Get(r rune) uint16 {
-	for j, subtable := range cmap.Subtables {
+	for _, subtable := range cmap.Subtables {
 		if glyphID, ok := subtable.Get(r); ok {
-			fmt.Println("get", j, string(r), glyphID)
 			return glyphID
 		}
 	}
@@ -418,9 +417,8 @@ func (cmap *cmapTable) Get(r rune) uint16 {
 }
 
 func (cmap *cmapTable) ToUnicode(glyphID uint16) rune {
-	for j, subtable := range cmap.Subtables {
+	for _, subtable := range cmap.Subtables {
 		if r, ok := subtable.ToUnicode(glyphID); ok {
-			fmt.Println("tounicode", j, string(r), glyphID)
 			return r
 		}
 	}

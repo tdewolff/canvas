@@ -504,7 +504,6 @@ func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, indent, widt
 	for position, item := range items {
 		if position == breaks[j].Position {
 			if item.Type == PenaltyType && item.Flagged && item.Width != 0.0 {
-				//fmt.Println("hyphen", item.Width)
 				if 0 < len(glyphLines[j]) && glyphLines[j][len(glyphLines[j])-1].ID == spaceID {
 					glyphLines[j] = glyphLines[j][:len(glyphLines[j])-1]
 				}
@@ -519,7 +518,6 @@ func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, indent, widt
 			}
 			atStart = true
 		} else if item.Type == BoxType {
-			//fmt.Println(j, breaks[j].Ratio, item.Width, len(item.Glyphs))
 			glyphLines[j] = append(glyphLines[j], item.Glyphs...)
 			atStart = false
 		} else if item.Type == GlueType && !atStart {
@@ -531,7 +529,6 @@ func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, indent, widt
 			} else if !math.IsInf(item.Shrink, 0.0) {
 				width += breaks[j].Ratio * item.Shrink
 			}
-			//fmt.Println(j, breaks[j].Ratio, item.Width, item.Stretch, item.Shrink, "=>", width)
 			if 0 < len(glyphLines[j]) && glyphLines[j][len(glyphLines[j])-1].ID == spaceID {
 				glyphLines[j][len(glyphLines[j])-1].XAdvance += int32(width)
 			} else {
