@@ -14,7 +14,7 @@ import (
 
 var FriBidi = true
 
-func Bidi(text string) string {
+func Bidi(text string) (string, []int) {
 	str := []rune(text)
 	pbaseDir := C.FriBidiParType(C.FRIBIDI_PAR_ON) // neutral direction
 	visualStr := make([]rune, len(str))
@@ -33,5 +33,11 @@ func Bidi(text string) string {
 		&positionsV2L[0],
 		&embeddingLevels[0],
 	)
-	return string(visualStr)
+	text = string(visualStr)
+
+	mapV2L := make([]int, len(positionsV2L))
+	for i, pos := range positionsV2L {
+		mapV2L[i] = int(pos)
+	}
+	return text, mapV2L
 }

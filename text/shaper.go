@@ -46,6 +46,10 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	return glyphs
 }
 
+func ScriptItemizer(text string) []string {
+	return []string{text}
+}
+
 type Direction int
 
 const (

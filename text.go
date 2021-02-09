@@ -1,12 +1,12 @@
 package canvas
 
 import (
-	"fmt"
 	"math"
 	"sort"
 	"unicode/utf8"
 
 	"github.com/tdewolff/canvas/text"
+	canvasText "github.com/tdewolff/canvas/text"
 )
 
 // TextAlign specifies how the text should align or whether it should be justified.
@@ -26,6 +26,7 @@ const (
 type Text struct {
 	lines []line
 	fonts map[*Font]bool
+	Face  FontFace
 }
 
 type line struct {
@@ -64,7 +65,7 @@ func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 	lines := []line{}
 	skipNext := false
 	for j, r := range s + "\n" {
-		if text.IsParagraphSeparator(r) {
+		if canvasText.IsParagraphSeparator(r) {
 			if skipNext {
 				skipNext = false
 				i++
@@ -74,15 +75,24 @@ func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 				ppem := ff.PPEM(DefaultDPMM)
 				lineWidth := 0.0
 				line := line{y: y, spans: []TextSpan{}}
-				for _, ss := range text.ScriptItemizer(text.Bidi(s[i:j])) {
-					fmt.Println("emb", ss)
-					glyphs := ff.Font.shaper.Shape(ss, ppem, ff.Direction, ff.Script, ff.Language, ff.Font.features, ff.Font.variations)
+				itemsL, itemsV := itemizeString(s[i:j])
+				for k := 0; k < len(itemsL); k++ {
+					glyphs := ff.Font.shaper.Shape(itemsV[k], ppem, ff.Direction, ff.Script, ff.Language, ff.Font.features, ff.Font.variations)
 					width := ff.textWidth(glyphs)
+					text := itemsL[k]
+					if ff.Direction == canvasText.BottomToTop {
+						length := len([]rune(text))
+						reverseText := make([]rune, length)
+						for pos, r := range []rune(text) {
+							reverseText[length-pos-1] = r
+						}
+						text = string(reverseText)
+					}
 					line.spans = append(line.spans, TextSpan{
 						x:      lineWidth,
 						Width:  width,
 						Face:   ff,
-						Text:   ss,
+						Text:   text,
 						Glyphs: glyphs,
 					})
 					lineWidth += width
@@ -103,7 +113,11 @@ func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 			skipNext = r == '\r' && j+1 < len(s) && s[j+1] == '\n'
 		}
 	}
-	return &Text{lines, map[*Font]bool{ff.Font: true}}
+	return &Text{
+		lines: lines,
+		fonts: map[*Font]bool{ff.Font: true},
+		Face:  ff,
+	}
 }
 
 //// NewTextBox is an advanced text formatter that will calculate text placement based on the settings. It takes a font face, a string, the width or height of the box (can be zero for no limit), horizontal and vertical alignment (Left, Center, Right, Top, Bottom or Justify), text indentation for the first line and line stretch (percentage to stretch the line based on the line height).
@@ -450,7 +464,7 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix) {
 		for _, span := range line.spans {
 			style.FillColor = span.Face.Color
 
-			p, _, _ := span.Face.ToPath(span.Text, DefaultDPMM)
+			p, _, _ := span.Face.toPath(span.Glyphs, span.Face.PPEM(DefaultDPMM))
 			p = p.Translate(span.x, line.y)
 			r.RenderPath(p, style, m)
 
@@ -758,3 +772,20 @@ func (t *Text) WalkSpans(callback func(y, x float64, span TextSpan)) {
 //	// see https://unicode.org/reports/tr14/#Properties
 //	return unicode.IsSpace(r) || r == '\t' || r == '\u2028' || r == '\u2029'
 //}
+
+func itemizeString(log string) ([]string, []string) {
+	offset := 0
+	vis, mapV2L := canvasText.Bidi(log)
+	itemsV := canvasText.ScriptItemizer(vis)
+	itemsL := make([]string, 0, len(itemsV))
+	for _, item := range itemsV {
+		itemV := []rune(item)
+		itemL := make([]rune, len(itemV))
+		for i := 0; i < len(itemV); i++ {
+			itemL[mapV2L[offset+i]-offset] = itemV[i]
+		}
+		itemsL = append(itemsL, string(itemL))
+		offset += len(itemV)
+	}
+	return itemsL, itemsV
+}

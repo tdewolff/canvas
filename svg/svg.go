@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/tdewolff/canvas"
+	canvasText "github.com/tdewolff/canvas/text"
 )
 
 // Writer writes the canvas as a SVG file
@@ -61,7 +62,7 @@ func (r *SVG) writeFonts() {
 	if 0 < len(r.fonts) {
 		fmt.Fprintf(r.w, "<style>")
 		for font, _ := range r.fonts {
-			b, _ := font.SFNT.Subset(font.UsedIndices())
+			b, _ := font.SFNT.Subset(font.SubsetIDs())
 			fmt.Fprintf(r.w, "\n@font-face{font-family:'%s';src:url('data:type/opentype;base64,", font.Name())
 			encoder := base64.NewEncoder(base64.StdEncoding, r.w)
 			encoder.Write(b)
@@ -233,7 +234,7 @@ func (r *SVG) writeFontStyle(ff, ffMain canvas.FontFace) {
 	if ff.Color != ffMain.Color {
 		differences++
 	}
-	if ff.Name() != ffMain.Name() || ff.Size*ff.Scale != ffMain.Size || differences == 3 {
+	if ff.Name() != ffMain.Name() /*TODO:|| ff.Size*ff.Scale != ffMain.Size*/ || differences == 3 {
 		fmt.Fprintf(r.w, `" style="font:`)
 
 		buf := &bytes.Buffer{}
@@ -249,7 +250,7 @@ func (r *SVG) writeFontStyle(ff, ffMain canvas.FontFace) {
 			fmt.Fprintf(buf, ` small-caps`)
 		}
 
-		fmt.Fprintf(buf, ` %vpx %s`, num(ff.Size*ff.Scale), ff.Name())
+		fmt.Fprintf(buf, ` %vpx %s`, num(ff.Size /*TODO:*ff.Scale*/), ff.Name())
 		buf.ReadByte()
 		buf.WriteTo(r.w)
 
@@ -283,7 +284,8 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 		return
 	}
 
-	ffMain := text.MostCommonFontFace()
+	//ffMain := text.MostCommonFontFace()
+	ffMain := text.Face
 
 	x0, y0 := 0.0, 0.0
 	if m.IsTranslation() {
@@ -303,27 +305,32 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 	if ffMain.Variant&canvas.FontSmallcaps != 0 {
 		fmt.Fprintf(r.w, ` small-caps`)
 	}
-	fmt.Fprintf(r.w, ` %vpx %s`, num(ffMain.Size*ffMain.Scale), ffMain.Name())
+	fmt.Fprintf(r.w, ` %vpx %s`, num(ffMain.Size /**ffMain.Scale*/), ffMain.Name())
 	if ffMain.Color != canvas.Black {
 		fmt.Fprintf(r.w, `;fill:%v`, canvas.CSSColor(ffMain.Color))
+	}
+	if ffMain.Direction == canvasText.TopToBottom || ffMain.Direction == canvasText.BottomToTop {
+		fmt.Fprintf(r.w, `;writing-mode:vertical-lr`)
 	}
 	r.writeClasses(r.w)
 	fmt.Fprintf(r.w, `">`)
 
-	text.WalkSpans(func(y, dx float64, span canvas.TextSpan) {
+	text.WalkSpans(func(y, x float64, span canvas.TextSpan) {
 		r.fonts[span.Face.Font] = true
 		for _, r := range []rune(span.Text) {
 			glyphID := span.Face.Font.SFNT.GlyphIndex(r)
-			span.Face.Font.Use(glyphID)
+			_ = span.Face.Font.SubsetID(glyphID) // register usage of glyph for subsetting
 		}
 
-		fmt.Fprintf(r.w, `<tspan x="%v" y="%v`, num(x0+dx), num(y0-y-span.Face.Voffset))
-		if span.WordSpacing > 0.0 {
-			fmt.Fprintf(r.w, `" word-spacing="%v`, num(span.WordSpacing))
-		}
-		if span.GlyphSpacing > 0.0 {
-			fmt.Fprintf(r.w, `" letter-spacing="%v`, num(span.GlyphSpacing))
-		}
+		x += x0 + float64(span.Face.XOffset)
+		y = y0 - y - float64(span.Face.YOffset)
+		fmt.Fprintf(r.w, `<tspan x="%v" y="%v`, num(x), num(y))
+		//if span.WordSpacing > 0.0 {
+		//	fmt.Fprintf(r.w, `" word-spacing="%v`, num(span.WordSpacing))
+		//}
+		//if span.GlyphSpacing > 0.0 {
+		//	fmt.Fprintf(r.w, `" letter-spacing="%v`, num(span.GlyphSpacing))
+		//}
 		r.writeFontStyle(span.Face, ffMain)
 		r.writeClasses(r.w)
 		fmt.Fprintf(r.w, `">`)
@@ -331,7 +338,7 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 		fmt.Fprintf(r.w, `</tspan>`)
 	})
 	fmt.Fprintf(r.w, `</text>`)
-	text.RenderDecoration(r, m)
+	//text.RenderDecoration(r, m)
 }
 
 func (r *SVG) RenderImage(img image.Image, m canvas.Matrix) {
