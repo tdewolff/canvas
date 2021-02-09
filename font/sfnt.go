@@ -56,7 +56,8 @@ type SFNT struct {
 	Kern *kernTable
 	Vhea *vheaTable
 	Vmtx *vmtxTable
-	//Gpos *gposTable
+	//Gpos *gposTable //TODO
+	//Gsub *gsubTable //TODO
 	//Gasp *gaspTable
 }
 
@@ -1429,3 +1430,73 @@ func (sfnt *SFNT) parsePost() error {
 	}
 	return fmt.Errorf("post: bad table")
 }
+
+////////////////////////////////////////////////////////////////
+
+type scriptList struct {
+	Data []byte
+}
+
+type featureList struct {
+	Data []byte
+}
+
+type lookupList struct {
+	Data []byte
+}
+
+type featureVariations struct {
+	Data []byte
+}
+
+type gposTable struct {
+	Scripts           scriptList
+	Features          featureList
+	Lookup            lookupList
+	FeatureVariations featureVariations
+}
+
+//func (sfnt *SFNT) parseGpos() error {
+//	b, ok := sfnt.Tables["GPOS"]
+//	if !ok {
+//		return fmt.Errorf("GPOS: missing table")
+//	} else if len(b) < 32 {
+//		return fmt.Errorf("GPOS: bad table")
+//	}
+//
+//	sfnt.Gpos = &gposTable{}
+//	r := newBinaryReader(b)
+//	majorVersion := r.ReadUint16()
+//	minorVersion := r.ReadUint16()
+//	if majorVersion != 1 && minorVersion != 0 && minorVersion != 1 {
+//		return fmt.Errorf("GPOS: bad version")
+//	}
+//
+//	scriptListOffset := r.ReadUint16()
+//	if len(b)-2 < scriptListOffset {
+//		return fmt.Errorf("GPOS: bad scriptList offset")
+//	}
+//	sfnt.Gpos.Scripts = scriptList{b[scriptListOffset:]}
+//
+//	featureListOffset := r.ReadUint16()
+//	if len(b)-2 < featureListOffset {
+//		return fmt.Errorf("GPOS: bad featureList offset")
+//	}
+//	sfnt.Gpos.Features = featureList{b[featureListOffset:]}
+//
+//	lookupListOffset := r.ReadUint16()
+//	if len(b)-2 < lookupListOffset {
+//		return fmt.Errorf("GPOS: bad lookupList offset")
+//	}
+//	sfnt.Gpos.Lookup = lookupList{b[lookupListOffset:]}
+//
+//	var featureVariationsOffset uint32
+//	if minorVersion == 1 {
+//		featureVariationsOffset = r.ReadUint32()
+//		if len(b)-8 < featureVariationOffset {
+//			return fmt.Errorf("GPOS: bad featureVariation offset")
+//		}
+//		sfnt.Gpos.FeatureVariations = featureVariations{b[featureVariationOffset:]}
+//	}
+//	return nil
+//}

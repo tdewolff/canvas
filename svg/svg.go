@@ -27,26 +27,28 @@ func Writer(w io.Writer, c *canvas.Canvas) error {
 type SVG struct {
 	w             io.Writer
 	width, height float64
-	embedFonts    bool
 	fonts         map[*canvas.Font]bool
 	maskID        int
-	imgEnc        canvas.ImageEncoding
 
-	classes []string
+	embedFonts  bool
+	subsetFonts bool
+	imgEnc      canvas.ImageEncoding
+	classes     []string
 }
 
 // New creates a scalable vector graphics (SVG) renderer.
 func New(w io.Writer, width, height float64) *SVG {
 	fmt.Fprintf(w, `<svg version="1.1" width="%vmm" height="%vmm" viewBox="0 0 %v %v" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, dec(width), dec(height), dec(width), dec(height))
 	return &SVG{
-		w:          w,
-		width:      width,
-		height:     height,
-		embedFonts: true,
-		fonts:      map[*canvas.Font]bool{},
-		maskID:     0,
-		imgEnc:     canvas.Lossless,
-		classes:    []string{},
+		w:           w,
+		width:       width,
+		height:      height,
+		fonts:       map[*canvas.Font]bool{},
+		maskID:      0,
+		embedFonts:  true,
+		subsetFonts: true,
+		imgEnc:      canvas.Lossless,
+		classes:     []string{},
 	}
 }
 
@@ -62,7 +64,10 @@ func (r *SVG) writeFonts() {
 	if 0 < len(r.fonts) {
 		fmt.Fprintf(r.w, "<style>")
 		for font, _ := range r.fonts {
-			b, _ := font.SFNT.Subset(font.SubsetIDs())
+			b := font.SFNT.Data
+			if r.subsetFonts {
+				b, _ = font.SFNT.Subset(font.SubsetIDs())
+			}
 			fmt.Fprintf(r.w, "\n@font-face{font-family:'%s';src:url('data:type/opentype;base64,", font.Name())
 			encoder := base64.NewEncoder(base64.StdEncoding, r.w)
 			encoder.Write(b)
@@ -100,8 +105,12 @@ func (r *SVG) RemoveClass(class string) {
 	}
 }
 
-func (r *SVG) EmbedFonts(embedFonts bool) {
-	r.embedFonts = embedFonts
+func (r *SVG) EmbedFonts(embed bool) {
+	r.embedFonts = embed
+}
+
+func (r *SVG) SubsetFonts(subset bool) {
+	r.subsetFonts = subset
 }
 
 func (r *SVG) SetImageEncoding(enc canvas.ImageEncoding) {
@@ -284,9 +293,7 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 		return
 	}
 
-	//ffMain := text.MostCommonFontFace()
 	ffMain := text.Face
-
 	x0, y0 := 0.0, 0.0
 	if m.IsTranslation() {
 		x0, y0 = m.Pos()

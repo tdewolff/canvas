@@ -36,11 +36,11 @@ func (r *PDF) SetImageEncoding(enc canvas.ImageEncoding) {
 	r.imgEnc = enc
 }
 
-func (r *PDF) SetCompression(compress bool) {
+func (r *PDF) Compress(compress bool) {
 	r.w.pdf.SetCompression(compress)
 }
 
-func (r *PDF) SetFontSubsetting(subset bool) {
+func (r *PDF) SubsetFonts(subset bool) {
 	r.w.pdf.SetFontSubsetting(subset)
 }
 
