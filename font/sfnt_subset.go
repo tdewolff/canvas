@@ -17,18 +17,22 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 		return sfnt.Data, glyphIDs
 	}
 
+	glyphMap := make(map[uint16]uint16, len(glyphIDs))
+	for subsetGlyphID, glyphID := range glyphIDs {
+		glyphMap[glyphID] = uint16(subsetGlyphID)
+	}
+
 	// add dependencies for composite glyphs
 	origLen := len(glyphIDs)
 	for i := 0; i < origLen; i++ {
 		deps, _ := sfnt.Glyf.Dependencies(glyphIDs[i], 0)
-		if 0 < len(deps) {
-			glyphIDs = append(glyphIDs, deps[1:]...)
+		for _, glyphID := range deps[1:] {
+			if _, ok := glyphMap[glyphID]; !ok {
+				subsetGlyphID := uint16(len(glyphIDs))
+				glyphIDs = append(glyphIDs, glyphID)
+				glyphMap[glyphID] = subsetGlyphID
+			}
 		}
-	}
-
-	glyphMap := make(map[uint16]uint16, len(glyphIDs))
-	for subsetGlyphID, glyphID := range glyphIDs {
-		glyphMap[glyphID] = uint16(subsetGlyphID)
 	}
 
 	// specify tables to include
@@ -52,38 +56,15 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 
 	// handle kern table that could be removed
 	kernSubtables := []kernFormat0{}
-	if _, ok := sfnt.Tables["kern"]; ok {
+	if sfnt.Kern != nil {
 		for _, subtable := range sfnt.Kern.Subtables {
 			pairs := []kernPair{}
-			iLeft := 0
-			iRight := 0
-			for _, pair := range subtable.Pairs {
-				if pair.Key < uint32(glyphIDs[iLeft])<<16+uint32(glyphIDs[iRight]) {
-					continue
-				}
-				for iLeft < len(glyphIDs) && uint32(glyphIDs[iLeft])<<16 < pair.Key&0xFFFF0000 {
-					iLeft++
-					iRight = 0
-				}
-				if iLeft == len(glyphIDs) {
-					break
-				}
-				if uint32(glyphIDs[iLeft])<<16 == pair.Key&0xFFFF0000 {
-					for iRight < len(glyphIDs) && uint32(glyphIDs[iRight]) < pair.Key&0x0000FFFF {
-						iRight++
-					}
-					if iRight == len(glyphIDs) {
-						iLeft++
-						iRight = 0
-						if iLeft == len(glyphIDs) {
-							break
-						}
-						continue
-					}
-					if uint32(glyphIDs[iRight]) == pair.Key&0x0000FFFF {
+			for l, lOrig := range glyphIDs {
+				for r, rOrig := range glyphIDs {
+					if value := subtable.Get(lOrig, rOrig); value != 0 {
 						pairs = append(pairs, kernPair{
-							Key:   uint32(glyphMap[glyphIDs[iLeft]])<<16 + uint32(glyphMap[glyphIDs[iRight]]),
-							Value: pair.Value,
+							Key:   uint32(l)<<16 + uint32(r),
+							Value: value,
 						})
 					}
 				}

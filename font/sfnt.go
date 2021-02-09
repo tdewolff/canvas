@@ -965,9 +965,9 @@ type kernTable struct {
 
 func (kern *kernTable) Get(l, r uint16) (k int16) {
 	for _, subtable := range kern.Subtables {
-		if !subtable.Coverage[1] {
+		if !subtable.Coverage[1] { // kerning values
 			k += subtable.Get(l, r)
-		} else if min := subtable.Get(l, r); k < min {
+		} else if min := subtable.Get(l, r); k < min { // minimum values (usually last subtable)
 			// TODO: test
 			k = min
 		}
