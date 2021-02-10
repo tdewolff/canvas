@@ -336,7 +336,7 @@ func (r *SVG) RenderImage(img image.Image, m canvas.Matrix) {
 
 	m = m.Translate(0.0, float64(size.Y))
 	fmt.Fprintf(r.w, `<image transform="%s" width="%d" height="%d" xlink:href="data:%s;base64,`,
-		m.ToSVG(r.height), size.X, size.Y, mimetype.String())
+		m.ToSVG(r.height), size.X, size.Y, mimetype)
 
 	encoder := base64.NewEncoder(base64.StdEncoding, r.w)
 	err := writeTo(encoder)
@@ -355,9 +355,9 @@ func (r *SVG) RenderImage(img image.Image, m canvas.Matrix) {
 }
 
 // return a WriterTo, a refMask and a mimetype
-func (r *SVG) encodableImage(img image.Image) (func(io.Writer) error, string, canvas.ImageMimetype) {
+func (r *SVG) encodableImage(img image.Image) (func(io.Writer) error, string, string) {
 	if cimg, ok := img.(canvas.Image); ok && 0 < len(cimg.Bytes) {
-		if cimg.Mimetype == canvas.ImageJPEG || cimg.Mimetype == canvas.ImagePNG {
+		if cimg.Mimetype == "image/jpeg" || cimg.Mimetype == "image/png" {
 			return func(w io.Writer) error {
 				_, err := w.Write(cimg.Bytes)
 				return err
@@ -373,13 +373,13 @@ func (r *SVG) encodableImage(img image.Image) (func(io.Writer) error, string, ca
 		}
 		return func(w io.Writer) error {
 			return jpeg.Encode(w, img, nil)
-		}, refMask, canvas.ImageJPEG
+		}, refMask, "image/jpeg"
 	}
 
 	// lossless: png
 	return func(w io.Writer) error {
 		return png.Encode(w, img)
-	}, "", canvas.ImagePNG
+	}, "", "image/png"
 }
 
 func (r *SVG) renderOpacityMask(img image.Image) (image.Image, string) {

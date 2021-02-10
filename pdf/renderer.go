@@ -951,7 +951,7 @@ func (w *pdfPageWriter) DrawImage(img image.Image, enc canvas.ImageEncoding, m c
 
 func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pdfName {
 	var stream pdfStream
-	if i, ok := img.(canvas.Image); ok && i.Mimetype == canvas.ImageJPEG && 0 < len(i.Bytes) {
+	if i, ok := img.(canvas.Image); ok && i.Mimetype == "image/jpeg" && 0 < len(i.Bytes) {
 		stream = w.jpegStream(i)
 	} else {
 		stream = w.imageStream(img)
