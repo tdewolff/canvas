@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"image/color"
-	"image/png"
 	"os"
 
 	"github.com/tdewolff/canvas"
@@ -122,7 +121,7 @@ func draw(c *canvas.Context) {
 	if err != nil {
 		panic(err)
 	}
-	img, err := png.Decode(lenna)
+	img, err := canvas.NewPNGImage(lenna)
 	if err != nil {
 		panic(err)
 	}
