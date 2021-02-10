@@ -383,7 +383,7 @@ func (r *SVG) prepareImage(img image.Image) (func(io.Writer) error, string, canv
 }
 
 func (r *SVG) renderOpacityMask(img image.Image) (image.Image, string) {
-	opaque, mask := getOpacityMask(img)
+	opaque, mask := splitImageAlphaChannel(img)
 	if mask == nil {
 		return opaque, ""
 	}
@@ -405,7 +405,7 @@ func (r *SVG) renderOpacityMask(img image.Image) (image.Image, string) {
 	return opaque, refMask
 }
 
-func getOpacityMask(img image.Image) (image.Image, image.Image) {
+func splitImageAlphaChannel(img image.Image) (image.Image, image.Image) {
 	hasMask := false
 	size := img.Bounds().Size()
 	opaque := image.NewRGBA(img.Bounds())
