@@ -332,7 +332,7 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 
 func (r *SVG) RenderImage(img image.Image, m canvas.Matrix) {
 	size := img.Bounds().Size()
-	writeTo, refMask, mimetype := r.prepareImage(img)
+	writeTo, refMask, mimetype := r.encodableImage(img)
 
 	m = m.Translate(0.0, float64(size.Y))
 	fmt.Fprintf(r.w, `<image transform="%s" width="%d" height="%d" xlink:href="data:%s;base64,`,
@@ -355,7 +355,7 @@ func (r *SVG) RenderImage(img image.Image, m canvas.Matrix) {
 }
 
 // return a WriterTo, a refMask and a mimetype
-func (r *SVG) prepareImage(img image.Image) (func(io.Writer) error, string, canvas.ImageMimetype) {
+func (r *SVG) encodableImage(img image.Image) (func(io.Writer) error, string, canvas.ImageMimetype) {
 	if cimg, ok := img.(canvas.Image); ok && 0 < len(cimg.Bytes) {
 		if cimg.Mimetype == canvas.ImageJPEG || cimg.Mimetype == canvas.ImagePNG {
 			return func(w io.Writer) error {
