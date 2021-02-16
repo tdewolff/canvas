@@ -126,7 +126,12 @@ func (c *Context) Pop() {
 }
 
 // SetCoordView sets the current affine transformation matrix through which all operation coordinates will be transformed.
-func (c *Context) SetCoordView(rect Rect, width, height float64) {
+func (c *Context) SetCoordView(coordView Matrix) {
+	c.coordView = coordView
+}
+
+// SetCoordRect sets the current affine transformation matrix through which all operation coordinates will be transformed. It will transform coordinates from (0,0)--(width,height) to the target `rect`.
+func (c *Context) SetCoordRect(rect Rect, width, height float64) {
 	c.coordView = Identity.Translate(rect.X, rect.Y).Scale(rect.W/width, rect.H/height)
 }
 

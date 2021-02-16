@@ -61,6 +61,10 @@ type SFNT struct {
 	//Gasp *gaspTable
 }
 
+func (sfnt *SFNT) NumGlyphs() uint16 {
+	return sfnt.Maxp.NumGlyphs
+}
+
 func (sfnt *SFNT) GlyphIndex(r rune) uint16 {
 	return sfnt.Cmap.Get(r)
 }
