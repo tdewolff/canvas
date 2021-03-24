@@ -1,22 +1,28 @@
 package text
 
+import "github.com/tdewolff/canvas/font"
+
 type Glyph struct {
+	SFNT *font.SFNT
+	Size float64
+
 	ID       uint16
 	Cluster  uint32
 	XAdvance int32
 	YAdvance int32
 	XOffset  int32
 	YOffset  int32
+	Text     string
 }
 
-func ToUnicode(s string, glyphs []Glyph, index int) string {
-	a := glyphs[index].Cluster
-	b := uint32(len(s))
-	if index+1 < len(glyphs) {
-		b = glyphs[index+1].Cluster
-	}
-	return s[a:b]
-}
+//func ToUnicode(s string, glyphs []Glyph, index int) string {
+//	a := glyphs[index].Cluster
+//	b := uint32(len(s))
+//	if index+1 < len(glyphs) {
+//		b = glyphs[index+1].Cluster
+//	}
+//	return s[a:b]
+//}
 
 // TODO: implement Liang's (soft) hyphenation algorithm?
 

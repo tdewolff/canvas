@@ -35,6 +35,7 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	var prevIndex uint16
 	for i, r := range rs {
 		index := s.sfnt.GlyphIndex(r)
+		glyphs[i].Text = string(r)
 		glyphs[i].ID = index
 		glyphs[i].Cluster = uint32(i)
 		glyphs[i].XAdvance = int32(s.sfnt.GlyphAdvance(index))

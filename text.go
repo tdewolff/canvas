@@ -1,11 +1,12 @@
 package canvas
 
 import (
+	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"unicode/utf8"
 
-	"github.com/tdewolff/canvas/text"
 	canvasText "github.com/tdewolff/canvas/text"
 )
 
@@ -26,7 +27,7 @@ const (
 type Text struct {
 	lines []line
 	fonts map[*Font]bool
-	Face  FontFace
+	Face  *FontFace
 }
 
 type line struct {
@@ -37,7 +38,7 @@ type line struct {
 func (l line) Heights() (float64, float64, float64, float64) {
 	top, ascent, descent, bottom := 0.0, 0.0, 0.0, 0.0
 	for _, span := range l.spans {
-		spanAscent, spanDescent, lineSpacing := span.Face.Metrics().Ascent, span.Face.Metrics().Descent, span.Face.Metrics().LineHeight-span.Face.Metrics().Ascent-span.Face.Metrics().Descent
+		spanAscent, spanDescent, lineSpacing := span.Face.Metrics().Ascent, span.Face.Metrics().Descent, span.Face.Metrics().LineGap
 		top = math.Max(top, spanAscent+lineSpacing)
 		ascent = math.Max(ascent, spanAscent)
 		descent = math.Max(descent, spanDescent)
@@ -49,20 +50,24 @@ func (l line) Heights() (float64, float64, float64, float64) {
 type TextSpan struct {
 	x      float64
 	Width  float64
-	Face   FontFace
+	Face   *FontFace
 	Text   string
-	Glyphs []text.Glyph
+	Glyphs []canvasText.Glyph
 }
 
 ////////////////////////////////////////////////////////////////
 
 // NewTextLine is a simple text line using a font face, a string (supporting new lines) and horizontal alignment (Left, Center, Right).
-func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
-	ascent, descent, spacing := ff.Metrics().Ascent, ff.Metrics().Descent, ff.Metrics().LineHeight-ff.Metrics().Ascent-ff.Metrics().Descent
+func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
+	t := &Text{
+		fonts: map[*Font]bool{face.Font: true},
+		Face:  face,
+	}
+
+	ascent, descent, spacing := face.Metrics().Ascent, face.Metrics().Descent, face.Metrics().LineGap
 
 	i := 0
 	y := 0.0
-	lines := []line{}
 	skipNext := false
 	for j, r := range s + "\n" {
 		if canvasText.IsParagraphSeparator(r) {
@@ -72,15 +77,15 @@ func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 				continue
 			}
 			if i < j {
-				ppem := ff.PPEM(DefaultDPMM)
+				ppem := face.PPEM(DefaultDPMM)
 				lineWidth := 0.0
 				line := line{y: y, spans: []TextSpan{}}
 				itemsL, itemsV := itemizeString(s[i:j])
 				for k := 0; k < len(itemsL); k++ {
-					glyphs := ff.Font.shaper.Shape(itemsV[k], ppem, ff.Direction, ff.Script, ff.Language, ff.Font.features, ff.Font.variations)
-					width := ff.textWidth(glyphs)
+					glyphs := face.Font.shaper.Shape(itemsV[k], ppem, face.Direction, face.Script, face.Language, face.Font.features, face.Font.variations)
+					width := face.textWidth(glyphs)
 					text := itemsL[k]
-					if ff.Direction == canvasText.BottomToTop {
+					if face.Direction == canvasText.BottomToTop {
 						length := len([]rune(text))
 						reverseText := make([]rune, length)
 						for pos, r := range []rune(text) {
@@ -91,7 +96,7 @@ func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 					line.spans = append(line.spans, TextSpan{
 						x:      lineWidth,
 						Width:  width,
-						Face:   ff,
+						Face:   face,
 						Text:   text,
 						Glyphs: glyphs,
 					})
@@ -106,25 +111,326 @@ func NewTextLine(ff FontFace, s string, halign TextAlign) *Text {
 						line.spans[k].x = -lineWidth
 					}
 				}
-				lines = append(lines, line)
+				t.lines = append(t.lines, line)
 			}
-			y -= spacing + ascent + descent + spacing
+			y -= ascent + descent + spacing
 			i = j + utf8.RuneLen(r)
 			skipNext = r == '\r' && j+1 < len(s) && s[j+1] == '\n'
 		}
 	}
-	return &Text{
-		lines: lines,
-		fonts: map[*Font]bool{ff.Font: true},
-		Face:  ff,
+	return t
+}
+
+// NewTextBox is an advanced text formatter that will calculate text placement based on the settings. It takes a font face, a string, the width or height of the box (can be zero for no limit), horizontal and vertical alignment (Left, Center, Right, Top, Bottom or Justify), text indentation for the first line and line stretch (percentage to stretch the line based on the line height).
+func NewTextBox(face *FontFace, s string, width, height float64, halign, valign TextAlign, indent, lineStretch float64) *Text {
+	rt := NewRichText(face)
+	rt.WriteString(s)
+	return rt.ToText(width, height, halign, valign, indent, lineStretch)
+}
+
+type indexer []int
+
+func (indexer indexer) index(loc int) int {
+	for index, start := range indexer {
+		if loc < start {
+			return index - 1
+		}
+	}
+	return len(indexer) - 1
+}
+
+// RichText allows to build up a rich text with text spans of different font faces and by fitting that into a box.
+type RichText struct {
+	*strings.Builder
+	locs  indexer // faces locations ino string by number of runes
+	faces []*FontFace
+}
+
+func NewRichText(face *FontFace) *RichText {
+	return &RichText{
+		Builder: &strings.Builder{},
+		locs:    indexer{0},
+		faces:   []*FontFace{face},
 	}
 }
 
-//// NewTextBox is an advanced text formatter that will calculate text placement based on the settings. It takes a font face, a string, the width or height of the box (can be zero for no limit), horizontal and vertical alignment (Left, Center, Right, Top, Bottom or Justify), text indentation for the first line and line stretch (percentage to stretch the line based on the line height).
-//func NewTextBox(ff FontFace, s string, width, height float64, halign, valign TextAlign, indent, lineStretch float64) *Text {
-//	return NewRichText().Add(ff, s).ToText(width, height, halign, valign, indent, lineStretch)
-//}
-//
+func (rt *RichText) Reset() {
+	rt.Builder.Reset()
+	rt.locs = rt.locs[:0]
+	rt.faces = rt.faces[:0]
+}
+
+func (rt *RichText) SetFace(face *FontFace) {
+	if face == rt.faces[len(rt.faces)-1] {
+		return
+	}
+	prevLoc := rt.locs[len(rt.locs)-1]
+	if rt.Len()-prevLoc == 0 {
+		rt.locs = rt.locs[:len(rt.locs)-1]
+		rt.faces = rt.faces[:len(rt.faces)-1]
+	}
+	rt.locs = append(rt.locs, len([]rune(rt.String())))
+	rt.faces = append(rt.faces, face)
+}
+
+func (rt *RichText) SetFaceSpan(face *FontFace, start, end int) {
+	// TODO: optimize when face already is on (part of) the span
+	if end <= start || rt.Len() <= start {
+		return
+	} else if rt.Len() < end {
+		end = rt.Len()
+	}
+
+	k := 0
+	i, j := 0, len(rt.locs)-1
+	for k < len(rt.locs) {
+		if rt.locs[k] < start {
+			i = k
+		}
+		if end <= rt.locs[k] {
+			j = k - 1
+			break
+		}
+		k++
+	}
+	rt.locs[j] = len([]rune(rt.String()[:end]))
+	rt.locs = append(rt.locs[:i], append(indexer{len([]rune(rt.String()[:start]))}, rt.locs[j:]...)...)
+	rt.faces = append(rt.faces[:i], append([]*FontFace{face}, rt.faces[j:]...)...)
+}
+
+func (rt *RichText) Add(face *FontFace, text string) *RichText {
+	rt.SetFace(face)
+	rt.WriteString(text)
+	return rt
+}
+
+// ToText takes the added text spans and fits them within a given box of certain width and height.
+func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, indent, lineSpacing float64) *Text {
+	mainDirection := rt.faces[0].Direction
+	if mainDirection != canvasText.LeftToRight && mainDirection != canvasText.RightToLeft && mainDirection != canvasText.TopToBottom && mainDirection != canvasText.BottomToTop {
+		mainDirection = canvasText.LeftToRight
+	}
+	if mainDirection == canvasText.TopToBottom || mainDirection == canvasText.BottomToTop {
+		for _, face := range rt.faces {
+			if face.Direction == canvasText.LeftToRight || face.Direction == canvasText.RightToLeft {
+				mainDirection = face.Direction
+				break
+			}
+		}
+	}
+
+	vis, mapV2L := canvasText.Bidi(rt.String())
+
+	// itemize string by font face and script
+	texts := []string{}
+	faces := []*FontFace{}
+	i, j := 0, 0 // index into visString
+	curFace := 0 // index into rt.faces
+	for k, r := range []rune(vis) {
+		nextFace := rt.locs.index(mapV2L[k])
+		if nextFace != curFace {
+			scriptItems := canvasText.ScriptItemizer(vis[i:j])
+			texts = append(texts, scriptItems...)
+			for _ = range scriptItems {
+				faces = append(faces, rt.faces[curFace])
+			}
+			curFace = nextFace
+			i = j
+		}
+		j += utf8.RuneLen(r)
+	}
+	if i < j {
+		scriptItems := canvasText.ScriptItemizer(vis[i:j])
+		texts = append(texts, scriptItems...)
+		for _ = range scriptItems {
+			faces = append(faces, rt.faces[curFace])
+		}
+	}
+
+	// shape text into glyphs and keep index into texts and faces
+	indexes := indexer{} // indexes glyphs into texts and faces
+	rtls := []bool{}
+	glyphs := []canvasText.Glyph{}
+	for k, text := range texts {
+		face := faces[k]
+		ppem := face.PPEM(DefaultDPMM)
+		direction := face.Direction
+		if direction == canvasText.TopToBottom || direction == canvasText.BottomToTop {
+			direction = mainDirection
+		}
+		glyphsString := face.Font.shaper.Shape(text, ppem, direction, face.Script, face.Language, face.Font.features, face.Font.variations)
+		for i, _ := range glyphsString {
+			glyphsString[i].SFNT = face.Font.SFNT
+			glyphsString[i].Size = face.Size * face.XScale
+		}
+		rtl := 0 < len(glyphsString) && glyphsString[len(glyphsString)-1].Cluster < glyphsString[0].Cluster
+		indexes = append(indexes, len(glyphs))
+		rtls = append(rtls, rtl)
+		glyphs = append(glyphs, glyphsString...)
+	}
+
+	// break glyphs into lines following Donald Knuth's line breaking algorithm
+	align := canvasText.Left
+	if halign == Right {
+		align = canvasText.Right
+	} else if halign == Center {
+		align = canvasText.Centered
+	} else if halign == Justify {
+		align = canvasText.Justified
+	}
+	items := canvasText.GlyphsToItems(glyphs, indent, align)
+	breaks := canvasText.Linebreak(items, width, 0)
+
+	// build up lines
+	t := &Text{
+		lines: []line{line{}},
+		fonts: map[*Font]bool{},
+	}
+
+	i, j = 0, 0 // index into: glyphs, breaks/lines
+	atStart := true
+	x, y := 0.0, 0.0
+	if halign == Right {
+		x += width - breaks[j].Width
+	}
+	for position, item := range items {
+		if position == breaks[j].Position {
+			if item.Type == canvasText.PenaltyType && item.Flagged && item.Width != 0.0 {
+				if 0 < len(t.lines[j].spans) {
+					span := &t.lines[j].spans[len(t.lines[j].spans)-1]
+					id := span.Face.Font.GlyphIndex('-')
+					glyph := canvasText.Glyph{
+						SFNT:     span.Face.Font.SFNT,
+						Size:     span.Face.Size * span.Face.XScale,
+						ID:       id,
+						XAdvance: int32(span.Face.Font.GlyphAdvance(id)),
+						Text:     "-",
+					}
+					span.Glyphs = append(span.Glyphs, glyph)
+					span.Width += span.Face.textWidth([]canvasText.Glyph{glyph})
+					span.Text += "-"
+				}
+			}
+
+			_, ascent, _, bottom := t.lines[j].Heights()
+			if 0 < j {
+				ascent *= lineSpacing
+			}
+			bottom *= lineSpacing
+
+			t.lines[j].y = y - ascent
+			y -= ascent + bottom
+			if height < -y || position == len(items)-1 {
+				// doesn't fit or at the end of items
+				break
+			}
+
+			t.lines = append(t.lines, line{})
+			if j+1 < len(breaks) {
+				j++
+			}
+			x = 0.0
+			if halign == Right {
+				x += width - breaks[j].Width
+			}
+			atStart = true
+		} else if item.Type == canvasText.BoxType {
+			// find index k into faces/texts
+			a := i
+			k := indexes.index(i)
+			for b := i + 1; b <= i+item.Size; b++ {
+				nextK := indexes.index(b)
+				if nextK != k || b == i+item.Size {
+					var at, bt uint32
+					if !rtls[k] {
+						at = glyphs[a].Cluster
+						bt = uint32(len(texts[k]))
+						if b < len(glyphs) {
+							bt = glyphs[b].Cluster
+						}
+					} else {
+						at = uint32(0)
+						if 0 < b {
+							at = glyphs[b-1].Cluster
+						}
+						bt = uint32(len(texts[k]))
+						if 0 < a {
+							bt = glyphs[a-1].Cluster
+						}
+					}
+					t.lines[j].spans = append(t.lines[j].spans, TextSpan{
+						x:      x,
+						Width:  faces[k].textWidth(glyphs[a:b]),
+						Face:   faces[k],
+						Text:   texts[k][at:bt],
+						Glyphs: glyphs[a:b],
+					})
+					t.fonts[faces[k].Font] = true
+					k = nextK
+				}
+			}
+			atStart = false
+			x += item.Width
+		} else if item.Type == canvasText.GlueType && !atStart {
+			width := item.Width
+			if 0.0 <= breaks[j].Ratio {
+				if !math.IsInf(item.Stretch, 0.0) {
+					width += breaks[j].Ratio * item.Stretch
+				}
+			} else if !math.IsInf(item.Shrink, 0.0) {
+				width += breaks[j].Ratio * item.Shrink
+			}
+			x += width
+		}
+		i += item.Size
+	}
+
+	_, ascent, descent, bottom := t.lines[j].Heights()
+	y += bottom * lineSpacing
+
+	if height < -y+descent {
+		// doesn't fit
+		t.lines = t.lines[:len(t.lines)-1]
+		if 0 < j {
+			_, _, descent2, bottom2 := t.lines[j-1].Heights()
+			y -= descent2 - (bottom2+ascent)*lineSpacing
+		} else {
+			// no lines at all
+			y = 0.0
+		}
+	} else {
+		y -= descent
+	}
+
+	// TODO: test vertical text
+	fmt.Println("lines:")
+	for j, line := range t.lines {
+		fmt.Println(j, line.y)
+		for _, span := range line.spans {
+			fmt.Printf(" %v %v %v\n", span.x, span.Width, span.Text)
+		}
+	}
+
+	// vertical align
+	if valign == Center || valign == Bottom {
+		dy := height + y
+		if valign == Center {
+			dy /= 2.0
+		}
+		for j, _ := range t.lines {
+			t.lines[j].y -= dy
+		}
+	} else if valign == Justify {
+		ddy := (height + y) / float64(len(t.lines)-1)
+		dy := 0.0
+		for j, _ := range t.lines {
+			t.lines[j].y -= dy
+			dy += ddy
+		}
+	}
+	return t
+}
+
 //// RichText allows to build up a rich text with text spans of different font faces and by fitting that into a box.
 //type RichText struct {
 //	spans []TextSpan

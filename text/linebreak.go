@@ -1,8 +1,10 @@
 package text
 
 import (
+	"fmt"
 	"math"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/tdewolff/canvas/font"
 )
@@ -35,7 +37,7 @@ var DemeritsLine = 10.0
 var DemeritsFlagged = 100.0 // TeX uses 10000
 var DemeritsFitness = 100.0 // TeX uses 10000
 var HyphenPenalty = 50.0
-var Infinity = 1000.0
+var Infinity = 1000.0 // in case of ratio, demerits becomes about 1e22
 
 type Align int
 
@@ -54,19 +56,30 @@ const (
 	PenaltyType
 )
 
+func (t Type) String() string {
+	switch t {
+	case BoxType:
+		return "Box"
+	case GlueType:
+		return "Glue"
+	case PenaltyType:
+		return "Penalty"
+	}
+	return fmt.Sprintf("Type(%d)", t)
+}
+
 type Item struct {
 	Type
 	Width, Stretch, Shrink float64
 	Penalty                float64
 	Flagged                bool
-	Glyphs                 []Glyph
+	Size                   int // number of boxes (glyphs) compressed into one
 }
 
-func Box(width float64, glyphs []Glyph) Item {
+func Box(width float64) Item {
 	return Item{
-		Type:   BoxType,
-		Width:  width,
-		Glyphs: glyphs,
+		Type:  BoxType,
+		Width: width,
 	}
 }
 
@@ -101,8 +114,32 @@ type Breakpoint struct {
 	Demerits float64
 }
 
+func (br *Breakpoint) String() string {
+	s := ""
+	n := br
+	for n != nil {
+		s += fmt.Sprintf("%v>", n.Position)
+		n = n.parent
+	}
+	return s[:len(s)-1]
+}
+
 type Breakpoints struct {
 	head, tail *Breakpoint
+}
+
+func (list *Breakpoints) String() string {
+	if list.head == nil {
+		return "nil"
+	}
+
+	s := ""
+	n := list.head
+	for n != nil {
+		s += fmt.Sprintf("%v ", n)
+		n = n.next
+	}
+	return s[:len(s)-1]
 }
 
 func (list *Breakpoints) Has(b *Breakpoint) bool {
@@ -202,9 +239,11 @@ func (lb *Linebreaker) computeSum(b int) (float64, float64, float64) {
 	return W, Y, Z
 }
 
-func (lb *Linebreaker) mainLoop(b int, tolerance float64, exceed bool) {
+func (lb *Linebreaker) mainLoop(b int, tolerance float64) {
 	item := lb.items[b]
 	active := lb.activeNodes.head
+
+	// the inner loop iterates through active nodes at a certain line, while the outer loop iterates over lines
 	for active != nil {
 		Dmin := math.Inf(1.0)
 		// per fitness class, we have demerits (D), active nodes (A), and ratios (R)
@@ -213,15 +252,13 @@ func (lb *Linebreaker) mainLoop(b int, tolerance float64, exceed bool) {
 		R := [4]float64{}
 		for active != nil {
 			next := active.next
-			j := active.Line + 1
 			ratio := lb.computeAdjustmentRatio(b, active)
-			if ratio < -1.0 || item.Type == PenaltyType && item.Penalty <= -Infinity {
+			// permit exceeding lines for desperate second try with infinite tolerance
+			ratioLB := -1.0 <= ratio || math.IsInf(tolerance, 1.0) && ratio == -Infinity
+			if !ratioLB || item.Type == PenaltyType && item.Penalty <= -Infinity {
 				lb.activeNodes.Remove(active)
-				if lb.activeNodes.head == nil && exceed && math.IsInf(Dmin, 1.0) && ratio < -1.0 {
-					ratio = -1.0
-				}
 			}
-			if -1.0 <= ratio && ratio <= tolerance {
+			if ratioLB && ratio <= tolerance {
 				// compute demerits d and fitness class c
 				badness := 100.0 * math.Pow(math.Abs(ratio), 3.0)
 				demerits := 0.0
@@ -261,8 +298,11 @@ func (lb *Linebreaker) mainLoop(b int, tolerance float64, exceed bool) {
 					}
 				}
 			}
+
+			j := active.Line + 1
 			active = next
 
+			// stop adding candidates of the current line and move on to the next line
 			if active != nil && j <= active.Line {
 				// we omitted (j < j0) as j0 is difficult to know for complex cases
 				break
@@ -270,7 +310,7 @@ func (lb *Linebreaker) mainLoop(b int, tolerance float64, exceed bool) {
 		}
 
 		if Dmin < math.Inf(1.0) {
-			// insert new active nodes for breaks from A[c] to index
+			// insert new active node for break from A[c] to the current item
 			W, Y, Z := lb.computeSum(b)
 			width := lb.W
 			if lb.items[b].Type == PenaltyType {
@@ -301,9 +341,8 @@ func (lb *Linebreaker) mainLoop(b int, tolerance float64, exceed bool) {
 	}
 }
 
-func Linebreak(items []Item, width float64, align Align, looseness int) []*Breakpoint {
+func Linebreak(items []Item, width float64, looseness int) []*Breakpoint {
 	tolerance := Tolerance
-	exceed := false
 
 START:
 	// create an active node representing the beginning of the paragraph
@@ -314,26 +353,31 @@ START:
 			lb.W += item.Width
 		} else if item.Type == GlueType {
 			if 0 < b && lb.items[b-1].Type == BoxType {
-				lb.mainLoop(b, tolerance, exceed)
+				lb.mainLoop(b, tolerance)
 			}
 			lb.W += item.Width
 			lb.Y += item.Stretch
 			lb.Z += item.Shrink
 		} else if item.Type == PenaltyType && item.Penalty < Infinity {
-			lb.mainLoop(b, tolerance, exceed)
+			lb.mainLoop(b, tolerance)
 		}
 
 		// do something drastic since there is no feasible solution
 		if lb.activeNodes.head == nil {
 			if !math.IsInf(tolerance, 1.0) {
 				tolerance = math.Inf(1.0)
-				exceed = true
 				goto START
 			} else {
-				// should never happen
-				return nil
+				break
 			}
 		}
+	}
+
+	// either len(items)==0 or we couldn't find feasible line breaks
+	if lb.activeNodes.head == nil {
+		return []*Breakpoint{&Breakpoint{
+			Position: len(lb.items) - 1,
+		}}
 	}
 
 	// choose the active node with fewest total demerits
@@ -365,6 +409,9 @@ START:
 		if b.Line+1 < len(breaks) {
 			breaks[b.Line+1].Width -= b.W
 		}
+		if b.Ratio < -1.0 || Tolerance < b.Ratio {
+			b.Ratio = 0.0
+		}
 		breaks[b.Line] = b
 		b = b.parent
 	}
@@ -372,55 +419,59 @@ START:
 	return breaks
 }
 
-func glyphsToItems(sfnt *font.SFNT, indent float64, align Align, glyphs []Glyph) []Item {
-	// no-break spaces such as U+00A0, U+202F, and U+FEFF are used as boxes
-	isSpace := map[uint16]bool{}
-	for _, r := range " \u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u205F" {
-		if glyphID := sfnt.GlyphIndex(r); glyphID != 0 {
-			isSpace[glyphID] = true
+func isUpper(s string) bool {
+	for _, r := range s {
+		if !unicode.IsUpper(r) {
+			return false
 		}
 	}
+	return true
+}
 
-	spaceID := sfnt.GlyphIndex(' ')
-	hyphenID := sfnt.GlyphIndex('-')
-	breakID := sfnt.GlyphIndex('\u200B')
-	rightParenthesisID := sfnt.GlyphIndex(')')
-	rightBracketID := sfnt.GlyphIndex(']')
-	singleQuoteID := sfnt.GlyphIndex('\'')
-	doubleQuoteID := sfnt.GlyphIndex('"')
-	exclamationID := sfnt.GlyphIndex('!')
-	questionID := sfnt.GlyphIndex('?')
-	periodID := sfnt.GlyphIndex('.')
-	colonID := sfnt.GlyphIndex(':')
-	semicolonID := sfnt.GlyphIndex(';')
-	commaID := sfnt.GlyphIndex(',')
+func isSpace(s string) bool {
+	// no-break spaces such as U+00A0, U+202F, and U+FEFF are used as boxes
+	spaces := []rune(" \u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u205F")
+	if r, size := utf8.DecodeRuneInString(s); size == len(s) {
+		for _, space := range spaces {
+			if r == space {
+				return true
+			}
+		}
+	}
+	return false
+}
 
-	spaceWidth := float64(sfnt.GlyphAdvance(spaceID))
-	hyphenWidth := float64(sfnt.GlyphAdvance(hyphenID))
+// GlyphsToItems converts a slice of glyphs into the box/glue/penalty items model as used by Knuth's line breaking algorithm. The SFNT and Size of each glyph must be set. Indent and align specify the indentation width of the first line and the alignment (left, right, centered, justified) of the lines respectively. Finally, stretchWidth is typically twice the width of a space and is inserted as stretchable glue for alignment purposes.
+func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
+	if len(glyphs) == 0 {
+		return []Item{}
+	}
+
+	stretchWidth := 1.0 // this is arbitrary and irrelevant, the corresponding break ratio will change to match the necessary widths
 
 	items := []Item{}
-	items = append(items, Box(indent, nil))
+	items = append(items, Box(indent))
 	if align == Centered {
-		items = append(items, Glue(0.0, 2.0*spaceWidth, 0.0))
+		items = append(items, Glue(0.0, stretchWidth, 0.0))
 	}
 	for i, glyph := range glyphs {
-		if isSpace[glyph.ID] {
-			spaceWidth := float64(glyph.XAdvance)
+		if isSpace(glyph.Text) {
+			spaceWidth := float64(glyph.XAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
 			spaceFactor := 1.0
 			if !FrenchSpacing && align == Justified {
 				j := i - 1
-				if 0 <= j && (glyphs[j].ID == rightParenthesisID || glyphs[j].ID == rightBracketID || glyphs[j].ID == singleQuoteID || glyphs[j].ID == doubleQuoteID) {
+				if 0 <= j && (glyphs[j].Text == ")" || glyphs[j].Text == "]" || glyphs[j].Text == "'" || glyphs[j].Text == "\"") {
 					j--
 				}
-				if 0 <= j && (j == 0 || !unicode.IsUpper(sfnt.Cmap.ToUnicode(glyphs[j-1].ID))) {
-					switch glyphs[j].ID {
-					case periodID, exclamationID, questionID:
+				if 0 <= j && (j == 0 || !isUpper(glyphs[j-1].Text)) {
+					switch glyphs[j].Text {
+					case ".", "!", "?":
 						spaceFactor = SentenceFactor
-					case colonID:
+					case ":":
 						spaceFactor = ColonFactor
-					case semicolonID:
+					case ";":
 						spaceFactor = SemicolonFactor
-					case commaID:
+					case ",":
 						spaceFactor = CommaFactor
 					}
 				}
@@ -432,7 +483,7 @@ func glyphsToItems(sfnt *font.SFNT, indent float64, align Align, glyphs []Glyph)
 				z = spaceWidth * SpaceShrink / spaceFactor
 			} else if align == Left || align == Right || align == Centered {
 				w = 0.0
-				y = 2.0 * spaceWidth
+				y = stretchWidth
 				z = 0.0
 			}
 			if items[len(items)-1].Type == GlueType {
@@ -442,43 +493,53 @@ func glyphsToItems(sfnt *font.SFNT, indent float64, align Align, glyphs []Glyph)
 			} else {
 				items = append(items, Glue(w, y, z))
 			}
-			if align == Left || align == Right {
+			if align == Justified {
+				items[len(items)-1].Size++
+			} else if align == Left || align == Right {
 				items = append(items, Penalty(0.0, 0.0, false))
-				items = append(items, Glue(spaceWidth, -2.0*spaceWidth, 0.0))
+				items = append(items, Glue(spaceWidth, -stretchWidth, 0.0))
+				items[len(items)-1].Size++
 			} else if align == Centered {
 				items = append(items, Penalty(0.0, 0.0, false))
-				items = append(items, Glue(spaceWidth, -4.0*spaceWidth, 0.0))
-				items = append(items, Box(0.0, nil))
+				items = append(items, Glue(spaceWidth, -stretchWidth, 0.0))
+				items[len(items)-1].Size++
+				items = append(items, Box(0.0))
 				items = append(items, Penalty(0.0, Infinity, false))
-				items = append(items, Glue(0.0, 2.0*spaceWidth, 0.0))
+				items = append(items, Glue(0.0, stretchWidth, 0.0))
 			}
-		} else if glyph.ID == breakID {
+		} else if glyph.Text == "\u200B" {
 			// optional hyphens
+			hyphenWidth := float64(glyph.SFNT.GlyphAdvance(glyph.SFNT.GlyphIndex('-')))
+			hyphenWidth *= glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
 			if align == Justified {
 				items = append(items, Penalty(hyphenWidth, HyphenPenalty, true))
+				items[len(items)-1].Size++
 			} else if align == Left || align == Right {
 				items = append(items, Penalty(0.0, Infinity, false))
-				items = append(items, Glue(0.0, 2.0*hyphenWidth, 0.0))
+				items = append(items, Glue(0.0, stretchWidth, 0.0))
 				items = append(items, Penalty(hyphenWidth, 10.0*HyphenPenalty, true))
-				items = append(items, Glue(0.0, -2.0*hyphenWidth, 0.0))
+				items[len(items)-1].Size++
+				items = append(items, Glue(0.0, -stretchWidth, 0.0))
 			} else if align == Centered {
 				// nothing
 			}
-		} else if items[len(items)-1].Type == BoxType {
-			// glyphs
-			items[len(items)-1].Width += float64(glyph.XAdvance)
-			items[len(items)-1].Glyphs = append(items[len(items)-1].Glyphs, glyph)
 		} else {
 			// glyphs
-			items = append(items, Box(float64(glyph.XAdvance), []Glyph{glyph}))
+			width := float64(glyph.XAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
+			if items[len(items)-1].Type == BoxType {
+				items[len(items)-1].Width += width
+			} else {
+				items = append(items, Box(width))
+			}
+			items[len(items)-1].Size++
 		}
-		if glyph.ID == hyphenID {
+		if glyph.Text == "-" {
 			// optional break after hyphen
 			items = append(items, Penalty(0.0, HyphenPenalty, true))
 		}
 	}
 	if align == Centered {
-		items = append(items, Glue(0.0, 2.0*spaceWidth, 0.0))
+		items = append(items, Glue(0.0, stretchWidth, 0.0))
 		items = append(items, Penalty(0.0, -Infinity, false))
 	} else {
 		items = append(items, Glue(0.0, 1.0e6, 0.0)) // using inf can causes NaNs
@@ -488,18 +549,25 @@ func glyphsToItems(sfnt *font.SFNT, indent float64, align Align, glyphs []Glyph)
 }
 
 func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, indent, width float64, align Align, looseness int) [][]Glyph {
+	if len(glyphs) == 0 {
+		return [][]Glyph{}
+	}
+	for i, _ := range glyphs {
+		glyphs[i].SFNT = sfnt
+		glyphs[i].Size = size
+	}
 	spaceID := sfnt.GlyphIndex(' ')
 	hyphenID := sfnt.GlyphIndex('-')
-	width *= float64(sfnt.Head.UnitsPerEm) / size
+	toUnits := float64(sfnt.Head.UnitsPerEm) / size
 
-	items := glyphsToItems(sfnt, indent, align, glyphs)
-	breaks := Linebreak(items, width, align, looseness)
+	items := GlyphsToItems(glyphs, indent, align)
+	breaks := Linebreak(items, width, looseness)
 
-	j := 0
+	i, j := 0, 0 // index into: glyphs, breaks/lines
 	atStart := true
 	glyphLines := [][]Glyph{[]Glyph{}}
 	if align == Right {
-		glyphLines[j] = append(glyphLines[j], Glyph{ID: spaceID, XAdvance: int32(width - breaks[0].Width)})
+		glyphLines[j] = append(glyphLines[j], Glyph{SFNT: sfnt, Size: size, ID: spaceID, Text: " ", XAdvance: int32((width - breaks[j].Width) * toUnits)})
 	}
 	for position, item := range items {
 		if position == breaks[j].Position {
@@ -507,19 +575,20 @@ func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, indent, widt
 				if 0 < len(glyphLines[j]) && glyphLines[j][len(glyphLines[j])-1].ID == spaceID {
 					glyphLines[j] = glyphLines[j][:len(glyphLines[j])-1]
 				}
-				glyphLines[j] = append(glyphLines[j], Glyph{ID: hyphenID, XAdvance: int32(item.Width)})
+				glyphLines[j] = append(glyphLines[j], Glyph{SFNT: sfnt, Size: size, ID: hyphenID, Text: "-", XAdvance: int32(item.Width * toUnits)})
 			}
 			glyphLines = append(glyphLines, []Glyph{})
 			if j+1 < len(breaks) {
 				j++
 			}
 			if align == Right {
-				glyphLines[j] = append(glyphLines[j], Glyph{ID: spaceID, XAdvance: int32(width - breaks[j].Width)})
+				glyphLines[j] = append(glyphLines[j], Glyph{SFNT: sfnt, Size: size, ID: spaceID, Text: " ", XAdvance: int32((width - breaks[j].Width) * toUnits)})
 			}
 			atStart = true
 		} else if item.Type == BoxType {
-			glyphLines[j] = append(glyphLines[j], item.Glyphs...)
+			glyphLines[j] = append(glyphLines[j], glyphs[i:i+item.Size]...)
 			atStart = false
+			i += item.Size
 		} else if item.Type == GlueType && !atStart {
 			width := item.Width
 			if 0.0 <= breaks[j].Ratio {
@@ -530,9 +599,9 @@ func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, indent, widt
 				width += breaks[j].Ratio * item.Shrink
 			}
 			if 0 < len(glyphLines[j]) && glyphLines[j][len(glyphLines[j])-1].ID == spaceID {
-				glyphLines[j][len(glyphLines[j])-1].XAdvance += int32(width)
+				glyphLines[j][len(glyphLines[j])-1].XAdvance += int32(width * toUnits)
 			} else {
-				glyphLines[j] = append(glyphLines[j], Glyph{ID: spaceID, XAdvance: int32(width)})
+				glyphLines[j] = append(glyphLines[j], Glyph{SFNT: sfnt, Size: size, ID: spaceID, Text: " ", XAdvance: int32(width * toUnits)})
 			}
 		}
 	}

@@ -94,9 +94,11 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 		C.hb_buffer_set_language(buf, C.hb_language_from_string(clanguage, -1))
 	}
 	C.hb_buffer_guess_segment_properties(buf)
+
 	if FriBidi && Direction(C.hb_buffer_get_direction(buf)) == RightToLeft {
 		C.hb_buffer_set_direction(buf, C.hb_direction_t(LeftToRight))
 	}
+	reverse := Direction(C.hb_buffer_get_direction(buf)) == RightToLeft || Direction(C.hb_buffer_get_direction(buf)) == BottomToTop
 
 	var cfeatures []C.hb_feature_t
 	for _, feature := range strings.Split(features, ",") {
@@ -128,6 +130,18 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 		glyphs[i].YAdvance = int32(position.y_advance)
 		glyphs[i].XOffset = int32(position.x_offset)
 		glyphs[i].YOffset = int32(position.y_offset)
+		if reverse {
+			if i != 0 {
+				glyphs[i].Text = text[glyphs[i].Cluster:glyphs[i-1].Cluster]
+			} else {
+				glyphs[i].Text = text[glyphs[i].Cluster:]
+			}
+		} else if i != 0 {
+			glyphs[i-1].Text = text[glyphs[i-1].Cluster:glyphs[i].Cluster]
+		}
+	}
+	if !reverse && 0 < len(glyphs) {
+		glyphs[len(glyphs)-1].Text = text[glyphs[len(glyphs)-1].Cluster:]
 	}
 
 	if language != "" {
