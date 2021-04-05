@@ -227,61 +227,61 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 	}
 }
 
-func (r *SVG) writeFontStyle(ff, ffMain canvas.FontFace) {
-	boldness := ff.Boldness()
+func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace) {
+	boldness := face.Boldness()
 	differences := 0
 
-	if ff.Style&canvas.FontItalic != ffMain.Style&canvas.FontItalic {
+	if face.Style&canvas.FontItalic != faceMain.Style&canvas.FontItalic {
 		differences++
 	}
-	if boldness != ffMain.Boldness() {
+	if boldness != faceMain.Boldness() {
 		differences++
 	}
-	if ff.Variant&canvas.FontSmallcaps != ffMain.Variant&canvas.FontSmallcaps {
+	if face.Variant&canvas.FontSmallcaps != faceMain.Variant&canvas.FontSmallcaps {
 		differences++
 	}
-	if ff.Color != ffMain.Color {
+	if face.Color != faceMain.Color {
 		differences++
 	}
-	if ff.Name() != ffMain.Name() /*TODO:|| ff.Size*ff.Scale != ffMain.Size*/ || differences == 3 {
+	if face.Name() != faceMain.Name() /*TODO:|| face.Size*face.Scale != faceMain.Size*/ || differences == 3 {
 		fmt.Fprintf(r.w, `" style="font:`)
 
 		buf := &bytes.Buffer{}
-		if ff.Style&canvas.FontItalic != ffMain.Style&canvas.FontItalic {
+		if face.Style&canvas.FontItalic != faceMain.Style&canvas.FontItalic {
 			fmt.Fprintf(buf, ` italic`)
 		}
 
-		if boldness != ffMain.Boldness() {
+		if boldness != faceMain.Boldness() {
 			fmt.Fprintf(buf, ` %d`, boldness)
 		}
 
-		if ff.Variant&canvas.FontSmallcaps != ffMain.Variant&canvas.FontSmallcaps {
+		if face.Variant&canvas.FontSmallcaps != faceMain.Variant&canvas.FontSmallcaps {
 			fmt.Fprintf(buf, ` small-caps`)
 		}
 
-		fmt.Fprintf(buf, ` %vpx %s`, num(ff.Size /*TODO:*ff.Scale*/), ff.Name())
+		fmt.Fprintf(buf, ` %vpx %s`, num(face.Size /*TODO:*face.Scale*/), face.Name())
 		buf.ReadByte()
 		buf.WriteTo(r.w)
 
-		if ff.Color != ffMain.Color {
-			fmt.Fprintf(r.w, `;fill:%v`, canvas.CSSColor(ff.Color))
+		if face.Color != faceMain.Color {
+			fmt.Fprintf(r.w, `;fill:%v`, canvas.CSSColor(face.Color))
 		}
-	} else if differences == 1 && ff.Color != ffMain.Color {
-		fmt.Fprintf(r.w, `" fill="%v`, canvas.CSSColor(ff.Color))
+	} else if differences == 1 && face.Color != faceMain.Color {
+		fmt.Fprintf(r.w, `" fill="%v`, canvas.CSSColor(face.Color))
 	} else if 0 < differences {
 		fmt.Fprintf(r.w, `" style="`)
 		buf := &bytes.Buffer{}
-		if ff.Style&canvas.FontItalic != ffMain.Style&canvas.FontItalic {
+		if face.Style&canvas.FontItalic != faceMain.Style&canvas.FontItalic {
 			fmt.Fprintf(buf, `;font-style:italic`)
 		}
-		if boldness != ffMain.Boldness() {
+		if boldness != faceMain.Boldness() {
 			fmt.Fprintf(buf, `;font-weight:%d`, boldness)
 		}
-		if ff.Variant&canvas.FontSmallcaps != ffMain.Variant&canvas.FontSmallcaps {
+		if face.Variant&canvas.FontSmallcaps != faceMain.Variant&canvas.FontSmallcaps {
 			fmt.Fprintf(buf, `;font-variant:small-caps`)
 		}
-		if ff.Color != ffMain.Color {
-			fmt.Fprintf(buf, `;fill:%v`, canvas.CSSColor(ff.Color))
+		if face.Color != faceMain.Color {
+			fmt.Fprintf(buf, `;fill:%v`, canvas.CSSColor(face.Color))
 		}
 		buf.ReadByte()
 		buf.WriteTo(r.w)
@@ -293,7 +293,7 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 		return
 	}
 
-	ffMain := text.Face
+	faceMain := text.Face
 	x0, y0 := 0.0, 0.0
 	if m.IsTranslation() {
 		x0, y0 = m.Pos()
@@ -303,20 +303,20 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 		fmt.Fprintf(r.w, `<text transform="%s`, m.ToSVG(r.height))
 	}
 	fmt.Fprintf(r.w, `" style="font:`)
-	if ffMain.Style&canvas.FontItalic != 0 {
+	if faceMain.Style&canvas.FontItalic != 0 {
 		fmt.Fprintf(r.w, ` italic`)
 	}
-	if boldness := ffMain.Boldness(); boldness != 400 {
+	if boldness := faceMain.Boldness(); boldness != 400 {
 		fmt.Fprintf(r.w, ` %d`, boldness)
 	}
-	if ffMain.Variant&canvas.FontSmallcaps != 0 {
+	if faceMain.Variant&canvas.FontSmallcaps != 0 {
 		fmt.Fprintf(r.w, ` small-caps`)
 	}
-	fmt.Fprintf(r.w, ` %vpx %s`, num(ffMain.Size /**ffMain.Scale*/), ffMain.Name())
-	if ffMain.Color != canvas.Black {
-		fmt.Fprintf(r.w, `;fill:%v`, canvas.CSSColor(ffMain.Color))
+	fmt.Fprintf(r.w, ` %vpx %s`, num(faceMain.Size /**faceMain.Scale*/), faceMain.Name())
+	if faceMain.Color != canvas.Black {
+		fmt.Fprintf(r.w, `;fill:%v`, canvas.CSSColor(faceMain.Color))
 	}
-	if ffMain.Direction == canvasText.TopToBottom || ffMain.Direction == canvasText.BottomToTop {
+	if faceMain.Direction == canvasText.TopToBottom || faceMain.Direction == canvasText.BottomToTop {
 		fmt.Fprintf(r.w, `;writing-mode:vertical-lr`)
 	}
 	r.writeClasses(r.w)
@@ -338,7 +338,7 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 		//if span.GlyphSpacing > 0.0 {
 		//	fmt.Fprintf(r.w, `" letter-spacing="%v`, num(span.GlyphSpacing))
 		//}
-		r.writeFontStyle(span.Face, ffMain)
+		r.writeFontStyle(span.Face, faceMain)
 		r.writeClasses(r.w)
 		fmt.Fprintf(r.w, `">`)
 		xml.EscapeText(r.w, []byte(span.Text))

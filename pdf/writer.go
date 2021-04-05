@@ -781,7 +781,7 @@ func (w *pdfPageWriter) EndTextObject() {
 	w.inTextObject = false
 }
 
-func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
+func (w *pdfPageWriter) WriteText(mode canvas.WritingMode, TJ ...interface{}) {
 	if !w.inTextObject {
 		panic("must be in text object")
 	}
@@ -821,16 +821,7 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 		switch val := tj.(type) {
 		case []canvasText.Glyph:
 			i := 0
-			if w.fontDirection == canvasText.TopToBottom || w.fontDirection == canvasText.BottomToTop {
-				for j, glyph := range val {
-					origYAdvance := -int32(w.font.SFNT.GlyphVerticalAdvance(glyph.ID))
-					if glyph.YAdvance != origYAdvance {
-						write(val[i : j+1])
-						fmt.Fprintf(w, " %d", -int(f*float64(glyph.YAdvance-origYAdvance)+0.5))
-						i = j + 1
-					}
-				}
-			} else {
+			if mode == canvas.HorizontalTB {
 				for j, glyph := range val {
 					origXAdvance := int32(w.font.SFNT.GlyphAdvance(glyph.ID))
 					if glyph.XAdvance != origXAdvance {
@@ -839,11 +830,20 @@ func (w *pdfPageWriter) WriteText(TJ ...interface{}) {
 						i = j + 1
 					}
 				}
+			} else {
+				for j, glyph := range val {
+					origYAdvance := -int32(w.font.SFNT.GlyphVerticalAdvance(glyph.ID))
+					if glyph.YAdvance != origYAdvance {
+						write(val[i : j+1])
+						fmt.Fprintf(w, " %d", -int(f*float64(glyph.YAdvance-origYAdvance)+0.5))
+						i = j + 1
+					}
+				}
 			}
 			write(val[i:])
 		case string:
 			i := 0
-			if !(w.fontDirection == canvasText.TopToBottom || w.fontDirection == canvasText.BottomToTop) {
+			if mode == canvas.HorizontalTB {
 				var rPrev rune
 				for j, r := range val {
 					if i < j {

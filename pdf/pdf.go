@@ -195,9 +195,8 @@ func (r *PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 	text.WalkSpans(func(y, x float64, span canvas.TextSpan) {
 		r.w.StartTextObject()
 		r.w.SetFillColor(span.Face.Color)
-		r.w.SetFont(span.Face.Font, span.Face.Size, span.Face.Direction) // TODO: multiple by XScale or YScale? or in transform?
+		r.w.SetFont(span.Face.Font, span.Face.Size, span.Direction) // TODO: multiple by XScale or YScale? or in transform?
 		r.w.SetTextPosition(m.Translate(x, y).Shear(span.Face.FauxItalic, 0.0))
-		//r.w.SetTextCharSpace(span.GlyphSpacing)
 
 		if 0.0 < span.Face.FauxBold {
 			r.w.SetTextRenderMode(2)
@@ -205,7 +204,7 @@ func (r *PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 		} else {
 			r.w.SetTextRenderMode(0)
 		}
-		r.w.WriteText(span.Glyphs)
+		r.w.WriteText(text.Mode, span.Glyphs)
 		r.w.EndTextObject()
 
 		style := canvas.DefaultStyle

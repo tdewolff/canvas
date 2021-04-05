@@ -429,7 +429,7 @@ func isUpper(s string) bool {
 }
 
 func isSpace(s string) bool {
-	// no-break spaces such as U+00A0, U+202F, and U+FEFF are used as boxes
+	// no-break spaces such as U+00A0, U+202F, U+180E, and U+FEFF are used as boxes
 	spaces := []rune(" \u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u205F")
 	if r, size := utf8.DecodeRuneInString(s); size == len(s) {
 		for _, space := range spaces {
@@ -441,8 +441,20 @@ func isSpace(s string) bool {
 	return false
 }
 
+func isNewline(s string) bool {
+	newlines := []rune("\r\n\f\v\u0085\u2028\u2029")
+	if r, size := utf8.DecodeRuneInString(s); size == len(s) {
+		for _, newline := range newlines {
+			if r == newline {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // GlyphsToItems converts a slice of glyphs into the box/glue/penalty items model as used by Knuth's line breaking algorithm. The SFNT and Size of each glyph must be set. Indent and align specify the indentation width of the first line and the alignment (left, right, centered, justified) of the lines respectively. Finally, stretchWidth is typically twice the width of a space and is inserted as stretchable glue for alignment purposes.
-func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
+func GlyphsToItems(glyphs []Glyph, indent float64, align Align, vertical bool) []Item {
 	if len(glyphs) == 0 {
 		return []Item{}
 	}
@@ -456,7 +468,12 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 	}
 	for i, glyph := range glyphs {
 		if isSpace(glyph.Text) {
-			spaceWidth := float64(glyph.XAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
+			var spaceWidth float64
+			if !vertical {
+				spaceWidth = float64(glyph.XAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
+			} else {
+				spaceWidth = float64(-glyph.YAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
+			}
 			spaceFactor := 1.0
 			if !FrenchSpacing && align == Justified {
 				j := i - 1
@@ -507,9 +524,19 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 				items = append(items, Penalty(0.0, Infinity, false))
 				items = append(items, Glue(0.0, stretchWidth, 0.0))
 			}
+		} else if isNewline(glyph.Text) {
+			if glyph.Text != "\n" || i == 0 || glyphs[i-1].Text != "\r" {
+				items = append(items, Penalty(0.0, -Infinity, false))
+			}
+			items[len(items)-1].Size++
 		} else if glyph.Text == "\u200B" {
 			// optional hyphens
-			hyphenWidth := float64(glyph.SFNT.GlyphAdvance(glyph.SFNT.GlyphIndex('-')))
+			var hyphenWidth float64
+			if !vertical {
+				hyphenWidth = float64(glyph.SFNT.GlyphAdvance(glyph.SFNT.GlyphIndex('-')))
+			} else {
+				hyphenWidth = float64(glyph.SFNT.GlyphVerticalAdvance(glyph.SFNT.GlyphIndex('-')))
+			}
 			hyphenWidth *= glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
 			if align == Justified {
 				items = append(items, Penalty(hyphenWidth, HyphenPenalty, true))
@@ -525,7 +552,12 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 			}
 		} else {
 			// glyphs
-			width := float64(glyph.XAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
+			var width float64
+			if !vertical {
+				width = float64(glyph.XAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
+			} else {
+				width = float64(-glyph.YAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
+			}
 			if items[len(items)-1].Type == BoxType {
 				items[len(items)-1].Width += width
 			} else {
@@ -560,7 +592,8 @@ func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, indent, widt
 	hyphenID := sfnt.GlyphIndex('-')
 	toUnits := float64(sfnt.Head.UnitsPerEm) / size
 
-	items := GlyphsToItems(glyphs, indent, align)
+	vertical := false
+	items := GlyphsToItems(glyphs, indent, align, vertical)
 	breaks := Linebreak(items, width, looseness)
 
 	i, j := 0, 0 // index into: glyphs, breaks/lines
