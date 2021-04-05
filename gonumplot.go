@@ -5,6 +5,8 @@ import (
 	"image/color"
 	"math"
 
+	"golang.org/x/image/font"
+	gonumFont "gonum.org/v1/plot/font"
 	"gonum.org/v1/plot/vg"
 	"gonum.org/v1/plot/vg/draw"
 )
@@ -136,8 +138,30 @@ func (r *GonumPlot) Fill(path vg.Path) {
 // FillString fills in text at the specified
 // location using the given font.
 // If the font size is zero, the text is not drawn.
-func (r *GonumPlot) FillString(f vg.Font, pt vg.Point, text string) {
-	face := r.font.Face(float64(f.Size), r.ctx.FillColor, FontRegular, FontNormal)
+func (r *GonumPlot) FillString(f gonumFont.Face, pt vg.Point, text string) {
+	style := FontRegular
+	switch f.Font.Weight {
+	case font.WeightThin:
+		style = FontExtraLight
+	case font.WeightExtraLight:
+		style = FontLight
+	case font.WeightLight:
+		style = FontBook
+	case font.WeightMedium:
+		style = FontMedium
+	case font.WeightSemiBold:
+		style = FontSemibold
+	case font.WeightBold:
+		style = FontBold
+	case font.WeightExtraBold:
+		style = FontBlack
+	case font.WeightBlack:
+		style = FontExtraBlack
+	}
+	if f.Font.Style == font.StyleItalic || f.Font.Style == font.StyleOblique {
+		style |= FontItalic
+	}
+	face := r.font.Face(float64(f.Font.Size), r.ctx.FillColor, style, FontNormal)
 	r.ctx.DrawText(float64(pt.X*mmPerPt), float64(pt.Y*mmPerPt), NewTextLine(face, text, Left))
 }
 
