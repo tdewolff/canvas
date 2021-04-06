@@ -1,7 +1,6 @@
 package canvas
 
 import (
-	"fmt"
 	"math"
 	"sort"
 	"strconv"
@@ -273,21 +272,6 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	log := rt.String()
 	vis, mapV2L := canvasText.Bidi(log)
 	logRunes := []rune(log)
-	visRunes := []rune(vis)
-
-	fmt.Println("log:", log)
-	i := 0
-	for j, r := range log {
-		fmt.Printf("  %d (%d) %U %s\n", i, j, r, string(r))
-		i++
-	}
-	fmt.Println("vis:", vis)
-	i = 0
-	for j, r := range vis {
-		fmt.Printf("  %d (%d) %U %s\n", i, j, r, string(r))
-		i++
-	}
-	fmt.Println("map:", mapV2L)
 
 	// itemize string by font face and script
 	texts := []string{}
@@ -318,7 +302,6 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	}
 
 	// shape text into glyphs and keep index into texts and faces
-	rtls := []bool{}
 	clusterOffset := uint32(0)
 	glyphIndices := indexer{} // indexes glyphs into texts and faces
 	glyphs := []canvasText.Glyph{}
@@ -332,9 +315,6 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			glyphsString[i].Size = face.Size * face.XScale
 			glyphsString[i].Cluster += clusterOffset
 		}
-		rtl := 0 < len(glyphsString) && glyphsString[len(glyphsString)-1].Cluster < glyphsString[0].Cluster
-		fmt.Println(">", text, rtl, direction)
-		rtls = append(rtls, rtl)
 		glyphIndices = append(glyphIndices, len(glyphs))
 		glyphs = append(glyphs, glyphsString...)
 		clusterOffset += uint32(len(text))
@@ -361,11 +341,6 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		Face:  faces[0],
 		Mode:  rt.mode,
 	}
-
-	for _, glyph := range glyphs {
-		fmt.Println("      ", glyph)
-	}
-
 	glyphs = append(glyphs, canvasText.Glyph{Cluster: uint32(len(vis))}) // makes indexing easier
 
 	i, j = 0, 0 // index into: glyphs, breaks/lines
@@ -422,29 +397,17 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			for b := i + 1; b <= i+item.Size; b++ {
 				nextK := glyphIndices.index(b)
 				if nextK != k || b == i+item.Size {
-					fmt.Println("-- glyphs", a, b, "item", k, "size", item.Size)
-					fmt.Println("   glyphs", glyphs[a:b+1])
-					fmt.Println("   clusters", glyphs[a].Cluster, glyphs[b].Cluster)
-
-					ag, bg := glyphs[a].Cluster, glyphs[b].Cluster
-					for _, glyph := range glyphs[a : b+1] {
-						if glyph.Cluster < ag {
-							ag = glyph.Cluster
-						} else if bg < glyph.Cluster {
-							bg = glyph.Cluster
+					ac, bc := glyphs[a].Cluster, glyphs[b].Cluster
+					if glyphs[a+1].Cluster < ac {
+						// right-to-left
+						ac = glyphs[b-1].Cluster
+						bc = uint32(len(vis))
+						if 0 < a {
+							bc = glyphs[a-1].Cluster
 						}
 					}
-					fmt.Println("   clusters", ag, bg)
-
-					ar := utf8.RuneCountInString(vis[:ag])
-					br := utf8.RuneCountInString(vis[:bg])
-					fmt.Println("   ar,br", ar, br-1, "=>", mapV2L[ar], mapV2L[br-1])
-					fmt.Printf("   rune from %U => %U\n", visRunes[ar], logRunes[mapV2L[ar]])
-					fmt.Printf("   rune   to %U => %U\n", visRunes[br-1], logRunes[mapV2L[br-1]])
-					fmt.Printf("   text '%s'\n", string(logRunes[ar:br]))
-					for _, r := range logRunes[ar:br] {
-						fmt.Printf("      %U\n", r)
-					}
+					ar := utf8.RuneCountInString(vis[:ac])
+					br := utf8.RuneCountInString(vis[:bc])
 					s := string(logRunes[ar:br])
 
 					t.lines[j].spans = append(t.lines[j].spans, TextSpan{

@@ -30,19 +30,20 @@ func (s Shaper) Destroy() {
 }
 
 func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Script, language string, features string, variations string) []Glyph {
-	rs := []rune(text)
-	glyphs := make([]Glyph, len(rs))
+	glyphs := make([]Glyph, len([]rune(text)))
+	i := 0
 	var prevIndex uint16
-	for i, r := range rs {
+	for cluster, r := range text {
 		index := s.sfnt.GlyphIndex(r)
 		glyphs[i].Text = string(r)
 		glyphs[i].ID = index
-		glyphs[i].Cluster = uint32(i)
+		glyphs[i].Cluster = uint32(cluster)
 		glyphs[i].XAdvance = int32(s.sfnt.GlyphAdvance(index))
 		if 0 < i {
 			glyphs[i-1].XAdvance += int32(s.sfnt.Kerning(prevIndex, index))
 		}
 		prevIndex = index
+		i++
 	}
 	return glyphs
 }

@@ -96,6 +96,7 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	C.hb_buffer_guess_segment_properties(buf)
 
 	if FriBidi && Direction(C.hb_buffer_get_direction(buf)) == RightToLeft {
+		// FriBidi already reversed the direction
 		C.hb_buffer_set_direction(buf, C.hb_direction_t(LeftToRight))
 	}
 	reverse := Direction(C.hb_buffer_get_direction(buf)) == RightToLeft || Direction(C.hb_buffer_get_direction(buf)) == BottomToTop
