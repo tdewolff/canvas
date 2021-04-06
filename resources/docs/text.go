@@ -18,7 +18,7 @@ func main() {
 	c := canvas.New(265, 90)
 	ctx := canvas.NewContext(c)
 	draw(ctx)
-	c.WriteFile("out.png", rasterizer.PNGWriter(5.0))
+	c.WriteFile("text.png", rasterizer.PNGWriter(5.0))
 }
 
 func drawText(c *canvas.Context, x, y float64, halign, valign canvas.TextAlign, indent float64) {

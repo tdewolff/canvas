@@ -18,7 +18,7 @@ func main() {
 	c := canvas.New(65, 27)
 	ctx := canvas.NewContext(c)
 	draw(ctx)
-	c.WriteFile("out.png", rasterizer.PNGWriter(5.0))
+	c.WriteFile("title.png", rasterizer.PNGWriter(5.0))
 }
 
 func draw(c *canvas.Context) {
