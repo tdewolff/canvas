@@ -272,32 +272,28 @@ func writingModeDirection(mode WritingMode, direction canvasText.Direction) canv
 func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, indent, lineSpacing float64) *Text {
 	log := rt.String()
 	vis, mapV2L := canvasText.Bidi(log)
-
-	// make a map of vis2log at byte indices instead of rune indices
-	k := 0
 	logRunes := []rune(log)
-	mapStringV2L := make([]uint32, len(vis)+1)
-	for i, r := range vis {
-		n := utf8.RuneLen(r)
-		for j := 0; j < n; j++ {
-			mapStringV2L[i+j] = uint32(len(string(logRunes[:mapV2L[k]])))
-		}
-		k++
-	}
-	mapStringV2L[len(vis)] = uint32(len(log))
+	visRunes := []rune(vis)
 
-	fmt.Println(log)
-	fmt.Println(vis)
-	fmt.Println(mapStringV2L)
+	fmt.Println("log:", log)
+	i := 0
+	for j, r := range log {
+		fmt.Printf("  %d (%d) %U %s\n", i, j, r, string(r))
+		i++
+	}
+	fmt.Println("vis:", vis)
+	i = 0
+	for j, r := range vis {
+		fmt.Printf("  %d (%d) %U %s\n", i, j, r, string(r))
+		i++
+	}
+	fmt.Println("map:", mapV2L)
 
 	// itemize string by font face and script
 	texts := []string{}
 	faces := []*FontFace{}
-	prevK := 0
-	visOffsets := []uint32{}  // offset into vis for each text
-	visOffsets2 := []uint32{} // offset into []rune(vis) for each text
-	i, j := 0, 0              // index into vis
-	curFace := 0              // index into rt.faces
+	i, j := 0, 0 // index into vis
+	curFace := 0 // index into rt.faces
 	for k, r := range []rune(vis) {
 		nextFace := rt.locs.index(mapV2L[k])
 		if nextFace != curFace {
@@ -305,13 +301,9 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			texts = append(texts, scriptItems...)
 			for _, s := range scriptItems {
 				faces = append(faces, rt.faces[curFace])
-				visOffsets = append(visOffsets, uint32(i))
-				visOffsets2 = append(visOffsets2, uint32(prevK))
-				prevK += len([]rune(s))
 				i += len(s)
 			}
 			curFace = nextFace
-			prevK = k
 			i = j
 		}
 		j += utf8.RuneLen(r)
@@ -321,18 +313,14 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		texts = append(texts, scriptItems...)
 		for _, s := range scriptItems {
 			faces = append(faces, rt.faces[curFace])
-			visOffsets = append(visOffsets, uint32(i))
-			visOffsets2 = append(visOffsets2, uint32(prevK))
-			prevK += len([]rune(s))
 			i += len(s)
 		}
 	}
-	visOffsets = append(visOffsets, uint32(len(vis)))
-	visOffsets2 = append(visOffsets2, uint32(len([]rune(vis))))
 
 	// shape text into glyphs and keep index into texts and faces
-	glyphIndices := indexer{} // indexes glyphs into texts and faces
 	rtls := []bool{}
+	clusterOffset := uint32(0)
+	glyphIndices := indexer{} // indexes glyphs into texts and faces
 	glyphs := []canvasText.Glyph{}
 	for k, text := range texts {
 		face := faces[k]
@@ -342,12 +330,14 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		for i, _ := range glyphsString {
 			glyphsString[i].SFNT = face.Font.SFNT
 			glyphsString[i].Size = face.Size * face.XScale
+			glyphsString[i].Cluster += clusterOffset
 		}
 		rtl := 0 < len(glyphsString) && glyphsString[len(glyphsString)-1].Cluster < glyphsString[0].Cluster
-		fmt.Println(text, rtl, direction)
-		glyphIndices = append(glyphIndices, len(glyphs))
+		fmt.Println(">", text, rtl, direction)
 		rtls = append(rtls, rtl)
+		glyphIndices = append(glyphIndices, len(glyphs))
 		glyphs = append(glyphs, glyphsString...)
+		clusterOffset += uint32(len(text))
 	}
 
 	// break glyphs into lines following Donald Knuth's line breaking algorithm
@@ -371,6 +361,12 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		Face:  faces[0],
 		Mode:  rt.mode,
 	}
+
+	for _, glyph := range glyphs {
+		fmt.Println("      ", glyph)
+	}
+
+	glyphs = append(glyphs, canvasText.Glyph{Cluster: uint32(len(vis))}) // makes indexing easier
 
 	i, j = 0, 0 // index into: glyphs, breaks/lines
 	atStart := true
@@ -426,40 +422,31 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			for b := i + 1; b <= i+item.Size; b++ {
 				nextK := glyphIndices.index(b)
 				if nextK != k || b == i+item.Size {
-					s := ""
-					for _, glyph := range glyphs[a:b] {
-						//r, _ := utf8.DecodeRuneInString(log[mapStringV2L[visOffsets[k]+glyph.Cluster]:])
-						//fmt.Println(n, glyph.Text, string(r))
-						s += glyph.Text
+					fmt.Println("-- glyphs", a, b, "item", k, "size", item.Size)
+					fmt.Println("   glyphs", glyphs[a:b+1])
+					fmt.Println("   clusters", glyphs[a].Cluster, glyphs[b].Cluster)
+
+					ag, bg := glyphs[a].Cluster, glyphs[b].Cluster
+					for _, glyph := range glyphs[a : b+1] {
+						if glyph.Cluster < ag {
+							ag = glyph.Cluster
+						} else if bg < glyph.Cluster {
+							bg = glyph.Cluster
+						}
 					}
-					fmt.Println(s)
-					//at := visOffsets[k] + glyphs[a].Cluster
-					//bt := visOffsets[k+1]
-					//if b < len(glyphs) {
-					//	bt = visOffsets[k] + glyphs[b].Cluster
-					//}
-					//if !rtls[k] {
-					//	at = glyphs[a].Cluster
-					//	bt = uint32(len(texts[k]))
-					//	if b < len(glyphs) {
-					//		bt = glyphs[b].Cluster
-					//	}
-					//} else {
-					//	at = uint32(0)
-					//	if 0 < b {
-					//		at = glyphs[b-1].Cluster
-					//	}
-					//	bt = uint32(len(texts[k]))
-					//	if 0 < a {
-					//		bt = glyphs[a-1].Cluster
-					//	}
-					//}
-					//offset := textOffsets[k]
-					//fmt.Println(at, bt, texts[k][at:bt])
-					//fmt.Println(at, bt, vis[at:bt])
-					//at = mapStringV2L[at]
-					//bt = mapStringV2L[bt]
-					//fmt.Println(at, bt, log[at:bt])
+					fmt.Println("   clusters", ag, bg)
+
+					ar := utf8.RuneCountInString(vis[:ag])
+					br := utf8.RuneCountInString(vis[:bg])
+					fmt.Println("   ar,br", ar, br-1, "=>", mapV2L[ar], mapV2L[br-1])
+					fmt.Printf("   rune from %U => %U\n", visRunes[ar], logRunes[mapV2L[ar]])
+					fmt.Printf("   rune   to %U => %U\n", visRunes[br-1], logRunes[mapV2L[br-1]])
+					fmt.Printf("   text '%s'\n", string(logRunes[ar:br]))
+					for _, r := range logRunes[ar:br] {
+						fmt.Printf("      %U\n", r)
+					}
+					s := string(logRunes[ar:br])
+
 					t.lines[j].spans = append(t.lines[j].spans, TextSpan{
 						x:         x,
 						Width:     faces[k].textWidth(glyphs[a:b]),
