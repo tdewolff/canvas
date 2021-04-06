@@ -1737,21 +1737,22 @@ func (p *Path) ToPDF() string {
 }
 
 // ToRasterizer rasterizes the path using the given rasterizer with dpm the dots-per-millimeter.
-func (p *Path) ToRasterizer(ras *vector.Rasterizer, dpm float64) {
+func (p *Path) ToRasterizer(ras *vector.Rasterizer, resolution Resolution) {
 	p = p.replace(nil, nil, nil, arcToCube)
 
+	dpmm := resolution.DPMM()
 	dy := float64(ras.Bounds().Size().Y)
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
 		case moveToCmd:
-			ras.MoveTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm))
+			ras.MoveTo(float32(p.d[i+1]*dpmm), float32(dy-p.d[i+2]*dpmm))
 		case lineToCmd:
-			ras.LineTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm))
+			ras.LineTo(float32(p.d[i+1]*dpmm), float32(dy-p.d[i+2]*dpmm))
 		case quadToCmd:
-			ras.QuadTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm), float32(p.d[i+3]*dpm), float32(dy-p.d[i+4]*dpm))
+			ras.QuadTo(float32(p.d[i+1]*dpmm), float32(dy-p.d[i+2]*dpmm), float32(p.d[i+3]*dpmm), float32(dy-p.d[i+4]*dpmm))
 		case cubeToCmd:
-			ras.CubeTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm), float32(p.d[i+3]*dpm), float32(dy-p.d[i+4]*dpm), float32(p.d[i+5]*dpm), float32(dy-p.d[i+6]*dpm))
+			ras.CubeTo(float32(p.d[i+1]*dpmm), float32(dy-p.d[i+2]*dpmm), float32(p.d[i+3]*dpmm), float32(dy-p.d[i+4]*dpmm), float32(p.d[i+5]*dpmm), float32(dy-p.d[i+6]*dpmm))
 		case arcToCmd:
 			panic("arcs should have been replaced")
 		case closeCmd:

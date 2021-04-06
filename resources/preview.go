@@ -8,30 +8,47 @@ import (
 
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/rasterizer"
+	"github.com/tdewolff/canvas/text"
 )
 
-var fontFamily *canvas.FontFamily
+var resolution = canvas.DPMM(3.2)
+
+var fontLatin *canvas.FontFamily
+var fontArabic *canvas.FontFamily
+var fontDevanagari *canvas.FontFamily
 
 func main() {
-	fontFamily = canvas.NewFontFamily("DejaVu Serif")
-	if err := fontFamily.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
+	fontLatin = canvas.NewFontFamily("DejaVu Serif")
+	if err := fontLatin.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
+		panic(err)
+	}
+
+	fontArabic = canvas.NewFontFamily("DejaVu Sans")
+	if err := fontArabic.LoadLocalFont("DejaVuSans", canvas.FontRegular); err != nil {
+		panic(err)
+	}
+
+	fontDevanagari = canvas.NewFontFamily("Devanagari")
+	if err := fontDevanagari.LoadFontFile("/usr/share/fonts/noto/NotoSerifDevanagari-Regular.ttf", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 
 	c := canvas.New(200, 100)
 	ctx := canvas.NewContext(c)
+	ctx.SetFillColor(canvas.White)
+	ctx.DrawPath(0, 0, canvas.Rectangle(c.W, c.H))
 	draw(ctx)
 
 	////////////////
 
-	c.WriteFile("preview.png", rasterizer.PNGWriter(3.2))
+	c.WriteFile("preview.png", rasterizer.PNGWriter(resolution))
 }
 
-func drawText(c *canvas.Context, x, y float64, face canvas.FontFace, rich *canvas.RichText) {
+func drawText(c *canvas.Context, x, y float64, face *canvas.FontFace, rich *canvas.RichText) {
 	metrics := face.Metrics()
-	width, height := 90.0, 35.0
+	width, height := 90.0, 32.0
 
-	text := rich.ToText(width, height, canvas.Justify, canvas.Top, 0.0, 0.0)
+	text := rich.ToText(width, height, canvas.Justify, canvas.Top, 0.0, 1.0)
 
 	c.SetFillColor(color.RGBA{192, 0, 64, 255})
 	c.DrawPath(x, y, text.Bounds().ToPath())
@@ -48,38 +65,42 @@ func drawText(c *canvas.Context, x, y float64, face canvas.FontFace, rich *canva
 
 func draw(c *canvas.Context) {
 	// Draw a comprehensive text box
-	fontSize := 14.0
-	face := fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal)
-	rich := canvas.NewRichText()
-	rich.Add(face, "\"Lorem ")
-	rich.Add(face, " dolor ")
-	rich.Add(face, "ipsum")
-	rich.Add(face, "\". Confiscator")
-	rich.Add(face, " Curabitur mattis dui tellus vel.")
-	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontBold, canvas.FontNormal), " faux bold")
-	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontItalic, canvas.FontNormal), "faux italic")
-	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontUnderline), "underline")
-	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(fontSize, canvas.White, canvas.FontRegular, canvas.FontNormal, canvas.FontDoubleUnderline), "double underline")
-	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontSineUnderline), "sine")
-	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontSawtoothUnderline), "sawtooth")
-	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontDottedUnderline), "dotted")
-	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontDashedUnderline), "dashed")
-	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontOverline), "overline ")
-	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontItalic, canvas.FontNormal, canvas.FontStrikethrough, canvas.FontSineUnderline, canvas.FontOverline), "combi")
-	rich.Add(face, ".")
-	drawText(c, 5, 95, face, rich)
+	pt := 14.0
+	face := fontLatin.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	rt := canvas.NewRichText(face)
+	rt.Add(face, "Lorem dolor ipsum ")
+	rt.Add(fontLatin.Face(pt, canvas.White, canvas.FontBold, canvas.FontNormal), "confiscator")
+	rt.Add(face, " curabitur ")
+	rt.Add(fontLatin.Face(pt, canvas.Black, canvas.FontItalic, canvas.FontNormal), "mattis")
+	rt.Add(face, " dui ")
+	rt.Add(fontLatin.Face(pt, canvas.Black, canvas.FontBold|canvas.FontItalic, canvas.FontNormal), "tellus")
+	rt.Add(face, " vel. Proin ")
+	rt.Add(fontLatin.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontUnderline), "sodales")
+	rt.Add(face, " eros vel ")
+	rt.Add(fontLatin.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontSineUnderline), "nibh")
+	rt.Add(face, " fringilla pellentesque. ")
+
+	face = fontLatin.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	face.Language = "ru"
+	face.Script = text.Cyrillic
+	rt.Add(face, "дёжжэнтиюнт ")
+
+	face = fontArabic.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	face.Language = "ar"
+	face.Script = text.Arabic
+	face.Direction = text.RightToLeft
+	rt.Add(face, "تسجّل يتكلّم ")
+
+	face = fontDevanagari.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	face.Language = "hi"
+	face.Script = text.Devanagari
+	rt.Add(face, "हालाँकि प्र ")
+
+	drawText(c, 5, 95, face, rt)
 
 	// Draw the word Stroke being stroked
-	face = fontFamily.Face(80.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
-	p, _, _ := face.ToPath("Stroke")
+	face = fontLatin.Face(80.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	p, _, _ := face.ToPath("Stroke", resolution)
 	c.DrawPath(100, 5, p.Stroke(0.75, canvas.RoundCap, canvas.RoundJoin))
 
 	// Draw a LaTeX formula
@@ -111,7 +132,7 @@ func draw(c *canvas.Context) {
 	c.SetDashes(0.0)
 
 	// Draw a raster image
-	lenna, err := os.Open("../lenna.png")
+	lenna, err := os.Open("lenna.png")
 	if err != nil {
 		panic(err)
 	}

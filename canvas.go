@@ -21,14 +21,28 @@ const (
 	Lossy
 )
 
-// DPMM (Dots-per-Millimetter) for the resolution of raster images. Higher DPMM will result in bigger images.
-type DPMM float64
+// Resolution is used for rasterizing images. Higher resolutions will result in bigger images.
+type Resolution float64
+
+// DPMM (Dots-per-Millimetter) for the resolution of raster images.
+func DPMM(dpmm float64) Resolution {
+	return Resolution(dpmm)
+}
 
 // DPI is a shortcut for Dots-per-Inch for the resolution of raster images.
-const DPI = DPMM(1.0 / 25.4)
+func DPI(dpi float64) Resolution {
+	return Resolution(dpi * inchPerMm)
+}
 
-//const DPMM = DPMM(1.0)
-const DefaultDPMM = 96.0 * inchPerMm
+func (res Resolution) DPMM() float64 {
+	return float64(res)
+}
+
+func (res Resolution) DPI() float64 {
+	return float64(res) * mmPerInch
+}
+
+const DefaultResolution = Resolution(96.0 * inchPerMm)
 
 ////////////////////////////////////////////////////////////////
 

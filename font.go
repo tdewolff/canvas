@@ -324,9 +324,9 @@ func (face *FontFace) Metrics() FontMetrics {
 	}
 }
 
-func (face *FontFace) PPEM(dpmm DPMM) uint16 {
+func (face *FontFace) PPEM(resolution Resolution) uint16 {
 	// ppem is for hinting purposes only, this does not influence glyph advances
-	return uint16(float64(dpmm) * face.Size * math.Min(face.XScale, face.YScale))
+	return uint16(resolution.DPMM() * face.Size * math.Min(face.XScale, face.YScale))
 }
 
 // Kerning returns the eventual kerning between two runes in mm (ie. the adjustment on the advance).
@@ -338,7 +338,7 @@ func (face *FontFace) Kerning(left, right rune) float64 {
 
 // TextWidth returns the width of a given string in mm.
 func (face *FontFace) TextWidth(s string) float64 {
-	ppem := face.PPEM(DefaultDPMM)
+	ppem := face.PPEM(DefaultResolution)
 	glyphs := face.Font.shaper.Shape(s, ppem, face.Direction, face.Script, face.Language, face.Font.features, face.Font.variations)
 	return face.textWidth(glyphs)
 }
@@ -368,8 +368,8 @@ func (face *FontFace) Decorate(width float64) *Path {
 	return p
 }
 
-func (face *FontFace) ToPath(s string, dpmm DPMM) (*Path, float64, error) {
-	ppem := face.PPEM(dpmm)
+func (face *FontFace) ToPath(s string, resolution Resolution) (*Path, float64, error) {
+	ppem := face.PPEM(resolution)
 	glyphs := face.Font.shaper.Shape(s, ppem, face.Direction, face.Script, face.Language, face.Font.features, face.Font.variations)
 	return face.toPath(glyphs, ppem)
 }

@@ -558,7 +558,8 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align, vertical bool) [
 			} else {
 				width = float64(-glyph.YAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
 			}
-			if items[len(items)-1].Type == BoxType {
+			if 1 < len(items) && items[len(items)-1].Type == BoxType {
+				// merge with previous box only if it's not indent
 				items[len(items)-1].Width += width
 			} else {
 				items = append(items, Box(width))

@@ -119,10 +119,10 @@ func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 				continue
 			}
 			if i < j {
-				ppem := face.PPEM(DefaultDPMM)
+				ppem := face.PPEM(DefaultResolution)
 				lineWidth := 0.0
 				line := line{y: y, spans: []TextSpan{}}
-				itemsL, itemsV := itemizeString(s[i:j])
+				itemsL, itemsV := itemizeString(s[i:j]) // TODO: use same as RichText?
 				for k := 0; k < len(itemsL); k++ {
 					glyphs := face.Font.shaper.Shape(itemsV[k], ppem, face.Direction, face.Script, face.Language, face.Font.features, face.Font.variations)
 					width := face.textWidth(glyphs)
@@ -307,7 +307,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	glyphs := []canvasText.Glyph{}
 	for k, text := range texts {
 		face := faces[k]
-		ppem := face.PPEM(DefaultDPMM)
+		ppem := face.PPEM(DefaultResolution)
 		direction := writingModeDirection(rt.mode, face.Direction)
 		glyphsString := face.Font.shaper.Shape(text, ppem, direction, face.Script, face.Language, face.Font.features, face.Font.variations)
 		for i, _ := range glyphsString {
@@ -400,6 +400,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		} else if item.Type == canvasText.BoxType {
 			// find index k into faces/texts
 			a := i
+			dx := 0.0
 			k := glyphIndices.index(i)
 			for b := i + 1; b <= i+item.Size; b++ {
 				nextK := glyphIndices.index(b)
@@ -415,11 +416,12 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 					}
 					ar := utf8.RuneCountInString(vis[:ac])
 					br := utf8.RuneCountInString(vis[:bc])
-					s := string(logRunes[ar:br])
 
+					s := string(logRunes[ar:br])
+					w := faces[k].textWidth(glyphs[a:b])
 					t.lines[j].spans = append(t.lines[j].spans, TextSpan{
-						x:         x,
-						Width:     faces[k].textWidth(glyphs[a:b]),
+						x:         x + dx,
+						Width:     w,
 						Face:      faces[k],
 						Text:      s,
 						Glyphs:    glyphs[a:b],
@@ -427,6 +429,9 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 					})
 					t.fonts[faces[k].Font] = true
 					k = nextK
+
+					a = b
+					dx += w
 				}
 			}
 			atStart = false
@@ -511,7 +516,7 @@ func (t *Text) Heights() (float64, float64) {
 	lastLine := t.lines[len(t.lines)-1]
 	_, ascent, _, _ := firstLine.Heights()
 	_, _, descent, _ := lastLine.Heights()
-	return firstLine.y + ascent, -lastLine.y + descent
+	return -firstLine.y + ascent, -lastLine.y + descent
 }
 
 // Bounds returns the bounding rectangle that defines the text box.
@@ -522,7 +527,7 @@ func (t *Text) Bounds() Rect {
 	rect := Rect{}
 	for _, line := range t.lines {
 		for _, span := range line.spans {
-			rect = rect.Add(Rect{span.x, line.y - span.Face.Metrics().Descent, span.Width, span.Face.Metrics().Ascent + span.Face.Metrics().Descent})
+			rect = rect.Add(Rect{span.x, -line.y - span.Face.Metrics().Descent, span.Width, span.Face.Metrics().Ascent + span.Face.Metrics().Descent})
 		}
 	}
 	return rect
@@ -617,7 +622,10 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix) {
 		for _, span := range line.spans {
 			style.FillColor = span.Face.Color
 
-			p, _, _ := span.Face.toPath(span.Glyphs, span.Face.PPEM(DefaultDPMM))
+			p, _, err := span.Face.toPath(span.Glyphs, span.Face.PPEM(DefaultResolution))
+			if err != nil {
+				panic(err)
+			}
 			if t.Mode == HorizontalTB {
 				p = p.Translate(span.x, -line.y)
 			} else {

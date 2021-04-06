@@ -15,7 +15,7 @@ import (
 )
 
 // PNGWriter writes the canvas as a PNG file
-func PNGWriter(resolution canvas.DPMM) canvas.Writer {
+func PNGWriter(resolution canvas.Resolution) canvas.Writer {
 	return func(w io.Writer, c *canvas.Canvas) error {
 		img := Draw(c, resolution)
 		// TODO: optimization: cache img until canvas changes
@@ -24,7 +24,7 @@ func PNGWriter(resolution canvas.DPMM) canvas.Writer {
 }
 
 // JPGWriter writes the canvas as a JPG file
-func JPGWriter(resolution canvas.DPMM, opts *jpeg.Options) canvas.Writer {
+func JPGWriter(resolution canvas.Resolution, opts *jpeg.Options) canvas.Writer {
 	return func(w io.Writer, c *canvas.Canvas) error {
 		img := Draw(c, resolution)
 		// TODO: optimization: cache img until canvas changes
@@ -33,7 +33,7 @@ func JPGWriter(resolution canvas.DPMM, opts *jpeg.Options) canvas.Writer {
 }
 
 // GIFWriter writes the canvas as a GIF file
-func GIFWriter(resolution canvas.DPMM, opts *gif.Options) canvas.Writer {
+func GIFWriter(resolution canvas.Resolution, opts *gif.Options) canvas.Writer {
 	return func(w io.Writer, c *canvas.Canvas) error {
 		img := Draw(c, resolution)
 		// TODO: optimization: cache img until canvas changes
@@ -42,7 +42,7 @@ func GIFWriter(resolution canvas.DPMM, opts *gif.Options) canvas.Writer {
 }
 
 // TIFFWriter writes the canvas as a TIFF file
-func TIFFWriter(resolution canvas.DPMM, opts *tiff.Options) canvas.Writer {
+func TIFFWriter(resolution canvas.Resolution, opts *tiff.Options) canvas.Writer {
 	return func(w io.Writer, c *canvas.Canvas) error {
 		img := Draw(c, resolution)
 		// TODO: optimization: cache img until canvas changes
@@ -52,8 +52,8 @@ func TIFFWriter(resolution canvas.DPMM, opts *tiff.Options) canvas.Writer {
 
 // Draw draws the canvas on a new image with given resolution (in dots-per-millimeter).
 // Higher resolution will result in bigger images.
-func Draw(c *canvas.Canvas, resolution canvas.DPMM) *image.RGBA {
-	img := image.NewRGBA(image.Rect(0, 0, int(c.W*float64(resolution)+0.5), int(c.H*float64(resolution)+0.5)))
+func Draw(c *canvas.Canvas, resolution canvas.Resolution) *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, int(c.W*resolution.DPMM()+0.5), int(c.H*resolution.DPMM()+0.5)))
 	ras := New(img, resolution)
 	c.Render(ras)
 	return img
@@ -61,11 +61,11 @@ func Draw(c *canvas.Canvas, resolution canvas.DPMM) *image.RGBA {
 
 type Rasterizer struct {
 	img        draw.Image
-	resolution canvas.DPMM
+	resolution canvas.Resolution
 }
 
 // New creates a renderer that draws to a rasterized image.
-func New(img draw.Image, resolution canvas.DPMM) *Rasterizer {
+func New(img draw.Image, resolution canvas.Resolution) *Rasterizer {
 	return &Rasterizer{
 		img:        img,
 		resolution: resolution,
@@ -75,7 +75,7 @@ func New(img draw.Image, resolution canvas.DPMM) *Rasterizer {
 // Size returns the width and height in millimeters
 func (r *Rasterizer) Size() (float64, float64) {
 	size := r.img.Bounds().Size()
-	return float64(size.X) / float64(r.resolution), float64(size.Y) / float64(r.resolution)
+	return float64(size.X) / r.resolution.DPMM(), float64(size.Y) / r.resolution.DPMM()
 }
 
 func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
@@ -90,11 +90,11 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 	size := r.img.Bounds().Size()
 	bounds := path.Bounds()
 	dx, dy := 0, 0
-	resolution := float64(r.resolution)
-	x := int((bounds.X - strokeWidth) * resolution)
-	y := int((bounds.Y - strokeWidth) * resolution)
-	w := int((bounds.W+2*strokeWidth)*resolution) + 1
-	h := int((bounds.H+2*strokeWidth)*resolution) + 1
+	dpmm := r.resolution.DPMM()
+	x := int((bounds.X - strokeWidth) * dpmm)
+	y := int((bounds.Y - strokeWidth) * dpmm)
+	w := int((bounds.W+2*strokeWidth)*dpmm) + 1
+	h := int((bounds.H+2*strokeWidth)*dpmm) + 1
 	if (x+w <= 0 || size.X <= x) && (y+h <= 0 || size.Y <= y) {
 		return // outside canvas
 	}
@@ -117,10 +117,10 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		return // has no size
 	}
 
-	path = path.Translate(-float64(x)/resolution, -float64(y)/resolution)
+	path = path.Translate(-float64(x)/dpmm, -float64(y)/dpmm)
 	if style.FillColor.A != 0 {
 		ras := vector.NewRasterizer(w, h)
-		path.ToRasterizer(ras, resolution)
+		path.ToRasterizer(ras, r.resolution)
 		ras.Draw(r.img, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(style.FillColor), image.Point{dx, dy})
 	}
 	if style.StrokeColor.A != 0 && 0.0 < style.StrokeWidth {
@@ -130,7 +130,7 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
 
 		ras := vector.NewRasterizer(w, h)
-		path.ToRasterizer(ras, resolution)
+		path.ToRasterizer(ras, r.resolution)
 		ras.Draw(r.img, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(style.StrokeColor), image.Point{dx, dy})
 	}
 }
@@ -150,8 +150,9 @@ func (r *Rasterizer) RenderImage(img image.Image, m canvas.Matrix) {
 	// draw to destination image
 	// note that we need to correct for the added margin in origin and m
 	// TODO: optimize when transformation is only translation or stretch
-	origin := m.Dot(canvas.Point{-float64(margin), float64(img2.Bounds().Size().Y - margin)}).Mul(float64(r.resolution))
-	m = m.Scale(float64(r.resolution)*(float64(size.X+margin)/float64(size.X)), float64(r.resolution)*(float64(size.Y+margin)/float64(size.Y)))
+	dpmm := r.resolution.DPMM()
+	origin := m.Dot(canvas.Point{-float64(margin), float64(img2.Bounds().Size().Y - margin)}).Mul(dpmm)
+	m = m.Scale(dpmm*(float64(size.X+margin)/float64(size.X)), dpmm*(float64(size.Y+margin)/float64(size.Y)))
 
 	h := float64(r.img.Bounds().Size().Y)
 	aff3 := f64.Aff3{m[0][0], -m[0][1], origin.X, -m[1][0], m[1][1], h - origin.Y}
