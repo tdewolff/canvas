@@ -48,7 +48,7 @@ func drawText(c *canvas.Context, x, y float64, face *canvas.FontFace, rich *canv
 	metrics := face.Metrics()
 	width, height := 90.0, 32.0
 
-	text := rich.ToText(width, height, canvas.Justify, canvas.Top, 0.0, 1.0)
+	text := rich.ToText(width, height, canvas.Justify, canvas.Top, 0.0, 0.0)
 
 	c.SetFillColor(color.RGBA{192, 0, 64, 255})
 	c.DrawPath(x, y, text.Bounds().ToPath())
