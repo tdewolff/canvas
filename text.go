@@ -268,7 +268,7 @@ func writingModeDirection(mode WritingMode, direction canvasText.Direction) canv
 }
 
 // ToText takes the added text spans and fits them within a given box of certain width and height.
-func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, indent, lineSpacing float64) *Text {
+func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, indent, lineStretch float64) *Text {
 	log := rt.String()
 	vis, mapV2L := canvasText.Bidi(log)
 	logRunes := []rune(log)
@@ -322,11 +322,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 	// break glyphs into lines following Donald Knuth's line breaking algorithm
 	align := canvasText.Left
-	if halign == Right {
-		align = canvasText.Right
-	} else if halign == Center {
-		align = canvasText.Centered
-	} else if halign == Justify {
+	if halign == Justify {
 		align = canvasText.Justified
 	}
 	vertical := rt.mode != HorizontalTB
@@ -346,6 +342,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	i, j = 0, 0 // index into: glyphs, breaks/lines
 	atStart := true
 	x, y := 0.0, 0.0 // both positive toward the bottom right
+	lineSpacing := 1.0 + lineStretch
 	if halign == Right {
 		x += width - breaks[j].Width
 	}
@@ -395,6 +392,8 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			x = 0.0
 			if halign == Right {
 				x += width - breaks[j].Width
+			} else if halign == Center {
+				x += (width - breaks[j].Width) / 2.0
 			}
 			atStart = true
 		} else if item.Type == canvasText.BoxType {
