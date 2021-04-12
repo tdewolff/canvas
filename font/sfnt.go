@@ -73,20 +73,15 @@ func (sfnt *SFNT) GlyphName(glyphID uint16) string {
 	return sfnt.Post.Get(glyphID)
 }
 
-func (sfnt *SFNT) GlyphContour(glyphID uint16) (*glyfContour, error) {
-	if !sfnt.IsTrueType {
-		return nil, fmt.Errorf("CFF not supported")
-	}
-	return sfnt.Glyf.Contour(glyphID, 0)
-}
-
-func (sfnt *SFNT) GlyphToPath(p Pather, glyphID, ppem uint16, xOffset, yOffset int32, xScale, yScale float64, hinting Hinting) error {
-	if !sfnt.IsTrueType {
-		return fmt.Errorf("CFF not supported")
-	}
+func (sfnt *SFNT) GlyphPath(p Pather, glyphID, ppem uint16, xOffset, yOffset int32, xScale, yScale float64, hinting Hinting) error {
 	x := float64(xOffset)
 	y := float64(yOffset)
-	return sfnt.Glyf.ToPath(p, glyphID, ppem, x, y, xScale, yScale, hinting)
+	if sfnt.IsTrueType {
+		return sfnt.Glyf.ToPath(p, glyphID, ppem, x, y, xScale, yScale, hinting)
+	} else if sfnt.IsCFF {
+		return sfnt.CFF.ToPath(p, glyphID, ppem, x, y, xScale, yScale, hinting)
+	}
+	return fmt.Errorf("only TrueType and CFF are supported")
 }
 
 func (sfnt *SFNT) GlyphAdvance(glyphID uint16) uint16 {
@@ -1335,15 +1330,18 @@ func (sfnt *SFNT) parseOS2() error {
 }
 
 func (sfnt *SFNT) estimateOS2() {
-	contour, err := sfnt.GlyphContour(sfnt.GlyphIndex('x'))
-	if err == nil {
-		sfnt.OS2.SxHeight = contour.YMax
-	}
+	if sfnt.IsTrueType {
+		contour, err := sfnt.Glyf.Contour(sfnt.GlyphIndex('x'), 0)
+		if err == nil {
+			sfnt.OS2.SxHeight = contour.YMax
+		}
 
-	contour, err = sfnt.GlyphContour(sfnt.GlyphIndex('H'))
-	if err == nil {
-		sfnt.OS2.SCapHeight = contour.YMax
+		contour, err = sfnt.Glyf.Contour(sfnt.GlyphIndex('H'), 0)
+		if err == nil {
+			sfnt.OS2.SCapHeight = contour.YMax
+		}
 	}
+	// TODO: for CFF
 }
 
 ////////////////////////////////////////////////////////////////

@@ -382,7 +382,7 @@ func (face *FontFace) toPath(glyphs []text.Glyph, ppem uint16) (*Path, float64, 
 	p := &Path{}
 	x, y := face.XOffset, face.YOffset
 	for _, glyph := range glyphs {
-		err := face.Font.GlyphToPath(p, glyph.ID, ppem, x+glyph.XOffset, y+glyph.YOffset, fx, fy, font.NoHinting)
+		err := face.Font.GlyphPath(p, glyph.ID, ppem, x+glyph.XOffset, y+glyph.YOffset, fx, fy, font.NoHinting)
 		if err != nil {
 			return p, 0.0, err
 		}

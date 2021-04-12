@@ -127,6 +127,10 @@ func (r *binaryReader) ReadInt16() int16 {
 	return int16(r.ReadUint16())
 }
 
+func (r *binaryReader) ReadInt32() int32 {
+	return int32(r.ReadUint32())
+}
+
 func (r *binaryReader) ReadUint16LE() uint16 {
 	b := r.ReadBytes(2)
 	if b == nil {
