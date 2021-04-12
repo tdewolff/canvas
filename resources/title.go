@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"image/color"
 
 	"github.com/tdewolff/canvas"
@@ -28,7 +27,6 @@ func draw(c *canvas.Context) {
 	face := font.Face(80.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 
 	p, adv, _ := face.ToPath("C", resolution)
-	fmt.Println(p)
 	c.SetFillColor(color.RGBA{128, 0, 64, 255})
 	c.DrawPath(x, 4, p)
 	x += adv

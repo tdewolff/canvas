@@ -134,7 +134,6 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, dx, dy, fx, fy float
 			}
 			stack = append(stack, v)
 		} else {
-			fmt.Println(b0, len(stack), stack)
 			if firstOperator && (b0 == 1 || b0 == 3 || b0 == 4 || b0 == 14 || 18 <= b0 && b0 <= 23) {
 				// optionally parse width
 				hasWidth := len(stack)%2 == 1
@@ -495,7 +494,6 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, dx, dy, fx, fy float
 				if i < 0 || math.MaxUint16 < i {
 					return fmt.Errorf("CFF: bad subroutine")
 				}
-				fmt.Println(" > subr", i)
 
 				var subr []byte
 				if b0 == 10 {
@@ -516,7 +514,6 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, dx, dy, fx, fy float
 				if len(callStack) == 0 {
 					return fmt.Errorf("CFF: bad return")
 				}
-				fmt.Println(" < ret")
 				r = callStack[len(callStack)-1]
 				callStack = callStack[:len(callStack)-1]
 			default:
