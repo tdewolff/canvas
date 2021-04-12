@@ -11,7 +11,7 @@ var fontFamily *canvas.FontFamily
 
 func main() {
 	fontFamily = canvas.NewFontFamily("times")
-	if err := fontFamily.LoadLocalFont("Liberation Serif", canvas.FontRegular); err != nil {
+	if err := fontFamily.LoadLocalFont("NimbusRoman-Regular", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 

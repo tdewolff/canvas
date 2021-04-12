@@ -105,6 +105,9 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, dx, dy, fx, fy float
 		return fmt.Errorf("CFF: charstring too long")
 	}
 
+	dx *= fx
+	dy *= fy
+
 	hints := 0
 	stack := []int32{}
 	firstOperator := true
@@ -144,7 +147,10 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, dx, dy, fx, fy float
 					stack = stack[1:]
 				}
 			}
-			firstOperator = false
+			if b0 != 29 && b0 != 10 && b0 != 11 {
+				// callgsubr, callsubr, and return don't influece the width operator
+				firstOperator = false
+			}
 
 			if b0 == 12 {
 				b0 = 256 + int32(r.ReadUint8())
@@ -157,6 +163,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, dx, dy, fx, fy float
 				}
 				x += stack[0]
 				y += stack[1]
+				p.Close()
 				p.MoveTo(dx+fx*float64(x), dy+fy*float64(y))
 				stack = stack[:0]
 			case 22:
@@ -165,6 +172,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, dx, dy, fx, fy float
 					return errBadNumOperands
 				}
 				x += stack[0]
+				p.Close()
 				p.MoveTo(dx+fx*float64(x), dy+fy*float64(y))
 				stack = stack[:0]
 			case 4:
@@ -173,6 +181,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, dx, dy, fx, fy float
 					return errBadNumOperands
 				}
 				y += stack[0]
+				p.Close()
 				p.MoveTo(dx+fx*float64(x), dy+fy*float64(y))
 				stack = stack[:0]
 			case 5:
