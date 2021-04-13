@@ -1,0 +1,74 @@
+True Type Font File Dumper: v 0.5.5
+Copyright 1996-1998 ollie@ms1.hinet.net
+Dumping File:DejaVuSerif.ttf
+
+
+Offset Table
+------------
+	 sfnt version: 		 1.0
+	 number of tables: 20
+   0. 'FFTM' - checksum = 0x73c1f4f0, offset = 0x0000014c, len =        28
+   1. 'GDEF' - checksum = 0x89e27c86, offset = 0x00000168, len =       160
+   2. 'GPOS' - checksum = 0xb189f2d6, offset = 0x00000208, len =     16994
+   3. 'GSUB' - checksum = 0x3b88dfcb, offset = 0x0000446c, len =      1696
+   4. 'MATH' - checksum = 0x3983b339, offset = 0x00004b0c, len =      1246
+   5. 'OS/2' - checksum = 0x6dacf0f1, offset = 0x00004fec, len =        86
+   6. 'cmap' - checksum = 0xa84ccf89, offset = 0x00005044, len =      4294
+   7. 'cvt ' - checksum = 0x8f33abf4, offset = 0x0000610c, len =       404
+   8. 'fpgm' - checksum = 0xe780f1c4, offset = 0x000062a0, len =       139
+   9. 'gasp' - checksum = 0x00070007, offset = 0x0000632c, len =        12
+  10. 'glyf' - checksum = 0xae1220d7, offset = 0x00006338, len =    274436
+  11. 'head' - checksum = 0x116701c0, offset = 0x0004933c, len =        54
+  12. 'hhea' - checksum = 0x12201973, offset = 0x00049374, len =        36
+  13. 'hmtx' - checksum = 0x49b730f9, offset = 0x00049398, len =     14112
+  14. 'kern' - checksum = 0x1bd02390, offset = 0x0004cab8, len =      8220
+  15. 'loca' - checksum = 0x1d8a601c, offset = 0x0004ead4, len =     14116
+  16. 'maxp' - checksum = 0x12260533, offset = 0x000521f8, len =        32
+  17. 'name' - checksum = 0x7c9022cc, offset = 0x00052218, len =      8526
+  18. 'post' - checksum = 0x64bc2883, offset = 0x00054368, len =     33818
+  19. 'prep' - checksum = 0x757906f6, offset = 0x0005c784, len =      1374
+
+'OS/2' Table - OS/2 and Windows Metrics
+---------------------------------------
+	 'OS/2' version:	 1
+	 xAvgCharWidth:		 1050
+	 usWeightClass:		 400 	 'Normal'
+	 usWidthClass:		 5 	 'Medium'
+	 fsType:		 0
+	 ySubscriptXSize:	 1331
+	 ySubscriptYSize:	 1433
+	 ySubscriptXOffset:	 0
+	 ySubscriptYOffset:	 286
+	 ySuperscriptXSize:	 1331
+	 ySuperscriptYSize:	 1433
+	 ySuperscriptXOffset:	 0
+	 ySuperscriptYOffset:	 983
+	 yStrikeoutSize:	 102
+	 yStrikeoutPosition	 530
+	 sFamilyClass:	 0 	 subclass = 0
+	 PANOSE:
+		 Family Kind:	 2 	 'Text and Display'
+		 Serif Style:	 6 	 'Square'
+		 Weight:	 6 	 'Medium'
+		 Proportion:	 3 	 'Modern'
+		 Contrast:	 5 	 'Medium Low'
+		 Stroke:	 6 	 'Rapid/Vertical'
+		 Arm Style:	 5 	 'Straight Arms/Double Serif'
+		 Lettreform:	 2 	 'Normal/Contact'
+		 Midline:	 2 	 'Standard/Trimmed'
+		 X-height:	 4 	 'Constant/Large'
+	 Unicode Range 1( Bits 0 - 31 ): 	 0xe50006ff
+	 Unicode Range 2( Bits 32 - 63 ): 	 0x5200f9fb
+	 Unicode Range 3( Bits 64 - 95 ): 	 0x0a040020
+	 Unicode Range 4( Bits 96 - 128 ): 	 0x00000000
+	 achVendID:		 'PfEd'
+	 fsSelection:		 0x0040 	 'Regular '
+	 usFirstCharIndex:	 0x0020
+ 	 usLastCharIndex:	 0xffff
+	 sTypoAscender:		 1556
+	 sTypoDescender:	 -492
+	 sTypoLineGap:		 410
+	 usWinAscent:		 1901
+	 usWinDescent:		 483
+	 CodePage Range 1( Bits 0 - 31 ):	 0x6000009f
+	 CodePage Range 2( Bits 32- 63 ):	 0xdfd70000

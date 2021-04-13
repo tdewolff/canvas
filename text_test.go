@@ -8,7 +8,9 @@ import (
 
 func TestTextLine(t *testing.T) {
 	family := NewFontFamily("dejavu-serif")
-	family.LoadFontFile("font/DejaVuSerif.ttf", FontRegular)
+	if err := family.LoadFontFile("resources/DejaVuSerif.ttf", FontRegular); err != nil {
+		test.Error(t, err)
+	}
 	face := family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal, FontUnderline)
 
 	text := NewTextLine(face, "test\nline", Left)
@@ -16,94 +18,95 @@ func TestTextLine(t *testing.T) {
 	test.T(t, len(text.lines), 2)
 	test.T(t, len(text.lines[0].spans), 1)
 	test.Float(t, text.lines[0].spans[0].x, 0.0)
-	test.T(t, len(text.lines[0].decos), 1)
 	test.Float(t, text.lines[0].y, 0.0)
 	test.T(t, len(text.lines[1].spans), 1)
 	test.Float(t, text.lines[1].spans[0].x, 0.0)
-	test.T(t, len(text.lines[1].decos), 1)
 	test.Float(t, text.lines[1].y, -face.Metrics().LineHeight)
 
 	text = NewTextLine(face, "test\nline", Center)
-	test.Float(t, text.lines[0].spans[0].x, -0.5*text.lines[0].spans[0].w)
-	test.Float(t, text.lines[1].spans[0].x, -0.5*text.lines[1].spans[0].w)
+	test.Float(t, text.lines[0].spans[0].x, -0.5*text.lines[0].spans[0].Width)
+	test.Float(t, text.lines[1].spans[0].x, -0.5*text.lines[1].spans[0].Width)
 
 	text = NewTextLine(face, "test\nline", Right)
-	test.Float(t, text.lines[0].spans[0].x, -text.lines[0].spans[0].w)
-	test.Float(t, text.lines[1].spans[0].x, -text.lines[1].spans[0].w)
+	test.Float(t, text.lines[0].spans[0].x, -text.lines[0].spans[0].Width)
+	test.Float(t, text.lines[1].spans[0].x, -text.lines[1].spans[0].Width)
 }
 
 func TestRichText(t *testing.T) {
 	family := NewFontFamily("dejavu-serif")
-	family.LoadFontFile("font/DejaVuSerif.ttf", FontRegular)
-	face := family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal) // line height is 13.96875
+	if err := family.LoadFontFile("resources/DejaVuSerif.ttf", FontRegular); err != nil {
+		test.Error(t, err)
+	}
+	pt := ptPerMm * float64(family.fonts[FontRegular].Head.UnitsPerEm)
+	face := family.Face(pt, Black, FontRegular, FontNormal) // line height is 13.96875
 
-	rt := NewRichText()
-	rt.Add(face, "mm. mm mmmm") // mm is 22.75 wide, mmmm is 45.5 wide, dot and space are 3.8125 wide
+	rt := NewRichText(face)
+	rt.Add(face, "ee. ee eeee") // e is 1212 wide, dot and space are 651 wide
 
 	// test halign
-	text := rt.ToText(55.0, 50.0, Left, Top, 0.0, 0.0)
+	text := rt.ToText(6500.0, 5000.0, Left, Top, 0.0, 0.0)
 	test.T(t, len(text.lines), 2)
-	test.Float(t, text.lines[0].y, -11.140625)
-	test.Float(t, text.lines[1].y, -25.109375)
+	test.Float(t, text.lines[0].y, 1901)
+	test.Float(t, text.lines[1].y, 4285)
 	test.Float(t, text.lines[0].spans[0].x, 0.0)
-	test.Float(t, text.lines[0].spans[0].w, 22.75+7.625)
-	test.Float(t, text.lines[0].spans[1].x, 30.375)
-	test.Float(t, text.lines[0].spans[1].w, 22.75)
+	test.Float(t, text.lines[0].spans[0].Width, 3075)
+	test.Float(t, text.lines[0].spans[1].x, 3726)
+	test.Float(t, text.lines[0].spans[1].Width, 2424)
 	test.Float(t, text.lines[1].spans[0].x, 0.0)
-	test.Float(t, text.lines[1].spans[0].w, 45.5)
+	test.Float(t, text.lines[1].spans[0].Width, 4848)
 
-	text = rt.ToText(55.0, 50.0, Right, Top, 0.0, 0.0)
-	test.Float(t, text.lines[0].spans[0].x, 55.0-53.125)
-	test.Float(t, text.lines[0].spans[1].x, 55.0-22.75)
-	test.Float(t, text.lines[1].spans[0].x, 55.0-45.5)
+	text = rt.ToText(6500.0, 5000.0, Right, Top, 0.0, 0.0)
+	test.Float(t, text.lines[0].spans[0].x, 6500-6150)
+	test.Float(t, text.lines[0].spans[1].x, 6500-2424)
+	test.Float(t, text.lines[1].spans[0].x, 6500-4848)
 
-	text = rt.ToText(55.0, 50.0, Center, Top, 0.0, 0.0)
-	test.Float(t, text.lines[0].spans[0].x, (55.0-53.125)/2.0)
-	test.Float(t, text.lines[0].spans[1].x, (55.0-53.125)/2.0+22.75+7.625)
-	test.Float(t, text.lines[1].spans[0].x, (55.0-45.5)/2.0)
+	text = rt.ToText(6500.0, 5000.0, Center, Top, 0.0, 0.0)
+	test.Float(t, text.lines[0].spans[0].x, (6500-6150)/2)
+	test.Float(t, text.lines[0].spans[1].x, (6500-2424)/2)
+	test.Float(t, text.lines[1].spans[0].x, (6500-4848)/2)
 
-	text = rt.ToText(55.0, 50.0, Justify, Top, 0.0, 0.0)
+	text = rt.ToText(6500.0, 5000.0, Justify, Top, 0.0, 0.0)
 	test.Float(t, text.lines[0].spans[0].x, 0.0)
-	test.Float(t, text.lines[0].spans[0].w, 32.25) // space is stretched
+	test.Float(t, text.lines[0].spans[0].Width, 32.25) // space is stretched
 	test.Float(t, text.lines[0].spans[1].x, 55.0-22.75)
-	test.Float(t, text.lines[0].spans[1].w, 22.75)
+	test.Float(t, text.lines[0].spans[1].Width, 22.75)
 	test.Float(t, text.lines[1].spans[0].x, 0.0)
-	test.Float(t, text.lines[1].spans[0].w, 45.5) // last row does not justify
+	test.Float(t, text.lines[1].spans[0].Width, 45.5) // last row does not justify
 
 	// test valign
-	text = rt.ToText(55.0, 50.0, Left, Bottom, 0.0, 0.0)
+	text = rt.ToText(6150.0, 5000.0, Left, Bottom, 0.0, 0.0)
 	test.Float(t, text.lines[0].y, -33.203125)
 	test.Float(t, text.lines[1].y, -47.171875)
 
-	text = rt.ToText(55.0, 50.0, Left, Center, 0.0, 0.0)
+	text = rt.ToText(6150.0, 5000.0, Left, Center, 0.0, 0.0)
 	test.Float(t, text.lines[0].y, -22.171875)
 	test.Float(t, text.lines[1].y, -36.140625)
 
-	text = rt.ToText(55.0, 50.0, Left, Justify, 0.0, 0.0)
+	text = rt.ToText(6150.0, 5000.0, Left, Justify, 0.0, 0.0)
 	test.Float(t, text.lines[0].y, -11.140625)
 	test.Float(t, text.lines[1].y, -47.171875)
 
 	// test wrapping
-	text = rt.ToText(50.0, 50.0, Left, Top, 0.0, 0.0)
+	text = rt.ToText(50.0, 5000.0, Left, Top, 0.0, 0.0)
 	test.T(t, len(text.lines), 3)
 	test.Float(t, text.lines[0].spans[0].x, 0.0)
 	test.Float(t, text.lines[1].spans[0].x, 0.0)
 	test.Float(t, text.lines[2].spans[0].x, 0.0)
 
-	text = rt.ToText(27.0, 50.0, Left, Top, 0.0, 0.0) // wrap in space
+	text = rt.ToText(27.0, 5000.0, Left, Top, 0.0, 0.0) // wrap in space
 	test.T(t, len(text.lines), 3)
 	test.Float(t, text.lines[0].spans[0].x, 0.0)
-	test.Float(t, text.lines[0].spans[0].w, 26.5625) // space removed
+	test.Float(t, text.lines[0].spans[0].Width, 26.5625) // space removed
 	test.Float(t, text.lines[1].spans[0].x, 0.0)
-	test.Float(t, text.lines[1].spans[0].w, 22.75)
+	test.Float(t, text.lines[1].spans[0].Width, 22.75)
 	test.Float(t, text.lines[2].spans[0].x, 0.0)
-	test.Float(t, text.lines[2].spans[0].w, 45.5)
+	test.Float(t, text.lines[2].spans[0].Width, 45.5)
 
 	// test special cases
-	text = rt.ToText(55.0, 10.0, Left, Top, 0.0, 0.0)
+	text = rt.ToText(6150.0, 10.0, Left, Top, 0.0, 0.0)
 	test.T(t, len(text.lines), 0)
 
-	text = rt.ToText(0.0, 50.0, Left, Top, 0.0, 0.0)
+	text = rt.ToText(0.0, 5000.0, Left, Top, 0.0, 0.0)
 	test.T(t, len(text.lines), 1)
 	test.T(t, len(text.lines[0].spans), 2)
 	test.Float(t, text.lines[0].spans[0].x, 0.0)
@@ -146,20 +149,23 @@ func TestRichText(t *testing.T) {
 
 func TestTextBounds(t *testing.T) {
 	family := NewFontFamily("dejavu-serif")
-	family.LoadFontFile("font/DejaVuSerif.ttf", FontRegular)
-	face8 := family.Face(8.0*ptPerMm, Black, FontRegular, FontNormal, FontUnderline)
-	face12 := family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal, FontUnderline)
+	if err := family.LoadFontFile("resources/DejaVuSerif.ttf", FontRegular); err != nil {
+		test.Error(t, err)
+	}
+	pt := ptPerMm * float64(family.fonts[FontRegular].Head.UnitsPerEm)
+	face8 := family.Face(pt, Black, FontRegular, FontNormal, FontUnderline)
+	face12 := family.Face(1.5*pt, Black, FontRegular, FontNormal, FontUnderline)
 
-	rt := NewRichText()
+	rt := NewRichText(face8)
 	rt.Add(face8, "test")
 	rt.Add(face12, "test")
-	text := rt.ToText(100.0, 100.0, Left, Top, 0.0, 0.0)
+	text := rt.ToText(4096.0, 4096.0, Left, Top, 0.0, 0.0)
 
 	top, ascent, descent, bottom := text.lines[0].Heights()
-	test.Float(t, top, 11.140625)
-	test.Float(t, ascent, 11.140625)
-	test.Float(t, descent, 2.828125)
-	test.Float(t, bottom, 2.828125)
+	test.Float(t, top, 1901*1.5)
+	test.Float(t, ascent, 1901*1.5)
+	test.Float(t, descent, 483*1.5)
+	test.Float(t, bottom, 483*1.5)
 
 	ascent, descent = text.Heights()
 	test.Float(t, ascent, 0.0)
@@ -167,13 +173,13 @@ func TestTextBounds(t *testing.T) {
 
 	bounds := text.Bounds()
 	test.Float(t, bounds.X, 0.0)
-	test.Float(t, bounds.Y, -13.96875)
+	test.Float(t, bounds.Y, -(1901+483)*1.5)
 	test.Float(t, bounds.W, face8.TextWidth("test")+face12.TextWidth("test"))
-	test.Float(t, bounds.H, 13.96875)
+	test.Float(t, bounds.H, (1901+483)*1.5)
 
-	bounds = text.OutlineBounds()
-	test.Float(t, bounds.X, 0.0)
-	test.Float(t, bounds.Y, -13.390625)
-	test.Float(t, bounds.W, face8.TextWidth("test")+face12.TextWidth("test"))
-	test.Float(t, bounds.H, 10.40625)
+	//bounds = text.OutlineBounds()
+	//test.Float(t, bounds.X, 0.0)
+	//test.Float(t, bounds.Y, -13.390625)
+	//test.Float(t, bounds.W, face8.TextWidth("test")+face12.TextWidth("test"))
+	//test.Float(t, bounds.H, 10.40625)
 }

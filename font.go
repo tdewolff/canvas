@@ -368,8 +368,8 @@ func (face *FontFace) Decorate(width float64) *Path {
 	return p
 }
 
-func (face *FontFace) ToPath(s string, resolution Resolution) (*Path, float64, error) {
-	ppem := face.PPEM(resolution)
+func (face *FontFace) ToPath(s string) (*Path, float64, error) {
+	ppem := face.PPEM(DefaultResolution)
 	glyphs := face.Font.shaper.Shape(s, ppem, face.Direction, face.Script, face.Language, face.Font.features, face.Font.variations)
 	return face.toPath(glyphs, ppem)
 }

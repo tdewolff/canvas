@@ -119,7 +119,7 @@ func draw(c *canvas.Context) {
 
 	labelFace := fontFamily.Face(14.0, color.Black, canvas.FontRegular, canvas.FontNormal)
 	labelSubFace := fontFamily.Face(14.0, color.Black, canvas.FontRegular, canvas.FontSubscript)
-	rt := canvas.NewRichText()
+	rt := canvas.NewRichText(labelFace)
 	rt.Add(labelFace, "CO")
 	rt.Add(labelSubFace, "2")
 	rt.Add(labelFace, " (ppm)")
@@ -132,7 +132,7 @@ func draw(c *canvas.Context) {
 
 	titleFace := fontFamily.Face(16.0, color.Black, canvas.FontRegular, canvas.FontNormal)
 	titleSubFace := fontFamily.Face(16.0, color.Black, canvas.FontRegular, canvas.FontSubscript)
-	rt = canvas.NewRichText()
+	rt = canvas.NewRichText(titleFace)
 	rt.Add(titleFace, "Atmospheric CO")
 	rt.Add(titleSubFace, "2")
 	rt.Add(titleFace, " at Mauna Loa Observatory")

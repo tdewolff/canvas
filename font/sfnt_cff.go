@@ -567,7 +567,15 @@ func (t *cffINDEX) GetSID(sid int) string {
 func parseINDEX(r *binaryReader) (*cffINDEX, error) {
 	t := &cffINDEX{}
 	count := r.ReadUint16()
+	if count == 0 {
+		// empty
+		return t, nil
+	}
+
 	offSize := r.ReadUint8()
+	if offSize == 0 || 4 < offSize {
+		return nil, fmt.Errorf("bad offSize")
+	}
 	if r.Len() < uint32(offSize)*(uint32(count)+1) {
 		return nil, fmt.Errorf("bad data")
 	}
@@ -585,12 +593,10 @@ func parseINDEX(r *binaryReader) (*cffINDEX, error) {
 		for i := uint16(0); i < count+1; i++ {
 			t.offset[i] = uint32(r.ReadUint16()<<8) + uint32(r.ReadUint8()) - 1
 		}
-	} else if offSize == 4 {
+	} else {
 		for i := uint16(0); i < count+1; i++ {
 			t.offset[i] = r.ReadUint32() - 1
 		}
-	} else {
-		return nil, fmt.Errorf("bad offSize")
 	}
 	if r.Len() < t.offset[count] {
 		return nil, fmt.Errorf("bad data")

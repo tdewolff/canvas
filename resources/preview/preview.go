@@ -1,3 +1,5 @@
+// +build harfbuzz
+
 package main
 
 import (
@@ -10,8 +12,6 @@ import (
 	"github.com/tdewolff/canvas/rasterizer"
 	"github.com/tdewolff/canvas/text"
 )
-
-var resolution = canvas.DPMM(3.2)
 
 var fontLatin *canvas.FontFamily
 var fontArabic *canvas.FontFamily
@@ -41,7 +41,7 @@ func main() {
 
 	////////////////
 
-	c.WriteFile("preview.png", rasterizer.PNGWriter(resolution))
+	c.WriteFile("preview.png", rasterizer.PNGWriter(3.2))
 }
 
 func drawText(c *canvas.Context, x, y float64, face *canvas.FontFace, rich *canvas.RichText) {
@@ -100,7 +100,7 @@ func draw(c *canvas.Context) {
 
 	// Draw the word Stroke being stroked
 	face = fontLatin.Face(80.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
-	p, _, _ := face.ToPath("Stroke", resolution)
+	p, _, _ := face.ToPath("Stroke")
 	c.DrawPath(100, 5, p.Stroke(0.75, canvas.RoundCap, canvas.RoundJoin))
 
 	// Draw a LaTeX formula

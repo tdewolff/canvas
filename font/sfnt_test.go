@@ -8,7 +8,7 @@ import (
 )
 
 func TestSFNTDejaVuSerifTTF(t *testing.T) {
-	b, err := ioutil.ReadFile("DejaVuSerif.ttf")
+	b, err := ioutil.ReadFile("../resources/DejaVuSerif.ttf")
 	test.Error(t, err)
 
 	sfnt, err := ParseSFNT(b, 0)
@@ -24,14 +24,14 @@ func TestSFNTDejaVuSerifTTF(t *testing.T) {
 	test.T(t, sfnt.Head.YMax, int16(2272))
 
 	id := sfnt.GlyphIndex(' ')
-	contour, err := sfnt.GlyphContour(id)
+	contour, err := sfnt.Glyf.Contour(id, 0)
 	test.Error(t, err)
 	test.T(t, contour.GlyphID, id)
 	test.T(t, len(contour.XCoordinates), 0)
 }
 
 func TestSFNTSubset(t *testing.T) {
-	b, err := ioutil.ReadFile("DejaVuSerif.ttf")
+	b, err := ioutil.ReadFile("../resources/DejaVuSerif.ttf")
 	test.Error(t, err)
 
 	sfnt, err := ParseSFNT(b, 0)

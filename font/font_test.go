@@ -8,7 +8,7 @@ import (
 )
 
 func TestParseTTF(t *testing.T) {
-	b, err := ioutil.ReadFile("DejaVuSerif.ttf")
+	b, err := ioutil.ReadFile("../resources/DejaVuSerif.ttf")
 	test.Error(t, err)
 
 	sfnt, err := ParseFont(b, 0)
@@ -17,7 +17,7 @@ func TestParseTTF(t *testing.T) {
 }
 
 func TestParseOTF(t *testing.T) {
-	b, err := ioutil.ReadFile("EBGaramond12-Regular.otf")
+	b, err := ioutil.ReadFile("../resources/EBGaramond12-Regular.otf")
 	test.Error(t, err)
 
 	sfnt, err := ParseFont(b, 0)
@@ -26,7 +26,7 @@ func TestParseOTF(t *testing.T) {
 }
 
 func TestParseWOFF(t *testing.T) {
-	b, err := ioutil.ReadFile("DejaVuSerif.woff")
+	b, err := ioutil.ReadFile("../resources/DejaVuSerif.woff")
 	test.Error(t, err)
 
 	sfnt, err := ParseFont(b, 0)
@@ -35,7 +35,7 @@ func TestParseWOFF(t *testing.T) {
 }
 
 func TestParseWOFF2(t *testing.T) {
-	b, err := ioutil.ReadFile("DejaVuSerif.woff2")
+	b, err := ioutil.ReadFile("../resources/DejaVuSerif.woff2")
 	test.Error(t, err)
 
 	sfnt, err := ParseFont(b, 0)
@@ -44,7 +44,7 @@ func TestParseWOFF2(t *testing.T) {
 }
 
 func TestParseEOT(t *testing.T) {
-	b, err := ioutil.ReadFile("DejaVuSerif.eot")
+	b, err := ioutil.ReadFile("../resources/DejaVuSerif.eot")
 	test.Error(t, err)
 
 	sfnt, err := ParseFont(b, 0)

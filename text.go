@@ -515,7 +515,7 @@ func (t *Text) Heights() (float64, float64) {
 	lastLine := t.lines[len(t.lines)-1]
 	_, ascent, _, _ := firstLine.Heights()
 	_, _, descent, _ := lastLine.Heights()
-	return -firstLine.y + ascent, -lastLine.y + descent
+	return -firstLine.y + ascent, lastLine.y + descent
 }
 
 // Bounds returns the bounding rectangle that defines the text box.

@@ -12,7 +12,6 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster i
 - `DPMM` is now a function just like `DPI`: `rasterizer.PNGWriter(5.0 * canvas.DPMM)` => `rasterizer.PNGWriter(canvas.DPMM(5.0))`
 - `FontFace` is now passed around as a pointer
 - `NewRichText` now requires a default `*FontFace` to be passed
-- `FontFace.ToPath` requires a resolution to be passed for hinting purposes (hinting not yet implemented though)
 
 ### Sponsors
 
