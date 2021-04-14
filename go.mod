@@ -1,7 +1,5 @@
 module github.com/tdewolff/canvas
 
-replace golang.org/x/image => ../../../golang.org/x/image
-
 require (
 	github.com/ByteArena/poly2tri-go v0.0.0-20170716161910-d102ad91854f
 	github.com/ajstarks/svgo v0.0.0-20200725142600-7a3c8b57fecb // indirect

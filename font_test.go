@@ -61,29 +61,30 @@ func TestFontDecoration(t *testing.T) {
 	if err := family.LoadFontFile("resources/DejaVuSerif.ttf", FontRegular); err != nil {
 		test.Error(t, err)
 	}
+	pt := ptPerMm * float64(family.fonts[FontRegular].Head.UnitsPerEm)
 
-	face := family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal, FontUnderline)
-	test.T(t, face.Decorate(10.0), MustParseSVG("M0 -2.25L10 -2.25L10 -1.35L0 -1.35L0 -2.25z"))
+	face := family.Face(pt, Black, FontRegular, FontNormal, FontUnderline)
+	test.T(t, face.Decorate(10.0), MustParseSVG("M0 -384L10 -384L10 -230.4L0 -230.4z"))
 
-	face = family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal, FontOverline)
+	face = family.Face(pt, Black, FontRegular, FontNormal, FontOverline)
 	test.T(t, face.Decorate(10.0), MustParseSVG("M0 7.5844L10 7.5844L10 8.4844L0 8.4844L0 7.5844z"))
 
-	face = family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal, FontStrikethrough)
+	face = family.Face(pt, Black, FontRegular, FontNormal, FontStrikethrough)
 	test.T(t, face.Decorate(10.0), MustParseSVG("M0 2.6672L10 2.6672L10 3.5672L0 3.5672L0 2.6672z"))
 
-	face = family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal, FontDoubleUnderline)
+	face = family.Face(pt, Black, FontRegular, FontNormal, FontDoubleUnderline)
 	test.T(t, face.Decorate(10.0), MustParseSVG("M0 -1.8L10 -1.8L10 -0.9L0 -0.9L0 -1.8zM0 -3.6L10 -3.6L10 -2.7L0 -2.7L0 -3.6z"))
 
-	face = family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal, FontDottedUnderline)
+	face = family.Face(pt, Black, FontRegular, FontNormal, FontDottedUnderline)
 	test.T(t, face.Decorate(4.0), MustParseSVG("M1.44 -1.8A0.72 0.72 0 0 1 0 -1.8A0.72 0.72 0 0 1 1.44 -1.8zM2.72 -1.8A0.72 0.72 0 0 1 1.28 -1.8A0.72 0.72 0 0 1 2.72 -1.8zM4 -1.8A0.72 0.72 0 0 1 2.56 -1.8A0.72 0.72 0 0 1 4 -1.8z"))
 
-	face = family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal, FontDashedUnderline)
+	face = family.Face(pt, Black, FontRegular, FontNormal, FontDashedUnderline)
 	test.T(t, face.Decorate(10.0), MustParseSVG("M0 -2.25L10 -2.25L10 -1.35L0 -1.35L0 -2.25z"))
 
 	Tolerance = 1e-1
-	face = family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal, FontSineUnderline)
+	face = family.Face(pt, Black, FontRegular, FontNormal, FontSineUnderline)
 	test.T(t, face.Decorate(4.0), MustParseSVG("M0.9 -2.25L0.71841 -2.2046L1.3867 -3.987L1.6333 -4.05L1.88 -3.987L2.5483 -2.2046L2.3667 -2.25L2.1851 -2.2046L2.8534 -3.987L3.1 -4.05A0.45 0.45 0 0 1 3.1 -3.15L3.2816 -3.1954L2.6133 -1.413L2.3667 -1.35L2.12 -1.413L1.4517 -3.1954L1.6333 -3.15L1.8149 -3.1954L1.1466 -1.413L0.9 -1.35A0.45 0.45 0 0 1 0.9 -2.25z"))
 
-	face = family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal, FontSawtoothUnderline)
+	face = family.Face(pt, Black, FontRegular, FontNormal, FontSawtoothUnderline)
 	test.T(t, face.Decorate(4.0), MustParseSVG("M0.20564070832143055 -1.9305089057915699L0.7511207083214305 -3.7305089057915697L1.612439291678569 -3.7305089057915697L1.7272599999999998 -3.3516182498947904L1.8420807083214306 -3.7305089057915697L2.703399291678569 -3.7305089057915697L2.8182199999999997 -3.3516182498947904L2.9330407083214305 -3.7305089057915697L3.794359291678569 -3.4694910942084296L3.248879291678569 -1.6694910942084298L2.3875607083214305 -1.6694910942084298L2.2727399999999998 -2.0483817501052095L2.157919291678569 -1.6694910942084298L1.2966007083214306 -1.6694910942084298L1.1817799999999998 -2.0483817501052095L1.066959291678569 -1.6694910942084298z"))
 }

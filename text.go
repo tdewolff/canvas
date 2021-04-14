@@ -345,6 +345,8 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	lineSpacing := 1.0 + lineStretch
 	if halign == Right {
 		x += width - breaks[j].Width
+	} else if halign == Center {
+		x += (width - breaks[j].Width) / 2.0
 	}
 	for position, item := range items {
 		if position == breaks[j].Position {
@@ -648,17 +650,17 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix) {
 // RenderDecoration renders the text decorations using the RenderPath method of the Renderer.
 // TODO: check text decoration z-positions when text lines are overlapping https://github.com/tdewolff/canvas/pull/40#pullrequestreview-400951503
 // TODO: check compliance with https://drafts.csswg.org/css-text-decor-4/#text-line-constancy
-//func (t *Text) RenderDecoration(r Renderer, m Matrix) {
-//	style := DefaultStyle
-//	for _, line := range t.lines {
-//		for _, deco := range line.decos {
-//			p := deco.face.Decorate(deco.x1 - deco.x0)
-//			p = p.Translate(deco.x0, line.y+deco.face.Voffset)
-//			style.FillColor = deco.face.Color
-//			r.RenderPath(p, style, m)
-//		}
-//	}
-//}
+func (t *Text) RenderDecoration(r Renderer, m Matrix) {
+	style := DefaultStyle
+	for _, line := range t.lines {
+		for _, span := range line.spans {
+			p := span.Face.Decorate(span.Width)
+			p = p.Translate(span.x, -line.y)
+			style.FillColor = span.Face.Color
+			r.RenderPath(p, style, m)
+		}
+	}
+}
 
 func (t *Text) WalkSpans(callback func(y, x float64, span TextSpan)) {
 	for _, line := range t.lines {

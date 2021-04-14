@@ -293,6 +293,8 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 		return
 	}
 
+	text.RenderDecoration(r, m)
+
 	faceMain := text.Face
 	x0, y0 := 0.0, 0.0
 	if m.IsTranslation() {
@@ -345,7 +347,6 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 		fmt.Fprintf(r.w, `</tspan>`)
 	})
 	fmt.Fprintf(r.w, `</text>`)
-	//text.RenderDecoration(r, m)
 }
 
 func (r *SVG) RenderImage(img image.Image, m canvas.Matrix) {

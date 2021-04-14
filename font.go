@@ -434,8 +434,8 @@ type FontDecorator interface {
 	Decorate(*FontFace, float64) *Path
 }
 
-const underlineDistance = 0.15
-const underlineThickness = 0.075
+const underlineDistance = 0.075
+const underlineThickness = 0.05
 
 // FontUnderline is a font decoration that draws a line under the text at the base line.
 var FontUnderline FontDecorator = underline{}
@@ -443,9 +443,15 @@ var FontUnderline FontDecorator = underline{}
 type underline struct{}
 
 func (underline) Decorate(face *FontFace, w float64) *Path {
-	// TODO: use post table
 	r := face.Size * underlineThickness
 	y := -face.Size * underlineDistance
+	if face.Font.Post.UnderlineThickness != 0 {
+		r = face.Size * face.YScale * float64(face.Font.Post.UnderlineThickness) / float64(face.Font.Head.UnitsPerEm)
+	}
+	if face.Font.Post.UnderlinePosition != 0 {
+		y = face.Size * face.YScale * float64(face.Font.Post.UnderlinePosition) / float64(face.Font.Head.UnitsPerEm)
+	}
+	y -= r
 
 	p := &Path{}
 	p.MoveTo(0.0, y)
@@ -460,7 +466,14 @@ type overline struct{}
 
 func (overline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
-	y := face.Metrics().XHeight + face.Size*underlineDistance
+	y := face.Metrics().Ascent + face.Size*underlineDistance
+	if face.Font.Post.UnderlineThickness != 0 {
+		r = face.Size * face.YScale * float64(face.Font.Post.UnderlineThickness) / float64(face.Font.Head.UnitsPerEm)
+	}
+	if face.Font.Post.UnderlinePosition != 0 {
+		y = face.Metrics().Ascent - face.Size*face.YScale*float64(face.Font.Post.UnderlinePosition)/float64(face.Font.Head.UnitsPerEm)
+	}
+	y -= r
 
 	dx := face.FauxItalic * y
 	w += face.FauxItalic * y
@@ -477,9 +490,15 @@ var FontStrikethrough FontDecorator = strikethrough{}
 type strikethrough struct{}
 
 func (strikethrough) Decorate(face *FontFace, w float64) *Path {
-	// TODO: use OS/2 table
 	r := face.Size * underlineThickness
 	y := face.Metrics().XHeight / 2.0
+	if face.Font.OS2.YStrikeoutSize != 0 {
+		r = face.Size * face.YScale * float64(face.Font.OS2.YStrikeoutSize) / float64(face.Font.Head.UnitsPerEm)
+	}
+	if face.Font.OS2.YStrikeoutPosition != 0 {
+		y = face.Size * face.YScale * float64(face.Font.OS2.YStrikeoutPosition) / float64(face.Font.Head.UnitsPerEm)
+	}
+	y -= r
 
 	dx := face.FauxItalic * y
 	w += face.FauxItalic * y
@@ -497,13 +516,20 @@ type doubleUnderline struct{}
 
 func (doubleUnderline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
-	y := -face.Size * underlineDistance * 0.75
+	y := -face.Size * underlineDistance
+	if face.Font.Post.UnderlineThickness != 0 {
+		r = face.Size * face.YScale * float64(face.Font.Post.UnderlineThickness) / float64(face.Font.Head.UnitsPerEm)
+	}
+	if face.Font.Post.UnderlinePosition != 0 {
+		y = face.Size * face.YScale * float64(face.Font.Post.UnderlinePosition) / float64(face.Font.Head.UnitsPerEm)
+	}
+	y -= r
 
 	p := &Path{}
 	p.MoveTo(0.0, y)
 	p.LineTo(w, y)
-	p.MoveTo(0.0, y-r*2.0)
-	p.LineTo(w, y-r*2.0)
+	p.MoveTo(0.0, y-1.5*r)
+	p.LineTo(w, y-1.5*r)
 	return p.Stroke(r, ButtCap, BevelJoin)
 }
 
@@ -513,11 +539,18 @@ var FontDottedUnderline FontDecorator = dottedUnderline{}
 type dottedUnderline struct{}
 
 func (dottedUnderline) Decorate(face *FontFace, w float64) *Path {
-	r := face.Size * underlineThickness * 0.8
-	w -= r
-
+	r := 0.5 * face.Size * underlineThickness
 	y := -face.Size * underlineDistance
-	d := 15.0 * underlineThickness
+	if face.Font.Post.UnderlineThickness != 0 {
+		r = 0.5 * face.Size * face.YScale * float64(face.Font.Post.UnderlineThickness) / float64(face.Font.Head.UnitsPerEm)
+	}
+	if face.Font.Post.UnderlinePosition != 0 {
+		y = face.Size * face.YScale * float64(face.Font.Post.UnderlinePosition) / float64(face.Font.Head.UnitsPerEm)
+	}
+	y -= 2.0 * r
+
+	w -= r
+	d := 4.0 * r
 	n := int((w-r)/d) + 1
 	d = (w - r) / float64(n-1)
 
@@ -536,15 +569,61 @@ type dashedUnderline struct{}
 func (dashedUnderline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
 	y := -face.Size * underlineDistance
-	d := 12.0 * underlineThickness
+	if face.Font.Post.UnderlineThickness != 0 {
+		r = face.Size * face.YScale * float64(face.Font.Post.UnderlineThickness) / float64(face.Font.Head.UnitsPerEm)
+	}
+	if face.Font.Post.UnderlinePosition != 0 {
+		y = face.Size * face.YScale * float64(face.Font.Post.UnderlinePosition) / float64(face.Font.Head.UnitsPerEm)
+	}
+	y -= r
+
+	d := 3.0 * r
 	n := int(w / (2.0 * d))
 	d = w / float64(2*n-1)
 
 	p := &Path{}
 	p.MoveTo(0.0, y)
 	p.LineTo(w, y)
-	p = p.Dash(d).Stroke(r, ButtCap, BevelJoin)
+	p = p.Dash(0.0, d).Stroke(r, ButtCap, BevelJoin)
 	return p
+}
+
+// FontWavyUnderline is a font decoration that draws a wavy path at the base line.
+var FontWavyUnderline FontDecorator = wavyUnderline{}
+
+type wavyUnderline struct{}
+
+func (wavyUnderline) Decorate(face *FontFace, w float64) *Path {
+	r := face.Size * underlineThickness
+	y := -face.Size * underlineDistance
+	if face.Font.Post.UnderlineThickness != 0 {
+		r = face.Size * face.YScale * float64(face.Font.Post.UnderlineThickness) / float64(face.Font.Head.UnitsPerEm)
+	}
+	if face.Font.Post.UnderlinePosition != 0 {
+		y = face.Size * face.YScale * float64(face.Font.Post.UnderlinePosition) / float64(face.Font.Head.UnitsPerEm)
+	}
+	y -= r
+
+	dx := 0.707 * r
+	w -= 2.0 * dx
+	dh := -face.Size * 0.15
+	d := 5.0 * r
+	n := int(0.5 + w/d)
+	d = w / float64(n)
+
+	p := &Path{}
+	p.MoveTo(dx, y)
+	for i := 0; i < n; i++ {
+		if i%2 == 0 {
+			p.LineTo(dx+d/3.0, y)
+			p.LineTo(dx+d, y+dh)
+		} else {
+			p.LineTo(dx+d/3.0, y+dh)
+			p.LineTo(dx+d, y)
+		}
+		dx += d
+	}
+	return p.Stroke(r, ButtCap, MiterJoin)
 }
 
 // FontSineUnderline is a font decoration that draws a wavy sine path at the base line.
@@ -554,11 +633,18 @@ type sineUnderline struct{}
 
 func (sineUnderline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
-	w -= r
-
-	dh := -face.Size * 0.15
 	y := -face.Size * underlineDistance
-	d := 12.0 * underlineThickness
+	if face.Font.Post.UnderlineThickness != 0 {
+		r = face.Size * face.YScale * float64(face.Font.Post.UnderlineThickness) / float64(face.Font.Head.UnitsPerEm)
+	}
+	if face.Font.Post.UnderlinePosition != 0 {
+		y = face.Size * face.YScale * float64(face.Font.Post.UnderlinePosition) / float64(face.Font.Head.UnitsPerEm)
+	}
+	y -= r
+
+	w -= r
+	dh := -face.Size * 0.15
+	d := 4.0 * r
 	n := int(0.5 + w/d)
 	d = (w - r) / float64(n)
 
@@ -583,12 +669,19 @@ type sawtoothUnderline struct{}
 
 func (sawtoothUnderline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
+	y := -face.Size * underlineDistance
+	if face.Font.Post.UnderlineThickness != 0 {
+		r = face.Size * face.YScale * float64(face.Font.Post.UnderlineThickness) / float64(face.Font.Head.UnitsPerEm)
+	}
+	if face.Font.Post.UnderlinePosition != 0 {
+		y = face.Size * face.YScale * float64(face.Font.Post.UnderlinePosition) / float64(face.Font.Head.UnitsPerEm)
+	}
+	y -= r
+
 	dx := 0.707 * r
 	w -= 2.0 * dx
-
 	dh := -face.Size * 0.15
-	y := -face.Size * underlineDistance
-	d := 8.0 * underlineThickness
+	d := 4.0 * r
 	n := int(0.5 + w/d)
 	d = w / float64(n)
 

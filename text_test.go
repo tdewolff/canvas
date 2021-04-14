@@ -62,55 +62,44 @@ func TestRichText(t *testing.T) {
 
 	text = rt.ToText(6500.0, 5000.0, Center, Top, 0.0, 0.0)
 	test.Float(t, text.lines[0].spans[0].x, (6500-6150)/2)
-	test.Float(t, text.lines[0].spans[1].x, (6500-2424)/2)
+	test.Float(t, text.lines[0].spans[1].x, (6500-6150)/2+3726)
 	test.Float(t, text.lines[1].spans[0].x, (6500-4848)/2)
 
 	text = rt.ToText(6500.0, 5000.0, Justify, Top, 0.0, 0.0)
 	test.Float(t, text.lines[0].spans[0].x, 0.0)
-	test.Float(t, text.lines[0].spans[0].Width, 32.25) // space is stretched
-	test.Float(t, text.lines[0].spans[1].x, 55.0-22.75)
-	test.Float(t, text.lines[0].spans[1].Width, 22.75)
+	test.Float(t, text.lines[0].spans[1].x, 6500-2424)
 	test.Float(t, text.lines[1].spans[0].x, 0.0)
-	test.Float(t, text.lines[1].spans[0].Width, 45.5) // last row does not justify
 
 	// test valign
-	text = rt.ToText(6150.0, 5000.0, Left, Bottom, 0.0, 0.0)
-	test.Float(t, text.lines[0].y, -33.203125)
-	test.Float(t, text.lines[1].y, -47.171875)
+	text = rt.ToText(6500.0, 5000.0, Left, Bottom, 0.0, 0.0)
+	test.Float(t, text.lines[0].y, 5000-2867)
+	test.Float(t, text.lines[1].y, 5000-483)
 
-	text = rt.ToText(6150.0, 5000.0, Left, Center, 0.0, 0.0)
-	test.Float(t, text.lines[0].y, -22.171875)
-	test.Float(t, text.lines[1].y, -36.140625)
+	text = rt.ToText(6500.0, 5000.0, Left, Center, 0.0, 0.0)
+	test.Float(t, text.lines[0].y, (1901+(5000-1901-483*2))/2)
+	test.Float(t, text.lines[1].y, (1901*2+483+(5000-483))/2)
 
-	text = rt.ToText(6150.0, 5000.0, Left, Justify, 0.0, 0.0)
-	test.Float(t, text.lines[0].y, -11.140625)
-	test.Float(t, text.lines[1].y, -47.171875)
+	text = rt.ToText(6500.0, 5000.0, Left, Justify, 0.0, 0.0)
+	test.Float(t, text.lines[0].y, 1901)
+	test.Float(t, text.lines[1].y, 5000-483)
 
 	// test wrapping
-	text = rt.ToText(50.0, 5000.0, Left, Top, 0.0, 0.0)
+	text = rt.ToText(6000.0, 7500.0, Left, Top, 0.0, 0.0)
 	test.T(t, len(text.lines), 3)
 	test.Float(t, text.lines[0].spans[0].x, 0.0)
 	test.Float(t, text.lines[1].spans[0].x, 0.0)
 	test.Float(t, text.lines[2].spans[0].x, 0.0)
-
-	text = rt.ToText(27.0, 5000.0, Left, Top, 0.0, 0.0) // wrap in space
-	test.T(t, len(text.lines), 3)
-	test.Float(t, text.lines[0].spans[0].x, 0.0)
-	test.Float(t, text.lines[0].spans[0].Width, 26.5625) // space removed
-	test.Float(t, text.lines[1].spans[0].x, 0.0)
-	test.Float(t, text.lines[1].spans[0].Width, 22.75)
-	test.Float(t, text.lines[2].spans[0].x, 0.0)
-	test.Float(t, text.lines[2].spans[0].Width, 45.5)
 
 	// test special cases
-	text = rt.ToText(6150.0, 10.0, Left, Top, 0.0, 0.0)
+	text = rt.ToText(6500.0, 2000.0, Left, Top, 0.0, 0.0)
 	test.T(t, len(text.lines), 0)
 
 	text = rt.ToText(0.0, 5000.0, Left, Top, 0.0, 0.0)
 	test.T(t, len(text.lines), 1)
-	test.T(t, len(text.lines[0].spans), 2)
+	test.T(t, len(text.lines[0].spans), 3)
 	test.Float(t, text.lines[0].spans[0].x, 0.0)
-	test.Float(t, text.lines[0].spans[1].x, 30.375)
+	test.Float(t, text.lines[0].spans[1].x, 3726)
+	test.Float(t, text.lines[0].spans[2].x, 6801)
 
 	//rt = NewRichText()
 	//text = rt.ToText(55.0, 50.0, Left, Top, 0.0, 0.0)

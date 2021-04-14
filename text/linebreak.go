@@ -459,7 +459,21 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align, vertical bool) [
 		return []Item{}
 	}
 
-	stretchWidth := 1.0 // this is arbitrary and irrelevant, the corresponding break ratio will change to match the necessary widths
+	stretchWidth := 0.0 // the average space width used for left, right, centered alignment
+	if align != Justified {
+		n := 0.0
+		for _, glyph := range glyphs {
+			if isSpace(glyph.Text) {
+				if !vertical {
+					stretchWidth += float64(glyph.XAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
+				} else {
+					stretchWidth += float64(-glyph.YAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
+				}
+				n += 1.0
+			}
+		}
+		stretchWidth /= n
+	}
 
 	items := []Item{}
 	items = append(items, Box(indent))
