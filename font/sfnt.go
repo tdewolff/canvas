@@ -73,13 +73,11 @@ func (sfnt *SFNT) GlyphName(glyphID uint16) string {
 	return sfnt.Post.Get(glyphID)
 }
 
-func (sfnt *SFNT) GlyphPath(p Pather, glyphID, ppem uint16, xOffset, yOffset int32, xScale, yScale float64, hinting Hinting) error {
-	x := float64(xOffset)
-	y := float64(yOffset)
+func (sfnt *SFNT) GlyphPath(p Pather, glyphID, ppem uint16, x, y int32, scale float64, hinting Hinting) error {
 	if sfnt.IsTrueType {
-		return sfnt.Glyf.ToPath(p, glyphID, ppem, x, y, xScale, yScale, hinting)
+		return sfnt.Glyf.ToPath(p, glyphID, ppem, x, y, scale, hinting)
 	} else if sfnt.IsCFF {
-		return sfnt.CFF.ToPath(p, glyphID, ppem, x, y, xScale, yScale, hinting)
+		return sfnt.CFF.ToPath(p, glyphID, ppem, x, y, scale, hinting)
 	}
 	return fmt.Errorf("only TrueType and CFF are supported")
 }

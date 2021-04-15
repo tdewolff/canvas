@@ -312,7 +312,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		glyphsString := face.Font.shaper.Shape(text, ppem, direction, face.Script, face.Language, face.Font.features, face.Font.variations)
 		for i, _ := range glyphsString {
 			glyphsString[i].SFNT = face.Font.SFNT
-			glyphsString[i].Size = face.Size * face.XScale
+			glyphsString[i].Size = face.Size
 			glyphsString[i].Cluster += clusterOffset
 		}
 		glyphIndices = append(glyphIndices, len(glyphs))
@@ -363,7 +363,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 					id := span.Face.Font.GlyphIndex('-')
 					glyph := canvasText.Glyph{
 						SFNT:     span.Face.Font.SFNT,
-						Size:     span.Face.Size * span.Face.XScale,
+						Size:     span.Face.Size,
 						ID:       id,
 						XAdvance: int32(span.Face.Font.GlyphAdvance(id)),
 						Text:     "-",
@@ -616,31 +616,41 @@ func (t *Text) Fonts() []*Font {
 //	return family.Face(size*ptPerMm, col, style, variant)
 //}
 
+func (t *Text) WalkSpans(callback func(x, y float64, span TextSpan)) {
+	for _, line := range t.lines {
+		for _, span := range line.spans {
+			xOffset := span.Face.mmPerEm * float64(span.Face.XOffset)
+			yOffset := span.Face.mmPerEm * float64(span.Face.YOffset)
+			if t.Mode == HorizontalTB {
+				callback(span.x+xOffset, -line.y+yOffset, span)
+			} else {
+				callback(line.y+xOffset, -span.x+yOffset, span)
+			}
+		}
+	}
+}
+
 // RenderAsPath renders the text (and its decorations) converted to paths (calling r.RenderPath)
 func (t *Text) RenderAsPath(r Renderer, m Matrix) {
 	style := DefaultStyle
 	for _, line := range t.lines {
 		for _, span := range line.spans {
-			style.FillColor = span.Face.Color
+			x, y := span.x, -line.y
+			if t.Mode != HorizontalTB {
+				x, y = line.y, -span.x
+			}
 
+			style.FillColor = span.Face.Color
 			p, _, err := span.Face.toPath(span.Glyphs, span.Face.PPEM(DefaultResolution))
 			if err != nil {
 				panic(err)
 			}
-			if t.Mode == HorizontalTB {
-				p = p.Translate(span.x, -line.y)
-			} else {
-				p = p.Translate(line.y, -span.x)
-			}
+			p = p.Translate(x, y)
 			r.RenderPath(p, style, m)
 
 			if span.Face.HasDecoration() {
 				p = span.Face.Decorate(span.Width)
-				if t.Mode == HorizontalTB {
-					p = p.Translate(span.x, -line.y)
-				} else {
-					p = p.Translate(line.y, -span.x)
-				}
+				p = p.Translate(x, y)
 				r.RenderPath(p, style, m)
 			}
 		}
@@ -650,29 +660,17 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix) {
 // RenderDecoration renders the text decorations using the RenderPath method of the Renderer.
 // TODO: check text decoration z-positions when text lines are overlapping https://github.com/tdewolff/canvas/pull/40#pullrequestreview-400951503
 // TODO: check compliance with https://drafts.csswg.org/css-text-decor-4/#text-line-constancy
-func (t *Text) RenderDecoration(r Renderer, m Matrix) {
-	style := DefaultStyle
-	for _, line := range t.lines {
-		for _, span := range line.spans {
-			p := span.Face.Decorate(span.Width)
-			p = p.Translate(span.x, -line.y)
-			style.FillColor = span.Face.Color
-			r.RenderPath(p, style, m)
-		}
-	}
-}
-
-func (t *Text) WalkSpans(callback func(y, x float64, span TextSpan)) {
-	for _, line := range t.lines {
-		for _, span := range line.spans {
-			if t.Mode == HorizontalTB {
-				callback(-line.y, span.x, span)
-			} else {
-				callback(-span.x, line.y, span)
-			}
-		}
-	}
-}
+//func (t *Text) RenderDecoration(r Renderer, m Matrix) {
+//	style := DefaultStyle
+//	for _, line := range t.lines {
+//		for _, span := range line.spans {
+//			p := span.Face.Decorate(span.Width)
+//			p = p.Translate(span.x, -line.y)
+//			style.FillColor = span.Face.Color
+//			r.RenderPath(p, style, m)
+//		}
+//	}
+//}
 
 //func (t *Text) WalkLines(spanCallback func(y, dx float64, span TextSpan), renderDeco func(path *Path, style Style, m Matrix), m Matrix) {
 //	decoStyle := DefaultStyle

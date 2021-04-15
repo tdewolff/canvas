@@ -192,10 +192,10 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 }
 
 func (r *PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
-	text.WalkSpans(func(y, x float64, span canvas.TextSpan) {
+	text.WalkSpans(func(x, y float64, span canvas.TextSpan) {
 		r.w.StartTextObject()
 		r.w.SetFillColor(span.Face.Color)
-		r.w.SetFont(span.Face.Font, span.Face.Size, span.Direction) // TODO: multiple by XScale or YScale? or in transform?
+		r.w.SetFont(span.Face.Font, span.Face.Size, span.Direction)
 		r.w.SetTextPosition(m.Translate(x, y).Shear(span.Face.FauxItalic, 0.0))
 
 		if 0.0 < span.Face.FauxBold {

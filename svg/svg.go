@@ -228,22 +228,21 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 }
 
 func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace) {
-	boldness := face.Boldness()
 	differences := 0
-
+	boldness := face.Boldness()
 	if face.Style&canvas.FontItalic != faceMain.Style&canvas.FontItalic {
 		differences++
 	}
 	if boldness != faceMain.Boldness() {
 		differences++
 	}
-	if face.Variant&canvas.FontSmallcaps != faceMain.Variant&canvas.FontSmallcaps {
+	if (face.Variant == canvas.FontSmallcaps) != (faceMain.Variant == canvas.FontSmallcaps) {
 		differences++
 	}
 	if face.Color != faceMain.Color {
 		differences++
 	}
-	if face.Name() != faceMain.Name() /*TODO:|| face.Size*face.Scale != faceMain.Size*/ || differences == 3 {
+	if face.Name() != faceMain.Name() || face.Size != faceMain.Size || differences == 3 {
 		fmt.Fprintf(r.w, `" style="font:`)
 
 		buf := &bytes.Buffer{}
@@ -255,11 +254,13 @@ func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace) {
 			fmt.Fprintf(buf, ` %d`, boldness)
 		}
 
-		if face.Variant&canvas.FontSmallcaps != faceMain.Variant&canvas.FontSmallcaps {
+		if face.Variant == canvas.FontSmallcaps && faceMain.Variant != canvas.FontSmallcaps {
 			fmt.Fprintf(buf, ` small-caps`)
+		} else if face.Variant != canvas.FontSmallcaps && faceMain.Variant == canvas.FontSmallcaps {
+			fmt.Fprintf(buf, ` normal`)
 		}
 
-		fmt.Fprintf(buf, ` %vpx %s`, num(face.Size /*TODO:*face.Scale*/), face.Name())
+		fmt.Fprintf(buf, ` %vpx %s`, num(face.Size), face.Name())
 		buf.ReadByte()
 		buf.WriteTo(r.w)
 
@@ -277,8 +278,10 @@ func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace) {
 		if boldness != faceMain.Boldness() {
 			fmt.Fprintf(buf, `;font-weight:%d`, boldness)
 		}
-		if face.Variant&canvas.FontSmallcaps != faceMain.Variant&canvas.FontSmallcaps {
+		if face.Variant == canvas.FontSmallcaps && faceMain.Variant != canvas.FontSmallcaps {
 			fmt.Fprintf(buf, `;font-variant:small-caps`)
+		} else if face.Variant != canvas.FontSmallcaps && faceMain.Variant == canvas.FontSmallcaps {
+			fmt.Fprintf(buf, `;font-variant:normal`)
 		}
 		if face.Color != faceMain.Color {
 			fmt.Fprintf(buf, `;fill:%v`, canvas.CSSColor(face.Color))
@@ -292,8 +295,6 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 	if text.Empty() {
 		return
 	}
-
-	text.RenderDecoration(r, m)
 
 	faceMain := text.Face
 	x0, y0 := 0.0, 0.0
@@ -311,10 +312,10 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 	if boldness := faceMain.Boldness(); boldness != 400 {
 		fmt.Fprintf(r.w, ` %d`, boldness)
 	}
-	if faceMain.Variant&canvas.FontSmallcaps != 0 {
+	if faceMain.Variant == canvas.FontSmallcaps {
 		fmt.Fprintf(r.w, ` small-caps`)
 	}
-	fmt.Fprintf(r.w, ` %vpx %s`, num(faceMain.Size /**faceMain.Scale*/), faceMain.Name())
+	fmt.Fprintf(r.w, ` %vpx %s`, num(faceMain.Size), faceMain.Name())
 	if faceMain.Color != canvas.Black {
 		fmt.Fprintf(r.w, `;fill:%v`, canvas.CSSColor(faceMain.Color))
 	}
@@ -324,22 +325,16 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 	r.writeClasses(r.w)
 	fmt.Fprintf(r.w, `">`)
 
-	text.WalkSpans(func(y, x float64, span canvas.TextSpan) {
+	text.WalkSpans(func(x, y float64, span canvas.TextSpan) {
 		r.fonts[span.Face.Font] = true
 		for _, r := range []rune(span.Text) {
 			glyphID := span.Face.Font.SFNT.GlyphIndex(r)
 			_ = span.Face.Font.SubsetID(glyphID) // register usage of glyph for subsetting
 		}
 
-		x += x0 + float64(span.Face.XOffset)
-		y = y0 - y - float64(span.Face.YOffset)
+		x += x0
+		y = y0 - y
 		fmt.Fprintf(r.w, `<tspan x="%v" y="%v`, num(x), num(y))
-		//if span.WordSpacing > 0.0 {
-		//	fmt.Fprintf(r.w, `" word-spacing="%v`, num(span.WordSpacing))
-		//}
-		//if span.GlyphSpacing > 0.0 {
-		//	fmt.Fprintf(r.w, `" letter-spacing="%v`, num(span.GlyphSpacing))
-		//}
 		r.writeFontStyle(span.Face, faceMain)
 		r.writeClasses(r.w)
 		fmt.Fprintf(r.w, `">`)

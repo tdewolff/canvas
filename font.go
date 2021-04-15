@@ -17,16 +17,16 @@ type FontStyle int
 
 // see FontStyle
 const (
-	FontRegular    FontStyle = 0 // 400
-	FontItalic     FontStyle = 1
-	FontExtraLight FontStyle = 2 << iota // 100
-	FontLight                            // 200
-	FontBook                             // 300
-	FontMedium                           // 500
-	FontSemibold                         // 600
-	FontBold                             // 700
-	FontBlack                            // 800
-	FontExtraBlack                       // 900
+	FontRegular    FontStyle = iota // 400
+	FontExtraLight                  // 100
+	FontLight                       // 200
+	FontBook                        // 300
+	FontMedium                      // 500
+	FontSemibold                    // 600
+	FontBold                        // 700
+	FontBlack                       // 800
+	FontExtraBlack                  // 900
+	FontItalic     FontStyle = 1 << 8
 )
 
 // FontVariant defines the font variant to be used for the font, such as subscript or smallcaps.
@@ -34,7 +34,7 @@ type FontVariant int
 
 // see FontVariant
 const (
-	FontNormal FontVariant = 2 << iota
+	FontNormal FontVariant = iota
 	FontSubscript
 	FontSuperscript
 	FontSmallcaps
@@ -138,9 +138,6 @@ func (family *FontFamily) SetFeatures(features string) {
 // LoadLocalFont loads a font from the system fonts location.
 func (family *FontFamily) LoadLocalFont(name string, style FontStyle) error {
 	match := name
-	if style&FontItalic == FontItalic {
-		match += ":italic"
-	}
 	if style&FontExtraLight == FontExtraLight {
 		match += ":weight=40"
 	} else if style&FontLight == FontLight {
@@ -157,6 +154,9 @@ func (family *FontFamily) LoadLocalFont(name string, style FontStyle) error {
 		match += ":weight=205"
 	} else if style&FontExtraBlack == FontExtraBlack {
 		match += ":weight=210"
+	}
+	if style&FontItalic == FontItalic {
+		match += ":italic"
 	}
 	b, err := exec.Command("fc-match", "--format=%{file}", match).Output()
 	if err != nil {
@@ -205,48 +205,86 @@ func (family *FontFamily) Face(size float64, col color.Color, style FontStyle, v
 	face.Color = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
 	face.Deco = deco
 
+	if variant == FontSubscript || variant == FontSuperscript {
+		scale := 0.583
+		xOffset, yOffset := int16(0), int16(0)
+		units := float64(face.Font.Head.UnitsPerEm)
+		if variant == FontSubscript {
+			if face.Font.OS2.YSubscriptXSize != 0 {
+				scale = float64(face.Font.OS2.YSubscriptXSize) / units
+			}
+			if face.Font.OS2.YSubscriptXOffset != 0 {
+				xOffset = face.Font.OS2.YSubscriptXOffset
+			}
+			yOffset = int16(0.33 * units)
+			if face.Font.OS2.YSubscriptYOffset != 0 {
+				yOffset = -face.Font.OS2.YSubscriptYOffset
+			}
+		} else if variant == FontSuperscript {
+			if face.Font.OS2.YSuperscriptXSize != 0 {
+				scale = float64(face.Font.OS2.YSuperscriptXSize) / units
+			}
+			if face.Font.OS2.YSuperscriptXOffset != 0 {
+				xOffset = face.Font.OS2.YSuperscriptXOffset
+			}
+			yOffset = int16(-0.33 * units)
+			if face.Font.OS2.YSuperscriptYOffset != 0 {
+				yOffset = face.Font.OS2.YSuperscriptYOffset
+			}
+		}
+		face.Size *= scale
+		face.XOffset = int32(float64(xOffset) / scale)
+		face.YOffset = int32(float64(yOffset) / scale)
+		if style&0xFF == FontExtraLight {
+			style = style&0x100 | FontLight
+		} else if style&0xFF == FontLight || style&0xFF == FontBook {
+			style = style&0x100 | FontRegular
+		} else if style&0xFF == FontRegular {
+			style = style&0x100 | FontSemibold
+		} else if style&0xFF == FontMedium || style&0xFF == FontSemibold {
+			style = style&0x100 | FontBold
+		} else if style&0xFF == FontBold {
+			style = style&0x100 | FontBlack
+		} else if style&0xFF == FontBlack {
+			style = style&0x100 | FontExtraBlack
+		} else {
+			face.FauxBold += 0.02
+		}
+		face.Font = family.fonts[style]
+		face.Style = style
+	}
+
 	if face.Font == nil {
 		face.Font = family.fonts[FontRegular]
 		if face.Font == nil {
 			panic("requested font style not found")
 		}
+		if style&0xFF == FontExtraLight {
+			face.FauxBold += -0.02
+		} else if style&0xFF == FontLight {
+			face.FauxBold += -0.01
+		} else if style&0xFF == FontBook {
+			face.FauxBold += -0.005
+		} else if style&0xFF == FontMedium {
+			face.FauxBold += 0.005
+		} else if style&0xFF == FontSemibold {
+			face.FauxBold += 0.01
+		} else if style&0xFF == FontBold {
+			face.FauxBold += 0.02
+		} else if style&0xFF == FontBlack {
+			face.FauxBold += 0.03
+		} else if style&0xFF == FontExtraBlack {
+			face.FauxBold += 0.04
+		}
 		if style&FontItalic != 0 {
-			face.FauxItalic = 0.3 // TODO: use post table
-		}
-		if style&FontExtraLight == FontExtraLight {
-			face.FauxBold = -0.02 * face.Size
-		} else if style&FontLight == FontLight {
-			face.FauxBold = -0.01 * face.Size
-		} else if style&FontBook == FontBook {
-			face.FauxBold = -0.005 * face.Size
-		} else if style&FontMedium == FontMedium {
-			face.FauxBold = 0.005 * face.Size
-		} else if style&FontSemibold == FontSemibold {
-			face.FauxBold = 0.01 * face.Size
-		} else if style&FontBold == FontBold {
-			face.FauxBold = 0.02 * face.Size
-		} else if style&FontBlack == FontBlack {
-			face.FauxBold = 0.03 * face.Size
-		} else if style&FontExtraBlack == FontExtraBlack {
-			face.FauxBold = 0.04 * face.Size
+			if face.Font.Post.ItalicAngle != 0 {
+				face.FauxItalic = math.Tan(float64(-face.Font.Post.ItalicAngle))
+			} else {
+				face.FauxItalic = 0.3
+			}
 		}
 	}
-
-	units := float64(face.Font.Head.UnitsPerEm)
-	if variant&FontSubscript != 0 {
-		face.XScale = float64(face.Font.OS2.YSubscriptXSize) / units
-		face.YScale = float64(face.Font.OS2.YSubscriptYSize) / units
-		face.XOffset = int32(face.Font.OS2.YSubscriptXOffset)
-		face.YOffset = int32(face.Font.OS2.YSubscriptYOffset)
-	} else if variant&FontSuperscript != 0 {
-		face.XScale = float64(face.Font.OS2.YSuperscriptXSize) / units
-		face.YScale = float64(face.Font.OS2.YSuperscriptYSize) / units
-		face.XOffset = int32(face.Font.OS2.YSuperscriptXOffset)
-		face.YOffset = -int32(face.Font.OS2.YSuperscriptYOffset)
-	} else {
-		face.XScale = 1.0
-		face.YScale = 1.0
-	}
+	face.mmPerEm = face.Size / float64(face.Font.Head.UnitsPerEm)
 	return face
 }
 
@@ -263,7 +301,6 @@ type FontFace struct {
 
 	// faux styles for bold, italic, and sub- and superscript
 	FauxBold, FauxItalic float64
-	XScale, YScale       float64
 	XOffset, YOffset     int32
 
 	Language  string
@@ -274,6 +311,8 @@ type FontFace struct {
 	// stroke and stroke color
 	// line height
 	// shadow
+
+	mmPerEm float64
 }
 
 // Equals returns true when two font face are equal. In particular this allows two adjacent text spans that use the same decoration to allow the decoration to span both elements instead of two separately.
@@ -308,32 +347,29 @@ type FontMetrics struct {
 // Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explanation of the different metrics.
 func (face *FontFace) Metrics() FontMetrics {
 	sfnt := face.Font.SFNT
-	fx := face.Size * face.XScale / float64(sfnt.Head.UnitsPerEm)
-	fy := face.Size * face.YScale / float64(sfnt.Head.UnitsPerEm)
 	return FontMetrics{
-		LineHeight: fy * float64(sfnt.Hhea.Ascender-sfnt.Hhea.Descender+sfnt.Hhea.LineGap),
-		Ascent:     fy * float64(sfnt.Hhea.Ascender),
-		Descent:    fy * float64(-sfnt.Hhea.Descender),
-		LineGap:    fy * float64(sfnt.Hhea.LineGap),
-		XHeight:    fy * float64(sfnt.OS2.SxHeight),
-		CapHeight:  fy * float64(sfnt.OS2.SCapHeight),
-		XMin:       fx * float64(sfnt.Head.XMin),
-		YMin:       fy * float64(sfnt.Head.YMin),
-		XMax:       fx * float64(sfnt.Head.XMax),
-		YMax:       fy * float64(sfnt.Head.YMax),
+		LineHeight: face.mmPerEm * float64(sfnt.Hhea.Ascender-sfnt.Hhea.Descender+sfnt.Hhea.LineGap),
+		Ascent:     face.mmPerEm * float64(sfnt.Hhea.Ascender),
+		Descent:    face.mmPerEm * float64(-sfnt.Hhea.Descender),
+		LineGap:    face.mmPerEm * float64(sfnt.Hhea.LineGap),
+		XHeight:    face.mmPerEm * float64(sfnt.OS2.SxHeight),
+		CapHeight:  face.mmPerEm * float64(sfnt.OS2.SCapHeight),
+		XMin:       face.mmPerEm * float64(sfnt.Head.XMin),
+		YMin:       face.mmPerEm * float64(sfnt.Head.YMin),
+		XMax:       face.mmPerEm * float64(sfnt.Head.XMax),
+		YMax:       face.mmPerEm * float64(sfnt.Head.YMax),
 	}
 }
 
 func (face *FontFace) PPEM(resolution Resolution) uint16 {
 	// ppem is for hinting purposes only, this does not influence glyph advances
-	return uint16(resolution.DPMM() * face.Size * math.Min(face.XScale, face.YScale))
+	return uint16(resolution.DPMM() * face.Size)
 }
 
 // Kerning returns the eventual kerning between two runes in mm (ie. the adjustment on the advance).
 func (face *FontFace) Kerning(left, right rune) float64 {
 	sfnt := face.Font.SFNT
-	fx := face.Size * face.XScale / float64(sfnt.Head.UnitsPerEm)
-	return fx * float64(sfnt.Kerning(sfnt.GlyphIndex(left), sfnt.GlyphIndex(right)))
+	return face.mmPerEm * float64(sfnt.Kerning(sfnt.GlyphIndex(left), sfnt.GlyphIndex(right)))
 }
 
 // TextWidth returns the width of a given string in mm.
@@ -345,8 +381,6 @@ func (face *FontFace) TextWidth(s string) float64 {
 
 func (face *FontFace) textWidth(glyphs []text.Glyph) float64 {
 	sfnt := face.Font.SFNT
-	fx := face.Size * face.XScale / float64(sfnt.Head.UnitsPerEm)
-
 	w := int32(0)
 	for i, glyph := range glyphs {
 		if i != 0 {
@@ -354,7 +388,7 @@ func (face *FontFace) textWidth(glyphs []text.Glyph) float64 {
 		}
 		w += int32(sfnt.GlyphAdvance(glyph.ID))
 	}
-	return fx * float64(w)
+	return face.mmPerEm * float64(w)
 }
 
 // Decorate will return a path from the decorations specified in the FontFace over a given width in mm.
@@ -375,14 +409,10 @@ func (face *FontFace) ToPath(s string) (*Path, float64, error) {
 }
 
 func (face *FontFace) toPath(glyphs []text.Glyph, ppem uint16) (*Path, float64, error) {
-	sfnt := face.Font.SFNT
-	fx := face.Size * face.XScale / float64(sfnt.Head.UnitsPerEm)
-	fy := face.Size * face.YScale / float64(sfnt.Head.UnitsPerEm)
-
 	p := &Path{}
 	x, y := face.XOffset, face.YOffset
 	for _, glyph := range glyphs {
-		err := face.Font.GlyphPath(p, glyph.ID, ppem, x+glyph.XOffset, y+glyph.YOffset, fx, fy, font.NoHinting)
+		err := face.Font.GlyphPath(p, glyph.ID, ppem, x+glyph.XOffset, y+glyph.YOffset, face.mmPerEm, font.NoHinting)
 		if err != nil {
 			return p, 0.0, err
 		}
@@ -391,38 +421,32 @@ func (face *FontFace) toPath(glyphs []text.Glyph, ppem uint16) (*Path, float64, 
 	}
 
 	if face.FauxBold != 0.0 {
-		p = p.Offset(face.FauxBold, NonZero)
+		p = p.Offset(face.FauxBold*face.Size, NonZero)
 	}
 	if face.FauxItalic != 0.0 {
 		p = p.Transform(Identity.Shear(face.FauxItalic, 0.0))
 	}
-	return p, fx * float64(x), nil
+	return p, face.mmPerEm * float64(x), nil
 }
 
 func (face *FontFace) Boldness() int {
 	boldness := 400
-	if face.Style&FontExtraLight == FontExtraLight {
+	if face.Style&0xFF == FontExtraLight {
 		boldness = 100
-	} else if face.Style&FontLight == FontLight {
+	} else if face.Style&0xFF == FontLight {
 		boldness = 200
-	} else if face.Style&FontBook == FontBook {
+	} else if face.Style&0xFF == FontBook {
 		boldness = 300
-	} else if face.Style&FontMedium == FontMedium {
+	} else if face.Style&0xFF == FontMedium {
 		boldness = 500
-	} else if face.Style&FontSemibold == FontSemibold {
+	} else if face.Style&0xFF == FontSemibold {
 		boldness = 600
-	} else if face.Style&FontBold == FontBold {
+	} else if face.Style&0xFF == FontBold {
 		boldness = 700
-	} else if face.Style&FontBlack == FontBlack {
+	} else if face.Style&0xFF == FontBlack {
 		boldness = 800
-	} else if face.Style&FontExtraBlack == FontExtraBlack {
+	} else if face.Style*0xFF == FontExtraBlack {
 		boldness = 900
-	}
-	if face.Variant&FontSubscript != 0 || face.Variant&FontSuperscript != 0 {
-		boldness += 300
-		if 1000 < boldness {
-			boldness = 1000
-		}
 	}
 	return boldness
 }
@@ -446,10 +470,10 @@ func (underline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
 	y := -face.Size * underlineDistance
 	if face.Font.Post.UnderlineThickness != 0 {
-		r = face.Size * face.YScale * float64(face.Font.Post.UnderlineThickness) / float64(face.Font.Head.UnitsPerEm)
+		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
 	}
 	if face.Font.Post.UnderlinePosition != 0 {
-		y = face.Size * face.YScale * float64(face.Font.Post.UnderlinePosition) / float64(face.Font.Head.UnitsPerEm)
+		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
 	}
 	y -= r
 
@@ -468,10 +492,10 @@ func (overline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
 	y := face.Metrics().Ascent + face.Size*underlineDistance
 	if face.Font.Post.UnderlineThickness != 0 {
-		r = face.Size * face.YScale * float64(face.Font.Post.UnderlineThickness) / float64(face.Font.Head.UnitsPerEm)
+		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
 	}
 	if face.Font.Post.UnderlinePosition != 0 {
-		y = face.Metrics().Ascent - face.Size*face.YScale*float64(face.Font.Post.UnderlinePosition)/float64(face.Font.Head.UnitsPerEm)
+		y = face.Metrics().Ascent - face.mmPerEm*float64(face.Font.Post.UnderlinePosition)
 	}
 	y -= r
 
@@ -493,10 +517,10 @@ func (strikethrough) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
 	y := face.Metrics().XHeight / 2.0
 	if face.Font.OS2.YStrikeoutSize != 0 {
-		r = face.Size * face.YScale * float64(face.Font.OS2.YStrikeoutSize) / float64(face.Font.Head.UnitsPerEm)
+		r = face.mmPerEm * float64(face.Font.OS2.YStrikeoutSize)
 	}
 	if face.Font.OS2.YStrikeoutPosition != 0 {
-		y = face.Size * face.YScale * float64(face.Font.OS2.YStrikeoutPosition) / float64(face.Font.Head.UnitsPerEm)
+		y = face.mmPerEm * float64(face.Font.OS2.YStrikeoutPosition)
 	}
 	y -= r
 
@@ -518,10 +542,10 @@ func (doubleUnderline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
 	y := -face.Size * underlineDistance
 	if face.Font.Post.UnderlineThickness != 0 {
-		r = face.Size * face.YScale * float64(face.Font.Post.UnderlineThickness) / float64(face.Font.Head.UnitsPerEm)
+		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
 	}
 	if face.Font.Post.UnderlinePosition != 0 {
-		y = face.Size * face.YScale * float64(face.Font.Post.UnderlinePosition) / float64(face.Font.Head.UnitsPerEm)
+		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
 	}
 	y -= r
 
@@ -542,10 +566,10 @@ func (dottedUnderline) Decorate(face *FontFace, w float64) *Path {
 	r := 0.5 * face.Size * underlineThickness
 	y := -face.Size * underlineDistance
 	if face.Font.Post.UnderlineThickness != 0 {
-		r = 0.5 * face.Size * face.YScale * float64(face.Font.Post.UnderlineThickness) / float64(face.Font.Head.UnitsPerEm)
+		r = 0.5 * face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
 	}
 	if face.Font.Post.UnderlinePosition != 0 {
-		y = face.Size * face.YScale * float64(face.Font.Post.UnderlinePosition) / float64(face.Font.Head.UnitsPerEm)
+		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
 	}
 	y -= 2.0 * r
 
@@ -570,10 +594,10 @@ func (dashedUnderline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
 	y := -face.Size * underlineDistance
 	if face.Font.Post.UnderlineThickness != 0 {
-		r = face.Size * face.YScale * float64(face.Font.Post.UnderlineThickness) / float64(face.Font.Head.UnitsPerEm)
+		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
 	}
 	if face.Font.Post.UnderlinePosition != 0 {
-		y = face.Size * face.YScale * float64(face.Font.Post.UnderlinePosition) / float64(face.Font.Head.UnitsPerEm)
+		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
 	}
 	y -= r
 
@@ -597,10 +621,10 @@ func (wavyUnderline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
 	y := -face.Size * underlineDistance
 	if face.Font.Post.UnderlineThickness != 0 {
-		r = face.Size * face.YScale * float64(face.Font.Post.UnderlineThickness) / float64(face.Font.Head.UnitsPerEm)
+		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
 	}
 	if face.Font.Post.UnderlinePosition != 0 {
-		y = face.Size * face.YScale * float64(face.Font.Post.UnderlinePosition) / float64(face.Font.Head.UnitsPerEm)
+		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
 	}
 	y -= r
 
@@ -635,10 +659,10 @@ func (sineUnderline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
 	y := -face.Size * underlineDistance
 	if face.Font.Post.UnderlineThickness != 0 {
-		r = face.Size * face.YScale * float64(face.Font.Post.UnderlineThickness) / float64(face.Font.Head.UnitsPerEm)
+		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
 	}
 	if face.Font.Post.UnderlinePosition != 0 {
-		y = face.Size * face.YScale * float64(face.Font.Post.UnderlinePosition) / float64(face.Font.Head.UnitsPerEm)
+		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
 	}
 	y -= r
 
@@ -671,10 +695,10 @@ func (sawtoothUnderline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
 	y := -face.Size * underlineDistance
 	if face.Font.Post.UnderlineThickness != 0 {
-		r = face.Size * face.YScale * float64(face.Font.Post.UnderlineThickness) / float64(face.Font.Head.UnitsPerEm)
+		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
 	}
 	if face.Font.Post.UnderlinePosition != 0 {
-		y = face.Size * face.YScale * float64(face.Font.Post.UnderlinePosition) / float64(face.Font.Head.UnitsPerEm)
+		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
 	}
 	y -= r
 

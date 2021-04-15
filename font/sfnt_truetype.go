@@ -332,11 +332,13 @@ func (glyf *glyfTable) Contour(glyphID uint16, level int) (*glyfContour, error) 
 	return contour, nil
 }
 
-func (glyf *glyfTable) ToPath(p Pather, glyphID, ppem uint16, x, y, fx, fy float64, hinting Hinting) error {
+func (glyf *glyfTable) ToPath(p Pather, glyphID, ppem uint16, xOffset, yOffset int32, f float64, hinting Hinting) error {
 	contour, err := glyf.Contour(glyphID, 0)
 	if err != nil {
 		return err
 	}
+
+	x, y := f*float64(xOffset), f*float64(yOffset)
 
 	var i uint16
 	for _, endPoint := range contour.EndPoints {
@@ -348,9 +350,9 @@ func (glyf *glyfTable) ToPath(p Pather, glyphID, ppem uint16, x, y, fx, fy float
 		for ; i <= endPoint; i++ {
 			if first {
 				if contour.OnCurve[i] {
-					startX = x + float64(contour.XCoordinates[i])
-					startY = y + float64(contour.YCoordinates[i])
-					p.MoveTo(fx*startX, fy*startY)
+					startX = float64(contour.XCoordinates[i])
+					startY = float64(contour.YCoordinates[i])
+					p.MoveTo(x+f*startX, y+f*startY)
 					first = false
 				} else if !prevOff {
 					// first point is off
@@ -358,38 +360,38 @@ func (glyf *glyfTable) ToPath(p Pather, glyphID, ppem uint16, x, y, fx, fy float
 					prevOff = true
 				} else {
 					// first and second point are off
-					startX = x + float64(contour.XCoordinates[i-1]+contour.XCoordinates[i])/2.0
-					startY = y + float64(contour.YCoordinates[i-1]+contour.YCoordinates[i])/2.0
-					p.MoveTo(fx*startX, fy*startY)
+					startX = float64(contour.XCoordinates[i-1]+contour.XCoordinates[i]) / 2.0
+					startY = float64(contour.YCoordinates[i-1]+contour.YCoordinates[i]) / 2.0
+					p.MoveTo(x+f*startX, y+f*startY)
 					first = false
 				}
 			} else if !prevOff {
 				if contour.OnCurve[i] {
-					p.LineTo(fx*(x+float64(contour.XCoordinates[i])), fy*(y+float64(contour.YCoordinates[i])))
+					p.LineTo(x+f*float64(contour.XCoordinates[i]), y+f*float64(contour.YCoordinates[i]))
 				} else {
 					prevOff = true
 				}
 			} else {
 				if contour.OnCurve[i] {
-					p.QuadTo(fx*(x+float64(contour.XCoordinates[i-1])), fy*(y+float64(contour.YCoordinates[i-1])), fx*(x+float64(contour.XCoordinates[i])), fy*(y+float64(contour.YCoordinates[i])))
+					p.QuadTo(x+f*float64(contour.XCoordinates[i-1]), y+f*float64(contour.YCoordinates[i-1]), x+f*float64(contour.XCoordinates[i]), y+f*float64(contour.YCoordinates[i]))
 					prevOff = false
 				} else {
-					midX := x + float64(contour.XCoordinates[i-1]+contour.XCoordinates[i])/2.0
-					midY := y + float64(contour.YCoordinates[i-1]+contour.YCoordinates[i])/2.0
-					p.QuadTo(fx*(x+float64(contour.XCoordinates[i-1])), fy*(y+float64(contour.YCoordinates[i-1])), fx*midX, fy*midY)
+					midX := float64(contour.XCoordinates[i-1]+contour.XCoordinates[i]) / 2.0
+					midY := float64(contour.YCoordinates[i-1]+contour.YCoordinates[i]) / 2.0
+					p.QuadTo(x+f*float64(contour.XCoordinates[i-1]), y+f*float64(contour.YCoordinates[i-1]), x+f*midX, y+f*midY)
 				}
 			}
 		}
 		if firstOff {
 			if prevOff {
-				midX := x + float64(contour.XCoordinates[i-1]+contour.XCoordinates[j])/2.0
-				midY := y + float64(contour.YCoordinates[i-1]+contour.YCoordinates[j])/2.0
-				p.QuadTo(fx*midX, fy*midY, fx*startX, fy*startY)
+				midX := float64(contour.XCoordinates[i-1]+contour.XCoordinates[j]) / 2.0
+				midY := float64(contour.YCoordinates[i-1]+contour.YCoordinates[j]) / 2.0
+				p.QuadTo(x+f*midX, y+f*midY, x+f*startX, y+f*startY)
 			} else {
-				p.QuadTo(fx*(x+float64(contour.XCoordinates[i-1])), fy*(y+float64(contour.YCoordinates[i-1])), fx*startX, fy*startY)
+				p.QuadTo(x+f*float64(contour.XCoordinates[i-1]), y+f*float64(contour.YCoordinates[i-1]), x+f*startX, y+f*startY)
 			}
 		} else if prevOff {
-			p.QuadTo(fx*(x+float64(contour.XCoordinates[i-1])), fy*(y+float64(contour.YCoordinates[i-1])), fx*startX, fy*startY)
+			p.QuadTo(x+f*float64(contour.XCoordinates[i-1]), y+f*float64(contour.YCoordinates[i-1]), x+f*startX, y+f*startY)
 		}
 		p.Close()
 	}
