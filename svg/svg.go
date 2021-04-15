@@ -296,6 +296,16 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 		return
 	}
 
+	text.WalkSpans(func(x, y float64, span canvas.TextSpan) {
+		if span.Face.HasDecoration() {
+			style := canvas.DefaultStyle
+			style.FillColor = span.Face.Color
+			p := span.Face.Decorate(span.Width)
+			p = p.Translate(x, y)
+			r.RenderPath(p, style, m)
+		}
+	})
+
 	faceMain := text.Face
 	x0, y0 := 0.0, 0.0
 	if m.IsTranslation() {

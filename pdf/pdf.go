@@ -193,6 +193,12 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 
 func (r *PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 	text.WalkSpans(func(x, y float64, span canvas.TextSpan) {
+		style := canvas.DefaultStyle
+		style.FillColor = span.Face.Color
+		p := span.Face.Decorate(span.Width)
+		p = p.Translate(x, y)
+		r.RenderPath(p, style, m)
+
 		r.w.StartTextObject()
 		r.w.SetFillColor(span.Face.Color)
 		r.w.SetFont(span.Face.Font, span.Face.Size, span.Direction)
@@ -206,10 +212,6 @@ func (r *PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 		}
 		r.w.WriteText(text.Mode, span.Glyphs)
 		r.w.EndTextObject()
-
-		style := canvas.DefaultStyle
-		style.FillColor = span.Face.Color
-		r.RenderPath(span.Face.Decorate(span.Width), style, m)
 	})
 }
 

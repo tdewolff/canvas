@@ -640,6 +640,14 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix) {
 				x, y = line.y, -span.x
 			}
 
+			if span.Face.HasDecoration() {
+				xOffset := span.Face.mmPerEm * float64(span.Face.XOffset)
+				yOffset := span.Face.mmPerEm * float64(span.Face.YOffset)
+				p := span.Face.Decorate(span.Width)
+				p = p.Translate(x+xOffset, y+yOffset)
+				r.RenderPath(p, style, m)
+			}
+
 			style.FillColor = span.Face.Color
 			p, _, err := span.Face.toPath(span.Glyphs, span.Face.PPEM(DefaultResolution))
 			if err != nil {
@@ -647,12 +655,6 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix) {
 			}
 			p = p.Translate(x, y)
 			r.RenderPath(p, style, m)
-
-			if span.Face.HasDecoration() {
-				p = span.Face.Decorate(span.Width)
-				p = p.Translate(x, y)
-				r.RenderPath(p, style, m)
-			}
 		}
 	}
 }
