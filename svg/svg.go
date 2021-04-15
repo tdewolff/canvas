@@ -355,61 +355,17 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 }
 
 func (r *SVG) RenderImage(img image.Image, m canvas.Matrix) {
-	refMask := ""
-	mimetype := "image/png"
-	if r.imgEnc == canvas.Lossy {
-		mimetype = "image/jpg"
-		if opaqueImg, ok := img.(interface{ Opaque() bool }); !ok || !opaqueImg.Opaque() {
-			hasMask := false
-			size := img.Bounds().Size()
-			opaque := image.NewRGBA(img.Bounds())
-			mask := image.NewGray(img.Bounds())
-			for y := 0; y < size.Y; y++ {
-				for x := 0; x < size.X; x++ {
-					R, G, B, A := img.At(x, y).RGBA()
-					if A != 0 {
-						r := byte((R * 65535 / A) >> 8)
-						g := byte((G * 65535 / A) >> 8)
-						b := byte((B * 65535 / A) >> 8)
-						opaque.SetRGBA(x, y, color.RGBA{r, g, b, 255})
-						mask.SetGray(x, y, color.Gray{byte(A >> 8)})
-					}
-					if A>>8 != 255 {
-						hasMask = true
-					}
-				}
-			}
-			if hasMask {
-				img = opaque
-				refMask = fmt.Sprintf("m%v", r.maskID)
-				r.maskID++
+	size := img.Bounds().Size()
+	writeTo, refMask, mimetype := r.encodableImage(img)
 
-				fmt.Fprintf(r.w, `<mask id="%s"><image width="%d" height="%d" xlink:href="data:image/jpg;base64,`, refMask, size.X, size.Y)
-				encoder := base64.NewEncoder(base64.StdEncoding, r.w)
-				if err := jpeg.Encode(encoder, mask, nil); err != nil {
-					panic(err)
-				}
-				if err := encoder.Close(); err != nil {
-					panic(err)
-				}
-				fmt.Fprintf(r.w, `"/></mask>`)
-			}
-		}
-	}
-
-	m = m.Translate(0.0, float64(img.Bounds().Size().Y))
+	m = m.Translate(0.0, float64(size.Y))
 	fmt.Fprintf(r.w, `<image transform="%s" width="%d" height="%d" xlink:href="data:%s;base64,`,
-		m.ToSVG(r.height), img.Bounds().Size().X, img.Bounds().Size().Y, mimetype)
+		m.ToSVG(r.height), size.X, size.Y, mimetype)
 
 	encoder := base64.NewEncoder(base64.StdEncoding, r.w)
-	if mimetype == "image/jpg" {
-		if err := jpeg.Encode(encoder, img, nil); err != nil {
-			panic(err)
-		}
-	} else {
-		if err := png.Encode(encoder, img); err != nil {
-			panic(err)
-		}
+	err := writeTo(encoder)
+	if err != nil {
+		panic(err)
 	}
 	if err := encoder.Close(); err != nil {
 		panic(err)
@@ -420,4 +376,82 @@ func (r *SVG) RenderImage(img image.Image, m canvas.Matrix) {
 	}
 	r.writeClasses(r.w)
 	fmt.Fprintf(r.w, `"/>`)
+}
+
+// return a WriterTo, a refMask and a mimetype
+func (r *SVG) encodableImage(img image.Image) (func(io.Writer) error, string, string) {
+	if cimg, ok := img.(canvas.Image); ok && 0 < len(cimg.Bytes) {
+		if cimg.Mimetype == "image/jpeg" || cimg.Mimetype == "image/png" {
+			return func(w io.Writer) error {
+				_, err := w.Write(cimg.Bytes)
+				return err
+			}, "", cimg.Mimetype
+		}
+	}
+
+	// lossy: jpeg
+	if r.imgEnc == canvas.Lossy {
+		var refMask string
+		if opaqueImg, ok := img.(interface{ Opaque() bool }); !ok || !opaqueImg.Opaque() {
+			img, refMask = r.renderOpacityMask(img)
+		}
+		return func(w io.Writer) error {
+			return jpeg.Encode(w, img, nil)
+		}, refMask, "image/jpeg"
+	}
+
+	// lossless: png
+	return func(w io.Writer) error {
+		return png.Encode(w, img)
+	}, "", "image/png"
+}
+
+func (r *SVG) renderOpacityMask(img image.Image) (image.Image, string) {
+	opaque, mask := splitImageAlphaChannel(img)
+	if mask == nil {
+		return opaque, ""
+	}
+
+	refMask := fmt.Sprintf("m%v", r.maskID)
+	r.maskID++
+
+	size := img.Bounds().Size()
+	fmt.Fprintf(r.w, `<mask id="%s"><image width="%d" height="%d" xlink:href="data:image/jpeg;base64,`, refMask, size.X, size.Y)
+
+	encoder := base64.NewEncoder(base64.StdEncoding, r.w)
+	if err := jpeg.Encode(encoder, mask, nil); err != nil {
+		panic(err)
+	}
+	if err := encoder.Close(); err != nil {
+		panic(err)
+	}
+	fmt.Fprintf(r.w, `"/></mask>`)
+	return opaque, refMask
+}
+
+func splitImageAlphaChannel(img image.Image) (image.Image, image.Image) {
+	hasMask := false
+	size := img.Bounds().Size()
+	opaque := image.NewRGBA(img.Bounds())
+	mask := image.NewGray(img.Bounds())
+	for y := 0; y < size.Y; y++ {
+		for x := 0; x < size.X; x++ {
+			R, G, B, A := img.At(x, y).RGBA()
+			if A != 0 {
+				r := byte((R * 65535 / A) >> 8)
+				g := byte((G * 65535 / A) >> 8)
+				b := byte((B * 65535 / A) >> 8)
+				opaque.SetRGBA(x, y, color.RGBA{r, g, b, 255})
+				mask.SetGray(x, y, color.Gray{byte(A >> 8)})
+			}
+			if A>>8 != 255 {
+				hasMask = true
+			}
+		}
+	}
+	if !hasMask {
+		return img, nil
+	}
+
+	return opaque, mask
 }

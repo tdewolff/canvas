@@ -837,10 +837,7 @@ func plotPathLengthParametrization(filename string, N int, speed, length func(fl
 	line.LineStyle.Color = Red
 	line.LineStyle.Width = 2.0
 
-	p, err := plot.New()
-	if err != nil {
-		panic(err)
-	}
+	p := plot.New()
 	p.X.Label.Text = "L"
 	p.Y.Label.Text = "t"
 	p.Add(scatter, line)
