@@ -490,14 +490,11 @@ type overline struct{}
 
 func (overline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
-	y := face.Metrics().Ascent + face.Size*underlineDistance
+	y := face.Metrics().Ascent
 	if face.Font.Post.UnderlineThickness != 0 {
 		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
 	}
-	if face.Font.Post.UnderlinePosition != 0 {
-		y = face.Metrics().Ascent - face.mmPerEm*float64(face.Font.Post.UnderlinePosition)
-	}
-	y -= r
+	y -= 0.5 * r
 
 	dx := face.FauxItalic * y
 	w += face.FauxItalic * y
@@ -522,7 +519,7 @@ func (strikethrough) Decorate(face *FontFace, w float64) *Path {
 	if face.Font.OS2.YStrikeoutPosition != 0 {
 		y = face.mmPerEm * float64(face.Font.OS2.YStrikeoutPosition)
 	}
-	y -= r
+	y += 0.5 * r
 
 	dx := face.FauxItalic * y
 	w += face.FauxItalic * y
@@ -572,13 +569,19 @@ func (dottedUnderline) Decorate(face *FontFace, w float64) *Path {
 		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
 	}
 	y -= 2.0 * r
+	w -= 2.0 * r
+	if w < 0.0 {
+		return &Path{}
+	}
 
-	w -= r
 	d := 4.0 * r
-	n := int((w-r)/d) + 1
-	d = (w - r) / float64(n-1)
-
+	n := int(w/d) + 1
 	p := &Path{}
+	if n == 1 {
+		return p.Append(Circle(r).Translate(r+w/2.0, y))
+	}
+
+	d = w / float64(n-1)
 	for i := 0; i < n; i++ {
 		p = p.Append(Circle(r).Translate(r+float64(i)*d, y))
 	}
@@ -602,14 +605,16 @@ func (dashedUnderline) Decorate(face *FontFace, w float64) *Path {
 	y -= r
 
 	d := 3.0 * r
-	n := int(w / (2.0 * d))
-	d = w / float64(2*n-1)
+	n := 2*int((w-d)/(2.0*d)) + 1
 
 	p := &Path{}
 	p.MoveTo(0.0, y)
 	p.LineTo(w, y)
-	p = p.Dash(0.0, d).Stroke(r, ButtCap, BevelJoin)
-	return p
+	if 2 < n {
+		d = w / float64(n)
+		p = p.Dash(0.0, d)
+	}
+	return p.Stroke(r, ButtCap, BevelJoin)
 }
 
 // FontWavyUnderline is a font decoration that draws a wavy path at the base line.
@@ -633,6 +638,9 @@ func (wavyUnderline) Decorate(face *FontFace, w float64) *Path {
 	dh := -face.Size * 0.15
 	d := 5.0 * r
 	n := int(0.5 + w/d)
+	if n == 0 {
+		return &Path{}
+	}
 	d = w / float64(n)
 
 	p := &Path{}
@@ -670,6 +678,9 @@ func (sineUnderline) Decorate(face *FontFace, w float64) *Path {
 	dh := -face.Size * 0.15
 	d := 4.0 * r
 	n := int(0.5 + w/d)
+	if n == 0 {
+		return &Path{}
+	}
 	d = (w - r) / float64(n)
 
 	dx := r
@@ -707,6 +718,9 @@ func (sawtoothUnderline) Decorate(face *FontFace, w float64) *Path {
 	dh := -face.Size * 0.15
 	d := 4.0 * r
 	n := int(0.5 + w/d)
+	if n == 0 {
+		return &Path{}
+	}
 	d = w / float64(n)
 
 	p := &Path{}

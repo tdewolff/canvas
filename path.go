@@ -1221,7 +1221,7 @@ func (p *Path) Dash(offset float64, d ...float64) *Path {
 
 		t := []float64{}
 		length := ps.Length()
-		for pos+d[i] < length {
+		for pos+d[i]+Epsilon < length {
 			pos += d[i]
 			if 0.0 < pos {
 				t = append(t, pos)
