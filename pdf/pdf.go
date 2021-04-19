@@ -3,6 +3,7 @@ package pdf
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"io"
 	"math"
 
@@ -192,12 +193,15 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 }
 
 func (r *PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
+	text.WalkDecorations(func(col color.RGBA, p *canvas.Path) {
+		style := canvas.DefaultStyle
+		style.FillColor = col
+		r.RenderPath(p, style, m)
+	})
+
 	text.WalkSpans(func(x, y float64, span canvas.TextSpan) {
 		style := canvas.DefaultStyle
 		style.FillColor = span.Face.Color
-		p := span.Face.Decorate(span.Width)
-		p = p.Translate(x, y)
-		r.RenderPath(p, style, m)
 
 		r.w.StartTextObject()
 		r.w.SetFillColor(span.Face.Color)

@@ -483,6 +483,10 @@ func (underline) Decorate(face *FontFace, w float64) *Path {
 	return p.Stroke(r, ButtCap, BevelJoin)
 }
 
+func (underline) String() string {
+	return "Underline"
+}
+
 // FontOverline is a font decoration that draws a line over the text at the X-Height line.
 var FontOverline FontDecorator = overline{}
 
@@ -503,6 +507,10 @@ func (overline) Decorate(face *FontFace, w float64) *Path {
 	p.MoveTo(dx, y)
 	p.LineTo(w, y)
 	return p.Stroke(r, ButtCap, BevelJoin)
+}
+
+func (overline) String() string {
+	return "Overline"
 }
 
 // FontStrikethrough is a font decoration that draws a line through the text in the middle between the base and X-Height line.
@@ -530,6 +538,10 @@ func (strikethrough) Decorate(face *FontFace, w float64) *Path {
 	return p.Stroke(r, ButtCap, BevelJoin)
 }
 
+func (strikethrough) String() string {
+	return "Strikethrough"
+}
+
 // FontDoubleUnderline is a font decoration that draws two lines at the base line.
 var FontDoubleUnderline FontDecorator = doubleUnderline{}
 
@@ -552,6 +564,10 @@ func (doubleUnderline) Decorate(face *FontFace, w float64) *Path {
 	p.MoveTo(0.0, y-1.5*r)
 	p.LineTo(w, y-1.5*r)
 	return p.Stroke(r, ButtCap, BevelJoin)
+}
+
+func (doubleUnderline) String() string {
+	return "DoubleUnderline"
 }
 
 // FontDottedUnderline is a font decoration that draws a dotted line at the base line.
@@ -588,6 +604,10 @@ func (dottedUnderline) Decorate(face *FontFace, w float64) *Path {
 	return p
 }
 
+func (dottedUnderline) String() string {
+	return "DottedUnderline"
+}
+
 // FontDashedUnderline is a font decoration that draws a dashed line at the base line.
 var FontDashedUnderline FontDecorator = dashedUnderline{}
 
@@ -615,6 +635,10 @@ func (dashedUnderline) Decorate(face *FontFace, w float64) *Path {
 		p = p.Dash(0.0, d)
 	}
 	return p.Stroke(r, ButtCap, BevelJoin)
+}
+
+func (dashedUnderline) String() string {
+	return "DashedUnderline"
 }
 
 // FontWavyUnderline is a font decoration that draws a wavy path at the base line.
@@ -658,6 +682,10 @@ func (wavyUnderline) Decorate(face *FontFace, w float64) *Path {
 	return p.Stroke(r, ButtCap, MiterJoin)
 }
 
+func (wavyUnderline) String() string {
+	return "WavyUnderline"
+}
+
 // FontSineUnderline is a font decoration that draws a wavy sine path at the base line.
 var FontSineUnderline FontDecorator = sineUnderline{}
 
@@ -697,6 +725,10 @@ func (sineUnderline) Decorate(face *FontFace, w float64) *Path {
 	return p.Stroke(r, RoundCap, RoundJoin)
 }
 
+func (sineUnderline) String() string {
+	return "SineUnderline"
+}
+
 // FontSawtoothUnderline is a font decoration that draws a wavy sawtooth path at the base line.
 var FontSawtoothUnderline FontDecorator = sawtoothUnderline{}
 
@@ -734,4 +766,8 @@ func (sawtoothUnderline) Decorate(face *FontFace, w float64) *Path {
 		dx += d
 	}
 	return p.Stroke(r, ButtCap, MiterJoin)
+}
+
+func (sawtoothUnderline) String() string {
+	return "SawtoothUnderline"
 }

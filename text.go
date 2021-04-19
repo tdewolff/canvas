@@ -1,7 +1,10 @@
 package canvas
 
 import (
+	"fmt"
+	"image/color"
 	"math"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -616,6 +619,93 @@ func (t *Text) Fonts() []*Font {
 //	return family.Face(size*ptPerMm, col, style, variant)
 //}
 
+type decorationSpan struct {
+	deco  FontDecorator
+	col   color.RGBA
+	x     float64
+	width float64
+	face  *FontFace // biggest face
+}
+
+func (deco decorationSpan) String() string {
+	return fmt.Sprintf("{%v %v %v %v}", deco.deco, deco.col, deco.x, deco.width)
+}
+
+func (t *Text) WalkDecorations(callback func(col color.RGBA, deco *Path)) {
+	// accumulate paths with colors for all lines
+	cs := []color.RGBA{}
+	ps := []*Path{}
+	for _, line := range t.lines {
+		// track active decorations, when finished draw and append to accumulated paths
+		active := []decorationSpan{}
+		for k, span := range line.spans {
+			foundActive := make([]bool, len(active))
+			for _, spanDeco := range span.Face.Deco {
+				found := false
+				for i, deco := range active {
+					if span.Face.Color == deco.col && reflect.DeepEqual(deco.deco, spanDeco) {
+						// extend decoration
+						fmt.Println("extend", active[i].width, span.x+span.Width-active[i].x)
+						active[i].width = span.x + span.Width - active[i].x
+						if active[i].face.Size < span.Face.Size {
+							active[i].face = span.Face
+						}
+						foundActive[i] = true
+						found = true
+						break
+					}
+				}
+				if !found {
+					// add new decoration
+					active = append(active, decorationSpan{
+						deco:  spanDeco,
+						col:   span.Face.Color,
+						x:     span.x,
+						width: span.Width,
+						face:  span.Face,
+					})
+				}
+			}
+			fmt.Println(active, foundActive)
+
+			if k == len(line.spans)-1 {
+				foundActive = make([]bool, len(active))
+			}
+
+			di := 0
+			for i, found := range foundActive {
+				if !found {
+					// remove active decoration and draw it
+					decoSpan := active[i-di]
+					xOffset := span.Face.mmPerEm * float64(span.Face.XOffset)
+					yOffset := span.Face.mmPerEm * float64(span.Face.YOffset)
+					p := decoSpan.deco.Decorate(decoSpan.face, decoSpan.width)
+					p = p.Translate(decoSpan.x+xOffset, -line.y+yOffset)
+
+					foundColor := false
+					for j, col := range cs {
+						if col == decoSpan.col {
+							ps[j] = ps[j].Append(p)
+							foundColor = true
+						}
+					}
+					if !foundColor {
+						cs = append(cs, decoSpan.col)
+						ps = append(ps, p)
+					}
+
+					active = append(active[:i-di], active[i-di+1:]...)
+					di++
+				}
+			}
+		}
+	}
+
+	for i := 0; i < len(ps); i++ {
+		callback(cs[i], ps[i])
+	}
+}
+
 func (t *Text) WalkSpans(callback func(x, y float64, span TextSpan)) {
 	for _, line := range t.lines {
 		for _, span := range line.spans {
@@ -632,7 +722,12 @@ func (t *Text) WalkSpans(callback func(x, y float64, span TextSpan)) {
 
 // RenderAsPath renders the text (and its decorations) converted to paths (calling r.RenderPath)
 func (t *Text) RenderAsPath(r Renderer, m Matrix) {
-	style := DefaultStyle
+	t.WalkDecorations(func(col color.RGBA, p *Path) {
+		style := DefaultStyle
+		style.FillColor = col
+		r.RenderPath(p, style, m)
+	})
+
 	for _, line := range t.lines {
 		for _, span := range line.spans {
 			x, y := span.x, -line.y
@@ -640,14 +735,7 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix) {
 				x, y = line.y, -span.x
 			}
 
-			if span.Face.HasDecoration() {
-				xOffset := span.Face.mmPerEm * float64(span.Face.XOffset)
-				yOffset := span.Face.mmPerEm * float64(span.Face.YOffset)
-				p := span.Face.Decorate(span.Width)
-				p = p.Translate(x+xOffset, y+yOffset)
-				r.RenderPath(p, style, m)
-			}
-
+			style := DefaultStyle
 			style.FillColor = span.Face.Color
 			p, _, err := span.Face.toPath(span.Glyphs, span.Face.PPEM(DefaultResolution))
 			if err != nil {
@@ -658,36 +746,6 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix) {
 		}
 	}
 }
-
-// RenderDecoration renders the text decorations using the RenderPath method of the Renderer.
-// TODO: check text decoration z-positions when text lines are overlapping https://github.com/tdewolff/canvas/pull/40#pullrequestreview-400951503
-// TODO: check compliance with https://drafts.csswg.org/css-text-decor-4/#text-line-constancy
-//func (t *Text) RenderDecoration(r Renderer, m Matrix) {
-//	style := DefaultStyle
-//	for _, line := range t.lines {
-//		for _, span := range line.spans {
-//			p := span.Face.Decorate(span.Width)
-//			p = p.Translate(span.x, -line.y)
-//			style.FillColor = span.Face.Color
-//			r.RenderPath(p, style, m)
-//		}
-//	}
-//}
-
-//func (t *Text) WalkLines(spanCallback func(y, dx float64, span TextSpan), renderDeco func(path *Path, style Style, m Matrix), m Matrix) {
-//	decoStyle := DefaultStyle
-//	for _, line := range t.lines {
-//		for _, span := range line.spans {
-//			spanCallback(line.y, span.dx, span)
-//		}
-//		for _, deco := range line.decos {
-//			p := deco.face.Decorate(deco.x1 - deco.x0)
-//			p = p.Translate(deco.x0, line.y+deco.face.Voffset)
-//			decoStyle.FillColor = deco.face.Color
-//			renderDeco(p, decoStyle, m)
-//		}
-//	}
-//}
 
 func itemizeString(log string) ([]string, []string) {
 	offset := 0
