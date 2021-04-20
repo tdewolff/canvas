@@ -1,10 +1,10 @@
-![Canvas](https://raw.githubusercontent.com/tdewolff/canvas/master/resources/title.png)
+![Canvas](https://raw.githubusercontent.com/tdewolff/canvas/master/resources/title/title.png)
 
 [![API reference](https://img.shields.io/badge/godoc-reference-5272B4)](https://pkg.go.dev/github.com/tdewolff/canvas?tab=doc) [![User guide](https://img.shields.io/badge/user-guide-5272B4)](https://github.com/tdewolff/canvas/wiki) [![Go Report Card](https://goreportcard.com/badge/github.com/tdewolff/canvas)](https://goreportcard.com/report/github.com/tdewolff/canvas) [![Coverage Status](https://coveralls.io/repos/github/tdewolff/canvas/badge.svg?branch=master)](https://coveralls.io/github/tdewolff/canvas?branch=master) [![Donate](https://img.shields.io/badge/patreon-donate-DFB317)](https://www.patreon.com/tdewolff)
 
 Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster images (PNG, JPG, GIF, ...), HTML Canvas through WASM, and OpenGL. It has a wide range of path manipulation functionality such as flattening, stroking and dashing implemented. Additionally, it has a good text formatter and embeds fonts (TTF, OTF, WOFF, or WOFF2) or converts them to outlines. It can be considered a Cairo or node-canvas alternative in Go. See the example below in Fig. 1 and Fig. 2 for an overview of the functionality.
 
-![Preview](https://raw.githubusercontent.com/tdewolff/canvas/master/resources/preview.png)
+![Preview](https://raw.githubusercontent.com/tdewolff/canvas/master/resources/preview/preview.png)
 
 **Figure 1**: top-left you can see text being fitted into a box and their bounding box (orange-red), the spaces between the words on the first row are being stretched to fill the whole width. You can see all the possible styles and text decorations applied. Also note the typographic substitutions (the quotes) and ligature support (fi, ffi, ffl, ...). Below the text box, the word "stroke" is being stroked and drawn as a path. Top-right we see a LaTeX formula that has been converted to a path. Left of that we see ellipse support showcasing precise dashing, notably the length of e.g. the short dash is equal wherever it is (approximated through arc length parametrization) on the curve. It also shows support for alternating dash lengths, in this case (2.0, 4.0, 2.0) for dashes and for spaces. Note that the dashes themselves are elliptical arcs as well (thus exactly precise even if magnified greatly). In the bottom-right we see a closed polygon of four points being smoothed by cubic Béziers that are smooth along the whole path, and next to it on the left an open path. In the middle you can see a rasterized image painted.
 
@@ -28,14 +28,14 @@ import (
 )
 ```
 
-### Documentation
+## Documentation
 **[API documentation](https://pkg.go.dev/github.com/tdewolff/canvas?tab=doc)**
 
 **[User guide](https://github.com/tdewolff/canvas/wiki)**
 
 **[Examples](https://github.com/tdewolff/canvas/wiki)**
 
-### Examples
+## Examples
 **[Street Map](https://github.com/tdewolff/canvas/tree/master/examples/map)**: data is loaded from Open Street Map of the city centre of Amsterdam and rendered to a PNG.
 
 **[CO2 plot](https://github.com/tdewolff/canvas/tree/master/examples/graph)**: a simple graph is being plotted using the CO2 data from the Mauna Loa observatory.
@@ -49,11 +49,11 @@ import (
 * [Bézier spline through closed path](http://www.jacos.nl/jacos_html/spline/circular/index.html)
 * [Point inclusion in polygon test](https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html)
 
-My own
+#### My own
 
 * [Arc length parametrization](https://tacodewolff.nl/posts/20190525-arc-length/)
 
-Papers
+#### Papers
 
 * [M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI (1996), p. 143--150](https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf)
 * [T.F. Hain, et al., Fast, precise flattening of cubic Bézier path and offset curves, Computers & Graphics 29 (2005). p. 656--666](https://doi.org/10.1016/j.cag.2005.08.002)
