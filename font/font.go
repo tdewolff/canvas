@@ -6,6 +6,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
+	"reflect"
+	"sort"
+
+	"github.com/golang/freetype/truetype"
 )
 
 // MediaType returns the media type (MIME) for a given font.
@@ -99,4 +104,89 @@ func ParseFont(b []byte, index int) (*SFNT, error) {
 		return nil, err
 	}
 	return ParseSFNT(sfntBytes, index)
+}
+
+// FromFreeType parses a structure from truetype.Font to a valid SFNT byte slice.
+func FromFreeType(font *truetype.Font) []byte {
+	v := reflect.ValueOf(*font)
+	tables := map[string][]byte{}
+	tables["cmap"] = v.FieldByName("cmap").Bytes()
+	tables["cvt "] = v.FieldByName("cvt").Bytes()
+	tables["fpgm"] = v.FieldByName("fpgm").Bytes()
+	tables["glyf"] = v.FieldByName("glyf").Bytes()
+	tables["hdmx"] = v.FieldByName("hdmx").Bytes()
+	tables["head"] = v.FieldByName("head").Bytes()
+	tables["hhea"] = v.FieldByName("hhea").Bytes()
+	tables["hmtx"] = v.FieldByName("hmtx").Bytes()
+	tables["kern"] = v.FieldByName("kern").Bytes()
+	tables["loca"] = v.FieldByName("loca").Bytes()
+	tables["maxp"] = v.FieldByName("maxp").Bytes()
+	tables["name"] = v.FieldByName("name").Bytes()
+	tables["OS/2"] = v.FieldByName("os2").Bytes()
+	tables["prep"] = v.FieldByName("prep").Bytes()
+	tables["vmtx"] = v.FieldByName("vmtx").Bytes()
+
+	// reconstruct missing post table
+	post := newBinaryWriter([]byte{})
+	post.WriteUint32(0x00030000) // version
+	post.WriteUint32(0)          // italicAngle
+	post.WriteInt16(0)           // underlinePosition
+	post.WriteInt16(0)           // underlineThickness
+	post.WriteUint32(0)          // isFixedPitch
+	post.WriteUint32(0)          // minMemType42
+	post.WriteUint32(0)          // maxMemType42
+	post.WriteUint32(0)          // minMemType1
+	post.WriteUint32(0)          // maxMemType1
+	tables["post"] = post.Bytes()
+
+	// remove empty tables
+	tags := []string{}
+	for tag, table := range tables {
+		if 0 < len(table) {
+			tags = append(tags, tag)
+		}
+	}
+	sort.Strings(tags)
+
+	w := newBinaryWriter([]byte{})
+	w.WriteUint32(0x00010000) // sfntVersion
+
+	numTables := uint16(len(tags))
+	entrySelector := uint16(math.Log2(float64(numTables)))
+	searchRange := uint16(1 << (entrySelector + 4))
+	w.WriteUint16(numTables)                  // numTables
+	w.WriteUint16(searchRange)                // searchRange
+	w.WriteUint16(entrySelector)              // entrySelector
+	w.WriteUint16(numTables<<4 - searchRange) // rangeShift
+
+	// write table directory
+	var checksumAdjustmentPos uint32
+	offset := w.Len() + 16*uint32(numTables)
+	for _, tag := range tags {
+		length := uint32(len(tables[tag]))
+		padding := (4 - length&3) & 3
+		for j := 0; j < int(padding); j++ {
+			tables[tag] = append(tables[tag], 0x00)
+		}
+		if tag == "head" {
+			checksumAdjustmentPos = offset + 8
+			binary.BigEndian.PutUint32(tables[tag][8:], 0x00000000)
+		}
+		checksum := calcChecksum(tables[tag])
+
+		w.WriteString(tag)
+		w.WriteUint32(checksum)
+		w.WriteUint32(offset)
+		w.WriteUint32(length)
+		offset += length + padding
+	}
+
+	// write tables
+	for _, tag := range tags {
+		w.WriteBytes(tables[tag])
+	}
+
+	buf := w.Bytes()
+	binary.BigEndian.PutUint32(buf[checksumAdjustmentPos:], 0xB1B0AFBA-calcChecksum(buf))
+	return buf
 }

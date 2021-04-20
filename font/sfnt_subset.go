@@ -327,10 +327,10 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 		copy(buf[pos:], []byte(tag))
 		padding := (4 - lengths[i]&3) & 3
 		checksum := calcChecksum(buf[offsets[i] : offsets[i]+lengths[i]+padding])
-		binary.BigEndian.PutUint32(w.buf[pos+4:], checksum)
-		binary.BigEndian.PutUint32(w.buf[pos+8:], offsets[i])
-		binary.BigEndian.PutUint32(w.buf[pos+12:], lengths[i])
+		binary.BigEndian.PutUint32(buf[pos+4:], checksum)
+		binary.BigEndian.PutUint32(buf[pos+8:], offsets[i])
+		binary.BigEndian.PutUint32(buf[pos+12:], lengths[i])
 	}
-	binary.BigEndian.PutUint32(w.buf[checksumAdjustmentPos:], 0xB1B0AFBA-calcChecksum(buf))
+	binary.BigEndian.PutUint32(buf[checksumAdjustmentPos:], 0xB1B0AFBA-calcChecksum(buf))
 	return buf, glyphIDs
 }

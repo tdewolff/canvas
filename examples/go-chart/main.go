@@ -11,18 +11,18 @@ import (
 	"github.com/tdewolff/canvas/pdf"
 	"github.com/tdewolff/canvas/rasterizer"
 	"github.com/tdewolff/canvas/svg"
-	"github.com/wcharczuk/go-chart"
-	"github.com/wcharczuk/go-chart/drawing"
+	"github.com/wcharczuk/go-chart/v2"
+	"github.com/wcharczuk/go-chart/v2/drawing"
 )
 
 func main() {
 	xv, yv := xvalues(), yvalues()
 
-	arimo, err := ioutil.ReadFile("/usr/share/fonts/croscore/Arimo-Regular.ttf")
+	dejavu, err := ioutil.ReadFile("../../resources/DejaVuSerif.ttf")
 	if err != nil {
 		panic(err)
 	}
-	font, err := truetype.Parse(arimo)
+	font, err := truetype.Parse(dejavu)
 	if err != nil {
 		panic(err)
 	}
@@ -94,7 +94,7 @@ func main() {
 
 	f, _ = os.Create("output.png")
 	defer f.Close()
-	graph.Render(canvas.NewGoChart(rasterizer.PNGWriter(1.0)), f)
+	graph.Render(canvas.NewGoChart(rasterizer.PNGWriter(canvas.DPI(92.0))), f)
 
 	f, _ = os.Create("target.png")
 	defer f.Close()

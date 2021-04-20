@@ -55,6 +55,7 @@ type SFNT struct {
 	// optional
 	Kern *kernTable
 	Vhea *vheaTable
+	//Hdmx *hdmxTable // TODO
 	Vmtx *vmtxTable
 	//Gpos *gposTable // TODO
 	//Gsub *gsubTable // TODO

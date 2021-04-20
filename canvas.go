@@ -9,6 +9,8 @@ import (
 
 const mmPerPt = 25.4 / 72.0
 const ptPerMm = 72.0 / 25.4
+const mmPerPx = 25.4 / 96.0
+const pxPerMm = 96.0 / 25.4
 const mmPerInch = 25.4
 const inchPerMm = 1.0 / 25.4
 
