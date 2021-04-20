@@ -199,22 +199,21 @@ func (p *Path) Coords() []Point {
 // MoveTo moves the path to x,y without connecting the path. It starts a new independent subpath. Multiple subpaths can be
 // useful when negating parts of a previous path by overlapping it with a path in the opposite direction. The behaviour for
 // overlapping paths depend on the FillRule.
-func (p *Path) MoveTo(x, y float64) *Path {
+func (p *Path) MoveTo(x, y float64) {
 	if 0 < len(p.d) && p.d[len(p.d)-1] == moveToCmd {
 		p.d[len(p.d)-3] = x
 		p.d[len(p.d)-2] = y
-		return p
+		return
 	}
 	p.d = append(p.d, moveToCmd, x, y, moveToCmd)
-	return p
 }
 
 // LineTo adds a linear path to x,y.
-func (p *Path) LineTo(x, y float64) *Path {
+func (p *Path) LineTo(x, y float64) {
 	start := p.Pos()
 	end := Point{x, y}
 	if start.Equals(end) {
-		return p
+		return
 	} else if cmdLen(lineToCmd) <= len(p.d) && p.d[len(p.d)-1] == lineToCmd {
 		prevStart := Point{}
 		if cmdLen(lineToCmd) < len(p.d) {
@@ -223,7 +222,7 @@ func (p *Path) LineTo(x, y float64) *Path {
 		if Equal(end.Sub(start).AngleBetween(start.Sub(prevStart)), 0.0) {
 			p.d[len(p.d)-3] = x
 			p.d[len(p.d)-2] = y
-			return p
+			return
 		}
 	}
 
@@ -233,18 +232,18 @@ func (p *Path) LineTo(x, y float64) *Path {
 		p.MoveTo(p.d[len(p.d)-3], p.d[len(p.d)-2])
 	}
 	p.d = append(p.d, lineToCmd, end.X, end.Y, lineToCmd)
-	return p
 }
 
 // QuadTo adds a quadratic Bézier path with control point cpx,cpy and end point x,y.
-func (p *Path) QuadTo(cpx, cpy, x, y float64) *Path {
+func (p *Path) QuadTo(cpx, cpy, x, y float64) {
 	start := p.Pos()
 	cp := Point{cpx, cpy}
 	end := Point{x, y}
 	if start.Equals(end) && start.Equals(cp) {
-		return p
+		return
 	} else if !start.Equals(end) && Equal(end.Sub(start).AngleBetween(cp.Sub(start)), 0.0) && Equal(end.Sub(start).AngleBetween(end.Sub(cp)), 0.0) {
-		return p.LineTo(end.X, end.Y)
+		p.LineTo(end.X, end.Y)
+		return
 	}
 
 	if len(p.d) == 0 {
@@ -253,19 +252,19 @@ func (p *Path) QuadTo(cpx, cpy, x, y float64) *Path {
 		p.MoveTo(p.d[len(p.d)-3], p.d[len(p.d)-2])
 	}
 	p.d = append(p.d, quadToCmd, cp.X, cp.Y, end.X, end.Y, quadToCmd)
-	return p
 }
 
 // CubeTo adds a cubic Bézier path with control points cpx1,cpy1 and cpx2,cpy2 and end point x,y.
-func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x, y float64) *Path {
+func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x, y float64) {
 	start := p.Pos()
 	cp1 := Point{cpx1, cpy1}
 	cp2 := Point{cpx2, cpy2}
 	end := Point{x, y}
 	if start.Equals(end) && start.Equals(cp1) && start.Equals(cp2) {
-		return p
+		return
 	} else if !start.Equals(end) && Equal(end.Sub(start).AngleBetween(cp1.Sub(start)), 0.0) && Equal(end.Sub(start).AngleBetween(end.Sub(cp1)), 0.0) && Equal(end.Sub(start).AngleBetween(cp2.Sub(start)), 0.0) && Equal(end.Sub(start).AngleBetween(end.Sub(cp2)), 0.0) {
-		return p.LineTo(end.X, end.Y)
+		p.LineTo(end.X, end.Y)
+		return
 	}
 
 	if len(p.d) == 0 {
@@ -274,21 +273,21 @@ func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x, y float64) *Path {
 		p.MoveTo(p.d[len(p.d)-3], p.d[len(p.d)-2])
 	}
 	p.d = append(p.d, cubeToCmd, cp1.X, cp1.Y, cp2.X, cp2.Y, end.X, end.Y, cubeToCmd)
-	return p
 }
 
 // ArcTo adds an arc with radii rx and ry, with rot the counter clockwise rotation with respect to the coordinate system in degrees,
 // large and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
 // and x,y the end position of the pen. The start position of the pen was given by a previous command end point.
 // When sweep is true it means following the arc in a CCW direction in the Cartesian coordinate system, ie. that is CW in the upper-left coordinate system as is the case in SVGs.
-func (p *Path) ArcTo(rx, ry, rot float64, large, sweep bool, x, y float64) *Path {
+func (p *Path) ArcTo(rx, ry, rot float64, large, sweep bool, x, y float64) {
 	start := p.Pos()
 	end := Point{x, y}
 	if start.Equals(end) {
-		return p
+		return
 	}
 	if Equal(rx, 0.0) || Equal(ry, 0.0) {
-		return p.LineTo(end.X, end.Y)
+		p.LineTo(end.X, end.Y)
+		return
 	}
 
 	rx = math.Abs(rx)
@@ -316,14 +315,13 @@ func (p *Path) ArcTo(rx, ry, rot float64, large, sweep bool, x, y float64) *Path
 		p.MoveTo(p.d[len(p.d)-3], p.d[len(p.d)-2])
 	}
 	p.d = append(p.d, arcToCmd, rx, ry, phi, fromArcFlags(large, sweep), end.X, end.Y, arcToCmd)
-	return p
 }
 
 // Arc adds an elliptical arc with radii rx and ry, with rot the counter clockwise rotation in degrees, and theta0 and theta1
 // the angles in degrees of the ellipse (before rot is applies) between which the arc will run. If theta0 < theta1, the arc will
 // run in a CCW direction. If the difference between theta0 and theta1 is bigger than 360 degrees, one full circle will be drawn
 // and the remaining part of diff % 360 (eg. a difference of 810 degrees will draw one full circle and an arc over 90 degrees).
-func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
+func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) {
 	phi := rot * math.Pi / 180.0
 	theta0 *= math.Pi / 180.0
 	theta1 *= math.Pi / 180.0
@@ -341,26 +339,26 @@ func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) *Path {
 		p.ArcTo(rx, ry, rot, large, sweep, startOpposite.X, startOpposite.Y)
 		p.ArcTo(rx, ry, rot, large, sweep, start.X, start.Y)
 		if Equal(math.Mod(dtheta, 2.0*math.Pi), 0.0) {
-			return p
+			return
 		}
 	}
 	end := center.Add(p1)
-	return p.ArcTo(rx, ry, rot, large, sweep, end.X, end.Y)
+	p.ArcTo(rx, ry, rot, large, sweep, end.X, end.Y)
 }
 
 // Close closes a (sub)path with a LineTo to the start of the path (the most recent MoveTo command).
 // It also signals the path closes as opposed to being just a LineTo command, which can be significant for stroking purposes for example.
-func (p *Path) Close() *Path {
+func (p *Path) Close() {
 	end := p.StartPos()
 	if len(p.d) == 0 || p.d[len(p.d)-1] == closeCmd {
-		return p
+		return
 	} else if p.d[len(p.d)-1] == moveToCmd {
 		p.d = p.d[:len(p.d)-cmdLen(moveToCmd)]
-		return p
+		return
 	} else if p.d[len(p.d)-1] == lineToCmd && Equal(p.d[len(p.d)-3], end.X) && Equal(p.d[len(p.d)-2], end.Y) {
 		p.d[len(p.d)-1] = closeCmd
 		p.d[len(p.d)-cmdLen(lineToCmd)] = closeCmd
-		return p
+		return
 	} else if cmdLen(lineToCmd) <= len(p.d) && p.d[len(p.d)-1] == lineToCmd {
 		start := Point{p.d[len(p.d)-3], p.d[len(p.d)-2]}
 		prevStart := Point{}
@@ -372,11 +370,10 @@ func (p *Path) Close() *Path {
 			p.d[len(p.d)-3] = end.X
 			p.d[len(p.d)-2] = end.Y
 			p.d[len(p.d)-1] = closeCmd
-			return p
+			return
 		}
 	}
 	p.d = append(p.d, closeCmd, end.X, end.Y, closeCmd)
-	return p
 }
 
 ////////////////////////////////////////////////////////////////
@@ -436,7 +433,7 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 	var pls []*Polyline
 	var ccw []bool
 	for _, ps := range p.Split() {
-		ps = ps.Close()
+		ps.Close()
 
 		coords := ps.simplifyToCoords()
 		polyline := &Polyline{coords}
@@ -1224,7 +1221,7 @@ func (p *Path) Dash(offset float64, d ...float64) *Path {
 
 		t := []float64{}
 		length := ps.Length()
-		for pos+d[i] < length {
+		for pos+d[i]+Epsilon < length {
 			pos += d[i]
 			if 0.0 < pos {
 				t = append(t, pos)
@@ -1740,21 +1737,22 @@ func (p *Path) ToPDF() string {
 }
 
 // ToRasterizer rasterizes the path using the given rasterizer with dpm the dots-per-millimeter.
-func (p *Path) ToRasterizer(ras *vector.Rasterizer, dpm float64) {
+func (p *Path) ToRasterizer(ras *vector.Rasterizer, resolution Resolution) {
 	p = p.replace(nil, nil, nil, arcToCube)
 
+	dpmm := resolution.DPMM()
 	dy := float64(ras.Bounds().Size().Y)
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
 		case moveToCmd:
-			ras.MoveTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm))
+			ras.MoveTo(float32(p.d[i+1]*dpmm), float32(dy-p.d[i+2]*dpmm))
 		case lineToCmd:
-			ras.LineTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm))
+			ras.LineTo(float32(p.d[i+1]*dpmm), float32(dy-p.d[i+2]*dpmm))
 		case quadToCmd:
-			ras.QuadTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm), float32(p.d[i+3]*dpm), float32(dy-p.d[i+4]*dpm))
+			ras.QuadTo(float32(p.d[i+1]*dpmm), float32(dy-p.d[i+2]*dpmm), float32(p.d[i+3]*dpmm), float32(dy-p.d[i+4]*dpmm))
 		case cubeToCmd:
-			ras.CubeTo(float32(p.d[i+1]*dpm), float32(dy-p.d[i+2]*dpm), float32(p.d[i+3]*dpm), float32(dy-p.d[i+4]*dpm), float32(p.d[i+5]*dpm), float32(dy-p.d[i+6]*dpm))
+			ras.CubeTo(float32(p.d[i+1]*dpmm), float32(dy-p.d[i+2]*dpmm), float32(p.d[i+3]*dpmm), float32(dy-p.d[i+4]*dpmm), float32(p.d[i+5]*dpmm), float32(dy-p.d[i+6]*dpmm))
 		case arcToCmd:
 			panic("arcs should have been replaced")
 		case closeCmd:

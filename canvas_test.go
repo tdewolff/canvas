@@ -10,9 +10,11 @@ import (
 func TestCanvas(t *testing.T) {
 	path := MustParseSVG("M10 0L20 0Q25 10 30 0C30 10 40 10 40 0A5 5 0 0 0 50 0z")
 
-	dejaVuSerif := NewFontFamily("dejavu-serif")
-	dejaVuSerif.LoadFontFile("font/DejaVuSerif.ttf", FontRegular)
-	face := dejaVuSerif.Face(10.0, Green, FontItalic|FontBold, FontNormal)
+	family := NewFontFamily("dejavu-serif")
+	if err := family.LoadFontFile("resources/DejaVuSerif.ttf", FontRegular); err != nil {
+		test.Error(t, err)
+	}
+	face := family.Face(10.0, Green, FontItalic|FontBold, FontNormal)
 	text := NewTextLine(face, "Text", Left)
 
 	img := image.NewNRGBA(image.Rect(0, 0, 2, 2))

@@ -56,8 +56,8 @@ func ParseWOFF(b []byte) ([]byte, error) {
 	if signature != "wOFF" {
 		return nil, fmt.Errorf("bad signature")
 	}
-	flavor := r.ReadUint32()
-	if uint32ToString(flavor) == "ttcf" {
+	flavor := r.ReadString(4)
+	if flavor == "ttcf" {
 		return nil, fmt.Errorf("collections are unsupported")
 	}
 	length := r.ReadUint32()        // length
@@ -90,7 +90,7 @@ func ParseWOFF(b []byte) ([]byte, error) {
 	sfntOffset := 12 + 16*uint32(numTables) // can never exceed uint32 as numTables is uint16
 	for i := 0; i < int(numTables); i++ {
 		// EOF already checked above
-		tag := uint32ToString(r.ReadUint32())
+		tag := r.ReadString(4)
 		offset := r.ReadUint32()
 		compLength := r.ReadUint32()
 		origLength := r.ReadUint32()
@@ -144,7 +144,7 @@ func ParseWOFF(b []byte) ([]byte, error) {
 		return nil, ErrExceedsMemory
 	}
 	w := newBinaryWriter(make([]byte, totalSfntSize))
-	w.WriteUint32(flavor)
+	w.WriteString(flavor)
 	w.WriteUint16(numTables)
 	w.WriteUint16(searchRange)
 	w.WriteUint16(entrySelector)
@@ -198,10 +198,8 @@ func ParseWOFF(b []byte) ([]byte, error) {
 
 			// to check checksum for head table, replace the overal checksum with zero and reset it at the end
 			binary.BigEndian.PutUint32(data[8:], 0x00000000)
-			if calcChecksum(data) != table.origChecksum {
-				return nil, fmt.Errorf("%s: bad checksum", table.tag)
-			}
-		} else if calcChecksum(data) != table.origChecksum {
+		}
+		if calcChecksum(data) != table.origChecksum {
 			return nil, fmt.Errorf("%s: bad checksum", table.tag)
 		}
 

@@ -7,10 +7,10 @@ import (
 	"os"
 )
 
-const mmPerPt = 25.4 / 72
-const ptPerMm = 72 / 25.4
+const mmPerPt = 25.4 / 72.0
+const ptPerMm = 72.0 / 25.4
 const mmPerInch = 25.4
-const inchPerMm = 1 / 25.4
+const inchPerMm = 1.0 / 25.4
 
 // ImageEncoding defines whether the embedded image shall be embedded as Lossless (typically PNG) or Lossy (typically JPG).
 type ImageEncoding int
@@ -21,11 +21,28 @@ const (
 	Lossy
 )
 
-// DPMM (Dots-per-Millimetter) for the resolution of raster images. Higher DPMM will result in bigger images.
-type DPMM float64
+// Resolution is used for rasterizing images. Higher resolutions will result in bigger images.
+type Resolution float64
+
+// DPMM (Dots-per-Millimetter) for the resolution of raster images.
+func DPMM(dpmm float64) Resolution {
+	return Resolution(dpmm)
+}
 
 // DPI is a shortcut for Dots-per-Inch for the resolution of raster images.
-const DPI = DPMM(1 / 25.4)
+func DPI(dpi float64) Resolution {
+	return Resolution(dpi * inchPerMm)
+}
+
+func (res Resolution) DPMM() float64 {
+	return float64(res)
+}
+
+func (res Resolution) DPI() float64 {
+	return float64(res) * mmPerInch
+}
+
+const DefaultResolution = Resolution(96.0 * inchPerMm)
 
 ////////////////////////////////////////////////////////////////
 
@@ -123,7 +140,12 @@ func (c *Context) Pop() {
 }
 
 // SetCoordView sets the current affine transformation matrix through which all operation coordinates will be transformed.
-func (c *Context) SetCoordView(rect Rect, width, height float64) {
+func (c *Context) SetCoordView(coordView Matrix) {
+	c.coordView = coordView
+}
+
+// SetCoordRect sets the current affine transformation matrix through which all operation coordinates will be transformed. It will transform coordinates from (0,0)--(width,height) to the target `rect`.
+func (c *Context) SetCoordRect(rect Rect, width, height float64) {
 	c.coordView = Identity.Translate(rect.X, rect.Y).Scale(rect.W/width, rect.H/height)
 }
 
@@ -359,16 +381,6 @@ func (c *Context) DrawText(x, y float64, texts ...*Text) {
 			continue
 		}
 		c.RenderText(text, m)
-	}
-}
-
-// RenderTextAsPath renders the text converted to paths (calling r.RenderPath)
-func RenderTextAsPath(r Renderer, text *Text, m Matrix) {
-	paths, colors := text.ToPaths()
-	for i, path := range paths {
-		style := DefaultStyle
-		style.FillColor = colors[i]
-		r.RenderPath(path, style, m)
 	}
 }
 

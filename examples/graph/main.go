@@ -17,7 +17,6 @@ var fontFamily *canvas.FontFamily
 
 func main() {
 	fontFamily = canvas.NewFontFamily("times")
-	fontFamily.Use(canvas.CommonLigatures)
 	if err := fontFamily.LoadLocalFont("NimbusRoman-Regular", canvas.FontRegular); err != nil {
 		panic(err)
 	}
@@ -104,11 +103,13 @@ func draw(c *canvas.Context) {
 
 	frame := canvas.Rectangle(xmax-xmin, ymax-ymin).Translate(xmin, ymin)
 	for x := 10.0 * float64(int(xmin/10.0)+1); x < xmax; x += 10.0 {
-		frame.MoveTo(x, ymin).LineTo(x, ymin+2.0/yscale)
+		frame.MoveTo(x, ymin)
+		frame.LineTo(x, ymin+2.0/yscale)
 		c.DrawText(x, ymin-tickFace.Metrics().LineHeight/yscale, canvas.NewTextLine(tickFace, fmt.Sprintf("%g", x), canvas.Center))
 	}
 	for y := 10.0 * float64(int(ymin/10.0)+1); y < ymax; y += 10.0 {
-		frame.MoveTo(xmin, y).LineTo(xmin+2.0/xscale, y)
+		frame.MoveTo(xmin, y)
+		frame.LineTo(xmin+2.0/xscale, y)
 		c.DrawText(xmin, y-(tickFace.Metrics().CapHeight/2.0)/yscale, canvas.NewTextLine(tickFace, fmt.Sprintf("%g ", y), canvas.Right))
 	}
 	c.DrawPath(0.0, 0.0, frame.Transform(viewport))
@@ -118,7 +119,7 @@ func draw(c *canvas.Context) {
 
 	labelFace := fontFamily.Face(14.0, color.Black, canvas.FontRegular, canvas.FontNormal)
 	labelSubFace := fontFamily.Face(14.0, color.Black, canvas.FontRegular, canvas.FontSubscript)
-	rt := canvas.NewRichText()
+	rt := canvas.NewRichText(labelFace)
 	rt.Add(labelFace, "CO")
 	rt.Add(labelSubFace, "2")
 	rt.Add(labelFace, " (ppm)")
@@ -131,7 +132,7 @@ func draw(c *canvas.Context) {
 
 	titleFace := fontFamily.Face(16.0, color.Black, canvas.FontRegular, canvas.FontNormal)
 	titleSubFace := fontFamily.Face(16.0, color.Black, canvas.FontRegular, canvas.FontSubscript)
-	rt = canvas.NewRichText()
+	rt = canvas.NewRichText(titleFace)
 	rt.Add(titleFace, "Atmospheric CO")
 	rt.Add(titleSubFace, "2")
 	rt.Add(titleFace, " at Mauna Loa Observatory")

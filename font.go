@@ -1,63 +1,79 @@
 package canvas
 
 import (
-	"strings"
-	"unicode"
-	"unicode/utf8"
+	"fmt"
+	"image/color"
+	"io/ioutil"
+	"math"
+	"os/exec"
+	"reflect"
 
-	canvasFont "github.com/tdewolff/canvas/font"
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/sfnt"
+	"github.com/tdewolff/canvas/font"
+	"github.com/tdewolff/canvas/text"
 )
 
-// TypographicOptions are the options that can be enabled to make typographic or ligature substitutions automatically.
-type TypographicOptions int
+// FontStyle defines the font style to be used for the font.
+type FontStyle int
 
-// see TypographicOptions
+// see FontStyle
 const (
-	NoTypography TypographicOptions = 2 << iota
-	NoRequiredLigatures
-	CommonLigatures
-	DiscretionaryLigatures
-	HistoricalLigatures
+	FontRegular    FontStyle = iota // 400
+	FontExtraLight                  // 100
+	FontLight                       // 200
+	FontBook                        // 300
+	FontMedium                      // 500
+	FontSemibold                    // 600
+	FontBold                        // 700
+	FontBlack                       // 800
+	FontExtraBlack                  // 900
+	FontItalic     FontStyle = 1 << 8
+)
+
+// FontVariant defines the font variant to be used for the font, such as subscript or smallcaps.
+type FontVariant int
+
+// see FontVariant
+const (
+	FontNormal FontVariant = iota
+	FontSubscript
+	FontSuperscript
+	FontSmallcaps
 )
 
 // Font defines a font of type TTF or OTF which which a FontFace can be generated for use in text drawing operations.
 type Font struct {
-	// TODO: extend to fully read in sfnt data and read liga tables, generate Raw font data (base on used glyphs), etc
-	name      string
-	mediatype string
-	raw       []byte
-	sfnt      *sfnt.Font
-
-	// TODO: use sub/superscript Unicode transformations in ToPath etc. if they exist
-	typography  bool
-	ligatures   []textSubstitution
-	superscript []textSubstitution
-	subscript   []textSubstitution
+	*font.SFNT
+	name        string
+	subsetIDs   []uint16          // old glyphIDs for increasing new glyphIDs
+	subsetIDMap map[uint16]uint16 // old to new glyphID
+	shaper      text.Shaper
+	variations  string
+	features    string
 }
 
-func parseFont(name string, b []byte) (*Font, error) {
-	mediatype, err := canvasFont.MediaType(b)
+func parseFont(name string, b []byte, index int) (*Font, error) {
+	SFNT, err := font.ParseFont(b, index)
 	if err != nil {
 		return nil, err
 	}
 
-	sfntFont, err := canvasFont.ParseFont(b)
+	shaper, err := text.NewShaperSFNT(SFNT)
 	if err != nil {
 		return nil, err
 	}
 
-	f := &Font{
-		name:      name,
-		mediatype: mediatype,
-		raw:       b,
-		sfnt:      (*sfnt.Font)(sfntFont),
+	font := &Font{
+		SFNT:        SFNT,
+		name:        name,
+		subsetIDs:   []uint16{0}, // .notdef should always be at zero
+		subsetIDMap: map[uint16]uint16{0: 0},
+		shaper:      shaper,
 	}
-	f.superscript = f.supportedSubstitutions(superscriptSubstitutes)
-	f.subscript = f.supportedSubstitutions(subscriptSubstitutes)
-	f.Use(0)
-	return f, nil
+	return font, nil
+}
+
+func (f *Font) Destroy() {
+	f.shaper.Destroy()
 }
 
 // Name returns the name of the font.
@@ -65,58 +81,253 @@ func (f *Font) Name() string {
 	return f.name
 }
 
-// Raw returns the mimetype and raw binary data of the font.
-func (f *Font) Raw() (string, []byte) {
-	return f.mediatype, f.raw
+func (f *Font) SubsetID(glyphID uint16) uint16 {
+	if subsetGlyphID, ok := f.subsetIDMap[glyphID]; ok {
+		return subsetGlyphID
+	}
+	subsetGlyphID := uint16(len(f.subsetIDs))
+	f.subsetIDs = append(f.subsetIDs, glyphID)
+	f.subsetIDMap[glyphID] = subsetGlyphID
+	return subsetGlyphID
 }
 
-// UnitsPerEm returns the number of units per em for f.
-func (f *Font) UnitsPerEm() float64 {
-	return float64(f.sfnt.UnitsPerEm())
+func (f *Font) SubsetIDs() []uint16 {
+	return f.subsetIDs
 }
 
-// Kerning returns the horizontal adjustment for the rune pair. A positive kern means to move the glyphs further apart.
-// Returns 0 if there is an error.
-func (f *Font) Kerning(left, right rune, ppem float64) (float64, error) {
-	var sfntBuffer sfnt.Buffer
-
-	iLeft, err := f.sfnt.GlyphIndex(&sfntBuffer, left)
-	if err != nil {
-		return 0, err
-	}
-	iRight, err := f.sfnt.GlyphIndex(&sfntBuffer, right)
-	if err != nil {
-		return 0, err
-	}
-
-	kern, err := f.sfnt.Kern(&sfntBuffer, iLeft, iRight, toI26_6(ppem), font.HintingNone)
-	if err != nil {
-		return 0, err
-	}
-
-	return fromI26_6(kern), nil
+func (f *Font) SetVariations(variations string) {
+	f.variations = variations
 }
 
-// Bounds returns the union of a Font's glyphs' bounds.
-func (f *Font) Bounds(ppem float64) Rect {
-	rect, err := f.sfnt.Bounds(nil, toI26_6(ppem), font.HintingNone)
-	if err != nil {
-		// never happens in sfnt
-		return Rect{}
-	}
-	x0, y0 := fromI26_6(rect.Min.X), fromI26_6(rect.Min.Y)
-	x1, y1 := fromI26_6(rect.Max.X), fromI26_6(rect.Max.Y)
-	return Rect{x0, y0, x1 - x0, y1 - y0}
+func (f *Font) SetFeatures(features string) {
+	f.features = features
 }
 
-// ItalicAngle in counter-clockwise degrees from the vertical. Zero for
-// upright text, negative for text that leans to the right (forward).
-func (f *Font) ItalicAngle() float64 {
-	table := f.sfnt.PostTable()
-	if table == nil {
-		return 0
+// FontFamily contains a family of fonts (bold, italic, ...). Selecting an italic style will pick the native italic font or use faux italic if not present.
+type FontFamily struct {
+	name  string
+	fonts map[FontStyle]*Font
+}
+
+// NewFontFamily returns a new FontFamily.
+func NewFontFamily(name string) *FontFamily {
+	return &FontFamily{
+		name:  name,
+		fonts: map[FontStyle]*Font{},
 	}
-	return table.ItalicAngle
+}
+
+func (family *FontFamily) Destroy() {
+	for _, font := range family.fonts {
+		font.Destroy()
+	}
+}
+
+func (family *FontFamily) SetVariations(variations string) {
+	for _, font := range family.fonts {
+		font.SetVariations(variations)
+	}
+}
+
+func (family *FontFamily) SetFeatures(features string) {
+	for _, font := range family.fonts {
+		font.SetFeatures(features)
+	}
+}
+
+// LoadLocalFont loads a font from the system fonts location.
+func (family *FontFamily) LoadLocalFont(name string, style FontStyle) error {
+	match := name
+	if style&FontExtraLight == FontExtraLight {
+		match += ":weight=40"
+	} else if style&FontLight == FontLight {
+		match += ":weight=50"
+	} else if style&FontBook == FontBook {
+		match += ":weight=75"
+	} else if style&FontMedium == FontMedium {
+		match += ":weight=100"
+	} else if style&FontSemibold == FontSemibold {
+		match += ":weight=180"
+	} else if style&FontBold == FontBold {
+		match += ":weight=200"
+	} else if style&FontBlack == FontBlack {
+		match += ":weight=205"
+	} else if style&FontExtraBlack == FontExtraBlack {
+		match += ":weight=210"
+	}
+	if style&FontItalic == FontItalic {
+		match += ":italic"
+	}
+	b, err := exec.Command("fc-match", "--format=%{file}", match).Output()
+	if err != nil {
+		return err
+	}
+	return family.LoadFontFile(string(b), style)
+}
+
+// LoadFontFile loads a font from a file.
+func (family *FontFamily) LoadFontFile(filename string, style FontStyle) error {
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("failed to load font file '%s': %w", filename, err)
+	}
+	return family.LoadFont(b, 0, style)
+}
+
+// LoadFontCollection loads a font from a collection file and uses the font at the specified index.
+func (family *FontFamily) LoadFontCollection(filename string, index int, style FontStyle) error {
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("failed to load font file '%s': %w", filename, err)
+	}
+	return family.LoadFont(b, index, style)
+}
+
+// LoadFont loads a font from memory.
+func (family *FontFamily) LoadFont(b []byte, index int, style FontStyle) error {
+	font, err := parseFont(family.name, b, index)
+	if err != nil {
+		return err
+	}
+	family.fonts[style] = font
+	return nil
+}
+
+// Face gets the font face given by the font size (in pt).
+func (family *FontFamily) Face(size float64, col color.Color, style FontStyle, variant FontVariant, deco ...FontDecorator) *FontFace {
+	face := &FontFace{}
+	face.Font = family.fonts[style]
+	face.Size = size * mmPerPt
+	face.Style = style
+	face.Variant = variant
+
+	r, g, b, a := col.RGBA()
+	face.Color = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+	face.Deco = deco
+
+	if variant == FontSubscript || variant == FontSuperscript {
+		scale := 0.583
+		xOffset, yOffset := int16(0), int16(0)
+		units := float64(face.Font.Head.UnitsPerEm)
+		if variant == FontSubscript {
+			if face.Font.OS2.YSubscriptXSize != 0 {
+				scale = float64(face.Font.OS2.YSubscriptXSize) / units
+			}
+			if face.Font.OS2.YSubscriptXOffset != 0 {
+				xOffset = face.Font.OS2.YSubscriptXOffset
+			}
+			yOffset = int16(0.33 * units)
+			if face.Font.OS2.YSubscriptYOffset != 0 {
+				yOffset = -face.Font.OS2.YSubscriptYOffset
+			}
+		} else if variant == FontSuperscript {
+			if face.Font.OS2.YSuperscriptXSize != 0 {
+				scale = float64(face.Font.OS2.YSuperscriptXSize) / units
+			}
+			if face.Font.OS2.YSuperscriptXOffset != 0 {
+				xOffset = face.Font.OS2.YSuperscriptXOffset
+			}
+			yOffset = int16(-0.33 * units)
+			if face.Font.OS2.YSuperscriptYOffset != 0 {
+				yOffset = face.Font.OS2.YSuperscriptYOffset
+			}
+		}
+		face.Size *= scale
+		face.XOffset = int32(float64(xOffset) / scale)
+		face.YOffset = int32(float64(yOffset) / scale)
+		if style&0xFF == FontExtraLight {
+			style = style&0x100 | FontLight
+		} else if style&0xFF == FontLight || style&0xFF == FontBook {
+			style = style&0x100 | FontRegular
+		} else if style&0xFF == FontRegular {
+			style = style&0x100 | FontSemibold
+		} else if style&0xFF == FontMedium || style&0xFF == FontSemibold {
+			style = style&0x100 | FontBold
+		} else if style&0xFF == FontBold {
+			style = style&0x100 | FontBlack
+		} else if style&0xFF == FontBlack {
+			style = style&0x100 | FontExtraBlack
+		} else {
+			face.FauxBold += 0.02
+		}
+		face.Font = family.fonts[style]
+		face.Style = style
+	}
+
+	if face.Font == nil {
+		face.Font = family.fonts[FontRegular]
+		if face.Font == nil {
+			panic("requested font style not found")
+		}
+		if style&0xFF == FontExtraLight {
+			face.FauxBold += -0.02
+		} else if style&0xFF == FontLight {
+			face.FauxBold += -0.01
+		} else if style&0xFF == FontBook {
+			face.FauxBold += -0.005
+		} else if style&0xFF == FontMedium {
+			face.FauxBold += 0.005
+		} else if style&0xFF == FontSemibold {
+			face.FauxBold += 0.01
+		} else if style&0xFF == FontBold {
+			face.FauxBold += 0.02
+		} else if style&0xFF == FontBlack {
+			face.FauxBold += 0.03
+		} else if style&0xFF == FontExtraBlack {
+			face.FauxBold += 0.04
+		}
+		if style&FontItalic != 0 {
+			if face.Font.Post.ItalicAngle != 0 {
+				face.FauxItalic = math.Tan(float64(-face.Font.Post.ItalicAngle))
+			} else {
+				face.FauxItalic = 0.3
+			}
+		}
+	}
+	face.mmPerEm = face.Size / float64(face.Font.Head.UnitsPerEm)
+	return face
+}
+
+// FontFace defines a font face from a given font. It allows setting the font size, its color, faux styles and font decorations.
+type FontFace struct {
+	Font *Font
+
+	Size    float64 // in pt
+	Style   FontStyle
+	Variant FontVariant
+
+	Color color.RGBA
+	Deco  []FontDecorator
+
+	// faux styles for bold, italic, and sub- and superscript
+	FauxBold, FauxItalic float64
+	XOffset, YOffset     int32
+
+	Language  string
+	Script    text.Script
+	Direction text.Direction
+
+	// letter spacing
+	// stroke and stroke color
+	// line height
+	// shadow
+
+	mmPerEm float64
+}
+
+// Equals returns true when two font face are equal. In particular this allows two adjacent text spans that use the same decoration to allow the decoration to span both elements instead of two separately.
+func (face *FontFace) Equals(other *FontFace) bool {
+	return reflect.DeepEqual(face, other)
+	//return face.Font == other.Font && face.Size == other.Size && face.Style == other.Style && face.Variant == other.Variant && face.Color == other.Color && reflect.DeepEqual(face.Deco, other.Deco) && face.Language == other.Language && face.Script == other.Script && face.Direction == other.Direction
+}
+
+// Name returns the name of the underlying font
+func (face *FontFace) Name() string {
+	return face.Font.name
+}
+
+func (face *FontFace) HasDecoration() bool {
+	return 0 < len(face.Deco)
 }
 
 // FontMetrics contains a number of metrics that define a font face.
@@ -125,351 +336,438 @@ type FontMetrics struct {
 	LineHeight float64
 	Ascent     float64
 	Descent    float64
+	LineGap    float64
 	XHeight    float64
 	CapHeight  float64
+
+	XMin, YMin float64
+	XMax, YMax float64
 }
 
-// Metrics returns the font metrics.
-func (f *Font) Metrics(ppem float64) FontMetrics {
-	metrics, err := f.sfnt.Metrics(nil, toI26_6(ppem), font.HintingNone)
-	if err != nil {
-		return FontMetrics{}
-	}
+// Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explanation of the different metrics.
+func (face *FontFace) Metrics() FontMetrics {
+	sfnt := face.Font.SFNT
 	return FontMetrics{
-		LineHeight: fromI26_6(metrics.Height),
-		Ascent:     fromI26_6(metrics.Ascent),
-		Descent:    fromI26_6(metrics.Descent),
-		XHeight:    fromI26_6(metrics.XHeight),
-		CapHeight:  fromI26_6(metrics.CapHeight),
+		LineHeight: face.mmPerEm * float64(sfnt.Hhea.Ascender-sfnt.Hhea.Descender+sfnt.Hhea.LineGap),
+		Ascent:     face.mmPerEm * float64(sfnt.Hhea.Ascender),
+		Descent:    face.mmPerEm * float64(-sfnt.Hhea.Descender),
+		LineGap:    face.mmPerEm * float64(sfnt.Hhea.LineGap),
+		XHeight:    face.mmPerEm * float64(sfnt.OS2.SxHeight),
+		CapHeight:  face.mmPerEm * float64(sfnt.OS2.SCapHeight),
+		XMin:       face.mmPerEm * float64(sfnt.Head.XMin),
+		YMin:       face.mmPerEm * float64(sfnt.Head.YMin),
+		XMax:       face.mmPerEm * float64(sfnt.Head.XMax),
+		YMax:       face.mmPerEm * float64(sfnt.Head.YMax),
 	}
 }
 
-func (f *Font) Widths(ppem float64) []float64 {
-	buffer := &sfnt.Buffer{}
-	widths := []float64{}
-	for i := 0; i < f.sfnt.NumGlyphs(); i++ {
-		index := sfnt.GlyphIndex(i)
-		advance, err := f.sfnt.GlyphAdvance(buffer, index, toI26_6(ppem), font.HintingNone)
-		if err == nil {
-			widths = append(widths, fromI26_6(advance))
+func (face *FontFace) PPEM(resolution Resolution) uint16 {
+	// ppem is for hinting purposes only, this does not influence glyph advances
+	return uint16(resolution.DPMM() * face.Size)
+}
+
+// Kerning returns the eventual kerning between two runes in mm (ie. the adjustment on the advance).
+func (face *FontFace) Kerning(left, right rune) float64 {
+	sfnt := face.Font.SFNT
+	return face.mmPerEm * float64(sfnt.Kerning(sfnt.GlyphIndex(left), sfnt.GlyphIndex(right)))
+}
+
+// TextWidth returns the width of a given string in mm.
+func (face *FontFace) TextWidth(s string) float64 {
+	ppem := face.PPEM(DefaultResolution)
+	glyphs := face.Font.shaper.Shape(s, ppem, face.Direction, face.Script, face.Language, face.Font.features, face.Font.variations)
+	return face.textWidth(glyphs)
+}
+
+func (face *FontFace) textWidth(glyphs []text.Glyph) float64 {
+	sfnt := face.Font.SFNT
+	w := int32(0)
+	for i, glyph := range glyphs {
+		if i != 0 {
+			w += int32(sfnt.Kerning(glyphs[i-1].ID, glyph.ID))
+		}
+		w += int32(sfnt.GlyphAdvance(glyph.ID))
+	}
+	return face.mmPerEm * float64(w)
+}
+
+// Decorate will return a path from the decorations specified in the FontFace over a given width in mm.
+func (face *FontFace) Decorate(width float64) *Path {
+	p := &Path{}
+	if face.Deco != nil {
+		for _, deco := range face.Deco {
+			p = p.Append(deco.Decorate(face, width))
 		}
 	}
-	return widths
+	return p
 }
 
-func (f *Font) IndicesOf(s string) []uint16 {
-	buffer := &sfnt.Buffer{}
-	runes := []rune(s)
-	indices := make([]uint16, len(runes))
-	for i, r := range runes {
-		index, err := f.sfnt.GlyphIndex(buffer, r)
-		if err == nil {
-			indices[i] = uint16(index)
+func (face *FontFace) ToPath(s string) (*Path, float64, error) {
+	ppem := face.PPEM(DefaultResolution)
+	glyphs := face.Font.shaper.Shape(s, ppem, face.Direction, face.Script, face.Language, face.Font.features, face.Font.variations)
+	return face.toPath(glyphs, ppem)
+}
+
+func (face *FontFace) toPath(glyphs []text.Glyph, ppem uint16) (*Path, float64, error) {
+	p := &Path{}
+	x, y := face.XOffset, face.YOffset
+	for _, glyph := range glyphs {
+		err := face.Font.GlyphPath(p, glyph.ID, ppem, x+glyph.XOffset, y+glyph.YOffset, face.mmPerEm, font.NoHinting)
+		if err != nil {
+			return p, 0.0, err
 		}
+		x += glyph.XAdvance
+		y += glyph.YAdvance
 	}
-	return indices
+
+	if face.FauxBold != 0.0 {
+		p = p.Offset(face.FauxBold*face.Size, NonZero)
+	}
+	if face.FauxItalic != 0.0 {
+		p = p.Transform(Identity.Shear(face.FauxItalic, 0.0))
+	}
+	return p, face.mmPerEm * float64(x), nil
 }
 
-type textSubstitution struct {
-	src string
-	dst rune
+func (face *FontFace) Boldness() int {
+	boldness := 400
+	if face.Style&0xFF == FontExtraLight {
+		boldness = 100
+	} else if face.Style&0xFF == FontLight {
+		boldness = 200
+	} else if face.Style&0xFF == FontBook {
+		boldness = 300
+	} else if face.Style&0xFF == FontMedium {
+		boldness = 500
+	} else if face.Style&0xFF == FontSemibold {
+		boldness = 600
+	} else if face.Style&0xFF == FontBold {
+		boldness = 700
+	} else if face.Style&0xFF == FontBlack {
+		boldness = 800
+	} else if face.Style*0xFF == FontExtraBlack {
+		boldness = 900
+	}
+	return boldness
 }
 
-// TODO: read from liga tables in OpenType (clig, dlig, hlig) with rlig default enabled
-var commonLigatures = []textSubstitution{
-	{"ffi", '\uFB03'},
-	{"ffl", '\uFB04'},
-	{"ff", '\uFB00'},
-	{"fi", '\uFB01'},
-	{"fl", '\uFB02'},
+////////////////////////////////////////////////////////////////
+
+// FontDecorator is an interface that returns a path given a font face and a width in mm.
+type FontDecorator interface {
+	Decorate(*FontFace, float64) *Path
 }
 
-var ligatures = map[rune]string{
-	'\u00C6': "AE",
-	'\u00DF': "ſz",
-	'\u00E6': "ae",
-	'\u0152': "OE",
-	'\u0153': "oe",
-	'\u01F6': "Hv",
-	'\u0195': "hv",
-	'\u2114': "lb",
-	'\u1D6B': "ue",
-	'\u1E9E': "ſs",
-	'\u1EFA': "lL",
-	'\u1EFB': "ll",
-	'\uA6B2': "ɔe",
-	'\uAB63': "uo",
-	'\uA728': "TZ",
-	'\uA729': "tz",
-	'\uA732': "AA",
-	'\uA733': "aa",
-	'\uA734': "AO",
-	'\uA735': "ao",
-	'\uA736': "AU",
-	'\uA737': "au",
-	'\uA738': "AV",
-	'\uA739': "av",
-	'\uA73A': "AV",
-	'\uA73B': "av",
-	'\uA73C': "AY",
-	'\uA73D': "ay",
-	'\uA74E': "OO",
-	'\uA74F': "oo",
-	'\uA760': "VY",
-	'\uA761': "vy",
-	'\uAB31': "aə",
-	'\uAB41': "əø",
-	'\uFB00': "ff",
-	'\uFB01': "fi",
-	'\uFB02': "fl",
-	'\uFB03': "ffi",
-	'\uFB04': "ffl",
-	'\uFB05': "ſt",
-	'\uFB06': "st",
+const underlineDistance = 0.075
+const underlineThickness = 0.05
+
+// FontUnderline is a font decoration that draws a line under the text at the base line.
+var FontUnderline FontDecorator = underline{}
+
+type underline struct{}
+
+func (underline) Decorate(face *FontFace, w float64) *Path {
+	r := face.Size * underlineThickness
+	y := -face.Size * underlineDistance
+	if face.Font.Post.UnderlineThickness != 0 {
+		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
+	}
+	if face.Font.Post.UnderlinePosition != 0 {
+		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
+	}
+	y -= r
+
+	p := &Path{}
+	p.MoveTo(0.0, y)
+	p.LineTo(w, y)
+	return p.Stroke(r, ButtCap, BevelJoin)
 }
 
-var superscriptSubstitutes = []textSubstitution{
-	{"0", '\u2070'},
-	{"i", '\u2071'},
-	{"2", '\u00B2'},
-	{"3", '\u00B3'},
-	{"4", '\u2074'},
-	{"5", '\u2075'},
-	{"6", '\u2076'},
-	{"7", '\u2077'},
-	{"8", '\u2078'},
-	{"9", '\u2079'},
-	{"+", '\u207A'},
-	{"-", '\u207B'},
-	{"=", '\u207C'},
-	{"(", '\u207D'},
-	{")", '\u207E'},
-	{"n", '\u207F'},
+func (underline) String() string {
+	return "Underline"
 }
 
-var subscriptSubstitutes = []textSubstitution{
-	{"0", '\u2080'},
-	{"1", '\u2081'},
-	{"2", '\u2082'},
-	{"3", '\u2083'},
-	{"4", '\u2084'},
-	{"5", '\u2085'},
-	{"6", '\u2086'},
-	{"7", '\u2087'},
-	{"8", '\u2088'},
-	{"9", '\u2089'},
-	{"+", '\u208A'},
-	{"-", '\u208B'},
-	{"=", '\u208C'},
-	{"(", '\u208D'},
-	{")", '\u208E'},
-	{"a", '\u2090'},
-	{"e", '\u2091'},
-	{"o", '\u2092'},
-	{"x", '\u2093'},
-	{"h", '\u2095'},
-	{"k", '\u2096'},
-	{"l", '\u2097'},
-	{"m", '\u2098'},
-	{"n", '\u2099'},
-	{"p", '\u209A'},
-	{"s", '\u209B'},
-	{"t", '\u209C'},
+// FontOverline is a font decoration that draws a line over the text at the X-Height line.
+var FontOverline FontDecorator = overline{}
+
+type overline struct{}
+
+func (overline) Decorate(face *FontFace, w float64) *Path {
+	r := face.Size * underlineThickness
+	y := face.Metrics().Ascent
+	if face.Font.Post.UnderlineThickness != 0 {
+		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
+	}
+	y -= 0.5 * r
+
+	dx := face.FauxItalic * y
+	w += face.FauxItalic * y
+
+	p := &Path{}
+	p.MoveTo(dx, y)
+	p.LineTo(w, y)
+	return p.Stroke(r, ButtCap, BevelJoin)
 }
 
-func (f *Font) supportedSubstitutions(substitutions []textSubstitution) []textSubstitution {
-	buffer := &sfnt.Buffer{}
-	supported := []textSubstitution{}
-	for _, stn := range substitutions {
-		if _, err := f.sfnt.GlyphIndex(buffer, stn.dst); err == nil {
-			supported = append(supported, stn)
+func (overline) String() string {
+	return "Overline"
+}
+
+// FontStrikethrough is a font decoration that draws a line through the text in the middle between the base and X-Height line.
+var FontStrikethrough FontDecorator = strikethrough{}
+
+type strikethrough struct{}
+
+func (strikethrough) Decorate(face *FontFace, w float64) *Path {
+	r := face.Size * underlineThickness
+	y := face.Metrics().XHeight / 2.0
+	if face.Font.OS2.YStrikeoutSize != 0 {
+		r = face.mmPerEm * float64(face.Font.OS2.YStrikeoutSize)
+	}
+	if face.Font.OS2.YStrikeoutPosition != 0 {
+		y = face.mmPerEm * float64(face.Font.OS2.YStrikeoutPosition)
+	}
+	y += 0.5 * r
+
+	dx := face.FauxItalic * y
+	w += face.FauxItalic * y
+
+	p := &Path{}
+	p.MoveTo(dx, y)
+	p.LineTo(w, y)
+	return p.Stroke(r, ButtCap, BevelJoin)
+}
+
+func (strikethrough) String() string {
+	return "Strikethrough"
+}
+
+// FontDoubleUnderline is a font decoration that draws two lines at the base line.
+var FontDoubleUnderline FontDecorator = doubleUnderline{}
+
+type doubleUnderline struct{}
+
+func (doubleUnderline) Decorate(face *FontFace, w float64) *Path {
+	r := face.Size * underlineThickness
+	y := -face.Size * underlineDistance
+	if face.Font.Post.UnderlineThickness != 0 {
+		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
+	}
+	if face.Font.Post.UnderlinePosition != 0 {
+		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
+	}
+	y -= r
+
+	p := &Path{}
+	p.MoveTo(0.0, y)
+	p.LineTo(w, y)
+	p.MoveTo(0.0, y-1.5*r)
+	p.LineTo(w, y-1.5*r)
+	return p.Stroke(r, ButtCap, BevelJoin)
+}
+
+func (doubleUnderline) String() string {
+	return "DoubleUnderline"
+}
+
+// FontDottedUnderline is a font decoration that draws a dotted line at the base line.
+var FontDottedUnderline FontDecorator = dottedUnderline{}
+
+type dottedUnderline struct{}
+
+func (dottedUnderline) Decorate(face *FontFace, w float64) *Path {
+	r := 0.5 * face.Size * underlineThickness
+	y := -face.Size * underlineDistance
+	if face.Font.Post.UnderlineThickness != 0 {
+		r = 0.5 * face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
+	}
+	if face.Font.Post.UnderlinePosition != 0 {
+		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
+	}
+	y -= 2.0 * r
+	w -= 2.0 * r
+	if w < 0.0 {
+		return &Path{}
+	}
+
+	d := 4.0 * r
+	n := int(w/d) + 1
+	p := &Path{}
+	if n == 1 {
+		return p.Append(Circle(r).Translate(r+w/2.0, y))
+	}
+
+	d = w / float64(n-1)
+	for i := 0; i < n; i++ {
+		p = p.Append(Circle(r).Translate(r+float64(i)*d, y))
+	}
+	return p
+}
+
+func (dottedUnderline) String() string {
+	return "DottedUnderline"
+}
+
+// FontDashedUnderline is a font decoration that draws a dashed line at the base line.
+var FontDashedUnderline FontDecorator = dashedUnderline{}
+
+type dashedUnderline struct{}
+
+func (dashedUnderline) Decorate(face *FontFace, w float64) *Path {
+	r := face.Size * underlineThickness
+	y := -face.Size * underlineDistance
+	if face.Font.Post.UnderlineThickness != 0 {
+		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
+	}
+	if face.Font.Post.UnderlinePosition != 0 {
+		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
+	}
+	y -= r
+
+	d := 3.0 * r
+	n := 2*int((w-d)/(2.0*d)) + 1
+
+	p := &Path{}
+	p.MoveTo(0.0, y)
+	p.LineTo(w, y)
+	if 2 < n {
+		d = w / float64(n)
+		p = p.Dash(0.0, d)
+	}
+	return p.Stroke(r, ButtCap, BevelJoin)
+}
+
+func (dashedUnderline) String() string {
+	return "DashedUnderline"
+}
+
+// FontWavyUnderline is a font decoration that draws a wavy path at the base line.
+var FontWavyUnderline FontDecorator = wavyUnderline{}
+
+type wavyUnderline struct{}
+
+func (wavyUnderline) Decorate(face *FontFace, w float64) *Path {
+	r := face.Size * underlineThickness
+	y := -face.Size * underlineDistance
+	if face.Font.Post.UnderlineThickness != 0 {
+		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
+	}
+	if face.Font.Post.UnderlinePosition != 0 {
+		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
+	}
+	y -= r
+
+	dx := 0.707 * r
+	w -= 2.0 * dx
+	dh := -face.Size * 0.15
+	d := 5.0 * r
+	n := int(0.5 + w/d)
+	if n == 0 {
+		return &Path{}
+	}
+	d = w / float64(n)
+
+	p := &Path{}
+	p.MoveTo(dx, y)
+	for i := 0; i < n; i++ {
+		if i%2 == 0 {
+			p.LineTo(dx+d/3.0, y)
+			p.LineTo(dx+d, y+dh)
+		} else {
+			p.LineTo(dx+d/3.0, y+dh)
+			p.LineTo(dx+d, y)
 		}
+		dx += d
 	}
-	return supported
+	return p.Stroke(r, ButtCap, MiterJoin)
 }
 
-// Use enables typographic options on the font such as ligatures.
-func (f *Font) Use(options TypographicOptions) {
-	if options&NoTypography == 0 {
-		f.typography = true
-	}
-
-	f.ligatures = []textSubstitution{}
-	if options&CommonLigatures != 0 {
-		f.ligatures = append(f.ligatures, f.supportedSubstitutions(commonLigatures)...)
-	}
+func (wavyUnderline) String() string {
+	return "WavyUnderline"
 }
 
-func (f *Font) substituteLigatures(s string) string {
-	for _, stn := range f.ligatures {
-		s = strings.ReplaceAll(s, stn.src, string(stn.dst))
+// FontSineUnderline is a font decoration that draws a wavy sine path at the base line.
+var FontSineUnderline FontDecorator = sineUnderline{}
+
+type sineUnderline struct{}
+
+func (sineUnderline) Decorate(face *FontFace, w float64) *Path {
+	r := face.Size * underlineThickness
+	y := -face.Size * underlineDistance
+	if face.Font.Post.UnderlineThickness != 0 {
+		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
 	}
-	return s
-}
+	if face.Font.Post.UnderlinePosition != 0 {
+		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
+	}
+	y -= r
 
-func (f *Font) substituteTypography(s string, inSingleQuote, inDoubleQuote bool) (string, bool, bool) {
-	// TODO: typography substitution should maybe not be part of this package (or of Font)
-	if f.typography {
-		var rPrev, r rune
-		var i, size int
-		for {
-			rPrev = r
-			i += size
-			if i >= len(s) {
-				break
-			}
+	w -= r
+	dh := -face.Size * 0.15
+	d := 4.0 * r
+	n := int(0.5 + w/d)
+	if n == 0 {
+		return &Path{}
+	}
+	d = (w - r) / float64(n)
 
-			r, size = utf8.DecodeRuneInString(s[i:])
-			if i+2 < len(s) && s[i] == '.' && s[i+1] == '.' && s[i+2] == '.' {
-				s, size = stringReplace(s, i, 3, "\u2026") // ellipsis
-				continue
-			} else if i+4 < len(s) && s[i] == '.' && s[i+1] == ' ' && s[i+2] == '.' && s[i+3] == ' ' && s[i+4] == '.' {
-				s, size = stringReplace(s, i, 5, "\u2026") // ellipsis
-				continue
-			} else if i+2 < len(s) && s[i] == '-' && s[i+1] == '-' && s[i+2] == '-' {
-				s, size = stringReplace(s, i, 3, "\u2014") // em-dash
-				continue
-			} else if i+1 < len(s) && s[i] == '-' && s[i+1] == '-' {
-				s, size = stringReplace(s, i, 2, "\u2013") // en-dash
-				continue
-			} else if i+2 < len(s) && s[i] == '(' && s[i+1] == 'c' && s[i+2] == ')' {
-				s, size = stringReplace(s, i, 3, "\u00A9") // copyright
-				continue
-			} else if i+2 < len(s) && s[i] == '(' && s[i+1] == 'r' && s[i+2] == ')' {
-				s, size = stringReplace(s, i, 3, "\u00AE") // registered
-				continue
-			} else if i+3 < len(s) && s[i] == '(' && s[i+1] == 't' && s[i+2] == 'm' && s[i+3] == ')' {
-				s, size = stringReplace(s, i, 4, "\u2122") // trademark
-				continue
-			}
-
-			// quotes
-			if s[i] == '"' || s[i] == '\'' {
-				var rNext rune
-				if i+1 < len(s) {
-					rNext, _ = utf8.DecodeRuneInString(s[i+1:])
-				}
-				if s[i] == '"' {
-					s, size = quoteReplace(s, i, rPrev, r, rNext, &inDoubleQuote)
-					continue
-				} else {
-					s, size = quoteReplace(s, i, rPrev, r, rNext, &inSingleQuote)
-					continue
-				}
-			}
-
-			// fractions
-			if i+2 < len(s) && s[i+1] == '/' && isWordBoundary(rPrev) && rPrev != '/' {
-				var rNext rune
-				if i+3 < len(s) {
-					rNext, _ = utf8.DecodeRuneInString(s[i+3:])
-				}
-				if isWordBoundary(rNext) && rNext != '/' {
-					if s[i] == '1' && s[i+2] == '2' {
-						s, size = stringReplace(s, i, 3, "\u00BD") // 1/2
-						continue
-					} else if s[i] == '1' && s[i+2] == '4' {
-						s, size = stringReplace(s, i, 3, "\u00BC") // 1/4
-						continue
-					} else if s[i] == '3' && s[i+2] == '4' {
-						s, size = stringReplace(s, i, 3, "\u00BE") // 3/4
-						continue
-					} else if s[i] == '+' && s[i+2] == '-' {
-						s, size = stringReplace(s, i, 3, "\u00B1") // +/-
-						continue
-					}
-				}
-			}
+	dx := r
+	p := &Path{}
+	p.MoveTo(dx, y)
+	for i := 0; i < n; i++ {
+		if i%2 == 0 {
+			p.CubeTo(dx+d*0.3642, y, dx+d*0.6358, y+dh, dx+d, y+dh)
+		} else {
+			p.CubeTo(dx+d*0.3642, y+dh, dx+d*0.6358, y, dx+d, y)
 		}
+		dx += d
 	}
-	return s, inSingleQuote, inDoubleQuote
+	return p.Stroke(r, RoundCap, RoundJoin)
 }
 
-// from https://github.com/russross/blackfriday/blob/11635eb403ff09dbc3a6b5a007ab5ab09151c229/smartypants.go#L42
-func quoteReplace(s string, i int, prev, quote, next rune, isOpen *bool) (string, int) {
-	switch {
-	case prev == 0 && next == 0:
-		// context is not any help here, so toggle
-		*isOpen = !*isOpen
-	case isspace(prev) && next == 0:
-		// [ "] might be [ "<code>foo...]
-		*isOpen = true
-	case ispunct(prev) && next == 0:
-		// [!"] hmm... could be [Run!"] or [("<code>...]
-		*isOpen = false
-	case /* isnormal(prev) && */ next == 0:
-		// [a"] is probably a close
-		*isOpen = false
-	case prev == 0 && isspace(next):
-		// [" ] might be [...foo</code>" ]
-		*isOpen = false
-	case isspace(prev) && isspace(next):
-		// [ " ] context is not any help here, so toggle
-		*isOpen = !*isOpen
-	case ispunct(prev) && isspace(next):
-		// [!" ] is probably a close
-		*isOpen = false
-	case /* isnormal(prev) && */ isspace(next):
-		// [a" ] this is one of the easy cases
-		*isOpen = false
-	case prev == 0 && ispunct(next):
-		// ["!] hmm... could be ["$1.95] or [</code>"!...]
-		*isOpen = false
-	case isspace(prev) && ispunct(next):
-		// [ "!] looks more like [ "$1.95]
-		*isOpen = true
-	case ispunct(prev) && ispunct(next):
-		// [!"!] context is not any help here, so toggle
-		*isOpen = !*isOpen
-	case /* isnormal(prev) && */ ispunct(next):
-		// [a"!] is probably a close
-		*isOpen = false
-	case prev == 0 /* && isnormal(next) */ :
-		// ["a] is probably an open
-		*isOpen = true
-	case isspace(prev) /* && isnormal(next) */ :
-		// [ "a] this is one of the easy cases
-		*isOpen = true
-	case ispunct(prev) /* && isnormal(next) */ :
-		// [!"a] is probably an open
-		*isOpen = true
-	default:
-		// [a'b] maybe a contraction?
-		*isOpen = false
-	}
+func (sineUnderline) String() string {
+	return "SineUnderline"
+}
 
-	if quote == '"' {
-		if *isOpen {
-			return stringReplace(s, i, 1, "\u201C")
+// FontSawtoothUnderline is a font decoration that draws a wavy sawtooth path at the base line.
+var FontSawtoothUnderline FontDecorator = sawtoothUnderline{}
+
+type sawtoothUnderline struct{}
+
+func (sawtoothUnderline) Decorate(face *FontFace, w float64) *Path {
+	r := face.Size * underlineThickness
+	y := -face.Size * underlineDistance
+	if face.Font.Post.UnderlineThickness != 0 {
+		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
+	}
+	if face.Font.Post.UnderlinePosition != 0 {
+		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
+	}
+	y -= r
+
+	dx := 0.707 * r
+	w -= 2.0 * dx
+	dh := -face.Size * 0.15
+	d := 4.0 * r
+	n := int(0.5 + w/d)
+	if n == 0 {
+		return &Path{}
+	}
+	d = w / float64(n)
+
+	p := &Path{}
+	p.MoveTo(dx, y)
+	for i := 0; i < n; i++ {
+		if i%2 == 0 {
+			p.LineTo(dx+d, y+dh)
+		} else {
+			p.LineTo(dx+d, y)
 		}
-		return stringReplace(s, i, 1, "\u201D")
-	} else if quote == '\'' {
-		if *isOpen {
-			return stringReplace(s, i, 1, "\u2018")
-		}
-		return stringReplace(s, i, 1, "\u2019")
+		dx += d
 	}
-	return s, 1
+	return p.Stroke(r, ButtCap, MiterJoin)
 }
 
-func stringReplace(s string, i, n int, target string) (string, int) {
-	s = s[:i] + target + s[i+n:]
-	return s, len(target)
-}
-
-func isWordBoundary(r rune) bool {
-	return r == 0 || isspace(r) || ispunct(r)
-}
-
-func isspace(r rune) bool {
-	return unicode.IsSpace(r)
-}
-
-func ispunct(r rune) bool {
-	for _, punct := range "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~" {
-		if r == punct {
-			return true
-		}
-	}
-	return false
+func (sawtoothUnderline) String() string {
+	return "SawtoothUnderline"
 }

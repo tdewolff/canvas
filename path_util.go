@@ -201,8 +201,6 @@ func ellipseToQuadraticBeziers(start Point, rx, ry, phi float64, large, sweep bo
 		dtheta = -dtheta
 	}
 
-	//fmt.Println("ellipseToQuadraticBezier error:", ellipseToQuadraticBezierError(rx, ry, theta0, theta0+dtheta), "<=?", Tolerance)
-
 	beziers := [][3]Point{}
 	startDeriv := ellipseDeriv(rx, ry, phi, sweep, theta0)
 	for i := 1; i < n+1; i++ {
@@ -280,8 +278,6 @@ func ellipseToCubicBeziers(start Point, rx, ry, phi float64, large, sweep bool, 
 		dtheta = -dtheta
 	}
 
-	//fmt.Println("ellipseToCubicBezier error:", ellipseToCubicBezierError(rx, ry, theta0, theta0+dtheta), "<=?", Tolerance)
-
 	beziers := [][4]Point{}
 	startDeriv := ellipseDeriv(rx, ry, phi, sweep, theta0)
 	for i := 1; i < n+1; i++ {
@@ -292,8 +288,6 @@ func ellipseToCubicBeziers(start Point, rx, ry, phi float64, large, sweep bool, 
 		cp1 := start.Add(startDeriv.Mul(kappa))
 		cp2 := end.Sub(endDeriv.Mul(kappa))
 		beziers = append(beziers, [4]Point{start, cp1, cp2, end})
-
-		//fmt.Println("dist:", distanceEllipseCubicBezier(start, cp1, cp2, end, rx, ry, phi, cx, cy, theta-dtheta, theta))
 
 		startDeriv = endDeriv
 		start = end
