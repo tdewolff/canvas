@@ -1,7 +1,6 @@
 package canvas
 
 import (
-	"fmt"
 	"image/color"
 	"math"
 	"reflect"
@@ -26,6 +25,7 @@ const (
 	Justify
 )
 
+// String
 func (ta TextAlign) String() string {
 	switch ta {
 	case Left:
@@ -44,7 +44,7 @@ func (ta TextAlign) String() string {
 	return "Invalid(" + strconv.Itoa(int(ta)) + ")"
 }
 
-// WritingMode specifies how the text should be layed out.
+// WritingMode specifies how the text should be laid out.
 type WritingMode int
 
 // see WritingMode
@@ -54,6 +54,7 @@ const (
 	VerticalLR
 )
 
+// String
 func (wm WritingMode) String() string {
 	switch wm {
 	case HorizontalTB:
@@ -79,6 +80,7 @@ type line struct {
 	spans []TextSpan
 }
 
+// Heights returns the maximum top, ascent, descent, and bottom heights of the line, where top and bottom are equal to ascent and descent respectively with added line spacing
 func (l line) Heights() (float64, float64, float64, float64) {
 	top, ascent, descent, bottom := 0.0, 0.0, 0.0, 0.0
 	for _, span := range l.spans {
@@ -91,6 +93,7 @@ func (l line) Heights() (float64, float64, float64, float64) {
 	return top, ascent, descent, bottom
 }
 
+// TextSpan is a span of text
 type TextSpan struct {
 	x         float64
 	Width     float64
@@ -211,6 +214,7 @@ type RichText struct {
 	mode  WritingMode
 }
 
+// NewRichText returns a new rich text with the given default font face
 func NewRichText(face *FontFace) *RichText {
 	return &RichText{
 		Builder: &strings.Builder{},
@@ -220,12 +224,14 @@ func NewRichText(face *FontFace) *RichText {
 	}
 }
 
+// Reset resets the rich text to its initial state
 func (rt *RichText) Reset() {
 	rt.Builder.Reset()
 	rt.locs = rt.locs[:0]
 	rt.faces = rt.faces[:0]
 }
 
+// SetFace sets the font face
 func (rt *RichText) SetFace(face *FontFace) {
 	if face == rt.faces[len(rt.faces)-1] {
 		return
@@ -239,6 +245,7 @@ func (rt *RichText) SetFace(face *FontFace) {
 	rt.faces = append(rt.faces, face)
 }
 
+// SetFaceSpan sets the font face between start and end measured in bytes
 func (rt *RichText) SetFaceSpan(face *FontFace, start, end int) {
 	// TODO: optimize when face already is on (part of) the span
 	if end <= start || rt.Len() <= start {
@@ -264,12 +271,14 @@ func (rt *RichText) SetFaceSpan(face *FontFace, start, end int) {
 	rt.faces = append(rt.faces[:i], append([]*FontFace{face}, rt.faces[j:]...)...)
 }
 
+// Add adds a string with a given font face to the rich text
 func (rt *RichText) Add(face *FontFace, text string) *RichText {
 	rt.SetFace(face)
 	rt.WriteString(text)
 	return rt
 }
 
+// SetWritingMode sets the final writing mode of the rich text
 func (rt *RichText) SetWritingMode(mode WritingMode) {
 	rt.mode = mode
 }
@@ -549,6 +558,7 @@ func (t *Text) Bounds() Rect {
 	rect := Rect{}
 	for _, line := range t.lines {
 		for _, span := range line.spans {
+			// TODO: vertical text
 			rect = rect.Add(Rect{span.x, -line.y - span.Face.Metrics().Descent, span.Width, span.Face.Metrics().Ascent + span.Face.Metrics().Descent})
 		}
 	}
@@ -556,20 +566,28 @@ func (t *Text) Bounds() Rect {
 }
 
 // OutlineBounds returns the rectangle that contains the entire text box, ie. the glyph outlines (slow).
-//func (t *Text) OutlineBounds() Rect {
-//	if len(t.lines) == 0 || len(t.lines[0].spans) == 0 {
-//		return Rect{}
-//	}
-//	r := Rect{}
-//	for _, line := range t.lines {
-//		for _, span := range line.spans {
-//			spanBounds := span.Bounds(span.w)
-//			spanBounds = spanBounds.Move(Point{span.x, line.y})
-//			r = r.Add(spanBounds)
-//		}
-//	}
-//	return r
-//}
+func (t *Text) OutlineBounds() Rect {
+	if len(t.lines) == 0 || len(t.lines[0].spans) == 0 {
+		return Rect{}
+	}
+	r := Rect{}
+	for _, line := range t.lines {
+		for _, span := range line.spans {
+			// TODO: vertical text
+			p, _, err := span.Face.toPath(span.Glyphs, span.Face.PPEM(DefaultResolution))
+			if err != nil {
+				panic(err)
+			}
+			spanBounds := p.Bounds()
+			spanBounds = spanBounds.Move(Point{span.x, -line.y})
+			r = r.Add(spanBounds)
+		}
+	}
+	t.WalkDecorations(func(col color.RGBA, p *Path) {
+		r = r.Add(p.Bounds())
+	})
+	return r
+}
 
 // Fonts returns list of fonts used.
 func (t *Text) Fonts() []*Font {
@@ -645,11 +663,9 @@ type decorationSpan struct {
 	face  *FontFace // biggest face
 }
 
-func (deco decorationSpan) String() string {
-	return fmt.Sprintf("{%v %v %v %v}", deco.deco, deco.col, deco.x, deco.width)
-}
-
+// WalkDecorations calls the callback for each color of decoration used per line
 func (t *Text) WalkDecorations(callback func(col color.RGBA, deco *Path)) {
+	// TODO: vertical text
 	// accumulate paths with colors for all lines
 	cs := []color.RGBA{}
 	ps := []*Path{}
@@ -722,6 +738,7 @@ func (t *Text) WalkDecorations(callback func(col color.RGBA, deco *Path)) {
 	}
 }
 
+// WalkSpans calls the callback for each text span per line
 func (t *Text) WalkSpans(callback func(x, y float64, span TextSpan)) {
 	for _, line := range t.lines {
 		for _, span := range line.spans {

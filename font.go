@@ -72,6 +72,7 @@ func parseFont(name string, b []byte, index int) (*Font, error) {
 	return font, nil
 }
 
+// Destroy should be called when using HarfBuzz to free the C resources
 func (f *Font) Destroy() {
 	f.shaper.Destroy()
 }
@@ -81,6 +82,7 @@ func (f *Font) Name() string {
 	return f.name
 }
 
+// SubsetID maps a glyphID of the original font to the subsettd font. If the glyphID is not subsetted, it will be added to the map
 func (f *Font) SubsetID(glyphID uint16) uint16 {
 	if subsetGlyphID, ok := f.subsetIDMap[glyphID]; ok {
 		return subsetGlyphID
@@ -91,14 +93,17 @@ func (f *Font) SubsetID(glyphID uint16) uint16 {
 	return subsetGlyphID
 }
 
+// SubsetIDs returns all subsetted IDs in the order of appearance
 func (f *Font) SubsetIDs() []uint16 {
 	return f.subsetIDs
 }
 
+// SetVariations sets the font variations (not yet supported)
 func (f *Font) SetVariations(variations string) {
 	f.variations = variations
 }
 
+// SetFeatures sets the font features (not yet supported)
 func (f *Font) SetFeatures(features string) {
 	f.features = features
 }
@@ -117,18 +122,21 @@ func NewFontFamily(name string) *FontFamily {
 	}
 }
 
+// Destroy should be called when using HarfBuzz to free the C resources
 func (family *FontFamily) Destroy() {
 	for _, font := range family.fonts {
 		font.Destroy()
 	}
 }
 
+// SetVariations sets the font variations (not yet supported)
 func (family *FontFamily) SetVariations(variations string) {
 	for _, font := range family.fonts {
 		font.SetVariations(variations)
 	}
 }
 
+// SetFeatures sets the font features (not yet supported)
 func (family *FontFamily) SetFeatures(features string) {
 	for _, font := range family.fonts {
 		font.SetFeatures(features)
@@ -318,7 +326,6 @@ type FontFace struct {
 // Equals returns true when two font face are equal. In particular this allows two adjacent text spans that use the same decoration to allow the decoration to span both elements instead of two separately.
 func (face *FontFace) Equals(other *FontFace) bool {
 	return reflect.DeepEqual(face, other)
-	//return face.Font == other.Font && face.Size == other.Size && face.Style == other.Style && face.Variant == other.Variant && face.Color == other.Color && reflect.DeepEqual(face.Deco, other.Deco) && face.Language == other.Language && face.Script == other.Script && face.Direction == other.Direction
 }
 
 // Name returns the name of the underlying font
@@ -326,6 +333,7 @@ func (face *FontFace) Name() string {
 	return face.Font.name
 }
 
+// HasDecoration returns true if the font face has decoration enabled
 func (face *FontFace) HasDecoration() bool {
 	return 0 < len(face.Deco)
 }
@@ -361,6 +369,7 @@ func (face *FontFace) Metrics() FontMetrics {
 	}
 }
 
+// PPEM returns the pixels-per-EM for a given resolution of the font face
 func (face *FontFace) PPEM(resolution Resolution) uint16 {
 	// ppem is for hinting purposes only, this does not influence glyph advances
 	return uint16(resolution.DPMM() * face.Size)
@@ -402,6 +411,7 @@ func (face *FontFace) Decorate(width float64) *Path {
 	return p
 }
 
+// ToPath converts a string to its glyph paths
 func (face *FontFace) ToPath(s string) (*Path, float64, error) {
 	ppem := face.PPEM(DefaultResolution)
 	glyphs := face.Font.shaper.Shape(s, ppem, face.Direction, face.Script, face.Language, face.Font.features, face.Font.variations)
@@ -429,6 +439,7 @@ func (face *FontFace) toPath(glyphs []text.Glyph, ppem uint16) (*Path, float64, 
 	return p, face.mmPerEm * float64(x), nil
 }
 
+// Boldness returns the CSS boldness value for the font face
 func (face *FontFace) Boldness() int {
 	boldness := 400
 	if face.Style&0xFF == FontExtraLight {

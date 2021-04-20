@@ -101,7 +101,7 @@ func (p *Path) Copy() *Path {
 	return q
 }
 
-// Append appends path q to p and returns a new path if succesful (otherwise either p or q are returned).
+// Append appends path q to p and returns a new path if successful (otherwise either p or q are returned).
 func (p *Path) Append(q *Path) *Path {
 	if q == nil || q.Empty() {
 		return p
@@ -111,7 +111,7 @@ func (p *Path) Append(q *Path) *Path {
 	return &Path{append(p.d, q.d...)}
 }
 
-// Join joins path q to p and returns a new path if succesful (otherwise either p or q are returned). Its like executing the commands in q to p in sequence, where if the first MoveTo of q doesn't coincide with p it will fallback to appending the paths.
+// Join joins path q to p and returns a new path if successful (otherwise either p or q are returned). Its like executing the commands in q to p in sequence, where if the first MoveTo of q doesn't coincide with p it will fallback to appending the paths.
 func (p *Path) Join(q *Path) *Path {
 	if q == nil || q.Empty() {
 		return p

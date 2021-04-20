@@ -80,7 +80,7 @@ func ToSFNT(b []byte) ([]byte, error) {
 	return nil, fmt.Errorf("unrecognized font file format")
 }
 
-// NewReader takes an io.Reader and transforms it into an SFNT reader. That is, given TTF/OTF/WOFF/WOFF2/EOT input, it will return TTF/OTF output.
+// NewSFNTReader takes an io.Reader and transforms it into an SFNT reader. That is, given TTF/OTF/WOFF/WOFF2/EOT input, it will return TTF/OTF output.
 func NewSFNTReader(r io.Reader) (*bytes.Reader, error) {
 	b, err := ioutil.ReadAll(r)
 	if err != nil {

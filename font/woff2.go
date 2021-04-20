@@ -253,11 +253,10 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 	iHead, hasHead := tagTableIndex["head"]
 	if !hasHead || len(tables[iHead].data) < 18 {
 		return nil, fmt.Errorf("head: must be present")
-	} else {
-		binary.BigEndian.PutUint32(tables[iHead].data[8:], 0x00000000) // clear checkSumAdjustment
-		if flags := binary.BigEndian.Uint16(tables[iHead].data[16:]); flags&0x0800 == 0 {
-			return nil, fmt.Errorf("head: bit 11 in flags must be set")
-		}
+	}
+	binary.BigEndian.PutUint32(tables[iHead].data[8:], 0x00000000) // clear checkSumAdjustment
+	if flags := binary.BigEndian.Uint16(tables[iHead].data[16:]); flags&0x0800 == 0 {
+		return nil, fmt.Errorf("head: bit 11 in flags must be set")
 	}
 
 	if _, hasDSIG := tagTableIndex["DSIG"]; hasDSIG {

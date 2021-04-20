@@ -216,7 +216,7 @@ func info(args []string) error {
 	} else if sfnt.Version == "ttcf" {
 		version = "Collection"
 	}
-	fmt.Printf("  sfntVersion: %X (%s)\n", sfnt.Version)
+	fmt.Printf("  sfntVersion: %X (%s)\n", sfnt.Version, version)
 
 	r := newBinaryReader(sfnt.Data)
 	_ = r.ReadBytes(4)

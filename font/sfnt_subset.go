@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// Subset regenerates a font file containing only the passed glyphIDs, thereby resulting in a significant size reduction. The glyphIDs will apear in the specified order in the file, and their dependencies are added to the end. It returns the compressed font file and the glyphIDs in the order in which they appear.
 func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 	if sfnt.IsCFF {
 		// TODO: support CFF

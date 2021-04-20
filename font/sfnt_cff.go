@@ -641,9 +641,8 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 			default:
 				if 256 <= b0 {
 					return fmt.Errorf("%v: unsupported operator 12 %d", table, b0-256)
-				} else {
-					return fmt.Errorf("%v: unsupported operator %d", table, b0)
 				}
+				return fmt.Errorf("%v: unsupported operator %d", table, b0)
 			}
 		}
 	}

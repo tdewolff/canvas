@@ -34,14 +34,17 @@ func DPI(dpi float64) Resolution {
 	return Resolution(dpi * inchPerMm)
 }
 
+// DPMM returns the resolution in dots-per-millimeter
 func (res Resolution) DPMM() float64 {
 	return float64(res)
 }
 
+// DPI returns the resolution in dots-per-inch
 func (res Resolution) DPI() float64 {
 	return float64(res) * mmPerInch
 }
 
+// DefaultResolution is the default resolution used for font PPEMs and is set to 96 DPI
 const DefaultResolution = Resolution(96.0 * inchPerMm)
 
 ////////////////////////////////////////////////////////////////
@@ -80,8 +83,10 @@ type Renderer interface {
 
 ////////////////////////////////////////////////////////////////
 
+// CoordSystem is the coordinate system, which can be either of the four cartesian quadrants
 type CoordSystem int
 
+// see CoordSystem
 const (
 	CartesianI CoordSystem = iota
 	CartesianII

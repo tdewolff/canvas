@@ -1,7 +1,9 @@
 package font
 
+// PlatformID is the platform identifier for the name table
 type PlatformID uint16
 
+// see PlatformID
 const (
 	PlatformUnicode   = PlatformID(0)
 	PlatformMacintosh = PlatformID(1)
@@ -9,8 +11,10 @@ const (
 	PlatformCustom    = PlatformID(4)
 )
 
+// EncodingID is the encoding identifier for the name table
 type EncodingID uint16
 
+// see EncodingID
 const (
 	EncodingUnicode2BMP                 = EncodingID(3)
 	EncodingUnicode2FullRepertoir       = EncodingID(4)
@@ -59,8 +63,10 @@ const (
 	EncodingWindowsUnicodeFullRepertoir = EncodingID(10)
 )
 
+// NameID is the name identifier for the name table
 type NameID uint16
 
+// see NameID
 const (
 	NameCopyrightNotice            = NameID(0)
 	NameFontFamily                 = NameID(1)

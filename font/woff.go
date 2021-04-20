@@ -207,18 +207,16 @@ func ParseWOFF(b []byte) ([]byte, error) {
 	}
 	if w.Len() != totalSfntSize {
 		return nil, ErrInvalidFontData
+	} else if checksumAdjustmentPos == 0 {
+		return nil, ErrInvalidFontData
 	}
 
-	if checksumAdjustmentPos == 0 {
-		return nil, ErrInvalidFontData
-	} else {
-		checksum := 0xB1B0AFBA - calcChecksum(w.Bytes())
-		// TODO: (WOFF) master checksum seems right, but we don't throw an error if it is off
-		//if checkSumAdjustment != checksum {
-		//	return nil, fmt.Errorf("bad checksum")
-		//}
-		checksumAdjustment = checksum
-	}
+	checksum := 0xB1B0AFBA - calcChecksum(w.Bytes())
+	// TODO: (WOFF) master checksum seems right, but we don't throw an error if it is off
+	//if checkSumAdjustment != checksum {
+	//	return nil, fmt.Errorf("bad checksum")
+	//}
+	checksumAdjustment = checksum
 
 	// replace overal checksum in head table
 	buf := w.Bytes()
