@@ -25,6 +25,15 @@ func TestParseOTF(t *testing.T) {
 	test.T(t, sfnt.Head.UnitsPerEm, uint16(1000))
 }
 
+//func TestParseOTF_CFF2(t *testing.T) {
+//	b, err := ioutil.ReadFile("../resources/AdobeVFPrototype.otf") // TODO: CFF2
+//	test.Error(t, err)
+//
+//	sfnt, err := ParseFont(b, 0)
+//	test.Error(t, err)
+//	test.T(t, sfnt.Head.UnitsPerEm, uint16(1000))
+//}
+
 func TestParseWOFF(t *testing.T) {
 	b, err := ioutil.ReadFile("../resources/DejaVuSerif.woff")
 	test.Error(t, err)

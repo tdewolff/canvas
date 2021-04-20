@@ -6,7 +6,11 @@ import (
 	"strconv"
 )
 
+// TODO: use FDSelect for Font DICTs
+// TODO: CFF has winding rule even-odd? CFF2 has winding rule nonzero
+
 type cffTable struct {
+	version     int
 	globalSubrs *cffINDEX
 	localSubrs  *cffINDEX
 	charStrings *cffINDEX
@@ -24,13 +28,13 @@ func (sfnt *SFNT) parseCFF() error {
 	if major != 1 || minor != 0 {
 		return fmt.Errorf("CFF: bad version")
 	}
-	hdrSize := r.ReadUint8()
-	if hdrSize != 4 {
-		return fmt.Errorf("CFF: bad hdrSize")
+	headerSize := r.ReadUint8()
+	if headerSize != 4 {
+		return fmt.Errorf("CFF: bad headerSize")
 	}
 	_ = r.ReadUint8() // offSize
 
-	nameINDEX, err := parseINDEX(r)
+	nameINDEX, err := parseINDEX(r, false)
 	if err != nil {
 		return fmt.Errorf("CFF: Name INDEX: %w", err)
 	}
@@ -38,7 +42,7 @@ func (sfnt *SFNT) parseCFF() error {
 		return fmt.Errorf("CFF: Name INDEX: bad count")
 	}
 
-	topINDEX, err := parseINDEX(r)
+	topINDEX, err := parseINDEX(r, false)
 	if err != nil {
 		return fmt.Errorf("CFF: Top INDEX: %w", err)
 	}
@@ -46,17 +50,17 @@ func (sfnt *SFNT) parseCFF() error {
 		return fmt.Errorf("CFF: Top INDEX: bad count")
 	}
 
-	stringINDEX, err := parseINDEX(r)
+	stringINDEX, err := parseINDEX(r, false)
 	if err != nil {
 		return fmt.Errorf("CFF: String INDEX: %w", err)
 	}
 
-	globalSubrsINDEX, err := parseINDEX(r)
+	globalSubrsINDEX, err := parseINDEX(r, false)
 	if err != nil {
 		return fmt.Errorf("CFF: Global Subrs INDEX: %w", err)
 	}
 
-	topDICT, err := parseDICT(topINDEX.Get(0), stringINDEX)
+	topDICT, err := parseTopDICT(topINDEX.Get(0), stringINDEX)
 	if err != nil {
 		return fmt.Errorf("CFF: Top DICT: %w", err)
 	}
@@ -67,7 +71,7 @@ func (sfnt *SFNT) parseCFF() error {
 	if len(b) < topDICT.PrivateOffset || len(b)-topDICT.PrivateOffset < topDICT.PrivateLength {
 		return fmt.Errorf("CFF: bad Private DICT offset")
 	}
-	privateDICT, err := parseDICT(b[topDICT.PrivateOffset:topDICT.PrivateOffset+topDICT.PrivateLength], stringINDEX)
+	privateDICT, err := parsePrivateDICT(b[topDICT.PrivateOffset:topDICT.PrivateOffset+topDICT.PrivateLength], false)
 	if err != nil {
 		return fmt.Errorf("CFF: Private DICT: %w", err)
 	}
@@ -76,18 +80,19 @@ func (sfnt *SFNT) parseCFF() error {
 		return fmt.Errorf("CFF: bad Local Subrs INDEX offset")
 	}
 	r.Seek(uint32(topDICT.PrivateOffset + privateDICT.Subrs))
-	localSubrsINDEX, err := parseINDEX(r)
+	localSubrsINDEX, err := parseINDEX(r, false)
 	if err != nil {
 		return fmt.Errorf("CFF: Local Subrs INDEX: %w", err)
 	}
 
 	r.Seek(uint32(topDICT.CharStrings))
-	charStringsINDEX, err := parseINDEX(r)
+	charStringsINDEX, err := parseINDEX(r, false)
 	if err != nil {
 		return fmt.Errorf("CFF: CharStrings INDEX: %w", err)
 	}
 
 	sfnt.CFF = &cffTable{
+		version:     1,
 		globalSubrs: globalSubrsINDEX,
 		localSubrs:  localSubrsINDEX,
 		charStrings: charStringsINDEX,
@@ -95,14 +100,100 @@ func (sfnt *SFNT) parseCFF() error {
 	return nil
 }
 
-var errBadNumOperands = fmt.Errorf("CFF: bad number of operands for operator")
+func (sfnt *SFNT) parseCFF2() error {
+	b, ok := sfnt.Tables["CFF2"]
+	if !ok {
+		return fmt.Errorf("CFF2: missing table")
+	}
+
+	r := newBinaryReader(b)
+	major := r.ReadUint8()
+	minor := r.ReadUint8()
+	if major != 2 || minor != 0 {
+		return fmt.Errorf("CFF2: bad version")
+	}
+	headerSize := r.ReadUint8()
+	if headerSize != 5 {
+		return fmt.Errorf("CFF2: bad headerSize")
+	}
+	topDictLength := r.ReadUint16()
+
+	topDICT, err := parseTopDICT2(r.ReadBytes(uint32(topDictLength)))
+	if err != nil {
+		return fmt.Errorf("CFF2: Top DICT: %w", err)
+	}
+
+	globalSubrsINDEX, err := parseINDEX(r, true)
+	if err != nil {
+		return fmt.Errorf("CFF2: Global Subrs INDEX: %w", err)
+	}
+
+	if len(b) < topDICT.FDArray {
+		return fmt.Errorf("CFF2: bad Font INDEX offset")
+	}
+	r.Seek(uint32(topDICT.FDArray))
+	fontINDEX, err := parseINDEX(r, true)
+	if err != nil {
+		return fmt.Errorf("CFF2: Font INDEX: %w", err)
+	}
+	if len(fontINDEX.offset) != 1 {
+		return fmt.Errorf("CFF2: multiple Font DICTs unsupported")
+	}
+
+	var PrivateOffset, PrivateLength int
+	return parseDICT(b, true, func(b0 int, is []int, fs []float64) bool {
+		if b0 == 18 {
+			PrivateOffset = is[0]
+			PrivateLength = is[1]
+			return true
+		}
+		return false
+	})
+
+	if len(b) < PrivateOffset || len(b)-PrivateOffset < PrivateLength {
+		return fmt.Errorf("CFF2: bad Private DICT offset")
+	}
+	privateDICT, err := parsePrivateDICT(b[PrivateOffset:PrivateOffset+PrivateLength], true)
+	if err != nil {
+		return fmt.Errorf("CFF2: Private DICT: %w", err)
+	}
+
+	if len(b)-PrivateOffset < privateDICT.Subrs {
+		return fmt.Errorf("CFF2: bad Local Subrs INDEX offset")
+	}
+	r.Seek(uint32(PrivateOffset + privateDICT.Subrs))
+	localSubrsINDEX, err := parseINDEX(r, true)
+	if err != nil {
+		return fmt.Errorf("CFF2: Local Subrs INDEX: %w", err)
+	}
+
+	r.Seek(uint32(topDICT.CharStrings))
+	charStringsINDEX, err := parseINDEX(r, true)
+	if err != nil {
+		return fmt.Errorf("CFF2: CharStrings INDEX: %w", err)
+	}
+
+	sfnt.CFF = &cffTable{
+		version:     2,
+		globalSubrs: globalSubrsINDEX,
+		localSubrs:  localSubrsINDEX,
+		charStrings: charStringsINDEX,
+	}
+	return nil
+}
 
 func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float64, hinting Hinting) error {
+	table := "CFF"
+	if cff.version == 2 {
+		table = "CFF2"
+	}
+	errBadNumOperands := fmt.Errorf("%v: bad number of operands for operator", table)
+
 	charString := cff.charStrings.Get(glyphID)
 	if charString == nil {
-		return fmt.Errorf("CFF: bad glyphID %v", glyphID)
+		return fmt.Errorf("%v: bad glyphID %v", table, glyphID)
 	} else if 65525 < len(charString) {
-		return fmt.Errorf("CFF: charstring too long")
+		return fmt.Errorf("%v: charstring too long", table)
 	}
 
 	hints := 0
@@ -111,6 +202,15 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 	callStack := []*binaryReader{}
 	r := newBinaryReader(charString)
 	for {
+		if cff.version == 2 && r.Len() == 0 && 0 < len(callStack) {
+			// end of subroutine
+			r = callStack[len(callStack)-1]
+			callStack = callStack[:len(callStack)-1]
+			continue
+		} else if r.Len() == 0 {
+			break
+		}
+
 		b0 := int32(r.ReadUint8())
 		if 32 <= b0 || b0 == 28 {
 			var v int32
@@ -128,12 +228,12 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 			} else {
 				v = r.ReadInt32()
 			}
-			if 48 <= len(stack) {
-				return fmt.Errorf("CFF: too many operands for operator")
+			if cff.version == 1 && 48 <= len(stack) || cff.version == 2 && 513 <= len(stack) {
+				return fmt.Errorf("%v: too many operands for operator", table)
 			}
 			stack = append(stack, v)
 		} else {
-			if firstOperator && (b0 == 1 || b0 == 3 || b0 == 4 || b0 == 14 || 18 <= b0 && b0 <= 23) {
+			if firstOperator && cff.version == 1 && (b0 == 1 || b0 == 3 || b0 == 4 || b0 == 14 || 18 <= b0 && b0 <= 23) {
 				// optionally parse width
 				hasWidth := len(stack)%2 == 1
 				if b0 == 22 || b0 == 4 {
@@ -438,7 +538,10 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 				p.CubeTo(f*float64(cpx1), f*float64(cpy1), f*float64(cpx2), f*float64(cpy2), f*float64(x), f*float64(y))
 				stack = stack[:0]
 			case 14:
-				if len(stack) == 4 {
+				// endchar
+				if cff.version == 2 {
+					return fmt.Errorf("CFF2: unsupported operator %d", b0)
+				} else if len(stack) == 4 {
 					return fmt.Errorf("CFF: unsupported endchar operands")
 				} else if len(stack) != 0 {
 					return errBadNumOperands
@@ -453,7 +556,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 				// hints are not used
 				hints += len(stack) / 2
 				if 96 < hints {
-					return fmt.Errorf("CFF: too many stem hints")
+					return fmt.Errorf("%v: too many stem hints", table)
 				}
 				stack = stack[:0]
 			case 19, 20:
@@ -465,18 +568,16 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 					// vstem
 					hints += len(stack) / 2
 					if 96 < hints {
-						return fmt.Errorf("CFF: too many stem hints")
+						return fmt.Errorf("%v: too many stem hints", table)
 					}
 					stack = stack[:0]
 				}
 				r.ReadBytes(uint32((hints + 7) / 8))
-			// TODO: arithmetic operators
-			// TODO: storage operators
-			// TODO: conditional operators
+			// TODO: arithmetic, storage, and conditional operators for CFF version 1?
 			case 10, 29:
 				// callsubr and callgsubr
 				if 10 < len(callStack) {
-					return fmt.Errorf("CFF: too many nested subroutines")
+					return fmt.Errorf("%v: too many nested subroutines", table)
 				} else if len(stack) == 0 {
 					return errBadNumOperands
 				}
@@ -497,7 +598,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 				}
 				stack = stack[:len(stack)-1]
 				if i < 0 || math.MaxUint16 < i {
-					return fmt.Errorf("CFF: bad subroutine")
+					return fmt.Errorf("%v: bad subroutine", table)
 				}
 
 				var subr []byte
@@ -507,30 +608,47 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 					subr = cff.globalSubrs.Get(uint16(i))
 				}
 				if subr == nil {
-					return fmt.Errorf("CFF: bad subroutine")
+					return fmt.Errorf("%v: bad subroutine", table)
 				} else if 65525 < len(charString) {
-					return fmt.Errorf("CFF: subroutine too long")
+					return fmt.Errorf("%v: subroutine too long", table)
 				}
 				callStack = append(callStack, r)
 				r = newBinaryReader(subr)
 				firstOperator = true
 			case 11:
 				// return
-				if len(callStack) == 0 {
-					return fmt.Errorf("CFF: bad return")
+				if cff.version == 2 {
+					return fmt.Errorf("%v: unsupported operator %d", table, b0)
+				} else if len(callStack) == 0 {
+					return fmt.Errorf("%v: bad return", table)
 				}
 				r = callStack[len(callStack)-1]
 				callStack = callStack[:len(callStack)-1]
+			case 16:
+				// blend
+				if cff.version == 1 {
+					return fmt.Errorf("CFF: unsupported operator %d", b0)
+				}
+				// TODO: blend
+			case 15:
+				// vsindex
+				if cff.version == 1 {
+					return fmt.Errorf("CFF: unsupported operator %d", b0)
+				}
+				// TODO: vsindex
 			default:
 				if 256 <= b0 {
-					return fmt.Errorf("CFF: unsupported operator 12 %d", b0-256)
+					return fmt.Errorf("%v: unsupported operator 12 %d", table, b0-256)
 				} else {
-					return fmt.Errorf("CFF: unsupported operator %d", b0)
+					return fmt.Errorf("%v: unsupported operator %d", table, b0)
 				}
 			}
 		}
 	}
-	return fmt.Errorf("CFF: charstring must end with endchar operator")
+	if cff.version == 1 {
+		return fmt.Errorf("CFF: charstring must end with endchar operator")
+	}
+	return nil
 }
 
 type cffINDEX struct {
@@ -560,12 +678,19 @@ func (t *cffINDEX) GetSID(sid int) string {
 	return ""
 }
 
-func parseINDEX(r *binaryReader) (*cffINDEX, error) {
+func parseINDEX(r *binaryReader, isCFF2 bool) (*cffINDEX, error) {
 	t := &cffINDEX{}
-	count := r.ReadUint16()
+	var count uint32
+	if !isCFF2 {
+		count = uint32(r.ReadUint16())
+	} else {
+		count = r.ReadUint32()
+	}
 	if count == 0 {
 		// empty
 		return t, nil
+	} else if 1e6 < count {
+		return nil, fmt.Errorf("too big")
 	}
 
 	offSize := r.ReadUint8()
@@ -578,19 +703,19 @@ func parseINDEX(r *binaryReader) (*cffINDEX, error) {
 
 	t.offset = make([]uint32, count+1)
 	if offSize == 1 {
-		for i := uint16(0); i < count+1; i++ {
+		for i := uint32(0); i < count+1; i++ {
 			t.offset[i] = uint32(r.ReadUint8()) - 1
 		}
 	} else if offSize == 2 {
-		for i := uint16(0); i < count+1; i++ {
+		for i := uint32(0); i < count+1; i++ {
 			t.offset[i] = uint32(r.ReadUint16()) - 1
 		}
 	} else if offSize == 3 {
-		for i := uint16(0); i < count+1; i++ {
+		for i := uint32(0); i < count+1; i++ {
 			t.offset[i] = uint32(r.ReadUint16()<<8) + uint32(r.ReadUint8()) - 1
 		}
 	} else {
-		for i := uint16(0); i < count+1; i++ {
+		for i := uint32(0); i < count+1; i++ {
 			t.offset[i] = r.ReadUint32() - 1
 		}
 	}
@@ -601,11 +726,10 @@ func parseINDEX(r *binaryReader) (*cffINDEX, error) {
 	return t, nil
 }
 
-type cffDICT struct {
+type cffTopDICT struct {
 	IsSynthetic bool
 	IsCID       bool
 
-	// Top
 	Version            string
 	Notice             string
 	Copyright          string
@@ -643,8 +767,9 @@ type cffDICT struct {
 	FDArray            int
 	FDSelect           int
 	FontName           string
+}
 
-	// Private
+type cffPrivateDICT struct {
 	BlueValues        []float64
 	OtherBlues        []float64
 	FamilyBlues       []float64
@@ -663,22 +788,191 @@ type cffDICT struct {
 	Subrs             int
 	DefaultWidthX     float64
 	NominalWidthX     float64
+
+	// CFF2
+	Vsindex int
+	Blend   []float64
 }
 
-func parseDICT(b []byte, stringINDEX *cffINDEX) (*cffDICT, error) {
-	dict := &cffDICT{
+type cff2TopDICT struct {
+	FontMatrix  [6]float64
+	CharStrings int
+	FDArray     int
+	FDSelect    int
+	Vstore      int
+}
+
+func parseTopDICT(b []byte, stringINDEX *cffINDEX) (*cffTopDICT, error) {
+	dict := &cffTopDICT{
 		UnderlinePosition:  -100,
 		UnderlineThickness: 50,
 		CharstringType:     2,
 		FontMatrix:         [6]float64{0.001, 0.0, 0.0, 0.001, 0.0, 0.0},
 		CIDCount:           8720,
+	}
+	return dict, parseDICT(b, false, func(b0 int, is []int, fs []float64) bool {
+		switch b0 {
+		case 0:
+			dict.Version = stringINDEX.GetSID(is[0])
+		case 1:
+			dict.Notice = stringINDEX.GetSID(is[0])
+		case 256 + 0:
+			dict.Copyright = stringINDEX.GetSID(is[0])
+		case 2:
+			dict.FullName = stringINDEX.GetSID(is[0])
+		case 3:
+			dict.FamilyName = stringINDEX.GetSID(is[0])
+		case 4:
+			dict.Weight = stringINDEX.GetSID(is[0])
+		case 256 + 1:
+			dict.IsFixedPitch = is[0] != 0
+		case 256 + 2:
+			dict.ItalicAngle = fs[0]
+		case 256 + 3:
+			dict.UnderlinePosition = fs[0]
+		case 256 + 4:
+			dict.UnderlineThickness = fs[0]
+		case 256 + 5:
+			dict.PaintType = is[0]
+		case 256 + 6:
+			dict.CharstringType = is[0]
+		case 256 + 7:
+			copy(dict.FontMatrix[:], fs)
+		case 13:
+			dict.UniqueID = is[0]
+		case 5:
+			copy(dict.FontBBox[:], fs)
+		case 256 + 8:
+			dict.StrokeWidth = fs[0]
+		case 14:
+			dict.XUID = is
+		case 15:
+			dict.Charset = is[0]
+		case 16:
+			dict.Encoding = is[0]
+		case 17:
+			dict.CharStrings = is[0]
+		case 18:
+			dict.PrivateOffset = is[1]
+			dict.PrivateLength = is[0]
+		case 256 + 20:
+			dict.IsSynthetic = true
+			dict.SyntheticBase = is[0]
+		case 256 + 21:
+			dict.PostScript = stringINDEX.GetSID(is[0])
+		case 256 + 22:
+			dict.BaseFontName = stringINDEX.GetSID(is[0])
+		case 256 + 23:
+			dict.BaseFontBlend = is
+		case 256 + 30:
+			dict.IsCID = true
+			dict.ROS1 = stringINDEX.GetSID(is[0])
+			dict.ROS2 = stringINDEX.GetSID(is[1])
+			dict.ROS3 = is[2]
+		case 256 + 31:
+			dict.CIDFontVersion = is[0]
+		case 256 + 32:
+			dict.CIDFontRevision = is[0]
+		case 256 + 33:
+			dict.CIDFontType = is[0]
+		case 256 + 34:
+			dict.CIDCount = is[0]
+		case 256 + 35:
+			dict.UIDBase = is[0]
+		case 256 + 36:
+			dict.FDArray = is[0]
+		case 256 + 37:
+			dict.FDSelect = is[0]
+		case 256 + 38:
+			dict.FontName = stringINDEX.GetSID(is[0])
+		default:
+			return false
+		}
+		return true
+	})
+}
 
+func parsePrivateDICT(b []byte, isCFF2 bool) (*cffPrivateDICT, error) {
+	dict := &cffPrivateDICT{
 		BlueScale:       0.039625,
 		BlueShift:       7.0,
 		BlueFuzz:        1.0,
 		ExpansionFactor: 0.06,
 	}
 
+	return dict, parseDICT(b, isCFF2, func(b0 int, is []int, fs []float64) bool {
+		switch b0 {
+		case 6:
+			dict.BlueValues = fs
+		case 7:
+			dict.OtherBlues = fs
+		case 8:
+			dict.FamilyBlues = fs
+		case 9:
+			dict.FamilyOtherBlues = fs
+		case 256 + 9:
+			dict.BlueScale = fs[0]
+		case 256 + 10:
+			dict.BlueShift = fs[0]
+		case 256 + 11:
+			dict.BlueFuzz = fs[0]
+		case 10:
+			dict.StdHW = fs[0]
+		case 11:
+			dict.StdVW = fs[0]
+		case 256 + 12:
+			dict.StemSnapH = fs
+		case 256 + 13:
+			dict.StemSnapV = fs
+		case 256 + 14:
+			dict.ForceBold = is[0] != 0
+		case 256 + 17:
+			dict.LanguageGroup = is[0]
+		case 256 + 18:
+			dict.ExpansionFactor = fs[0]
+		case 256 + 19:
+			dict.InitialRandomSeed = is[0]
+		case 19:
+			dict.Subrs = is[0]
+		case 20:
+			dict.DefaultWidthX = fs[0]
+		case 21:
+			dict.NominalWidthX = fs[0]
+		case 22:
+			dict.Vsindex = is[0]
+		case 23:
+			dict.Blend = fs
+		default:
+			return false
+		}
+		return true
+	})
+}
+
+func parseTopDICT2(b []byte) (*cff2TopDICT, error) {
+	dict := &cff2TopDICT{
+		FontMatrix: [6]float64{0.001, 0.0, 0.0, 0.001, 0.0, 0.0},
+	}
+	return dict, parseDICT(b, true, func(b0 int, is []int, fs []float64) bool {
+		switch b0 {
+		case 256 + 7:
+			copy(dict.FontMatrix[:], fs)
+		case 17:
+			dict.CharStrings = is[0]
+		case 256 + 36:
+			dict.FDArray = is[0]
+		case 256 + 37:
+			dict.FDSelect = is[0]
+		case 24:
+			dict.Vstore = is[0]
+		default:
+			return false
+		}
+		return true
+	})
+}
+
+func parseDICT(b []byte, isCFF2 bool, callback func(b0 int, is []int, fs []float64) bool) error {
 	opSize := map[int]int{
 		256 + 7:  6,
 		5:        4,
@@ -714,7 +1008,7 @@ func parseDICT(b []byte, stringINDEX *cffINDEX) (*cffDICT, error) {
 				}
 			}
 			if len(ints) < size {
-				return nil, fmt.Errorf("too few operands for operator")
+				return fmt.Errorf("too few operands for operator")
 			}
 
 			is := ints[len(ints)-size:]
@@ -722,122 +1016,14 @@ func parseDICT(b []byte, stringINDEX *cffINDEX) (*cffDICT, error) {
 			ints = ints[:len(ints)-size]
 			reals = reals[:len(reals)-size]
 
-			switch b0 {
-			case 0:
-				dict.Version = stringINDEX.GetSID(is[0])
-			case 1:
-				dict.Notice = stringINDEX.GetSID(is[0])
-			case 256 + 0:
-				dict.Copyright = stringINDEX.GetSID(is[0])
-			case 2:
-				dict.FullName = stringINDEX.GetSID(is[0])
-			case 3:
-				dict.FamilyName = stringINDEX.GetSID(is[0])
-			case 4:
-				dict.Weight = stringINDEX.GetSID(is[0])
-			case 256 + 1:
-				dict.IsFixedPitch = is[0] != 0
-			case 256 + 2:
-				dict.ItalicAngle = fs[0]
-			case 256 + 3:
-				dict.UnderlinePosition = fs[0]
-			case 256 + 4:
-				dict.UnderlineThickness = fs[0]
-			case 256 + 5:
-				dict.PaintType = is[0]
-			case 256 + 6:
-				dict.CharstringType = is[0]
-			case 256 + 7:
-				copy(dict.FontMatrix[:], fs)
-			case 13:
-				dict.UniqueID = is[0]
-			case 5:
-				copy(dict.FontBBox[:], fs)
-			case 256 + 8:
-				dict.StrokeWidth = fs[0]
-			case 14:
-				dict.XUID = is
-			case 15:
-				dict.Charset = is[0]
-			case 16:
-				dict.Encoding = is[0]
-			case 17:
-				dict.CharStrings = is[0]
-			case 18:
-				dict.PrivateOffset = is[1]
-				dict.PrivateLength = is[0]
-			case 256 + 20:
-				dict.IsSynthetic = true
-				dict.SyntheticBase = is[0]
-			case 256 + 21:
-				dict.PostScript = stringINDEX.GetSID(is[0])
-			case 256 + 22:
-				dict.BaseFontName = stringINDEX.GetSID(is[0])
-			case 256 + 23:
-				dict.BaseFontBlend = is
-			case 256 + 30:
-				dict.IsCID = true
-				dict.ROS1 = stringINDEX.GetSID(is[0])
-				dict.ROS2 = stringINDEX.GetSID(is[1])
-				dict.ROS3 = is[2]
-			case 256 + 31:
-				dict.CIDFontVersion = is[0]
-			case 256 + 32:
-				dict.CIDFontRevision = is[0]
-			case 256 + 33:
-				dict.CIDFontType = is[0]
-			case 256 + 34:
-				dict.CIDCount = is[0]
-			case 256 + 35:
-				dict.UIDBase = is[0]
-			case 256 + 36:
-				dict.FDArray = is[0]
-			case 256 + 37:
-				dict.FDSelect = is[0]
-			case 256 + 38:
-				dict.FontName = stringINDEX.GetSID(is[0])
-			case 6:
-				dict.BlueValues = fs
-			case 7:
-				dict.OtherBlues = fs
-			case 8:
-				dict.FamilyBlues = fs
-			case 9:
-				dict.FamilyOtherBlues = fs
-			case 256 + 9:
-				dict.BlueScale = fs[0]
-			case 256 + 10:
-				dict.BlueShift = fs[0]
-			case 256 + 11:
-				dict.BlueFuzz = fs[0]
-			case 10:
-				dict.StdHW = fs[0]
-			case 11:
-				dict.StdVW = fs[0]
-			case 256 + 12:
-				dict.StemSnapH = fs
-			case 256 + 13:
-				dict.StemSnapV = fs
-			case 256 + 14:
-				dict.ForceBold = is[0] != 0
-			case 256 + 17:
-				dict.LanguageGroup = is[0]
-			case 256 + 18:
-				dict.ExpansionFactor = fs[0]
-			case 256 + 19:
-				dict.InitialRandomSeed = is[0]
-			case 19:
-				dict.Subrs = is[0]
-			case 20:
-				dict.DefaultWidthX = fs[0]
-			case 21:
-				dict.NominalWidthX = fs[0]
+			if ok := callback(b0, is, fs); !ok {
+				return fmt.Errorf("bad operator")
 			}
 		} else if 22 <= b0 && b0 < 28 || b0 == 31 || b0 == 255 {
 			// reserved
 		} else {
-			if 48 <= len(ints) {
-				return nil, fmt.Errorf("too many operands for operator")
+			if !isCFF2 && 48 <= len(ints) || isCFF2 && 513 <= len(ints) {
+				return fmt.Errorf("too many operands for operator")
 			}
 			i, f := parseDICTNumber(b0, r)
 			if math.IsNaN(f) {
@@ -849,7 +1035,7 @@ func parseDICT(b []byte, stringINDEX *cffINDEX) (*cffDICT, error) {
 			reals = append(reals, f)
 		}
 	}
-	return dict, nil
+	return nil
 }
 
 func parseDICTNumber(b0 int, r *binaryReader) (int, float64) {

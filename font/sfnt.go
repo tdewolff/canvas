@@ -51,7 +51,6 @@ type SFNT struct {
 
 	// CFF
 	CFF *cffTable
-	//CFF2 *cff2Table // TODO
 
 	// optional
 	Kern *kernTable
@@ -60,6 +59,7 @@ type SFNT struct {
 	//Gpos *gposTable // TODO
 	//Gsub *gsubTable // TODO
 	//Gasp *gaspTable // TODO
+	//Base *baseTable // TODO
 }
 
 func (sfnt *SFNT) NumGlyphs() uint16 {
@@ -234,6 +234,8 @@ func ParseSFNT(b []byte, index int) (*SFNT, error) {
 		switch tableName {
 		case "CFF ":
 			err = sfnt.parseCFF()
+		case "CFF2":
+			err = sfnt.parseCFF2()
 		case "cmap":
 			err = sfnt.parseCmap()
 		case "glyf":
@@ -1415,7 +1417,7 @@ func (post *postTable) Get(glyphID uint16) string {
 }
 
 func (sfnt *SFNT) parsePost() error {
-	// requires data from maxp
+	// requires data from maxp and CFF2
 	b, ok := sfnt.Tables["post"]
 	if !ok {
 		return fmt.Errorf("post: missing table")
@@ -1423,9 +1425,11 @@ func (sfnt *SFNT) parsePost() error {
 		return fmt.Errorf("post: bad table")
 	}
 
+	_, isCFF2 := sfnt.Tables["CFF2"]
+
 	sfnt.Post = &postTable{}
 	r := newBinaryReader(b)
-	version := r.ReadBytes(4)
+	version := r.ReadUint32()
 	sfnt.Post.ItalicAngle = r.ReadUint32()
 	sfnt.Post.UnderlinePosition = r.ReadInt16()
 	sfnt.Post.UnderlineThickness = r.ReadInt16()
@@ -1434,9 +1438,10 @@ func (sfnt *SFNT) parsePost() error {
 	sfnt.Post.MaxMemType42 = r.ReadUint32()
 	sfnt.Post.MinMemType1 = r.ReadUint32()
 	sfnt.Post.MaxMemType1 = r.ReadUint32()
-	if binary.BigEndian.Uint32(version) == 0x00010000 && !sfnt.IsCFF && len(b) == 32 {
+	if version == 0x00010000 && sfnt.IsTrueType && len(b) == 32 {
 		return nil
-	} else if binary.BigEndian.Uint32(version) == 0x00020000 && !sfnt.IsCFF && 34 <= len(b) {
+	} else if version == 0x00020000 && (sfnt.IsTrueType || isCFF2) && 34 <= len(b) {
+		// can be used for TrueType and CFF2 fonts, we check for this in the CFF table
 		if r.ReadUint16() != sfnt.Maxp.NumGlyphs {
 			return fmt.Errorf("post: numGlyphs does not match maxp table numGlyphs")
 		}
@@ -1467,12 +1472,12 @@ func (sfnt *SFNT) parsePost() error {
 			sfnt.Post.GlyphNameIndex[i] = index
 		}
 		return nil
-	} else if binary.BigEndian.Uint32(version) == 0x00025000 && len(b) == 32 {
+	} else if version == 0x00025000 && sfnt.IsTrueType && len(b) == 32 {
 		return fmt.Errorf("post: version 2.5 not supported")
-	} else if binary.BigEndian.Uint32(version) == 0x00030000 && len(b) == 32 {
+	} else if version == 0x00030000 && len(b) == 32 {
 		return nil
 	}
-	return fmt.Errorf("post: bad table")
+	return fmt.Errorf("post: bad version")
 }
 
 ////////////////////////////////////////////////////////////////
