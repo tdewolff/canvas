@@ -22,7 +22,7 @@ Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise pl
 
 **[User guide](https://github.com/tdewolff/canvas/wiki)**
 
-### Getting Started
+### Installation
 With modules enabled, add the following imports and run the project with `go get`
 
 ```go
