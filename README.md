@@ -6,7 +6,7 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster i
 
 ![Preview](https://raw.githubusercontent.com/tdewolff/canvas/master/resources/preview/preview.png)
 
-**Figure 1**: top-left you can see text being fitted into a box and their bounding box (orange-red), the spaces between the words on the first row are being stretched to fill the whole width. You can see all the possible styles and text decorations applied. Also note the typographic substitutions (the quotes) and ligature support (fi, ffi, ffl, ...). Below the text box, the word "stroke" is being stroked and drawn as a path. Top-right we see a LaTeX formula that has been converted to a path. Left of that we see ellipse support showcasing precise dashing, notably the length of e.g. the short dash is equal wherever it is (approximated through arc length parametrization) on the curve. It also shows support for alternating dash lengths, in this case (2.0, 4.0, 2.0) for dashes and for spaces. Note that the dashes themselves are elliptical arcs as well (thus exactly precise even if magnified greatly). In the bottom-right we see a closed polygon of four points being smoothed by cubic Béziers that are smooth along the whole path, and next to it on the left an open path. In the middle you can see a rasterized image painted.
+**Figure 1**: top-left you can see text being fitted into a box, justified using Donald Knuth's linea breaking algorithm to stretch the spaces between words to fill the whole width. You can observe a variety of styles and text decorations applied, as well as support for LTR/RTL mixing and complex scripts. In the bottom-right the word "stroke" is being stroked and drawn as a path. Top-right we see a LaTeX formula that has been converted to a path. Left of that we see an ellipse showcasing precise dashing, notably the length of e.g. the short dash is equal wherever it is on the curve. Note that the dashes themselves are elliptical arcs as well (thus exactly precise even if magnified greatly). To the right we see a closed polygon of four points being smoothed by cubic Béziers that are smooth along the whole path, and the blue line on the left shows a smoothed open path. On the bottom you can see a rotated rasterized image. The result is equivalent for all renderers (PNG, PDF, SVG, etc.).
 
 ### Sponsors
 
@@ -21,15 +21,6 @@ Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise pl
 **[API documentation](https://pkg.go.dev/github.com/tdewolff/canvas?tab=doc)**
 
 **[User guide](https://github.com/tdewolff/canvas/wiki)**
-
-### Installation
-With modules enabled, add the following imports and run the project with `go get`
-
-```go
-import (
-    "github.com/tdewolff/canvas"
-)
-```
 
 ### Examples
 **[Street Map](https://github.com/tdewolff/canvas/tree/master/examples/map)**: data is loaded from Open Street Map of the city centre of Amsterdam and rendered to a PNG.
