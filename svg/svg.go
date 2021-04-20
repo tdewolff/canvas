@@ -63,7 +63,7 @@ func (r *SVG) Close() error {
 func (r *SVG) writeFonts() {
 	if 0 < len(r.fonts) {
 		fmt.Fprintf(r.w, "<style>")
-		for font, _ := range r.fonts {
+		for font := range r.fonts {
 			b := font.SFNT.Data
 			if r.subsetFonts {
 				b, _ = font.SFNT.Subset(font.SubsetIDs())

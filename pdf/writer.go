@@ -240,7 +240,7 @@ func (w *pdfWriter) writeFont(ref pdfRef, font *canvas.Font, vertical bool) {
 	} else {
 		fontProgram = font.SFNT.Data
 		glyphIDs = make([]uint16, font.SFNT.Maxp.NumGlyphs)
-		for glyphID, _ := range glyphIDs {
+		for glyphID := range glyphIDs {
 			glyphIDs[glyphID] = uint16(glyphID)
 		}
 	}

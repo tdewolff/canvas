@@ -101,6 +101,8 @@ func (sfnt *SFNT) parseCFF() error {
 }
 
 func (sfnt *SFNT) parseCFF2() error {
+	return fmt.Errorf("CFF2: not supported")
+
 	b, ok := sfnt.Tables["CFF2"]
 	if !ok {
 		return fmt.Errorf("CFF2: missing table")

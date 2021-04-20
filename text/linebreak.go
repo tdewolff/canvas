@@ -375,7 +375,7 @@ START:
 
 	// either len(items)==0 or we couldn't find feasible line breaks
 	if lb.activeNodes.head == nil {
-		return []*Breakpoint{&Breakpoint{
+		return []*Breakpoint{{
 			Position: len(lb.items) - 1,
 		}}
 	}
@@ -599,7 +599,7 @@ func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, indent, widt
 	if len(glyphs) == 0 {
 		return [][]Glyph{}
 	}
-	for i, _ := range glyphs {
+	for i := range glyphs {
 		glyphs[i].SFNT = sfnt
 		glyphs[i].Size = size
 	}
@@ -613,7 +613,7 @@ func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, indent, widt
 
 	i, j := 0, 0 // index into: glyphs, breaks/lines
 	atStart := true
-	glyphLines := [][]Glyph{[]Glyph{}}
+	glyphLines := [][]Glyph{{}}
 	if align == Right {
 		glyphLines[j] = append(glyphLines[j], Glyph{SFNT: sfnt, Size: size, ID: spaceID, Text: " ", XAdvance: int32((width - breaks[j].Width) * toUnits)})
 	}

@@ -166,11 +166,11 @@ func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 					lineWidth += width
 				}
 				if halign == Center {
-					for k, _ := range line.spans {
+					for k := range line.spans {
 						line.spans[k].x = -lineWidth / 2.0
 					}
 				} else if halign == Right {
-					for k, _ := range line.spans {
+					for k := range line.spans {
 						line.spans[k].x = -lineWidth
 					}
 				}
@@ -203,6 +203,7 @@ func (indexer indexer) index(loc int) int {
 }
 
 // RichText allows to build up a rich text with text spans of different font faces and by fitting that into a box.
+// TODO: RichText add support for decoration spans to properly underline the spaces betwee words too
 type RichText struct {
 	*strings.Builder
 	locs  indexer // faces locations ino string by number of runes
@@ -330,7 +331,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		ppem := face.PPEM(DefaultResolution)
 		direction := writingModeDirection(rt.mode, face.Direction)
 		glyphsString := face.Font.shaper.Shape(text, ppem, direction, face.Script, face.Language, face.Font.features, face.Font.variations)
-		for i, _ := range glyphsString {
+		for i := range glyphsString {
 			glyphsString[i].SFNT = face.Font.SFNT
 			glyphsString[i].Size = face.Size
 			glyphsString[i].Cluster += clusterOffset
@@ -352,7 +353,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 	// build up lines
 	t := &Text{
-		lines: []line{line{}},
+		lines: []line{{}},
 		fonts: map[*Font]bool{},
 		Face:  faces[0],
 		Mode:  rt.mode,
@@ -499,19 +500,19 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		if valign == Center {
 			dy /= 2.0
 		}
-		for j, _ := range t.lines {
+		for j := range t.lines {
 			t.lines[j].y += dy
 		}
 	} else if valign == Justify {
 		ddy := (height - y) / float64(len(t.lines)-1)
 		dy := 0.0
-		for j, _ := range t.lines {
+		for j := range t.lines {
 			t.lines[j].y += dy
 			dy += ddy
 		}
 	}
 	if rt.mode == VerticalRL {
-		for j, _ := range t.lines {
+		for j := range t.lines {
 			t.lines[j].y = width - t.lines[j].y
 		}
 	}

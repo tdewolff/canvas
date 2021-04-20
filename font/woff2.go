@@ -181,7 +181,7 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 
 	// read font data
 	var offset uint32
-	for i, _ := range tables {
+	for i := range tables {
 		if tables[i].tag == "loca" && tables[i].transformVersion == 0 {
 			continue // will be reconstructed
 		}

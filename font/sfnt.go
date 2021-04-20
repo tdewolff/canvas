@@ -225,7 +225,7 @@ func ParseSFNT(b []byte, index int) (*SFNT, error) {
 	}
 
 	tableNames := make([]string, len(tables))
-	for tableName, _ := range tables {
+	for tableName := range tables {
 		tableNames = append(tableNames, tableName)
 	}
 	sort.Strings(tableNames)
