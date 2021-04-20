@@ -15,8 +15,6 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster i
 
 ### Sponsors
 
-[![SiteGround](https://www.siteground.com/img/downloads/siteground-logo-black-transparent-vector.svg)](https://www.siteground.com/)
-
 Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise please contact me directly!
 
 ## Getting Started
