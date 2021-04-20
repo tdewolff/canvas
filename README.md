@@ -8,16 +8,21 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster i
 
 **Figure 1**: top-left you can see text being fitted into a box and their bounding box (orange-red), the spaces between the words on the first row are being stretched to fill the whole width. You can see all the possible styles and text decorations applied. Also note the typographic substitutions (the quotes) and ligature support (fi, ffi, ffl, ...). Below the text box, the word "stroke" is being stroked and drawn as a path. Top-right we see a LaTeX formula that has been converted to a path. Left of that we see ellipse support showcasing precise dashing, notably the length of e.g. the short dash is equal wherever it is (approximated through arc length parametrization) on the curve. It also shows support for alternating dash lengths, in this case (2.0, 4.0, 2.0) for dashes and for spaces. Note that the dashes themselves are elliptical arcs as well (thus exactly precise even if magnified greatly). In the bottom-right we see a closed polygon of four points being smoothed by cubic Béziers that are smooth along the whole path, and next to it on the left an open path. In the middle you can see a rasterized image painted.
 
+### Sponsors
+
+Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise please contact me directly!
+
 ## Recent changes
 - `DPMM` is now a function just like `DPI`: `rasterizer.PNGWriter(5.0 * canvas.DPMM)` => `rasterizer.PNGWriter(canvas.DPMM(5.0))`
 - `FontFace` is now passed around as a pointer
 - `NewRichText` now requires a default `*FontFace` to be passed
 
-### Sponsors
+## Documentation
+**[API documentation](https://pkg.go.dev/github.com/tdewolff/canvas?tab=doc)**
 
-Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise please contact me directly!
+**[User guide](https://github.com/tdewolff/canvas/wiki)**
 
-## Getting Started
+### Getting Started
 With modules enabled, add the following imports and run the project with `go get`
 
 ```go
@@ -26,14 +31,7 @@ import (
 )
 ```
 
-## Documentation
-**[API documentation](https://pkg.go.dev/github.com/tdewolff/canvas?tab=doc)**
-
-**[User guide](https://github.com/tdewolff/canvas/wiki)**
-
-**[Examples](https://github.com/tdewolff/canvas/wiki)**
-
-## Examples
+### Examples
 **[Street Map](https://github.com/tdewolff/canvas/tree/master/examples/map)**: data is loaded from Open Street Map of the city centre of Amsterdam and rendered to a PNG.
 
 **[CO2 plot](https://github.com/tdewolff/canvas/tree/master/examples/graph)**: a simple graph is being plotted using the CO2 data from the Mauna Loa observatory.
