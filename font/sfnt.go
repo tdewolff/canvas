@@ -51,14 +51,15 @@ type SFNT struct {
 
 	// CFF
 	CFF *cffTable
+	//CFF2 *cff2Table // TODO
 
 	// optional
 	Kern *kernTable
 	Vhea *vheaTable
 	Vmtx *vmtxTable
-	//Gpos *gposTable //TODO
-	//Gsub *gsubTable //TODO
-	//Gasp *gaspTable
+	//Gpos *gposTable // TODO
+	//Gsub *gsubTable // TODO
+	//Gasp *gaspTable // TODO
 }
 
 func (sfnt *SFNT) NumGlyphs() uint16 {
@@ -965,8 +966,7 @@ func (kern *kernTable) Get(l, r uint16) (k int16) {
 		if !subtable.Coverage[1] { // kerning values
 			k += subtable.Get(l, r)
 		} else if min := subtable.Get(l, r); k < min { // minimum values (usually last subtable)
-			// TODO: test
-			k = min
+			k = min // TODO: test minimal kerning
 		}
 	}
 	return
@@ -1327,6 +1327,41 @@ func (sfnt *SFNT) parseOS2() error {
 	return nil
 }
 
+type bboxPather struct {
+	xMin, xMax, yMin, yMax float64
+}
+
+func (p *bboxPather) MoveTo(x float64, y float64) {
+	p.xMin = math.Min(p.xMin, x)
+	p.xMax = math.Max(p.xMax, x)
+	p.yMin = math.Min(p.yMin, y)
+	p.yMax = math.Max(p.yMax, y)
+}
+
+func (p *bboxPather) LineTo(x float64, y float64) {
+	p.xMin = math.Min(p.xMin, x)
+	p.xMax = math.Max(p.xMax, x)
+	p.yMin = math.Min(p.yMin, y)
+	p.yMax = math.Max(p.yMax, y)
+}
+
+func (p *bboxPather) QuadTo(cpx float64, cpy float64, x float64, y float64) {
+	p.xMin = math.Min(math.Min(p.xMin, cpx), x)
+	p.xMax = math.Max(math.Max(p.xMax, cpx), x)
+	p.yMin = math.Min(math.Min(p.yMin, cpy), y)
+	p.yMax = math.Max(math.Max(p.yMax, cpy), y)
+}
+
+func (p *bboxPather) CubeTo(cpx1 float64, cpy1 float64, cpx2 float64, cpy2 float64, x float64, y float64) {
+	p.xMin = math.Min(math.Min(math.Min(p.xMin, cpx1), cpx2), x)
+	p.xMax = math.Max(math.Max(math.Max(p.xMax, cpx1), cpx2), x)
+	p.yMin = math.Min(math.Min(math.Min(p.yMin, cpy1), cpy2), y)
+	p.yMax = math.Max(math.Max(math.Max(p.yMax, cpy1), cpy2), y)
+}
+
+func (p *bboxPather) Close() {
+}
+
 func (sfnt *SFNT) estimateOS2() {
 	if sfnt.IsTrueType {
 		contour, err := sfnt.Glyf.Contour(sfnt.GlyphIndex('x'), 0)
@@ -1338,8 +1373,17 @@ func (sfnt *SFNT) estimateOS2() {
 		if err == nil {
 			sfnt.OS2.SCapHeight = contour.YMax
 		}
+	} else if sfnt.IsCFF {
+		p := &bboxPather{}
+		if err := sfnt.CFF.ToPath(p, sfnt.GlyphIndex('x'), 0, 0, 0, 1.0, NoHinting); err == nil {
+			sfnt.OS2.SxHeight = int16(p.yMax)
+		}
+
+		p = &bboxPather{}
+		if err := sfnt.CFF.ToPath(p, sfnt.GlyphIndex('H'), 0, 0, 0, 1.0, NoHinting); err == nil {
+			sfnt.OS2.SCapHeight = int16(p.yMax)
+		}
 	}
-	// TODO: for CFF
 }
 
 ////////////////////////////////////////////////////////////////
