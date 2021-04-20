@@ -58,7 +58,7 @@ func (r *GoChart) SetDPI(dpi float64) {
 
 // SetClassName sets the current class name.
 func (r *GoChart) SetClassName(name string) {
-	// TODO
+	// TODO: SetClassName
 }
 
 // SetStrokeColor sets the current stroke color.
@@ -141,7 +141,7 @@ func (r *GoChart) Circle(radius float64, x, y int) {
 
 // SetFont sets a font for a text field.
 func (r *GoChart) SetFont(font *truetype.Font) {
-	// TODO
+	// TODO: SetFont
 }
 
 // SetFontColor sets a font's color

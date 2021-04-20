@@ -102,6 +102,23 @@ type TextSpan struct {
 
 ////////////////////////////////////////////////////////////////
 
+func itemizeString(log string) ([]string, []string) {
+	offset := 0
+	vis, mapV2L := canvasText.Bidi(log)
+	itemsV := canvasText.ScriptItemizer(vis)
+	itemsL := make([]string, 0, len(itemsV))
+	for _, item := range itemsV {
+		itemV := []rune(item)
+		itemL := make([]rune, len(itemV))
+		for i := 0; i < len(itemV); i++ {
+			itemL[mapV2L[offset+i]-offset] = itemV[i]
+		}
+		itemsL = append(itemsL, string(itemL))
+		offset += len(itemV)
+	}
+	return itemsL, itemsV
+}
+
 // NewTextLine is a simple text line using a font face, a string (supporting new lines) and horizontal alignment (Left, Center, Right).
 func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 	t := &Text{
@@ -125,7 +142,7 @@ func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 				ppem := face.PPEM(DefaultResolution)
 				lineWidth := 0.0
 				line := line{y: y, spans: []TextSpan{}}
-				itemsL, itemsV := itemizeString(s[i:j]) // TODO: use same as RichText?
+				itemsL, itemsV := itemizeString(s[i:j])
 				for k := 0; k < len(itemsL); k++ {
 					glyphs := face.Font.shaper.Shape(itemsV[k], ppem, face.Direction, face.Script, face.Language, face.Font.features, face.Font.variations)
 					width := face.textWidth(glyphs)
@@ -645,7 +662,6 @@ func (t *Text) WalkDecorations(callback func(col color.RGBA, deco *Path)) {
 				for i, deco := range active {
 					if span.Face.Color == deco.col && reflect.DeepEqual(deco.deco, spanDeco) {
 						// extend decoration
-						fmt.Println("extend", active[i].width, span.x+span.Width-active[i].x)
 						active[i].width = span.x + span.Width - active[i].x
 						if active[i].face.Size < span.Face.Size {
 							active[i].face = span.Face
@@ -666,7 +682,6 @@ func (t *Text) WalkDecorations(callback func(col color.RGBA, deco *Path)) {
 					})
 				}
 			}
-			fmt.Println(active, foundActive)
 
 			if k == len(line.spans)-1 {
 				foundActive = make([]bool, len(active))
@@ -721,7 +736,7 @@ func (t *Text) WalkSpans(callback func(x, y float64, span TextSpan)) {
 }
 
 // RenderAsPath renders the text (and its decorations) converted to paths (calling r.RenderPath)
-func (t *Text) RenderAsPath(r Renderer, m Matrix) {
+func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
 	t.WalkDecorations(func(col color.RGBA, p *Path) {
 		style := DefaultStyle
 		style.FillColor = col
@@ -737,7 +752,7 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix) {
 
 			style := DefaultStyle
 			style.FillColor = span.Face.Color
-			p, _, err := span.Face.toPath(span.Glyphs, span.Face.PPEM(DefaultResolution))
+			p, _, err := span.Face.toPath(span.Glyphs, span.Face.PPEM(resolution))
 			if err != nil {
 				panic(err)
 			}
@@ -745,21 +760,4 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix) {
 			r.RenderPath(p, style, m)
 		}
 	}
-}
-
-func itemizeString(log string) ([]string, []string) {
-	offset := 0
-	vis, mapV2L := canvasText.Bidi(log)
-	itemsV := canvasText.ScriptItemizer(vis)
-	itemsL := make([]string, 0, len(itemsV))
-	for _, item := range itemsV {
-		itemV := []rune(item)
-		itemL := make([]rune, len(itemV))
-		for i := 0; i < len(itemV); i++ {
-			itemL[mapV2L[offset+i]-offset] = itemV[i]
-		}
-		itemsL = append(itemsL, string(itemL))
-		offset += len(itemV)
-	}
-	return itemsL, itemsV
 }

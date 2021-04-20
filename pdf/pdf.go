@@ -83,7 +83,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 	}
 
 	// PDFs don't support connecting first and last dashes if path is closed, so we move the start of the path if this is the case
-	// TODO
+	// TODO: closing dashes
 	//if style.DashesClose {
 	//	strokeUnsupported = true
 	//}
