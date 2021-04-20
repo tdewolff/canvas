@@ -51,7 +51,6 @@ package main
 //	runtime.LockOSThread()
 //
 //	fontFamily := canvas.NewFontFamily("dejavu-serif")
-//	fontFamily.Use(canvas.CommonLigatures)
 //	if err := fontFamily.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
 //		panic(err)
 //	}

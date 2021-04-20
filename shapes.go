@@ -151,4 +151,21 @@ func StarPolygon(n int, R, r float64, up bool) *Path {
 	return p
 }
 
-// TODO: Grid
+// Grid returns a stroked grid of width w and height h, with grid line thickness r, and the number of cells horizontally and vertically as nx and ny respectively.
+func Grid(w, h float64, nx, ny int, r float64) *Path {
+	if nx < 1 || ny < 1 || w <= float64(nx+1)*r || h <= float64(ny+1)*r {
+		return &Path{}
+	}
+
+	p := Rectangle(w, h)
+	dx, dy := (w-float64(nx+1)*r)/float64(nx), (h-float64(ny+1)*r)/float64(ny)
+	cell := Rectangle(dx, dy).Reverse()
+	for j := 0; j < ny; j++ {
+		for i := 0; i < nx; i++ {
+			x := r + float64(i)*(r+dx)
+			y := r + float64(j)*(r+dy)
+			p = p.Append(cell.Translate(x, y))
+		}
+	}
+	return p
+}

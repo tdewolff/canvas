@@ -1,7 +1,96 @@
 package font
 
-var macintoshGlyphNames []string = []string{
-	"notdef",
+type PlatformID uint16
+
+const (
+	PlatformUnicode   = PlatformID(0)
+	PlatformMacintosh = PlatformID(1)
+	PlatformWindows   = PlatformID(3)
+	PlatformCustom    = PlatformID(4)
+)
+
+type EncodingID uint16
+
+const (
+	EncodingUnicode2BMP                 = EncodingID(3)
+	EncodingUnicode2FullRepertoir       = EncodingID(4)
+	EncodingUnicodeVariationSequences   = EncodingID(5)
+	EncodingUnicodeFullRepertoire       = EncodingID(6)
+	EncodingMacintoshRoman              = EncodingID(0)
+	EncodingMacintoshJapanese           = EncodingID(1)
+	EncodingMacintoshChineseTraditional = EncodingID(2)
+	EncodingMacintoshKorean             = EncodingID(3)
+	EncodingMacintoshArabic             = EncodingID(4)
+	EncodingMacintoshHebrew             = EncodingID(5)
+	EncodingMacintoshGreek              = EncodingID(6)
+	EncodingMacintoshRussian            = EncodingID(7)
+	EncodingMacintoshRSymbol            = EncodingID(8)
+	EncodingMacintoshDevanagari         = EncodingID(9)
+	EncodingMacintoshGurmukhi           = EncodingID(10)
+	EncodingMacintoshGujarati           = EncodingID(11)
+	EncodingMacintoshOriya              = EncodingID(12)
+	EncodingMacintoshBengali            = EncodingID(13)
+	EncodingMacintoshTamil              = EncodingID(14)
+	EncodingMacintoshTelugu             = EncodingID(15)
+	EncodingMacintoshKannada            = EncodingID(16)
+	EncodingMacintoshMalayalam          = EncodingID(17)
+	EncodingMacintoshSinhalese          = EncodingID(18)
+	EncodingMacintoshBurmese            = EncodingID(19)
+	EncodingMacintoshKhmer              = EncodingID(20)
+	EncodingMacintoshThai               = EncodingID(21)
+	EncodingMacintoshLaotian            = EncodingID(22)
+	EncodingMacintoshGeorgian           = EncodingID(23)
+	EncodingMacintoshArmenian           = EncodingID(24)
+	EncodingMacintoshChineseSimplified  = EncodingID(25)
+	EncodingMacintoshTibetan            = EncodingID(26)
+	EncodingMacintoshMongolian          = EncodingID(27)
+	EncodingMacintoshGeez               = EncodingID(28)
+	EncodingMacintoshSlavic             = EncodingID(29)
+	EncodingMacintoshVietnamese         = EncodingID(30)
+	EncodingMacintoshSindhi             = EncodingID(31)
+	EncodingMacintoshUninterpreted      = EncodingID(32)
+	EncodingWindowsSymbol               = EncodingID(0)
+	EncodingWindowsUnicodeBMP           = EncodingID(1)
+	EncodingWindowsShiftJIS             = EncodingID(2)
+	EncodingWindowsPRC                  = EncodingID(3)
+	EncodingWindowsBig5                 = EncodingID(4)
+	EncodingWindowsWansung              = EncodingID(5)
+	EncodingWindowsJohab                = EncodingID(6)
+	EncodingWindowsUnicodeFullRepertoir = EncodingID(10)
+)
+
+type NameID uint16
+
+const (
+	NameCopyrightNotice            = NameID(0)
+	NameFontFamily                 = NameID(1)
+	NameFontSubfamily              = NameID(2)
+	NameUniqueIdentifier           = NameID(3)
+	NameFull                       = NameID(4)
+	NameVersion                    = NameID(5)
+	NamePostScript                 = NameID(6)
+	NameTrademark                  = NameID(7)
+	NameManufacturer               = NameID(8)
+	NameDesigner                   = NameID(9)
+	NameDescription                = NameID(10)
+	NameVendorURL                  = NameID(11)
+	NameDesignerURL                = NameID(12)
+	NameLicense                    = NameID(13)
+	NameLicenseURL                 = NameID(14)
+	NamePreferredFamily            = NameID(16)
+	NamePreferredSubfamily         = NameID(17)
+	NameCompatibleFull             = NameID(18)
+	NameSampleText                 = NameID(19)
+	NamePostScriptCID              = NameID(20)
+	NameWWSFamily                  = NameID(21)
+	NameWWSSubfamily               = NameID(22)
+	NameLightBackgroundPalette     = NameID(23)
+	NameDarkBackgroundPalette      = NameID(24)
+	NameVariationsPostScriptPrefix = NameID(25)
+)
+
+var macintoshGlyphNames = []string{
+	".notdef",
 	".null",
 	"nonmarkingreturn",
 	"space",
@@ -259,4 +348,398 @@ var macintoshGlyphNames []string = []string{
 	"Ccaron",
 	"ccaron",
 	"dcroat",
+}
+
+var cffStandardStrings = []string{
+	".notdef",
+	"space",
+	"exclam",
+	"quotedbl",
+	"numbersign",
+	"dollar",
+	"percent",
+	"ampersand",
+	"quoteright",
+	"parenleft",
+	"parenright",
+	"asterisk",
+	"plus",
+	"comma",
+	"hyphen",
+	"period",
+	"slash",
+	"zero",
+	"one",
+	"two",
+	"three",
+	"four",
+	"five",
+	"six",
+	"seven",
+	"eight",
+	"nine",
+	"colon",
+	"semicolon",
+	"less",
+	"equal",
+	"greater",
+	"question",
+	"at",
+	"A",
+	"B",
+	"C",
+	"D",
+	"E",
+	"F",
+	"G",
+	"H",
+	"I",
+	"J",
+	"K",
+	"L",
+	"M",
+	"N",
+	"O",
+	"P",
+	"Q",
+	"R",
+	"S",
+	"T",
+	"U",
+	"V",
+	"W",
+	"X",
+	"Y",
+	"Z",
+	"bracketleft",
+	"backslash",
+	"bracketright",
+	"asciicircum",
+	"underscore",
+	"quoteleft",
+	"a",
+	"b",
+	"c",
+	"d",
+	"e",
+	"f",
+	"g",
+	"h",
+	"i",
+	"j",
+	"k",
+	"l",
+	"m",
+	"n",
+	"o",
+	"p",
+	"q",
+	"r",
+	"s",
+	"t",
+	"u",
+	"v",
+	"w",
+	"x",
+	"y",
+	"z",
+	"braceleft",
+	"bar",
+	"braceright",
+	"asciitilde",
+	"exclamdown",
+	"cent",
+	"sterling",
+	"fraction",
+	"yen",
+	"florin",
+	"section",
+	"currency",
+	"quotesingle",
+	"quotedblleft",
+	"guillemotleft",
+	"guilsinglleft",
+	"guilsinglright",
+	"fi",
+	"fl",
+	"endash",
+	"dagger",
+	"daggerdbl",
+	"periodcentered",
+	"paragraph",
+	"bullet",
+	"quotesinglbase",
+	"quotedblbase",
+	"quotedblright",
+	"guillemotright",
+	"ellipsis",
+	"perthousand",
+	"questiondown",
+	"grave",
+	"acute",
+	"circumflex",
+	"tilde",
+	"macron",
+	"breve",
+	"dotaccent",
+	"dieresis",
+	"ring",
+	"cedilla",
+	"hungarumlaut",
+	"ogonek",
+	"caron",
+	"emdash",
+	"AE",
+	"ordfeminine",
+	"Lslash",
+	"Oslash",
+	"OE",
+	"ordmasculine",
+	"ae",
+	"dotlessi",
+	"lslash",
+	"oslash",
+	"oe",
+	"germandbls",
+	"onesuperior",
+	"logicalnot",
+	"mu",
+	"trademark",
+	"Eth",
+	"onehalf",
+	"plusminus",
+	"Thorn",
+	"onequarter",
+	"divide",
+	"brokenbar",
+	"degree",
+	"thorn",
+	"threequarters",
+	"twosuperior",
+	"registered",
+	"minus",
+	"eth",
+	"multiply",
+	"threesuperior",
+	"copyright",
+	"Aacute",
+	"Acircumflex",
+	"Adieresis",
+	"Agrave",
+	"Aring",
+	"Atilde",
+	"Ccedilla",
+	"Eacute",
+	"Ecircumflex",
+	"Edieresis",
+	"Egrave",
+	"Iacute",
+	"Icircumflex",
+	"Idieresis",
+	"Igrave",
+	"Ntilde",
+	"Oacute",
+	"Ocircumflex",
+	"Odieresis",
+	"Ograve",
+	"Otilde",
+	"Scaron",
+	"Uacute",
+	"Ucircumflex",
+	"Udieresis",
+	"Ugrave",
+	"Yacute",
+	"Ydieresis",
+	"Zcaron",
+	"aacute",
+	"acircumflex",
+	"adieresis",
+	"agrave",
+	"aring",
+	"atilde",
+	"ccedilla",
+	"eacute",
+	"ecircumflex",
+	"edieresis",
+	"egrave",
+	"iacute",
+	"icircumflex",
+	"idieresis",
+	"igrave",
+	"ntilde",
+	"oacute",
+	"ocircumflex",
+	"odieresis",
+	"ograve",
+	"otilde",
+	"scaron",
+	"uacute",
+	"ucircumflex",
+	"udieresis",
+	"ugrave",
+	"yacute",
+	"ydieresis",
+	"zcaron",
+	"exclamsmall",
+	"Hungarumlautsmall",
+	"dollaroldstyle",
+	"dollarsuperior",
+	"ampersandsmall",
+	"Acutesmall",
+	"parenleftsuperior",
+	"parenrightsuperior",
+	"twodotenleader",
+	"onedotenleader",
+	"zerooldstyle",
+	"oneoldstyle",
+	"twooldstyle",
+	"threeoldstyle",
+	"fouroldstyle",
+	"fiveoldstyle",
+	"sixoldstyle",
+	"sevenoldstyle",
+	"eightoldstyle",
+	"nineoldstyle",
+	"commasuperior",
+	"threequartersemdash",
+	"periodsuperior",
+	"questionsmall",
+	"asuperior",
+	"bsuperior",
+	"centsuperior",
+	"dsuperior",
+	"esuperior",
+	"isuperior",
+	"lsuperior",
+	"msuperior",
+	"nsuperior",
+	"osuperior",
+	"rsuperior",
+	"ssuperior",
+	"tsuperior",
+	"ff",
+	"ffi",
+	"ffl",
+	"parenleftinferior",
+	"parenrightinferior",
+	"Circumflexsmall",
+	"hyphensuperior",
+	"Gravesmall",
+	"Asmall",
+	"Bsmall",
+	"Csmall",
+	"Dsmall",
+	"Esmall",
+	"Fsmall",
+	"Gsmall",
+	"Hsmall",
+	"Ismall",
+	"Jsmall",
+	"Ksmall",
+	"Lsmall",
+	"Msmall",
+	"Nsmall",
+	"Osmall",
+	"Psmall",
+	"Qsmall",
+	"Rsmall",
+	"Ssmall",
+	"Tsmall",
+	"Usmall",
+	"Vsmall",
+	"Wsmall",
+	"Xsmall",
+	"Ysmall",
+	"Zsmall",
+	"colonmonetary",
+	"onefitted",
+	"rupiah",
+	"Tildesmall",
+	"exclamdownsmall",
+	"centoldstyle",
+	"Lslashsmall",
+	"Scaronsmall",
+	"Zcaronsmall",
+	"Dieresissmall",
+	"Brevesmall",
+	"Caronsmall",
+	"Dotaccentsmall",
+	"Macronsmall",
+	"figuredash",
+	"hypheninferior",
+	"Ogoneksmall",
+	"Ringsmall",
+	"Cedillasmall",
+	"questiondownsmall",
+	"oneeighth",
+	"threeeighths",
+	"fiveeighths",
+	"seveneighths",
+	"onethird",
+	"twothirds",
+	"zerosuperior",
+	"foursuperior",
+	"fivesuperior",
+	"sixsuperior",
+	"sevensuperior",
+	"eightsuperior",
+	"ninesuperior",
+	"zeroinferior",
+	"oneinferior",
+	"twoinferior",
+	"threeinferior",
+	"fourinferior",
+	"fiveinferior",
+	"sixinferior",
+	"seveninferior",
+	"eightinferior",
+	"nineinferior",
+	"centinferior",
+	"dollarinferior",
+	"periodinferior",
+	"commainferior",
+	"Agravesmall",
+	"Aacutesmall",
+	"Acircumflexsmall",
+	"Atildesmall",
+	"Adieresissmall",
+	"Aringsmall",
+	"AEsmall",
+	"Ccedillasmall",
+	"Egravesmall",
+	"Eacutesmall",
+	"Ecircumflexsmall",
+	"Edieresissmall",
+	"Igravesmall",
+	"Iacutesmall",
+	"Icircumflexsmall",
+	"Idieresissmall",
+	"Ethsmall",
+	"Ntildesmall",
+	"Ogravesmall",
+	"Oacutesmall",
+	"Ocircumflexsmall",
+	"Otildesmall",
+	"Odieresissmall",
+	"OEsmall",
+	"Oslashsmall",
+	"Ugravesmall",
+	"Uacutesmall",
+	"Ucircumflexsmall",
+	"Udieresissmall",
+	"Yacutesmall",
+	"Thornsmall",
+	"Ydieresissmall",
+	"001.000",
+	"001.001",
+	"001.002",
+	"001.003",
+	"Black",
+	"Bold",
+	"Book",
+	"Light",
+	"Medium",
+	"Regular",
+	"Roman",
+	"Semibold",
 }

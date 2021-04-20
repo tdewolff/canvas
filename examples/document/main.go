@@ -12,7 +12,6 @@ var fontFamily *canvas.FontFamily
 
 func main() {
 	fontFamily = canvas.NewFontFamily("times")
-	fontFamily.Use(canvas.CommonLigatures)
 	if err := fontFamily.LoadLocalFont("NimbusRoman-Regular", canvas.FontRegular); err != nil {
 		panic(err)
 	}

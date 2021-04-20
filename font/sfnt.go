@@ -5,14 +5,33 @@ import (
 	"fmt"
 	"math"
 	"sort"
-	"strings"
 	"time"
+
+	"golang.org/x/text/encoding"
+	"golang.org/x/text/encoding/charmap"
+	"golang.org/x/text/encoding/unicode"
+	"golang.org/x/text/transform"
 )
 
 const MaxCmapSegments = 20000
 
+type Pather interface {
+	MoveTo(float64, float64)
+	LineTo(float64, float64)
+	QuadTo(float64, float64, float64, float64)
+	CubeTo(float64, float64, float64, float64, float64, float64)
+	Close()
+}
+
+type Hinting int
+
+const (
+	NoHinting Hinting = iota
+)
+
 type SFNT struct {
 	Data              []byte
+	Version           string
 	IsCFF, IsTrueType bool // only one can be true
 	Tables            map[string][]byte
 
@@ -31,13 +50,20 @@ type SFNT struct {
 	Loca *locaTable
 
 	// CFF
-	//CFF  *cffTable
+	CFF *cffTable
 
 	// optional
 	Kern *kernTable
-	//Gpos *gposTable
-	//Gasp *gaspTable
+	Vhea *vheaTable
+	Vmtx *vmtxTable
+	//Gpos *gposTable // TODO
+	//Gsub *gsubTable // TODO
+	//Gasp *gaspTable // TODO
+	//Base *baseTable // TODO
+}
 
+func (sfnt *SFNT) NumGlyphs() uint16 {
+	return sfnt.Maxp.NumGlyphs
 }
 
 func (sfnt *SFNT) GlyphIndex(r rune) uint16 {
@@ -48,38 +74,81 @@ func (sfnt *SFNT) GlyphName(glyphID uint16) string {
 	return sfnt.Post.Get(glyphID)
 }
 
-func (sfnt *SFNT) GlyphContour(glyphID uint16) (*glyfContour, error) {
-	if !sfnt.IsTrueType {
-		return nil, fmt.Errorf("CFF not supported")
+func (sfnt *SFNT) GlyphPath(p Pather, glyphID, ppem uint16, x, y int32, scale float64, hinting Hinting) error {
+	if sfnt.IsTrueType {
+		return sfnt.Glyf.ToPath(p, glyphID, ppem, x, y, scale, hinting)
+	} else if sfnt.IsCFF {
+		return sfnt.CFF.ToPath(p, glyphID, ppem, x, y, scale, hinting)
 	}
-	return sfnt.Glyf.Contour(glyphID, 0)
+	return fmt.Errorf("only TrueType and CFF are supported")
 }
 
 func (sfnt *SFNT) GlyphAdvance(glyphID uint16) uint16 {
 	return sfnt.Hmtx.Advance(glyphID)
 }
 
+func (sfnt *SFNT) GlyphVerticalAdvance(glyphID uint16) uint16 {
+	if sfnt.Vmtx == nil {
+		return sfnt.Head.UnitsPerEm
+	}
+	return sfnt.Vmtx.Advance(glyphID)
+}
+
 func (sfnt *SFNT) Kerning(left, right uint16) int16 {
+	if sfnt.Kern == nil {
+		return 0
+	}
 	return sfnt.Kern.Get(left, right)
 }
 
-func ParseSFNT(b []byte) (*SFNT, error) {
+func ParseSFNT(b []byte, index int) (*SFNT, error) {
 	if len(b) < 12 || math.MaxUint32 < len(b) {
 		return nil, ErrInvalidFontData
 	}
 
 	r := newBinaryReader(b)
 	sfntVersion := r.ReadString(4)
+	if sfntVersion == "ttcf" {
+		majorVersion := r.ReadUint16()
+		minorVersion := r.ReadUint16()
+		if majorVersion != 1 && majorVersion != 2 || minorVersion != 0 {
+			return nil, fmt.Errorf("bad TTC version")
+		}
+
+		numFonts := r.ReadUint32()
+		if index < 0 || numFonts <= uint32(index) {
+			return nil, fmt.Errorf("bad font index %d", index)
+		}
+		if r.Len() < 4*numFonts {
+			return nil, ErrInvalidFontData
+		}
+
+		_ = r.ReadBytes(uint32(4 * index))
+		offset := r.ReadUint32()
+		var length uint32
+		if uint32(index)+1 == numFonts {
+			length = uint32(len(b)) - offset
+		} else {
+			length = r.ReadUint32() - offset
+		}
+		if uint32(len(b))-8 < offset || uint32(len(b))-8-offset < length {
+			return nil, ErrInvalidFontData
+		}
+
+		r.Seek(offset)
+		b = b[offset : offset+length]
+		sfntVersion = r.ReadString(4)
+	} else if index != 0 {
+		return nil, fmt.Errorf("bad font index %d", index)
+	}
 	if sfntVersion != "OTTO" && binary.BigEndian.Uint32([]byte(sfntVersion)) != 0x00010000 {
 		return nil, fmt.Errorf("bad SFNT version")
 	}
 	numTables := r.ReadUint16()
-	_ = r.ReadUint16() // searchRange
-	_ = r.ReadUint16() // entrySelector
-	_ = r.ReadUint16() // rangeShift
-
-	frontSize := 12 + 16*uint32(numTables) // can never exceed uint32 as numTables is uint16
-	if uint32(len(b)) < frontSize {
+	_ = r.ReadUint16()                  // searchRange
+	_ = r.ReadUint16()                  // entrySelector
+	_ = r.ReadUint16()                  // rangeShift
+	if r.Len() < 16*uint32(numTables) { // can never exceed uint32 as numTables is uint16
 		return nil, ErrInvalidFontData
 	}
 
@@ -117,6 +186,7 @@ func ParseSFNT(b []byte) (*SFNT, error) {
 
 	sfnt := &SFNT{}
 	sfnt.Data = b
+	sfnt.Version = sfntVersion
 	sfnt.IsCFF = sfntVersion == "OTTO"
 	sfnt.IsTrueType = binary.BigEndian.Uint32([]byte(sfntVersion)) == 0x00010000
 	sfnt.Tables = tables
@@ -162,10 +232,10 @@ func ParseSFNT(b []byte) (*SFNT, error) {
 	for _, tableName := range tableNames {
 		var err error
 		switch tableName {
-		//case "CFF ":
-		//	err = sfnt.parseCFF()
-		//case "CFF2":
-		//	err = sfnt.parseCFF2()
+		case "CFF ":
+			err = sfnt.parseCFF()
+		case "CFF2":
+			err = sfnt.parseCFF2()
 		case "cmap":
 			err = sfnt.parseCmap()
 		case "glyf":
@@ -180,10 +250,17 @@ func ParseSFNT(b []byte) (*SFNT, error) {
 			err = sfnt.parseOS2()
 		case "post":
 			err = sfnt.parsePost()
+		case "vhea":
+			err = sfnt.parseVhea()
+		case "vmtx":
+			err = sfnt.parseVmtx()
 		}
 		if err != nil {
 			return nil, err
 		}
+	}
+	if sfnt.OS2.Version <= 1 {
+		sfnt.estimateOS2()
 	}
 	return sfnt, nil
 }
@@ -192,6 +269,8 @@ func ParseSFNT(b []byte) (*SFNT, error) {
 
 type cmapFormat0 struct {
 	GlyphIdArray [256]uint8
+
+	UnicodeMap map[uint16]rune
 }
 
 func (subtable *cmapFormat0) Get(r rune) (uint16, bool) {
@@ -201,12 +280,27 @@ func (subtable *cmapFormat0) Get(r rune) (uint16, bool) {
 	return uint16(subtable.GlyphIdArray[r]), true
 }
 
+func (subtable *cmapFormat0) ToUnicode(glyphID uint16) (rune, bool) {
+	if 256 <= glyphID {
+		return 0, false
+	} else if subtable.UnicodeMap == nil {
+		subtable.UnicodeMap = make(map[uint16]rune, 256)
+		for r, id := range subtable.GlyphIdArray {
+			subtable.UnicodeMap[uint16(id)] = rune(r)
+		}
+	}
+	r, ok := subtable.UnicodeMap[glyphID]
+	return r, ok
+}
+
 type cmapFormat4 struct {
 	StartCode     []uint16
 	EndCode       []uint16
 	IdDelta       []int16
 	IdRangeOffset []uint16
 	GlyphIdArray  []uint16
+
+	UnicodeMap map[uint16]rune
 }
 
 func (subtable *cmapFormat4) Get(r rune) (uint16, bool) {
@@ -230,6 +324,31 @@ func (subtable *cmapFormat4) Get(r rune) (uint16, bool) {
 	return 0, false
 }
 
+func (subtable *cmapFormat4) ToUnicode(glyphID uint16) (rune, bool) {
+	if subtable.UnicodeMap == nil {
+		subtable.UnicodeMap = map[uint16]rune{}
+		n := len(subtable.StartCode)
+		for i := 0; i < n; i++ {
+			for r := subtable.StartCode[i]; r < subtable.EndCode[i]; r++ {
+				var id uint16
+				if subtable.IdRangeOffset[i] == 0 {
+					// is modulo 65536 with the idDelta cast and addition overflow
+					id = uint16(subtable.IdDelta[i]) + r
+				} else {
+					// idRangeOffset/2  ->  offset value to index of words
+					// r-startCode  ->  difference of rune with startCode
+					// -(n-1)  ->  subtract offset from the current idRangeOffset item
+					index := int(subtable.IdRangeOffset[i]/2) + int(r-subtable.StartCode[i]) - (n - i)
+					id = subtable.GlyphIdArray[index]
+				}
+				subtable.UnicodeMap[id] = rune(r)
+			}
+		}
+	}
+	r, ok := subtable.UnicodeMap[glyphID]
+	return r, ok
+}
+
 type cmapFormat6 struct {
 	FirstCode    uint16
 	GlyphIdArray []uint16
@@ -242,10 +361,21 @@ func (subtable *cmapFormat6) Get(r rune) (uint16, bool) {
 	return subtable.GlyphIdArray[uint32(r)-uint32(subtable.FirstCode)], true
 }
 
+func (subtable *cmapFormat6) ToUnicode(glyphID uint16) (rune, bool) {
+	for i, id := range subtable.GlyphIdArray {
+		if id == glyphID {
+			return rune(subtable.FirstCode) + rune(i), true
+		}
+	}
+	return 0, false
+}
+
 type cmapFormat12 struct {
 	StartCharCode []uint32
 	EndCharCode   []uint32
 	StartGlyphID  []uint32
+
+	UnicodeMap map[uint16]rune
 }
 
 func (subtable *cmapFormat12) Get(r rune) (uint16, bool) {
@@ -260,6 +390,20 @@ func (subtable *cmapFormat12) Get(r rune) (uint16, bool) {
 	return 0, false
 }
 
+func (subtable *cmapFormat12) ToUnicode(glyphID uint16) (rune, bool) {
+	if subtable.UnicodeMap == nil {
+		subtable.UnicodeMap = map[uint16]rune{}
+		for i := 0; i < len(subtable.StartCharCode); i++ {
+			for r := subtable.StartCharCode[i]; r < subtable.EndCharCode[i]; r++ {
+				id := uint16((uint32(r) - subtable.StartCharCode[i]) + subtable.StartGlyphID[i])
+				subtable.UnicodeMap[id] = rune(r)
+			}
+		}
+	}
+	r, ok := subtable.UnicodeMap[glyphID]
+	return r, ok
+}
+
 type cmapEncodingRecord struct {
 	PlatformID uint16
 	EncodingID uint16
@@ -269,6 +413,7 @@ type cmapEncodingRecord struct {
 
 type cmapSubtable interface {
 	Get(rune) (uint16, bool)
+	ToUnicode(uint16) (rune, bool)
 }
 
 type cmapTable struct {
@@ -276,10 +421,19 @@ type cmapTable struct {
 	Subtables       []cmapSubtable
 }
 
-func (t *cmapTable) Get(r rune) uint16 {
-	for _, subtable := range t.Subtables {
+func (cmap *cmapTable) Get(r rune) uint16 {
+	for _, subtable := range cmap.Subtables {
 		if glyphID, ok := subtable.Get(r); ok {
 			return glyphID
+		}
+	}
+	return 0
+}
+
+func (cmap *cmapTable) ToUnicode(glyphID uint16) rune {
+	for _, subtable := range cmap.Subtables {
+		if r, ok := subtable.ToUnicode(glyphID); ok {
+			return r
 		}
 	}
 	return 0
@@ -501,270 +655,6 @@ func (sfnt *SFNT) parseCmap() error {
 
 ////////////////////////////////////////////////////////////////
 
-type glyfContour struct {
-	GlyphID                uint16
-	XMin, YMin, XMax, YMax int16
-	EndPoints              []uint16
-	Instructions           []byte
-	OnCurve                []bool
-	XCoordinates           []int16
-	YCoordinates           []int16
-}
-
-func (contour *glyfContour) String() string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "Glyph %v:\n", contour.GlyphID)
-	fmt.Fprintf(&b, "  Contours: %v\n", len(contour.EndPoints))
-	fmt.Fprintf(&b, "  XMin: %v\n", contour.XMin)
-	fmt.Fprintf(&b, "  YMin: %v\n", contour.YMin)
-	fmt.Fprintf(&b, "  XMax: %v\n", contour.XMax)
-	fmt.Fprintf(&b, "  YMax: %v\n", contour.YMax)
-	fmt.Fprintf(&b, "  EndPoints: %v\n", contour.EndPoints)
-	fmt.Fprintf(&b, "  Instruction length: %v\n", len(contour.Instructions))
-	fmt.Fprintf(&b, "  Coordinates:\n")
-	for i := 0; i <= int(contour.EndPoints[len(contour.EndPoints)-1]); i++ {
-		fmt.Fprintf(&b, "    ")
-		if i < len(contour.XCoordinates) {
-			fmt.Fprintf(&b, "%8v", contour.XCoordinates[i])
-		} else {
-			fmt.Fprintf(&b, "  ----  ")
-		}
-		if i < len(contour.YCoordinates) {
-			fmt.Fprintf(&b, " %8v", contour.YCoordinates[i])
-		} else {
-			fmt.Fprintf(&b, "   ----  ")
-		}
-		if i < len(contour.OnCurve) {
-			onCurve := "Off"
-			if contour.OnCurve[i] {
-				onCurve = "On"
-			}
-			fmt.Fprintf(&b, " %3v\n", onCurve)
-		} else {
-			fmt.Fprintf(&b, " ---\n")
-		}
-	}
-	return b.String()
-}
-
-type glyfTable struct {
-	data []byte
-	loca *locaTable
-}
-
-func (glyf *glyfTable) Get(glyphID uint16) []byte {
-	if len(glyf.loca.Offsets) <= int(glyphID)+1 {
-		return nil
-	}
-	start := glyf.loca.Offsets[glyphID]
-	end := glyf.loca.Offsets[glyphID+1]
-	return glyf.data[start:end]
-}
-
-func (glyf *glyfTable) Contour(glyphID uint16, level int) (*glyfContour, error) {
-	b := glyf.Get(glyphID)
-	if b == nil {
-		return nil, fmt.Errorf("glyf: bad glyphID %v", glyphID)
-	} else if len(b) == 0 {
-		return nil, nil
-	}
-	r := newBinaryReader(b)
-	if r.Len() < 10 {
-		return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
-	}
-
-	contour := &glyfContour{}
-	contour.GlyphID = glyphID
-	numberOfContours := r.ReadInt16()
-	contour.XMin = r.ReadInt16()
-	contour.YMin = r.ReadInt16()
-	contour.XMax = r.ReadInt16()
-	contour.YMax = r.ReadInt16()
-	if 0 <= numberOfContours {
-		// simple glyph
-		if r.Len() < 2*uint32(numberOfContours)+2 {
-			return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
-		}
-		contour.EndPoints = make([]uint16, numberOfContours)
-		for i := 0; i < int(numberOfContours); i++ {
-			contour.EndPoints[i] = r.ReadUint16()
-		}
-
-		instructionLength := r.ReadUint16()
-		if r.Len() < uint32(instructionLength) {
-			return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
-		}
-		contour.Instructions = r.ReadBytes(uint32(instructionLength))
-
-		numPoints := int(contour.EndPoints[numberOfContours-1]) + 1
-		flags := make([]byte, numPoints)
-		contour.OnCurve = make([]bool, numPoints)
-		for i := 0; i < numPoints; i++ {
-			if r.Len() < 1 {
-				return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
-			}
-
-			flags[i] = r.ReadByte()
-			contour.OnCurve[i] = flags[i]&0x01 != 0
-			if flags[i]&0x08 != 0 { // REPEAT_FLAG
-				repeat := r.ReadByte()
-				for j := 1; j <= int(repeat); j++ {
-					flags[i+j] = flags[i]
-					contour.OnCurve[i+j] = contour.OnCurve[i]
-				}
-				i += int(repeat)
-			}
-		}
-
-		var x int16
-		contour.XCoordinates = make([]int16, numPoints)
-		for i := 0; i < numPoints; i++ {
-			xShortVector := flags[i]&0x02 != 0
-			xIsSameOrPositiveXShortVector := flags[i]&0x10 != 0
-			if xShortVector {
-				if r.Len() < 1 {
-					return nil, fmt.Errorf("glyf: bad table or flags for glyphID %v", glyphID)
-				}
-				if xIsSameOrPositiveXShortVector {
-					x += int16(r.ReadUint8())
-				} else {
-					x -= int16(r.ReadUint8())
-				}
-			} else if !xIsSameOrPositiveXShortVector {
-				if r.Len() < 2 {
-					return nil, fmt.Errorf("glyf: bad table or flags for glyphID %v", glyphID)
-				}
-				x += r.ReadInt16()
-			}
-			contour.XCoordinates[i] = x
-		}
-
-		var y int16
-		contour.YCoordinates = make([]int16, numPoints)
-		for i := 0; i < numPoints; i++ {
-			yShortVector := flags[i]&0x04 != 0
-			yIsSameOrPositiveYShortVector := flags[i]&0x20 != 0
-			if yShortVector {
-				if r.Len() < 1 {
-					return nil, fmt.Errorf("glyf: bad table or flags for glyphID %v", glyphID)
-				}
-				if yIsSameOrPositiveYShortVector {
-					y += int16(r.ReadUint8())
-				} else {
-					y -= int16(r.ReadUint8())
-				}
-			} else if !yIsSameOrPositiveYShortVector {
-				if r.Len() < 2 {
-					return nil, fmt.Errorf("glyf: bad table or flags for glyphID %v", glyphID)
-				}
-				y += r.ReadInt16()
-			}
-			contour.YCoordinates[i] = y
-		}
-	} else {
-		if 7 < level {
-			return nil, fmt.Errorf("glyf: compound glyphs too deeply nested")
-		}
-
-		// composite glyph
-		for {
-			if r.Len() < 4 {
-				return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
-			}
-
-			flags := r.ReadUint16()
-			subGlyphID := r.ReadUint16()
-			if flags&0x0002 == 0 { // ARGS_ARE_XY_VALUES
-				return nil, fmt.Errorf("glyf: composite glyph not supported")
-			}
-			var dx, dy int16
-			if flags&0x0001 != 0 { // ARG_1_AND_2_ARE_WORDS
-				if r.Len() < 4 {
-					return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
-				}
-				dx = r.ReadInt16()
-				dy = r.ReadInt16()
-			} else {
-				if r.Len() < 2 {
-					return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
-				}
-				dx = int16(r.ReadInt8())
-				dy = int16(r.ReadInt8())
-			}
-			var txx, txy, tyx, tyy int16
-			if flags&0x0008 != 0 { // WE_HAVE_A_SCALE
-				if r.Len() < 2 {
-					return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
-				}
-				txx = r.ReadInt16()
-				tyy = txx
-			} else if flags&0x0040 != 0 { // WE_HAVE_AN_X_AND_Y_SCALE
-				if r.Len() < 4 {
-					return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
-				}
-				txx = r.ReadInt16()
-				tyy = r.ReadInt16()
-			} else if flags&0x0080 != 0 { // WE_HAVE_A_TWO_BY_TWO
-				if r.Len() < 8 {
-					return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
-				}
-				txx = r.ReadInt16()
-				txy = r.ReadInt16()
-				tyx = r.ReadInt16()
-				tyy = r.ReadInt16()
-			}
-
-			subContour, err := glyf.Contour(subGlyphID, level+1)
-			if err != nil {
-				return nil, err
-			}
-
-			var numPoints uint16
-			if 0 < len(contour.EndPoints) {
-				numPoints = contour.EndPoints[len(contour.EndPoints)-1] + 1
-			}
-			for i := 0; i < len(subContour.EndPoints); i++ {
-				contour.EndPoints = append(contour.EndPoints, numPoints+subContour.EndPoints[i])
-			}
-			contour.OnCurve = append(contour.OnCurve, subContour.OnCurve...)
-			for i := 0; i < len(subContour.XCoordinates); i++ {
-				x := subContour.XCoordinates[i]
-				y := subContour.YCoordinates[i]
-				if flags&0x00C8 != 0 { // has transformation
-					const half = 1 << 13
-					xt := int16((int64(x)*int64(txx)+half)>>14) + int16((int64(y)*int64(tyx)+half)>>14)
-					yt := int16((int64(x)*int64(txy)+half)>>14) + int16((int64(y)*int64(tyy)+half)>>14)
-					x, y = xt, yt
-				}
-				contour.XCoordinates = append(contour.XCoordinates, dx+x)
-				contour.YCoordinates = append(contour.YCoordinates, dy+y)
-			}
-			if flags&0x0020 == 0 { // MORE_COMPONENTS
-				break
-			}
-		}
-	}
-	return contour, nil
-}
-
-func (sfnt *SFNT) parseGlyf() error {
-	// requires data from loca
-	b, ok := sfnt.Tables["glyf"]
-	if !ok {
-		return fmt.Errorf("glyf: missing table")
-	} else if uint32(len(b)) != sfnt.Loca.Offsets[len(sfnt.Loca.Offsets)-1] {
-		return fmt.Errorf("glyf: bad table")
-	}
-
-	sfnt.Glyf = &glyfTable{
-		data: b,
-		loca: sfnt.Loca,
-	}
-	return nil
-}
-
-////////////////////////////////////////////////////////////////
-
 type headTable struct {
 	FontRevision           uint32
 	Flags                  [16]bool
@@ -879,9 +769,64 @@ func (sfnt *SFNT) parseHhea() error {
 
 ////////////////////////////////////////////////////////////////
 
+type vheaTable struct {
+	Ascent               int16
+	Descent              int16
+	LineGap              int16
+	AdvanceHeightMax     int16
+	MinTopSideBearing    int16
+	MinBottomSideBearing int16
+	YMaxExtent           int16
+	CaretSlopeRise       int16
+	CaretSlopeRun        int16
+	CaretOffset          int16
+	MetricDataFormat     int16
+	NumberOfVMetrics     uint16
+}
+
+func (sfnt *SFNT) parseVhea() error {
+	// requires data from maxp
+	b, ok := sfnt.Tables["vhea"]
+	if !ok {
+		return fmt.Errorf("vhea: missing table")
+	} else if len(b) != 36 {
+		return fmt.Errorf("vhea: bad table")
+	}
+
+	sfnt.Vhea = &vheaTable{}
+	r := newBinaryReader(b)
+	majorVersion := r.ReadUint16()
+	minorVersion := r.ReadUint16()
+	if majorVersion != 1 && minorVersion != 0 && minorVersion != 1 {
+		return fmt.Errorf("vhea: bad version")
+	}
+	sfnt.Vhea.Ascent = r.ReadInt16()
+	sfnt.Vhea.Descent = r.ReadInt16()
+	sfnt.Vhea.LineGap = r.ReadInt16()
+	sfnt.Vhea.AdvanceHeightMax = r.ReadInt16()
+	sfnt.Vhea.MinTopSideBearing = r.ReadInt16()
+	sfnt.Vhea.MinBottomSideBearing = r.ReadInt16()
+	sfnt.Vhea.YMaxExtent = r.ReadInt16()
+	sfnt.Vhea.CaretSlopeRise = r.ReadInt16()
+	sfnt.Vhea.CaretSlopeRun = r.ReadInt16()
+	sfnt.Vhea.CaretOffset = r.ReadInt16()
+	_ = r.ReadInt16() // reserved
+	_ = r.ReadInt16() // reserved
+	_ = r.ReadInt16() // reserved
+	_ = r.ReadInt16() // reserved
+	sfnt.Vhea.MetricDataFormat = r.ReadInt16()
+	sfnt.Vhea.NumberOfVMetrics = r.ReadUint16()
+	if sfnt.Maxp.NumGlyphs < sfnt.Vhea.NumberOfVMetrics || sfnt.Vhea.NumberOfVMetrics == 0 {
+		return fmt.Errorf("vhea: bad numberOfVMetrics")
+	}
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
+
 type hmtxLongHorMetric struct {
-	AdvanceWidth uint16
-	Lsb          int16
+	AdvanceWidth    uint16
+	LeftSideBearing int16
 }
 
 type hmtxTable struct {
@@ -893,7 +838,7 @@ func (hmtx *hmtxTable) LeftSideBearing(glyphID uint16) int16 {
 	if uint16(len(hmtx.HMetrics)) <= glyphID {
 		return hmtx.LeftSideBearings[glyphID-uint16(len(hmtx.HMetrics))]
 	}
-	return hmtx.HMetrics[glyphID].Lsb
+	return hmtx.HMetrics[glyphID].LeftSideBearing
 }
 
 func (hmtx *hmtxTable) Advance(glyphID uint16) uint16 {
@@ -921,10 +866,66 @@ func (sfnt *SFNT) parseHmtx() error {
 	r := newBinaryReader(b)
 	for i := 0; i < int(sfnt.Hhea.NumberOfHMetrics); i++ {
 		sfnt.Hmtx.HMetrics[i].AdvanceWidth = r.ReadUint16()
-		sfnt.Hmtx.HMetrics[i].Lsb = r.ReadInt16()
+		sfnt.Hmtx.HMetrics[i].LeftSideBearing = r.ReadInt16()
 	}
 	for i := 0; i < int(sfnt.Maxp.NumGlyphs-sfnt.Hhea.NumberOfHMetrics); i++ {
 		sfnt.Hmtx.LeftSideBearings[i] = r.ReadInt16()
+	}
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
+
+type vmtxLongVerMetric struct {
+	AdvanceHeight  uint16
+	TopSideBearing int16
+}
+
+type vmtxTable struct {
+	VMetrics        []vmtxLongVerMetric
+	TopSideBearings []int16
+}
+
+func (vmtx *vmtxTable) TopSideBearing(glyphID uint16) int16 {
+	if uint16(len(vmtx.VMetrics)) <= glyphID {
+		return vmtx.TopSideBearings[glyphID-uint16(len(vmtx.VMetrics))]
+	}
+	return vmtx.VMetrics[glyphID].TopSideBearing
+}
+
+func (vmtx *vmtxTable) Advance(glyphID uint16) uint16 {
+	if uint16(len(vmtx.VMetrics)) <= glyphID {
+		glyphID = uint16(len(vmtx.VMetrics)) - 1
+	}
+	return vmtx.VMetrics[glyphID].AdvanceHeight
+}
+
+func (sfnt *SFNT) parseVmtx() error {
+	// requires data from vhea and maxp
+	if sfnt.Vhea == nil {
+		return fmt.Errorf("vhea: missing table")
+	}
+
+	b, ok := sfnt.Tables["vmtx"]
+	length := 4*uint32(sfnt.Vhea.NumberOfVMetrics) + 2*uint32(sfnt.Maxp.NumGlyphs-sfnt.Vhea.NumberOfVMetrics)
+	if !ok {
+		return fmt.Errorf("vmtx: missing table")
+	} else if uint32(len(b)) != length {
+		return fmt.Errorf("vmtx: bad table")
+	}
+
+	sfnt.Vmtx = &vmtxTable{}
+	// numberOfVMetrics is smaller than numGlyphs
+	sfnt.Vmtx.VMetrics = make([]vmtxLongVerMetric, sfnt.Vhea.NumberOfVMetrics)
+	sfnt.Vmtx.TopSideBearings = make([]int16, sfnt.Maxp.NumGlyphs-sfnt.Vhea.NumberOfVMetrics)
+
+	r := newBinaryReader(b)
+	for i := 0; i < int(sfnt.Vhea.NumberOfVMetrics); i++ {
+		sfnt.Vmtx.VMetrics[i].AdvanceHeight = r.ReadUint16()
+		sfnt.Vmtx.VMetrics[i].TopSideBearing = r.ReadInt16()
+	}
+	for i := 0; i < int(sfnt.Maxp.NumGlyphs-sfnt.Vhea.NumberOfVMetrics); i++ {
+		sfnt.Vmtx.TopSideBearings[i] = r.ReadInt16()
 	}
 	return nil
 }
@@ -964,11 +965,10 @@ type kernTable struct {
 
 func (kern *kernTable) Get(l, r uint16) (k int16) {
 	for _, subtable := range kern.Subtables {
-		if !subtable.Coverage[1] {
+		if !subtable.Coverage[1] { // kerning values
 			k += subtable.Get(l, r)
-		} else if min := subtable.Get(l, r); k < min {
-			// TODO: test
-			k = min
+		} else if min := subtable.Get(l, r); k < min { // minimum values (usually last subtable)
+			k = min // TODO: test minimal kerning
 		}
 	}
 	return
@@ -1039,45 +1039,6 @@ func (sfnt *SFNT) parseKern() error {
 
 ////////////////////////////////////////////////////////////////
 
-type locaTable struct {
-	Offsets []uint32
-}
-
-func (sfnt *SFNT) parseLoca() error {
-	b, ok := sfnt.Tables["loca"]
-	if !ok {
-		return fmt.Errorf("loca: missing table")
-	}
-
-	sfnt.Loca = &locaTable{}
-	sfnt.Loca.Offsets = make([]uint32, sfnt.Maxp.NumGlyphs+1)
-	r := newBinaryReader(b)
-	if sfnt.Head.IndexToLocFormat == 0 {
-		if uint32(len(b)) != 2*(uint32(sfnt.Maxp.NumGlyphs)+1) {
-			return fmt.Errorf("loca: bad table")
-		}
-		for i := 0; i < int(sfnt.Maxp.NumGlyphs+1); i++ {
-			sfnt.Loca.Offsets[i] = uint32(r.ReadUint16())
-			if 0 < i && sfnt.Loca.Offsets[i] < sfnt.Loca.Offsets[i-1] {
-				return fmt.Errorf("loca: bad offsets")
-			}
-		}
-	} else if sfnt.Head.IndexToLocFormat == 1 {
-		if uint32(len(b)) != 4*(uint32(sfnt.Maxp.NumGlyphs)+1) {
-			return fmt.Errorf("loca: bad table")
-		}
-		for i := 0; i < int(sfnt.Maxp.NumGlyphs+1); i++ {
-			sfnt.Loca.Offsets[i] = r.ReadUint32()
-			if 0 < i && sfnt.Loca.Offsets[i] < sfnt.Loca.Offsets[i-1] {
-				return fmt.Errorf("loca: bad offsets")
-			}
-		}
-	}
-	return nil
-}
-
-////////////////////////////////////////////////////////////////
-
 type maxpTable struct {
 	NumGlyphs             uint16
 	MaxPoints             uint16
@@ -1128,24 +1089,54 @@ func (sfnt *SFNT) parseMaxp() error {
 
 ////////////////////////////////////////////////////////////////
 
-type nameNameRecord struct {
-	PlatformID uint16
-	EncodingID uint16
-	LanguageID uint16
-	NameID     uint16
-	Offset     uint16
-	Length     uint16
+type nameRecord struct {
+	Platform PlatformID
+	Encoding EncodingID
+	Language uint16
+	Name     NameID
+	Value    []byte
+}
+
+func (record nameRecord) String() string {
+	var decoder *encoding.Decoder
+	if record.Platform == PlatformUnicode || record.Platform == PlatformWindows {
+		decoder = unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM).NewDecoder()
+	} else if record.Platform == PlatformMacintosh && record.Encoding == EncodingMacintoshRoman {
+		decoder = charmap.Macintosh.NewDecoder()
+	}
+	s, _, err := transform.String(decoder, string(record.Value))
+	if err == nil {
+		return s
+	}
+	return string(record.Value)
 }
 
 type nameLangTagRecord struct {
-	Offset uint16
-	Length uint16
+	Value []byte
+}
+
+func (record nameLangTagRecord) String() string {
+	decoder := unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM).NewDecoder()
+	s, _, err := transform.String(decoder, string(record.Value))
+	if err == nil {
+		return s
+	}
+	return string(record.Value)
 }
 
 type nameTable struct {
-	NameRecord    []nameNameRecord
-	LangTagRecord []nameLangTagRecord
-	Data          []byte
+	NameRecord []nameRecord
+	LangTag    []nameLangTagRecord
+}
+
+func (t *nameTable) Get(name NameID) []nameRecord {
+	records := []nameRecord{}
+	for _, record := range t.NameRecord {
+		if record.Name == name {
+			records = append(records, record)
+		}
+	}
+	return records
 }
 
 func (sfnt *SFNT) parseName() error {
@@ -1163,18 +1154,23 @@ func (sfnt *SFNT) parseName() error {
 		return fmt.Errorf("name: bad version")
 	}
 	count := r.ReadUint16()
-	_ = r.ReadUint16() // storageOffset
-	if uint32(len(b)) < 6+12*uint32(count) {
+	storageOffset := r.ReadUint16()
+	if uint32(len(b)) < 6+12*uint32(count) || uint16(len(b)) < storageOffset {
 		return fmt.Errorf("name: bad table")
 	}
-	sfnt.Name.NameRecord = make([]nameNameRecord, count)
+	sfnt.Name.NameRecord = make([]nameRecord, count)
 	for i := 0; i < int(count); i++ {
-		sfnt.Name.NameRecord[i].PlatformID = r.ReadUint16()
-		sfnt.Name.NameRecord[i].EncodingID = r.ReadUint16()
-		sfnt.Name.NameRecord[i].LanguageID = r.ReadUint16()
-		sfnt.Name.NameRecord[i].NameID = r.ReadUint16()
-		sfnt.Name.NameRecord[i].Length = r.ReadUint16()
-		sfnt.Name.NameRecord[i].Offset = r.ReadUint16()
+		sfnt.Name.NameRecord[i].Platform = PlatformID(r.ReadUint16())
+		sfnt.Name.NameRecord[i].Encoding = EncodingID(r.ReadUint16())
+		sfnt.Name.NameRecord[i].Language = r.ReadUint16()
+		sfnt.Name.NameRecord[i].Name = NameID(r.ReadUint16())
+
+		length := r.ReadUint16()
+		offset := r.ReadUint16()
+		if uint16(len(b))-storageOffset < offset || uint16(len(b))-storageOffset-offset < length {
+			return fmt.Errorf("name: bad table")
+		}
+		sfnt.Name.NameRecord[i].Value = b[storageOffset+offset : storageOffset+offset+length]
 	}
 	if version == 1 {
 		if uint32(len(b)) < 6+12*uint32(count)+2 {
@@ -1184,18 +1180,26 @@ func (sfnt *SFNT) parseName() error {
 		if uint32(len(b)) < 6+12*uint32(count)+2+4*uint32(langTagCount) {
 			return fmt.Errorf("name: bad table")
 		}
+		sfnt.Name.LangTag = make([]nameLangTagRecord, langTagCount)
 		for i := 0; i < int(langTagCount); i++ {
-			sfnt.Name.LangTagRecord[i].Length = r.ReadUint16()
-			sfnt.Name.LangTagRecord[i].Offset = r.ReadUint16()
+			length := r.ReadUint16()
+			offset := r.ReadUint16()
+			if uint16(len(b))-storageOffset < offset || uint16(len(b))-storageOffset-offset < length {
+				return fmt.Errorf("name: bad table")
+			}
+			sfnt.Name.LangTag[i].Value = b[storageOffset+offset : storageOffset+offset+length]
 		}
 	}
-	sfnt.Name.Data = b[r.Pos():]
+	if r.Pos() != uint32(storageOffset) {
+		return fmt.Errorf("name: bad storageOffset")
+	}
 	return nil
 }
 
 ////////////////////////////////////////////////////////////////
 
 type os2Table struct {
+	Version                 uint16
 	XAvgCharWidth           int16
 	UsWeightClass           uint16
 	UsWidthClass            uint16
@@ -1253,15 +1257,15 @@ func (sfnt *SFNT) parseOS2() error {
 		return fmt.Errorf("OS/2: bad table")
 	}
 
-	sfnt.OS2 = &os2Table{}
 	r := newBinaryReader(b)
-	version := r.ReadUint16()
-	if 5 < version {
+	sfnt.OS2 = &os2Table{}
+	sfnt.OS2.Version = r.ReadUint16()
+	if 5 < sfnt.OS2.Version {
 		return fmt.Errorf("OS/2: bad version")
-	} else if version == 0 && len(b) != 68 && len(b) != 78 ||
-		version == 1 && len(b) != 86 ||
-		2 <= version && version <= 4 && len(b) != 96 ||
-		version == 5 && len(b) != 100 {
+	} else if sfnt.OS2.Version == 0 && len(b) != 68 && len(b) != 78 ||
+		sfnt.OS2.Version == 1 && len(b) != 86 ||
+		2 <= sfnt.OS2.Version && sfnt.OS2.Version <= 4 && len(b) != 96 ||
+		sfnt.OS2.Version == 5 && len(b) != 100 {
 		return fmt.Errorf("OS/2: bad table")
 	}
 	sfnt.OS2.XAvgCharWidth = r.ReadInt16()
@@ -1304,12 +1308,12 @@ func (sfnt *SFNT) parseOS2() error {
 		sfnt.OS2.UsWinAscent = r.ReadUint16()
 		sfnt.OS2.UsWinDescent = r.ReadUint16()
 	}
-	if version == 0 {
+	if sfnt.OS2.Version == 0 {
 		return nil
 	}
 	sfnt.OS2.UlCodePageRange1 = r.ReadUint32()
 	sfnt.OS2.UlCodePageRange2 = r.ReadUint32()
-	if version == 1 {
+	if sfnt.OS2.Version == 1 {
 		return nil
 	}
 	sfnt.OS2.SxHeight = r.ReadInt16()
@@ -1317,12 +1321,71 @@ func (sfnt *SFNT) parseOS2() error {
 	sfnt.OS2.UsDefaultChar = r.ReadUint16()
 	sfnt.OS2.UsBreakChar = r.ReadUint16()
 	sfnt.OS2.UsMaxContent = r.ReadUint16()
-	if 2 <= version && version <= 4 {
+	if 2 <= sfnt.OS2.Version && sfnt.OS2.Version <= 4 {
 		return nil
 	}
 	sfnt.OS2.UsLowerOpticalPointSize = r.ReadUint16()
 	sfnt.OS2.UsUpperOpticalPointSize = r.ReadUint16()
 	return nil
+}
+
+type bboxPather struct {
+	xMin, xMax, yMin, yMax float64
+}
+
+func (p *bboxPather) MoveTo(x float64, y float64) {
+	p.xMin = math.Min(p.xMin, x)
+	p.xMax = math.Max(p.xMax, x)
+	p.yMin = math.Min(p.yMin, y)
+	p.yMax = math.Max(p.yMax, y)
+}
+
+func (p *bboxPather) LineTo(x float64, y float64) {
+	p.xMin = math.Min(p.xMin, x)
+	p.xMax = math.Max(p.xMax, x)
+	p.yMin = math.Min(p.yMin, y)
+	p.yMax = math.Max(p.yMax, y)
+}
+
+func (p *bboxPather) QuadTo(cpx float64, cpy float64, x float64, y float64) {
+	p.xMin = math.Min(math.Min(p.xMin, cpx), x)
+	p.xMax = math.Max(math.Max(p.xMax, cpx), x)
+	p.yMin = math.Min(math.Min(p.yMin, cpy), y)
+	p.yMax = math.Max(math.Max(p.yMax, cpy), y)
+}
+
+func (p *bboxPather) CubeTo(cpx1 float64, cpy1 float64, cpx2 float64, cpy2 float64, x float64, y float64) {
+	p.xMin = math.Min(math.Min(math.Min(p.xMin, cpx1), cpx2), x)
+	p.xMax = math.Max(math.Max(math.Max(p.xMax, cpx1), cpx2), x)
+	p.yMin = math.Min(math.Min(math.Min(p.yMin, cpy1), cpy2), y)
+	p.yMax = math.Max(math.Max(math.Max(p.yMax, cpy1), cpy2), y)
+}
+
+func (p *bboxPather) Close() {
+}
+
+func (sfnt *SFNT) estimateOS2() {
+	if sfnt.IsTrueType {
+		contour, err := sfnt.Glyf.Contour(sfnt.GlyphIndex('x'), 0)
+		if err == nil {
+			sfnt.OS2.SxHeight = contour.YMax
+		}
+
+		contour, err = sfnt.Glyf.Contour(sfnt.GlyphIndex('H'), 0)
+		if err == nil {
+			sfnt.OS2.SCapHeight = contour.YMax
+		}
+	} else if sfnt.IsCFF {
+		p := &bboxPather{}
+		if err := sfnt.CFF.ToPath(p, sfnt.GlyphIndex('x'), 0, 0, 0, 1.0, NoHinting); err == nil {
+			sfnt.OS2.SxHeight = int16(p.yMax)
+		}
+
+		p = &bboxPather{}
+		if err := sfnt.CFF.ToPath(p, sfnt.GlyphIndex('H'), 0, 0, 0, 1.0, NoHinting); err == nil {
+			sfnt.OS2.SCapHeight = int16(p.yMax)
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////
@@ -1336,18 +1399,25 @@ type postTable struct {
 	MaxMemType42       uint32
 	MinMemType1        uint32
 	MaxMemType1        uint32
-	GlyphName          []string
+	GlyphNameIndex     []uint16
+	stringData         []string
 }
 
 func (post *postTable) Get(glyphID uint16) string {
-	if uint16(len(post.GlyphName)) <= glyphID {
+	if len(post.GlyphNameIndex) <= int(glyphID) {
 		return ""
 	}
-	return post.GlyphName[glyphID]
+	index := post.GlyphNameIndex[glyphID]
+	if index < 258 {
+		return macintoshGlyphNames[index]
+	} else if len(post.stringData) < int(index)-258 {
+		return ""
+	}
+	return post.stringData[index-258]
 }
 
 func (sfnt *SFNT) parsePost() error {
-	// requires data from maxp
+	// requires data from maxp and CFF2
 	b, ok := sfnt.Tables["post"]
 	if !ok {
 		return fmt.Errorf("post: missing table")
@@ -1355,9 +1425,11 @@ func (sfnt *SFNT) parsePost() error {
 		return fmt.Errorf("post: bad table")
 	}
 
+	_, isCFF2 := sfnt.Tables["CFF2"]
+
 	sfnt.Post = &postTable{}
 	r := newBinaryReader(b)
-	version := r.ReadBytes(4)
+	version := r.ReadUint32()
 	sfnt.Post.ItalicAngle = r.ReadUint32()
 	sfnt.Post.UnderlinePosition = r.ReadInt16()
 	sfnt.Post.UnderlineThickness = r.ReadInt16()
@@ -1366,9 +1438,10 @@ func (sfnt *SFNT) parsePost() error {
 	sfnt.Post.MaxMemType42 = r.ReadUint32()
 	sfnt.Post.MinMemType1 = r.ReadUint32()
 	sfnt.Post.MaxMemType1 = r.ReadUint32()
-	if binary.BigEndian.Uint32(version) == 0x00010000 && !sfnt.IsCFF && len(b) == 32 {
+	if version == 0x00010000 && sfnt.IsTrueType && len(b) == 32 {
 		return nil
-	} else if binary.BigEndian.Uint32(version) == 0x00020000 && !sfnt.IsCFF && 34 <= len(b) {
+	} else if version == 0x00020000 && (sfnt.IsTrueType || isCFF2) && 34 <= len(b) {
+		// can be used for TrueType and CFF2 fonts, we check for this in the CFF table
 		if r.ReadUint16() != sfnt.Maxp.NumGlyphs {
 			return fmt.Errorf("post: numGlyphs does not match maxp table numGlyphs")
 		}
@@ -1378,35 +1451,101 @@ func (sfnt *SFNT) parsePost() error {
 
 		// get string data first
 		r.Seek(34 + 2*uint32(sfnt.Maxp.NumGlyphs))
-		stringData := []string{}
 		for 2 <= r.Len() {
 			length := r.ReadUint8()
 			if r.Len() < uint32(length) {
 				return fmt.Errorf("post: bad table")
 			}
-			stringData = append(stringData, r.ReadString(uint32(length)))
+			sfnt.Post.stringData = append(sfnt.Post.stringData, r.ReadString(uint32(length)))
 		}
 		if r.Len() != 0 {
 			return fmt.Errorf("post: bad table")
 		}
 
 		r.Seek(34)
-		sfnt.Post.GlyphName = make([]string, sfnt.Maxp.NumGlyphs)
+		sfnt.Post.GlyphNameIndex = make([]uint16, sfnt.Maxp.NumGlyphs)
 		for i := 0; i < int(sfnt.Maxp.NumGlyphs); i++ {
 			index := r.ReadUint16()
-			if index < 258 {
-				sfnt.Post.GlyphName[i] = macintoshGlyphNames[index]
-			} else if len(stringData) < int(index)-258 {
+			if 258 <= index && len(sfnt.Post.stringData) < int(index)-258 {
 				return fmt.Errorf("post: bad table")
-			} else {
-				sfnt.Post.GlyphName[i] = stringData[index-258]
 			}
+			sfnt.Post.GlyphNameIndex[i] = index
 		}
 		return nil
-	} else if binary.BigEndian.Uint32(version) == 0x00025000 && len(b) == 32 {
+	} else if version == 0x00025000 && sfnt.IsTrueType && len(b) == 32 {
 		return fmt.Errorf("post: version 2.5 not supported")
-	} else if binary.BigEndian.Uint32(version) == 0x00030000 && len(b) == 32 {
+	} else if version == 0x00030000 && len(b) == 32 {
 		return nil
 	}
-	return fmt.Errorf("post: bad table")
+	return fmt.Errorf("post: bad version")
 }
+
+////////////////////////////////////////////////////////////////
+
+type scriptList struct {
+	Data []byte
+}
+
+type featureList struct {
+	Data []byte
+}
+
+type lookupList struct {
+	Data []byte
+}
+
+type featureVariations struct {
+	Data []byte
+}
+
+type gposTable struct {
+	Scripts           scriptList
+	Features          featureList
+	Lookup            lookupList
+	FeatureVariations featureVariations
+}
+
+//func (sfnt *SFNT) parseGpos() error {
+//	b, ok := sfnt.Tables["GPOS"]
+//	if !ok {
+//		return fmt.Errorf("GPOS: missing table")
+//	} else if len(b) < 32 {
+//		return fmt.Errorf("GPOS: bad table")
+//	}
+//
+//	sfnt.Gpos = &gposTable{}
+//	r := newBinaryReader(b)
+//	majorVersion := r.ReadUint16()
+//	minorVersion := r.ReadUint16()
+//	if majorVersion != 1 && minorVersion != 0 && minorVersion != 1 {
+//		return fmt.Errorf("GPOS: bad version")
+//	}
+//
+//	scriptListOffset := r.ReadUint16()
+//	if len(b)-2 < scriptListOffset {
+//		return fmt.Errorf("GPOS: bad scriptList offset")
+//	}
+//	sfnt.Gpos.Scripts = scriptList{b[scriptListOffset:]}
+//
+//	featureListOffset := r.ReadUint16()
+//	if len(b)-2 < featureListOffset {
+//		return fmt.Errorf("GPOS: bad featureList offset")
+//	}
+//	sfnt.Gpos.Features = featureList{b[featureListOffset:]}
+//
+//	lookupListOffset := r.ReadUint16()
+//	if len(b)-2 < lookupListOffset {
+//		return fmt.Errorf("GPOS: bad lookupList offset")
+//	}
+//	sfnt.Gpos.Lookup = lookupList{b[lookupListOffset:]}
+//
+//	var featureVariationsOffset uint32
+//	if minorVersion == 1 {
+//		featureVariationsOffset = r.ReadUint32()
+//		if len(b)-8 < featureVariationOffset {
+//			return fmt.Errorf("GPOS: bad featureVariation offset")
+//		}
+//		sfnt.Gpos.FeatureVariations = featureVariations{b[featureVariationOffset:]}
+//	}
+//	return nil
+//}

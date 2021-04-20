@@ -14,7 +14,6 @@ var fontFamily *canvas.FontFamily
 
 func main() {
 	fontFamily = canvas.NewFontFamily("DejaVu Serif")
-	fontFamily.Use(canvas.CommonLigatures)
 	if err := fontFamily.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
 		panic(err)
 	}
@@ -33,7 +32,7 @@ func main() {
 	draw(ctx)
 }
 
-func drawText(c *canvas.Context, x, y float64, face canvas.FontFace, rich *canvas.RichText) {
+func drawText(c *canvas.Context, x, y float64, face *canvas.FontFace, rich *canvas.RichText) {
 	metrics := face.Metrics()
 	width, height := 90.0, 35.0
 
@@ -56,7 +55,7 @@ func draw(c *canvas.Context) {
 	// Draw a comprehensive text box
 	fontSize := 14.0
 	face := fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal)
-	rich := canvas.NewRichText()
+	rich := canvas.NewRichText(face)
 	rich.Add(face, "\"Lorem ")
 	rich.Add(face, " dolor ")
 	rich.Add(face, "ipsum")
@@ -85,7 +84,7 @@ func draw(c *canvas.Context) {
 
 	// Draw the word Stroke being stroked
 	face = fontFamily.Face(80.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
-	p, _ := face.ToPath("Stroke")
+	p, _, _ := face.ToPath("Stroke")
 	c.DrawPath(100, 5, p.Stroke(0.75, canvas.RoundCap, canvas.RoundJoin))
 
 	// Draw a LaTeX formula

@@ -21,7 +21,6 @@ func main() {
 	dejaVuSerif := MustAsset("../../font/DejaVuSerif.ttf")
 
 	fontFamily = canvas.NewFontFamily("DejaVu Serif")
-	fontFamily.Use(canvas.CommonLigatures)
 	if err := fontFamily.LoadFont(dejaVuSerif, canvas.FontRegular); err != nil {
 		panic(err)
 	}

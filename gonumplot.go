@@ -173,5 +173,5 @@ func (r *GonumPlot) DrawImage(rect vg.Rectangle, img image.Image) {
 	//size := img.Size()
 	//if
 	//r.ctx.DrawImage(x, y, img2, dpm)
-	// TODO
+	// TODO: draw image
 }

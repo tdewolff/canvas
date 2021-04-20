@@ -465,8 +465,8 @@ func TestWOFF2ValidationUserAgent(t *testing.T) {
 		{"tabledata-glyf-origlength-002", ""},
 		{"tabledata-glyf-origlength-003", ""},
 		{"tabledata-non-zero-loca-001", "loca: transformLength must be zero"},
-		//{"tabledata-transform-bad-flag-001", "head: invalid transformation"}, // TODO: test fixed with CFF support
-		//{"tabledata-transform-bad-flag-002", "glyf: invalid transformation"}, // TODO: test fixed with CFF support
+		{"tabledata-transform-bad-flag-001", "head: invalid transformation"}, // TODO: test fixed with CFF support
+		{"tabledata-transform-bad-flag-002", "glyf: invalid transformation"}, // TODO: test fixed with CFF support
 	}
 	for _, tt := range tts {
 		t.Run(tt.filename, func(t *testing.T) {

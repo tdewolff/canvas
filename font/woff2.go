@@ -102,9 +102,6 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 		} else {
 			tag = woff2TableTags[tagIndex]
 		}
-		if _, ok := tagTableIndex[tag]; ok {
-			return nil, fmt.Errorf("%s: table defined more than once", tag)
-		}
 
 		origLength, err := readUintBase128(r) // if EOF is encountered above
 		if err != nil {
@@ -112,7 +109,7 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 		}
 
 		var transformLength uint32
-		if (tag == "glyf" || tag == "loca") && transformVersion == 0 || tag == "hmtx" && transformVersion != 0 {
+		if (tag == "glyf" || tag == "loca") && transformVersion == 0 || tag == "hmtx" && transformVersion == 1 {
 			transformLength, err = readUintBase128(r)
 			if err != nil || tag != "loca" && transformLength == 0 {
 				return nil, fmt.Errorf("%s: transformLength must be set", tag)
@@ -121,11 +118,13 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 				return nil, ErrInvalidFontData
 			}
 			uncompressedSize += transformLength
-		} else {
+		} else if transformVersion == 0 || transformVersion == 3 && (tag == "glyf" || tag == "loca") {
 			if math.MaxUint32-uncompressedSize < origLength {
 				return nil, ErrInvalidFontData
 			}
 			uncompressedSize += origLength
+		} else {
+			return nil, fmt.Errorf("%s: invalid transformation", tag)
 		}
 
 		if tag == "loca" {
@@ -136,6 +135,9 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 			} else if !hasGlyf {
 				return nil, fmt.Errorf("loca: must come after glyf table")
 			}
+		}
+		if _, ok := tagTableIndex[tag]; ok {
+			return nil, fmt.Errorf("%s: table defined more than once", tag)
 		}
 
 		tags = append(tags, tag)
@@ -193,25 +195,6 @@ func ParseWOFF2(b []byte) ([]byte, error) {
 		}
 		tables[i].data = data[offset : offset+n : offset+n]
 		offset += n
-
-		switch tables[i].tag {
-		case "glyf":
-			if tables[i].transformVersion != 0 && tables[i].transformVersion != 3 {
-				return nil, fmt.Errorf("glyf: unknown transformation")
-			}
-		case "loca":
-			if tables[i].transformVersion != 0 && tables[i].transformVersion != 3 {
-				return nil, fmt.Errorf("loca: unknown transformation")
-			}
-		case "hmtx":
-			if tables[i].transformVersion != 0 && tables[i].transformVersion != 1 {
-				return nil, fmt.Errorf("htmx: unknown transformation")
-			}
-		default:
-			if tables[i].transformVersion != 0 {
-				return nil, fmt.Errorf("%s: unknown transformation", tables[i].tag)
-			}
-		}
 	}
 
 	// detransform font data tables
