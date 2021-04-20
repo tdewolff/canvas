@@ -287,9 +287,8 @@ func writingModeDirection(mode WritingMode, direction canvasText.Direction) canv
 	if direction == canvasText.TopToBottom || direction == canvasText.BottomToTop {
 		if mode == HorizontalTB {
 			return canvasText.LeftToRight
-		} else {
-			return canvasText.TopToBottom
 		}
+		return canvasText.TopToBottom
 	} else if mode != HorizontalTB {
 		// unknown, left to right, right to left
 		return canvasText.TopToBottom
@@ -538,7 +537,7 @@ func (t *Text) Empty() bool {
 	return true
 }
 
-// Height returns the height of the text using the font metrics, this is usually more than the bounds of the glyph outlines.
+// Heights returns the height of the text using the font metrics, this is usually more than the bounds of the glyph outlines.
 func (t *Text) Heights() (float64, float64) {
 	if len(t.lines) == 0 {
 		return 0.0, 0.0

@@ -213,7 +213,7 @@ func ParseWOFF(b []byte) ([]byte, error) {
 
 	checksum := 0xB1B0AFBA - calcChecksum(w.Bytes())
 	// TODO: (WOFF) master checksum seems right, but we don't throw an error if it is off
-	//if checkSumAdjustment != checksum {
+	//if checksumAdjustment != checksum {
 	//	return nil, fmt.Errorf("bad checksum")
 	//}
 	checksumAdjustment = checksum
