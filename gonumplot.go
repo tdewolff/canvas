@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"math"
 
+	canvasFont "github.com/tdewolff/canvas/font"
 	"golang.org/x/image/font"
 	gonumFont "gonum.org/v1/plot/font"
 	"gonum.org/v1/plot/vg"
@@ -13,18 +14,13 @@ import (
 
 // GonumPlot is a github.com/gonum/plot/vg renderer.
 type GonumPlot struct {
-	ctx  *Context
-	font *FontFamily
+	ctx *Context
 }
 
 // NewGonumPlot returns a new github.com/gonum/plot/vg renderer.
 func NewGonumPlot(r Renderer) draw.Canvas {
-	font := NewFontFamily("font")
-	font.LoadLocalFont("Times", FontRegular)
-
 	c := &GonumPlot{
-		ctx:  NewContext(r),
-		font: font,
+		ctx: NewContext(r),
 	}
 	return draw.New(c)
 }
@@ -161,7 +157,11 @@ func (r *GonumPlot) FillString(f gonumFont.Face, pt vg.Point, text string) {
 	if f.Font.Style == font.StyleItalic || f.Font.Style == font.StyleOblique {
 		style |= FontItalic
 	}
-	face := r.font.Face(float64(f.Font.Size), r.ctx.FillColor, style, FontNormal)
+	fontFamily := NewFontFamily(f.Name())
+	if err := fontFamily.LoadFont(canvasFont.FromGoSFNT(f.Face), 0, FontRegular); err != nil {
+		panic(err)
+	}
+	face := fontFamily.Face(float64(f.Font.Size), r.ctx.FillColor, style, FontNormal)
 	r.ctx.DrawText(float64(pt.X*mmPerPt), float64(pt.Y*mmPerPt), NewTextLine(face, text, Left))
 }
 

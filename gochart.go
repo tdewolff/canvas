@@ -159,7 +159,7 @@ func (r *GoChart) SetFont(f *truetype.Font) {
 	}
 
 	r.font = NewFontFamily(f.Name(truetype.NameIDFontFamily))
-	if err := r.font.LoadFont(font.FromFreeType(f), 0, FontRegular); err != nil {
+	if err := r.font.LoadFont(font.FromGoFreetype(f), 0, FontRegular); err != nil {
 		panic(err)
 	}
 }

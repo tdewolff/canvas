@@ -11,6 +11,7 @@ import (
 	"sort"
 
 	"github.com/golang/freetype/truetype"
+	"golang.org/x/image/font/sfnt"
 )
 
 // MediaType returns the media type (MIME) for a given font.
@@ -106,8 +107,8 @@ func ParseFont(b []byte, index int) (*SFNT, error) {
 	return ParseSFNT(sfntBytes, index)
 }
 
-// FromFreeType parses a structure from truetype.Font to a valid SFNT byte slice.
-func FromFreeType(font *truetype.Font) []byte {
+// FromGoFreetype parses a structure from truetype.Font to a valid SFNT byte slice.
+func FromGoFreetype(font *truetype.Font) []byte {
 	v := reflect.ValueOf(*font)
 	tables := map[string][]byte{}
 	tables["cmap"] = v.FieldByName("cmap").Bytes()
@@ -188,5 +189,12 @@ func FromFreeType(font *truetype.Font) []byte {
 
 	buf := w.Bytes()
 	binary.BigEndian.PutUint32(buf[checksumAdjustmentPos:], 0xB1B0AFBA-calcChecksum(buf))
+	return buf
+}
+
+// FromGoSFNT parses a structure from sfnt.Font to a valid SFNT byte slice.
+func FromGoSFNT(font *sfnt.Font) []byte {
+	v := reflect.ValueOf(*font)
+	buf := v.FieldByName("src").FieldByName("b").Bytes()
 	return buf
 }
