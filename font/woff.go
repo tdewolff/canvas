@@ -50,7 +50,7 @@ func ParseWOFF(b []byte) ([]byte, error) {
 		return nil, ErrInvalidFontData
 	}
 
-	r := newBinaryReader(b)
+	r := NewBinaryReader(b)
 	signature := r.ReadString(4)
 	if signature != "wOFF" {
 		return nil, fmt.Errorf("bad signature")
@@ -142,7 +142,7 @@ func ParseWOFF(b []byte) ([]byte, error) {
 	if MaxMemory < totalSfntSize {
 		return nil, ErrExceedsMemory
 	}
-	w := newBinaryWriter(make([]byte, totalSfntSize))
+	w := NewBinaryWriter(make([]byte, totalSfntSize))
 	w.WriteString(flavor)
 	w.WriteUint16(numTables)
 	w.WriteUint16(searchRange)

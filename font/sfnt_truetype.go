@@ -81,7 +81,7 @@ func (glyf *glyfTable) Dependencies(glyphID uint16, level int) ([]uint16, error)
 	} else if len(b) == 0 {
 		return deps, nil
 	}
-	r := newBinaryReader(b)
+	r := NewBinaryReader(b)
 	if r.Len() < 10 {
 		return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
 	}
@@ -142,7 +142,7 @@ func (glyf *glyfTable) Contour(glyphID uint16, level int) (*glyfContour, error) 
 	} else if len(b) == 0 {
 		return &glyfContour{GlyphID: glyphID}, nil
 	}
-	r := newBinaryReader(b)
+	r := NewBinaryReader(b)
 	if r.Len() < 10 {
 		return nil, fmt.Errorf("glyf: bad table for glyphID %v", glyphID)
 	}
@@ -441,7 +441,7 @@ func (sfnt *SFNT) parseLoca() error {
 		data:   b,
 	}
 	//sfnt.Loca.Offsets = make([]uint32, sfnt.Maxp.NumGlyphs+1)
-	//r := newBinaryReader(b)
+	//r := NewBinaryReader(b)
 	//if sfnt.Head.IndexToLocFormat == 0 {
 	//	if uint32(len(b)) != 2*(uint32(sfnt.Maxp.NumGlyphs)+1) {
 	//		return fmt.Errorf("loca: bad table")

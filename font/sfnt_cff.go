@@ -22,7 +22,7 @@ func (sfnt *SFNT) parseCFF() error {
 		return fmt.Errorf("CFF: missing table")
 	}
 
-	r := newBinaryReader(b)
+	r := NewBinaryReader(b)
 	major := r.ReadUint8()
 	minor := r.ReadUint8()
 	if major != 1 || minor != 0 {
@@ -108,7 +108,7 @@ func (sfnt *SFNT) parseCFF2() error {
 		return fmt.Errorf("CFF2: missing table")
 	}
 
-	r := newBinaryReader(b)
+	r := NewBinaryReader(b)
 	major := r.ReadUint8()
 	minor := r.ReadUint8()
 	if major != 2 || minor != 0 {
@@ -201,8 +201,8 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 	hints := 0
 	stack := []int32{}
 	firstOperator := true
-	callStack := []*binaryReader{}
-	r := newBinaryReader(charString)
+	callStack := []*BinaryReader{}
+	r := NewBinaryReader(charString)
 	for {
 		if cff.version == 2 && r.Len() == 0 && 0 < len(callStack) {
 			// end of subroutine
@@ -615,7 +615,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 					return fmt.Errorf("%v: subroutine too long", table)
 				}
 				callStack = append(callStack, r)
-				r = newBinaryReader(subr)
+				r = NewBinaryReader(subr)
 				firstOperator = true
 			case 11:
 				// return
@@ -679,7 +679,7 @@ func (t *cffINDEX) GetSID(sid int) string {
 	return ""
 }
 
-func parseINDEX(r *binaryReader, isCFF2 bool) (*cffINDEX, error) {
+func parseINDEX(r *BinaryReader, isCFF2 bool) (*cffINDEX, error) {
 	t := &cffINDEX{}
 	var count uint32
 	if !isCFF2 {
@@ -989,7 +989,7 @@ func parseDICT(b []byte, isCFF2 bool, callback func(b0 int, is []int, fs []float
 		256 + 13: -1,
 	}
 
-	r := newBinaryReader(b)
+	r := NewBinaryReader(b)
 	ints := []int{}
 	reals := []float64{}
 	for 0 < r.Len() {
@@ -1039,7 +1039,7 @@ func parseDICT(b []byte, isCFF2 bool, callback func(b0 int, is []int, fs []float
 	return nil
 }
 
-func parseDICTNumber(b0 int, r *binaryReader) (int, float64) {
+func parseDICTNumber(b0 int, r *BinaryReader) (int, float64) {
 	if b0 == 28 {
 		return int(r.ReadInt16()), math.NaN()
 	} else if b0 == 29 {

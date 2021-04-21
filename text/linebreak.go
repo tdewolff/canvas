@@ -18,26 +18,40 @@ import (
 // FairyTales is an example text.
 const FairyTales = "In olden times when wish\u200Bing still helped one there\u2001lived a king\u2001whose daugh\u200Bters were all beau\u200Bti\u200Bful; and the young\u200Best was so beautiful that the sun it\u200Bself, which has seen so much, was aston\u200Bished when\u200Bever it shone in her face. Close by the king's castle lay a great dark for\u200Best, and un\u200Bder an old lime-tree in the for\u200Best was a well, and when the day was very warm, the king's child went out into the for\u200Best and sat down by the side of the cool foun\u200Btain; and when she was bored she took a golden ball, and threw it up on high and caught it; and this ball was her favor\u200Bite play\u200Bthing."
 
-// FrenchSpacing enforces equal widths for inter-word and inter-sentence spaces
-var FrenchSpacing = false
-
-// Stretchability and shrinkability of spaces
+// SpaceStretch is the stretchability of spaces.
 var SpaceStretch = 1.0 / 2.0
+
+// SpaceShrink is the shrinkability of spaces.
 var SpaceShrink = 1.0 / 3.0
 
-// Stretchability and shrinkability factors for inter-sentence and other types of spaces, not used if FrenchSpacing is set
-var SentenceFactor = 3.0
-var ColonFactor = 2.0
-var SemicolonFactor = 1.5
-var CommaFactor = 1.25
+// FrenchSpacing enforces equal widths for inter-word and inter-sentence spaces.
+var FrenchSpacing = false
 
-// Algorithmic parameters
+// Stretchability and shrinkability factors for inter-sentence and other types of spaces, not used if FrenchSpacing is set.
+var (
+	SentenceFactor  = 3.0
+	ColonFactor     = 2.0
+	SemicolonFactor = 1.5
+	CommaFactor     = 1.25
+)
+
+// Tolerance is the maximum stretchability of the spaces of a line.
 var Tolerance = 10.0 // TeX uses 200
+
+// DemeritsLine is the badness rating for an extra line.
 var DemeritsLine = 10.0
-var DemeritsFlagged = 100.0 // TeX uses 10000
-var DemeritsFitness = 100.0 // TeX uses 10000
+
+// DemeritsFlagged is the badness rating for two consecutive lines ending in hyphens. TeX uses 10000.
+var DemeritsFlagged = 100.0
+
+// DemeritsFitness is the badness rating for very different fitness ratings for consecutive lines. Fitness is a categorization of four types for ratio ranges. TeX uses 10000.
+var DemeritsFitness = 100.0
+
+// HyphenPenalty is the aesthetic cost of ending a line in a hyphen.
 var HyphenPenalty = 50.0
-var Infinity = 1000.0 // in case of ratio, demerits becomes about 1e22
+
+// Infinity specifies infinity as something finite to prevent numerical errors.
+var Infinity = 1000.0 // in case of ratio, demerits become about 1e22
 
 // Align is te text alignment.
 type Align int

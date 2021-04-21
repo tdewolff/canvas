@@ -8,6 +8,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io/ioutil"
+	"math"
 	"os"
 	"path/filepath"
 
@@ -104,7 +105,7 @@ func show(args []string) error {
 	f := float64(showOptions.PPEM) / float64(sfnt.Head.UnitsPerEm)
 
 	p := &canvas.Path{}
-	err = sfnt.GlyphToPath(p, showOptions.GlyphID, showOptions.PPEM, 0, int32(descent), 1.0, 1.0, font.NoHinting)
+	err = sfnt.GlyphPath(p, showOptions.GlyphID, showOptions.PPEM, 0, int32(descent), 1.0, font.NoHinting)
 	if err != nil {
 		return err
 	}
@@ -116,7 +117,7 @@ func show(args []string) error {
 	draw.Draw(img, rect, image.NewUniform(canvas.White), image.ZP, draw.Over)
 
 	ras := vector.NewRasterizer(width, height)
-	p.ToRasterizer(ras, f)
+	p.ToRasterizer(ras, canvas.DPMM(f))
 	ras.Draw(img, glyphRect, image.NewUniform(canvas.Black), image.ZP)
 
 	if showOptions.Ratio == 0.0 {
@@ -209,16 +210,18 @@ func info(args []string) error {
 	}
 
 	fmt.Printf("File: %s\n\n", args[0])
-	fmt.Printf("Table directory:\n", args[0])
 	version := "TrueType"
 	if sfnt.Version == "OTTO" {
 		version = "CFF"
 	} else if sfnt.Version == "ttcf" {
 		version = "Collection"
 	}
-	fmt.Printf("  sfntVersion: %X (%s)\n", sfnt.Version, version)
+	fmt.Printf("sfntVersion: 0x%08X (%s)\n", sfnt.Version, version)
 
-	r := newBinaryReader(sfnt.Data)
+	nLen := int(math.Log10(float64(len(sfnt.Data))) + 1)
+
+	fmt.Printf("\nTable directory:\n")
+	r := font.NewBinaryReader(sfnt.Data)
 	_ = r.ReadBytes(4)
 	numTables := int(r.ReadUint16())
 	_ = r.ReadBytes(6)
@@ -227,7 +230,7 @@ func info(args []string) error {
 		checksum := r.ReadUint32()
 		offset := r.ReadUint32()
 		length := r.ReadUint32()
-		fmt.Printf("  %2d %s checksum=%X offset=%d length=%d\n", i, tag, checksum, offset, length)
+		fmt.Printf("  %2d  %s  checksum=0x%08X  offset=%*d  length=%*d\n", i, tag, checksum, nLen, offset, nLen, length)
 	}
 	return nil
 }

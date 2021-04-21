@@ -84,7 +84,7 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 	sort.Strings(tags)
 
 	// write header
-	w := newBinaryWriter([]byte{})
+	w := NewBinaryWriter([]byte{})
 	if sfnt.IsTrueType {
 		w.WriteUint32(0x00010000) // sfntVersion
 	} else if sfnt.IsCFF {
