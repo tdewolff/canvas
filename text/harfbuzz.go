@@ -27,6 +27,7 @@ import (
 
 // Design inspired by https://github.com/npillmayer/tyse/blob/main/engine/text/textshaping/
 
+// Shaper is a text shaper formatting a string in properly positioned glyphs.
 type Shaper struct {
 	cb    *C.char
 	blob  *C.struct_hb_blob_t
@@ -34,6 +35,7 @@ type Shaper struct {
 	fonts map[uint16]*C.struct_hb_font_t
 }
 
+// NewShaper returns a new text shaper.
 func NewShaper(b []byte, index int) (Shaper, error) {
 	cb := (*C.char)(C.CBytes(b))
 	blob := C.hb_blob_create(cb, C.uint(len(b)), C.HB_MEMORY_MODE_WRITABLE, nil, nil)
@@ -46,10 +48,12 @@ func NewShaper(b []byte, index int) (Shaper, error) {
 	}, nil
 }
 
+// NewShaperSFNT returns a new text shaper using a SFNT structure.
 func NewShaperSFNT(sfnt *font.SFNT) (Shaper, error) {
 	return NewShaper(sfnt.Data, 0)
 }
 
+// Destroy destroys the allocated C memory.
 func (s Shaper) Destroy() {
 	for _, font := range s.fonts {
 		C.hb_font_destroy(font)
@@ -59,6 +63,7 @@ func (s Shaper) Destroy() {
 	C.free(unsafe.Pointer(s.cb))
 }
 
+// Shape shapes the string for a given direction, script, and language.
 func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Script, language string, features string, variations string) []Glyph {
 	font, ok := s.fonts[ppem]
 	if !ok {
@@ -95,7 +100,7 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	}
 	C.hb_buffer_guess_segment_properties(buf)
 
-	if FriBidi && Direction(C.hb_buffer_get_direction(buf)) == RightToLeft {
+	if usesFriBidi && Direction(C.hb_buffer_get_direction(buf)) == RightToLeft {
 		// FriBidi already reversed the direction
 		C.hb_buffer_set_direction(buf, C.hb_direction_t(LeftToRight))
 	}
@@ -153,6 +158,7 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	return glyphs
 }
 
+// ScriptItemizer divides the string in parts for each different script.
 func ScriptItemizer(text string) []string {
 	i := 0
 	items := []string{}
@@ -174,8 +180,10 @@ func ScriptItemizer(text string) []string {
 	return items
 }
 
+// Direction is the text direction.
 type Direction int
 
+// see Direction
 const (
 	DirectionInvalid Direction = C.HB_DIRECTION_INVALID
 	LeftToRight                = C.HB_DIRECTION_LTR
@@ -184,9 +192,10 @@ const (
 	BottomToTop                = C.HB_DIRECTION_BTT
 )
 
+// Script is the script.
 type Script uint32
 
-// Taken from github.com/npillmayer/gotype
+// see Script
 const (
 	ScriptCommon    Script = C.HB_SCRIPT_COMMON
 	ScriptInherited Script = C.HB_SCRIPT_INHERITED

@@ -15,23 +15,23 @@ import (
 //   https://github.com/robertknight/tex-linebreak (JavaScript)
 //   https://github.com/akuchling/texlib (Python)
 
+// FairyTales is an example text.
 const FairyTales = "In olden times when wish\u200Bing still helped one there\u2001lived a king\u2001whose daugh\u200Bters were all beau\u200Bti\u200Bful; and the young\u200Best was so beautiful that the sun it\u200Bself, which has seen so much, was aston\u200Bished when\u200Bever it shone in her face. Close by the king's castle lay a great dark for\u200Best, and un\u200Bder an old lime-tree in the for\u200Best was a well, and when the day was very warm, the king's child went out into the for\u200Best and sat down by the side of the cool foun\u200Btain; and when she was bored she took a golden ball, and threw it up on high and caught it; and this ball was her favor\u200Bite play\u200Bthing."
 
 // FrenchSpacing enforces equal widths for inter-word and inter-sentence spaces
 var FrenchSpacing = false
 
-// stretchability and shrinkability of spaces
+// Stretchability and shrinkability of spaces
 var SpaceStretch = 1.0 / 2.0
 var SpaceShrink = 1.0 / 3.0
 
-// stretchability and shrinkability factors for inter-sentence and other types of spaces
-// not used if FrenchSpacing is set
+// Stretchability and shrinkability factors for inter-sentence and other types of spaces, not used if FrenchSpacing is set
 var SentenceFactor = 3.0
 var ColonFactor = 2.0
 var SemicolonFactor = 1.5
 var CommaFactor = 1.25
 
-// algorithmic parameters
+// Algorithmic parameters
 var Tolerance = 10.0 // TeX uses 200
 var DemeritsLine = 10.0
 var DemeritsFlagged = 100.0 // TeX uses 10000
@@ -39,8 +39,10 @@ var DemeritsFitness = 100.0 // TeX uses 10000
 var HyphenPenalty = 50.0
 var Infinity = 1000.0 // in case of ratio, demerits becomes about 1e22
 
+// Align is te text alignment.
 type Align int
 
+// see Align
 const (
 	Left Align = iota
 	Right
@@ -48,8 +50,10 @@ const (
 	Justified
 )
 
+// Type is the item type.
 type Type int
 
+// see Type
 const (
 	BoxType Type = iota
 	GlueType
@@ -68,6 +72,7 @@ func (t Type) String() string {
 	return fmt.Sprintf("Type(%d)", t)
 }
 
+// Item is a box, glue or penalty item.
 type Item struct {
 	Type
 	Width, Stretch, Shrink float64
@@ -76,6 +81,7 @@ type Item struct {
 	Size                   int // number of boxes (glyphs) compressed into one
 }
 
+// Box returns a box item.
 func Box(width float64) Item {
 	return Item{
 		Type:  BoxType,
@@ -83,6 +89,7 @@ func Box(width float64) Item {
 	}
 }
 
+// Glue returns a glue item.
 func Glue(width, stretch, shrink float64) Item {
 	return Item{
 		Type:    GlueType,
@@ -92,6 +99,7 @@ func Glue(width, stretch, shrink float64) Item {
 	}
 }
 
+// Penalty returns a panalty item.
 func Penalty(width, penalty float64, flagged bool) Item {
 	return Item{
 		Type:    PenaltyType,
@@ -101,6 +109,7 @@ func Penalty(width, penalty float64, flagged bool) Item {
 	}
 }
 
+// Breakpoint is a (possible) break point in the string.
 type Breakpoint struct {
 	next, prev *Breakpoint
 	parent     *Breakpoint
@@ -124,6 +133,7 @@ func (br *Breakpoint) String() string {
 	return s[:len(s)-1]
 }
 
+// Breakpoints is a list of break points.
 type Breakpoints struct {
 	head, tail *Breakpoint
 }
@@ -142,10 +152,12 @@ func (list *Breakpoints) String() string {
 	return s[:len(s)-1]
 }
 
+// Has return true if it contains break point b.
 func (list *Breakpoints) Has(b *Breakpoint) bool {
 	return !(b.prev == nil && b.next == nil && (b != list.head || list.head == nil))
 }
 
+// Push adds break point b to the end of the list.
 func (list *Breakpoints) Push(b *Breakpoint) {
 	if list.head == nil {
 		list.head = b
@@ -157,6 +169,7 @@ func (list *Breakpoints) Push(b *Breakpoint) {
 	}
 }
 
+// InsertBefore inserts break point b before at.
 func (list *Breakpoints) InsertBefore(b *Breakpoint, at *Breakpoint) {
 	if list.Has(b) || !list.Has(at) {
 		return
@@ -171,6 +184,7 @@ func (list *Breakpoints) InsertBefore(b *Breakpoint, at *Breakpoint) {
 	at.prev = b
 }
 
+// Remove removes break point b.
 func (list *Breakpoints) Remove(b *Breakpoint) {
 	if !list.Has(b) {
 		return
@@ -189,24 +203,24 @@ func (list *Breakpoints) Remove(b *Breakpoint) {
 	b.next = nil
 }
 
-type Linebreaker struct {
+type linebreaker struct {
 	items       []Item
 	activeNodes *Breakpoints
 	W, Y, Z     float64
 	width       float64
 }
 
-func NewLinebreaker(items []Item, width float64) *Linebreaker {
+func newLinebreaker(items []Item, width float64) *linebreaker {
 	activeNodes := &Breakpoints{}
 	activeNodes.Push(&Breakpoint{Fitness: 1})
-	return &Linebreaker{
+	return &linebreaker{
 		items:       items,
 		activeNodes: activeNodes,
 		width:       width,
 	}
 }
 
-func (lb *Linebreaker) computeAdjustmentRatio(b int, active *Breakpoint) float64 {
+func (lb *linebreaker) computeAdjustmentRatio(b int, active *Breakpoint) float64 {
 	// compute the adjustment ratio r from a to b
 	L := lb.W - active.W
 	if lb.items[b].Type == PenaltyType {
@@ -224,7 +238,7 @@ func (lb *Linebreaker) computeAdjustmentRatio(b int, active *Breakpoint) float64
 	return math.Min(math.Max(ratio, -Infinity), Infinity)
 }
 
-func (lb *Linebreaker) computeSum(b int) (float64, float64, float64) {
+func (lb *linebreaker) computeSum(b int) (float64, float64, float64) {
 	// compute tw=(sum w)after(b), ty=(sum y)after(b), and tz=(sum z)after(b)
 	W, Y, Z := lb.W, lb.Y, lb.Z
 	for i, item := range lb.items[b:] {
@@ -239,7 +253,7 @@ func (lb *Linebreaker) computeSum(b int) (float64, float64, float64) {
 	return W, Y, Z
 }
 
-func (lb *Linebreaker) mainLoop(b int, tolerance float64) {
+func (lb *linebreaker) mainLoop(b int, tolerance float64) {
 	item := lb.items[b]
 	active := lb.activeNodes.head
 
@@ -341,12 +355,13 @@ func (lb *Linebreaker) mainLoop(b int, tolerance float64) {
 	}
 }
 
+// Linebreak breaks a list of items using Donald Knuth's line breaking algorithm. See Donald E. Knuth and Michael F. Plass, "Breaking Paragraphs into Lines", 1981
 func Linebreak(items []Item, width float64, looseness int) []*Breakpoint {
 	tolerance := Tolerance
 
 START:
 	// create an active node representing the beginning of the paragraph
-	lb := NewLinebreaker(items, width)
+	lb := newLinebreaker(items, width)
 	// if index is a legal breakpoint then main loop
 	for b, item := range lb.items {
 		if item.Type == BoxType {
@@ -453,7 +468,7 @@ func isNewline(s string) bool {
 	return false
 }
 
-// GlyphsToItems converts a slice of glyphs into the box/glue/penalty items model as used by Knuth's line breaking algorithm. The SFNT and Size of each glyph must be set. Indent and align specify the indentation width of the first line and the alignment (left, right, centered, justified) of the lines respectively. Finally, stretchWidth is typically twice the width of a space and is inserted as stretchable glue for alignment purposes.
+// GlyphsToItems converts a slice of glyphs into the box/glue/penalty items model as used by Knuth's line breaking algorithm. The SFNT and Size of each glyph must be set. Indent and align specify the indentation width of the first line and the alignment (left, right, centered, justified) of the lines respectively. Vertical should be true for vertical scripts.
 func GlyphsToItems(glyphs []Glyph, indent float64, align Align, vertical bool) []Item {
 	if len(glyphs) == 0 {
 		return []Item{}
@@ -595,6 +610,7 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align, vertical bool) [
 	return items
 }
 
+// LinebreakGlyphs breaks a slice of glyphs uing the given SFNT font and font size. The indent and width specify the first line's indentation and the maximum line's width respectively. Align sets the horizontal alignment of the text. The looseness specifies whether it is desirable to have less or more lines than optimal.
 func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, indent, width float64, align Align, looseness int) [][]Glyph {
 	if len(glyphs) == 0 {
 		return [][]Glyph{}

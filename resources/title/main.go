@@ -55,6 +55,6 @@ func draw(c *canvas.Context) {
 	c.DrawPath(x, 4, p)
 	x += adv
 
-	c.SetFillColor(color.RGBA{224, 224, 224, 255})
-	c.DrawPath(2, 2, canvas.Rect{0, 0, x - 2.0, 1.0}.ToPath())
+	//c.SetFillColor(color.RGBA{224, 224, 224, 255})
+	//c.DrawPath(2, 2, canvas.Rect{0, 0, x - 2.0, 1.0}.ToPath())
 }

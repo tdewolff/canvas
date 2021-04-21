@@ -2,8 +2,9 @@
 
 package text
 
-var FriBidi = false
+var usesFriBidi = false
 
+// Bidi maps the string from its logical order to the visual order to correctly display mixed LTR/RTL text. It returns a mapping of rune positions.
 func Bidi(text string) (string, []int) {
 	// linear map
 	mapV2L := make([]int, len([]rune(text)))

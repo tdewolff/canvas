@@ -12,8 +12,9 @@ import (
 	"unsafe"
 )
 
-var FriBidi = true
+var usesFriBidi = true
 
+// Bidi maps the string from its logical order to the visual order to correctly display mixed LTR/RTL text. It returns a mapping of rune positions.
 func Bidi(text string) (string, []int) {
 	str := []rune(text)
 	pbaseDir := C.FriBidiParType(C.FRIBIDI_PAR_ON) // neutral direction

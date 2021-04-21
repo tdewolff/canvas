@@ -6,10 +6,12 @@ import (
 	"github.com/tdewolff/canvas/font"
 )
 
+// Shaper is a text shaper formatting a string in properly positioned glyphs.
 type Shaper struct {
 	sfnt *font.SFNT
 }
 
+// NewShaper returns a new text shaper.
 func NewShaper(b []byte, index int) (Shaper, error) {
 	sfnt, err := font.ParseSFNT(b, index)
 	if err != nil {
@@ -20,15 +22,18 @@ func NewShaper(b []byte, index int) (Shaper, error) {
 	}, nil
 }
 
+// NewShaperSFNT returns a new text shaper using a SFNT structure.
 func NewShaperSFNT(sfnt *font.SFNT) (Shaper, error) {
 	return Shaper{
 		sfnt: sfnt,
 	}, nil
 }
 
+// Destroy destroys the allocated C memory.
 func (s Shaper) Destroy() {
 }
 
+// Shape shapes the string for a given direction, script, and language.
 func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Script, language string, features string, variations string) []Glyph {
 	glyphs := make([]Glyph, len([]rune(text)))
 	i := 0
@@ -48,12 +53,15 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	return glyphs
 }
 
+// ScriptItemizer divides the string in parts for each different script.
 func ScriptItemizer(text string) []string {
 	return []string{text}
 }
 
+// Direction is the text direction.
 type Direction int
 
+// see Direction
 const (
 	DirectionInvalid Direction = iota
 	LeftToRight
@@ -62,8 +70,10 @@ const (
 	BottomToTop
 )
 
+// Script is the script.
 type Script uint32
 
+// see Script
 const (
 	ScriptInvalid Script = 0
 )
