@@ -1,3 +1,3 @@
 #!/usr/bin/bash
-go run main.go
+go run -tags harfbuzz,fribidi main.go
 latexmk preview.tex

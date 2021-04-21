@@ -8,20 +8,33 @@ import (
 	"bytes"
 	"fmt"
 	"image/color"
-	"image/png"
 	"syscall/js"
 
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/htmlcanvas"
 )
 
-var fontFamily *canvas.FontFamily
+var fontLatin *canvas.FontFamily
+var fontArabic *canvas.FontFamily
+var fontDevanagari *canvas.FontFamily
 
 func main() {
-	dejaVuSerif := MustAsset("../../font/DejaVuSerif.ttf")
+	dejaVuSerif := MustAsset("DejaVuSerif.ttf")
+	dejaVuSans := MustAsset("DejaVuSans.ttf")
+	notoSerif := MustAsset("NotoSerifDevanagari-Regular.ttf")
 
-	fontFamily = canvas.NewFontFamily("DejaVu Serif")
-	if err := fontFamily.LoadFont(dejaVuSerif, canvas.FontRegular); err != nil {
+	fontLatin = canvas.NewFontFamily("DejaVu Serif")
+	if err := fontLatin.LoadFont(dejaVuSerif, 0, canvas.FontRegular); err != nil {
+		panic(err)
+	}
+
+	fontArabic = canvas.NewFontFamily("DejaVu Sans")
+	if err := fontArabic.LoadFont(dejaVuSans, 0, canvas.FontRegular); err != nil {
+		panic(err)
+	}
+
+	fontDevanagari = canvas.NewFontFamily("Noto Serif")
+	if err := fontDevanagari.LoadFont(notoSerif, 0, canvas.FontRegular); err != nil {
 		panic(err)
 	}
 
@@ -35,9 +48,9 @@ func main() {
 	<-alive
 }
 
-func drawText(c *canvas.Context, x, y float64, face canvas.FontFace, rich *canvas.RichText) {
+func drawText(c *canvas.Context, x, y float64, face *canvas.FontFace, rich *canvas.RichText) {
 	metrics := face.Metrics()
-	width, height := 90.0, 35.0
+	width, height := 90.0, 32.0
 
 	text := rich.ToText(width, height, canvas.Justify, canvas.Top, 0.0, 0.0)
 
@@ -56,48 +69,52 @@ func drawText(c *canvas.Context, x, y float64, face canvas.FontFace, rich *canva
 
 func draw(c *canvas.Context) {
 	// Draw a comprehensive text box
-	fontSize := 14.0
-	face := fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal)
-	rich := canvas.NewRichText()
-	rich.Add(face, "\"Lorem ")
-	rich.Add(face, " dolor ")
-	rich.Add(face, "ipsum")
-	rich.Add(face, "\". Confiscator")
-	rich.Add(face, " Curabitur mattis dui tellus vel.")
-	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontBold, canvas.FontNormal), " faux bold")
-	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontItalic, canvas.FontNormal), "faux italic")
-	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontUnderline), "underline")
-	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(fontSize, canvas.White, canvas.FontRegular, canvas.FontNormal, canvas.FontDoubleUnderline), "double underline")
-	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontSineUnderline), "sine")
-	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontSawtoothUnderline), "sawtooth")
-	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontDottedUnderline), "dotted")
-	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontDashedUnderline), "dashed")
-	rich.Add(face, " ")
-	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontOverline), "overline ")
-	rich.Add(fontFamily.Face(fontSize, canvas.Black, canvas.FontItalic, canvas.FontNormal, canvas.FontStrikethrough, canvas.FontSineUnderline, canvas.FontOverline), "combi")
-	rich.Add(face, ".")
-	drawText(c, 5, 95, face, rich)
+	pt := 14.0
+	face := fontLatin.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	rt := canvas.NewRichText(face)
+	rt.Add(face, "Lorem dolor ipsum ")
+	rt.Add(fontLatin.Face(pt, canvas.White, canvas.FontBold, canvas.FontNormal), "confiscator")
+	rt.Add(face, " curabitur ")
+	rt.Add(fontLatin.Face(pt, canvas.Black, canvas.FontItalic, canvas.FontNormal), "mattis")
+	rt.Add(face, " dui ")
+	rt.Add(fontLatin.Face(pt, canvas.Black, canvas.FontBold|canvas.FontItalic, canvas.FontNormal), "tellus")
+	rt.Add(face, " vel. Proin ")
+	rt.Add(fontLatin.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontUnderline), "sodales")
+	rt.Add(face, " eros vel ")
+	rt.Add(fontLatin.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontSineUnderline), "nibh")
+	rt.Add(face, " fringilla pellentesque. ")
+
+	face = fontLatin.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	face.Language = "ru"
+	//face.Script = text.Cyrillic
+	rt.Add(face, "дёжжэнтиюнт ")
+
+	face = fontArabic.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	face.Language = "ar"
+	//face.Script = text.Arabic
+	//face.Direction = text.RightToLeft
+	rt.Add(face, "تسجّل يتكلّم ")
+
+	face = fontDevanagari.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	face.Language = "hi"
+	//face.Script = text.Devanagari
+	rt.Add(face, "हालाँकि प्र ")
+
+	drawText(c, 5, 95, face, rt)
 
 	// Draw the word Stroke being stroked
-	face = fontFamily.Face(80.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
-	p, _ := face.ToPath("Stroke")
+	face = fontLatin.Face(80.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	p, _, _ := face.ToPath("Stroke")
 	c.DrawPath(100, 5, p.Stroke(0.75, canvas.RoundCap, canvas.RoundJoin))
 
 	// Draw a LaTeX formula
-	//latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
-	//if err != nil {
-	//	panic(err)
-	//}
-	//latex = latex.Transform(canvas.Identity.Rotate(-30))
-	//c.SetFillColor(canvas.Black)
-	//c.DrawPath(140, 85, latex)
+	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
+	if err != nil {
+		panic(err)
+	}
+	latex = latex.Transform(canvas.Identity.Rotate(-30))
+	c.SetFillColor(canvas.Black)
+	c.DrawPath(140, 85, latex)
 
 	// Draw an elliptic arc being dashed
 	ellipse, err := canvas.ParseSVG(fmt.Sprintf("A10 30 30 1 0 30 0z"))
@@ -119,8 +136,11 @@ func draw(c *canvas.Context) {
 	c.SetDashes(0.0)
 
 	// Draw a raster image
-	lenna := bytes.NewBuffer(MustAsset("../lenna.png"))
-	img, err := png.Decode(lenna)
+	lenna := bytes.NewBuffer(MustAsset("lenna.png"))
+	if err != nil {
+		panic(err)
+	}
+	img, err := canvas.NewPNGImage(lenna)
 	if err != nil {
 		panic(err)
 	}

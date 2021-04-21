@@ -32,6 +32,7 @@ func draw(c *canvas.Context) {
 	ymin, ymax := 52.3659, 52.3779
 
 	xmid := xmin + (xmax-xmin)/2.0
+	fmt.Print("Fetching data from OSM API...")
 	ams0, err := osmapi.Map(context.Background(), &osm.Bounds{ymin, ymax, xmin, xmid})
 	if err != nil {
 		panic(err)
@@ -40,6 +41,7 @@ func draw(c *canvas.Context) {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println("done")
 
 	categories := map[string]color.RGBA{
 		"route_primary":     {248, 201, 103, 255},
@@ -157,9 +159,15 @@ func draw(c *canvas.Context) {
 	yscale := 100.0 / (ymax - ymin)
 	c.SetView(canvas.Identity.Translate(0.0, 0.0).Scale(xscale, yscale).Translate(-xmin, -ymin))
 
+	c.SetStrokeWidth(0.2)
 	catOrder := []string{"water", "route_pedestrian", "route_residential", "route_secondary", "route_primary", "route_transit", "park", "building"}
 	for _, cat := range catOrder {
 		c.SetFillColor(categories[cat])
+		if cat == "building" || cat == "park" {
+			c.SetStrokeColor(color.RGBA{64, 64, 64, 128})
+		} else {
+			c.SetStrokeColor(canvas.Transparent)
+		}
 		if lines[cat] != nil {
 			width := 0.00015
 			if cat == "route_residential" {
@@ -177,4 +185,10 @@ func draw(c *canvas.Context) {
 			c.DrawPath(0.0, 0.0, rings[cat])
 		}
 	}
+
+	c.ResetView()
+	c.SetFillColor(canvas.Transparent)
+	c.SetStrokeColor(canvas.Darkgray)
+	c.SetStrokeWidth(0.5)
+	c.DrawPath(0.0, 0.0, canvas.Rectangle(c.Width(), c.Height()))
 }
