@@ -6,9 +6,7 @@ import (
 
 // NOTE: implementation inspired from github.com/golang/freetype/raster/stroke.go
 
-// Capper implements Cap, with rhs the path to append to, halfWidth the half width of the stroke,
-// pivot the pivot point around which to construct a cap, and n0 the normal at the start of the path.
-// The length of n0 is equal to the halfWidth.
+// Capper implements Cap, with rhs the path to append to, halfWidth the half width of the stroke, pivot the pivot point around which to construct a cap, and n0 the normal at the start of the path. The length of n0 is equal to the halfWidth.
 type Capper interface {
 	Cap(*Path, float64, Point, Point)
 }
@@ -68,9 +66,7 @@ func (SquareCapper) String() string {
 
 ////////////////
 
-// Joiner implements Join, with rhs the right path and lhs the left path to append to, pivot the intersection of both
-// path elements, n0 and n1 the normals at the start and end of the path respectively.
-// The length of n0 and n1 are equal to the halfWidth.
+// Joiner implements Join, with rhs the right path and lhs the left path to append to, pivot the intersection of both path elements, n0 and n1 the normals at the start and end of the path respectively. The length of n0 and n1 are equal to the halfWidth.
 type Joiner interface {
 	Join(*Path, *Path, float64, Point, Point, Point, float64, float64)
 }
@@ -301,8 +297,7 @@ type pathStrokeState struct {
 	large, sweep                bool    // arcs
 }
 
-// offsetSegment returns the rhs and lhs paths from offsetting a path segment.
-// It closes rhs and lhs when p is closed as well.
+// offsetSegment returns the rhs and lhs paths from offsetting a path segment. It closes rhs and lhs when p is closed as well.
 func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Path) {
 	// only non-empty paths are evaluated
 	closed := false
@@ -551,9 +546,7 @@ func (p *Path) Offset(w float64, fillRule FillRule) *Path {
 	return q
 }
 
-// Stroke converts a path into a stroke of width w and returns a new path. It uses cr to cap the start and end of the path, and
-// jr to join all path elemtents. If the path closes itself, it will use a join between the start and end instead of capping them.
-// The tolerance is the maximum deviation from the original path when flattening Béziers and optimizing the stroke.
+// Stroke converts a path into a stroke of width w and returns a new path. It uses cr to cap the start and end of the path, and jr to join all path elements. If the path closes itself, it will use a join between the start and end instead of capping them. The tolerance is the maximum deviation from the original path when flattening Béziers and optimizing the stroke.
 func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 	q := &Path{}
 	halfWidth := w / 2.0

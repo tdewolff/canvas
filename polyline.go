@@ -5,12 +5,12 @@ type Polyline struct {
 	coords []Point
 }
 
-// PolylineFromPath returns a polyline from the given path by approximating it by linear line segments (ie. flattening).
+// PolylineFromPath returns a polyline from the given path by approximating it by linear line segments, i.e. by flattening.
 func PolylineFromPath(p *Path) *Polyline {
 	return &Polyline{p.Flatten().Coords()}
 }
 
-// PolylineFromPathCoords returns a polyline from the given path from each of the start/end coordinates of the segments, ie. converting all non-linear segments to linear ones.
+// PolylineFromPathCoords returns a polyline from the given path from each of the start/end coordinates of the segments, i.e. converting all non-linear segments to linear ones.
 func PolylineFromPathCoords(p *Path) *Polyline {
 	return &Polyline{p.Coords()}
 }
@@ -65,7 +65,7 @@ func (p *Polyline) FillCount(x, y float64) int {
 	return count
 }
 
-// Interior is true when the point (x,y) is in the interior of the path, ie. gets filled. This depends on the FillRule.
+// Interior is true when the point (x,y) is in the interior of the path, i.e. gets filled. This depends on the FillRule.
 func (p *Polyline) Interior(x, y float64, fillRule FillRule) bool {
 	fillCount := p.FillCount(x, y)
 	if fillRule == NonZero {
@@ -74,7 +74,7 @@ func (p *Polyline) Interior(x, y float64, fillRule FillRule) bool {
 	return fillCount%2 != 0
 }
 
-// Smoothen returns a new path that smoothens out a path using cubic Béziers between all the path points. It makes sure that the curvature is smooth along the whole path. If the path is closed, it will be smooth between start and end segment too.
+// Smoothen returns a new path that smoothens out a path using cubic Béziers between all the path points. It makes sure that the curvature is smooth along the whole path. If the path is closed it will be smooth between start and end segments too.
 func (p *Polyline) Smoothen() *Path {
 	K := p.coords
 	if len(K) < 2 {

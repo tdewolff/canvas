@@ -13,8 +13,10 @@ import (
 	"golang.org/x/text/transform"
 )
 
+// MaxCmapSegments is the maximum number of cmap segments that will be accepted.
 const MaxCmapSegments = 20000
 
+// Pather is an interface to append a glyph's path to canvas.Path.
 type Pather interface {
 	MoveTo(float64, float64)
 	LineTo(float64, float64)
@@ -23,12 +25,15 @@ type Pather interface {
 	Close()
 }
 
+// Hinting specifies the type of hinting to use (none supported yes).
 type Hinting int
 
+// see Hinting
 const (
 	NoHinting Hinting = iota
 )
 
+// SFNT is a parsed OpenType font.
 type SFNT struct {
 	Data              []byte
 	Version           string
@@ -63,18 +68,22 @@ type SFNT struct {
 	//Base *baseTable // TODO
 }
 
+// NumGlyphs returns the number of glyphs the font contains.
 func (sfnt *SFNT) NumGlyphs() uint16 {
 	return sfnt.Maxp.NumGlyphs
 }
 
+// GlyphIndex returns the glyphID for a given rune.
 func (sfnt *SFNT) GlyphIndex(r rune) uint16 {
 	return sfnt.Cmap.Get(r)
 }
 
+// GlyphName returns the name of the glyph.
 func (sfnt *SFNT) GlyphName(glyphID uint16) string {
 	return sfnt.Post.Get(glyphID)
 }
 
+// GlyphPath draws the glyph's contour as a path to the pather interface. It will use the specified ppem (pixels-per-EM) for hinting purposes. The path is draws to the (x,y) coordinate and scaled using the given scale factor.
 func (sfnt *SFNT) GlyphPath(p Pather, glyphID, ppem uint16, x, y int32, scale float64, hinting Hinting) error {
 	if sfnt.IsTrueType {
 		return sfnt.Glyf.ToPath(p, glyphID, ppem, x, y, scale, hinting)
@@ -84,10 +93,12 @@ func (sfnt *SFNT) GlyphPath(p Pather, glyphID, ppem uint16, x, y int32, scale fl
 	return fmt.Errorf("only TrueType and CFF are supported")
 }
 
+// GlyphAdvance returns the advance width of the glyph.
 func (sfnt *SFNT) GlyphAdvance(glyphID uint16) uint16 {
 	return sfnt.Hmtx.Advance(glyphID)
 }
 
+// GlyphVerticalAdvance returns the vertical advance width of the glyph.
 func (sfnt *SFNT) GlyphVerticalAdvance(glyphID uint16) uint16 {
 	if sfnt.Vmtx == nil {
 		return sfnt.Head.UnitsPerEm
@@ -95,6 +106,7 @@ func (sfnt *SFNT) GlyphVerticalAdvance(glyphID uint16) uint16 {
 	return sfnt.Vmtx.Advance(glyphID)
 }
 
+// Kerning returns the kerning between two glyphs, i.e. the advance correction for glyph pairs.
 func (sfnt *SFNT) Kerning(left, right uint16) int16 {
 	if sfnt.Kern == nil {
 		return 0
@@ -102,6 +114,7 @@ func (sfnt *SFNT) Kerning(left, right uint16) int16 {
 	return sfnt.Kern.Get(left, right)
 }
 
+// ParseSFNT parses an OpenType file format (TTF, OTF, TTC). The index is used for font collections to select a single font.
 func ParseSFNT(b []byte, index int) (*SFNT, error) {
 	if len(b) < 12 || math.MaxUint32 < len(b) {
 		return nil, ErrInvalidFontData

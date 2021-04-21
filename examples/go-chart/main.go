@@ -7,10 +7,11 @@ import (
 
 	"github.com/golang/freetype/truetype"
 	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/eps"
-	"github.com/tdewolff/canvas/pdf"
-	"github.com/tdewolff/canvas/rasterizer"
-	"github.com/tdewolff/canvas/svg"
+	"github.com/tdewolff/canvas/renderers"
+	"github.com/tdewolff/canvas/renderers/eps"
+	"github.com/tdewolff/canvas/renderers/pdf"
+	"github.com/tdewolff/canvas/renderers/rasterizer"
+	"github.com/tdewolff/canvas/renderers/svg"
 	"github.com/wcharczuk/go-chart/v2"
 	"github.com/wcharczuk/go-chart/v2/drawing"
 )
@@ -82,19 +83,19 @@ func main() {
 
 	f, _ := os.Create("output.pdf")
 	defer f.Close()
-	graph.Render(canvas.NewGoChart(pdf.Writer), f)
+	graph.Render(renderers.NewGoChart(pdf.Writer), f)
 
 	f, _ = os.Create("output.svg")
 	defer f.Close()
-	graph.Render(canvas.NewGoChart(svg.Writer), f)
+	graph.Render(renderers.NewGoChart(svg.Writer), f)
 
 	f, _ = os.Create("output.eps")
 	defer f.Close()
-	graph.Render(canvas.NewGoChart(eps.Writer), f)
+	graph.Render(renderers.NewGoChart(eps.Writer), f)
 
 	f, _ = os.Create("output.png")
 	defer f.Close()
-	graph.Render(canvas.NewGoChart(rasterizer.PNGWriter(canvas.DPI(92.0))), f)
+	graph.Render(renderers.NewGoChart(rasterizer.PNGWriter(canvas.DPI(92.0))), f)
 
 	f, _ = os.Create("target.png")
 	defer f.Close()

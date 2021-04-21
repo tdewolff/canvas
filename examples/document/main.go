@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/rasterizer"
+	"github.com/tdewolff/canvas/renderers/rasterizer"
 )
 
 var fontFamily *canvas.FontFamily

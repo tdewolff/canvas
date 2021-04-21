@@ -1,4 +1,4 @@
-// +build !harfbuzz
+// +build !harfbuzz js
 
 package text
 

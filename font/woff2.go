@@ -49,8 +49,7 @@ var woff2TableTags = []string{
 	"Gloc", "Feat", "Sill",
 }
 
-// ParseWOFF2 parses the WOFF2 font format and returns its contained SFNT font format (TTF or OTF).
-// See https://www.w3.org/TR/WOFF2/
+// ParseWOFF2 parses the WOFF2 font format and returns its contained SFNT font format (TTF or OTF). See https://www.w3.org/TR/WOFF2/
 func ParseWOFF2(b []byte) ([]byte, error) {
 	if len(b) < 48 {
 		return nil, ErrInvalidFontData

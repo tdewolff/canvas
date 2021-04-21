@@ -4,7 +4,7 @@ import (
 	"math"
 )
 
-// Rectangle returns a rectangle with width w and height h.
+// Rectangle returns a rectangle of width w and height h.
 func Rectangle(w, h float64) *Path {
 	if Equal(w, 0.0) || Equal(h, 0.0) {
 		return &Path{}
@@ -18,7 +18,7 @@ func Rectangle(w, h float64) *Path {
 	return p
 }
 
-// RoundedRectangle returns a rectangle with width w and height h with rounded corners of radius r. A negative radius will cast the corners inwards (ie. concave).
+// RoundedRectangle returns a rectangle of width w and height h with rounded corners of radius r. A negative radius will cast the corners inwards (i.e. concave).
 func RoundedRectangle(w, h, r float64) *Path {
 	if Equal(w, 0.0) || Equal(h, 0.0) {
 		return &Path{}
@@ -47,7 +47,7 @@ func RoundedRectangle(w, h, r float64) *Path {
 	return p
 }
 
-// BeveledRectangle returns a rectangle with width w and height h with beveled corners at distance r from the corner.
+// BeveledRectangle returns a rectangle of width w and height h with beveled corners at distance r from the corner.
 func BeveledRectangle(w, h, r float64) *Path {
 	if Equal(w, 0.0) || Equal(h, 0.0) {
 		return &Path{}
@@ -72,12 +72,12 @@ func BeveledRectangle(w, h, r float64) *Path {
 	return p
 }
 
-// Circle returns a circle with radius r.
+// Circle returns a circle of radius r.
 func Circle(r float64) *Path {
 	return Ellipse(r, r)
 }
 
-// Ellipse returns an ellipse with radii rx,ry.
+// Ellipse returns an ellipse of radii rx and ry.
 func Ellipse(rx, ry float64) *Path {
 	if Equal(rx, 0.0) || Equal(ry, 0.0) {
 		return &Path{}

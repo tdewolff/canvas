@@ -56,7 +56,7 @@ func Extension(b []byte) string {
 	return ""
 }
 
-// ToSFNT takes a byte-slice and transforms it into an SFNT byte-slice. That is, given TTF/OTF/WOFF/WOFF2/EOT input, it will return TTF/OTF output.
+// ToSFNT takes a byte slice and transforms it into an SFNT byte slice. That is, given TTF/OTF/WOFF/WOFF2/EOT input, it will return TTF/OTF output.
 func ToSFNT(b []byte) ([]byte, error) {
 	mediatype, err := MediaType(b)
 	if err != nil {
@@ -98,7 +98,7 @@ func NewSFNTReader(r io.Reader) (*bytes.Reader, error) {
 	return bytes.NewReader(b), nil
 }
 
-// ParseFont parses a byte slice and recognized whether it is a TTF, OTF, WOFF, WOFF2, or EOT font format. It will return the parsed font and its mimetype.
+// ParseFont parses a byte slice and of a TTF, OTF, WOFF, WOFF2, or EOT font format. It will return the parsed font and its mimetype.
 func ParseFont(b []byte, index int) (*SFNT, error) {
 	sfntBytes, err := ToSFNT(b)
 	if err != nil {

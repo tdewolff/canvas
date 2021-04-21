@@ -4,7 +4,8 @@ import (
 	"math"
 )
 
-func ellipsePos(rx, ry, phi, cx, cy, theta float64) Point {
+// EllipsePos returns the position on the ellipse at angle theta.
+func EllipsePos(rx, ry, phi, cx, cy, theta float64) Point {
 	sintheta, costheta := math.Sincos(theta)
 	sinphi, cosphi := math.Sincos(phi)
 	x := cx + rx*costheta*cosphi - ry*sintheta*sinphi
@@ -59,9 +60,7 @@ func ellipseLength(rx, ry, theta1, theta2 float64) float64 {
 	return gaussLegendre5(speed, theta1, theta2)
 }
 
-// ellipseToCenter converts to the center arc format and returns (centerX, centerY, angleFrom, angleTo) with angles in radians.
-// when angleFrom with range [0, 2*PI) is bigger than angleTo with range (-2*PI, 4*PI), the ellipse runs clockwise. The angles are from before the ellipse has been stretched and rotated.
-// See https://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
+// ellipseToCenter converts to the center arc format and returns (centerX, centerY, angleFrom, angleTo) with angles in radians. When angleFrom with range [0, 2*PI) is bigger than angleTo with range (-2*PI, 4*PI), the ellipse runs clockwise. The angles are from before the ellipse has been stretched and rotated. See https://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes
 func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 float64) (float64, float64, float64, float64) {
 	if Equal(x1, x2) && Equal(y1, y2) {
 		return x1, y1, 0.0, 0.0
@@ -132,7 +131,7 @@ func ellipseSplit(rx, ry, phi, cx, cy, theta0, theta1, theta float64) (Point, bo
 		return Point{}, false, false, false
 	}
 
-	mid := ellipsePos(rx, ry, phi, cx, cy, theta)
+	mid := EllipsePos(rx, ry, phi, cx, cy, theta)
 	large0, large1 := false, false
 	if math.Abs(theta-theta0) > math.Pi {
 		large0 = true
@@ -188,8 +187,7 @@ func arcToCube(start Point, rx, ry, phi float64, large, sweep bool, end Point) *
 //	return ((0.02*ba*ba + 2.83*ba + 0.125) / (ba + 0.01)) * a * math.Exp(c0+c1*math.Abs(n2-n1))
 //}
 
-// see Drawing and elliptical arc using polylines, quadratic or cubic Bézier curves (2003), L. Maisonobe,
-// https://spaceroots.org/documents/ellipse/elliptical-arc.pdf
+// see Drawing and elliptical arc using polylines, quadratic or cubic Bézier curves (2003), L. Maisonobe, https://spaceroots.org/documents/ellipse/elliptical-arc.pdf
 func ellipseToQuadraticBeziers(start Point, rx, ry, phi float64, large, sweep bool, end Point) [][3]Point {
 	cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
 
@@ -205,7 +203,7 @@ func ellipseToQuadraticBeziers(start Point, rx, ry, phi float64, large, sweep bo
 	startDeriv := ellipseDeriv(rx, ry, phi, sweep, theta0)
 	for i := 1; i < n+1; i++ {
 		theta := theta0 + float64(i)*dtheta
-		end := ellipsePos(rx, ry, phi, cx, cy, theta)
+		end := EllipsePos(rx, ry, phi, cx, cy, theta)
 		endDeriv := ellipseDeriv(rx, ry, phi, sweep, theta)
 
 		cp := start.Add(startDeriv.Mul(kappa))
@@ -252,7 +250,7 @@ func ellipseToQuadraticBeziers(start Point, rx, ry, phi float64, large, sweep bo
 //		t := float64(i) / float64(N)
 //		pos := cubicBezierPos(start, cp1, cp2, end, t)
 //
-//		dist := func(theta float64) float64 { return ellipsePos(rx, ry, phi, cx, cy, theta).Sub(pos).Length() }
+//		dist := func(theta float64) float64 { return EllipsePos(rx, ry, phi, cx, cy, theta).Sub(pos).Length() }
 //		theta := gradientDescent(dist, theta0, theta1)
 //		theta2 := lookupMin(dist, theta0, theta1)
 //		fmt.Println("gradientDescent, loopup:", dist(theta), dist(theta2))
@@ -265,8 +263,7 @@ func ellipseToQuadraticBeziers(start Point, rx, ry, phi float64, large, sweep bo
 //	return hausdorff
 //}
 
-// see Drawing and elliptical arc using polylines, quadratic or cubic Bézier curves (2003), L. Maisonobe,
-// https://spaceroots.org/documents/ellipse/elliptical-arc.pdf
+// see Drawing and elliptical arc using polylines, quadratic or cubic Bézier curves (2003), L. Maisonobe, https://spaceroots.org/documents/ellipse/elliptical-arc.pdf
 func ellipseToCubicBeziers(start Point, rx, ry, phi float64, large, sweep bool, end Point) [][4]Point {
 	cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
 
@@ -282,7 +279,7 @@ func ellipseToCubicBeziers(start Point, rx, ry, phi float64, large, sweep bool, 
 	startDeriv := ellipseDeriv(rx, ry, phi, sweep, theta0)
 	for i := 1; i < n+1; i++ {
 		theta := theta0 + float64(i)*dtheta
-		end := ellipsePos(rx, ry, phi, cx, cy, theta)
+		end := EllipsePos(rx, ry, phi, cx, cy, theta)
 		endDeriv := ellipseDeriv(rx, ry, phi, sweep, theta)
 
 		cp1 := start.Add(startDeriv.Mul(kappa))
@@ -457,8 +454,7 @@ func cubicBezierNormal(p0, p1, p2, p3 Point, t, d float64) Point {
 	panic("not implemented") // not needed
 }
 
-// cubicBezierLength calculates the length of the Bézier, taking care of inflection points
-// it uses Gauss-Legendre (n=5) and has an error of ~1% or less (empirical)
+// cubicBezierLength calculates the length of the Bézier, taking care of inflection points. It uses Gauss-Legendre (n=5) and has an error of ~1% or less (empirical).
 func cubicBezierLength(p0, p1, p2, p3 Point) float64 {
 	t1, t2 := findInflectionPointsCubicBezier(p0, p1, p2, p3)
 	var beziers [][4]Point
@@ -540,7 +536,7 @@ func addCubicBezierLine(p *Path, p0, p1, p2, p3 Point, t, d float64) {
 	p.LineTo(pos.X, pos.Y)
 }
 
-// split the curve and replace it by lines as long as maximum deviation = flatness is maintained
+// split the curve and replace it by lines as long as maximum deviation = flatness is maintained.
 func flattenSmoothCubicBezier(p *Path, p0, p1, p2, p3 Point, d, flatness float64) {
 	// TODO: by also iterating in the reverse direction, we can take the t half way between the t's found one direction and t's found the reverse direction. this will improve smoothness without add points, it will distribute the points equally along the curve (and not close to the end points)
 	t := 0.0
@@ -638,12 +634,10 @@ func flattenCubicBezier(p0, p1, p2, p3 Point) *Path {
 	return strokeCubicBezier(p0, p1, p2, p3, 0.0, Tolerance)
 }
 
-// see Flat, precise flattening of cubic Bézier path and offset curves, by T.F. Hain et al., 2005
-// https://www.sciencedirect.com/science/article/pii/S0097849305001287
+// see Flat, precise flattening of cubic Bézier path and offset curves, by T.F. Hain et al., 2005,  https://www.sciencedirect.com/science/article/pii/S0097849305001287
 // see https://github.com/Manishearth/stylo-flat/blob/master/gfx/2d/Path.cpp for an example implementation
 // or https://docs.rs/crate/lyon_bezier/0.4.1/source/src/flatten_cubic.rs
-// p0, p1, p2, p3 are the start points, two control points and the end points respectively. With flatness defined as
-// the maximum error from the orinal curve, and d the half width of the curve used for stroking (positive is to the right).
+// p0, p1, p2, p3 are the start points, two control points and the end points respectively. With flatness defined as the maximum error from the orinal curve, and d the half width of the curve used for stroking (positive is to the right).
 func strokeCubicBezier(p0, p1, p2, p3 Point, d, flatness float64) *Path {
 	p := &Path{}
 	start := p0.Add(cubicBezierNormal(p0, p1, p2, p3, 0.0, d))

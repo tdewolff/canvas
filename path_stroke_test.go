@@ -84,8 +84,8 @@ func TestPathStrokeEllipse(t *testing.T) {
 		phi := float64(iphi) / float64(nphi) * math.Pi
 		for itheta := 0; itheta < ntheta; itheta++ {
 			theta := float64(itheta) / float64(ntheta) * 2.0 * math.Pi
-			outer := ellipsePos(rx+1.0, ry+1.0, phi, 0.0, 0.0, theta)
-			inner := ellipsePos(rx-1.0, ry-1.0, phi, 0.0, 0.0, theta)
+			outer := EllipsePos(rx+1.0, ry+1.0, phi, 0.0, 0.0, theta)
+			inner := EllipsePos(rx-1.0, ry-1.0, phi, 0.0, 0.0, theta)
 			test.Float(t, outer.Sub(inner).Length(), 2.0, fmt.Sprintf("phi=%g theta=%g", phi, theta))
 		}
 	}

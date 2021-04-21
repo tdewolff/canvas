@@ -181,12 +181,12 @@ func (p Point) Rot(phi float64, p0 Point) Point {
 	}
 }
 
-// Dot returns the dot product between OP and OQ, ie. zero if perpendicular and |OP|*|OQ| if aligned.
+// Dot returns the dot product between OP and OQ, i.e. zero if perpendicular and |OP|*|OQ| if aligned.
 func (p Point) Dot(q Point) float64 {
 	return p.X*q.X + p.Y*q.Y
 }
 
-// PerpDot returns the perp dot product between OP and OQ, ie. zero if aligned and |OP|*|OQ| if perpendicular.
+// PerpDot returns the perp dot product between OP and OQ, i.e. zero if aligned and |OP|*|OQ| if perpendicular.
 func (p Point) PerpDot(q Point) float64 {
 	return p.X*q.Y - p.Y*q.X
 }
@@ -196,7 +196,7 @@ func (p Point) Length() float64 {
 	return math.Hypot(p.X, p.Y)
 }
 
-// Slope returns the slope between OP, ie. y/x.
+// Slope returns the slope between OP, i.e. y/x.
 func (p Point) Slope() float64 {
 	return p.Y / p.X
 }
@@ -220,7 +220,7 @@ func (p Point) Norm(length float64) Point {
 	return Point{p.X / d * length, p.Y / d * length}
 }
 
-// Interpolate returns a point on PQ that is linearly interpolated by t in [0,1], ie. t=0 returns P and t=1 returns Q.
+// Interpolate returns a point on PQ that is linearly interpolated by t in [0,1], i.e. t=0 returns P and t=1 returns Q.
 func (p Point) Interpolate(q Point, t float64) Point {
 	return Point{(1-t)*p.X + t*q.X, (1-t)*p.Y + t*q.Y}
 }
@@ -276,7 +276,7 @@ func (r Rect) Transform(m Matrix) Rect {
 	return Rect{xmin, ymin, xmax - xmin, ymax - ymin}
 }
 
-// ToPath converts the rectangle to a *Path.
+// ToPath converts the rectangle to a path.
 func (r Rect) ToPath() *Path {
 	return Rectangle(r.W, r.H).Translate(r.X, r.Y)
 }
@@ -291,13 +291,13 @@ func (r Rect) String() string {
 // Matrix is used for affine transformations. Be aware that concatenating transformation function will be evaluated right-to-left! So that Identity.Rotate(30).Translate(20,0) will first translate 20 points horizontally and then rotate 30 degrees counter clockwise.
 type Matrix [2][3]float64
 
-// Identity is the identity affine transformation matrix, ie. transforms any point to itself.
+// Identity is the identity affine transformation matrix, i.e. transforms any point to itself.
 var Identity = Matrix{
 	{1.0, 0.0, 0.0},
 	{0.0, 1.0, 0.0},
 }
 
-// Mul multiplies the current matrix by the given matrix (ie. combine transformations).
+// Mul multiplies the current matrix by the given matrix, i.e. combining transformations.
 func (m Matrix) Mul(q Matrix) Matrix {
 	return Matrix{{
 		m[0][0]*q[0][0] + m[0][1]*q[1][0],
@@ -310,7 +310,7 @@ func (m Matrix) Mul(q Matrix) Matrix {
 	}}
 }
 
-// Dot returns the dot product between the matrix and the given vector (ie. apply transformation).
+// Dot returns the dot product between the matrix and the given vector, i.e. applying the transformation.
 func (m Matrix) Dot(p Point) Point {
 	return Point{
 		m[0][0]*p.X + m[0][1]*p.Y + m[0][2],
@@ -335,7 +335,7 @@ func (m Matrix) Rotate(rot float64) Matrix {
 	})
 }
 
-// RotateAbout adds a rotation transformation around point (x,y) with rot in degrees counter clockwise.
+// RotateAbout adds a rotation transformation about (x,y) with rot in degrees counter clockwise.
 func (m Matrix) RotateAbout(rot, x, y float64) Matrix {
 	return m.Translate(x, y).Rotate(rot).Translate(-x, -y)
 }
@@ -348,7 +348,7 @@ func (m Matrix) Scale(sx, sy float64) Matrix {
 	})
 }
 
-// ScaleAbout adds a scaling transformation around point (x,y) in sx and sy. When scale is negative it will flip those axes.
+// ScaleAbout adds a scaling transformation about (x,y) in sx and sy. When scale is negative it will flip those axes.
 func (m Matrix) ScaleAbout(sx, sy, x, y float64) Matrix {
 	return m.Translate(x, y).Scale(sx, sy).Translate(-x, -y)
 }
@@ -361,27 +361,27 @@ func (m Matrix) Shear(sx, sy float64) Matrix {
 	})
 }
 
-// ShearAbout adds a shear transformation around point (x,y) with sx the horizontal shear and sy the vertical shear.
+// ShearAbout adds a shear transformation about (x,y) with sx the horizontal shear and sy the vertical shear.
 func (m Matrix) ShearAbout(sx, sy, x, y float64) Matrix {
 	return m.Translate(x, y).Shear(sx, sy).Translate(-x, -y)
 }
 
-// ReflectX adds a horizontal reflection transformation (ie. Scale(-1,1)).
+// ReflectX adds a horizontal reflection transformation, i.e. Scale(-1,1).
 func (m Matrix) ReflectX() Matrix {
 	return m.Scale(-1.0, 1.0)
 }
 
-// ReflectXAbout adds a horizontal reflection transformation around position x.
+// ReflectXAbout adds a horizontal reflection transformation about x.
 func (m Matrix) ReflectXAbout(x float64) Matrix {
 	return m.Translate(x, 0.0).Scale(-1.0, 1.0).Translate(-x, 0.0)
 }
 
-// ReflectY adds a vertical reflection transformation (ie. Scale(1,-1)).
+// ReflectY adds a vertical reflection transformation, i.e. Scale(1,-1).
 func (m Matrix) ReflectY() Matrix {
 	return m.Scale(1.0, -1.0)
 }
 
-// ReflectYAbout adds a vertical reflection transformation around position y.
+// ReflectYAbout adds a vertical reflection transformation about y.
 func (m Matrix) ReflectYAbout(y float64) Matrix {
 	return m.Translate(0.0, y).Scale(1.0, -1.0).Translate(0.0, -y)
 }
@@ -440,7 +440,7 @@ func (m Matrix) Eigen() (float64, float64, Point, Point) {
 	return lambda1, lambda2, v1, v2
 }
 
-// Pos extracts the translation component as (tx, ty).
+// Pos extracts the translation component as (tx,ty).
 func (m Matrix) Pos() (float64, float64) {
 	return m[0][2], m[1][2]
 }
@@ -466,12 +466,12 @@ func (m Matrix) Decompose() (float64, float64, float64, float64, float64, float6
 	return m[0][2], m[1][2], theta, sx, sy, phi
 }
 
-// IsTranslation is true if the matrix consists of only translational components, ie. no rotation, scaling or skew.
+// IsTranslation is true if the matrix consists of only translational components, i.e. no rotation, scaling or skew.
 func (m Matrix) IsTranslation() bool {
 	return Equal(m[0][0], 1.0) && Equal(m[0][1], 0.0) && Equal(m[1][0], 0.0) && Equal(m[1][1], 1.0)
 }
 
-// IsRigid is true if the matrix consists of only (proper) rigid transformations, ie. no scaling or skew.
+// IsRigid is true if the matrix consists of only (proper) rigid transformations, i.e. no scaling or skew.
 func (m Matrix) IsRigid() bool {
 	if !Equal(m.Det(), 1.0) {
 		return false
@@ -518,8 +518,7 @@ func (m Matrix) ToSVG(h float64) string {
 
 ////////////////////////////////////////////////////////////////
 
-// Numerically stable quadratic formula, lowest root is returned first
-// see https://math.stackexchange.com/a/2007723
+// Numerically stable quadratic formula, lowest root is returned first, see https://math.stackexchange.com/a/2007723
 func solveQuadraticFormula(a, b, c float64) (float64, float64) {
 	if a == 0.0 {
 		if b == 0.0 {
@@ -546,10 +545,7 @@ func solveQuadraticFormula(a, b, c float64) (float64, float64) {
 		return -b / (2.0 * a), math.NaN()
 	}
 
-	// Avoid catastrophic cancellation, which occurs when we subtract two nearly equal numbers and causes a large error
-	// this can be the case when 4*a*c is small so that sqrt(discriminant) -> b, and the sign of b and in front of the radical are the same
-	// instead we calculate x where b and the radical have different signs, and then use this result in the analytical equivalent
-	// of the formula, called the Citardauq Formula.
+	// Avoid catastrophic cancellation, which occurs when we subtract two nearly equal numbers and causes a large error this can be the case when 4*a*c is small so that sqrt(discriminant) -> b, and the sign of b and in front of the radical are the same instead we calculate x where b and the radical have different signs, and then use this result in the analytical equivalent of the formula, called the Citardauq Formula.
 	q := math.Sqrt(discriminant)
 	if b < 0.0 {
 		// apply sign of b
@@ -649,8 +645,7 @@ func solveCubicFormula(a, b, c, d float64) (float64, float64, float64) {
 
 type gaussLegendreFunc func(func(float64) float64, float64, float64) float64
 
-// Gauss-Legendre quadrature integration from a to b with n=3
-// see https://pomax.github.io/bezierinfo/legendre-gauss.html for more values
+// Gauss-Legendre quadrature integration from a to b with n=3, see https://pomax.github.io/bezierinfo/legendre-gauss.html for more values
 func gaussLegendre3(f func(float64) float64, a, b float64) float64 {
 	c := (b - a) / 2.0
 	d := (a + b) / 2.0
@@ -741,9 +736,7 @@ func bisectionMethod(f func(float64) float64, y, xmin, xmax float64) float64 {
 	}
 }
 
-// polynomialApprox returns a function y(x) that maps the parameter x [xmin,xmax] to the integral of fp. For a circle tmin and tmax would be 0 and 2PI respectively for example. It also returns the total length of the curve.
-// Implemented using M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI, p. 143--150, 1996
-// see https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf
+// polynomialApprox returns a function y(x) that maps the parameter x [xmin,xmax] to the integral of fp. For a circle tmin and tmax would be 0 and 2PI respectively for example. It also returns the total length of the curve. Implemented using M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI, p. 143--150, 1996, see https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf
 func polynomialApprox3(gaussLegendre gaussLegendreFunc, fp func(float64) float64, xmin, xmax float64) (func(float64) float64, float64) {
 	y1 := gaussLegendre(fp, xmin, xmin+(xmax-xmin)*1.0/3.0)
 	y2 := gaussLegendre(fp, xmin, xmin+(xmax-xmin)*2.0/3.0)

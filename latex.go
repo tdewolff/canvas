@@ -1,4 +1,8 @@
+// +build !js
+
 package canvas
+
+// TODO: make LaTeX work for WASM target?
 
 import (
 	"bytes"
@@ -6,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math"
 	"os"
 	"os/exec"
@@ -21,7 +26,7 @@ var execCommand = exec.Command
 var tempDir = path.Join(os.TempDir(), "tdewolff-canvas")
 
 // ParseLaTeX parses a LaTeX formatted string into a path. It requires latex and dvisvgm to be installed on the machine.
-// The content is surrounded by
+// The content is surrounded by:
 //   \documentclass{article}
 //   \begin{document}
 //   \thispagestyle{empty}
@@ -35,14 +40,14 @@ func ParseLaTeX(s string) (*Path, error) {
 
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(s)))
 
-	// Fast track to cached paths
-	//b, err := ioutil.ReadFile(path.Join(tempDir, hash))
-	//if err == nil {
-	//	p, err := ParseSVG(string(b))
-	//	if err == nil {
-	//		return p, nil
-	//	}
-	//}
+	// fast track to cached paths
+	b, err := ioutil.ReadFile(path.Join(tempDir, hash))
+	if err == nil {
+		p, err := ParseSVG(string(b))
+		if err == nil {
+			return p, nil
+		}
+	}
 
 	document := `\documentclass{article}
 \begin{document}

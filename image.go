@@ -8,19 +8,19 @@ import (
 	"io"
 )
 
-// Image allows the renderer to optimize specific cases
+// Image is a raster image. Keeping the original bytes allows the renderer to optimize rendering in some cases.
 type Image struct {
 	image.Image
+	Mimetype string
 	Bytes    []byte
-	Mimetype string // image/png or image/jpeg for instance
 }
 
-// NewJPEGImage parses a reader to later give access to the JPEG raw bytes.
+// NewJPEGImage parses a JPEG image.
 func NewJPEGImage(r io.Reader) (Image, error) {
 	return newImage("image/jpeg", jpeg.Decode, r)
 }
 
-// NewPNGImage parses a reader to later give access to the PNG raw bytes
+// NewPNGImage parses a PNG image
 func NewPNGImage(r io.Reader) (Image, error) {
 	return newImage("image/png", png.Decode, r)
 }

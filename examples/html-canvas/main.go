@@ -11,7 +11,7 @@ import (
 	"syscall/js"
 
 	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/htmlcanvas"
+	"github.com/tdewolff/canvas/renderers/htmlcanvas"
 )
 
 var fontLatin *canvas.FontFamily
@@ -89,12 +89,6 @@ func draw(c *canvas.Context) {
 	//face.Script = text.Cyrillic
 	rt.Add(face, "дёжжэнтиюнт ")
 
-	face = fontArabic.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal)
-	face.Language = "ar"
-	//face.Script = text.Arabic
-	//face.Direction = text.RightToLeft
-	rt.Add(face, "تسجّل يتكلّم ")
-
 	face = fontDevanagari.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	face.Language = "hi"
 	//face.Script = text.Devanagari
@@ -106,15 +100,6 @@ func draw(c *canvas.Context) {
 	face = fontLatin.Face(80.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	p, _, _ := face.ToPath("Stroke")
 	c.DrawPath(100, 5, p.Stroke(0.75, canvas.RoundCap, canvas.RoundJoin))
-
-	// Draw a LaTeX formula
-	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
-	if err != nil {
-		panic(err)
-	}
-	latex = latex.Transform(canvas.Identity.Rotate(-30))
-	c.SetFillColor(canvas.Black)
-	c.DrawPath(140, 85, latex)
 
 	// Draw an elliptic arc being dashed
 	ellipse, err := canvas.ParseSVG(fmt.Sprintf("A10 30 30 1 0 30 0z"))

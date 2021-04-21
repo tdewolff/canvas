@@ -44,10 +44,8 @@ func TestFontFace(t *testing.T) {
 	test.Float(t, metrics.XHeight, 1063)   // height of x
 	test.Float(t, metrics.CapHeight, 1493) // height of H
 
-	test.Float(t, face.Kerning('M', 'M'), 0)
-	test.Float(t, face.Kerning('A', 'V'), -102)
 	test.Float(t, face.TextWidth("T"), 1366)
-	test.Float(t, face.TextWidth("AV"), face.TextWidth("A")+face.TextWidth("V")+face.Kerning('A', 'V'))
+	test.Float(t, face.TextWidth("AV"), face.TextWidth("A")+face.TextWidth("V")-102)
 
 	//Epsilon = 1e-3
 	//p, width, err := face.ToPath("AO")

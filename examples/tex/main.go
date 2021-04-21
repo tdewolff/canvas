@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/tex"
+	"github.com/tdewolff/canvas/renderers/tex"
 	"github.com/tdewolff/canvas/text"
 )
 

@@ -10,7 +10,7 @@ import (
 	"golang.org/x/image/vector"
 )
 
-// Tolerance is the maximum deviation from the original path in millimeters when e.g. flatting
+// Tolerance is the maximum deviation from the original path in millimeters when e.g. flatting.
 var Tolerance = 0.01
 
 // FillRule is the algorithm to specify which area is to be filled and which not, in particular when multiple subpaths overlap. The NonZero rule is the default and will fill any point that is being enclosed by an unequal number of paths winding clockwise and counter clockwise, otherwise it will not be filled. The EvenOdd rule will fill any point that is being enclosed by an uneven number of path, whichever their direction.
@@ -44,14 +44,14 @@ func cmdLen(cmd float64) int {
 	panic(fmt.Sprintf("unknown path command '%f'", cmd))
 }
 
-// toArcFlags converts to the largeArc and sweep boolean flags given its value in Path.
+// toArcFlags converts to the largeArc and sweep boolean flags given its value in the path.
 func toArcFlags(f float64) (bool, bool) {
 	large := (f == 1.0 || f == 3.0)
 	sweep := (f == 2.0 || f == 3.0)
 	return large, sweep
 }
 
-// fromArcFlags converts the largeArc and sweep boolean flags to a value stored in Path.
+// fromArcFlags converts the largeArc and sweep boolean flags to a value stored in the path.
 func fromArcFlags(large, sweep bool) float64 {
 	f := 0.0
 	if large {
@@ -63,9 +63,8 @@ func fromArcFlags(large, sweep bool) float64 {
 	return f
 }
 
-// Path defines a vector path in 2D using a series of connected commands (MoveTo, LineTo, QuadTo, CubeTo, ArcTo and Close).
-// Each command consists of a number of float64 values (depending on the command) that fully define the action. The first value is the command itself (as a float64). The last two values are the end point position of the pen after the action (x,y). QuadTo defined one control point (x,y) in between, CubeTo defines two control points, and ArcTo defines (rx,ry,phi,large+sweep) i.e. the radius in x and y, its rotation (in radians) and the large and sweep booleans in one float64.
-// Only valid commands are appended, so that LineTo has a non-zero length, QuadTo's and CubeTo's control point(s) don't (both) overlap with the start and end point, and ArcTo has non-zero radii and has non-zero length. For ArcTo we also make sure the angle is is in the range [0, 2*PI) and we scale the radii up if they appear too small to fit the arc.
+// Path defines a vector path in 2D using a series of commands (MoveTo, LineTo, QuadTo, CubeTo, ArcTo and Close). Each command consists of a number of float64 values (depending on the command) that fully define the action. The first value is the command itself (as a float64). The last two values is the end point position of the pen after the action (x,y). QuadTo defined one control point (x,y) in between, CubeTo defines two control points, and ArcTo defines (rx,ry,phi,large+sweep) i.e. the radius in x and y, its rotation (in radians) and the large and sweep booleans in one float64.
+// Only valid commands are appended, so that LineTo has a non-zero length, QuadTo's and CubeTo's control point(s) don't (both) overlap with the start and end point, and ArcTo has non-zero radii and has non-zero length. For ArcTo we also make sure the angle is in the range [0, 2*PI) and we scale the radii up if they appear too small to fit the arc.
 type Path struct {
 	d []float64
 	// TODO: optimization: cache bounds and path len until changes (clearCache()), set bounds directly for predefined shapes
@@ -169,7 +168,7 @@ func (p *Path) Pos() Point {
 	return Point{}
 }
 
-// StartPos returns the start point of the current subpath, ie. it returns the position of the last MoveTo command.
+// StartPos returns the start point of the current subpath, i.e. it returns the position of the last MoveTo command.
 func (p *Path) StartPos() Point {
 	for i := len(p.d); 0 < i; {
 		cmd := p.d[i-1]
@@ -196,9 +195,7 @@ func (p *Path) Coords() []Point {
 
 ////////////////////////////////////////////////////////////////
 
-// MoveTo moves the path to x,y without connecting the path. It starts a new independent subpath. Multiple subpaths can be
-// useful when negating parts of a previous path by overlapping it with a path in the opposite direction. The behaviour for
-// overlapping paths depend on the FillRule.
+// MoveTo moves the path to (x,y) without connecting the path. It starts a new independent subpath. Multiple subpaths can be useful when negating parts of a previous path by overlapping it with a path in the opposite direction. The behaviour for overlapping paths depends on the FillRule.
 func (p *Path) MoveTo(x, y float64) {
 	if 0 < len(p.d) && p.d[len(p.d)-1] == moveToCmd {
 		p.d[len(p.d)-3] = x
@@ -208,7 +205,7 @@ func (p *Path) MoveTo(x, y float64) {
 	p.d = append(p.d, moveToCmd, x, y, moveToCmd)
 }
 
-// LineTo adds a linear path to x,y.
+// LineTo adds a linear path to (x,y).
 func (p *Path) LineTo(x, y float64) {
 	start := p.Pos()
 	end := Point{x, y}
@@ -234,7 +231,7 @@ func (p *Path) LineTo(x, y float64) {
 	p.d = append(p.d, lineToCmd, end.X, end.Y, lineToCmd)
 }
 
-// QuadTo adds a quadratic Bézier path with control point cpx,cpy and end point x,y.
+// QuadTo adds a quadratic Bézier path with control point (cpx,cpy) and end point (x,y).
 func (p *Path) QuadTo(cpx, cpy, x, y float64) {
 	start := p.Pos()
 	cp := Point{cpx, cpy}
@@ -254,7 +251,7 @@ func (p *Path) QuadTo(cpx, cpy, x, y float64) {
 	p.d = append(p.d, quadToCmd, cp.X, cp.Y, end.X, end.Y, quadToCmd)
 }
 
-// CubeTo adds a cubic Bézier path with control points cpx1,cpy1 and cpx2,cpy2 and end point x,y.
+// CubeTo adds a cubic Bézier path with control points (cpx1,cpy1) and (cpx2,cpy2) and end point (x,y).
 func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x, y float64) {
 	start := p.Pos()
 	cp1 := Point{cpx1, cpy1}
@@ -275,10 +272,7 @@ func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x, y float64) {
 	p.d = append(p.d, cubeToCmd, cp1.X, cp1.Y, cp2.X, cp2.Y, end.X, end.Y, cubeToCmd)
 }
 
-// ArcTo adds an arc with radii rx and ry, with rot the counter clockwise rotation with respect to the coordinate system in degrees,
-// large and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
-// and x,y the end position of the pen. The start position of the pen was given by a previous command end point.
-// When sweep is true it means following the arc in a CCW direction in the Cartesian coordinate system, ie. that is CW in the upper-left coordinate system as is the case in SVGs.
+// ArcTo adds an arc with radii rx and ry, with rot the counter clockwise rotation with respect to the coordinate system in degrees, large and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs), and (x,y) the end position of the pen. The start position of the pen was given by a previous command's end point.
 func (p *Path) ArcTo(rx, ry, rot float64, large, sweep bool, x, y float64) {
 	start := p.Pos()
 	end := Point{x, y}
@@ -317,10 +311,7 @@ func (p *Path) ArcTo(rx, ry, rot float64, large, sweep bool, x, y float64) {
 	p.d = append(p.d, arcToCmd, rx, ry, phi, fromArcFlags(large, sweep), end.X, end.Y, arcToCmd)
 }
 
-// Arc adds an elliptical arc with radii rx and ry, with rot the counter clockwise rotation in degrees, and theta0 and theta1
-// the angles in degrees of the ellipse (before rot is applies) between which the arc will run. If theta0 < theta1, the arc will
-// run in a CCW direction. If the difference between theta0 and theta1 is bigger than 360 degrees, one full circle will be drawn
-// and the remaining part of diff % 360 (eg. a difference of 810 degrees will draw one full circle and an arc over 90 degrees).
+// Arc adds an elliptical arc with radii rx and ry, with rot the counter clockwise rotation in degrees, and theta0 and theta1 the angles in degrees of the ellipse (before rot is applies) between which the arc will run. If theta0 < theta1, the arc will run in a CCW direction. If the difference between theta0 and theta1 is bigger than 360 degrees, one full circle will be drawn and the remaining part of diff % 360, e.g. a difference of 810 degrees will draw one full circle and an arc over 90 degrees.
 func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) {
 	phi := rot * math.Pi / 180.0
 	theta0 *= math.Pi / 180.0
@@ -329,8 +320,8 @@ func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) {
 
 	sweep := theta0 < theta1
 	large := math.Mod(dtheta, 2.0*math.Pi) > math.Pi
-	p0 := ellipsePos(rx, ry, phi, 0.0, 0.0, theta0)
-	p1 := ellipsePos(rx, ry, phi, 0.0, 0.0, theta1)
+	p0 := EllipsePos(rx, ry, phi, 0.0, 0.0, theta0)
+	p1 := EllipsePos(rx, ry, phi, 0.0, 0.0, theta1)
 
 	start := p.Pos()
 	center := start.Sub(p0)
@@ -346,8 +337,7 @@ func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) {
 	p.ArcTo(rx, ry, rot, large, sweep, end.X, end.Y)
 }
 
-// Close closes a (sub)path with a LineTo to the start of the path (the most recent MoveTo command).
-// It also signals the path closes as opposed to being just a LineTo command, which can be significant for stroking purposes for example.
+// Close closes a (sub)path with a LineTo to the start of the path (the most recent MoveTo command). It also signals the path closes as opposed to being just a LineTo command, which can be significant for stroking purposes for example.
 func (p *Path) Close() {
 	end := p.StartPos()
 	if len(p.d) == 0 || p.d[len(p.d)-1] == closeCmd {
@@ -414,8 +404,7 @@ func (p *Path) simplifyToCoords() []Point {
 	return coords
 }
 
-// CCW returns true when the path has (mostly) a counter clockwise direction.
-// Does not need the path to be closed and will return true for a empty or straight line.
+// CCW returns true when the path has (mostly) a counter clockwise direction. It does not need the path to be closed and will return true for a empty or straight line.
 func (p *Path) CCW() bool {
 	// use the Shoelace formula
 	area := 0.0
@@ -468,7 +457,7 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 	return fillings
 }
 
-// Interior is true when the point (x,y) is in the interior of the path, ie. gets filled. This depends on the FillRule.
+// Interior is true when the point (x,y) is in the interior of the path, i.e. gets filled. This depends on the FillRule.
 func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 	fillCount := 0
 	test := Point{x, y}
@@ -646,7 +635,7 @@ func (p *Path) Length() float64 {
 	return d
 }
 
-// Transform transform the path by the given transformation matrix and returns a new path.
+// Transform transforms the path by the given transformation matrix and returns a new path.
 func (p *Path) Transform(m Matrix) *Path {
 	p = p.Copy()
 	_, _, _, xscale, yscale, _ := m.Decompose()
@@ -735,9 +724,7 @@ func (p *Path) ReplaceArcs() *Path {
 	return p.replace(nil, nil, nil, arcToCube)
 }
 
-// replace replaces path segments by their respective functions, each returning the path that will replace the segment or nil if no replacement is to be performed.
-// The line function will take the start and end points. The bezier function will take the start point, control point 1 and 2, and the end point (ie. a cubic Bézier, quadratic Béziers will be implicitly converted to cubic ones). The arc function will take a start point, the major and minor radii, the radial rotaton counter clockwise, the large and sweep booleans, and the end point.
-// The replacing path will replace the path segment without any checks, you need to make sure the be moved so that its start point connects with the last end point of the base path before the replacement. If the end point of the replacing path is different that the end point of what is replaced, the path that follows will be displaced.
+// replace replaces path segments by their respective functions, each returning the path that will replace the segment or nil if no replacement is to be performed. The line function will take the start and end points. The bezier function will take the start point, control point 1 and 2, and the end point (i.e. a cubic Bézier, quadratic Béziers will be implicitly converted to cubic ones). The arc function will take a start point, the major and minor radii, the radial rotaton counter clockwise, the large and sweep booleans, and the end point. The replacing path will replace the path segment without any checks, you need to make sure the be moved so that its start point connects with the last end point of the base path before the replacement. If the end point of the replacing path is different that the end point of what is replaced, the path that follows will be displaced.
 func (p *Path) replace(
 	line func(Point, Point) *Path,
 	quad func(Point, Point, Point) *Path,
@@ -800,7 +787,7 @@ func (p *Path) replace(
 	return p
 }
 
-// Markers returns an array of start, mid and end markers along the path at the path coordinates between commands. Align will align the markers with the path direction so that the markers orient towards the path's left.
+// Markers returns an array of start, mid and end marker paths along the path at the coordinates between commands. Align will align the markers with the path direction so that the markers orient towards the path's left.
 func (p *Path) Markers(first, mid, last *Path, align bool) []*Path {
 	markers := []*Path{}
 	for _, ps := range p.Split() {
@@ -1123,7 +1110,7 @@ func dashStart(offset float64, d []float64) (int, float64) {
 	return i0, pos0
 }
 
-// dashCanonical returns an optimized dash array
+// dashCanonical returns an optimized dash array.
 func dashCanonical(offset float64, d []float64) (float64, []float64) {
 	if len(d) == 0 {
 		return 0.0, []float64{}
@@ -1198,7 +1185,7 @@ func (p *Path) checkDash(offset float64, d []float64) (*Path, []float64) {
 	return p, d
 }
 
-// Dash returns a new path that consists of dashes. The elements in d specify the width of the dashes and gaps. It will alternate between dashes and gaps when picking widths. If d is an array of odd length, it is equivalent of passing d twice in sequence. The offset specifies the offset used into d (or negative offset onto the path). Dash will be applied to each subpath independently.
+// Dash returns a new path that consists of dashes. The elements in d specify the width of the dashes and gaps. It will alternate between dashes and gaps when picking widths. If d is an array of odd length, it is equivalent of passing d twice in sequence. The offset specifies the offset used into d (or negative offset into the path). Dash will be applied to each subpath independently.
 func (p *Path) Dash(offset float64, d ...float64) *Path {
 	offset, d = dashCanonical(offset, d)
 	if len(d) == 0 {
@@ -1316,7 +1303,7 @@ func (p *Path) Reverse() *Path {
 	return rp
 }
 
-// Iterate iterates oves the path commands and calls the respective functions move, line, quad, cube, arc, close when encountering a MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close command.
+// Iterate iterates over the path commands and calls the respective functions move, line, quad, cube, arc, close when encountering MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close commands respectively.
 func (p *Path) Iterate(
 	move func(Point, Point),
 	line func(Point, Point),
@@ -1583,7 +1570,7 @@ func (p *Path) String() string {
 	return sb.String()
 }
 
-// ToSVG returns a string that represents the path in the SVG path data format with minifications.
+// ToSVG returns a string that represents the path in the SVG path data format with minification.
 func (p *Path) ToSVG() string {
 	if p.Empty() {
 		return ""
@@ -1736,7 +1723,7 @@ func (p *Path) ToPDF() string {
 	return sb.String()[1:] // remove the first space
 }
 
-// ToRasterizer rasterizes the path using the given rasterizer with dpm the dots-per-millimeter.
+// ToRasterizer rasterizes the path using the given rasterizer and resolution.
 func (p *Path) ToRasterizer(ras *vector.Rasterizer, resolution Resolution) {
 	p = p.replace(nil, nil, nil, arcToCube)
 

@@ -10,7 +10,7 @@ import (
 	"github.com/paulmach/osm/osmapi"
 	"github.com/paulmach/osm/osmgeojson"
 	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/rasterizer"
+	"github.com/tdewolff/canvas/renderers/rasterizer"
 )
 
 var dejaVuSerif *canvas.FontFamily

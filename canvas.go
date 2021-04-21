@@ -14,7 +14,7 @@ const pxPerMm = 96.0 / 25.4
 const mmPerInch = 25.4
 const inchPerMm = 1.0 / 25.4
 
-// ImageEncoding defines whether the embedded image shall be embedded as Lossless (typically PNG) or Lossy (typically JPG).
+// ImageEncoding defines whether the embedded image shall be embedded as lossless (typically PNG) or lossy (typically JPG).
 type ImageEncoding int
 
 // see ImageEncoding
@@ -23,30 +23,30 @@ const (
 	Lossy
 )
 
-// Resolution is used for rasterizing images. Higher resolutions will result in bigger images.
+// Resolution is used for rasterizing. Higher resolutions will result in larger images.
 type Resolution float64
 
-// DPMM (Dots-per-Millimetter) for the resolution of raster images.
+// DPMM (dots-per-millimeter) for the resolution of rasterization.
 func DPMM(dpmm float64) Resolution {
 	return Resolution(dpmm)
 }
 
-// DPI is a shortcut for Dots-per-Inch for the resolution of raster images.
+// DPI (dots-per-inch) for the resolution of rasterization.
 func DPI(dpi float64) Resolution {
 	return Resolution(dpi * inchPerMm)
 }
 
-// DPMM returns the resolution in dots-per-millimeter
+// DPMM returns the resolution in dots-per-millimeter.
 func (res Resolution) DPMM() float64 {
 	return float64(res)
 }
 
-// DPI returns the resolution in dots-per-inch
+// DPI returns the resolution in dots-per-inch.
 func (res Resolution) DPI() float64 {
 	return float64(res) * mmPerInch
 }
 
-// DefaultResolution is the default resolution used for font PPEMs and is set to 96 DPI
+// DefaultResolution is the default resolution used for font PPEMs and is set to 96 DPI.
 const DefaultResolution = Resolution(96.0 * inchPerMm)
 
 ////////////////////////////////////////////////////////////////
@@ -63,7 +63,7 @@ type Style struct {
 	FillRule
 }
 
-// DefaultStyle is the default style for paths. It fills the path with a black color.
+// DefaultStyle is the default style for paths. It fills the path with a black color and has no stroke.
 var DefaultStyle = Style{
 	FillColor:    Black,
 	StrokeColor:  Transparent,
@@ -75,7 +75,7 @@ var DefaultStyle = Style{
 	FillRule:     NonZero,
 }
 
-// Renderer is an interface that renderers implement. It defines the size of the target (in mm) and functions to render paths, text objects and raster images.
+// Renderer is an interface that renderers implement. It defines the size of the target (in mm) and functions to render paths, text objects and images.
 type Renderer interface {
 	Size() (float64, float64)
 	RenderPath(path *Path, style Style, m Matrix)
@@ -85,7 +85,7 @@ type Renderer interface {
 
 ////////////////////////////////////////////////////////////////
 
-// CoordSystem is the coordinate system, which can be either of the four cartesian quadrants
+// CoordSystem is the coordinate system, which can be either of the four cartesian quadrants.
 type CoordSystem int
 
 // see CoordSystem
@@ -109,24 +109,24 @@ type Context struct {
 	coordViewStack []Matrix
 }
 
-// NewContext returns a new Context which is a wrapper around a Renderer. Context maintains state for the current path, path style, and view transformation matrix.
+// NewContext returns a new context which is a wrapper around a renderer. Contexts maintain the state of the current path, path style, and view transformation matrix.
 func NewContext(r Renderer) *Context {
 	return &Context{r, &Path{}, DefaultStyle, nil, Identity, nil, Identity, nil}
 }
 
-// Width returns the width of the canvas.
+// Width returns the width of the canvas in millimeters.
 func (c *Context) Width() float64 {
 	w, _ := c.Size()
 	return w
 }
 
-// Height returns the height of the canvas.
+// Height returns the height of the canvas in millimeters.
 func (c *Context) Height() float64 {
 	_, h := c.Size()
 	return h
 }
 
-// Push saves the current draw state, so that it can be popped later on.
+// Push saves the current draw state so that it can be popped later on.
 func (c *Context) Push() {
 	c.styleStack = append(c.styleStack, c.Style)
 	c.viewStack = append(c.viewStack, c.view)
@@ -171,7 +171,7 @@ func (c *Context) SetCoordSystem(coordSystem CoordSystem) {
 	}
 }
 
-// View returns the current affine transformation matrix.
+// View returns the current affine transformation matrix through which all operations will be transformed.
 func (c *Context) View() Matrix {
 	return c.view
 }
@@ -181,12 +181,12 @@ func (c *Context) SetView(view Matrix) {
 	c.view = view
 }
 
-// ResetView resets the current affine transformation matrix to the Identity matrix, ie. no transformations.
+// ResetView resets the current affine transformation matrix to the Identity matrix, i.e. no transformations.
 func (c *Context) ResetView() {
 	c.view = Identity
 }
 
-// ComposeView post-multiplies the current affine transformation matrix by the given one.
+// ComposeView post-multiplies the current affine transformation matrix by the given matrix.
 func (c *Context) ComposeView(view Matrix) {
 	c.view = c.view.Mul(view)
 }
@@ -201,7 +201,7 @@ func (c *Context) ReflectX() {
 	c.view = c.view.Mul(Identity.ReflectX())
 }
 
-// ReflectXAbout inverts the X axis of the view.
+// ReflectXAbout inverts the X axis of the view about the given X coordinate.
 func (c *Context) ReflectXAbout(x float64) {
 	c.view = c.view.Mul(Identity.ReflectXAbout(x))
 }
@@ -211,17 +211,17 @@ func (c *Context) ReflectY() {
 	c.view = c.view.Mul(Identity.ReflectY())
 }
 
-// ReflectYAbout inverts the Y axis of the view.
+// ReflectYAbout inverts the Y axis of the view about the given Y coordinate.
 func (c *Context) ReflectYAbout(y float64) {
 	c.view = c.view.Mul(Identity.ReflectYAbout(y))
 }
 
-// Rotate rotates the view with rot in degrees.
+// Rotate rotates the view counter clockwise with rot in degrees.
 func (c *Context) Rotate(rot float64) {
 	c.view = c.view.Mul(Identity.Rotate(rot))
 }
 
-// RotateAbout rotates the view around (x,y) with rot in degrees.
+// RotateAbout rotates the view counter clockwise around (x,y) with rot in degrees.
 func (c *Context) RotateAbout(rot, x, y float64) {
 	c.view = c.view.Mul(Identity.RotateAbout(rot, x, y))
 }
@@ -258,22 +258,22 @@ func (c *Context) SetStrokeColor(col color.Color) {
 	c.Style.StrokeColor = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
 }
 
-// SetStrokeWidth sets the width in mm for stroking operations.
+// SetStrokeWidth sets the width in millimeters for stroking operations.
 func (c *Context) SetStrokeWidth(width float64) {
 	c.Style.StrokeWidth = width
 }
 
-// SetStrokeCapper sets the line cap function to be used for stroke endpoints.
+// SetStrokeCapper sets the line cap function to be used for stroke end points.
 func (c *Context) SetStrokeCapper(capper Capper) {
 	c.Style.StrokeCapper = capper
 }
 
-// SetStrokeJoiner sets the line join function to be used for stroke midpoints.
+// SetStrokeJoiner sets the line join function to be used for stroke mid points.
 func (c *Context) SetStrokeJoiner(joiner Joiner) {
 	c.Style.StrokeJoiner = joiner
 }
 
-// SetDashes sets the dash pattern to be used for stroking operations. The dash offset denotes the offset into the dash array in mm from where to start. Negative values are allowed.
+// SetDashes sets the dash pattern to be used for stroking operations. The dash offset denotes the offset into the dash array in millimeters from where to start. Negative values are allowed.
 func (c *Context) SetDashes(offset float64, dashes ...float64) {
 	c.Style.DashOffset = offset
 	c.Style.Dashes = dashes
@@ -294,40 +294,32 @@ func (c *Context) Pos() (float64, float64) {
 	return c.path.Pos().X, c.path.Pos().Y
 }
 
-// MoveTo moves the path to x,y without connecting the path. It starts a new independent subpath. Multiple subpaths can be
-// useful when negating parts of a previous path by overlapping it with a path in the opposite direction. The behaviour for
-// overlapping paths depend on the FillRule.
+// MoveTo moves the path to (x,y) without connecting with the previous path. It starts a new independent subpath. Multiple subpaths can be useful when negating parts of a previous path by overlapping it with a path in the opposite direction. The behaviour of overlapping paths depends on the FillRule.
 func (c *Context) MoveTo(x, y float64) {
 	c.path.MoveTo(x, y)
 }
 
-// LineTo adds a linear path to x,y.
+// LineTo adds a linear path to (x,y).
 func (c *Context) LineTo(x, y float64) {
 	c.path.LineTo(x, y)
 }
 
-// QuadTo adds a quadratic Bézier path with control point cpx,cpy and end point x,y.
+// QuadTo adds a quadratic Bézier path with control point (cpx,cpy) and end point (x,y).
 func (c *Context) QuadTo(cpx, cpy, x, y float64) {
 	c.path.QuadTo(cpx, cpy, x, y)
 }
 
-// CubeTo adds a cubic Bézier path with control points cpx1,cpy1 and cpx2,cpy2 and end point x,y.
+// CubeTo adds a cubic Bézier path with control points (cpx1,cpy1) and (cpx2,cpy2) and end point (x,y).
 func (c *Context) CubeTo(cpx1, cpy1, cpx2, cpy2, x, y float64) {
 	c.path.CubeTo(cpx1, cpy1, cpx2, cpy2, x, y)
 }
 
-// ArcTo adds an arc with radii rx and ry, with rot the counter clockwise rotation with respect to the coordinate system in degrees,
-// large and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs),
-// and x,y the end position of the pen. The start position of the pen was given by a previous command end point.
-// When sweep is true it means following the arc in a CCW direction in the Cartesian coordinate system, ie. that is CW in the upper-left coordinate system as is the case in SVGs.
+// ArcTo adds an arc with radii rx and ry, with rot the counter clockwise rotation with respect to the coordinate system in degrees, large and sweep booleans (see https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths#Arcs), and (x,y) the end position of the pen. The start position of the pen was given by a previous command's end point.
 func (c *Context) ArcTo(rx, ry, rot float64, large, sweep bool, x, y float64) {
 	c.path.ArcTo(rx, ry, rot, large, sweep, x, y)
 }
 
-// Arc adds an elliptical arc with radii rx and ry, with rot the counter clockwise rotation in degrees, and theta0 and theta1
-// the angles in degrees of the ellipse (before rot is applies) between which the arc will run. If theta0 < theta1, the arc will
-// run in a CCW direction. If the difference between theta0 and theta1 is bigger than 360 degrees, one full circle will be drawn
-// and the remaining part of diff % 360 (eg. a difference of 810 degrees will draw one full circle and an arc over 90 degrees).
+// Arc adds an elliptical arc with radii rx and ry, with rot the counter clockwise rotation in degrees, and theta0 and theta1 the angles in degrees of the ellipse (before rot is applied) between which the arc will run. If theta0 < theta1, the arc will run in a CCW direction. If the difference between theta0 and theta1 is bigger than 360 degrees, one full circle will be drawn and the remaining part of diff % 360, e.g. a difference of 810 degrees will draw one full circle and an arc over 90 degrees.
 func (c *Context) Arc(rx, ry, rot, theta0, theta1 float64) {
 	c.path.Arc(rx, ry, rot, theta0, theta1)
 }
@@ -337,7 +329,7 @@ func (c *Context) Close() {
 	c.path.Close()
 }
 
-// Fill fills the current path and resets it.
+// Fill fills the current path and resets the path.
 func (c *Context) Fill() {
 	style := c.Style
 	style.StrokeColor = Transparent
@@ -345,7 +337,7 @@ func (c *Context) Fill() {
 	c.path = &Path{}
 }
 
-// Stroke strokes the current path and resets it.
+// Stroke strokes the current path and resets the path.
 func (c *Context) Stroke() {
 	style := c.Style
 	style.FillColor = Transparent
@@ -353,7 +345,7 @@ func (c *Context) Stroke() {
 	c.path = &Path{}
 }
 
-// FillStroke fills and then strokes the current path and resets it.
+// FillStroke fills and then strokes the current path and resets the path.
 func (c *Context) FillStroke() {
 	c.RenderPath(c.path, c.Style, c.view)
 	c.path = &Path{}
@@ -379,7 +371,7 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 	}
 }
 
-// DrawText draws text at position (x,y) using the current draw state. In particular, it only uses the current affine transformation matrix.
+// DrawText draws text at position (x,y) using the current draw state. In particular, it uses only the current affine transformation matrix.
 func (c *Context) DrawText(x, y float64, texts ...*Text) {
 	coord := c.coordView.Dot(Point{x, y})
 	m := c.view.Translate(coord.X, coord.Y)
@@ -391,14 +383,14 @@ func (c *Context) DrawText(x, y float64, texts ...*Text) {
 	}
 }
 
-// DrawImage draws an image at position (x,y), using an image encoding (Lossy or Lossless) and DPM (dots-per-millimeter). A higher DPM will draw a smaller image.
-func (c *Context) DrawImage(x, y float64, img image.Image, dpm float64) {
+// DrawImage draws an image at position (x,y), using an image encoding (Lossy or Lossless) and DPMM resolution (dots-per-millimeter). A higher resolution will draw a smaller image.
+func (c *Context) DrawImage(x, y float64, img image.Image, dpmm float64) {
 	if img.Bounds().Size().Eq(image.Point{}) {
 		return
 	}
 
 	coord := c.coordView.Dot(Point{x, y})
-	m := c.view.Translate(coord.X, coord.Y).Scale(1.0/dpm, 1.0/dpm)
+	m := c.view.Translate(coord.X, coord.Y).Scale(1.0/dpmm, 1.0/dpmm)
 	c.RenderImage(img, m)
 }
 
@@ -422,7 +414,7 @@ type Canvas struct {
 	W, H   float64
 }
 
-// New returns a new Canvas that records all drawing operations into layers. The canvas can then be rendered to any other renderer.
+// New returns a new canvas with width and height in millimeters, that records all drawing operations into layers. The canvas can then be rendered to any other renderer.
 func New(width, height float64) *Canvas {
 	return &Canvas{
 		layers: []layer{},
@@ -431,7 +423,7 @@ func New(width, height float64) *Canvas {
 	}
 }
 
-// Size returns the size of the canvas in mm.
+// Size returns the size of the canvas in millimeters.
 func (c *Canvas) Size() (float64, float64) {
 	return c.W, c.H
 }
@@ -462,7 +454,7 @@ func (c *Canvas) Reset() {
 	c.layers = c.layers[:0]
 }
 
-// Fit shrinks the canvas size so all elements fit. The elements are translated towards the origin when any left/bottom margins exist and the canvas size is decreased if any margins exist. It will maintain a given margin.
+// Fit shrinks the canvas' size so all elements fit with a given margin in millimeters.
 func (c *Canvas) Fit(margin float64) {
 	if len(c.layers) == 0 {
 		c.W = 2 * margin
@@ -520,10 +512,10 @@ func (c *Canvas) Render(r Renderer) {
 	}
 }
 
-// Writer can write a canvas to a writer
+// Writer can write a canvas to a writer.
 type Writer func(w io.Writer, c *Canvas) error
 
-// WriteFile writes the canvas to a file named by filename using the given Writer (for the encoding).
+// WriteFile writes the canvas to a file named by filename using the given writer.
 func (c *Canvas) WriteFile(filename string, w Writer) error {
 	f, err := os.Create(filename)
 	if err != nil {

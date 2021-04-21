@@ -44,8 +44,7 @@ func (table *tablePositions) HasOverlap() bool {
 	return false
 }
 
-// ParseWOFF parses the WOFF font format and returns its contained SFNT font format (TTF or OTF).
-// See https://www.w3.org/TR/WOFF/
+// ParseWOFF parses the WOFF font format and returns its contained SFNT font format (TTF or OTF). See https://www.w3.org/TR/WOFF/
 func ParseWOFF(b []byte) ([]byte, error) {
 	if len(b) < 44 {
 		return nil, ErrInvalidFontData

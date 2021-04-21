@@ -13,6 +13,7 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster i
 Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise please contact me directly!
 
 ## Recent changes
+- Renderers have been moved from `github.com/tdewolff/canvas/.` to `github.com/tdewolff/canvas/renderers/.`
 - `DPMM` is now a function just like `DPI`: `rasterizer.PNGWriter(5.0 * canvas.DPMM)` => `rasterizer.PNGWriter(canvas.DPMM(5.0))`
 - `FontFace` is now passed around as a pointer
 - `NewRichText` now requires a default `*FontFace` to be passed

@@ -1,4 +1,4 @@
-// +build !fribidi
+// +build !fribidi js
 
 package text
 
