@@ -357,7 +357,19 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	vertical := rt.mode != HorizontalTB
 	looseness := 0
 	items := canvasText.GlyphsToItems(glyphs, indent, align, vertical)
-	breaks := canvasText.Linebreak(items, width, looseness)
+
+	var breaks []*canvasText.Breakpoint
+	if width != 0.0 {
+		breaks = canvasText.Linebreak(items, width, looseness)
+	} else {
+		lineWidth := 0.0
+		for _, item := range items {
+			if item.Type != canvasText.PenaltyType {
+				lineWidth += item.Width
+			}
+		}
+		breaks = append(breaks, &canvasText.Breakpoint{Position: len(items) - 1, Width: lineWidth})
+	}
 
 	// build up lines
 	t := &Text{
@@ -411,7 +423,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 			t.lines[j].y = y + ascent
 			y += ascent + bottom
-			if height < y || position == len(items)-1 {
+			if height != 0.0 && (height < y || position == len(items)-1) {
 				// doesn't fit or at the end of items
 				break
 			}
@@ -488,7 +500,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	_, ascent, descent, bottom := t.lines[j].Heights()
 	y -= bottom * lineSpacing
 
-	if height < y+descent {
+	if height != 0.0 && height < y+descent {
 		// doesn't fit
 		t.lines = t.lines[:len(t.lines)-1]
 		if 0 < j {
