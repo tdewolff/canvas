@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"io"
 	"os"
+	"sort"
 )
 
 const mmPerPt = 25.4 / 72.0
@@ -289,6 +290,13 @@ func (c *Context) ResetStyle() {
 	c.Style = DefaultStyle
 }
 
+// SetZIndex sets the z-index.
+func (c *Context) SetZIndex(zindex int) {
+	if zindexer, ok := c.Renderer.(interface{ SetZIndex(int) }); ok {
+		zindexer.SetZIndex(zindex)
+	}
+}
+
 // Pos returns the current position of the path, which is the end point of the last command.
 func (c *Context) Pos() (float64, float64) {
 	return c.path.Pos().X, c.path.Pos().Y
@@ -383,14 +391,14 @@ func (c *Context) DrawText(x, y float64, texts ...*Text) {
 	}
 }
 
-// DrawImage draws an image at position (x,y), using an image encoding (Lossy or Lossless) and DPMM resolution (dots-per-millimeter). A higher resolution will draw a smaller image.
-func (c *Context) DrawImage(x, y float64, img image.Image, dpmm float64) {
+// DrawImage draws an image at position (x,y), using an image encoding (Lossy or Lossless) and a resolution. A higher resolution will draw a smaller image.
+func (c *Context) DrawImage(x, y float64, img image.Image, resolution Resolution) {
 	if img.Bounds().Size().Eq(image.Point{}) {
 		return
 	}
 
 	coord := c.coordView.Dot(Point{x, y})
-	m := c.view.Translate(coord.X, coord.Y).Scale(1.0/dpmm, 1.0/dpmm)
+	m := c.view.Translate(coord.X, coord.Y).Scale(1.0/resolution.DPMM(), 1.0/resolution.DPMM())
 	c.RenderImage(img, m)
 }
 
@@ -410,14 +418,15 @@ type layer struct {
 
 // Canvas stores all drawing operations as layers that can be re-rendered to other renderers.
 type Canvas struct {
-	layers []layer
+	layers map[int][]layer
+	zindex int
 	W, H   float64
 }
 
 // New returns a new canvas with width and height in millimeters, that records all drawing operations into layers. The canvas can then be rendered to any other renderer.
 func New(width, height float64) *Canvas {
 	return &Canvas{
-		layers: []layer{},
+		layers: map[int][]layer{},
 		W:      width,
 		H:      height,
 	}
@@ -431,17 +440,17 @@ func (c *Canvas) Size() (float64, float64) {
 // RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (c *Canvas) RenderPath(path *Path, style Style, m Matrix) {
 	path = path.Copy()
-	c.layers = append(c.layers, layer{path: path, m: m, style: style})
+	c.layers[c.zindex] = append(c.layers[c.zindex], layer{path: path, m: m, style: style})
 }
 
 // RenderText renders a text object to the canvas using a transformation matrix.
 func (c *Canvas) RenderText(text *Text, m Matrix) {
-	c.layers = append(c.layers, layer{text: text, m: m})
+	c.layers[c.zindex] = append(c.layers[c.zindex], layer{text: text, m: m})
 }
 
 // RenderImage renders an image to the canvas using a transformation matrix.
 func (c *Canvas) RenderImage(img image.Image, m Matrix) {
-	c.layers = append(c.layers, layer{img: img, m: m})
+	c.layers[c.zindex] = append(c.layers[c.zindex], layer{img: img, m: m})
 }
 
 // Empty return true if the canvas is empty.
@@ -451,44 +460,47 @@ func (c *Canvas) Empty() bool {
 
 // Reset empties the canvas.
 func (c *Canvas) Reset() {
-	c.layers = c.layers[:0]
+	c.layers = map[int][]layer{}
+}
+
+// SetZIndex sets the z-index.
+func (c *Canvas) SetZIndex(zindex int) {
+	c.zindex = zindex
 }
 
 // Fit shrinks the canvas' size so all elements fit with a given margin in millimeters.
 func (c *Canvas) Fit(margin float64) {
-	if len(c.layers) == 0 {
-		c.W = 2 * margin
-		c.H = 2 * margin
-		return
-	}
-
 	rect := Rect{}
 	// TODO: slow when we have many paths (see Graph example)
-	for i, l := range c.layers {
-		bounds := Rect{}
-		if l.path != nil {
-			bounds = l.path.Bounds()
-			if l.style.StrokeColor.A != 0 && 0.0 < l.style.StrokeWidth {
-				bounds.X -= l.style.StrokeWidth / 2.0
-				bounds.Y -= l.style.StrokeWidth / 2.0
-				bounds.W += l.style.StrokeWidth
-				bounds.H += l.style.StrokeWidth
+	for _, layers := range c.layers {
+		for i, l := range layers {
+			bounds := Rect{}
+			if l.path != nil {
+				bounds = l.path.Bounds()
+				if l.style.StrokeColor.A != 0 && 0.0 < l.style.StrokeWidth {
+					bounds.X -= l.style.StrokeWidth / 2.0
+					bounds.Y -= l.style.StrokeWidth / 2.0
+					bounds.W += l.style.StrokeWidth
+					bounds.H += l.style.StrokeWidth
+				}
+			} else if l.text != nil {
+				bounds = l.text.Bounds()
+			} else if l.img != nil {
+				size := l.img.Bounds().Size()
+				bounds = Rect{0.0, 0.0, float64(size.X), float64(size.Y)}
 			}
-		} else if l.text != nil {
-			bounds = l.text.Bounds()
-		} else if l.img != nil {
-			size := l.img.Bounds().Size()
-			bounds = Rect{0.0, 0.0, float64(size.X), float64(size.Y)}
-		}
-		bounds = bounds.Transform(l.m)
-		if i == 0 {
-			rect = bounds
-		} else {
-			rect = rect.Add(bounds)
+			bounds = bounds.Transform(l.m)
+			if i == 0 {
+				rect = bounds
+			} else {
+				rect = rect.Add(bounds)
+			}
 		}
 	}
-	for i := range c.layers {
-		c.layers[i].m = Identity.Translate(-rect.X+margin, -rect.Y+margin).Mul(c.layers[i].m)
+	for _, layers := range c.layers {
+		for i := range layers {
+			layers[i].m = Identity.Translate(-rect.X+margin, -rect.Y+margin).Mul(layers[i].m)
+		}
 	}
 	c.W = rect.W + 2*margin
 	c.H = rect.H + 2*margin
@@ -500,14 +512,23 @@ func (c *Canvas) Render(r Renderer) {
 	if viewer, ok := r.(interface{ View() Matrix }); ok {
 		view = viewer.View()
 	}
-	for _, l := range c.layers {
-		m := view.Mul(l.m)
-		if l.path != nil {
-			r.RenderPath(l.path, l.style, m)
-		} else if l.text != nil {
-			r.RenderText(l.text, m)
-		} else if l.img != nil {
-			r.RenderImage(l.img, m)
+
+	zindices := []int{}
+	for zindex := range c.layers {
+		zindices = append(zindices, zindex)
+	}
+	sort.Ints(zindices)
+
+	for _, zindex := range zindices {
+		for _, l := range c.layers[zindex] {
+			m := view.Mul(l.m)
+			if l.path != nil {
+				r.RenderPath(l.path, l.style, m)
+			} else if l.text != nil {
+				r.RenderText(l.text, m)
+			} else if l.img != nil {
+				r.RenderImage(l.img, m)
+			}
 		}
 	}
 }

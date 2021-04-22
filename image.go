@@ -26,6 +26,7 @@ func NewPNGImage(r io.Reader) (Image, error) {
 }
 
 func newImage(mimetype string, decode func(io.Reader) (image.Image, error), r io.Reader) (Image, error) {
+	// TODO: use lazy decoding
 	var buffer bytes.Buffer
 	r = io.TeeReader(r, &buffer)
 	img, err := decode(r)
