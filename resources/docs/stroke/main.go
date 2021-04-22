@@ -19,8 +19,9 @@ func main() {
 
 	c := canvas.New(200, 120)
 	ctx := canvas.NewContext(c)
+	ctx.SetFillColor(canvas.White)
+	ctx.DrawPath(0, 0, canvas.Rectangle(c.W, c.H))
 	draw(ctx)
-	c.Fit(1.0)
 	c.WriteFile("stroke.png", rasterizer.PNGWriter(5.0))
 }
 
