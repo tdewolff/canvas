@@ -23,13 +23,13 @@ func main() {
 }
 
 func drawPos(c *canvas.Context, x, y float64) {
-	c.SetFillColor(canvas.Darkred)
+	c.SetFillColor(canvas.Lightblue)
 	c.SetStrokeColor(canvas.Transparent)
 	c.DrawPath(x-1.5, y-1.5, canvas.Rectangle(3.0, 3.0))
 }
 
 func drawControl(c *canvas.Context, x, y float64) {
-	c.SetFillColor(canvas.Darkgreen)
+	c.SetFillColor(canvas.Lightblue)
 	c.SetStrokeColor(canvas.Transparent)
 	c.DrawPath(x-1.5, y-1.5, canvas.Circle(1.2))
 }
