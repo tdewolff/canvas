@@ -1,7 +1,4 @@
-example/example.*
-!example/example.go
-example/test.*
-!example/test.go
+examples/opengl/opengl
 test/*
 *.ttf
 *.otf
