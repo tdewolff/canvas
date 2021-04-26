@@ -821,10 +821,16 @@ func (w *pdfPageWriter) WriteText(mode canvas.WritingMode, TJ ...interface{}) {
 		}
 		for _, glyph := range glyphs {
 			glyphID := w.font.SubsetID(glyph.ID)
-			if r := rune(glyphID); r == '\\' || r == '(' || r == ')' {
-				binary.Write(w, binary.BigEndian, '\\')
+			a := uint8((glyphID & 0xff00) >> 8)
+			b := uint8(glyphID & 0x00ff)
+			if r := rune(a); r == '\\' || r == '(' || r == ')' {
+				binary.Write(w, binary.BigEndian, uint8('\\'))
 			}
-			binary.Write(w, binary.BigEndian, glyphID)
+			binary.Write(w, binary.BigEndian, a)
+			if r := rune(b); r == '\\' || r == '(' || r == ')' {
+				binary.Write(w, binary.BigEndian, uint8('\\'))
+			}
+			binary.Write(w, binary.BigEndian, b)
 		}
 		fmt.Fprintf(w, ")")
 	}

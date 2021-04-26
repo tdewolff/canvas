@@ -177,7 +177,7 @@ func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 				}
 				t.lines = append(t.lines, line)
 			}
-			y -= ascent + descent + spacing
+			y += ascent + descent + spacing
 			i = j + utf8.RuneLen(r)
 			skipNext = r == '\r' && j+1 < len(s) && s[j+1] == '\n'
 		}
