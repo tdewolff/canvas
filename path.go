@@ -1280,7 +1280,7 @@ func (p *Path) Reverse() *Path {
 				rp.MoveTo(end.X, end.Y)
 			}
 		case lineToCmd:
-			if closed && (0 == i || p.d[i-1] == moveToCmd) {
+			if closed && (i == 0 || p.d[i-1] == moveToCmd) {
 				rp.Close()
 				closed = false
 			} else {

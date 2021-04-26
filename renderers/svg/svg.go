@@ -211,7 +211,7 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 				for _, dash := range style.Dashes[1:] {
 					fmt.Fprintf(b, " %v", dec(dash))
 				}
-				if 0.0 != style.DashOffset {
+				if style.DashOffset != 0.0 {
 					fmt.Fprintf(b, ";stroke-dashoffset:%v", dec(style.DashOffset))
 				}
 			}
@@ -348,7 +348,7 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 
 	text.WalkSpans(func(x, y float64, span canvas.TextSpan) {
 		r.fonts[span.Face.Font] = true
-		for _, r := range []rune(span.Text) {
+		for _, r := range span.Text {
 			glyphID := span.Face.Font.SFNT.GlyphIndex(r)
 			_ = span.Face.Font.SubsetID(glyphID) // register usage of glyph for subsetting
 		}

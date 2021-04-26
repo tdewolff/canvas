@@ -26,7 +26,10 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 	// add dependencies for composite glyphs
 	origLen := len(glyphIDs)
 	for i := 0; i < origLen; i++ {
-		deps, _ := sfnt.Glyf.Dependencies(glyphIDs[i], 0)
+		deps, err := sfnt.Glyf.Dependencies(glyphIDs[i], 0)
+		if err != nil {
+			panic(err)
+		}
 		for _, glyphID := range deps[1:] {
 			if _, ok := glyphMap[glyphID]; !ok {
 				subsetGlyphID := uint16(len(glyphIDs))

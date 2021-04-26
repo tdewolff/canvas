@@ -6,7 +6,6 @@ import (
 )
 
 var fontFamily *canvas.FontFamily
-var strokeWidth = 10.0
 
 func main() {
 	fontFamily = canvas.NewFontFamily("times")

@@ -187,7 +187,7 @@ func (j ArcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point,
 		BevelJoin.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	} else if math.IsNaN(r0) && math.IsNaN(r1) {
-		MiterJoiner{j.GapJoiner, j.Limit}.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
+		MiterJoiner(j).Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	}
 	limit := math.Max(j.Limit, 1.001) // 1.001 so that nearly linear joins will not get clipped
@@ -287,7 +287,6 @@ func (j ArcsJoiner) String() string {
 
 type pathStrokeState struct {
 	cmd    float64
-	size   int     // number of segments it ends up being (ie. cubic bezier becomes many lines)
 	p0, p1 Point   // position of start and end
 	n0, n1 Point   // normal of start and end
 	r0, r1 float64 // radius of start and end

@@ -248,7 +248,7 @@ func (family *FontFamily) Face(size float64, col color.Color, style FontStyle, v
 		if style&0xFF == FontExtraLight {
 			style = style&0x100 | FontLight
 		} else if style&0xFF == FontLight || style&0xFF == FontBook {
-			style = style&0x100 | FontRegular
+			style = style & 0x100
 		} else if style&0xFF == FontRegular {
 			style = style&0x100 | FontSemibold
 		} else if style&0xFF == FontMedium || style&0xFF == FontSemibold {

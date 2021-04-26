@@ -24,7 +24,7 @@ func ellipseDeriv(rx, ry, phi float64, sweep bool, theta float64) Point {
 	return Point{dx, dy}
 }
 
-func ellipseDeriv2(rx, ry, phi float64, sweep bool, theta float64) Point {
+func ellipseDeriv2(rx, ry, phi float64, theta float64) Point {
 	sintheta, costheta := math.Sincos(theta)
 	sinphi, cosphi := math.Sincos(phi)
 	ddx := -rx*costheta*cosphi + ry*sintheta*sinphi
@@ -35,7 +35,7 @@ func ellipseDeriv2(rx, ry, phi float64, sweep bool, theta float64) Point {
 func ellipseCurvatureRadius(rx, ry float64, sweep bool, theta float64) float64 {
 	// phi has no influence on the curvature
 	dp := ellipseDeriv(rx, ry, 0.0, sweep, theta)
-	ddp := ellipseDeriv2(rx, ry, 0.0, sweep, theta)
+	ddp := ellipseDeriv2(rx, ry, 0.0, theta)
 	a := dp.PerpDot(ddp)
 	if Equal(a, 0.0) {
 		return math.NaN()

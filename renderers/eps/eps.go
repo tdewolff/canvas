@@ -59,7 +59,7 @@ type EPS struct {
 // New returns an encapsulated PostScript (EPS) renderer.
 func New(w io.Writer, width, height float64) *EPS {
 	fmt.Fprintf(w, "%%!PS-Adobe-3.0 EPSF-3.0\n%%%%BoundingBox: 0 0 %v %v\n", dec(width), dec(height))
-	fmt.Fprintf(w, psEllipseDef)
+	fmt.Fprint(w, psEllipseDef)
 	// TODO: (EPS) generate and add preview
 
 	return &EPS{

@@ -60,7 +60,6 @@ func (contour *glyfContour) String() string {
 
 type glyfTable struct {
 	data []byte
-	head *headTable
 	loca *locaTable
 }
 

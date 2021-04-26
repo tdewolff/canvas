@@ -1496,28 +1496,28 @@ func (sfnt *SFNT) parsePost() error {
 
 ////////////////////////////////////////////////////////////////
 
-type scriptList struct {
-	Data []byte
-}
-
-type featureList struct {
-	Data []byte
-}
-
-type lookupList struct {
-	Data []byte
-}
-
-type featureVariations struct {
-	Data []byte
-}
-
-type gposTable struct {
-	Scripts           scriptList
-	Features          featureList
-	Lookup            lookupList
-	FeatureVariations featureVariations
-}
+//type scriptList struct {
+//	Data []byte
+//}
+//
+//type featureList struct {
+//	Data []byte
+//}
+//
+//type lookupList struct {
+//	Data []byte
+//}
+//
+//type featureVariations struct {
+//	Data []byte
+//}
+//
+//type gposTable struct {
+//	Scripts           scriptList
+//	Features          featureList
+//	Lookup            lookupList
+//	FeatureVariations featureVariations
+//}
 
 //func (sfnt *SFNT) parseGpos() error {
 //	b, ok := sfnt.Tables["GPOS"]

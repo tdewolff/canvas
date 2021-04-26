@@ -11,7 +11,7 @@ func TestEllipse(t *testing.T) {
 	test.T(t, EllipsePos(2.0, 1.0, math.Pi/2.0, 1.0, 0.5, 0.0), Point{1.0, 2.5})
 	test.T(t, ellipseDeriv(2.0, 1.0, math.Pi/2.0, true, 0.0), Point{-1.0, 0.0})
 	test.T(t, ellipseDeriv(2.0, 1.0, math.Pi/2.0, false, 0.0), Point{1.0, 0.0})
-	test.T(t, ellipseDeriv2(2.0, 1.0, math.Pi/2.0, false, 0.0), Point{0.0, -2.0})
+	test.T(t, ellipseDeriv2(2.0, 1.0, math.Pi/2.0, 0.0), Point{0.0, -2.0})
 	test.T(t, ellipseCurvatureRadius(2.0, 1.0, true, 0.0), 0.5)
 	test.T(t, ellipseCurvatureRadius(2.0, 1.0, false, 0.0), -0.5)
 	test.T(t, ellipseCurvatureRadius(2.0, 1.0, true, math.Pi/2.0), 4.0)
