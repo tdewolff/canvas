@@ -238,17 +238,11 @@ func (w *pdfWriter) getFont(font *canvas.Font, vertical bool) pdfRef {
 
 func (w *pdfWriter) writeFont(ref pdfRef, font *canvas.Font, vertical bool) {
 	// subset the font
-	var fontProgram []byte
-	var glyphIDs []uint16 // subset to original glyph ID, identical if we're not subsetting
+	fontProgram := font.SFNT.Data
+	glyphIDs := font.SubsetIDs()
 	if w.subset {
 		// TODO: remove all optional tables such as kern, GPOS, GSUB, ...
-		fontProgram, glyphIDs = font.SFNT.Subset(font.SubsetIDs())
-	} else {
-		fontProgram = font.SFNT.Data
-		glyphIDs = make([]uint16, font.SFNT.Maxp.NumGlyphs)
-		for glyphID := range glyphIDs {
-			glyphIDs[glyphID] = uint16(glyphID)
-		}
+		fontProgram, glyphIDs = font.SFNT.Subset(glyphIDs)
 	}
 
 	// calculate the character widths for the W array and shorten it
@@ -418,6 +412,23 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 				pdfName(fontFile): fontfileRef,
 			},
 		}},
+	}
+
+	if !w.subset {
+		cidToGIDMap := make([]byte, 2*len(glyphIDs))
+		for subsetGlyphID, glyphID := range glyphIDs {
+			j := int(subsetGlyphID) * 2
+			cidToGIDMap[j+0] = byte((glyphID & 0xFF00) >> 8)
+			cidToGIDMap[j+1] = byte(glyphID & 0x00FF)
+		}
+		cidToGIDMapStream := pdfStream{
+			dict:   pdfDict{},
+			stream: cidToGIDMap,
+		}
+		if w.compress {
+			cidToGIDMapStream.dict["Filter"] = pdfFilterFlate
+		}
+		dict["DescendantFonts"].(pdfArray)[0].(pdfDict)["CIDToGIDMap"] = cidToGIDMapStream
 	}
 
 	w.objOffsets[ref-1] = w.pos
