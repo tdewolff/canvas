@@ -1,4 +1,169 @@
+// +build cgo
+
 package opengl
+
+import (
+	"fmt"
+	"image"
+	"strings"
+
+	"github.com/go-gl/gl/v4.1-core/gl"
+	"github.com/tdewolff/canvas"
+	"github.com/tdewolff/canvas/renderers/rasterizer"
+)
+
+// OpenGL is an open graphics library renderer.
+type OpenGL struct {
+	*rasterizer.Rasterizer
+
+	img     *image.RGBA
+	program uint32
+	vao     uint32
+	texture uint32
+}
+
+// New returns an open graphics library (OpenGL) renderer.
+func New(width, height float64, resolution canvas.Resolution) *OpenGL {
+	img := image.NewRGBA(image.Rect(0, 0, int(width*resolution.DPMM()+0.5), int(height*resolution.DPMM()+0.5)))
+	return &OpenGL{
+		Rasterizer: rasterizer.New(img, resolution),
+		img:        img,
+	}
+}
+
+func (r *OpenGL) Compile() {
+	points := []float32{
+		-1.0, -1.0, 0.0, 1.0,
+		1.0, -1.0, 1.0, 1.0,
+		-1.0, 1.0, 0.0, 0.0,
+
+		1.0, -1.0, 1.0, 1.0,
+		1.0, 1.0, 1.0, 0.0,
+		-1.0, 1.0, 0.0, 0.0,
+	}
+
+	// compile shaders
+	vertexShader, err := compileShader(vertexShaderSource, gl.VERTEX_SHADER)
+	if err != nil {
+		panic(err)
+	}
+	fragmentShader, err := compileShader(fragmentShaderSource, gl.FRAGMENT_SHADER)
+	if err != nil {
+		panic(err)
+	}
+
+	program := gl.CreateProgram()
+	gl.AttachShader(program, vertexShader)
+	gl.AttachShader(program, fragmentShader)
+	gl.LinkProgram(program)
+
+	// generate texture
+	var texture uint32
+	gl.GenTextures(1, &texture)
+	gl.ActiveTexture(gl.TEXTURE0)
+	gl.BindTexture(gl.TEXTURE_2D, texture)
+
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+
+	width := int32(r.img.Rect.Size().X)
+	height := int32(r.img.Rect.Size().Y)
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(r.img.Pix))
+	gl.GenerateMipmap(texture)
+
+	// create data points
+	var vbo uint32
+	gl.GenBuffers(1, &vbo)
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
+	gl.BufferData(gl.ARRAY_BUFFER, 4*len(points), gl.Ptr(points), gl.STATIC_DRAW)
+
+	var vao uint32
+	gl.GenVertexArrays(1, &vao)
+	gl.BindVertexArray(vao)
+
+	// attach attributes
+	vertexAttrib := uint32(gl.GetAttribLocation(program, gl.Str("position\x00")))
+	texcoordAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vertTexcoord\x00")))
+	texUniform := gl.GetUniformLocation(program, gl.Str("tex\x00"))
+	gl.EnableVertexAttribArray(vertexAttrib)
+	gl.EnableVertexAttribArray(texcoordAttrib)
+	gl.VertexAttribPointer(vertexAttrib, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(0))
+	gl.VertexAttribPointer(texcoordAttrib, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(2*4))
+	gl.Uniform1i(texUniform, int32(0))
+
+	// unbind
+	gl.BindTexture(gl.TEXTURE_2D, 0)
+	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
+	gl.BindVertexArray(0)
+	gl.UseProgram(0)
+
+	r.program = program
+	r.vao = vao
+	r.texture = texture
+}
+
+func (r *OpenGL) Draw() {
+	gl.UseProgram(r.program)
+	gl.BindVertexArray(r.vao)
+	gl.ActiveTexture(gl.TEXTURE0)
+	gl.BindTexture(gl.TEXTURE_2D, r.texture)
+
+	gl.DrawArrays(gl.TRIANGLES, 0, 2*3)
+
+	gl.BindTexture(gl.TEXTURE_2D, 0)
+	gl.BindVertexArray(0)
+	gl.UseProgram(0)
+}
+
+func compileShader(source string, shaderType uint32) (uint32, error) {
+	shader := gl.CreateShader(shaderType)
+
+	csources, free := gl.Strs(source)
+	gl.ShaderSource(shader, 1, csources, nil)
+	free()
+	gl.CompileShader(shader)
+
+	var status int32
+	gl.GetShaderiv(shader, gl.COMPILE_STATUS, &status)
+	if status == gl.FALSE {
+		var logLength int32
+		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)
+
+		log := strings.Repeat("\x00", int(logLength+1))
+		gl.GetShaderInfoLog(shader, logLength, nil, gl.Str(log))
+
+		return 0, fmt.Errorf("failed to compile %v: %v", source, log)
+	}
+	return shader, nil
+}
+
+var vertexShaderSource = `
+	#version 410
+	in vec2 position;
+	in vec2 vertTexcoord;
+
+	out vec2 fragTexcoord;
+
+	void main() {
+		gl_Position = vec4(position, 0.0, 1.0);
+		fragTexcoord = vertTexcoord;
+	}
+` + "\x00"
+
+var fragmentShaderSource = `
+	#version 410
+	in vec2 fragTexcoord;
+
+	out vec4 color;
+
+	uniform sampler2D tex;
+
+	void main() {
+		color = texture(tex, fragTexcoord);
+	}
+` + "\x00"
 
 //import (
 //	"fmt"

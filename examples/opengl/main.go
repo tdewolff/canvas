@@ -2,109 +2,232 @@
 
 package main
 
-//import (
-//	"log"
-//	"runtime"
-//
-//	"github.com/go-gl/gl/v4.1-core/gl"
-//	"github.com/go-gl/glfw/v3.2/glfw"
-//	"github.com/tdewolff/canvas"
-//)
-//
-//var vertexShaderSource = `
-//    #version 410
-//    in vec3 position;
-//	in vec2 texcoord;
-//
-//	out vec2 Texcoord;
-//
-//    void main() {
-//        gl_Position = vec4(position, 1.0);
-//		Texcoord = texcoord;
-//    }
-//` + "\x00"
-//
-//var fragmentShaderSource = `
-//    #version 410
-//	in vec2 Texcoord;
-//
-//    out vec4 frag_colour;
-//
-//    void main() {
-//		vec2 p = Texcoord.st;
-//		vec2 px = dFdx(p);
-//		vec2 py = dFdy(p);
-//		float fx = (2*p.x)*px.x - px.y;
-//		float fy = (2*p.x)*py.x - py.y;
-//		float sd = (p.x*p.x - p.y)/sqrt(fx*fx + fy*fy);
-//		float alpha = 0.5 - sd;
-//		if (alpha >= 1)
-//			frag_colour = vec4(1, 1, 1, 1);
-//		else if (alpha <= 0)
-//			discard;
-//		else
-//			frag_colour = vec4(1, 1, 1, alpha);
-//    }
-//` + "\x00"
-//
-//func main() {
-//	runtime.LockOSThread()
-//
-//	fontFamily := canvas.NewFontFamily("dejavu-serif")
-//	if err := fontFamily.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
-//		panic(err)
-//	}
-//
-//	//p, _ := canvas.ParseSVG("M0 0.5L0.5 0.5Q1 0.5 1 0Q1 -0.5 0.5 -0.5L-0.5 -0.5C-1 -0.5 -1 0.5 -0.5 0.5z")
-//	p, _ := canvas.ParseSVG("M0 0.5L0.5 0.5C1 0.5 1 -0.5 0.5 -0.5L-0.5 -0.5C-1 -0.5 -1 0.5 -0.5 0.5z")
-//	c := canvas.New(0.0, 0.0)
-//	c.SetFillColor(canvas.Blue)
-//	c.DrawPath(0.0, 0.0, p)
-//	ogl := c.ToOpenGL()
-//
-//	if err := glfw.Init(); err != nil {
-//		panic(err)
-//	}
-//	defer glfw.Terminate()
-//
-//	//glfw.WindowHint(glfw.Resizable, glfw.False)
-//	glfw.WindowHint(glfw.ContextVersionMajor, 4) // OR 2
-//	glfw.WindowHint(glfw.ContextVersionMinor, 1)
-//	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
-//	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
-//
-//	width, height := 800, 800
-//	window, err := glfw.CreateWindow(width, height, "Canvas OpenGL demo", nil, nil)
-//	if err != nil {
-//		panic(err)
-//	}
-//	window.MakeContextCurrent()
-//	window.SetKeyCallback(onKey)
-//
-//	if err := gl.Init(); err != nil {
-//		panic(err)
-//	}
-//	version := gl.GoStr(gl.GetString(gl.VERSION))
-//	log.Println("OpenGL version", version)
-//
-//	ogl.Compile()
-//
-//	gl.Enable(gl.BLEND)
-//	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-//
-//	gl.ClearColor(1, 1, 1, 1)
-//	for !window.ShouldClose() {
-//		gl.Clear(gl.COLOR_BUFFER_BIT)
-//
-//		ogl.Draw()
-//
-//		glfw.PollEvents()
-//		window.SwapBuffers()
-//	}
-//}
-//
-//func onKey(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
-//	if action == glfw.Press && (key == glfw.KeyEscape || key == glfw.KeyQ) {
-//		w.SetShouldClose(true)
-//	}
-//}
+import (
+	"fmt"
+	"image/color"
+	"os"
+	"runtime"
+
+	"github.com/go-gl/gl/v4.1-core/gl"
+	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/tdewolff/canvas"
+	"github.com/tdewolff/canvas/renderers/opengl"
+	"github.com/tdewolff/canvas/text"
+)
+
+var fontLatin *canvas.FontFamily
+var fontArabic *canvas.FontFamily
+var fontDevanagari *canvas.FontFamily
+
+func main() {
+	runtime.LockOSThread()
+
+	fontLatin = canvas.NewFontFamily("DejaVu Serif")
+	if err := fontLatin.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
+		panic(err)
+	}
+
+	fontArabic = canvas.NewFontFamily("DejaVu Sans")
+	if err := fontArabic.LoadLocalFont("DejaVuSans", canvas.FontRegular); err != nil {
+		panic(err)
+	}
+
+	fontDevanagari = canvas.NewFontFamily("Devanagari")
+	if err := fontDevanagari.LoadFontFile("/usr/share/fonts/noto/NotoSerifDevanagari-Regular.ttf", canvas.FontRegular); err != nil {
+		panic(err)
+	}
+
+	opengl := opengl.New(200.0, 100.0, canvas.DPMM(5.0))
+	ctx := canvas.NewContext(opengl)
+	ctx.SetFillColor(canvas.White)
+	ctx.DrawPath(0, 0, canvas.Rectangle(ctx.Width(), ctx.Height()))
+	draw(ctx)
+
+	// Set up window
+	if err := glfw.Init(); err != nil {
+		panic(err)
+	}
+	defer glfw.Terminate()
+
+	glfw.WindowHint(glfw.Resizable, glfw.False)
+	glfw.WindowHint(glfw.ContextVersionMajor, 3)
+	glfw.WindowHint(glfw.ContextVersionMinor, 2)
+	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
+	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
+
+	width, height := 800, 400
+	window, err := glfw.CreateWindow(width, height, "tdewolff/canvas OpenGL demo", nil, nil)
+	if err != nil {
+		panic(err)
+	}
+	window.MakeContextCurrent()
+	window.SetKeyCallback(onKey)
+
+	if err := gl.Init(); err != nil {
+		panic(err)
+	}
+	version := gl.GoStr(gl.GetString(gl.VERSION))
+	fmt.Println("OpenGL version", version)
+
+	// Compile canvas for OpenGl
+	opengl.Compile()
+
+	gl.Enable(gl.BLEND)
+	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+
+	gl.ClearColor(1, 1, 1, 1)
+	for !window.ShouldClose() {
+		gl.Clear(gl.COLOR_BUFFER_BIT)
+
+		// Draw compiled canvas to OpenGL
+		opengl.Draw()
+
+		glfw.PollEvents()
+		window.SwapBuffers()
+	}
+}
+
+func onKey(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
+	if action == glfw.Press && (key == glfw.KeyEscape || key == glfw.KeyQ) {
+		w.SetShouldClose(true)
+	}
+}
+
+func drawText(c *canvas.Context, x, y float64, face *canvas.FontFace, rich *canvas.RichText) {
+	metrics := face.Metrics()
+	width, height := 90.0, 32.0
+
+	text := rich.ToText(width, height, canvas.Justify, canvas.Top, 0.0, 0.0)
+
+	c.SetFillColor(color.RGBA{192, 0, 64, 255})
+	c.DrawPath(x, y, text.Bounds().ToPath())
+	c.SetFillColor(color.RGBA{50, 50, 50, 50})
+	c.DrawPath(x, y, canvas.Rectangle(width, -metrics.LineHeight))
+	c.SetFillColor(color.RGBA{0, 0, 0, 50})
+	c.DrawPath(x, y+metrics.CapHeight-metrics.Ascent, canvas.Rectangle(width, -metrics.CapHeight-metrics.Descent))
+	c.DrawPath(x, y+metrics.XHeight-metrics.Ascent, canvas.Rectangle(width, -metrics.XHeight))
+
+	c.SetFillColor(canvas.Black)
+	c.DrawPath(x, y, canvas.Rectangle(width, -height).Stroke(0.2, canvas.RoundCap, canvas.RoundJoin))
+	c.DrawText(x, y, text)
+}
+
+func draw(c *canvas.Context) {
+	// Draw a comprehensive text box
+	pt := 14.0
+	face := fontLatin.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	rt := canvas.NewRichText(face)
+	rt.Add(face, "Lorem dolor ipsum ")
+	rt.Add(fontLatin.Face(pt, canvas.White, canvas.FontBold, canvas.FontNormal), "confiscator")
+	rt.Add(face, " curabitur ")
+	rt.Add(fontLatin.Face(pt, canvas.Black, canvas.FontItalic, canvas.FontNormal), "mattis")
+	rt.Add(face, " dui ")
+	rt.Add(fontLatin.Face(pt, canvas.Black, canvas.FontBold|canvas.FontItalic, canvas.FontNormal), "tellus")
+	rt.Add(face, " vel. Proin ")
+	rt.Add(fontLatin.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontUnderline), "sodales")
+	rt.Add(face, " eros vel ")
+	rt.Add(fontLatin.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontSineUnderline), "nibh")
+	rt.Add(face, " fringilla pellentesque. ")
+
+	face = fontLatin.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	face.Language = "ru"
+	face.Script = text.Cyrillic
+	rt.Add(face, "дёжжэнтиюнт ")
+
+	face = fontArabic.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	face.Language = "ar"
+	face.Script = text.Arabic
+	face.Direction = text.RightToLeft
+	rt.Add(face, "تسجّل يتكلّم ")
+
+	face = fontDevanagari.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	face.Language = "hi"
+	face.Script = text.Devanagari
+	rt.Add(face, "हालाँकि प्र ")
+
+	drawText(c, 5, 95, face, rt)
+
+	// Draw the word Stroke being stroked
+	face = fontLatin.Face(80.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	p, _, _ := face.ToPath("Stroke")
+	c.DrawPath(100, 5, p.Stroke(0.75, canvas.RoundCap, canvas.RoundJoin))
+
+	// Draw a LaTeX formula
+	latex, err := canvas.ParseLaTeX(`$y = \sin\left(\frac{x}{180}\pi\right)$`)
+	if err != nil {
+		panic(err)
+	}
+	latex = latex.Transform(canvas.Identity.Rotate(-30))
+	c.SetFillColor(canvas.Black)
+	c.DrawPath(140, 85, latex)
+
+	// Draw an elliptic arc being dashed
+	ellipse, err := canvas.ParseSVG(fmt.Sprintf("A10 30 30 1 0 30 0z"))
+	if err != nil {
+		panic(err)
+	}
+	c.SetFillColor(canvas.Whitesmoke)
+	c.DrawPath(110, 40, ellipse)
+
+	c.SetFillColor(canvas.Transparent)
+	c.SetStrokeColor(canvas.Black)
+	c.SetStrokeWidth(0.75)
+	c.SetStrokeCapper(canvas.RoundCap)
+	c.SetStrokeJoiner(canvas.RoundJoin)
+	c.SetDashes(0.0, 2.0, 4.0, 2.0, 2.0, 4.0, 2.0)
+	//ellipse = ellipse.Dash(0.0, 2.0, 4.0, 2.0).Stroke(0.5, canvas.RoundCap, canvas.RoundJoin)
+	c.DrawPath(110, 40, ellipse)
+	c.SetStrokeColor(canvas.Transparent)
+	c.SetDashes(0.0)
+
+	// Draw a raster image
+	lenna, err := os.Open("../../resources/lenna.png")
+	if err != nil {
+		panic(err)
+	}
+	img, err := canvas.NewPNGImage(lenna)
+	if err != nil {
+		panic(err)
+	}
+	c.Rotate(5)
+	c.DrawImage(50.0, 0.0, img, 15)
+	c.SetView(canvas.Identity)
+
+	// Draw an closed set of points being smoothed
+	polyline := &canvas.Polyline{}
+	polyline.Add(0.0, 0.0)
+	polyline.Add(30.0, 0.0)
+	polyline.Add(30.0, 15.0)
+	polyline.Add(0.0, 30.0)
+	polyline.Add(0.0, 0.0)
+	c.SetFillColor(canvas.Seagreen)
+	c.FillColor.R = byte(float64(c.FillColor.R) * 0.25)
+	c.FillColor.G = byte(float64(c.FillColor.G) * 0.25)
+	c.FillColor.B = byte(float64(c.FillColor.B) * 0.25)
+	c.FillColor.A = byte(float64(c.FillColor.A) * 0.25)
+	c.SetStrokeColor(canvas.Seagreen)
+	c.DrawPath(155, 35, polyline.Smoothen())
+
+	c.SetFillColor(canvas.Transparent)
+	c.SetStrokeColor(canvas.Black)
+	c.SetStrokeWidth(0.5)
+	c.DrawPath(155, 35, polyline.ToPath())
+	c.SetStrokeWidth(0.75)
+	for _, coord := range polyline.Coords() {
+		c.DrawPath(155, 35, canvas.Circle(2.0).Translate(coord.X, coord.Y))
+	}
+
+	// Draw a open set of points being smoothed
+	polyline = &canvas.Polyline{}
+	polyline.Add(0.0, 0.0)
+	polyline.Add(20.0, 10.0)
+	polyline.Add(40.0, 30.0)
+	polyline.Add(60.0, 40.0)
+	polyline.Add(80.0, 20.0)
+	c.SetStrokeColor(canvas.Dodgerblue)
+	c.DrawPath(10, 15, polyline.Smoothen())
+	c.SetStrokeColor(canvas.Black)
+	for _, coord := range polyline.Coords() {
+		c.DrawPath(10, 15, canvas.Circle(2.0).Translate(coord.X, coord.Y))
+	}
+}

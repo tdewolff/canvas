@@ -14,6 +14,7 @@ Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise pl
 
 ## Recent changes
 - Renderers have been moved from `github.com/tdewolff/canvas/.` to `github.com/tdewolff/canvas/renderers/.`
+- `FontFamily.Use()` is deprecated, use `FontFamily.SetFeatures()` (not yet used)
 - `DPMM` is now a function just like `DPI`: `rasterizer.PNGWriter(5.0 * canvas.DPMM)` => `rasterizer.PNGWriter(canvas.DPMM(5.0))`
 - `FontFace` is now passed around as a pointer
 - `NewRichText` now requires a default `*FontFace` to be passed
@@ -29,6 +30,8 @@ Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise pl
 **[Mauna-Loa CO2 conentration](https://github.com/tdewolff/canvas/tree/master/examples/graph)**: using data from the Mauna-Loa observatory, carbon dioxide concentrations over time are drawn
 
 **[Document](https://github.com/tdewolff/canvas/tree/master/examples/document)**: an example of a text document.
+
+**[OpenGL](https://github.com/tdewolff/canvas/tree/master/examples/opengl)**: an example using OpenGL.
 
 **[TeX/PGF](https://github.com/tdewolff/canvas/tree/master/examples/tex)**: an example showing the usage of the PGF (TikZ) LaTeX package as renderer in order to generated a PDF using LaTeX.
 
