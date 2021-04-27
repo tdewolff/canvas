@@ -22,6 +22,8 @@ type GoChart struct {
 	fontSize     float64
 	fontColor    drawing.Color
 	textRotation float64
+
+	fonts map[string]*canvas.FontFamily
 }
 
 // NewGoChart returns a new github.com/wcharczuk/go-chart renderer.
@@ -36,6 +38,7 @@ func NewGoChart(writer canvas.Writer) func(int, int) (chart.Renderer, error) {
 			dpi:       chart.DefaultDPI,
 			fontSize:  12.0, // uses default of github.com/golang/freetype/truetype
 			fontColor: drawing.ColorTransparent,
+			fonts:     map[string]*canvas.FontFamily{},
 		}
 		gochart.ctx.SetFillColor(canvas.Transparent)
 		gochart.ctx.SetStrokeWidth(chart.DefaultStrokeWidth * mmPerPx)
@@ -156,9 +159,14 @@ func (r *GoChart) SetFont(f *truetype.Font) {
 		return
 	}
 
-	r.font = canvas.NewFontFamily(f.Name(truetype.NameIDFontFamily))
-	if err := r.font.LoadFont(font.FromGoFreetype(f), 0, canvas.FontRegular); err != nil {
-		panic(err)
+	name := f.Name(truetype.NameIDFontFamily)
+	r.font = r.fonts[name]
+	if r.font == nil {
+		r.font = canvas.NewFontFamily(name)
+		if err := r.font.LoadFont(font.FromGoFreetype(f), 0, canvas.FontRegular); err != nil {
+			panic(err)
+		}
+		r.fonts[name] = r.font
 	}
 }
 

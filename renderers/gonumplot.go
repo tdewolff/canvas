@@ -15,13 +15,15 @@ import (
 
 // GonumPlot is a github.com/gonum/plot/vg renderer.
 type GonumPlot struct {
-	ctx *canvas.Context
+	ctx   *canvas.Context
+	fonts map[string]*canvas.FontFamily
 }
 
 // NewGonumPlot returns a new github.com/gonum/plot/vg renderer.
 func NewGonumPlot(r canvas.Renderer) draw.Canvas {
 	c := &GonumPlot{
-		ctx: canvas.NewContext(r),
+		ctx:   canvas.NewContext(r),
+		fonts: map[string]*canvas.FontFamily{},
 	}
 	return draw.New(c)
 }
@@ -161,10 +163,16 @@ func (r *GonumPlot) FillString(f gonumFont.Face, pt vg.Point, text string) {
 	if f.Font.Style == font.StyleItalic || f.Font.Style == font.StyleOblique {
 		style |= canvas.FontItalic
 	}
-	fontFamily := canvas.NewFontFamily(f.Name())
-	if err := fontFamily.LoadFont(canvasFont.FromGoSFNT(f.Face), 0, canvas.FontRegular); err != nil {
-		panic(err)
+
+	fontFamily := r.fonts[f.Name()]
+	if fontFamily == nil {
+		fontFamily = canvas.NewFontFamily(f.Name())
+		if err := fontFamily.LoadFont(canvasFont.FromGoSFNT(f.Face), 0, canvas.FontRegular); err != nil {
+			panic(err)
+		}
+		r.fonts[f.Name()] = fontFamily
 	}
+
 	face := fontFamily.Face(float64(f.Font.Size), r.ctx.FillColor, style, canvas.FontNormal)
 	r.ctx.DrawText(float64(pt.X*mmPerPt), float64(pt.Y*mmPerPt), canvas.NewTextLine(face, text, canvas.Left))
 }

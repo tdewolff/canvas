@@ -39,9 +39,6 @@ func main() {
 	if err := p.Save(5*vg.Centimeter, 5*vg.Centimeter, "target.svg"); err != nil {
 		log.Fatalf("could not save SVG plot: %v", err)
 	}
-	if err := p.Save(5*vg.Centimeter, 5*vg.Centimeter, "target.pdf"); err != nil {
-		log.Fatalf("could not save SVG plot: %v", err)
-	}
 
 	c := canvas.New(50.0, 50.0)
 	gonumCanvas := renderers.NewGonumPlot(c)
