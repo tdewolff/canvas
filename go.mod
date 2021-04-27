@@ -2,14 +2,13 @@ module github.com/tdewolff/canvas
 
 require (
 	github.com/ByteArena/poly2tri-go v0.0.0-20170716161910-d102ad91854f
-	github.com/ajstarks/svgo v0.0.0-20210406150507-75cfd577ce75 // indirect
 	github.com/dsnet/compress v0.0.1
-	github.com/go-gl/gl v0.0.0-20210315015930-ae072cafe09d
+	github.com/go-gl/gl v0.0.0-20210426225639-a3bfa832c8aa
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
-	github.com/paulmach/orb v0.1.6
-	github.com/paulmach/osm v0.1.1
-	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
+	github.com/paulmach/orb v0.2.1
+	github.com/paulmach/osm v0.2.1
+	github.com/pkg/browser v0.0.0-20210115035449-ce105d075bb4
 	github.com/tdewolff/minify/v2 v2.9.16
 	github.com/tdewolff/parse/v2 v2.5.16
 	github.com/tdewolff/test v1.0.6

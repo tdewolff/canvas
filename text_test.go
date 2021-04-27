@@ -21,7 +21,7 @@ func TestTextLine(t *testing.T) {
 	test.Float(t, text.lines[0].y, 0.0)
 	test.T(t, len(text.lines[1].spans), 1)
 	test.Float(t, text.lines[1].spans[0].x, 0.0)
-	test.Float(t, text.lines[1].y, -face.Metrics().LineHeight)
+	test.Float(t, text.lines[1].y, face.Metrics().LineHeight)
 
 	text = NewTextLine(face, "test\nline", Center)
 	test.Float(t, text.lines[0].spans[0].x, -0.5*text.lines[0].spans[0].Width)
