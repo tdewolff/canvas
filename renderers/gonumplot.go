@@ -65,6 +65,9 @@ func (r *GonumPlot) SetLineDash(pattern []vg.Length, offset vg.Length) {
 // The initial color is black.  If SetColor is
 // called with a nil color then black is used.
 func (r *GonumPlot) SetColor(col color.Color) {
+	if col == nil {
+		col = color.Black
+	}
 	r.ctx.SetFillColor(col)
 	r.ctx.SetStrokeColor(col)
 }
@@ -169,10 +172,15 @@ func (r *GonumPlot) FillString(f gonumFont.Face, pt vg.Point, text string) {
 // DrawImage draws the image, scaled to fit
 // the destination rectangle.
 func (r *GonumPlot) DrawImage(rect vg.Rectangle, img image.Image) {
-	//x, y := float64(rect.Min.X*mmPerPt), float64(rect.Min.Y*mmPerPt)
-	//w, h := float64(rect.Max.X*mmPerPt), float64(rect.Max.Y*mmPerPt)
-	//size := img.Size()
-	//if
-	//r.ctx.DrawImage(x, y, img2, dpm)
-	// TODO: draw image
+	size := img.Bounds().Size()
+	if size.Eq(image.Point{}) {
+		return
+	}
+
+	x, y := float64(rect.Min.X*mmPerPt), float64(rect.Min.Y*mmPerPt)
+	w, h := float64(rect.Max.X*mmPerPt)-x, float64(rect.Max.Y*mmPerPt)-y
+
+	coord := r.ctx.CoordView().Dot(canvas.Point{x, y})
+	m := r.ctx.View().Translate(coord.X, coord.Y).Scale(w/float64(size.X), h/float64(size.Y))
+	r.ctx.RenderImage(img, m)
 }

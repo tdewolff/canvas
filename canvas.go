@@ -148,6 +148,11 @@ func (c *Context) Pop() {
 	c.coordViewStack = c.coordViewStack[:len(c.coordViewStack)-1]
 }
 
+// CoordView returns the current affine transformation matrix through which all operation coordinates will be transformed.
+func (c *Context) CoordView() Matrix {
+	return c.coordView
+}
+
 // SetCoordView sets the current affine transformation matrix through which all operation coordinates will be transformed.
 func (c *Context) SetCoordView(coordView Matrix) {
 	c.coordView = coordView
@@ -392,7 +397,7 @@ func (c *Context) DrawText(x, y float64, texts ...*Text) {
 	}
 }
 
-// DrawImage draws an image at position (x,y), using an image encoding (Lossy or Lossless) and a resolution. A higher resolution will draw a smaller image.
+// DrawImage draws an image at position (x,y) using the given resolution. A higher resolution will draw a smaller image.
 func (c *Context) DrawImage(x, y float64, img image.Image, resolution Resolution) {
 	if img.Bounds().Size().Eq(image.Point{}) {
 		return

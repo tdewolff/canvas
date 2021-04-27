@@ -1,7 +1,9 @@
 package main
 
 import (
+	"image/png"
 	"log"
+	"os"
 
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers"
@@ -23,8 +25,21 @@ func main() {
 	}
 	p.Add(scatter)
 
-	err = p.Save(5*vg.Centimeter, 5*vg.Centimeter, "target.svg")
+	// Draw a raster image
+	lenna, err := os.Open("../../resources/lenna.png")
 	if err != nil {
+		log.Fatalf("could not open image: %v", err)
+	}
+	img, err := png.Decode(lenna)
+	if err != nil {
+		log.Fatalf("could not decode image: %v", err)
+	}
+	p.Add(plotter.NewImage(img, 0, 0.25, 0.75, 0.75))
+
+	if err := p.Save(5*vg.Centimeter, 5*vg.Centimeter, "target.svg"); err != nil {
+		log.Fatalf("could not save SVG plot: %v", err)
+	}
+	if err := p.Save(5*vg.Centimeter, 5*vg.Centimeter, "target.pdf"); err != nil {
 		log.Fatalf("could not save SVG plot: %v", err)
 	}
 
