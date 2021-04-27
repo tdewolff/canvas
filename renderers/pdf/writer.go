@@ -19,6 +19,9 @@ import (
 	canvasText "github.com/tdewolff/canvas/text"
 )
 
+// TODO: Invalid graphics transparency, Group has a transparency S entry or the S entry is null
+// TODO: Invalid Color space, The operator "g" can't be used without Color Profile
+
 type pdfWriter struct {
 	w   io.Writer
 	err error
@@ -357,9 +360,9 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 		name = records[0].String()
 	}
 	baseFont := strings.ReplaceAll(name, " ", "")
-	if w.subset {
-		baseFont = "SUBSET+" + baseFont
-	}
+	//if w.subset {
+	//	baseFont = "SUBSET+" + baseFont
+	//}
 
 	encoding := "Identity-H"
 	if vertical {
@@ -384,11 +387,12 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 		"Encoding":  pdfName(encoding), // map character codes in the stream to CID with identity encoding, we additionally map CID to GID in the descendant font when subsetting, otherwise that is also identity
 		"ToUnicode": toUnicodeRef,
 		"DescendantFonts": pdfArray{pdfDict{
-			"Type":     pdfName("Font"),
-			"Subtype":  pdfName(cidSubtype),
-			"BaseFont": pdfName(baseFont),
-			"DW":       DW,
-			"W":        W,
+			"Type":        pdfName("Font"),
+			"Subtype":     pdfName(cidSubtype),
+			"BaseFont":    pdfName(baseFont),
+			"DW":          DW,
+			"W":           W,
+			"CIDToGIDMap": pdfName("Identity"),
 			"CIDSystemInfo": pdfDict{
 				"Registry":   "Adobe",
 				"Ordering":   "Identity",
@@ -428,7 +432,8 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 		if w.compress {
 			cidToGIDMapStream.dict["Filter"] = pdfFilterFlate
 		}
-		dict["DescendantFonts"].(pdfArray)[0].(pdfDict)["CIDToGIDMap"] = cidToGIDMapStream
+		cidToGIDMapRef := w.writeObject(cidToGIDMapStream)
+		dict["DescendantFonts"].(pdfArray)[0].(pdfDict)["CIDToGIDMap"] = cidToGIDMapRef
 	}
 
 	w.objOffsets[ref-1] = w.pos
@@ -461,6 +466,7 @@ func (w *pdfWriter) Close() error {
 	w.writeVal(pdfDict{
 		"Type":  pdfName("Catalog"),
 		"Pages": pdfRef(3),
+		// TODO: add metadata?
 	})
 	w.write("\nendobj\n")
 
