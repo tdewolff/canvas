@@ -838,16 +838,20 @@ func (w *pdfPageWriter) WriteText(mode canvas.WritingMode, TJ ...interface{}) {
 		}
 		for _, glyph := range glyphs {
 			glyphID := w.font.SubsetID(glyph.ID)
-			a := uint8((glyphID & 0xff00) >> 8)
-			b := uint8(glyphID & 0x00ff)
-			if r := rune(a); r == '\\' || r == '(' || r == ')' {
-				binary.Write(w, binary.BigEndian, uint8('\\'))
+			for _, c := range []uint8{uint8((glyphID & 0xff00) >> 8), uint8(glyphID & 0x00ff)} {
+				if c == '\n' {
+					binary.Write(w, binary.BigEndian, uint8('\\'))
+					binary.Write(w, binary.BigEndian, uint8('n'))
+				} else if c == '\r' {
+					binary.Write(w, binary.BigEndian, uint8('\\'))
+					binary.Write(w, binary.BigEndian, uint8('r'))
+				} else if c == '\\' || c == '(' || c == ')' {
+					binary.Write(w, binary.BigEndian, uint8('\\'))
+					binary.Write(w, binary.BigEndian, c)
+				} else {
+					binary.Write(w, binary.BigEndian, c)
+				}
 			}
-			binary.Write(w, binary.BigEndian, a)
-			if r := rune(b); r == '\\' || r == '(' || r == ')' {
-				binary.Write(w, binary.BigEndian, uint8('\\'))
-			}
-			binary.Write(w, binary.BigEndian, b)
 		}
 		fmt.Fprintf(w, ")")
 	}
