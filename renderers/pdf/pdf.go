@@ -74,8 +74,8 @@ func (r *PDF) Size() (float64, float64) {
 
 // RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
-	fill := style.FillColor.A != 0
-	stroke := style.StrokeColor.A != 0 && 0.0 < style.StrokeWidth
+	fill := style.HasFill()
+	stroke := style.HasStroke()
 	differentAlpha := fill && stroke && style.FillColor.A != style.StrokeColor.A
 
 	// PDFs don't support the arcs joiner, miter joiner (not clipped), or miter joiner (clipped) with non-bevel fallback
@@ -185,7 +185,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		}
 
 		// stroke settings unsupported by PDF, draw stroke explicitly
-		if 0 < len(style.Dashes) {
+		if style.IsDashed() {
 			path = path.Dash(style.DashOffset, style.Dashes...)
 		}
 		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)

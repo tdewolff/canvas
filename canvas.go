@@ -62,7 +62,22 @@ type Style struct {
 	StrokeJoiner Joiner
 	DashOffset   float64
 	Dashes       []float64
-	FillRule
+	FillRule     // TODO: test for all renderers
+}
+
+// HasFill returns true if the style has a fill
+func (style Style) HasFill() bool {
+	return style.FillColor.A != 0
+}
+
+// HasStroke returns true if the style has a stroke
+func (style Style) HasStroke() bool {
+	return style.StrokeColor.A != 0 && 0.0 < style.StrokeWidth
+}
+
+// IsDashed returns true if the style has dashes
+func (style Style) IsDashed() bool {
+	return 0 < len(style.Dashes)
 }
 
 // DefaultStyle is the default style for paths. It fills the path with a black color and has no stroke.

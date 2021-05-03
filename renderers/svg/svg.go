@@ -136,8 +136,8 @@ func (r *SVG) Size() (float64, float64) {
 
 // RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
-	fill := style.FillColor.A != 0
-	stroke := style.StrokeColor.A != 0 && 0.0 < style.StrokeWidth
+	fill := style.HasFill()
+	stroke := style.HasStroke()
 
 	path = path.Transform(canvas.Identity.ReflectYAbout(r.height / 2.0).Mul(m))
 	fmt.Fprintf(r.w, `<path d="%s`, path.ToSVG())
@@ -206,7 +206,7 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 				panic("SVG: line join not support")
 			}
 
-			if 0 < len(style.Dashes) {
+			if style.IsDashed() {
 				fmt.Fprintf(b, ";stroke-dasharray:%v", dec(style.Dashes[0]))
 				for _, dash := range style.Dashes[1:] {
 					fmt.Fprintf(b, " %v", dec(dash))
@@ -225,7 +225,7 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 
 	if stroke && strokeUnsupported {
 		// stroke settings unsupported by PDF, draw stroke explicitly
-		if 0 < len(style.Dashes) {
+		if style.IsDashed() {
 			path = path.Dash(style.DashOffset, style.Dashes...)
 		}
 		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)

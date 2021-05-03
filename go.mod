@@ -1,6 +1,7 @@
 module github.com/tdewolff/canvas
 
 require (
+	gioui.org v0.0.0-20210427144906-23a839a29d27 // indirect
 	github.com/ByteArena/poly2tri-go v0.0.0-20170716161910-d102ad91854f
 	github.com/dsnet/compress v0.0.1
 	github.com/go-gl/gl v0.0.0-20210426225639-a3bfa832c8aa
