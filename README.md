@@ -18,6 +18,7 @@ Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise pl
 - `DPMM` is now a function just like `DPI`: `rasterizer.PNGWriter(5.0 * canvas.DPMM)` => `rasterizer.PNGWriter(canvas.DPMM(5.0))`
 - `FontFace` is now passed around as a pointer
 - `NewRichText` now requires a default `*FontFace` to be passed
+- Use the `latex` build tag to use the original LaTeX expression parser
 
 ## Documentation
 **[API documentation](https://pkg.go.dev/github.com/tdewolff/canvas?tab=doc)**

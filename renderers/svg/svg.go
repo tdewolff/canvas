@@ -47,7 +47,7 @@ func New(w io.Writer, width, height float64) *SVG {
 		fonts:       map[*canvas.Font]bool{},
 		maskID:      0,
 		embedFonts:  true,
-		subsetFonts: true,
+		subsetFonts: false, // TODO: enable when properly handling GPOS and GSUB tables
 		imgEnc:      canvas.Lossless,
 		classes:     []string{},
 	}

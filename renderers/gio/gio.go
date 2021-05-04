@@ -42,9 +42,12 @@ func (r *Gio) point(p canvas.Point) f32.Point {
 // TODO: color blending is bad
 func nrgba(col color.Color) color.NRGBA {
 	r, g, b, a := col.RGBA()
-	if a == 0x0000 {
+	if a == 0 {
 		return color.NRGBA{}
 	}
+	r = (r * 0xffff) / a
+	g = (g * 0xffff) / a
+	b = (b * 0xffff) / a
 	return color.NRGBA{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(b >> 8), A: uint8(a >> 8)}
 }
 

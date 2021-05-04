@@ -1,3 +1,3 @@
 all:
-	go build -tags harfbuzz,fribidi .
+	go build -tags harfbuzz,fribidi,latex .
 	./opengl

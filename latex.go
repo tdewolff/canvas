@@ -1,4 +1,4 @@
-// +build !js
+// +build latex
 
 package canvas
 
