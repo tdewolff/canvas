@@ -8,6 +8,20 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster i
 
 **Figure 1**: top-left you can see text being fitted into a box, justified using Donald Knuth's linea breaking algorithm to stretch the spaces between words to fill the whole width. You can observe a variety of styles and text decorations applied, as well as support for LTR/RTL mixing and complex scripts. In the bottom-right the word "stroke" is being stroked and drawn as a path. Top-right we see a LaTeX formula that has been converted to a path. Left of that we see an ellipse showcasing precise dashing, notably the length of e.g. the short dash is equal wherever it is on the curve. Note that the dashes themselves are elliptical arcs as well (thus exactly precise even if magnified greatly). To the right we see a closed polygon of four points being smoothed by cubic Béziers that are smooth along the whole path, and the blue line on the left shows a smoothed open path. On the bottom you can see a rotated rasterized image. The result is equivalent for all renderers (PNG, PDF, SVG, etc.).
 
+### Back-ends
+- Raster images (PNG, GIF, JPEG, TIFF, ...)
+- PDF
+- SVG
+- EPS
+- HTMLCanvas
+- OpenGL
+- [Gio](https://gioui.org/)
+
+### Front-ends
+- Canvas itself
+- [go-chart](https://github.com/wcharczuk/go-chart)
+- [gonum/plot](https://github.com/gonum/plot)
+
 ### Sponsors
 
 Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise please contact me directly!
