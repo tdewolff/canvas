@@ -1,3 +1,5 @@
+// +build latex
+
 package canvas
 
 import (
