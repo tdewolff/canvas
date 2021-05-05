@@ -56,20 +56,23 @@ func (r *Gio) renderPath(path *canvas.Path, col color.RGBA) {
 
 	p := clip.Path{}
 	p.Begin(r.ops)
-	path.Iterate(func(_, end canvas.Point) {
-		p.MoveTo(r.point(end))
-	}, func(_, end canvas.Point) {
-		p.LineTo(r.point(end))
-	}, func(_, cp, end canvas.Point) {
-		p.QuadTo(r.point(cp), r.point(end))
-	}, func(_, cp1, cp2, end canvas.Point) {
-		p.CubeTo(r.point(cp1), r.point(cp2), r.point(end))
-	}, func(_ canvas.Point, rx, ry, phi float64, large, sweep bool, end canvas.Point) {
-		// TODO: ArcTo
-		p.LineTo(r.point(end))
-	}, func(_, _ canvas.Point) {
-		p.Close()
-	})
+	for _, seg := range path.Segments() {
+		switch seg.Cmd {
+		case canvas.MoveToCmd:
+			p.MoveTo(r.point(seg.End))
+		case canvas.LineToCmd:
+			p.LineTo(r.point(seg.End))
+		case canvas.QuadToCmd:
+			p.QuadTo(r.point(seg.CP1()), r.point(seg.End))
+		case canvas.CubeToCmd:
+			p.CubeTo(r.point(seg.CP1()), r.point(seg.CP2()), r.point(seg.End))
+		case canvas.ArcToCmd:
+			// TODO: ArcTo
+			p.LineTo(r.point(seg.End))
+		case canvas.CloseCmd:
+			p.Close()
+		}
+	}
 
 	shape := clip.Outline{p.End()}
 	paint.FillShape(r.ops, nrgba(col), shape.Op())

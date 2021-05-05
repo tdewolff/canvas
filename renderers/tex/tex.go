@@ -70,29 +70,35 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		return
 	}
 	path = path.Transform(m)
-	path = path.ReplaceArcs()
 
-	path.Iterate(func(start, end canvas.Point) {
-		fmt.Fprintf(r.w, "\n\\pgfpathmoveto{\\pgfpoint{%vmm}{%vmm}}", dec(end.X), dec(end.Y))
-	}, func(start, end canvas.Point) {
-		fmt.Fprintf(r.w, "\n\\pgfpathlineto{\\pgfpoint{%vmm}{%vmm}}", dec(end.X), dec(end.Y))
-	}, func(start, cp, end canvas.Point) {
-		fmt.Fprintf(r.w, "\n\\pgfpathquadraticcurveto{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%vmm}{%vmm}}", dec(cp.X), dec(cp.Y), dec(end.X), dec(end.Y))
-	}, func(start, cp1, cp2, end canvas.Point) {
-		fmt.Fprintf(r.w, "\n\\pgfpathcurveto{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%vmm}{%vmm}}", dec(cp1.X), dec(cp1.Y), dec(cp2.X), dec(cp2.Y), dec(end.X), dec(end.Y))
-	}, func(start canvas.Point, rx, ry, rot float64, large, sweep bool, end canvas.Point) {
-		iLarge := 0
-		if large {
-			iLarge = 1
+	for _, seg := range path.Segments() {
+		end := seg.End
+		switch seg.Cmd {
+		case canvas.MoveToCmd:
+			fmt.Fprintf(r.w, "\n\\pgfpathmoveto{\\pgfpoint{%vmm}{%vmm}}", dec(end.X), dec(end.Y))
+		case canvas.LineToCmd:
+			fmt.Fprintf(r.w, "\n\\pgfpathlineto{\\pgfpoint{%vmm}{%vmm}}", dec(end.X), dec(end.Y))
+		case canvas.QuadToCmd:
+			cp := seg.CP1()
+			fmt.Fprintf(r.w, "\n\\pgfpathquadraticcurveto{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%vmm}{%vmm}}", dec(cp.X), dec(cp.Y), dec(end.X), dec(end.Y))
+		case canvas.CubeToCmd:
+			cp1, cp2 := seg.CP1(), seg.CP2()
+			fmt.Fprintf(r.w, "\n\\pgfpathcurveto{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%vmm}{%vmm}}", dec(cp1.X), dec(cp1.Y), dec(cp2.X), dec(cp2.Y), dec(end.X), dec(end.Y))
+		case canvas.ArcToCmd:
+			rx, ry, rot, large, sweep := seg.Arc()
+			iLarge := 0
+			if large {
+				iLarge = 1
+			}
+			iSweep := 0
+			if sweep {
+				iSweep = 1
+			}
+			fmt.Fprintf(r.w, "\n\\pgfpatharcto{%vmm}{%vmm}{%v}{%v}{%v}{\\pgfpoint{%vmm}{%vmm}}", dec(rx), dec(ry), dec(rot), iLarge, iSweep, dec(end.X), dec(end.Y))
+		case canvas.CloseCmd:
+			fmt.Fprintf(r.w, "\n\\pgfpathclose")
 		}
-		iSweep := 0
-		if sweep {
-			iSweep = 1
-		}
-		fmt.Fprintf(r.w, "\n\\pgfpatharcto{%vmm}{%vmm}{%v}{%v}{%v}{\\pgfpoint{%vmm}{%vmm}}", dec(rx), dec(ry), dec(rot), iLarge, iSweep, dec(end.X), dec(end.Y))
-	}, func(start, end canvas.Point) {
-		fmt.Fprintf(r.w, "\n\\pgfpathclose")
-	})
+	}
 
 	fill := style.FillColor.A != 0
 	stroke := style.StrokeColor.A != 0 && 0.0 < style.StrokeWidth

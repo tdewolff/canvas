@@ -50,19 +50,25 @@ func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 	path = path.ReplaceArcs()
 
 	r.ctx.Call("beginPath")
-	path.Iterate(func(start, end canvas.Point) {
-		r.ctx.Call("moveTo", end.X*r.dpm, r.height-end.Y*r.dpm)
-	}, func(start, end canvas.Point) {
-		r.ctx.Call("lineTo", end.X*r.dpm, r.height-end.Y*r.dpm)
-	}, func(start, cp, end canvas.Point) {
-		r.ctx.Call("quadraticCurveTo", cp.X*r.dpm, r.height-cp.Y*r.dpm, end.X*r.dpm, r.height-end.Y*r.dpm)
-	}, func(start, cp1, cp2, end canvas.Point) {
-		r.ctx.Call("bezierCurveTo", cp1.X*r.dpm, r.height-cp1.Y*r.dpm, cp2.X*r.dpm, r.height-cp2.Y*r.dpm, end.X*r.dpm, r.height-end.Y*r.dpm)
-	}, func(start canvas.Point, rx, ry, rot float64, large, sweep bool, end canvas.Point) {
-		panic("arcs should have been replaced")
-	}, func(start, end canvas.Point) {
-		r.ctx.Call("closePath")
-	})
+	for _, seg := range path.Segments() {
+		end := seg.End
+		switch seg.Cmd {
+		case canvas.MoveToCmd:
+			r.ctx.Call("moveTo", end.X*r.dpm, r.height-end.Y*r.dpm)
+		case canvas.LineToCmd:
+			r.ctx.Call("lineTo", end.X*r.dpm, r.height-end.Y*r.dpm)
+		case canvas.QuadToCmd:
+			cp := seg.CP1()
+			r.ctx.Call("quadraticCurveTo", cp.X*r.dpm, r.height-cp.Y*r.dpm, end.X*r.dpm, r.height-end.Y*r.dpm)
+		case canvas.CubeToCmd:
+			cp1, cp2 := seg.CP1(), seg.CP2()
+			r.ctx.Call("bezierCurveTo", cp1.X*r.dpm, r.height-cp1.Y*r.dpm, cp2.X*r.dpm, r.height-cp2.Y*r.dpm, end.X*r.dpm, r.height-end.Y*r.dpm)
+		case canvas.ArcToCmd:
+			panic("arcs should have been replaced")
+		case canvas.CloseCmd:
+			r.ctx.Call("closePath")
+		}
+	}
 
 	if style.FillColor.A != 0 {
 		if style.FillColor != r.style.FillColor {
