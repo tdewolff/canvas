@@ -4,6 +4,7 @@ package text
 
 import (
 	"bytes"
+	"unicode/utf8"
 
 	"github.com/benoitkugler/textlayout/fonts/truetype"
 	"github.com/benoitkugler/textlayout/harfbuzz"
@@ -85,8 +86,23 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 
 // ScriptItemizer divides the string in parts for each different script.
 func ScriptItemizer(text string) []string {
-	// TODO: script itemizer for native Go HarfBuzz
-	return []string{text}
+	i := 0
+	items := []string{}
+	curScript := ScriptInvalid
+	for j := 0; j < len(text); {
+		r, n := utf8.DecodeRuneInString(text[j:])
+		script := Script(language.LookupScript(r))
+		if j == 0 || curScript == ScriptInherited || curScript == ScriptCommon {
+			curScript = script
+		} else if script != curScript && script != ScriptInherited && script != ScriptCommon {
+			items = append(items, text[i:j])
+			curScript = script
+			i = j
+		}
+		j += n
+	}
+	items = append(items, text[i:])
+	return items
 }
 
 // Direction is the text direction.
