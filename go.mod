@@ -5,8 +5,10 @@ require (
 	github.com/ByteArena/poly2tri-go v0.0.0-20170716161910-d102ad91854f
 	github.com/benoitkugler/textlayout v0.0.0-20210503180247-5030dcb3bcc0 // indirect
 	github.com/dsnet/compress v0.0.1
+	github.com/go-fonts/stix v0.1.0 // indirect
 	github.com/go-gl/gl v0.0.0-20210426225639-a3bfa832c8aa
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4
+	github.com/go-latex/latex v0.0.0-20210118124228-b3d85cf34e07 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/paulmach/orb v0.2.1
 	github.com/paulmach/osm v0.2.1
