@@ -54,15 +54,23 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	}
 	reverse := buf.Props.Direction == harfbuzz.RightToLeft || buf.Props.Direction == harfbuzz.BottomToTop
 
-	buf.AddRunes([]rune(text), 0, -1)
+	rtext := []rune(text)
+	buf.AddRunes(rtext, 0, -1)
 	buf.Shape(s.font, nil)
+
+	runeMap := make([]int, len(rtext))
+	j := 0
+	for i, _ := range text {
+		runeMap[j] = i
+		j++
+	}
 
 	glyphs := make([]Glyph, len(buf.Info))
 	for i := 0; i < len(buf.Info); i++ {
 		info := buf.Info[i]
 		position := buf.Pos[i]
 		glyphs[i].ID = uint16(info.Glyph)
-		glyphs[i].Cluster = uint32(info.Cluster)
+		glyphs[i].Cluster = uint32(runeMap[info.Cluster])
 		glyphs[i].XAdvance = int32(position.XAdvance)
 		glyphs[i].YAdvance = int32(position.YAdvance)
 		glyphs[i].XOffset = int32(position.XOffset)
