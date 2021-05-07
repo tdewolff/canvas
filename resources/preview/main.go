@@ -69,7 +69,7 @@ func draw(c *canvas.Context) {
 	rt := canvas.NewRichText(face)
 	rt.Add(face, "Lorem dolor ipsum ")
 	rt.Add(fontLatin.Face(pt, canvas.White, canvas.FontBold, canvas.FontNormal), "confiscator")
-	rt.Add(face, " curabitur ")
+	rt.Add(face, " cur\u200babitur ")
 	rt.Add(fontLatin.Face(pt, canvas.Black, canvas.FontItalic, canvas.FontNormal), "mattis")
 	rt.Add(face, " dui ")
 	rt.Add(fontLatin.Face(pt, canvas.Black, canvas.FontBold|canvas.FontItalic, canvas.FontNormal), "tellus")
@@ -77,12 +77,12 @@ func draw(c *canvas.Context) {
 	rt.Add(fontLatin.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontUnderline), "sodales")
 	rt.Add(face, " eros vel ")
 	rt.Add(fontLatin.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal, canvas.FontSineUnderline), "nibh")
-	rt.Add(face, " fringilla pellentesque. ")
+	rt.Add(face, " fringilla pellen\u200btesque eu cillum. ")
 
 	face = fontLatin.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	face.Language = "ru"
 	face.Script = text.Cyrillic
-	rt.Add(face, "дёжжэнтиюнт ")
+	rt.Add(face, "дёжжэнтиюнт холст ")
 
 	face = fontArabic.Face(pt, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	face.Language = "ar"

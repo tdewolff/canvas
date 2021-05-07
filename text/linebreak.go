@@ -36,15 +36,15 @@ var (
 )
 
 // Tolerance is the maximum stretchability of the spaces of a line.
-var Tolerance = 10.0 // TeX uses 200
+var Tolerance = 2.0
 
 // DemeritsLine is the badness rating for an extra line.
 var DemeritsLine = 10.0
 
-// DemeritsFlagged is the badness rating for two consecutive lines ending in hyphens. TeX uses 10000.
+// DemeritsFlagged is the badness rating for two consecutive lines ending in hyphens.
 var DemeritsFlagged = 100.0
 
-// DemeritsFitness is the badness rating for very different fitness ratings for consecutive lines. Fitness is a categorization of four types for ratio ranges. TeX uses 10000.
+// DemeritsFitness is the badness rating for very different fitness ratings for consecutive lines. Fitness is a categorization of four types for ratio ranges.
 var DemeritsFitness = 100.0
 
 // HyphenPenalty is the aesthetic cost of ending a line in a hyphen.

@@ -3,6 +3,7 @@
 package htmlcanvas
 
 import (
+	"fmt"
 	"image"
 	"math"
 	"syscall/js"
@@ -43,6 +44,7 @@ func (r *HTMLCanvas) Size() (float64, float64) {
 
 // RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
+	fmt.Println(style.Dashes, r.style.Dashes, style.HasStroke())
 	if path.Empty() {
 		return
 	}
@@ -70,13 +72,15 @@ func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		}
 	}
 
-	if style.FillColor.A != 0 {
+	if style.HasFill() {
 		if style.FillColor != r.style.FillColor {
 			r.ctx.Set("fillStyle", canvas.CSSColor(style.FillColor).String())
 		}
 		r.ctx.Call("fill")
+		r.style.FillColor = style.FillColor
+		r.style.FillRule = style.FillRule
 	}
-	if style.StrokeColor.A != 0 && 0.0 < style.StrokeWidth {
+	if style.HasStroke() {
 		if style.StrokeCapper != r.style.StrokeCapper {
 			if _, ok := style.StrokeCapper.(canvas.RoundCapper); ok {
 				r.ctx.Set("lineCap", "round")
@@ -119,6 +123,7 @@ func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 			}
 			jsDashes := js.Global().Get("Array").New(dashes...)
 			r.ctx.Call("setLineDash", jsDashes)
+			fmt.Println("write")
 		}
 
 		if style.DashOffset != r.style.DashOffset {
@@ -132,8 +137,8 @@ func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 			r.ctx.Set("strokeStyle", canvas.CSSColor(style.StrokeColor).String())
 		}
 		r.ctx.Call("stroke")
+		r.style = style
 	}
-	r.style = style
 }
 
 // RenderText renders a text object to the canvas using a transformation matrix.

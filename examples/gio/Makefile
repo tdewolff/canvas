@@ -1,2 +1,2 @@
 all:
-	go run -tags harfbuzz,fribidi,latex main.go
+	go run -tags latex main.go
