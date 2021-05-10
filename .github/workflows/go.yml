@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - uses: openrndr/setup-opengl@v1.1
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
