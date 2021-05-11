@@ -1,8 +1,11 @@
 module github.com/tdewolff/canvas
 
 require (
+	fyne.io/fyne v1.4.3
 	gioui.org v0.0.0-20210427144906-23a839a29d27
 	github.com/ByteArena/poly2tri-go v0.0.0-20170716161910-d102ad91854f
+	github.com/adrg/sysfont v0.1.2
+	github.com/adrg/xdg v0.3.3 // indirect
 	github.com/benoitkugler/textlayout v0.0.0-20210503180247-5030dcb3bcc0
 	github.com/dsnet/compress v0.0.1
 	github.com/go-gl/gl v0.0.0-20210426225639-a3bfa832c8aa

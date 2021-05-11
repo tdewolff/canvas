@@ -5,9 +5,9 @@ import (
 	"image/color"
 	"io/ioutil"
 	"math"
-	"os/exec"
 	"reflect"
 
+	"github.com/adrg/sysfont"
 	"github.com/tdewolff/canvas/font"
 	"github.com/tdewolff/canvas/text"
 )
@@ -147,32 +147,39 @@ func (family *FontFamily) SetFeatures(features string) {
 
 // LoadLocalFont loads a font from the system's fonts.
 func (family *FontFamily) LoadLocalFont(name string, style FontStyle) error {
-	match := name
-	if style&FontExtraLight == FontExtraLight {
-		match += ":weight=40"
-	} else if style&FontLight == FontLight {
-		match += ":weight=50"
-	} else if style&FontBook == FontBook {
-		match += ":weight=75"
-	} else if style&FontMedium == FontMedium {
-		match += ":weight=100"
-	} else if style&FontSemibold == FontSemibold {
-		match += ":weight=180"
-	} else if style&FontBold == FontBold {
-		match += ":weight=200"
-	} else if style&FontBlack == FontBlack {
-		match += ":weight=205"
-	} else if style&FontExtraBlack == FontExtraBlack {
-		match += ":weight=210"
-	}
-	if style&FontItalic == FontItalic {
-		match += ":italic"
-	}
-	b, err := exec.Command("fc-match", "--format=%{file}", match).Output()
-	if err != nil {
-		return err
-	}
-	return family.LoadFontFile(string(b), style)
+	// TODO: use style to match font
+	finder := sysfont.NewFinder(&sysfont.FinderOpts{
+		Extensions: []string{".ttf", ".otf", ".ttc", ".woff", ".woff2", ".eot"},
+	})
+	font := finder.Match(name)
+	return family.LoadFontFile(font.Filename, style)
+
+	//match := name
+	//if style&FontExtraLight == FontExtraLight {
+	//	match += ":weight=40"
+	//} else if style&FontLight == FontLight {
+	//	match += ":weight=50"
+	//} else if style&FontBook == FontBook {
+	//	match += ":weight=75"
+	//} else if style&FontMedium == FontMedium {
+	//	match += ":weight=100"
+	//} else if style&FontSemibold == FontSemibold {
+	//	match += ":weight=180"
+	//} else if style&FontBold == FontBold {
+	//	match += ":weight=200"
+	//} else if style&FontBlack == FontBlack {
+	//	match += ":weight=205"
+	//} else if style&FontExtraBlack == FontExtraBlack {
+	//	match += ":weight=210"
+	//}
+	//if style&FontItalic == FontItalic {
+	//	match += ":italic"
+	//}
+	//b, err := exec.Command("fc-match", "--format=%{file}", match).Output()
+	//if err != nil {
+	//	return err
+	//}
+	//return family.LoadFontFile(string(b), style)
 }
 
 // LoadFontFile loads a font from a file.
