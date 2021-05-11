@@ -11,7 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: openrndr/setup-opengl@v1.1
+    - name: Install OpenGL
+      run: |
+          sudo apt update
+          sudo apt install -y libgl1-mesa-dev
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
