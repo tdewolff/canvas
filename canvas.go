@@ -271,12 +271,30 @@ func (c *Context) ShearAbout(sx, sy, x, y float64) {
 // SetFillColor sets the color to be used for filling operations.
 func (c *Context) SetFillColor(col color.Color) {
 	r, g, b, a := col.RGBA()
+	if a < r {
+		r = a
+	}
+	if a < g {
+		g = a
+	}
+	if a < b {
+		b = a
+	}
 	c.Style.FillColor = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
 }
 
 // SetStrokeColor sets the color to be used for stroking operations.
 func (c *Context) SetStrokeColor(col color.Color) {
 	r, g, b, a := col.RGBA()
+	if a < r {
+		r = a
+	}
+	if a < g {
+		g = a
+	}
+	if a < b {
+		b = a
+	}
 	c.Style.StrokeColor = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
 }
 
@@ -382,7 +400,7 @@ func (c *Context) FillStroke() {
 
 // DrawPath draws a path at position (x,y) using the current draw state.
 func (c *Context) DrawPath(x, y float64, paths ...*Path) {
-	if c.Style.FillColor.A == 0 && (c.Style.StrokeColor.A == 0 || c.Style.StrokeWidth == 0.0) {
+	if !c.Style.HasFill() && !c.Style.HasStroke() {
 		return
 	}
 
