@@ -1,5 +1,3 @@
-// +build harfbuzz
-
 package main
 
 import (
@@ -7,8 +5,10 @@ import (
 	"image/color"
 	"os"
 
+	"fyne.io/fyne/app"
+	"fyne.io/fyne/container"
+	"fyne.io/fyne/widget"
 	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/renderers/rasterizer"
 	"github.com/tdewolff/canvas/text"
 )
 
@@ -32,15 +32,18 @@ func main() {
 		panic(err)
 	}
 
-	c := canvas.New(200, 100)
-	ctx := canvas.NewContext(c)
-	ctx.SetFillColor(canvas.White)
-	ctx.DrawPath(0, 0, canvas.Rectangle(c.W, c.H))
-	draw(ctx)
+	a := app.New()
+	w := a.NewWindow("Hello")
 
-	////////////////
+	hello := widget.NewLabel("Hello Fyne!")
+	w.SetContent(container.NewVBox(
+		hello,
+		widget.NewButton("Hi!", func() {
+			hello.SetText("Welcome :)")
+		}),
+	))
 
-	c.WriteFile("preview.png", rasterizer.PNGWriter(3.2))
+	w.ShowAndRun()
 }
 
 func drawText(c *canvas.Context, x, y float64, face *canvas.FontFace, rich *canvas.RichText) {
@@ -131,7 +134,7 @@ func draw(c *canvas.Context) {
 	c.SetDashes(0.0)
 
 	// Draw a raster image
-	lenna, err := os.Open("../lenna.png")
+	lenna, err := os.Open("../../resources/lenna.png")
 	if err != nil {
 		panic(err)
 	}
@@ -139,9 +142,10 @@ func draw(c *canvas.Context) {
 	if err != nil {
 		panic(err)
 	}
+	c.Push()
 	c.Rotate(5)
 	c.DrawImage(50.0, 0.0, img, 15)
-	c.SetView(canvas.Identity)
+	c.Pop()
 
 	// Draw an closed set of points being smoothed
 	polyline := &canvas.Polyline{}

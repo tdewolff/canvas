@@ -1,4 +1,4 @@
-// +build cgo,harfbuzz
+// +build cgo
 
 package main
 
@@ -33,7 +33,7 @@ func main() {
 	}
 
 	fontDevanagari = canvas.NewFontFamily("Devanagari")
-	if err := fontDevanagari.LoadFontFile("/usr/share/fonts/noto/NotoSerifDevanagari-Regular.ttf", canvas.FontRegular); err != nil {
+	if err := fontDevanagari.LoadLocalFont("NotoSerifDevanagari", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 

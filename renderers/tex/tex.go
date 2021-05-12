@@ -100,8 +100,8 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		}
 	}
 
-	fill := style.FillColor.A != 0
-	stroke := style.StrokeColor.A != 0 && 0.0 < style.StrokeWidth
+	fill := style.HasFill()
+	stroke := style.HasStroke()
 
 	if fill {
 		if style.FillColor.R != r.style.FillColor.R || style.FillColor.G != r.style.FillColor.G || style.FillColor.B != r.style.FillColor.B {
