@@ -119,7 +119,8 @@ func (p *Path) Join(q *Path) *Path {
 	}
 
 	if !Equal(p.d[len(p.d)-3], q.d[1]) || !Equal(p.d[len(p.d)-2], q.d[2]) {
-		return p.Append(q)
+		p.d[len(p.d)-3] = (p.d[len(p.d)-3] + q.d[1]) / 2.0
+		p.d[len(p.d)-2] = (p.d[len(p.d)-2] + q.d[2]) / 2.0
 	}
 
 	q.d = q.d[cmdLen(MoveToCmd):]
