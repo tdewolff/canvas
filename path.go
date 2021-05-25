@@ -1458,8 +1458,10 @@ func ParseSVG(s string) (*Path, error) {
 		return &Path{}, nil
 	}
 
+	i := 0
 	path := []byte(s)
-	if path[0] < 'A' {
+	i += skipCommaWhitespace(path[i:])
+	if path[0] == ',' || path[i] < 'A' {
 		return nil, fmt.Errorf("bad path: path should start with command")
 	}
 
@@ -1477,7 +1479,6 @@ func ParseSVG(s string) (*Path, error) {
 	}
 	f := [7]float64{}
 
-	i := 0
 	p := &Path{}
 	var q, c Point
 	var p0, p1 Point

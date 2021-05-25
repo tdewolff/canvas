@@ -84,7 +84,7 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 	path = path.Transform(m)
 
 	strokeWidth := 0.0
-	if style.StrokeColor.A != 0 && 0.0 < style.StrokeWidth {
+	if style.HasStroke() {
 		strokeWidth = style.StrokeWidth
 	}
 
@@ -119,12 +119,12 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 	}
 
 	path = path.Translate(-float64(x)/dpmm, -float64(y)/dpmm)
-	if style.FillColor.A != 0 {
+	if style.HasFill() {
 		ras := vector.NewRasterizer(w, h)
 		path.ToRasterizer(ras, r.resolution)
 		ras.Draw(r.img, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(style.FillColor), image.Point{dx, dy})
 	}
-	if style.StrokeColor.A != 0 && 0.0 < style.StrokeWidth {
+	if style.HasStroke() {
 		if 0 < len(style.Dashes) {
 			path = path.Dash(style.DashOffset, style.Dashes...)
 		}
