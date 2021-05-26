@@ -15,7 +15,7 @@ require (
 	github.com/paulmach/orb v0.2.1
 	github.com/paulmach/osm v0.2.2
 	github.com/pkg/browser v0.0.0-20210115035449-ce105d075bb4
-	github.com/tdewolff/minify/v2 v2.9.16
+	github.com/tdewolff/minify/v2 v2.9.17
 	github.com/tdewolff/parse/v2 v2.5.16
 	github.com/tdewolff/test v1.0.6
 	github.com/wcharczuk/go-chart/v2 v2.1.0
