@@ -14,7 +14,7 @@ jobs:
     - name: Install OpenGL
       run: |
           sudo apt update
-          sudo apt install -y libgl1-mesa-dev
+          sudo apt install -y libx11-dev libgl1-mesa-dev
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
