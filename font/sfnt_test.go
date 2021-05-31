@@ -30,6 +30,24 @@ func TestSFNTDejaVuSerifTTF(t *testing.T) {
 	test.T(t, len(contour.XCoordinates), 0)
 }
 
+func TestSFNTWrite(t *testing.T) {
+	b, err := ioutil.ReadFile("../resources/DejaVuSerif.ttf")
+	test.Error(t, err)
+
+	sfnt, err := ParseSFNT(b, 0)
+	test.Error(t, err)
+
+	b2 := sfnt.Write()
+	sfnt2, err := ParseSFNT(b2, 0)
+	test.Error(t, err)
+
+	test.T(t, sfnt2.GlyphIndex('A'), sfnt.GlyphIndex('A'))
+	test.T(t, sfnt2.GlyphIndex('B'), sfnt.GlyphIndex('B'))
+	test.T(t, sfnt2.GlyphIndex('C'), sfnt.GlyphIndex('C'))
+
+	//ioutil.WriteFile("out.otf", subset, 0644)
+}
+
 func TestSFNTSubset(t *testing.T) {
 	b, err := ioutil.ReadFile("../resources/DejaVuSerif.ttf")
 	test.Error(t, err)

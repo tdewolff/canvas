@@ -7,6 +7,71 @@ import (
 	"time"
 )
 
+// Write writes out the SFNT file.
+func (sfnt *SFNT) Write() []byte {
+	tags := []string{}
+	for tag := range sfnt.Tables {
+		tags = append(tags, tag)
+	}
+	sort.Strings(tags)
+
+	// write header
+	w := NewBinaryWriter([]byte{})
+	if sfnt.IsTrueType {
+		w.WriteUint32(0x00010000) // sfntVersion
+	} else if sfnt.IsCFF {
+		w.WriteString("OTTO") // sfntVersion
+	}
+	numTables := uint16(len(tags))
+	entrySelector := uint16(math.Log2(float64(numTables)))
+	searchRange := uint16(1 << (entrySelector + 4))
+	w.WriteUint16(numTables)                  // numTables
+	w.WriteUint16(searchRange)                // searchRange
+	w.WriteUint16(entrySelector)              // entrySelector
+	w.WriteUint16(numTables<<4 - searchRange) // rangeShift
+
+	// we'll write the table records at the end
+	w.WriteBytes(make([]byte, numTables<<4))
+
+	// write tables
+	var checksumAdjustmentPos uint32
+	offsets, lengths := make([]uint32, numTables), make([]uint32, numTables)
+	for i, tag := range tags {
+		offsets[i] = w.Len()
+		if tag == "head" {
+			head := sfnt.Tables["head"]
+			w.WriteBytes(head[:8])
+			checksumAdjustmentPos = w.Len()
+			w.WriteUint32(0) // checksumAdjustment
+			w.WriteBytes(head[12:28])
+			w.WriteInt64(int64(time.Now().UTC().Sub(time.Date(1904, 1, 1, 0, 0, 0, 0, time.UTC)) / 1e9)) // modified
+			w.WriteBytes(head[36:])
+		} else {
+			w.WriteBytes(sfnt.Tables[tag])
+		}
+		lengths[i] = w.Len() - offsets[i]
+
+		padding := (4 - lengths[i]&3) & 3
+		for i := 0; i < int(padding); i++ {
+			w.WriteByte(0x00)
+		}
+	}
+
+	// add table record entries
+	buf := w.Bytes()
+	for i, tag := range tags {
+		pos := 12 + i<<4
+		copy(buf[pos:], []byte(tag))
+		padding := (4 - lengths[i]&3) & 3
+		checksum := calcChecksum(buf[offsets[i] : offsets[i]+lengths[i]+padding])
+		binary.BigEndian.PutUint32(buf[pos+4:], checksum)
+		binary.BigEndian.PutUint32(buf[pos+8:], offsets[i])
+		binary.BigEndian.PutUint32(buf[pos+12:], lengths[i])
+	}
+	binary.BigEndian.PutUint32(buf[checksumAdjustmentPos:], 0xB1B0AFBA-calcChecksum(buf))
+	return buf
+}
+
 // Subset regenerates a font file containing only the passed glyphIDs, thereby resulting in a significant size reduction. The glyphIDs will apear in the specified order in the file, and their dependencies are added to the end. It returns the compressed font file and the glyphIDs in the order in which they appear.
 func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 	if sfnt.IsCFF {

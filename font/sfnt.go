@@ -38,7 +38,6 @@ type SFNT struct {
 	Data              []byte
 	Version           string
 	IsCFF, IsTrueType bool // only one can be true
-	IsCollection      bool
 	Tables            map[string][]byte
 
 	// required
@@ -203,8 +202,10 @@ func ParseSFNT(b []byte, index int) (*SFNT, error) {
 	sfnt.Version = sfntVersion
 	sfnt.IsCFF = sfntVersion == "OTTO"
 	sfnt.IsTrueType = binary.BigEndian.Uint32([]byte(sfntVersion)) == 0x00010000
-	sfnt.IsCollection = isCollection
 	sfnt.Tables = tables
+	if isCollection {
+		sfnt.Data = sfnt.Write()
+	}
 
 	requiredTables := []string{"cmap", "head", "hhea", "hmtx", "maxp", "name", "OS/2", "post"}
 	if sfnt.IsTrueType {
