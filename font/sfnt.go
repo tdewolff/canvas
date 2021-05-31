@@ -38,6 +38,7 @@ type SFNT struct {
 	Data              []byte
 	Version           string
 	IsCFF, IsTrueType bool // only one can be true
+	IsCollection      bool
 	Tables            map[string][]byte
 
 	// required
@@ -122,7 +123,8 @@ func ParseSFNT(b []byte, index int) (*SFNT, error) {
 
 	r := NewBinaryReader(b)
 	sfntVersion := r.ReadString(4)
-	if sfntVersion == "ttcf" {
+	isCollection := sfntVersion == "ttcf"
+	if isCollection {
 		majorVersion := r.ReadUint16()
 		minorVersion := r.ReadUint16()
 		if majorVersion != 1 && majorVersion != 2 || minorVersion != 0 {
@@ -150,7 +152,6 @@ func ParseSFNT(b []byte, index int) (*SFNT, error) {
 		}
 
 		r.Seek(offset)
-		b = b[offset : offset+length]
 		sfntVersion = r.ReadString(4)
 	} else if index != 0 {
 		return nil, fmt.Errorf("bad font index %d", index)
@@ -166,11 +167,10 @@ func ParseSFNT(b []byte, index int) (*SFNT, error) {
 		return nil, ErrInvalidFontData
 	}
 
-	var checksumAdjustment uint32
 	tables := make(map[string][]byte, numTables)
 	for i := 0; i < int(numTables); i++ {
 		tag := r.ReadString(4)
-		checksum := r.ReadUint32()
+		_ = r.ReadUint32() // checksum
 		offset := r.ReadUint32()
 		length := r.ReadUint32()
 
@@ -185,14 +185,14 @@ func ParseSFNT(b []byte, index int) (*SFNT, error) {
 			}
 
 			// to check checksum for head table, replace the overal checksum with zero and reset it at the end
-			checksumAdjustment = binary.BigEndian.Uint32(b[offset+8:])
-			binary.BigEndian.PutUint32(b[offset+8:], 0x00000000)
-		}
-		if calcChecksum(b[offset:offset+length+padding]) != checksum {
-			return nil, fmt.Errorf("%s: bad checksum", tag)
-		}
-		if tag == "head" {
-			binary.BigEndian.PutUint32(b[offset+8:], checksumAdjustment)
+			//checksumAdjustment := binary.BigEndian.Uint32(b[offset+8:])
+			//binary.BigEndian.PutUint32(b[offset+8:], 0x00000000)
+			//if calcChecksum(b[offset:offset+length+padding]) != checksum {
+			//	return nil, fmt.Errorf("%s: bad checksum", tag)
+			//}
+			//binary.BigEndian.PutUint32(b[offset+8:], checksumAdjustment)
+			//} else if calcChecksum(b[offset:offset+length+padding]) != checksum {
+			//	return nil, fmt.Errorf("%s: bad checksum", tag)
 		}
 		tables[tag] = b[offset : offset+length : offset+length]
 	}
@@ -203,6 +203,7 @@ func ParseSFNT(b []byte, index int) (*SFNT, error) {
 	sfnt.Version = sfntVersion
 	sfnt.IsCFF = sfntVersion == "OTTO"
 	sfnt.IsTrueType = binary.BigEndian.Uint32([]byte(sfntVersion)) == 0x00010000
+	sfnt.IsCollection = isCollection
 	sfnt.Tables = tables
 
 	requiredTables := []string{"cmap", "head", "hhea", "hmtx", "maxp", "name", "OS/2", "post"}
@@ -997,13 +998,22 @@ func (sfnt *SFNT) parseKern() error {
 	}
 
 	r := NewBinaryReader(b)
-	version := r.ReadUint16()
-	if version != 0 {
-		// TODO: supported other kern versions
-		return fmt.Errorf("kern: bad version")
+	majorVersion := r.ReadUint16()
+	if majorVersion != 0 && majorVersion != 1 {
+		return fmt.Errorf("kern: bad version %d", majorVersion)
 	}
 
-	nTables := r.ReadUint16()
+	var nTables uint32
+	if majorVersion == 0 {
+		nTables = uint32(r.ReadUint16())
+	} else if majorVersion == 1 {
+		minorVersion := r.ReadUint16()
+		if minorVersion != 0 {
+			return fmt.Errorf("kern: bad minor version %d", minorVersion)
+		}
+		nTables = r.ReadUint32()
+	}
+
 	sfnt.Kern = &kernTable{}
 	for j := 0; j < int(nTables); j++ {
 		if r.Len() < 6 {
@@ -1467,13 +1477,13 @@ func (sfnt *SFNT) parsePost() error {
 		r.Seek(34 + 2*uint32(sfnt.Maxp.NumGlyphs))
 		for 2 <= r.Len() {
 			length := r.ReadUint8()
-			if r.Len() < uint32(length) {
-				return fmt.Errorf("post: bad table")
+			if r.Len() < uint32(length) || 63 < length {
+				return fmt.Errorf("post: bad stringData")
 			}
 			sfnt.Post.stringData = append(sfnt.Post.stringData, r.ReadString(uint32(length)))
 		}
-		if r.Len() != 0 {
-			return fmt.Errorf("post: bad table")
+		if 1 < r.Len() {
+			return fmt.Errorf("post: bad stringData")
 		}
 
 		r.Seek(34)
@@ -1481,7 +1491,7 @@ func (sfnt *SFNT) parsePost() error {
 		for i := 0; i < int(sfnt.Maxp.NumGlyphs); i++ {
 			index := r.ReadUint16()
 			if 258 <= index && len(sfnt.Post.stringData) < int(index)-258 {
-				return fmt.Errorf("post: bad table")
+				return fmt.Errorf("post: bad stringData")
 			}
 			sfnt.Post.GlyphNameIndex[i] = index
 		}
