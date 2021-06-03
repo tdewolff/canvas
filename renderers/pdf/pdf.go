@@ -23,6 +23,12 @@ type Options struct {
 	canvas.ImageEncoding
 }
 
+var DefaultOptions = Options{
+	Compress:      true,
+	SubsetFonts:   true,
+	ImageEncoding: canvas.Lossless,
+}
+
 // PDF is a portable document format renderer.
 type PDF struct {
 	w             *pdfPageWriter
@@ -33,11 +39,8 @@ type PDF struct {
 // New returns a portable document format (PDF) renderer.
 func New(w io.Writer, width, height float64, opts *Options) *PDF {
 	if opts == nil {
-		opts = &Options{
-			Compress:      true,
-			SubsetFonts:   true,
-			ImageEncoding: canvas.Lossless,
-		}
+		defaultOptions := DefaultOptions
+		opts = &defaultOptions
 	}
 
 	page := newPDFWriter(w).NewPage(width, height)

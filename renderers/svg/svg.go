@@ -32,6 +32,12 @@ type Options struct {
 	canvas.ImageEncoding
 }
 
+var DefaultOptions = Options{
+	EmbedFonts:    true,
+	SubsetFonts:   false, // TODO: enable when properly handling GPOS and GSUB tables
+	ImageEncoding: canvas.Lossless,
+}
+
 // SVG is a scalable vector graphics renderer.
 type SVG struct {
 	w             io.Writer
@@ -45,11 +51,8 @@ type SVG struct {
 // New returns a scalable vector graphics (SVG) renderer.
 func New(w io.Writer, width, height float64, opts *Options) *SVG {
 	if opts == nil {
-		opts = &Options{
-			EmbedFonts:    true,
-			SubsetFonts:   false, // TODO: enable when properly handling GPOS and GSUB tables
-			ImageEncoding: canvas.Lossless,
-		}
+		defaultOptions := DefaultOptions
+		opts = &defaultOptions
 	}
 
 	if opts.Compression != 0 {

@@ -62,7 +62,11 @@ func Write(filename string, c *canvas.Canvas, opts ...interface{}) error {
 	case ".tif", ".tiff":
 		return c.WriteFile(filename, rasterizer.TIFFWriter(options.Resolution, options.TIFF))
 	case ".svg", ".svgz":
-		if ext == ".svgz" && options.SVG.Compression == 0 {
+		if ext == ".svgz" && (options.SVG == nil || options.SVG.Compression == 0) {
+			if options.SVG == nil {
+				defaultOptions := svg.DefaultOptions
+				options.SVG = &defaultOptions
+			}
 			options.SVG.Compression = -1
 		}
 		return c.WriteFile(filename, func(w io.Writer, c *canvas.Canvas) error {
