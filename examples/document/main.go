@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/renderers/rasterizer"
+	"github.com/tdewolff/canvas/renderers"
 )
 
 var fontFamily *canvas.FontFamily
@@ -21,7 +21,7 @@ func main() {
 	ctx.SetFillColor(canvas.White)
 	ctx.DrawPath(0, 0, canvas.Rectangle(c.W, c.H))
 	draw(ctx)
-	c.WriteFile("out.png", rasterizer.PNGWriter(5.0))
+	renderers.Write("out.png", c, canvas.DPMM(5.0))
 }
 
 var lorem = []string{

@@ -2,6 +2,7 @@ package svg
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
@@ -19,9 +20,16 @@ import (
 
 // Writer writes the canvas as an SVG file.
 func Writer(w io.Writer, c *canvas.Canvas) error {
-	svg := New(w, c.W, c.H)
+	svg := New(w, c.W, c.H, nil)
 	c.Render(svg)
 	return svg.Close()
+}
+
+type Options struct {
+	Compression int
+	EmbedFonts  bool
+	SubsetFonts bool
+	canvas.ImageEncoding
 }
 
 // SVG is a scalable vector graphics renderer.
@@ -30,35 +38,48 @@ type SVG struct {
 	width, height float64
 	fonts         map[*canvas.Font]bool
 	maskID        int
-
-	embedFonts  bool
-	subsetFonts bool
-	imgEnc      canvas.ImageEncoding
-	classes     []string
+	classes       []string
+	opts          *Options
 }
 
 // New returns a scalable vector graphics (SVG) renderer.
-func New(w io.Writer, width, height float64) *SVG {
+func New(w io.Writer, width, height float64, opts *Options) *SVG {
+	if opts == nil {
+		opts = &Options{
+			EmbedFonts:    true,
+			SubsetFonts:   false, // TODO: enable when properly handling GPOS and GSUB tables
+			ImageEncoding: canvas.Lossless,
+		}
+	}
+
+	if opts.Compression != 0 {
+		if opts.Compression < gzip.HuffmanOnly || gzip.BestCompression < opts.Compression {
+			opts.Compression = -1
+		}
+		w, _ = gzip.NewWriterLevel(w, opts.Compression)
+	}
+
 	fmt.Fprintf(w, `<svg version="1.1" width="%vmm" height="%vmm" viewBox="0 0 %v %v" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, dec(width), dec(height), dec(width), dec(height))
 	return &SVG{
-		w:           w,
-		width:       width,
-		height:      height,
-		fonts:       map[*canvas.Font]bool{},
-		maskID:      0,
-		embedFonts:  true,
-		subsetFonts: false, // TODO: enable when properly handling GPOS and GSUB tables
-		imgEnc:      canvas.Lossless,
-		classes:     []string{},
+		w:       w,
+		width:   width,
+		height:  height,
+		fonts:   map[*canvas.Font]bool{},
+		maskID:  0,
+		classes: []string{},
+		opts:    opts,
 	}
 }
 
 // Close finished and closes the SVG.
 func (r *SVG) Close() error {
-	if r.embedFonts {
+	if r.opts.EmbedFonts {
 		r.writeFonts()
 	}
 	_, err := fmt.Fprintf(r.w, "</svg>")
+	if r.opts.Compression != 0 {
+		r.w.(*gzip.Writer).Close() // does not close underlying writer
+	}
 	return err
 }
 
@@ -67,7 +88,7 @@ func (r *SVG) writeFonts() {
 		fmt.Fprintf(r.w, "<style>")
 		for font := range r.fonts {
 			b := font.SFNT.Data
-			if r.subsetFonts {
+			if r.opts.SubsetFonts {
 				b, _ = font.SFNT.Subset(font.SubsetIDs())
 			}
 			fmt.Fprintf(r.w, "\n@font-face{font-family:'%s';src:url('data:type/opentype;base64,", font.Name())
@@ -116,17 +137,7 @@ func (r *SVG) RemoveClass(class string) {
 
 // SetImageEncoding sets the image encoding to Loss or Lossless.
 func (r *SVG) SetImageEncoding(enc canvas.ImageEncoding) {
-	r.imgEnc = enc
-}
-
-// SetFontEmbedding enables the embedding fonts.
-func (r *SVG) SetFontEmbedding(embed bool) {
-	r.embedFonts = embed
-}
-
-// SetFontSubsetting enables the subsetting of embedded fonts.
-func (r *SVG) SetFontSubsetting(subset bool) {
-	r.subsetFonts = subset
+	r.opts.ImageEncoding = enc
 }
 
 // Size returns the size of the canvas in millimeters.
@@ -402,7 +413,7 @@ func (r *SVG) encodableImage(img image.Image) (func(io.Writer) error, string, st
 	}
 
 	// lossy: jpeg
-	if r.imgEnc == canvas.Lossy {
+	if r.opts.ImageEncoding == canvas.Lossy {
 		var refMask string
 		if opaqueImg, ok := img.(interface{ Opaque() bool }); !ok || !opaqueImg.Opaque() {
 			img, refMask = r.renderOpacityMask(img)

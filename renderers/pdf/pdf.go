@@ -12,41 +12,48 @@ import (
 
 // Writer writes the canvas as a PDF file.
 func Writer(w io.Writer, c *canvas.Canvas) error {
-	pdf := New(w, c.W, c.H)
+	pdf := New(w, c.W, c.H, nil)
 	c.Render(pdf)
 	return pdf.Close()
+}
+
+type Options struct {
+	Compress    bool
+	SubsetFonts bool
+	canvas.ImageEncoding
 }
 
 // PDF is a portable document format renderer.
 type PDF struct {
 	w             *pdfPageWriter
 	width, height float64
-	imgEnc        canvas.ImageEncoding
+	opts          *Options
 }
 
 // New returns a portable document format (PDF) renderer.
-func New(w io.Writer, width, height float64) *PDF {
+func New(w io.Writer, width, height float64, opts *Options) *PDF {
+	if opts == nil {
+		opts = &Options{
+			Compress:      true,
+			SubsetFonts:   true,
+			ImageEncoding: canvas.Lossless,
+		}
+	}
+
+	page := newPDFWriter(w).NewPage(width, height)
+	page.pdf.SetCompression(opts.Compress)
+	page.pdf.SetFontSubsetting(opts.SubsetFonts)
 	return &PDF{
-		w:      newPDFWriter(w).NewPage(width, height),
+		w:      page,
 		width:  width,
 		height: height,
-		imgEnc: canvas.Lossless,
+		opts:   opts,
 	}
 }
 
 // SetImageEncoding sets the image encoding to Loss or Lossless.
 func (r *PDF) SetImageEncoding(enc canvas.ImageEncoding) {
-	r.imgEnc = enc
-}
-
-// SetCompression enable the compression of the streams.
-func (r *PDF) SetCompression(compress bool) {
-	r.w.pdf.SetCompression(compress)
-}
-
-// SetFontSubsetting enables the subsetting of embedded fonts.
-func (r *PDF) SetFontSubsetting(subset bool) {
-	r.w.pdf.SetFontSubsetting(subset)
+	r.opts.ImageEncoding = enc
 }
 
 // SetInfo sets the document's title, subject, keywords, and author.
@@ -230,5 +237,5 @@ func (r *PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 
 // RenderImage renders an image to the canvas using a transformation matrix.
 func (r *PDF) RenderImage(img image.Image, m canvas.Matrix) {
-	r.w.DrawImage(img, r.imgEnc, m)
+	r.w.DrawImage(img, r.opts.ImageEncoding, m)
 }
