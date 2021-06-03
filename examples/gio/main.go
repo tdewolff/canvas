@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"image"
 	"image/color"
 	"log"
 	"os"
@@ -59,9 +58,8 @@ func loop(w *app.Window) error {
 			layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				defer op.Save(gtx.Ops).Load()
 
-				c := gio.New(gtx, image.Point{800, 400})
+				c := gio.NewExpand(gtx, 200.0, 100.0)
 				ctx := canvas.NewContext(c)
-				ctx.SetView(canvas.Identity.Scale(4.0, 4.0))
 				draw(ctx)
 
 				return c.Dimensions()

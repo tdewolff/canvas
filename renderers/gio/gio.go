@@ -14,30 +14,74 @@ import (
 )
 
 type Gio struct {
-	ops  *op.Ops
-	size image.Point
+	ops            *op.Ops
+	width, height  float64
+	xScale, yScale float64
+	dimensions     layout.Dimensions
 }
 
-// New returns a Gio renderer.
-func New(gtx layout.Context, size image.Point) *Gio {
+// New returns a Gio renderer of fixed size.
+func New(gtx layout.Context, width, height float64) *Gio {
+	dimensions := layout.Dimensions{Size: image.Point{int(width + 0.5), int(height + 0.5)}}
 	return &Gio{
-		ops:  gtx.Ops,
-		size: size,
+		ops:        gtx.Ops,
+		width:      width,
+		height:     height,
+		xScale:     1.0,
+		yScale:     1.0,
+		dimensions: dimensions,
+	}
+}
+
+// NewExpand returns a Gio renderer that fills the constraints either horizontally or vertically, whichever is met first.
+func NewExpand(gtx layout.Context, width, height float64) *Gio {
+	xScale := float64(gtx.Constraints.Max.X-gtx.Constraints.Min.X) / width
+	yScale := float64(gtx.Constraints.Max.Y-gtx.Constraints.Min.Y) / height
+	if yScale < xScale {
+		xScale = yScale
+	} else {
+		yScale = xScale
+	}
+
+	dimensions := layout.Dimensions{Size: image.Point{int(width*xScale + 0.5), int(height*yScale + 0.5)}}
+	return &Gio{
+		ops:        gtx.Ops,
+		width:      width,
+		height:     height,
+		xScale:     xScale,
+		yScale:     yScale,
+		dimensions: dimensions,
+	}
+}
+
+// NewStretch returns a Gio renderer that stretches the view to fit the constraints.
+func NewStretch(gtx layout.Context, width, height float64) *Gio {
+	xScale := float64(gtx.Constraints.Max.X-gtx.Constraints.Min.X) / width
+	yScale := float64(gtx.Constraints.Max.Y-gtx.Constraints.Min.Y) / height
+
+	dimensions := layout.Dimensions{Size: image.Point{int(width*xScale + 0.5), int(height*yScale + 0.5)}}
+	return &Gio{
+		ops:        gtx.Ops,
+		width:      width,
+		height:     height,
+		xScale:     xScale,
+		yScale:     yScale,
+		dimensions: dimensions,
 	}
 }
 
 // Dimensions returns the dimensions for Gio.
 func (r *Gio) Dimensions() layout.Dimensions {
-	return layout.Dimensions{Size: r.size}
+	return r.dimensions
 }
 
 // Size returns the size of the canvas in millimeters.
 func (r *Gio) Size() (float64, float64) {
-	return float64(r.size.X), float64(r.size.Y)
+	return r.width, r.height
 }
 
 func (r *Gio) point(p canvas.Point) f32.Point {
-	return f32.Point{float32(p.X), float32(float64(r.size.Y) - p.Y)}
+	return f32.Point{float32(r.xScale * p.X), float32(r.yScale * (r.height - p.Y))}
 }
 
 func (r *Gio) renderPath(path *canvas.Path, col color.RGBA) {
@@ -92,10 +136,12 @@ func (r *Gio) RenderImage(img image.Image, m canvas.Matrix) {
 	defer op.Save(r.ops).Load()
 
 	paint.NewImageOp(img).Add(r.ops)
-	//m = canvas.Identity.Translate(0.0, float64(r.size.Y)).Mul(m)
+	m = canvas.Identity.Scale(r.xScale, r.yScale).Mul(m)
 	m = m.Translate(0.0, float64(img.Bounds().Max.Y))
-	op.Affine(f32.NewAffine2D(float32(m[0][0]), -float32(m[0][1]), float32(m[0][2]),
-		-float32(m[1][0]), float32(m[1][1]), float32(float64(r.size.Y)-m[1][2]))).Add(r.ops)
+	op.Affine(f32.NewAffine2D(
+		float32(m[0][0]), -float32(m[0][1]), float32(m[0][2]),
+		-float32(m[1][0]), float32(m[1][1]), float32(r.yScale*r.height-m[1][2]),
+	)).Add(r.ops)
 	paint.PaintOp{}.Add(r.ops)
 }
 
