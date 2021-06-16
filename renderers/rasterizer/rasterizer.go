@@ -81,21 +81,31 @@ func (r *Rasterizer) Size() (float64, float64) {
 // RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
 	// TODO: use fill rule (EvenOdd, NonZero) for rasterizer
-	path = path.Transform(m)
-
-	strokeWidth := 0.0
+	fill := path
+	stroke := path
+	bounds := canvas.Rect{}
+	if style.HasFill() {
+		fill = path.Transform(m)
+		if !style.HasStroke() {
+			bounds = fill.Bounds()
+		}
+	}
 	if style.HasStroke() {
-		strokeWidth = style.StrokeWidth
+		if 0 < len(style.Dashes) {
+			stroke = stroke.Dash(style.DashOffset, style.Dashes...)
+		}
+		stroke = stroke.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
+		stroke = stroke.Transform(m)
+		bounds = stroke.Bounds()
 	}
 
 	size := r.img.Bounds().Size()
-	bounds := path.Bounds()
 	dx, dy := 0, 0
 	dpmm := r.resolution.DPMM()
-	x := int((bounds.X - strokeWidth) * dpmm)
-	y := int((bounds.Y - strokeWidth) * dpmm)
-	w := int((bounds.W+2*strokeWidth)*dpmm) + 1
-	h := int((bounds.H+2*strokeWidth)*dpmm) + 1
+	x := int(bounds.X * dpmm)
+	y := int(bounds.Y * dpmm)
+	w := int(bounds.W*dpmm) + 1
+	h := int(bounds.H*dpmm) + 1
 	if (x+w <= 0 || size.X <= x) && (y+h <= 0 || size.Y <= y) {
 		return // outside canvas
 	}
@@ -118,20 +128,16 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		return // has no size
 	}
 
-	path = path.Translate(-float64(x)/dpmm, -float64(y)/dpmm)
 	if style.HasFill() {
 		ras := vector.NewRasterizer(w, h)
-		path.ToRasterizer(ras, r.resolution)
+		fill = fill.Translate(-float64(x)/dpmm, -float64(y)/dpmm)
+		fill.ToRasterizer(ras, r.resolution)
 		ras.Draw(r.img, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(style.FillColor), image.Point{dx, dy})
 	}
 	if style.HasStroke() {
-		if 0 < len(style.Dashes) {
-			path = path.Dash(style.DashOffset, style.Dashes...)
-		}
-		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
-
 		ras := vector.NewRasterizer(w, h)
-		path.ToRasterizer(ras, r.resolution)
+		stroke = stroke.Translate(-float64(x)/dpmm, -float64(y)/dpmm)
+		stroke.ToRasterizer(ras, r.resolution)
 		ras.Draw(r.img, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(style.StrokeColor), image.Point{dx, dy})
 	}
 }

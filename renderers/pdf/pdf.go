@@ -84,9 +84,7 @@ func (r *PDF) Size() (float64, float64) {
 
 // RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
-	fill := style.HasFill()
-	stroke := style.HasStroke()
-	differentAlpha := fill && stroke && style.FillColor.A != style.StrokeColor.A
+	differentAlpha := style.HasFill() && style.HasStroke() && style.FillColor.A != style.StrokeColor.A
 
 	// PDFs don't support the arcs joiner, miter joiner (not clipped), or miter joiner (clipped) with non-bevel fallback
 	strokeUnsupported := false
@@ -96,6 +94,20 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		if math.IsNaN(miter.Limit) {
 			strokeUnsupported = true
 		} else if _, ok := miter.GapJoiner.(canvas.BevelJoiner); !ok {
+			strokeUnsupported = true
+		}
+	}
+	if !strokeUnsupported {
+		if m.IsSimilarity() {
+			scale := math.Sqrt(m.Det())
+			style.StrokeWidth *= scale
+			style.DashOffset *= scale
+			dashes := make([]float64, len(style.Dashes))
+			for i := range style.Dashes {
+				dashes[i] = style.Dashes[i] * scale
+			}
+			style.Dashes = dashes
+		} else {
 			strokeUnsupported = true
 		}
 	}
@@ -113,8 +125,8 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		closed = true
 	}
 
-	if !stroke || !strokeUnsupported {
-		if fill && !stroke {
+	if !style.HasStroke() || !strokeUnsupported {
+		if style.HasFill() && !style.HasStroke() {
 			r.w.SetFillColor(style.FillColor)
 			r.w.Write([]byte(" "))
 			r.w.Write([]byte(data))
@@ -122,7 +134,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 			if style.FillRule == canvas.EvenOdd {
 				r.w.Write([]byte("*"))
 			}
-		} else if !fill && stroke {
+		} else if !style.HasFill() && style.HasStroke() {
 			r.w.SetStrokeColor(style.StrokeColor)
 			r.w.SetLineWidth(style.StrokeWidth)
 			r.w.SetLineCap(style.StrokeCapper)
@@ -138,7 +150,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 			if style.FillRule == canvas.EvenOdd {
 				r.w.Write([]byte("*"))
 			}
-		} else if fill && stroke {
+		} else if style.HasFill() && style.HasStroke() {
 			if !differentAlpha {
 				r.w.SetFillColor(style.FillColor)
 				r.w.SetStrokeColor(style.StrokeColor)
@@ -183,8 +195,8 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 			}
 		}
 	} else {
-		// stroke && strokeUnsupported
-		if fill {
+		// style.HasStroke() && strokeUnsupported
+		if style.HasFill() {
 			r.w.SetFillColor(style.FillColor)
 			r.w.Write([]byte(" "))
 			r.w.Write([]byte(data))
@@ -199,6 +211,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 			path = path.Dash(style.DashOffset, style.Dashes...)
 		}
 		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
+		path = path.Transform(m)
 
 		r.w.SetFillColor(style.StrokeColor)
 		r.w.Write([]byte(" "))

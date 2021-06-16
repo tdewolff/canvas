@@ -150,9 +150,7 @@ func (r *SVG) Size() (float64, float64) {
 
 // RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
-	fill := style.HasFill()
-	stroke := style.HasStroke()
-
+	stroke := path
 	path = path.Transform(canvas.Identity.ReflectYAbout(r.height / 2.0).Mul(m))
 	fmt.Fprintf(r.w, `<path d="%s`, path.ToSVG())
 
@@ -166,9 +164,23 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 			strokeUnsupported = true
 		}
 	}
+	if !strokeUnsupported {
+		if m.IsSimilarity() {
+			scale := math.Sqrt(m.Det())
+			style.StrokeWidth *= scale
+			style.DashOffset *= scale
+			dashes := make([]float64, len(style.Dashes))
+			for i := range style.Dashes {
+				dashes[i] = style.Dashes[i] * scale
+			}
+			style.Dashes = dashes
+		} else {
+			strokeUnsupported = true
+		}
+	}
 
-	if !stroke {
-		if fill {
+	if !style.HasStroke() {
+		if style.HasFill() {
 			if style.FillColor != canvas.Black {
 				fmt.Fprintf(r.w, `" fill="%v`, canvas.CSSColor(style.FillColor))
 			}
@@ -180,7 +192,7 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		}
 	} else {
 		b := &strings.Builder{}
-		if fill {
+		if style.HasFill() {
 			if style.FillColor != canvas.Black {
 				fmt.Fprintf(b, ";fill:%v", canvas.CSSColor(style.FillColor))
 			}
@@ -190,7 +202,7 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		} else {
 			fmt.Fprintf(b, ";fill:none")
 		}
-		if stroke && !strokeUnsupported {
+		if style.HasStroke() && !strokeUnsupported {
 			fmt.Fprintf(b, `;stroke:%v`, canvas.CSSColor(style.StrokeColor))
 			if style.StrokeWidth != 1.0 {
 				fmt.Fprintf(b, ";stroke-width:%v", dec(style.StrokeWidth))
@@ -237,13 +249,14 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 	r.writeClasses(r.w)
 	fmt.Fprintf(r.w, `"/>`)
 
-	if stroke && strokeUnsupported {
-		// stroke settings unsupported by PDF, draw stroke explicitly
+	if style.HasStroke() && strokeUnsupported {
+		// stroke settings unsupported by SVG, draw stroke explicitly
 		if style.IsDashed() {
-			path = path.Dash(style.DashOffset, style.Dashes...)
+			stroke = stroke.Dash(style.DashOffset, style.Dashes...)
 		}
-		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
-		fmt.Fprintf(r.w, `<path d="%s`, path.ToSVG())
+		stroke = stroke.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
+		stroke = stroke.Transform(canvas.Identity.ReflectYAbout(r.height / 2.0).Mul(m))
+		fmt.Fprintf(r.w, `<path d="%s`, stroke.ToSVG())
 		if style.StrokeColor != canvas.Black {
 			fmt.Fprintf(r.w, `" fill="%v`, canvas.CSSColor(style.StrokeColor))
 		}

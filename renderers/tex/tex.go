@@ -64,13 +64,7 @@ func (r *TeX) getColor(col color.RGBA) string {
 	return name
 }
 
-// RenderPath renders a path to the canvas using a style and a transformation matrix.
-func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
-	if path.Empty() {
-		return
-	}
-	path = path.Transform(m)
-
+func (r *TeX) writePath(path *canvas.Path) {
 	for _, seg := range path.Segments() {
 		end := seg.End
 		switch seg.Cmd {
@@ -99,11 +93,33 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 			fmt.Fprintf(r.w, "\n\\pgfpathclose")
 		}
 	}
+}
 
-	fill := style.HasFill()
-	stroke := style.HasStroke()
+// RenderPath renders a path to the canvas using a style and a transformation matrix.
+func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
+	if path.Empty() {
+		return
+	}
 
-	if fill {
+	stroke := path
+	path = path.Transform(m)
+
+	strokeUnsupported := false
+	if m.IsSimilarity() {
+		scale := math.Sqrt(m.Det())
+		style.StrokeWidth *= scale
+		style.DashOffset *= scale
+		dashes := make([]float64, len(style.Dashes))
+		for i := range style.Dashes {
+			dashes[i] = style.Dashes[i] * scale
+		}
+		style.Dashes = dashes
+	} else {
+		strokeUnsupported = true
+	}
+	r.writePath(path)
+
+	if style.HasFill() {
 		if style.FillColor.R != r.style.FillColor.R || style.FillColor.G != r.style.FillColor.G || style.FillColor.B != r.style.FillColor.B {
 			fmt.Fprintf(r.w, "\n\\pgfsetfillcolor{%v}", r.getColor(style.FillColor))
 		}
@@ -112,7 +128,7 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		}
 	}
 
-	if stroke {
+	if style.HasStroke() && !strokeUnsupported {
 		if style.StrokeCapper != r.style.StrokeCapper {
 			if _, ok := style.StrokeCapper.(canvas.RoundCapper); ok {
 				fmt.Fprintf(r.w, "\n\\pgfsetroundcap")
@@ -161,12 +177,30 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 			fmt.Fprintf(r.w, "\n\\pgfsetstrokeopacity{%v}", dec(float64(style.StrokeColor.A)/255.0))
 		}
 	}
-	if fill && stroke {
+	if style.HasFill() && style.HasStroke() && !strokeUnsupported {
 		fmt.Fprintf(r.w, "\n\\pgfusepath{fill,stroke}")
-	} else if fill {
+	} else if style.HasFill() {
 		fmt.Fprintf(r.w, "\n\\pgfusepath{fill}")
-	} else if stroke {
+	} else if style.HasStroke() && !strokeUnsupported {
 		fmt.Fprintf(r.w, "\n\\pgfusepath{stroke}")
+	}
+
+	if style.HasStroke() && strokeUnsupported {
+		// stroke settings unsupported by TeX, draw stroke explicitly
+		if style.IsDashed() {
+			stroke = stroke.Dash(style.DashOffset, style.Dashes...)
+		}
+		stroke = stroke.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
+		stroke = stroke.Transform(m)
+		r.writePath(stroke)
+		if style.StrokeColor.R != r.style.StrokeColor.R || style.StrokeColor.G != r.style.StrokeColor.G || style.StrokeColor.B != r.style.StrokeColor.B {
+			fmt.Fprintf(r.w, "\n\\pgfsetfillcolor{%v}", r.getColor(style.StrokeColor))
+		}
+		if style.StrokeColor.A != r.style.StrokeColor.A {
+			fmt.Fprintf(r.w, "\n\\pgfsetfillopacity{%v}", dec(float64(style.StrokeColor.A)/255.0))
+		}
+		fmt.Fprintf(r.w, "\n\\pgfusepath{fill}")
+
 	}
 	r.style = style
 }

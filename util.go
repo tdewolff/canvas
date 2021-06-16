@@ -454,20 +454,25 @@ func (m Matrix) Decompose() (float64, float64, float64, float64, float64, float6
 	return m[0][2], m[1][2], theta, sx, sy, phi
 }
 
-// IsTranslation is true if the matrix consists of only translational components, i.e. no rotation, scaling or skew.
+// IsTranslation is true if the matrix consists of only translational components, i.e. no rotation, scaling, or skew transformations.
 func (m Matrix) IsTranslation() bool {
 	return Equal(m[0][0], 1.0) && Equal(m[0][1], 0.0) && Equal(m[1][0], 0.0) && Equal(m[1][1], 1.0)
 }
 
-// IsRigid is true if the matrix consists of only (proper) rigid transformations, i.e. no scaling or skew.
+// IsRigid is true if the matrix is orthogonal and consists of only translation, rotation, and reflection transformations.
 func (m Matrix) IsRigid() bool {
-	if !Equal(m.Det(), 1.0) {
-		return false
-	}
-	invM := m.Inv()
-	invM[0][2] = m[0][2]
-	invM[1][2] = m[1][2]
-	return m.T().Equals(invM)
+	a := m[0][0]*m[0][0] + m[0][1]*m[0][1]
+	b := m[1][0]*m[1][0] + m[1][1]*m[1][1]
+	c := m[0][0]*m[1][0] + m[0][1]*m[1][1]
+	return Equal(a, 1.0) && Equal(b, 1.0) && Equal(c, 0.0)
+}
+
+// IsSimilarity is true if the matrix consists of only translation, rotation, reflection, and scaling transformations.
+func (m Matrix) IsSimilarity() bool {
+	a := m[0][0]*m[0][0] + m[0][1]*m[0][1]
+	b := m[1][0]*m[1][0] + m[1][1]*m[1][1]
+	c := m[0][0]*m[1][0] + m[0][1]*m[1][1]
+	return Equal(a, b) && Equal(c, 0.0)
 }
 
 // Equals returns true if both matrices are equal with a tolerance of Epsilon.
