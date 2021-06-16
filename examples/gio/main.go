@@ -58,7 +58,7 @@ func loop(w *app.Window) error {
 			layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				defer op.Save(gtx.Ops).Load()
 
-				c := gio.NewExpand(gtx, 200.0, 100.0)
+				c := gio.NewContain(gtx, 200.0, 100.0)
 				ctx := canvas.NewContext(c)
 				draw(ctx)
 

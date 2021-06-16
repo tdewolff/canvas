@@ -33,8 +33,8 @@ func New(gtx layout.Context, width, height float64) *Gio {
 	}
 }
 
-// NewExpand returns a Gio renderer that fills the constraints either horizontally or vertically, whichever is met first.
-func NewExpand(gtx layout.Context, width, height float64) *Gio {
+// NewContain returns a Gio renderer that fills the constraints either horizontally or vertically, whichever is met first.
+func NewContain(gtx layout.Context, width, height float64) *Gio {
 	xScale := float64(gtx.Constraints.Max.X-gtx.Constraints.Min.X) / width
 	yScale := float64(gtx.Constraints.Max.Y-gtx.Constraints.Min.Y) / height
 	if yScale < xScale {
