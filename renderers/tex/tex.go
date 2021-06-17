@@ -29,11 +29,13 @@ type TeX struct {
 // New returns a TeX/PGF renderer.
 func New(w io.Writer, width, height float64) *TeX {
 	fmt.Fprintf(w, "\\begin{pgfpicture}")
+	style := canvas.DefaultStyle
+	style.StrokeWidth = 0.0
 	return &TeX{
 		w:      w,
 		width:  width,
 		height: height,
-		style:  canvas.DefaultStyle,
+		style:  style,
 		colors: map[color.RGBA]string{},
 	}
 }
@@ -101,9 +103,6 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		return
 	}
 
-	stroke := path
-	path = path.Transform(m)
-
 	strokeUnsupported := false
 	if m.IsSimilarity() {
 		scale := math.Sqrt(m.Det())
@@ -117,14 +116,21 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 	} else {
 		strokeUnsupported = true
 	}
-	r.writePath(path)
+
+	if style.HasFill() || style.HasStroke() && !strokeUnsupported {
+		r.writePath(path.Transform(m))
+	}
 
 	if style.HasFill() {
 		if style.FillColor.R != r.style.FillColor.R || style.FillColor.G != r.style.FillColor.G || style.FillColor.B != r.style.FillColor.B {
 			fmt.Fprintf(r.w, "\n\\pgfsetfillcolor{%v}", r.getColor(style.FillColor))
+			r.style.FillColor.R = style.FillColor.R
+			r.style.FillColor.G = style.FillColor.G
+			r.style.FillColor.B = style.FillColor.B
 		}
 		if style.FillColor.A != r.style.FillColor.A {
 			fmt.Fprintf(r.w, "\n\\pgfsetfillopacity{%v}", dec(float64(style.FillColor.A)/255.0))
+			r.style.FillColor.A = style.FillColor.A
 		}
 	}
 
@@ -139,6 +145,7 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 			} else {
 				panic("TeX: line cap not support")
 			}
+			r.style.StrokeCapper = style.StrokeCapper
 		}
 
 		if style.StrokeJoiner != r.style.StrokeJoiner {
@@ -152,6 +159,7 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 			} else {
 				panic("TeX: line join not support")
 			}
+			r.style.StrokeJoiner = style.StrokeJoiner
 		}
 
 		if !float64sEqual(style.Dashes, r.style.Dashes) || style.DashOffset != r.style.DashOffset {
@@ -164,17 +172,24 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 			} else {
 				fmt.Fprintf(r.w, "\n\\pgfsetdash{}{0}")
 			}
+			r.style.DashOffset = style.DashOffset
+			r.style.Dashes = style.Dashes
 		}
 
 		if style.StrokeWidth != r.style.StrokeWidth {
 			fmt.Fprintf(r.w, "\n\\pgfsetlinewidth{%vmm}", dec(style.StrokeWidth))
+			r.style.StrokeWidth = style.StrokeWidth
 		}
 
 		if style.StrokeColor.R != r.style.StrokeColor.R || style.StrokeColor.G != r.style.StrokeColor.G || style.StrokeColor.B != r.style.StrokeColor.B {
 			fmt.Fprintf(r.w, "\n\\pgfsetstrokecolor{%v}", r.getColor(style.StrokeColor))
+			r.style.StrokeColor.R = style.StrokeColor.R
+			r.style.StrokeColor.G = style.StrokeColor.G
+			r.style.StrokeColor.B = style.StrokeColor.B
 		}
 		if style.StrokeColor.A != r.style.StrokeColor.A {
 			fmt.Fprintf(r.w, "\n\\pgfsetstrokeopacity{%v}", dec(float64(style.StrokeColor.A)/255.0))
+			r.style.StrokeColor.A = style.StrokeColor.A
 		}
 	}
 	if style.HasFill() && style.HasStroke() && !strokeUnsupported {
@@ -188,21 +203,22 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 	if style.HasStroke() && strokeUnsupported {
 		// stroke settings unsupported by TeX, draw stroke explicitly
 		if style.IsDashed() {
-			stroke = stroke.Dash(style.DashOffset, style.Dashes...)
+			path = path.Dash(style.DashOffset, style.Dashes...)
 		}
-		stroke = stroke.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
-		stroke = stroke.Transform(m)
-		r.writePath(stroke)
-		if style.StrokeColor.R != r.style.StrokeColor.R || style.StrokeColor.G != r.style.StrokeColor.G || style.StrokeColor.B != r.style.StrokeColor.B {
+		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
+		r.writePath(path.Transform(m))
+		if style.StrokeColor.R != r.style.FillColor.R || style.StrokeColor.G != r.style.FillColor.G || style.StrokeColor.B != r.style.FillColor.B {
 			fmt.Fprintf(r.w, "\n\\pgfsetfillcolor{%v}", r.getColor(style.StrokeColor))
+			r.style.FillColor.R = style.StrokeColor.R
+			r.style.FillColor.G = style.StrokeColor.G
+			r.style.FillColor.B = style.StrokeColor.B
 		}
-		if style.StrokeColor.A != r.style.StrokeColor.A {
+		if style.StrokeColor.A != r.style.FillColor.A {
 			fmt.Fprintf(r.w, "\n\\pgfsetfillopacity{%v}", dec(float64(style.StrokeColor.A)/255.0))
+			r.style.FillColor.A = style.StrokeColor.A
 		}
 		fmt.Fprintf(r.w, "\n\\pgfusepath{fill}")
-
 	}
-	r.style = style
 }
 
 // RenderText renders a text object to the canvas using a transformation matrix.

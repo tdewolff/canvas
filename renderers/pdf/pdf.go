@@ -211,11 +211,10 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 			path = path.Dash(style.DashOffset, style.Dashes...)
 		}
 		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
-		path = path.Transform(m)
 
 		r.w.SetFillColor(style.StrokeColor)
 		r.w.Write([]byte(" "))
-		r.w.Write([]byte(path.ToPDF()))
+		r.w.Write([]byte(path.Transform(m).ToPDF()))
 		r.w.Write([]byte(" f"))
 		if style.FillRule == canvas.EvenOdd {
 			r.w.Write([]byte("*"))

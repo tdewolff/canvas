@@ -3,7 +3,6 @@
 package htmlcanvas
 
 import (
-	"fmt"
 	"image"
 	"math"
 	"syscall/js"
@@ -28,12 +27,14 @@ func New(c js.Value, width, height, dpm float64) *HTMLCanvas {
 	ctx.Call("clearRect", 0, 0, width*dpm, height*dpm)
 	ctx.Set("imageSmoothingEnabled", true)
 	ctx.Set("imageSmoothingQuality", "high")
+	style := canvas.DefaultStyle
+	style.StrokeWidth = 0
 	return &HTMLCanvas{
 		ctx:    ctx,
 		width:  width * dpm,
 		height: height * dpm,
 		dpm:    dpm,
-		style:  canvas.DefaultStyle,
+		style:  style,
 	}
 }
 
@@ -42,15 +43,7 @@ func (r *HTMLCanvas) Size() (float64, float64) {
 	return r.width / r.dpm, r.height / r.dpm
 }
 
-// RenderPath renders a path to the canvas using a style and a transformation matrix.
-func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
-	fmt.Println(style.Dashes, r.style.Dashes, style.HasStroke())
-	if path.Empty() {
-		return
-	}
-	path = path.Transform(m)
-	path = path.ReplaceArcs()
-
+func (r *HTMLCanvas) writePath(path *canvas.Path) {
 	r.ctx.Call("beginPath")
 	for _, seg := range path.Segments() {
 		end := seg.End
@@ -71,16 +64,40 @@ func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 			r.ctx.Call("closePath")
 		}
 	}
+}
+
+// RenderPath renders a path to the canvas using a style and a transformation matrix.
+func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
+	if path.Empty() {
+		return
+	}
+
+	strokeUnsupported := false
+	if m.IsSimilarity() {
+		scale := math.Sqrt(m.Det())
+		style.StrokeWidth *= scale
+		style.DashOffset *= scale
+		dashes := make([]float64, len(style.Dashes))
+		for i := range style.Dashes {
+			dashes[i] = style.Dashes[i] * scale
+		}
+		style.Dashes = dashes
+	} else {
+		strokeUnsupported = true
+	}
+
+	if style.HasFill() || style.HasStroke() && !strokeUnsupported {
+		r.writePath(path.Transform(m).ReplaceArcs())
+	}
 
 	if style.HasFill() {
 		if style.FillColor != r.style.FillColor {
 			r.ctx.Set("fillStyle", canvas.CSSColor(style.FillColor).String())
+			r.style.FillColor = style.FillColor
 		}
 		r.ctx.Call("fill")
-		r.style.FillColor = style.FillColor
-		r.style.FillRule = style.FillRule
 	}
-	if style.HasStroke() {
+	if style.HasStroke() && !strokeUnsupported {
 		if style.StrokeCapper != r.style.StrokeCapper {
 			if _, ok := style.StrokeCapper.(canvas.RoundCapper); ok {
 				r.ctx.Set("lineCap", "round")
@@ -91,6 +108,7 @@ func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 			} else {
 				panic("HTML Canvas: line cap not support")
 			}
+			r.style.StrokeCapper = style.StrokeCapper
 		}
 
 		if style.StrokeJoiner != r.style.StrokeJoiner {
@@ -104,6 +122,7 @@ func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 			} else {
 				panic("HTML Canvas: line join not support")
 			}
+			r.style.StrokeJoiner = style.StrokeJoiner
 		}
 
 		dashesEqual := len(style.Dashes) == len(r.style.Dashes)
@@ -123,21 +142,35 @@ func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 			}
 			jsDashes := js.Global().Get("Array").New(dashes...)
 			r.ctx.Call("setLineDash", jsDashes)
-			fmt.Println("write")
+			r.style.Dashes = style.Dashes
 		}
 
 		if style.DashOffset != r.style.DashOffset {
 			r.ctx.Set("lineDashOffset", style.DashOffset*r.dpm)
+			r.style.DashOffset = style.DashOffset
 		}
 
 		if style.StrokeWidth != r.style.StrokeWidth {
 			r.ctx.Set("lineWidth", style.StrokeWidth*r.dpm)
+			r.style.StrokeWidth = style.StrokeWidth
 		}
 		if style.StrokeColor != r.style.StrokeColor {
 			r.ctx.Set("strokeStyle", canvas.CSSColor(style.StrokeColor).String())
+			r.style.StrokeColor = style.StrokeColor
 		}
 		r.ctx.Call("stroke")
-		r.style = style
+	} else if style.HasStroke() {
+		// stroke settings unsupported by HTML Canvas, draw stroke explicitly
+		if style.IsDashed() {
+			path = path.Dash(style.DashOffset, style.Dashes...)
+		}
+		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
+		r.writePath(path.Transform(m).ReplaceArcs())
+		if style.StrokeColor != r.style.FillColor {
+			r.ctx.Set("fillStyle", canvas.CSSColor(style.StrokeColor).String())
+			r.style.FillColor = style.StrokeColor
+		}
+		r.ctx.Call("fill")
 	}
 }
 
