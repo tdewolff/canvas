@@ -95,7 +95,7 @@ func TestPDFImage(t *testing.T) {
 
 func TestPDFMultipage(t *testing.T) {
 	buf := &bytes.Buffer{}
-	pdf := New(buf, 210, 297)
+	pdf := New(buf, 210, 297, nil)
 	pdf.NewPage(210, 297)
 	err := pdf.Close()
 	test.Error(t, err)
