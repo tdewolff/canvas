@@ -1,6 +1,8 @@
 package canvas
 
-import "math"
+import (
+	"math"
+)
 
 // intersection between two line segments
 // see http://www.cs.swan.ac.uk/~cssimon/line_intersection.html
