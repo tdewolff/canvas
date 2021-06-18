@@ -516,7 +516,7 @@ func closeInnerBends(p *Path, indices []int, closed bool) {
 
 func optimizeMoveTo(p *Path) {
 	// move MoveTo to the initial position of the Close if they are colinear
-	if p.d[cmdLen(MoveToCmd)] == LineToCmd {
+	if p.d[cmdLen(MoveToCmd)] == LineToCmd && p.d[len(p.d)-cmdLen(CloseCmd)-1] == LineToCmd {
 		start := Point{p.d[len(p.d)-cmdLen(CloseCmd)-3], p.d[len(p.d)-cmdLen(CloseCmd)-2]}
 		mid := Point{p.d[1], p.d[2]}
 		end := Point{p.d[cmdLen(MoveToCmd)+1], p.d[cmdLen(MoveToCmd)+2]}

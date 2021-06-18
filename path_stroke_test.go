@@ -22,7 +22,7 @@ func TestPathStroke(t *testing.T) {
 		{"M10 10z", 2.0, RoundCap, RoundJoin, ""},
 		{"M10 10L10 5", 2.0, RoundCap, RoundJoin, "M9 10L9 5A1 1 0 0 1 11 5L11 10A1 1 0 0 1 9 10z"},
 		{"M10 10L10 5", 2.0, ButtCap, RoundJoin, "M9 10L9 5L11 5L11 10z"},
-		{"M10 10L10 5", 2.0, SquareCap, RoundJoin, "M9 10L9 5L9 4L11 4L11 5L11 10L11 11L9 11z"},
+		{"M10 10L10 5", 2.0, SquareCap, RoundJoin, "M9 11L9 5L9 4L11 4L11 5L11 10L11 11z"},
 
 		{"M0 0L10 0L20 0", 2.0, ButtCap, RoundJoin, "M0 -1L10 -1L20 -1L20 1L10 1L0 1z"},
 		{"M0 0L10 0L10 10", 2.0, ButtCap, RoundJoin, "M0 -1L10 -1A1 1 0 0 1 11 0L11 10L9 10L9 1L0 1z"},
