@@ -271,6 +271,7 @@ func (c *Context) ShearAbout(sx, sy, x, y float64) {
 // SetFillColor sets the color to be used for filling operations.
 func (c *Context) SetFillColor(col color.Color) {
 	r, g, b, a := col.RGBA()
+	// RGBA returns an alpha-premultiplied color so that c <= a. We silently correct the color by clipping r,g,b to a
 	if a < r {
 		r = a
 	}
@@ -286,6 +287,7 @@ func (c *Context) SetFillColor(col color.Color) {
 // SetStrokeColor sets the color to be used for stroking operations.
 func (c *Context) SetStrokeColor(col color.Color) {
 	r, g, b, a := col.RGBA()
+	// RGBA returns an alpha-premultiplied color so that c <= a. We silently correct the color by clipping r,g,b to a
 	if a < r {
 		r = a
 	}
