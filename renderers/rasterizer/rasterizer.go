@@ -8,6 +8,7 @@ import (
 	"io"
 
 	"github.com/tdewolff/canvas"
+	"golang.org/x/image/bmp"
 	"golang.org/x/image/draw"
 	"golang.org/x/image/math/f64"
 	"golang.org/x/image/tiff"
@@ -18,7 +19,6 @@ import (
 func PNGWriter(resolution canvas.Resolution) canvas.Writer {
 	return func(w io.Writer, c *canvas.Canvas) error {
 		img := Draw(c, resolution)
-		// TODO: optimization: cache img until canvas changes
 		return png.Encode(w, img)
 	}
 }
@@ -27,7 +27,6 @@ func PNGWriter(resolution canvas.Resolution) canvas.Writer {
 func JPGWriter(resolution canvas.Resolution, opts *jpeg.Options) canvas.Writer {
 	return func(w io.Writer, c *canvas.Canvas) error {
 		img := Draw(c, resolution)
-		// TODO: optimization: cache img until canvas changes
 		return jpeg.Encode(w, img, opts)
 	}
 }
@@ -36,7 +35,6 @@ func JPGWriter(resolution canvas.Resolution, opts *jpeg.Options) canvas.Writer {
 func GIFWriter(resolution canvas.Resolution, opts *gif.Options) canvas.Writer {
 	return func(w io.Writer, c *canvas.Canvas) error {
 		img := Draw(c, resolution)
-		// TODO: optimization: cache img until canvas changes
 		return gif.Encode(w, img, opts)
 	}
 }
@@ -45,8 +43,15 @@ func GIFWriter(resolution canvas.Resolution, opts *gif.Options) canvas.Writer {
 func TIFFWriter(resolution canvas.Resolution, opts *tiff.Options) canvas.Writer {
 	return func(w io.Writer, c *canvas.Canvas) error {
 		img := Draw(c, resolution)
-		// TODO: optimization: cache img until canvas changes
 		return tiff.Encode(w, img, opts)
+	}
+}
+
+// BMPWriter writes the canvas as a BMP file.
+func BMPWriter(resolution canvas.Resolution) canvas.Writer {
+	return func(w io.Writer, c *canvas.Canvas) error {
+		img := Draw(c, resolution)
+		return bmp.Encode(w, img)
 	}
 }
 
@@ -161,7 +166,7 @@ func (r *Rasterizer) RenderImage(img image.Image, m canvas.Matrix) {
 	// TODO: optimize when transformation is only translation or stretch
 	dpmm := r.resolution.DPMM()
 	origin := m.Dot(canvas.Point{-float64(margin), float64(img2.Bounds().Size().Y - margin)}).Mul(dpmm)
-	m = m.Scale(dpmm*(float64(size.X+margin)/float64(size.X)), dpmm*(float64(size.Y+margin)/float64(size.Y)))
+	m = m.Scale(dpmm, dpmm)
 
 	h := float64(r.img.Bounds().Size().Y)
 	aff3 := f64.Aff3{m[0][0], -m[0][1], origin.X, -m[1][0], m[1][1], h - origin.Y}
