@@ -57,9 +57,9 @@ func drawText(c *canvas.Context, x, y float64, face *canvas.FontFace, rich *canv
 
 	c.SetFillColor(color.RGBA{192, 0, 64, 255})
 	c.DrawPath(x, y, text.Bounds().ToPath())
-	c.SetFillColor(color.RGBA{50, 50, 50, 50})
+	c.SetFillColor(color.RGBA{51, 51, 51, 51})
 	c.DrawPath(x, y, canvas.Rectangle(width, -metrics.LineHeight))
-	c.SetFillColor(color.RGBA{0, 0, 0, 50})
+	c.SetFillColor(color.RGBA{0, 0, 0, 51})
 	c.DrawPath(x, y+metrics.CapHeight-metrics.Ascent, canvas.Rectangle(width, -metrics.CapHeight-metrics.Descent))
 	c.DrawPath(x, y+metrics.XHeight-metrics.Ascent, canvas.Rectangle(width, -metrics.XHeight))
 
