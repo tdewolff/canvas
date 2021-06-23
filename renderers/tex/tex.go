@@ -22,8 +22,9 @@ type TeX struct {
 	w             io.Writer
 	width, height float64
 
-	style  canvas.Style
-	colors map[color.RGBA]string
+	style      canvas.Style
+	miterLimit float64
+	colors     map[color.RGBA]string
 }
 
 // New returns a TeX/PGF renderer.
@@ -97,6 +98,93 @@ func (r *TeX) writePath(path *canvas.Path) {
 	}
 }
 
+func (r *TeX) setFillColor(color color.RGBA) {
+	if color.R != r.style.FillColor.R || color.G != r.style.FillColor.G || color.B != r.style.FillColor.B {
+		fmt.Fprintf(r.w, "\n\\pgfsetfillcolor{%v}", r.getColor(color))
+		r.style.FillColor.R = color.R
+		r.style.FillColor.G = color.G
+		r.style.FillColor.B = color.B
+	}
+	if color.A != r.style.FillColor.A {
+		fmt.Fprintf(r.w, "\n\\pgfsetfillopacity{%v}", dec(float64(color.A)/255.0))
+		r.style.FillColor.A = color.A
+	}
+}
+
+func (r *TeX) setStrokeColor(color color.RGBA) {
+	if color.R != r.style.StrokeColor.R || color.G != r.style.StrokeColor.G || color.B != r.style.StrokeColor.B {
+		fmt.Fprintf(r.w, "\n\\pgfsetstrokecolor{%v}", r.getColor(color))
+		r.style.StrokeColor.R = color.R
+		r.style.StrokeColor.G = color.G
+		r.style.StrokeColor.B = color.B
+	}
+	if color.A != r.style.StrokeColor.A {
+		fmt.Fprintf(r.w, "\n\\pgfsetstrokeopacity{%v}", dec(float64(color.A)/255.0))
+		r.style.StrokeColor.A = color.A
+	}
+}
+
+func (r *TeX) setStrokeWidth(width float64) {
+	if width != r.style.StrokeWidth {
+		fmt.Fprintf(r.w, "\n\\pgfsetlinewidth{%vmm}", dec(width))
+		r.style.StrokeWidth = width
+	}
+}
+
+func (r *TeX) setMiterLimit(limit float64) {
+	if limit != r.miterLimit {
+		fmt.Fprintf(r.w, "\n\\pgfsetmiterlimit{%vmm}", dec(limit))
+		r.miterLimit = limit
+	}
+}
+
+func (r *TeX) setStrokeCap(capper canvas.Capper) {
+	if capper != r.style.StrokeCapper {
+		if _, ok := capper.(canvas.RoundCapper); ok {
+			fmt.Fprintf(r.w, "\n\\pgfsetroundcap")
+		} else if _, ok := capper.(canvas.SquareCapper); ok {
+			fmt.Fprintf(r.w, "\n\\pgfsetrectcap")
+		} else if _, ok := capper.(canvas.ButtCapper); ok {
+			fmt.Fprintf(r.w, "\n\\pgfsetbuttcap")
+		} else {
+			panic("TeX: line cap not support")
+		}
+		r.style.StrokeCapper = capper
+	}
+}
+
+func (r *TeX) setStrokeJoin(joiner canvas.Joiner) {
+	if joiner != r.style.StrokeJoiner {
+		if _, ok := joiner.(canvas.BevelJoiner); ok {
+			fmt.Fprintf(r.w, "\n\\pgfsetbeveljoin")
+		} else if _, ok := joiner.(canvas.RoundJoiner); ok {
+			fmt.Fprintf(r.w, "\n\\pgfsetroundjoin")
+		} else if miter, ok := joiner.(canvas.MiterJoiner); ok && !math.IsNaN(miter.Limit) && miter.GapJoiner == canvas.BevelJoin {
+			fmt.Fprintf(r.w, "\n\\pgfsetmiterjoin")
+			r.setMiterLimit(miter.Limit)
+		} else {
+			panic("TeX: line join not support")
+		}
+		r.style.StrokeJoiner = joiner
+	}
+}
+
+func (r *TeX) setDashes(offset float64, dashes []float64) {
+	if !float64sEqual(dashes, r.style.Dashes) || offset != r.style.DashOffset {
+		if 0 < len(dashes) {
+			dashes := ""
+			for _, dash := range dashes {
+				dashes += fmt.Sprintf("{%vmm}", dec(dash))
+			}
+			fmt.Fprintf(r.w, "\n\\pgfsetdash{%v}{%vmm}", dashes, dec(offset))
+		} else {
+			fmt.Fprintf(r.w, "\n\\pgfsetdash{}{0}")
+		}
+		r.style.DashOffset = offset
+		r.style.Dashes = dashes
+	}
+}
+
 // RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
 	if path.Empty() {
@@ -122,75 +210,15 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 	}
 
 	if style.HasFill() {
-		if style.FillColor.R != r.style.FillColor.R || style.FillColor.G != r.style.FillColor.G || style.FillColor.B != r.style.FillColor.B {
-			fmt.Fprintf(r.w, "\n\\pgfsetfillcolor{%v}", r.getColor(style.FillColor))
-			r.style.FillColor.R = style.FillColor.R
-			r.style.FillColor.G = style.FillColor.G
-			r.style.FillColor.B = style.FillColor.B
-		}
-		if style.FillColor.A != r.style.FillColor.A {
-			fmt.Fprintf(r.w, "\n\\pgfsetfillopacity{%v}", dec(float64(style.FillColor.A)/255.0))
-			r.style.FillColor.A = style.FillColor.A
-		}
+		r.setFillColor(style.FillColor)
 	}
 
 	if style.HasStroke() && !strokeUnsupported {
-		if style.StrokeCapper != r.style.StrokeCapper {
-			if _, ok := style.StrokeCapper.(canvas.RoundCapper); ok {
-				fmt.Fprintf(r.w, "\n\\pgfsetroundcap")
-			} else if _, ok := style.StrokeCapper.(canvas.SquareCapper); ok {
-				fmt.Fprintf(r.w, "\n\\pgfsetrectcap")
-			} else if _, ok := style.StrokeCapper.(canvas.ButtCapper); ok {
-				fmt.Fprintf(r.w, "\n\\pgfsetbuttcap")
-			} else {
-				panic("TeX: line cap not support")
-			}
-			r.style.StrokeCapper = style.StrokeCapper
-		}
-
-		if style.StrokeJoiner != r.style.StrokeJoiner {
-			if _, ok := style.StrokeJoiner.(canvas.BevelJoiner); ok {
-				fmt.Fprintf(r.w, "\n\\pgfsetbeveljoin")
-			} else if _, ok := style.StrokeJoiner.(canvas.RoundJoiner); ok {
-				fmt.Fprintf(r.w, "\n\\pgfsetroundjoin")
-			} else if miter, ok := style.StrokeJoiner.(canvas.MiterJoiner); ok && !math.IsNaN(miter.Limit) && miter.GapJoiner == canvas.BevelJoin {
-				fmt.Fprintf(r.w, "\n\\pgfsetmiterjoin")
-				fmt.Fprintf(r.w, "\n\\pgfsetmiterlimit{%vmm}", dec(miter.Limit))
-			} else {
-				panic("TeX: line join not support")
-			}
-			r.style.StrokeJoiner = style.StrokeJoiner
-		}
-
-		if !float64sEqual(style.Dashes, r.style.Dashes) || style.DashOffset != r.style.DashOffset {
-			if 0 < len(style.Dashes) {
-				dashes := ""
-				for _, dash := range style.Dashes {
-					dashes += fmt.Sprintf("{%vmm}", dec(dash))
-				}
-				fmt.Fprintf(r.w, "\n\\pgfsetdash{%v}{%vmm}", dashes, dec(style.DashOffset))
-			} else {
-				fmt.Fprintf(r.w, "\n\\pgfsetdash{}{0}")
-			}
-			r.style.DashOffset = style.DashOffset
-			r.style.Dashes = style.Dashes
-		}
-
-		if style.StrokeWidth != r.style.StrokeWidth {
-			fmt.Fprintf(r.w, "\n\\pgfsetlinewidth{%vmm}", dec(style.StrokeWidth))
-			r.style.StrokeWidth = style.StrokeWidth
-		}
-
-		if style.StrokeColor.R != r.style.StrokeColor.R || style.StrokeColor.G != r.style.StrokeColor.G || style.StrokeColor.B != r.style.StrokeColor.B {
-			fmt.Fprintf(r.w, "\n\\pgfsetstrokecolor{%v}", r.getColor(style.StrokeColor))
-			r.style.StrokeColor.R = style.StrokeColor.R
-			r.style.StrokeColor.G = style.StrokeColor.G
-			r.style.StrokeColor.B = style.StrokeColor.B
-		}
-		if style.StrokeColor.A != r.style.StrokeColor.A {
-			fmt.Fprintf(r.w, "\n\\pgfsetstrokeopacity{%v}", dec(float64(style.StrokeColor.A)/255.0))
-			r.style.StrokeColor.A = style.StrokeColor.A
-		}
+		r.setStrokeColor(style.StrokeColor)
+		r.setStrokeWidth(style.StrokeWidth)
+		r.setStrokeCap(style.StrokeCapper)
+		r.setStrokeJoin(style.StrokeJoiner)
+		r.setDashes(style.DashOffset, style.Dashes)
 	}
 	if style.HasFill() && style.HasStroke() && !strokeUnsupported {
 		fmt.Fprintf(r.w, "\n\\pgfusepath{fill,stroke}")
@@ -207,16 +235,7 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		}
 		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
 		r.writePath(path.Transform(m))
-		if style.StrokeColor.R != r.style.FillColor.R || style.StrokeColor.G != r.style.FillColor.G || style.StrokeColor.B != r.style.FillColor.B {
-			fmt.Fprintf(r.w, "\n\\pgfsetfillcolor{%v}", r.getColor(style.StrokeColor))
-			r.style.FillColor.R = style.StrokeColor.R
-			r.style.FillColor.G = style.StrokeColor.G
-			r.style.FillColor.B = style.StrokeColor.B
-		}
-		if style.StrokeColor.A != r.style.FillColor.A {
-			fmt.Fprintf(r.w, "\n\\pgfsetfillopacity{%v}", dec(float64(style.StrokeColor.A)/255.0))
-			r.style.FillColor.A = style.StrokeColor.A
-		}
+		r.setFillColor(style.StrokeColor)
 		fmt.Fprintf(r.w, "\n\\pgfusepath{fill}")
 	}
 }

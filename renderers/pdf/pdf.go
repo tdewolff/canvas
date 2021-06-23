@@ -216,9 +216,6 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		r.w.Write([]byte(" "))
 		r.w.Write([]byte(path.Transform(m).ToPDF()))
 		r.w.Write([]byte(" f"))
-		if style.FillRule == canvas.EvenOdd {
-			r.w.Write([]byte("*"))
-		}
 	}
 }
 
