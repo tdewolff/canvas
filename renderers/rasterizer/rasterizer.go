@@ -2,6 +2,7 @@ package rasterizer
 
 import (
 	"image"
+	"image/color"
 	"image/gif"
 	"image/jpeg"
 	"image/png"
@@ -60,26 +61,49 @@ func Draw(c *canvas.Canvas, resolution canvas.Resolution) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, int(c.W*resolution.DPMM()+0.5), int(c.H*resolution.DPMM()+0.5)))
 	ras := New(img, resolution)
 	c.Render(ras)
+	if _, ok := ras.ColorSpace.(canvas.LinearColorSpace); !ok {
+		// gamma compress
+		changeColorSpace(img, ras.Image, ras.ColorSpace.FromLinear)
+	}
 	return img
 }
 
 // Rasterizer is a rasterizing renderer.
 type Rasterizer struct {
-	img        draw.Image
+	draw.Image
 	resolution canvas.Resolution
+
+	ColorSpace canvas.ColorSpace
 }
 
-// New returns a renderer that draws to a rasterized image.
+// New returns a renderer that draws to a rasterized image. By default the linear color space is used, which assumes input and output colors are in linearRGB. If the sRGB color space is used for drawing with an average of gamma=2.2, the input and output colors are assumed to be in sRGB and blending happens in linearRGB.aBe aware that for text this results in thin stems for black-on-white (but wide stems for white-on-black).
 func New(img draw.Image, resolution canvas.Resolution) *Rasterizer {
 	return &Rasterizer{
-		img:        img,
+		Image:      img,
 		resolution: resolution,
+		ColorSpace: canvas.SRGBColorSpace{},
 	}
+}
+
+// NewImage returns a renderer that draws to a new rasterized image.
+func NewImage(width, height float64, resolution canvas.Resolution) *Rasterizer {
+	img := image.NewRGBA(image.Rect(0, 0, int(width*resolution.DPMM()+0.5), int(height*resolution.DPMM()+0.5)))
+	return New(img, resolution)
+}
+
+// Image returns the image in the sRGB color space. It copies the underlying image buffer if the used color model by the rasterizer is not LinearColorModel (default).
+func (r *Rasterizer) RGBA() *image.RGBA {
+	img := image.NewRGBA(r.Bounds())
+	if _, ok := r.ColorSpace.(canvas.LinearColorSpace); !ok {
+		// gamma compress
+		changeColorSpace(img, r.Image, r.ColorSpace.FromLinear)
+	}
+	return img
 }
 
 // Size returns the size of the canvas in millimeters.
 func (r *Rasterizer) Size() (float64, float64) {
-	size := r.img.Bounds().Size()
+	size := r.Bounds().Size()
 	return float64(size.X) / r.resolution.DPMM(), float64(size.Y) / r.resolution.DPMM()
 }
 
@@ -104,7 +128,7 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		bounds = stroke.Bounds()
 	}
 
-	size := r.img.Bounds().Size()
+	size := r.Bounds().Size()
 	dx, dy := 0, 0
 	dpmm := r.resolution.DPMM()
 	x := int(bounds.X * dpmm)
@@ -137,13 +161,15 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		ras := vector.NewRasterizer(w, h)
 		fill = fill.Translate(-float64(x)/dpmm, -float64(y)/dpmm)
 		fill.ToRasterizer(ras, r.resolution)
-		ras.Draw(r.img, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(style.FillColor), image.Point{dx, dy})
+		col := r.ColorSpace.ToLinear(style.FillColor)
+		ras.Draw(r, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(col), image.Point{dx, dy})
 	}
 	if style.HasStroke() {
 		ras := vector.NewRasterizer(w, h)
 		stroke = stroke.Translate(-float64(x)/dpmm, -float64(y)/dpmm)
 		stroke.ToRasterizer(ras, r.resolution)
-		ras.Draw(r.img, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(style.StrokeColor), image.Point{dx, dy})
+		col := r.ColorSpace.ToLinear(style.StrokeColor)
+		ras.Draw(r, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(col), image.Point{dx, dy})
 	}
 }
 
@@ -155,6 +181,7 @@ func (r *Rasterizer) RenderText(text *canvas.Text, m canvas.Matrix) {
 // RenderImage renders an image to the canvas using a transformation matrix.
 func (r *Rasterizer) RenderImage(img image.Image, m canvas.Matrix) {
 	// add transparent margin to image for smooth borders when rotating
+	// TODO: optimize when transformation is only translation or stretch (if optimizing, dont overwrite original img when gamma correcting)
 	margin := 4
 	size := img.Bounds().Size()
 	sp := img.Bounds().Min // starting point
@@ -163,12 +190,27 @@ func (r *Rasterizer) RenderImage(img image.Image, m canvas.Matrix) {
 
 	// draw to destination image
 	// note that we need to correct for the added margin in origin and m
-	// TODO: optimize when transformation is only translation or stretch
 	dpmm := r.resolution.DPMM()
 	origin := m.Dot(canvas.Point{-float64(margin), float64(img2.Bounds().Size().Y - margin)}).Mul(dpmm)
 	m = m.Scale(dpmm, dpmm)
 
-	h := float64(r.img.Bounds().Size().Y)
+	if _, ok := r.ColorSpace.(canvas.LinearColorSpace); !ok {
+		// gamma decompress
+		changeColorSpace(img2, img2, r.ColorSpace.ToLinear)
+	}
+
+	h := float64(r.Bounds().Size().Y)
 	aff3 := f64.Aff3{m[0][0], -m[0][1], origin.X, -m[1][0], m[1][1], h - origin.Y}
-	draw.CatmullRom.Transform(r.img, aff3, img2, img2.Bounds(), draw.Over, nil)
+	draw.CatmullRom.Transform(r, aff3, img2, img2.Bounds(), draw.Over, nil)
+}
+
+type colorFunc func(color.Color) color.RGBA
+
+func changeColorSpace(dst *image.RGBA, src image.Image, f colorFunc) {
+	for j := 0; j < dst.Bounds().Max.Y; j++ {
+		for i := 0; i < dst.Bounds().Max.X; i++ {
+			// TODO: parallelize
+			dst.SetRGBA(i, j, f(src.At(i, j)))
+		}
+	}
 }

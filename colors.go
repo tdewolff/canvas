@@ -1,6 +1,116 @@
 package canvas
 
-import "image/color"
+import (
+	"image/color"
+	"math"
+)
+
+type ColorSpace interface {
+	ToLinear(color.Color) color.RGBA
+	FromLinear(color.Color) color.RGBA
+}
+
+type LinearColorSpace struct{}
+
+func (LinearColorSpace) ToLinear(col color.Color) color.RGBA {
+	if rgba, ok := col.(color.RGBA); ok {
+		return rgba
+	}
+	R, G, B, A := col.RGBA()
+	return color.RGBA{uint8(R >> 8), uint8(G >> 8), uint8(B >> 8), uint8(A >> 8)}
+}
+
+func (LinearColorSpace) FromLinear(col color.Color) color.RGBA {
+	if rgba, ok := col.(color.RGBA); ok {
+		return rgba
+	}
+	R, G, B, A := col.RGBA()
+	return color.RGBA{uint8(R >> 8), uint8(G >> 8), uint8(B >> 8), uint8(A >> 8)}
+}
+
+type GammaColorSpace struct {
+	Gamma float64
+}
+
+func (cs GammaColorSpace) ToLinear(col color.Color) color.RGBA {
+	R, G, B, A := col.RGBA()
+	r := math.Pow(float64(R)/float64(A), cs.Gamma)
+	g := math.Pow(float64(G)/float64(A), cs.Gamma)
+	b := math.Pow(float64(B)/float64(A), cs.Gamma)
+	a := float64(A) / 0xffff
+	return color.RGBA{
+		uint8(r*a*255.0 + 0.5),
+		uint8(g*a*255.0 + 0.5),
+		uint8(b*a*255.0 + 0.5),
+		uint8(a*255.0 + 0.5),
+	}
+}
+
+func (cs GammaColorSpace) FromLinear(col color.Color) color.RGBA {
+	R, G, B, A := col.RGBA()
+	r := math.Pow(float64(R)/float64(A), 1.0/cs.Gamma)
+	g := math.Pow(float64(G)/float64(A), 1.0/cs.Gamma)
+	b := math.Pow(float64(B)/float64(A), 1.0/cs.Gamma)
+	a := float64(A) / 0xffff
+	return color.RGBA{
+		uint8(r*a*255.0 + 0.5),
+		uint8(g*a*255.0 + 0.5),
+		uint8(b*a*255.0 + 0.5),
+		uint8(a*255.0 + 0.5),
+	}
+}
+
+type SRGBColorSpace struct{}
+
+func (SRGBColorSpace) ToLinear(col color.Color) color.RGBA {
+	sRGBToLinear := func(c float64) float64 {
+		// Formula from EXT_sRGB.
+		if c <= 0.04045 {
+			return c / 12.92
+		} else {
+			return math.Pow((c+0.055)/1.055, 2.4)
+		}
+	}
+
+	R, G, B, A := col.RGBA()
+	r := sRGBToLinear(float64(R) / float64(A))
+	g := sRGBToLinear(float64(G) / float64(A))
+	b := sRGBToLinear(float64(B) / float64(A))
+	a := float64(A) / 0xffff
+	return color.RGBA{
+		uint8(r*a*255.0 + 0.5),
+		uint8(g*a*255.0 + 0.5),
+		uint8(b*a*255.0 + 0.5),
+		uint8(a*255.0 + 0.5),
+	}
+}
+
+func (SRGBColorSpace) FromLinear(col color.Color) color.RGBA {
+	linearTosRGB := func(c float64) float64 {
+		// Formula from EXT_sRGB.
+		switch {
+		case c <= 0.0:
+			return 0.0
+		case 0 < c && c < 0.0031308:
+			return 12.92 * c
+		case 0.0031308 <= c && c < 1:
+			return 1.055*math.Pow(c, 0.41666) - 0.055
+		}
+		return 1.0
+	}
+
+	R, G, B, A := col.RGBA()
+	r := linearTosRGB(float64(R) / float64(A))
+	g := linearTosRGB(float64(G) / float64(A))
+	b := linearTosRGB(float64(B) / float64(A))
+	a := float64(A) / 0xffff
+	return color.RGBA{
+		uint8(r*a*255.0 + 0.5),
+		uint8(g*a*255.0 + 0.5),
+		uint8(b*a*255.0 + 0.5),
+		uint8(a*255.0 + 0.5),
+	}
+}
 
 // Transparent when used as a fill or stroke color will indicate that the fill or stroke will not be drawn.
 var Transparent = color.RGBA{0x00, 0x00, 0x00, 0x00} // rgba(0, 0, 0, 0)
