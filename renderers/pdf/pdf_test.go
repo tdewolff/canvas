@@ -106,3 +106,19 @@ func TestPDFMultipage(t *testing.T) {
 	nbPages := strings.Count(out, "/Type /Page ")
 	test.That(t, nbPages == 2, "expected 2 pages, got", nbPages)
 }
+
+func TestPDFMetadata(t *testing.T) {
+	buf := &bytes.Buffer{}
+	pdf := New(buf, 210, 297, nil)
+	pdf.NewPage(210, 297)
+	pdf.SetInfo("a1", "b2", "c3", "d4", "e5")
+	err := pdf.Close()
+	test.Error(t, err)
+	out := buf.String()
+
+	test.That(t, strings.Contains(out, "/Title (a1)"), `could not find "/Title (a1)" in output`)
+	test.That(t, strings.Contains(out, "/Subject (b2)"), `could not find "/Subject (b2)" in output`)
+	test.That(t, strings.Contains(out, "/Keywords (c3)"), `could not find "/Keywords (c3)" in output`)
+	test.That(t, strings.Contains(out, "/Author (d4)"), `could not find "/Author (d4)" in output`)
+	test.That(t, strings.Contains(out, "/Creator (e5)"), `could not find "/Creator (e5)" in output`)
+}
