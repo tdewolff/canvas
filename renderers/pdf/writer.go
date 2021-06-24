@@ -476,16 +476,16 @@ func (w *pdfWriter) Close() error {
 		"CreationDate": time.Now().Format("D:20060102150405Z0700"),
 	}
 	if w.title != "" {
-		info["title"] = w.title
+		info["Title"] = w.title
 	}
 	if w.subject != "" {
-		info["subject"] = w.subject
+		info["Subject"] = w.subject
 	}
 	if w.keywords != "" {
-		info["keywords"] = w.keywords
+		info["Keywords"] = w.keywords
 	}
 	if w.author != "" {
-		info["author"] = w.author
+		info["Author"] = w.author
 	}
 
 	w.objOffsets[1] = w.pos
