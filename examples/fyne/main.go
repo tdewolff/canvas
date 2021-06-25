@@ -5,10 +5,10 @@ import (
 	"image/color"
 	"os"
 
-	"fyne.io/fyne/app"
-	"fyne.io/fyne/container"
-	"fyne.io/fyne/widget"
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
 	"github.com/tdewolff/canvas"
+	canvasFyne "github.com/tdewolff/canvas/renderers/fyne"
 	"github.com/tdewolff/canvas/text"
 )
 
@@ -32,17 +32,14 @@ func main() {
 		panic(err)
 	}
 
+	c := canvasFyne.New(200.0, 100.0, canvas.DPMM(10.0))
+	ctx := canvas.NewContext(c)
+	draw(ctx)
+
 	a := app.New()
-	w := a.NewWindow("Hello")
-
-	hello := widget.NewLabel("Hello Fyne!")
-	w.SetContent(container.NewVBox(
-		hello,
-		widget.NewButton("Hi!", func() {
-			hello.SetText("Welcome :)")
-		}),
-	))
-
+	w := a.NewWindow("Canvas")
+	w.Resize(fyne.Size{800, 400})
+	w.SetContent(c.Content())
 	w.ShowAndRun()
 }
 
