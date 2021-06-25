@@ -16,15 +16,6 @@ const ptPerMm = 72.0 / 25.4
 const mmPerInch = 25.4
 const inchPerMm = 1.0 / 25.4
 
-// ImageEncoding defines whether the embedded image shall be embedded as lossless (typically PNG) or lossy (typically JPG).
-type ImageEncoding int
-
-// see ImageEncoding
-const (
-	Lossless ImageEncoding = iota
-	Lossy
-)
-
 // Resolution is used for rasterizing. Higher resolutions will result in larger images.
 type Resolution float64
 

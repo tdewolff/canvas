@@ -8,6 +8,15 @@ import (
 	"io"
 )
 
+// ImageEncoding defines whether the embedded image shall be embedded as lossless (typically PNG) or lossy (typically JPG).
+type ImageEncoding int
+
+// see ImageEncoding
+const (
+	Lossless ImageEncoding = iota
+	Lossy
+)
+
 // Image is a raster image. Keeping the original bytes allows the renderer to optimize rendering in some cases.
 type Image struct {
 	image.Image

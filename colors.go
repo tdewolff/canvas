@@ -10,6 +10,8 @@ type ColorSpace interface {
 	FromLinear(color.Color) color.RGBA
 }
 
+var DefaultColorSpace ColorSpace = LinearColorSpace{}
+
 type LinearColorSpace struct{}
 
 func (LinearColorSpace) ToLinear(col color.Color) color.RGBA {
