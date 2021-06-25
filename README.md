@@ -19,6 +19,8 @@ Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise pl
 - `FontFace` is now passed around as a pointer
 - `NewRichText` now requires a default `*FontFace` to be passed
 - Use the `latex` build tag to use the original LaTeX expression parser
+- Renderer writers have been moved from `renderers/ABC/abc.Writer` to `renderers/ABC`
+- `rasterizer.New` is renamed to `rasterizer.FromImage`
 
 ## Features
 - Path segment types: MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close
@@ -30,17 +32,18 @@ Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise pl
 - HarfBuzz for text shaping (native Go and CGO implementations available)
 - FriBidi for text bidirectionality (native Go and CGO implementations available)
 - Donald Knuth's line breaking algorithm for text layout
-- sRGB compliance (WIP)
+- sRGB compliance (use `SRGBColorSpace`, only available for rasterizer)
 - Font rendering with gamma correction of 1.43 (WIP)
-- Back-ends
-- - Raster images (PNG, GIF, JPEG, TIFF, ...)
+- Rendering targets
+- - Raster images (PNG, GIF, JPEG, TIFF, BMP, WEBP)
 - - PDF
-- - SVG
-- - EPS
+- - SVG and SVGZ
+- - PS and EPS
 - - HTMLCanvas
 - - OpenGL
 - - [Gio](https://gioui.org/)
-- Front-ends
+- - [Fyne](https://fyne.io/) (WIP)
+- Rendering sources
 - - Canvas itself
 - - [go-chart](https://github.com/wcharczuk/go-chart)
 - - [gonum/plot](https://github.com/gonum/plot)

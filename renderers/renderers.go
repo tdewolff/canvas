@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/chai2010/webp"
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers/pdf"
 	"github.com/tdewolff/canvas/renderers/ps"
@@ -35,6 +36,8 @@ func Write(filename string, c *canvas.Canvas, opts ...interface{}) error {
 		return c.WriteFile(filename, TIFF(opts...))
 	case ".bmp":
 		return c.WriteFile(filename, BMP(opts...))
+	case ".webp":
+		return c.WriteFile(filename, WEBP(opts...))
 	case ".svgz":
 		return c.WriteFile(filename, SVGZ(opts...))
 	case ".svg":
@@ -160,6 +163,28 @@ func BMP(opts ...interface{}) canvas.Writer {
 	return func(w io.Writer, c *canvas.Canvas) error {
 		img := rasterizer.Draw(c, resolution, colorSpace)
 		return bmp.Encode(w, img)
+	}
+}
+
+func WEBP(opts ...interface{}) canvas.Writer {
+	var options *webp.Options
+	resolution := canvas.DPMM(1.0)
+	colorSpace := canvas.DefaultColorSpace
+	for _, opt := range opts {
+		switch o := opt.(type) {
+		case *webp.Options:
+			options = o
+		case canvas.Resolution:
+			resolution = o
+		case canvas.ColorSpace:
+			colorSpace = o
+		default:
+			return errorWriter(fmt.Errorf("unknown option: %v", opt))
+		}
+	}
+	return func(w io.Writer, c *canvas.Canvas) error {
+		img := rasterizer.Draw(c, resolution, colorSpace)
+		return webp.Encode(w, img, options)
 	}
 }
 

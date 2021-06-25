@@ -7,6 +7,7 @@ require (
 	github.com/adrg/sysfont v0.1.2
 	github.com/adrg/xdg v0.3.3 // indirect
 	github.com/benoitkugler/textlayout v0.0.0-20210503180247-5030dcb3bcc0
+	github.com/chai2010/webp v1.1.0 // indirect
 	github.com/dsnet/compress v0.0.1
 	github.com/go-gl/gl v0.0.0-20210426225639-a3bfa832c8aa
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200625191551-73d3c3675aa3
