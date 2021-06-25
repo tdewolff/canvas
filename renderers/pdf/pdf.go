@@ -62,12 +62,13 @@ func (r *PDF) SetImageEncoding(enc canvas.ImageEncoding) {
 	r.opts.ImageEncoding = enc
 }
 
-// SetInfo sets the document's title, subject, keywords, and author.
-func (r *PDF) SetInfo(title, subject, keywords, author string) {
+// SetInfo sets the document's title, subject, keywords, author and creator.
+func (r *PDF) SetInfo(title, subject, keywords, author, creator string) {
 	r.w.pdf.SetTitle(title)
 	r.w.pdf.SetSubject(subject)
 	r.w.pdf.SetKeywords(keywords)
 	r.w.pdf.SetAuthor(author)
+	r.w.pdf.SetCreator(creator)
 }
 
 // NewPage starts adds a new page where further rendering will be written to.

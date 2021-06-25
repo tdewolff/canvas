@@ -39,6 +39,7 @@ type pdfWriter struct {
 	subject  string
 	keywords string
 	author   string
+	creator  string
 }
 
 func newPDFWriter(writer io.Writer) *pdfWriter {
@@ -83,6 +84,11 @@ func (w *pdfWriter) SetKeywords(keywords string) {
 // SetAuthor sets the document's author.
 func (w *pdfWriter) SetAuthor(author string) {
 	w.author = author
+}
+
+// SetCreator sets the document's creator.
+func (w *pdfWriter) SetCreator(creator string) {
+	w.creator = creator
 }
 
 func (w *pdfWriter) writeBytes(b []byte) {
@@ -476,16 +482,19 @@ func (w *pdfWriter) Close() error {
 		"CreationDate": time.Now().Format("D:20060102150405Z0700"),
 	}
 	if w.title != "" {
-		info["title"] = w.title
+		info["Title"] = w.title
 	}
 	if w.subject != "" {
-		info["subject"] = w.subject
+		info["Subject"] = w.subject
 	}
 	if w.keywords != "" {
-		info["keywords"] = w.keywords
+		info["Keywords"] = w.keywords
 	}
 	if w.author != "" {
-		info["author"] = w.author
+		info["Author"] = w.author
+	}
+	if w.creator != "" {
+		info["Creator"] = w.creator
 	}
 
 	w.objOffsets[1] = w.pos
