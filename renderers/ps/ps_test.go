@@ -1,4 +1,4 @@
-package eps
+package ps
 
 import (
 	"bytes"
@@ -7,9 +7,9 @@ import (
 	"github.com/tdewolff/canvas"
 )
 
-func TestEPS(t *testing.T) {
+func TestPS(t *testing.T) {
 	w := &bytes.Buffer{}
-	eps := New(w, 100, 80)
-	eps.setColor(canvas.Red)
+	ps := New(w, 100, 80)
+	ps.setColor(canvas.Red)
 	//test.String(t, string(w.Bytes()), "")
 }
