@@ -5,13 +5,16 @@ import (
 	"image"
 	"image/color"
 	"io"
+	"log"
 	"math"
 
 	"github.com/tdewolff/canvas"
 )
 
 // Writer writes the canvas as a PDF file.
+// DEPRECATED
 func Writer(w io.Writer, c *canvas.Canvas) error {
+	log.Println("WARNING: github.com/tdewolff/canvas/renderers/pdf.Writer is deprecated, please use github.com/tdewolff/canvas/renderers.PDF")
 	pdf := New(w, c.W, c.H, nil)
 	c.Render(pdf)
 	return pdf.Close()
@@ -238,6 +241,7 @@ func (r *PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 
 		if 0.0 < span.Face.FauxBold {
 			r.w.SetTextRenderMode(2)
+			r.w.SetStrokeColor(span.Face.Color)
 			fmt.Fprintf(r.w, " %v w", dec(span.Face.FauxBold*2.0))
 		} else {
 			r.w.SetTextRenderMode(0)

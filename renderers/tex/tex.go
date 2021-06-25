@@ -5,13 +5,16 @@ import (
 	"image"
 	"image/color"
 	"io"
+	"log"
 	"math"
 
 	"github.com/tdewolff/canvas"
 )
 
 // Writer writes the canvas as a TeX file using PGF (\usepackage{pgf}).
+// DEPRECATED
 func Writer(w io.Writer, c *canvas.Canvas) error {
+	log.Println("WARNING: github.com/tdewolff/canvas/renderers/tex.Writer is deprecated, please use github.com/tdewolff/canvas/renderers.TeX")
 	tex := New(w, c.W, c.H)
 	c.Render(tex)
 	return tex.Close()
@@ -33,11 +36,12 @@ func New(w io.Writer, width, height float64) *TeX {
 	style := canvas.DefaultStyle
 	style.StrokeWidth = 0.0
 	return &TeX{
-		w:      w,
-		width:  width,
-		height: height,
-		style:  style,
-		colors: map[color.RGBA]string{},
+		w:          w,
+		width:      width,
+		height:     height,
+		style:      style,
+		miterLimit: 10.0,
+		colors:     map[color.RGBA]string{},
 	}
 }
 
@@ -133,7 +137,7 @@ func (r *TeX) setStrokeWidth(width float64) {
 
 func (r *TeX) setMiterLimit(limit float64) {
 	if limit != r.miterLimit {
-		fmt.Fprintf(r.w, "\n\\pgfsetmiterlimit{%vmm}", dec(limit))
+		fmt.Fprintf(r.w, "\n\\pgfsetmiterlimit{%v}", dec(limit))
 		r.miterLimit = limit
 	}
 }
