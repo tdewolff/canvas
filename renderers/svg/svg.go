@@ -11,6 +11,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"log"
 	"math"
 	"strings"
 
@@ -19,7 +20,9 @@ import (
 )
 
 // Writer writes the canvas as an SVG file.
+// DEPRECATED
 func Writer(w io.Writer, c *canvas.Canvas) error {
+	log.Println("WARNING: github.com/tdewolff/canvas/renderers/svg.Writer is deprecated, please use github.com/tdewolff/canvas/renderers.SVG")
 	svg := New(w, c.W, c.H, nil)
 	c.Render(svg)
 	return svg.Close()
