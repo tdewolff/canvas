@@ -26,7 +26,7 @@ type OpenGL struct {
 func New(width, height float64, resolution canvas.Resolution) *OpenGL {
 	img := image.NewRGBA(image.Rect(0, 0, int(width*resolution.DPMM()+0.5), int(height*resolution.DPMM()+0.5)))
 	return &OpenGL{
-		Rasterizer: rasterizer.New(img, resolution),
+		Rasterizer: rasterizer.FromImage(img, resolution, nil),
 		img:        img,
 	}
 }

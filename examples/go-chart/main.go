@@ -8,10 +8,7 @@ import (
 	"github.com/golang/freetype/truetype"
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers"
-	"github.com/tdewolff/canvas/renderers/pdf"
-	"github.com/tdewolff/canvas/renderers/ps"
 	"github.com/tdewolff/canvas/renderers/rasterizer"
-	"github.com/tdewolff/canvas/renderers/svg"
 	"github.com/wcharczuk/go-chart/v2"
 	"github.com/wcharczuk/go-chart/v2/drawing"
 )
@@ -83,15 +80,15 @@ func main() {
 
 	f, _ := os.Create("output.pdf")
 	defer f.Close()
-	graph.Render(renderers.NewGoChart(pdf.Writer), f)
+	graph.Render(renderers.NewGoChart(renderers.PDF()), f)
 
 	f, _ = os.Create("output.svg")
 	defer f.Close()
-	graph.Render(renderers.NewGoChart(svg.Writer), f)
+	graph.Render(renderers.NewGoChart(renderers.SVG()), f)
 
 	f, _ = os.Create("output.eps")
 	defer f.Close()
-	graph.Render(renderers.NewGoChart(ps.Writer), f)
+	graph.Render(renderers.NewGoChart(renderers.PS()), f)
 
 	f, _ = os.Create("output.png")
 	defer f.Close()
