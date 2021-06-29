@@ -72,6 +72,7 @@ func (r *TeX) getColor(col color.RGBA) string {
 }
 
 func (r *TeX) writePath(path *canvas.Path) {
+	path = path.ReplaceArcs() // sometimes arcs generate errors of the form: Dimension too large
 	for _, seg := range path.Segments() {
 		end := seg.End
 		switch seg.Cmd {
@@ -84,7 +85,7 @@ func (r *TeX) writePath(path *canvas.Path) {
 			fmt.Fprintf(r.w, "\n\\pgfpathquadraticcurveto{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%vmm}{%vmm}}", dec(cp.X), dec(cp.Y), dec(end.X), dec(end.Y))
 		case canvas.CubeToCmd:
 			cp1, cp2 := seg.CP1(), seg.CP2()
-			fmt.Fprintf(r.w, "\n\\pgfpathcurveto{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%vmm}{%vmm}}", dec(cp1.X), dec(cp1.Y), dec(cp2.X), dec(cp2.Y), dec(end.X), dec(end.Y))
+			fmt.Fprintf(r.w, "\n\\pgfpathcurveto{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%v}{%v}}{\\pgfpoint{%v}{%v}}", dec(cp1.X), dec(cp1.Y), dec(cp2.X), dec(cp2.Y), dec(end.X), dec(end.Y))
 		case canvas.ArcToCmd:
 			rx, ry, rot, large, sweep := seg.Arc()
 			iLarge := 0
@@ -95,7 +96,7 @@ func (r *TeX) writePath(path *canvas.Path) {
 			if sweep {
 				iSweep = 1
 			}
-			fmt.Fprintf(r.w, "\n\\pgfpatharcto{%vmm}{%vmm}{%v}{%v}{%v}{\\pgfpoint{%vmm}{%vmm}}", dec(rx), dec(ry), dec(rot), iLarge, iSweep, dec(end.X), dec(end.Y))
+			fmt.Fprintf(r.w, "\n\\pgfpatharcto{%v}{%v}{%v}{%v}{%v}{\\pgfpoint{%v}{%v}}", dec(rx), dec(ry), dec(rot), iLarge, iSweep, dec(end.X), dec(end.Y))
 		case canvas.CloseCmd:
 			fmt.Fprintf(r.w, "\n\\pgfpathclose")
 		}

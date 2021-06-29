@@ -40,7 +40,7 @@ func main() {
 	defer c.Close()
 
 	ctx := canvas.NewContext(c)
-	//ctx.SetView(canvas.Identity.Translate(10, 10).Scale(0.5, 0.5))
+	ctx.SetView(canvas.Identity.Translate(0, 0).Scale(0.5, 0.5))
 	draw(ctx)
 }
 
