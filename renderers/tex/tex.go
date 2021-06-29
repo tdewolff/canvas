@@ -85,7 +85,7 @@ func (r *TeX) writePath(path *canvas.Path) {
 			fmt.Fprintf(r.w, "\n\\pgfpathquadraticcurveto{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%vmm}{%vmm}}", dec(cp.X), dec(cp.Y), dec(end.X), dec(end.Y))
 		case canvas.CubeToCmd:
 			cp1, cp2 := seg.CP1(), seg.CP2()
-			fmt.Fprintf(r.w, "\n\\pgfpathcurveto{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%v}{%v}}{\\pgfpoint{%v}{%v}}", dec(cp1.X), dec(cp1.Y), dec(cp2.X), dec(cp2.Y), dec(end.X), dec(end.Y))
+			fmt.Fprintf(r.w, "\n\\pgfpathcurveto{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%vmm}{%vmm}}", dec(cp1.X), dec(cp1.Y), dec(cp2.X), dec(cp2.Y), dec(end.X), dec(end.Y))
 		case canvas.ArcToCmd:
 			rx, ry, rot, large, sweep := seg.Arc()
 			iLarge := 0
@@ -177,11 +177,11 @@ func (r *TeX) setStrokeJoin(joiner canvas.Joiner) {
 func (r *TeX) setDashes(offset float64, dashes []float64) {
 	if !float64sEqual(dashes, r.style.Dashes) || offset != r.style.DashOffset {
 		if 0 < len(dashes) {
-			dashes := ""
+			pgfDashes := ""
 			for _, dash := range dashes {
-				dashes += fmt.Sprintf("{%vmm}", dec(dash))
+				pgfDashes += fmt.Sprintf("{%vmm}", dec(dash))
 			}
-			fmt.Fprintf(r.w, "\n\\pgfsetdash{%v}{%vmm}", dashes, dec(offset))
+			fmt.Fprintf(r.w, "\n\\pgfsetdash{%v}{%vmm}", pgfDashes, dec(offset))
 		} else {
 			fmt.Fprintf(r.w, "\n\\pgfsetdash{}{0}")
 		}

@@ -142,7 +142,7 @@ func draw(c *canvas.Context) {
 	}
 	c.Rotate(5)
 	c.DrawImage(50.0, 0.0, img, 15)
-	c.SetView(canvas.Identity)
+	c.SetView(canvas.Identity.Translate(0, 0).Scale(0.5, 0.5))
 
 	// Draw an closed set of points being smoothed
 	polyline := &canvas.Polyline{}
