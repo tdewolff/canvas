@@ -23,9 +23,8 @@ func NewShaper(b []byte, index int) (Shaper, error) {
 	if err != nil {
 		return Shaper{}, err
 	}
-	metrics := font.LoadMetrics()
 	return Shaper{
-		font: harfbuzz.NewFont(metrics),
+		font: harfbuzz.NewFont(font),
 	}, nil
 }
 
@@ -43,7 +42,7 @@ func (s Shaper) Destroy() {
 func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Script, lang string, features string, variations string) []Glyph {
 	buf := harfbuzz.NewBuffer()
 	buf.ClusterLevel = harfbuzz.MonotoneCharacters
-	buf.Props.Language = harfbuzz.NewLanguage(lang)
+	buf.Props.Language = language.NewLanguage(lang)
 	buf.Props.Script = language.Script(script)
 	buf.Props.Direction = harfbuzz.Direction(direction)
 	if direction == DirectionInvalid {
