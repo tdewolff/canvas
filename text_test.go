@@ -136,6 +136,19 @@ func TestRichText(t *testing.T) {
 	//test.T(t, len(text.lines), 1)
 }
 
+func TestRichText2(t *testing.T) {
+	family := NewFontFamily("dejavu-serif")
+	if err := family.LoadFontFile("resources/DejaVuSerif.ttf", FontRegular); err != nil {
+		test.Error(t, err)
+	}
+	pt := ptPerMm * float64(family.fonts[FontRegular].Head.UnitsPerEm)
+	face := family.Face(pt, Black, FontRegular, FontNormal) // line height is 13.96875
+
+	rt := NewRichText(face)
+	rt.Add(face, " a")
+	rt.ToText(100.0, 100.0, Left, Top, 0.0, 0.0)
+}
+
 func TestTextBounds(t *testing.T) {
 	family := NewFontFamily("dejavu-serif")
 	if err := family.LoadFontFile("resources/DejaVuSerif.ttf", FontRegular); err != nil {

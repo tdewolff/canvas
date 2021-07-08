@@ -474,7 +474,9 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 					dx += w
 				}
 			}
-			atStart = false
+			if 0 < item.Size {
+				atStart = false
+			}
 			x += item.Width
 		} else if item.Type == canvasText.GlueType && !atStart {
 			width := item.Width
