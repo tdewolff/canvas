@@ -45,7 +45,7 @@ var DefaultOptions = Options{
 type SVG struct {
 	w             io.Writer
 	width, height float64
-	fonts         map[*canvas.Font]bool
+	fonts         map[*canvas.FontFace]bool
 	maskID        int
 	classes       []string
 	opts          *Options
@@ -70,7 +70,7 @@ func New(w io.Writer, width, height float64, opts *Options) *SVG {
 		w:       w,
 		width:   width,
 		height:  height,
-		fonts:   map[*canvas.Font]bool{},
+		fonts:   map[*canvas.FontFace]bool{},
 		maskID:  0,
 		classes: []string{},
 		opts:    opts,
@@ -92,12 +92,13 @@ func (r *SVG) Close() error {
 func (r *SVG) writeFonts() {
 	if 0 < len(r.fonts) {
 		fmt.Fprintf(r.w, "<style>")
-		for font := range r.fonts {
-			b := font.SFNT.Data
+		for fontFace := range r.fonts {
+			font := fontFace.Font
+			b := fontFace.Font.SFNT.Data
 			if r.opts.SubsetFonts {
 				b, _ = font.SFNT.Subset(font.SubsetIDs())
 			}
-			fmt.Fprintf(r.w, "\n@font-face{font-family:'%s';src:url('data:type/opentype;base64,", font.Name())
+			fmt.Fprintf(r.w, "\n@font-face{font-family:'%s';font-weight:'%d';src:url('data:type/opentype;base64,", font.Name(), fontFace.Boldness())
 			encoder := base64.NewEncoder(base64.StdEncoding, r.w)
 			encoder.Write(b)
 			encoder.Close()
@@ -377,7 +378,7 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 	fmt.Fprintf(r.w, `">`)
 
 	text.WalkSpans(func(x, y float64, span canvas.TextSpan) {
-		r.fonts[span.Face.Font] = true
+		r.fonts[span.Face] = true
 		for _, r := range span.Text {
 			glyphID := span.Face.Font.SFNT.GlyphIndex(r)
 			_ = span.Face.Font.SubsetID(glyphID) // register usage of glyph for subsetting

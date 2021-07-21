@@ -1,7 +1,12 @@
 package svg
 
 import (
+	"bytes"
+	"regexp"
 	"testing"
+
+	"github.com/tdewolff/canvas"
+	"github.com/tdewolff/test"
 )
 
 func TestSVGText(t *testing.T) {
@@ -29,4 +34,38 @@ func TestSVGText(t *testing.T) {
 	//textLayer{text, Identity}.WriteSVG(svg)
 	//s := regexp.MustCompile(`base64,.+'`).ReplaceAllString(buf.String(), "base64,'") // remove embedded font
 	//test.String(t, s, `<style>`+"\n"+`@font-face{font-family:'dejavu-serif';src:url('data:font/truetype;base64,');}`+"\n"+`@font-face{font-family:'eb-garamond';src:url('data:font/opentype;base64,');}`+"\n"+`</style><text x="0" y="0" style="font: 12px dejavu-serif"><tspan x="0" y="7.421875" style="font:8px dejavu-serif">dejaVu8</tspan><tspan x="0" y="20.453125" letter-spacing="1" style="font-style:italic;fill:#f00">glyphspacing</tspan><tspan x="0" y="33.725625" style="font:700 6.996px dejavu-serif">dejaVu12sub</tspan><tspan x="0" y="38.5" style="font:700 10px eb-garamond">garamond10</tspan></text><path d="M0 22.703125H91.71875V21.803125H0z" fill="#f00"/>`)
+}
+
+func TestSvgFontWeights(t *testing.T) {
+	dejaVuSerif := canvas.NewFontFamily("dejavu-serif")
+	_ = dejaVuSerif.LoadFontFile("../../resources/DejaVuSerif.ttf", canvas.FontRegular)
+	// not the bold style of DejaVu but does not matter for the test
+	_ = dejaVuSerif.LoadFontFile("../../resources/EBGaramond12-Regular.otf", canvas.FontBold)
+
+	//create font faced
+	normal := dejaVuSerif.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	bold := dejaVuSerif.Face(12.0, canvas.Red, canvas.FontBold, canvas.FontNormal)
+
+	// create rich text
+	rt := canvas.NewRichText(normal)
+	rt.Add(normal, "test")
+	rt.Add(bold, " test")
+	rt.Add(normal, "test")
+	text := rt.ToText(200, 100.0, canvas.Justify, canvas.Top, 0.0, 0.0)
+
+	canv := canvas.New(200, 100)
+	context := canvas.NewContext(canv)
+	context.DrawText(50, 50, text)
+
+	buf := &bytes.Buffer{}
+	svg := New(buf, canv.W, canv.H, &Options{EmbedFonts: true})
+	canv.Render(svg)
+	_ = svg.Close()
+
+	actual := regexp.MustCompile(`base64,.+'`).ReplaceAllString(buf.String(), "base64,'") // remove embedded font
+	expected := `<svg version="1.1" width="200mm" height="100mm" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><text x="50" y="50" style="font: 4.2333333px dejavu-serif"><tspan x="50" y="53.929476">test </tspan><tspan x="58.926869" y="53.929476" style="font-weight:700;fill:#f00">test</tspan><tspan x="64.603769" y="53.929476">test</tspan></text><style>
+@font-face{font-family:'dejavu-serif';font-weight:'400';src:url('data:type/opentype;base64,');}
+@font-face{font-family:'dejavu-serif';font-weight:'700';src:url('data:type/opentype;base64,');}
+</style></svg>`
+	test.String(t, actual, expected)
 }

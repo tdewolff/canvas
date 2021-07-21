@@ -1,1 +1,2 @@
 tests/*/corpus/* linguist-generated
+go.mod text eol=lf
