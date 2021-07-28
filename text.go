@@ -391,9 +391,11 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	for position, item := range items {
 		if position == breaks[j].Position {
 			// add spaces to previous span
-			for _, glyph := range glyphs[i : i+item.Size] {
-				if glyph.Text != "\u200B" {
-					t.lines[j].spans[len(t.lines[j].spans)-1].Text += glyph.Text
+			if !atStart {
+				for _, glyph := range glyphs[i : i+item.Size] {
+					if glyph.Text != "\u200B" {
+						t.lines[j].spans[len(t.lines[j].spans)-1].Text += glyph.Text
+					}
 				}
 			}
 
