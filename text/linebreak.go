@@ -95,6 +95,17 @@ type Item struct {
 	Size                   int // number of boxes (glyphs) compressed into one
 }
 
+func (item Item) String() string {
+	if item.Type == BoxType {
+		return fmt.Sprintf("Box[w=%.6g]", item.Width)
+	} else if item.Type == GlueType {
+		return fmt.Sprintf("Glue[w=%.6g y=%.6g z=%.6g]", item.Width, item.Stretch, item.Shrink)
+	} else if item.Type == PenaltyType {
+		return fmt.Sprintf("Penalty[p=%.6g]", item.Penalty)
+	}
+	return "?"
+}
+
 // Box returns a box item.
 func Box(width float64) Item {
 	return Item{

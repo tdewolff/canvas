@@ -352,7 +352,6 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	if halign == Justify {
 		align = canvasText.Justified
 	}
-	align = canvasText.Justified // TODO: use Left for Left/Right/Center aligned text, see #102
 	vertical := rt.mode != HorizontalTB
 	looseness := 0
 	items := canvasText.GlyphsToItems(glyphs, indent, align, vertical)
@@ -391,11 +390,9 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	for position, item := range items {
 		if position == breaks[j].Position {
 			// add spaces to previous span
-			if !atStart {
-				for _, glyph := range glyphs[i : i+item.Size] {
-					if glyph.Text != "\u200B" {
-						t.lines[j].spans[len(t.lines[j].spans)-1].Text += glyph.Text
-					}
+			for _, glyph := range glyphs[i : i+item.Size] {
+				if glyph.Text != "\u200B" {
+					t.lines[j].spans[len(t.lines[j].spans)-1].Text += glyph.Text
 				}
 			}
 
