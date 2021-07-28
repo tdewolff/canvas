@@ -128,29 +128,29 @@ func TestIntersectionLineCube(t *testing.T) {
 	}
 }
 
-func TestIntersectionLineEllipse(t *testing.T) {
-	var tts = []struct {
-		line, arc string
-		zs        intersections
-	}{
-		{"M0 5L10 5", "A5 5 0 0 1 0 10", intersections{{Point{5.0, 5.0}, 0.5, 0.0, true}}},
-		{"M0 0L0 10", "A10 5 0 0 1 0 10", intersections{{Point{6.0, 5.0}, 1.0, 0.0, true}}},
-	}
-	for _, tt := range tts {
-		t.Run(fmt.Sprint(tt.line, "x", tt.arc), func(t *testing.T) {
-			lineSegs := MustParseSVG(tt.line).Segments()
-			arcSegs := MustParseSVG(tt.arc).Segments()
-			line := lineSegs[len(lineSegs)-1]
-			arc := arcSegs[len(arcSegs)-1]
-
-			rx, ry, rot, large, sweep := arc.Arc()
-			cx, cy, theta0, theta1 := ellipseToCenter(arc.Start.X, arc.Start.Y, rx, ry, rot, large, sweep, arc.End.X, arc.End.Y)
-
-			zs := intersectionLineEllipse(line.Start, line.End, Point{cx, cy}, Point{rx, ry}, rot, theta0, theta1)
-			test.T(t, len(zs), len(tt.zs))
-			for i := range zs {
-				test.T(t, zs[i], tt.zs[i])
-			}
-		})
-	}
-}
+//func TestIntersectionLineEllipse(t *testing.T) {
+//	var tts = []struct {
+//		line, arc string
+//		zs        intersections
+//	}{
+//		{"M0 5L10 5", "A5 5 0 0 1 0 10", intersections{{Point{5.0, 5.0}, 0.5, 0.0, true}}},
+//		{"M0 0L0 10", "A10 5 0 0 1 0 10", intersections{{Point{6.0, 5.0}, 1.0, 0.0, true}}},
+//	}
+//	for _, tt := range tts {
+//		t.Run(fmt.Sprint(tt.line, "x", tt.arc), func(t *testing.T) {
+//			lineSegs := MustParseSVG(tt.line).Segments()
+//			arcSegs := MustParseSVG(tt.arc).Segments()
+//			line := lineSegs[len(lineSegs)-1]
+//			arc := arcSegs[len(arcSegs)-1]
+//
+//			rx, ry, rot, large, sweep := arc.Arc()
+//			cx, cy, theta0, theta1 := ellipseToCenter(arc.Start.X, arc.Start.Y, rx, ry, rot, large, sweep, arc.End.X, arc.End.Y)
+//
+//			zs := intersectionLineEllipse(line.Start, line.End, Point{cx, cy}, Point{rx, ry}, rot, theta0, theta1)
+//			test.T(t, len(zs), len(tt.zs))
+//			for i := range zs {
+//				test.T(t, zs[i], tt.zs[i])
+//			}
+//		})
+//	}
+//}

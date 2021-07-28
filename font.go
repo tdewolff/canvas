@@ -29,6 +29,39 @@ const (
 	FontItalic     FontStyle = 1 << 8
 )
 
+// Weight returns the font weight (FontRegular, FontBold, ...)
+func (style FontStyle) Weight() FontStyle {
+	return style & 0xFF
+}
+
+// Italic returns true if italic.
+func (style FontStyle) Italic() bool {
+	return style&FontItalic != 0
+}
+
+// CSS returns the CSS boldness value for the font face.
+func (style FontStyle) CSS() int {
+	switch style.Weight() {
+	case FontExtraLight:
+		return 100
+	case FontLight:
+		return 200
+	case FontBook:
+		return 300
+	case FontMedium:
+		return 500
+	case FontSemibold:
+		return 600
+	case FontBold:
+		return 700
+	case FontBlack:
+		return 800
+	case FontExtraBlack:
+		return 900
+	}
+	return 400
+}
+
 // FontVariant defines the font variant to be used for the font, such as subscript or smallcaps.
 type FontVariant int
 
@@ -44,6 +77,7 @@ const (
 type Font struct {
 	*font.SFNT
 	name        string
+	style       FontStyle
 	subsetIDs   []uint16          // old glyphIDs for increasing new glyphIDs
 	subsetIDMap map[uint16]uint16 // old to new glyphID
 	shaper      text.Shaper
@@ -51,7 +85,7 @@ type Font struct {
 	features    string
 }
 
-func parseFont(name string, b []byte, index int) (*Font, error) {
+func parseFont(name string, style FontStyle, b []byte, index int) (*Font, error) {
 	SFNT, err := font.ParseFont(b, index)
 	if err != nil {
 		return nil, err
@@ -65,6 +99,7 @@ func parseFont(name string, b []byte, index int) (*Font, error) {
 	font := &Font{
 		SFNT:        SFNT,
 		name:        name,
+		style:       style,
 		subsetIDs:   []uint16{0}, // .notdef should always be at zero
 		subsetIDMap: map[uint16]uint16{0: 0},
 		shaper:      shaper,
@@ -80,6 +115,11 @@ func (f *Font) Destroy() {
 // Name returns the name of the font.
 func (f *Font) Name() string {
 	return f.name
+}
+
+// Style returns the style of the font.
+func (f *Font) Style() FontStyle {
+	return f.style
 }
 
 // SubsetID maps a glyphID of the original font to the subsetted font. If the glyphID is not subsetted, it will be added to the map.
@@ -129,6 +169,11 @@ func (family *FontFamily) Destroy() {
 	for _, font := range family.fonts {
 		font.Destroy()
 	}
+}
+
+// Name returns the name of the font family.
+func (family *FontFamily) Name() string {
+	return family.name
 }
 
 // SetVariations sets the font variations (not yet supported).
@@ -202,7 +247,7 @@ func (family *FontFamily) LoadFontCollection(filename string, index int, style F
 
 // LoadFont loads a font from memory.
 func (family *FontFamily) LoadFont(b []byte, index int, style FontStyle) error {
-	font, err := parseFont(family.name, b, index)
+	font, err := parseFont(family.name, style, b, index)
 	if err != nil {
 		return err
 	}
@@ -439,29 +484,6 @@ func (face *FontFace) toPath(glyphs []text.Glyph, ppem uint16) (*Path, float64, 
 		p = p.Transform(Identity.Shear(face.FauxItalic, 0.0))
 	}
 	return p, face.mmPerEm * float64(x), nil
-}
-
-// Boldness returns the CSS boldness value for the font face.
-func (face *FontFace) Boldness() int {
-	boldness := 400
-	if face.Style&0xFF == FontExtraLight {
-		boldness = 100
-	} else if face.Style&0xFF == FontLight {
-		boldness = 200
-	} else if face.Style&0xFF == FontBook {
-		boldness = 300
-	} else if face.Style&0xFF == FontMedium {
-		boldness = 500
-	} else if face.Style&0xFF == FontSemibold {
-		boldness = 600
-	} else if face.Style&0xFF == FontBold {
-		boldness = 700
-	} else if face.Style&0xFF == FontBlack {
-		boldness = 800
-	} else if face.Style*0xFF == FontExtraBlack {
-		boldness = 900
-	}
-	return boldness
 }
 
 ////////////////////////////////////////////////////////////////

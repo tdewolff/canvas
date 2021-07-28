@@ -97,7 +97,14 @@ func (r *SVG) writeFonts() {
 			if r.opts.SubsetFonts {
 				b, _ = font.SFNT.Subset(font.SubsetIDs())
 			}
-			fmt.Fprintf(r.w, "\n@font-face{font-family:'%s';src:url('data:type/opentype;base64,", font.Name())
+			fmt.Fprintf(r.w, "\n@font-face{font-family:'%s'", font.Name())
+			if font.Style().Weight() != canvas.FontRegular {
+				fmt.Fprintf(r.w, ";font-weight:%d", font.Style().CSS())
+			}
+			if font.Style().Italic() {
+				fmt.Fprintf(r.w, ";font-style:italic")
+			}
+			fmt.Fprintf(r.w, ";src:url('data:type/opentype;base64,")
 			encoder := base64.NewEncoder(base64.StdEncoding, r.w)
 			encoder.Write(b)
 			encoder.Close()
@@ -273,11 +280,11 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 
 func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace) {
 	differences := 0
-	boldness := face.Boldness()
+	boldness := face.Style.CSS()
 	if face.Style&canvas.FontItalic != faceMain.Style&canvas.FontItalic {
 		differences++
 	}
-	if boldness != faceMain.Boldness() {
+	if boldness != faceMain.Style.CSS() {
 		differences++
 	}
 	if (face.Variant == canvas.FontSmallcaps) != (faceMain.Variant == canvas.FontSmallcaps) {
@@ -294,7 +301,7 @@ func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace) {
 			fmt.Fprintf(buf, ` italic`)
 		}
 
-		if boldness != faceMain.Boldness() {
+		if boldness != faceMain.Style.CSS() {
 			fmt.Fprintf(buf, ` %d`, boldness)
 		}
 
@@ -319,7 +326,7 @@ func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace) {
 		if face.Style&canvas.FontItalic != faceMain.Style&canvas.FontItalic {
 			fmt.Fprintf(buf, `;font-style:italic`)
 		}
-		if boldness != faceMain.Boldness() {
+		if boldness != faceMain.Style.CSS() {
 			fmt.Fprintf(buf, `;font-weight:%d`, boldness)
 		}
 		if face.Variant == canvas.FontSmallcaps && faceMain.Variant != canvas.FontSmallcaps {
@@ -360,7 +367,7 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 	if faceMain.Style&canvas.FontItalic != 0 {
 		fmt.Fprintf(r.w, ` italic`)
 	}
-	if boldness := faceMain.Boldness(); boldness != 400 {
+	if boldness := faceMain.Style.CSS(); boldness != 400 {
 		fmt.Fprintf(r.w, ` %d`, boldness)
 	}
 	if faceMain.Variant == canvas.FontSmallcaps {
