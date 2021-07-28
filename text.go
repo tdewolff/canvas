@@ -352,6 +352,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	if halign == Justify {
 		align = canvasText.Justified
 	}
+	align = canvasText.Justified // TODO: use Left for Left/Right/Center aligned text, see #102
 	vertical := rt.mode != HorizontalTB
 	looseness := 0
 	items := canvasText.GlyphsToItems(glyphs, indent, align, vertical)
