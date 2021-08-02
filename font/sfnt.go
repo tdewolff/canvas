@@ -545,7 +545,7 @@ func (sfnt *SFNT) parseCmap() error {
 				_ = rs.ReadUint16() // languageID
 
 				segCount := rs.ReadUint16()
-				if segCount%2 != 0 {
+				if segCount%2 != 0 || segCount == 0 {
 					return fmt.Errorf("cmap: bad segCount in subtable %d", j)
 				}
 				segCount /= 2
@@ -577,10 +577,16 @@ func (sfnt *SFNT) parseCmap() error {
 					}
 					subtable.StartCode[i] = startCode
 				}
+				if subtable.StartCode[segCount-1] != 0xFFFF || subtable.EndCode[segCount-1] != 0xFFFF {
+					return fmt.Errorf("cmap: bad last startCode or endCode in subtable %d", j)
+				}
+
 				subtable.IdDelta = make([]int16, segCount)
-				for i := 0; i < int(segCount); i++ {
+				for i := 0; i < int(segCount-1); i++ {
 					subtable.IdDelta[i] = rs.ReadInt16()
 				}
+				_ = rs.ReadUint16() // last value may be invalid
+				subtable.IdDelta[segCount-1] = 1
 
 				glyphIdArrayLength := rs.Len() - 2*uint32(segCount)
 				if glyphIdArrayLength%2 != 0 {
@@ -589,7 +595,7 @@ func (sfnt *SFNT) parseCmap() error {
 				glyphIdArrayLength /= 2
 
 				subtable.IdRangeOffset = make([]uint16, segCount)
-				for i := 0; i < int(segCount); i++ {
+				for i := 0; i < int(segCount-1); i++ {
 					idRangeOffset := rs.ReadUint16()
 					if idRangeOffset%2 != 0 {
 						return fmt.Errorf("cmap: bad idRangeOffset in subtable %d", j)
@@ -601,6 +607,9 @@ func (sfnt *SFNT) parseCmap() error {
 					}
 					subtable.IdRangeOffset[i] = idRangeOffset
 				}
+				_ = rs.ReadUint16() // last value may be invalid
+				subtable.IdRangeOffset[segCount-1] = 0
+
 				subtable.GlyphIdArray = make([]uint16, glyphIdArrayLength)
 				for i := 0; i < int(glyphIdArrayLength); i++ {
 					glyphID := rs.ReadUint16()
