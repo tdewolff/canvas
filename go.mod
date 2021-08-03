@@ -16,7 +16,7 @@ require (
 	github.com/paulmach/osm v0.2.2
 	github.com/pkg/browser v0.0.0-20210115035449-ce105d075bb4
 	github.com/srwiley/oksvg v0.0.0-20210519022825-9fc0c575d5fe // indirect
-	github.com/tdewolff/minify/v2 v2.9.20
+	github.com/tdewolff/minify/v2 v2.9.21
 	github.com/tdewolff/parse/v2 v2.5.19
 	github.com/tdewolff/test v1.0.6
 	github.com/wcharczuk/go-chart/v2 v2.1.0
