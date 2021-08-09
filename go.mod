@@ -1,7 +1,7 @@
 module github.com/tdewolff/canvas
 
 require (
-	fyne.io/fyne/v2 v2.0.3
+	fyne.io/fyne/v2 v2.0.4
 	gioui.org v0.0.0-20210427144906-23a839a29d27
 	github.com/ByteArena/poly2tri-go v0.0.0-20170716161910-d102ad91854f
 	github.com/adrg/sysfont v0.1.2
