@@ -276,7 +276,7 @@ func (r Rect) String() string {
 
 ////////////////////////////////////////////////////////////////
 
-// Matrix is used for affine transformations. Be aware that concatenating transformation function will be evaluated right-to-left! So that Identity.Rotate(30).Translate(20,0) will first translate 20 points horizontally and then rotate 30 degrees counter clockwise.
+// Matrix is used for affine transformations, which are transformations such as translation, scaling, reflection, rotation, shear stretching. See https://en.wikipedia.org/wiki/Affine_transformation#Image_transformation for an overview of the transformations. The affine transformation matrix contains all transformations in a matrix, where we can concatenate transformations to apply them sequentially. Be aware that concatenated transformations will be evaluated right-to-left! So that Identity.Rotate(30).Translate(20,0) will first translate 20 points horizontally and then rotate 30 degrees counter clockwise.
 type Matrix [2][3]float64
 
 // Identity is the identity affine transformation matrix, i.e. transforms any point to itself.

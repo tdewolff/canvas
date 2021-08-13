@@ -405,6 +405,10 @@ type FontMetrics struct {
 	XMax, YMax float64
 }
 
+func (m FontMetrics) String() string {
+	return fmt.Sprintf("{LineHeight: %v, Ascent: %v, Descent: %v, LineGap: %v, XHeight: %v, CapHeight: %v}", m.LineHeight, m.Ascent, m.Descent, m.LineGap, m.XHeight, m.CapHeight)
+}
+
 // Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explanation of the different metrics.
 func (face *FontFace) Metrics() FontMetrics {
 	sfnt := face.Font.SFNT

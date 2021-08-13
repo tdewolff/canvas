@@ -8,11 +8,10 @@ import (
 	"sort"
 )
 
-const mmPerPt = 25.4 / 72.0
-const ptPerMm = 72.0 / 25.4
-
 //const mmPerPx = 25.4 / 96.0
 //const pxPerMm = 96.0 / 25.4
+const mmPerPt = 25.4 / 72.0
+const ptPerMm = 72.0 / 25.4
 const mmPerInch = 25.4
 const inchPerMm = 1.0 / 25.4
 
@@ -41,6 +40,53 @@ func (res Resolution) DPI() float64 {
 
 // DefaultResolution is the default resolution used for font PPEMs and is set to 96 DPI.
 const DefaultResolution = Resolution(96.0 * inchPerMm)
+
+// Size defines a size (width and height).
+type Size struct {
+	W, H float64
+}
+
+var (
+	A0        = Size{841.0, 1189.0}
+	A1        = Size{594.0, 841.0}
+	A2        = Size{420.0, 594.0}
+	A3        = Size{297.0, 420.0}
+	A4        = Size{210.0, 297.0}
+	A5        = Size{148.0, 210.0}
+	A6        = Size{105.0, 148.0}
+	A7        = Size{74.0, 105.0}
+	A8        = Size{52.0, 74.0}
+	B0        = Size{1000.0, 1414.0}
+	B1        = Size{707.0, 1000.0}
+	B2        = Size{500.0, 707.0}
+	B3        = Size{353.0, 500.0}
+	B4        = Size{250.0, 353.0}
+	B5        = Size{176.0, 250.0}
+	B6        = Size{125.0, 176.0}
+	B7        = Size{88.0, 125.0}
+	B8        = Size{62.0, 88.0}
+	B9        = Size{44.0, 62.0}
+	B10       = Size{31.0, 44.0}
+	C2        = Size{648.0, 458.0}
+	C3        = Size{458.0, 324.0}
+	C4        = Size{324.0, 229.0}
+	C5        = Size{229.0, 162.0}
+	C6        = Size{162.0, 114.0}
+	D0        = Size{1090.0, 771.0}
+	SRA0      = Size{1280.0, 900.0}
+	SRA1      = Size{900.0, 640.0}
+	SRA2      = Size{640.0, 450.0}
+	SRA3      = Size{450.0, 320.0}
+	SRA4      = Size{320.0, 225.0}
+	RA0       = Size{1220.0, 860.0}
+	RA1       = Size{860.0, 610.0}
+	RA2       = Size{610.0, 430.0}
+	Letter    = Size{215.9, 279.4}
+	Legal     = Size{215.9, 355.6}
+	Ledger    = Size{279.4, 431.8}
+	Tabloid   = Size{431.8, 279.4}
+	Executive = Size{184.1, 266.7}
+)
 
 ////////////////////////////////////////////////////////////////
 
@@ -93,7 +139,7 @@ type Renderer interface {
 
 ////////////////////////////////////////////////////////////////
 
-// CoordSystem is the coordinate system, which can be either of the four cartesian quadrants.
+// CoordSystem is the coordinate system, which can be either of the four cartesian quadrants. Most useful are the I'th and IV'th quadrants. CartesianI is the default quadrant with the zero-point in the bottom-left (the default for mathematics). The CartesianII has its zero-point in the bottom-right, CartesianIII in the top-right, and CartesianIV in the top-left (often used as default for printing devices). See https://en.wikipedia.org/wiki/Cartesian_coordinate_system#Quadrants_and_octants for an explanation.
 type CoordSystem int
 
 // see CoordSystem
@@ -159,7 +205,7 @@ func (c *Context) CoordView() Matrix {
 	return c.coordView
 }
 
-// SetCoordView sets the current affine transformation matrix through which all operation coordinates will be transformed.
+// SetCoordView sets the current affine transformation matrix through which all operation coordinates will be transformed. See `Matrix` for how transformations work.
 func (c *Context) SetCoordView(coordView Matrix) {
 	c.coordView = coordView
 }
@@ -189,17 +235,17 @@ func (c *Context) View() Matrix {
 	return c.view
 }
 
-// SetView sets the current affine transformation matrix through which all operations will be transformed.
+// SetView sets the current affine transformation matrix through which all operations will be transformed. See `Matrix` for how transformations work.
 func (c *Context) SetView(view Matrix) {
 	c.view = view
 }
 
-// ResetView resets the current affine transformation matrix to the Identity matrix, i.e. no transformations.
+// ResetView resets the current affine transformation matrix to the Identity matrix, ie. no transformations.
 func (c *Context) ResetView() {
 	c.view = Identity
 }
 
-// ComposeView post-multiplies the current affine transformation matrix by the given matrix.
+// ComposeView post-multiplies the current affine transformation matrix by the given matrix. This means that any draw action will first be transformed by the new view matrix (parameter) and then by the current view matrix (ie. `Context.View()`). `Context.ComposeView(Identity.ReflectX())` is the same as `Context.ReflectX()`.
 func (c *Context) ComposeView(view Matrix) {
 	c.view = c.view.Mul(view)
 }
@@ -411,7 +457,7 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 	}
 }
 
-// DrawText draws text at position (x,y) using the current draw state. In particular, it uses only the current affine transformation matrix.
+// DrawText draws text at position (x,y) using the current draw state.
 func (c *Context) DrawText(x, y float64, texts ...*Text) {
 	coord := c.coordView.Dot(Point{x, y})
 	m := c.view.Translate(coord.X, coord.Y)
@@ -423,7 +469,7 @@ func (c *Context) DrawText(x, y float64, texts ...*Text) {
 	}
 }
 
-// DrawImage draws an image at position (x,y) using the given resolution. A higher resolution will draw a smaller image.
+// DrawImage draws an image at position (x,y) using the current draw state and the given resolution in pixels-per-millimeter. A higher resolution will draw a smaller image (ie. more image pixels per millimeter of document).
 func (c *Context) DrawImage(x, y float64, img image.Image, resolution Resolution) {
 	if img.Bounds().Size().Eq(image.Point{}) {
 		return
@@ -462,6 +508,11 @@ func New(width, height float64) *Canvas {
 		W:      width,
 		H:      height,
 	}
+}
+
+// NewFromSize returns a new canvas of given size in millimeters, that records all drawing operations into layers. The canvas can then be rendered to any other renderer.
+func NewFromSize(size Size) *Canvas {
+	return New(size.W, size.H)
 }
 
 // Size returns the size of the canvas in millimeters.

@@ -5,13 +5,17 @@ import (
 	"math"
 )
 
+// ColorSpace defines the color space within the RGB color model. All colors passed to this library are assumed to be in the sRGB color space, which is a ubiquitous assumption in most software. This works great for most applications, but fails when blending semi-transparent layers. See an elaborate explaination at https://blog.johnnovak.net/2016/09/21/what-every-coder-should-know-about-gamma/, which goes into depth of the problems of using sRGB for blending and the need for gamma correction. In short, we need to transform the colors, which are in the sRGB color space, to the linear color space, perform blending, and then transform them back to the sRGB color space.
+// Unfortunately, almost all software does blending the wrong way (all PDF renderers and browsers I've tested), so by default this library will do the same by using LinearColorSpace which does no conversion from sRGB to linear and back but blends directly in sRGB. Or in other words, it assumes that colors are given in the linear color space and that the output image is expected to be in the linear color space as well. For technical correctness we should really be using the SRGBColorSpace, which will convert from sRGB to linear space, do blending in linear space, and then go back to sRGB space.
 type ColorSpace interface {
 	ToLinear(color.Color) color.RGBA
 	FromLinear(color.Color) color.RGBA
 }
 
+// DefaultColorSpace is set to LinearColorSpace to match other renderers.
 var DefaultColorSpace ColorSpace = LinearColorSpace{}
 
+// LinearColorSpace is the default color space that does not do color space conversion for blending purposes. This is only correct if the input colors and output images are assumed to be in the linear color space so that blending is in linear space as well. In general though, we assume that input colors and output images are using the sRGB color space almost ubiquitously, resulting in blending in sRGB space which is wrong! Even though it is technically incorrect, many PDF viewers and browsers do this anyway.
 type LinearColorSpace struct{}
 
 func (LinearColorSpace) ToLinear(col color.Color) color.RGBA {
@@ -30,6 +34,7 @@ func (LinearColorSpace) FromLinear(col color.Color) color.RGBA {
 	return color.RGBA{uint8(R >> 8), uint8(G >> 8), uint8(B >> 8), uint8(A >> 8)}
 }
 
+// GammaColorSpace assumes that input colors and output images are gamma-corrected with the given gamma value. The sRGB space uses a gamma=2.4 for most of the curve, but will on average have a gamma=2.2 best approximating the sRGB curve. See https://en.wikipedia.org/wiki/SRGB#The_sRGB_transfer_function_(%22gamma%22). According to https://www.puredevsoftware.com/blog/2019/01/22/sub-pixel-gamma-correct-font-rendering/, a gamma=1.43 is recommended for fonts.
 type GammaColorSpace struct {
 	Gamma float64
 }
@@ -62,6 +67,7 @@ func (cs GammaColorSpace) FromLinear(col color.Color) color.RGBA {
 	}
 }
 
+// SRGBColorSpace assumes that input colors and output images are in the sRGB color space (ubiquitous in almost all applications), which implies that for blending we need to convert to the linear color space, do blending, and then convert back to the sRGB color space. This will give technically correct blending, but may differ from common PDF viewer and browsers (which are wrong).
 type SRGBColorSpace struct{}
 
 func (SRGBColorSpace) ToLinear(col color.Color) color.RGBA {
