@@ -368,7 +368,7 @@ func (c *Context) ResetStyle() {
 	c.Style = DefaultStyle
 }
 
-// SetZIndex sets the z-index.
+// SetZIndex sets the z-index. This will call the renderer's `SetZIndex` function only if it exists (in this case only for `Canvas`).
 func (c *Context) SetZIndex(zindex int) {
 	if zindexer, ok := c.Renderer.(interface{ SetZIndex(int) }); ok {
 		zindexer.SetZIndex(zindex)
