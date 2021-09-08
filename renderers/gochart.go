@@ -114,15 +114,18 @@ func (r *GoChart) QuadCurveTo(cx, cy, x, y int) {
 
 // ArcTo draws an arc with a given center (cx,cy) a given set of radii (rx,ry), a startAngle and delta (in radians).
 func (r *GoChart) ArcTo(cx, cy int, rx, ry, startAngle, delta float64) {
+	startAngle = 2.0*math.Pi - startAngle
+	delta = -delta
+
+	start := canvas.EllipsePos(rx*mmPerPx, ry*mmPerPx, 0.0, float64(cx)*mmPerPx, r.height-float64(cy)*mmPerPx, startAngle)
+	if r.c.Empty() {
+		r.ctx.MoveTo(start.X, start.Y)
+	} else {
+		r.ctx.LineTo(start.X, start.Y)
+	}
+
 	startAngle *= 180.0 / math.Pi
 	delta *= 180.0 / math.Pi
-
-	start := canvas.EllipsePos(rx, -ry, 0.0, float64(cx), r.height-float64(cy), startAngle)
-	if r.c.Empty() {
-		r.ctx.MoveTo(start.X, r.height-start.Y)
-	} else {
-		r.ctx.LineTo(start.X, r.height-start.Y)
-	}
 	r.ctx.Arc(rx*mmPerPx, ry*mmPerPx, 0.0, startAngle, startAngle+delta)
 }
 
