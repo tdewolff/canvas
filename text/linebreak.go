@@ -229,19 +229,23 @@ func (list *Breakpoints) Remove(b *Breakpoint) {
 }
 
 type linebreaker struct {
-	items       []Item
-	activeNodes *Breakpoints
-	W, Y, Z     float64
-	width       float64
+	items         []Item
+	activeNodes   *Breakpoints
+	inactiveNodes *Breakpoints
+	W, Y, Z       float64
+	width         float64
+	nextTolerance float64
 }
 
 func newLinebreaker(items []Item, width float64) *linebreaker {
 	activeNodes := &Breakpoints{}
 	activeNodes.Push(&Breakpoint{Fitness: 1})
 	return &linebreaker{
-		items:       items,
-		activeNodes: activeNodes,
-		width:       width,
+		items:         items,
+		activeNodes:   activeNodes,
+		inactiveNodes: &Breakpoints{},
+		width:         width,
+		nextTolerance: Infinity,
 	}
 }
 
@@ -251,7 +255,6 @@ func (lb *linebreaker) computeAdjustmentRatio(b int, active *Breakpoint) float64
 	if lb.items[b].Type == PenaltyType {
 		L += lb.items[b].Width
 	}
-	//j := active.line + 1
 	// using a finite value for infinity allows to break lines without a glue (one word)
 	// allowing negative ratios will break up words that are too long
 	ratio := 0.0
@@ -260,7 +263,8 @@ func (lb *linebreaker) computeAdjustmentRatio(b int, active *Breakpoint) float64
 	} else if lb.width < L {
 		ratio = (lb.width - L) / (lb.Z - active.Z)
 	}
-	return math.Min(math.Max(ratio, -Infinity), Infinity)
+	// restricting to Infinity helps for left/center/right aligned text
+	return math.Min(ratio, Infinity)
 }
 
 func (lb *linebreaker) computeSum(b int) (float64, float64, float64) {
@@ -292,12 +296,11 @@ func (lb *linebreaker) mainLoop(b int, tolerance float64) {
 		for active != nil {
 			next := active.next
 			ratio := lb.computeAdjustmentRatio(b, active)
-			// permit exceeding lines for desperate second try with infinite tolerance
-			ratioLB := -1.0 <= ratio || math.IsInf(tolerance, 1.0) && ratio == -Infinity
-			if !ratioLB || item.Type == PenaltyType && item.Penalty <= -Infinity {
+			if ratio < -1.0 || item.Type == PenaltyType && item.Penalty <= -Infinity {
 				lb.activeNodes.Remove(active)
+				lb.inactiveNodes.Push(active)
 			}
-			if ratioLB && ratio <= tolerance {
+			if -1.0 <= ratio && ratio <= tolerance {
 				// compute demerits d and fitness class c
 				badness := 100.0 * math.Pow(math.Abs(ratio), 3.0)
 				demerits := 0.0
@@ -336,6 +339,9 @@ func (lb *linebreaker) mainLoop(b int, tolerance float64) {
 						Dmin = demerits
 					}
 				}
+			} else if tolerance < ratio {
+				// set the next tolerance to the minimum value that changes results
+				lb.nextTolerance = math.Min(lb.nextTolerance, ratio)
 			}
 
 			j := active.Line + 1
@@ -392,7 +398,8 @@ START:
 		if item.Type == BoxType {
 			lb.W += item.Width
 		} else if item.Type == GlueType {
-			if 0 < b && lb.items[b-1].Type == BoxType {
+			// additionally don't check glue if the next element is a penalty (not in the original algorithm), this optimizes the search space
+			if 0 < b && lb.items[b-1].Type == BoxType && lb.items[b+1].Type != PenaltyType {
 				lb.mainLoop(b, tolerance)
 			}
 			lb.W += item.Width
@@ -404,11 +411,32 @@ START:
 
 		// do something drastic since there is no feasible solution
 		if lb.activeNodes.head == nil {
-			if !math.IsInf(tolerance, 1.0) {
-				tolerance = math.Inf(1.0)
+			if tolerance != Infinity {
+				tolerance = lb.nextTolerance
 				goto START
 			} else {
-				break
+				// line doesn't fit, amongst the rejected active set we choose the ones that stick out the least and continue
+				minWidth := math.Inf(1.0)
+				for parent := lb.inactiveNodes.head; parent != nil; parent = parent.next {
+					minWidth = math.Min(minWidth, lb.W-parent.W)
+				}
+				for parent := lb.inactiveNodes.head; parent != nil; parent = parent.next {
+					if lb.W-parent.W == minWidth {
+						breakpoint := &Breakpoint{
+							parent:   parent,
+							Position: b,
+							Line:     parent.Line + 1,
+							Fitness:  1,
+							Width:    lb.width,
+							W:        lb.W,
+							Y:        lb.Y,
+							Z:        lb.Z,
+							Ratio:    0.0,
+							Demerits: parent.Demerits + 1000.0,
+						}
+						lb.activeNodes.Push(breakpoint)
+					}
+				}
 			}
 		}
 	}
