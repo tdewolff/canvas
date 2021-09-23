@@ -129,6 +129,8 @@ func (p *Path) Join(q *Path) *Path {
 	// q is not empty, so starts with a MoveTo followed by other commands
 	cmd := q.d[0]
 	switch cmd {
+	case MoveToCmd:
+		p.MoveTo(q.d[1], q.d[2])
 	case LineToCmd:
 		p.LineTo(q.d[1], q.d[2])
 	case QuadToCmd:
@@ -1778,7 +1780,7 @@ func (p *Path) ToPDF() string {
 	if p.Empty() {
 		return ""
 	}
-	p = p.replace(nil, nil, nil, arcToCube)
+	p = p.ReplaceArcs()
 
 	sb := strings.Builder{}
 	var x, y float64
@@ -1816,7 +1818,7 @@ func (p *Path) ToPDF() string {
 
 // ToRasterizer rasterizes the path using the given rasterizer and resolution.
 func (p *Path) ToRasterizer(ras *vector.Rasterizer, resolution Resolution) {
-	p = p.replace(nil, nil, nil, arcToCube)
+	p = p.ReplaceArcs()
 
 	dpmm := resolution.DPMM()
 	dy := float64(ras.Bounds().Size().Y)
