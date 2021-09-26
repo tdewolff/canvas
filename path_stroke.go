@@ -493,10 +493,10 @@ func closeInnerBends(p *Path, indices []int, closed bool) {
 			nextEnd := Point{p.d[iNext+1], p.d[iNext+2]}
 
 			if p.d[iPrev] == LineToCmd && p.d[iNext] == LineToCmd {
-				x, ok := intersectionLineLine(prevStart, prevEnd, nextStart, nextEnd)
-				if ok {
-					p.d[i-3] = x.X
-					p.d[i-2] = x.Y
+				zs := intersectionLineLine(prevStart, prevEnd, nextStart, nextEnd)
+				if zs.HasSecant() {
+					p.d[i-3] = zs[0].X
+					p.d[i-2] = zs[0].Y
 					p.d = append(p.d[:i:i], p.d[i+cmdLen(cmd):]...)
 					di += cmdLen(cmd)
 				}

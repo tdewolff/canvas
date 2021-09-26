@@ -31,12 +31,12 @@ func angleNorm(theta float64) float64 {
 	return theta
 }
 
-// angleBetween is true when theta is in range (lower,upper) excluding the end points. Angles can be outside the [0,2PI) range.
+// angleBetween is true when theta is in range [lower,upper] including the end points. Angles can be outside the [0,2PI) range.
 func angleBetween(theta, lower, upper float64) bool {
 	sweep := lower <= upper // true for CCW, ie along a positive angle
 	theta = angleNorm(theta - lower)
 	upper = angleNorm(upper - lower)
-	if theta != 0.0 && (sweep && theta < upper || !sweep && theta > upper) {
+	if sweep && theta <= upper || !sweep && theta >= upper {
 		return true
 	}
 	return false
@@ -109,6 +109,8 @@ func fromI26_6(f fixed.Int26_6) float64 {
 }
 
 ////////////////////////////////////////////////////////////////
+
+var Origin = Point{0.0, 0.0}
 
 // Point is a coordinate in 2D space. OP refers to the line that goes through the origin (0,0) and this point (x,y).
 type Point struct {

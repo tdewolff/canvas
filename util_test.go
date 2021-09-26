@@ -18,8 +18,8 @@ func TestAngleNorm(t *testing.T) {
 }
 
 func TestAngleBetween(t *testing.T) {
-	test.T(t, angleBetween(0.0, 0.0, 1.0), false)
-	test.T(t, angleBetween(1.0, 0.0, 1.0), false)
+	test.T(t, angleBetween(0.0, 0.0, 1.0), true)
+	test.T(t, angleBetween(1.0, 0.0, 1.0), true)
 	test.T(t, angleBetween(0.5, 0.0, 1.0), true)
 	test.T(t, angleBetween(0.5+2.0*math.Pi, 0.0, 1.0), true)
 	test.T(t, angleBetween(0.5, 0.0+2.0*math.Pi, 1.0+2.0*math.Pi), true)
@@ -27,6 +27,8 @@ func TestAngleBetween(t *testing.T) {
 	test.T(t, angleBetween(0.5-2.0*math.Pi, 0.0, 1.0), true)
 	test.T(t, angleBetween(0.5, 0.0-2.0*math.Pi, 1.0-2.0*math.Pi), true)
 	test.T(t, angleBetween(0.5, 1.0-2.0*math.Pi, 0.0-2.0*math.Pi), true)
+	test.T(t, angleBetween(-0.1, 0.0, 1.0), false)
+	test.T(t, angleBetween(1.1, 0.0, 1.0), false)
 }
 
 func TestCSSColor(t *testing.T) {
