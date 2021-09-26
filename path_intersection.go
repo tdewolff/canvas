@@ -30,6 +30,8 @@ func (p *Path) Div(q *Path) []*Path {
 	zs := p.Intersections(q)
 	ps := p.cut(zs)
 	qs := q.cut(zs.swapCurves())
+	_ = qs
+	return ps
 }
 
 func (p *Path) Cut(q *Path) []*Path {

@@ -243,8 +243,6 @@ func TestPathCut(t *testing.T) {
 			q := MustParseSVG(tt.q)
 
 			rs := p.Cut(q)
-			fmt.Println(tt.r)
-			fmt.Println(rs)
 			test.T(t, len(rs), len(tt.r))
 			for i := range tt.r {
 				test.T(t, rs[i], MustParseSVG(tt.r[i]))
