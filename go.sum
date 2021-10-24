@@ -21,8 +21,8 @@ github.com/ajstarks/svgo v0.0.0-20210923152817-c3b6e2f0c527 h1:NImof/JkF93OVWZY+
 github.com/ajstarks/svgo v0.0.0-20210923152817-c3b6e2f0c527/go.mod h1:K08gAheRH3/J6wwsYMMT4xOr94bZjxIelGM0+d/wbFw=
 github.com/akavel/rsrc v0.8.0/go.mod h1:uLoCtb9J+EyAqh+26kdrTgmzRBFPGOolLWKpdxkKq+c=
 github.com/benoitkugler/pstokenizer v1.0.0/go.mod h1:l1G2Voirz0q/jj0TQfabNxVsa8HZXh/VMxFSRALWTiE=
-github.com/benoitkugler/textlayout v0.0.1 h1:bx6bcjFv4LuoymKjw/bir7S2rSO67TPCURHPbN/RMz8=
-github.com/benoitkugler/textlayout v0.0.1/go.mod h1:puH4v13Uz7uIhIH0XMk5jgc8U3MXcn5r3VlV9K8n0D8=
+github.com/benoitkugler/textlayout v0.0.2 h1:3v0UtMl5DiG2qNTKlPah/7x5Or95MVPgpDHLTqS2270=
+github.com/benoitkugler/textlayout v0.0.2/go.mod h1:puH4v13Uz7uIhIH0XMk5jgc8U3MXcn5r3VlV9K8n0D8=
 github.com/boombuler/barcode v1.0.0/go.mod h1:paBWMcWSl3LHKBqUq+rly7CNSldXjb2rDl3JlRe0mD8=
 github.com/boombuler/barcode v1.0.1/go.mod h1:paBWMcWSl3LHKBqUq+rly7CNSldXjb2rDl3JlRe0mD8=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
