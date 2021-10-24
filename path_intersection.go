@@ -185,7 +185,7 @@ func (p *Path) cut(zs intersections) []*Path {
 type pathIntersectionPos struct {
 	Point
 	seg int
-	t float64
+	t   float64
 }
 
 type pathIntersection struct {
@@ -218,21 +218,27 @@ func cutPath(p, q *Path, z0, z1 intersection) (*Path, *Path) {
 			if seg == zp1.SegA {
 				t1 = zp1.TA
 			}
-			cutPathSegment(start, p.d[i:i+cmdLen(cmd)], zp0, zp1, t0, t1)
+			_, _, _, _ = zp0, zp1, zq0, zq1
+			_, _ = t0, t1
+			_ = start
+			//cutPathSegment(start, p.d[i:i+cmdLen(cmd)], zp0, zp1, t0, t1)
 		}
 		i += cmdLen(cmd)
 		start = Point{p.d[i-3], p.d[i-2]}
 		seg++
 	}
+
+	return nil, nil
 }
 
 func cutPathSegment(p0 Point, p []float64, pos0, pos1 Point, t0, t1 float64) *Path {
-	r := &Path{}
-	if p[0] == LineToCmd || p[0] == CloseCmd {
-		r.MoveTo(pos0.X, pos0.Y)
-		r.LineTo(
+	return &Path{}
+	//r := &Path{}
+	//if p[0] == LineToCmd || p[0] == CloseCmd {
+	//	r.MoveTo(pos0.X, pos0.Y)
+	//	r.LineTo(
 
-	}
+	//}
 }
 
 // get intersections for paths p and q sorted for both
@@ -275,7 +281,6 @@ func pathIntersections(p, q *Path) *pathIntersection {
 	return head
 }
 
-
 // Intersections for path p by path q, sorted for path p.
 func (p *Path) Intersections(q *Path) intersections {
 	// TODO: uses O(N^2), try sweep line or bently-ottman to reduce to O((N+K) log N)
@@ -311,7 +316,7 @@ func (p *Path) Intersections(q *Path) intersections {
 }
 
 // intersect for path segments a and b, starting at a0 and b0
-func intersectSegments(a0, a []float64, b0 Point, b []float64) intersections {
+func intersectSegments(a0 Point, a []float64, b0 Point, b []float64) intersections {
 	// TODO: add fast check if bounding boxes overlap
 	// check if approximated bounding boxes overlap
 	//axmin, axmax := math.Min(a0.X, a[len(a)-3]), math.Max(a0.X, a[len(a)-3])
@@ -479,6 +484,15 @@ func (zs intersections) swappedArgSort() []int {
 	}
 	sort.Stable(intersectionsSwappedArgSort{zs, idx})
 	return idx
+}
+
+func (zs intersections) swapCurves() intersections {
+	zs2 := make(intersections, len(zs))
+	for i, _ := range zs {
+		zs2[i].SegA, zs2[i].SegB = zs[i].SegB, zs[i].SegA
+		zs2[i].TA, zs2[i].TB = zs[i].TB, zs[i].TA
+	}
+	return zs2
 }
 
 // http://www.cs.swan.ac.uk/~cssimon/line_intersection.html
