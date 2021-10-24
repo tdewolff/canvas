@@ -19,7 +19,7 @@ type Shaper struct {
 
 // NewShaper returns a new text shaper.
 func NewShaper(b []byte, index int) (Shaper, error) {
-	font, err := truetype.Parse(bytes.NewReader(b))
+	font, err := truetype.Parse(bytes.NewReader(b), true)
 	if err != nil {
 		return Shaper{}, err
 	}
