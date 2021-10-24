@@ -190,14 +190,19 @@ func (family *FontFamily) SetFeatures(features string) {
 	}
 }
 
-// LoadLocalFont loads a font from the system's fonts.
-func (family *FontFamily) LoadLocalFont(name string, style FontStyle) error {
+// FindLocalFont finds the path to a font from the system's fonts.
+func (family *FontFamily) FindLocalFont(name string, style FontStyle) string {
 	// TODO: use style to match font
 	finder := sysfont.NewFinder(&sysfont.FinderOpts{
 		Extensions: []string{".ttf", ".otf", ".ttc", ".woff", ".woff2", ".eot"},
 	})
 	font := finder.Match(name)
-	return family.LoadFontFile(font.Filename, style)
+	return font.Filename
+}
+
+// LoadLocalFont loads a font from the system's fonts.
+func (family *FontFamily) LoadLocalFont(name string, style FontStyle) error {
+	return family.LoadFontFile(family.FindLocalFont(name, style), style)
 
 	//match := name
 	//if style&FontExtraLight == FontExtraLight {
