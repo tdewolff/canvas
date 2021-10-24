@@ -3,8 +3,6 @@ dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7
 fyne.io/fyne/v2 v2.1.0 h1:qzdkaXL/UpmMtG4FlsX9xMZ0Q93CRzLxkoiSXyplP/I=
 fyne.io/fyne/v2 v2.1.0/go.mod h1:c1vwI38Ebd0dAdxVa6H1Pj6/+cK1xtDy61+I31g+s14=
 gioui.org v0.0.0-20210308172011-57750fc8a0a6/go.mod h1:RSH6KIUZ0p2xy5zHDxgAM4zumjgTw83q2ge/PI+yyw8=
-gioui.org v0.0.0-20210427144906-23a839a29d27 h1:gnju9OjD+N3C4bUrQj2rEaWSimlpuzBcnp8r5J07Bgc=
-gioui.org v0.0.0-20210427144906-23a839a29d27/go.mod h1:RSH6KIUZ0p2xy5zHDxgAM4zumjgTw83q2ge/PI+yyw8=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/toml v0.4.1/go.mod h1:CxXYINrC8qIiEnFrOxCa7Jy5BFHlXnUU2pbicEuybxQ=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
@@ -116,8 +114,8 @@ github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646/go.mod h1:jpp1/29i3P1S
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e h1:fD57ERR4JtEqsWbfPhv4DMiApHyliiK5xCTNVSPiaAs=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/paulmach/orb v0.1.6/go.mod h1:pPwxxs3zoAyosNSbNKn1jiXV2+oovRDObDKfTvRegDI=
-github.com/paulmach/orb v0.2.2 h1:PblToKAbU0xHVypex/GdZfibA1CeCfN5s0UjxyWExdo=
-github.com/paulmach/orb v0.2.2/go.mod h1:FkcWtplUAIVqAuhAOV2d3rpbnQyliDOjOcLW9dUrfdU=
+github.com/paulmach/orb v0.3.0 h1:JVitu/3sn0eslA0XGWfibiyNk+QNRAp9+oO5db53a7o=
+github.com/paulmach/orb v0.3.0/go.mod h1:FkcWtplUAIVqAuhAOV2d3rpbnQyliDOjOcLW9dUrfdU=
 github.com/paulmach/osm v0.2.2 h1:fcRB9q4JPMtj/BTiAtRGEJXdJYGopIWWdNE/dk8hKDw=
 github.com/paulmach/osm v0.2.2/go.mod h1:bHtjwVUgLRe/C6Uy5+wcvuD4TqrBHBvLP67F+GquY4I=
 github.com/paulmach/protoscan v0.1.0/go.mod h1:2c55sl1Hu6/tgRfc8Y8zADsxuSCYC2IrPh0JCqP/yrw=
