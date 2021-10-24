@@ -76,13 +76,16 @@ func (sfnt *SFNT) parseCFF() error {
 		return fmt.Errorf("CFF: Private DICT: %w", err)
 	}
 
-	if len(b)-topDICT.PrivateOffset < privateDICT.Subrs {
-		return fmt.Errorf("CFF: bad Local Subrs INDEX offset")
-	}
-	r.Seek(uint32(topDICT.PrivateOffset + privateDICT.Subrs))
-	localSubrsINDEX, err := parseINDEX(r, false)
-	if err != nil {
-		return fmt.Errorf("CFF: Local Subrs INDEX: %w", err)
+	localSubrsINDEX := &cffINDEX{}
+	if privateDICT.Subrs != 0 {
+		if len(b)-topDICT.PrivateOffset < privateDICT.Subrs {
+			return fmt.Errorf("CFF: bad Local Subrs INDEX offset")
+		}
+		r.Seek(uint32(topDICT.PrivateOffset + privateDICT.Subrs))
+		localSubrsINDEX, err = parseINDEX(r, false)
+		if err != nil {
+			return fmt.Errorf("CFF: Local Subrs INDEX: %w", err)
+		}
 	}
 
 	r.Seek(uint32(topDICT.CharStrings))
