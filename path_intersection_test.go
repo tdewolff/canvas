@@ -236,6 +236,7 @@ func TestPathCut(t *testing.T) {
 		r    []string
 	}{
 		{"L10 0L5 10z", "M0 5L10 5L5 15z", []string{"M2.5 5L0 0L10 0L7.5 5", "M7.5 5L5 10L2.5 5"}},
+		{"M0 5L10 5L5 15z", "L10 0L5 10z", []string{"M7.5 5L10 5L5 15L0 5L2.5 5", "M2.5 5L7.5 5"}},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
@@ -247,6 +248,70 @@ func TestPathCut(t *testing.T) {
 			for i := range tt.r {
 				test.T(t, rs[i], MustParseSVG(tt.r[i]))
 			}
+		})
+	}
+}
+
+func TestPathIntersections(t *testing.T) {
+	var tts = []struct {
+		p, q     string
+		zsP, zsQ []Point
+	}{
+		{"V50H10V0z", "M30 10V40H-10V30H20V20H-10V10z",
+			[]Point{{0, 10}, {0, 20}, {0, 30}, {0, 40}, {10, 40}, {10, 30}, {10, 20}, {10, 10}},
+			[]Point{{0, 10}, {10, 10}, {10, 40}, {0, 40}, {0, 30}, {10, 30}, {10, 20}, {0, 20}},
+		},
+	}
+	for _, tt := range tts {
+		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
+			p := MustParseSVG(tt.p)
+			q := MustParseSVG(tt.q)
+			head := newPathIntersections(p, q)
+			i := 0
+			for cur := head; cur != head.prevA; cur = cur.nextA {
+				test.T(t, cur.Point, tt.zsP[i])
+				i++
+			}
+			i = 0
+			for cur := head; cur != head.prevB; cur = cur.nextB {
+				test.T(t, cur.Point, tt.zsQ[i])
+				i++
+			}
+		})
+	}
+}
+
+func TestPathAnd(t *testing.T) {
+	var tts = []struct {
+		p, q string
+		r    string
+	}{
+		{"L10 0L5 10z", "M0 5L10 5L5 15z", "M2.5 5L7.5 5L5 10z"},
+	}
+	for _, tt := range tts {
+		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
+			p := MustParseSVG(tt.p)
+			q := MustParseSVG(tt.q)
+			r := p.And(q)
+			test.T(t, r, MustParseSVG(tt.r))
+		})
+	}
+}
+
+func TestPathNot(t *testing.T) {
+	var tts = []struct {
+		p, q string
+		r    string
+	}{
+		{"L10 0L5 10z", "M0 5L10 5L5 15z", "M2.5 5L0 0L10 0L7.5 5z"},
+		{"L10 0L5 10z", "M-5 -5L5 -5L0 5z", "M2.5 0L10 0L5 10L1.5 1.5z"},
+	}
+	for _, tt := range tts {
+		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
+			p := MustParseSVG(tt.p)
+			q := MustParseSVG(tt.q)
+			r := p.Not(q)
+			test.T(t, r, MustParseSVG(tt.r))
 		})
 	}
 }
