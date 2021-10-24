@@ -14,7 +14,7 @@ jobs:
     - name: Install OpenGL
       run: |
           sudo apt update
-          sudo apt install -y xorg-dev libgl1-mesa-dev libxkbcommon-x11-dev libwayland-dev libx11-xcb-dev
+          sudo apt install -y xorg-dev libgl1-mesa-dev libxkbcommon-x11-dev libwayland-dev libx11-xcb-dev libvulkan-dev
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
