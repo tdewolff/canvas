@@ -201,8 +201,13 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 		return fmt.Errorf("%v: charstring too long", table)
 	}
 
+	// raise to most-significant 16 bits and treat less-significant bits as fraction
+	x <<= 16
+	y <<= 16
+	f /= float64(1 << 16) // correct back
+
 	hints := 0
-	stack := []int32{}
+	stack := []int32{} // TODO: may overflow?t
 	firstOperator := true
 	callStack := []*BinaryReader{}
 	r := NewBinaryReader(charString)
@@ -220,18 +225,18 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 		if 32 <= b0 || b0 == 28 {
 			var v int32
 			if b0 == 28 {
-				v = int32(r.ReadInt16())
+				v = int32(r.ReadInt16()) << 16
 			} else if b0 < 32 {
 			} else if b0 < 247 {
-				v = b0 - 139
+				v = (b0 - 139) << 16
 			} else if b0 < 251 {
 				b1 := int32(r.ReadUint8())
-				v = (b0-247)*256 + b1 + 108
+				v = ((b0-247)*256 + b1 + 108) << 16
 			} else if b0 < 255 {
 				b1 := int32(r.ReadUint8())
-				v = -(b0-251)*256 - b1 - 108
+				v = (-(b0-251)*256 - b1 - 108) << 16
 			} else {
-				v = r.ReadInt32()
+				v = r.ReadInt32() // less-siginificant bits is fraction
 			}
 			if cff.version == 1 && 48 <= len(stack) || cff.version == 2 && 513 <= len(stack) {
 				return fmt.Errorf("%v: too many operands for operator", table)
