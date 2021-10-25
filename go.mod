@@ -1,7 +1,7 @@
 module github.com/tdewolff/canvas
 
 require (
-	fyne.io/fyne/v2 v2.1.0
+	fyne.io/fyne/v2 v2.1.1
 	gioui.org v0.0.0-20211024063131-241e5660536f
 	github.com/ByteArena/poly2tri-go v0.0.0-20170716161910-d102ad91854f
 	github.com/adrg/strutil v0.2.3 // indirect
@@ -17,7 +17,6 @@ require (
 	github.com/paulmach/osm v0.2.2
 	github.com/pkg/browser v0.0.0-20210115035449-ce105d075bb4
 	github.com/srwiley/oksvg v0.0.0-20210519022825-9fc0c575d5fe // indirect
-	github.com/tdewolff/argp v0.0.0-20211024182601-70fabe3b2369
 	github.com/tdewolff/minify/v2 v2.9.22
 	github.com/tdewolff/parse/v2 v2.5.22
 	github.com/tdewolff/test v1.0.6
