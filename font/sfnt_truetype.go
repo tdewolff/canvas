@@ -388,7 +388,7 @@ func (glyf *glyfTable) ToPath(p Pather, glyphID, ppem uint16, xOffset, yOffset i
 				p.QuadTo(x+f*float64(contour.XCoordinates[i-1]), y+f*float64(contour.YCoordinates[i-1]), x+f*midX, y+f*midY)
 				p.QuadTo(x+f*float64(contour.XCoordinates[j]), y+f*float64(contour.YCoordinates[j]), x+f*startX, y+f*startY)
 			} else {
-				p.QuadTo(x+f*float64(contour.XCoordinates[i-1]), y+f*float64(contour.YCoordinates[i-1]), x+f*startX, y+f*startY)
+				p.QuadTo(x+f*float64(contour.XCoordinates[j]), y+f*float64(contour.YCoordinates[j]), x+f*startX, y+f*startY)
 			}
 		} else if prevOff {
 			p.QuadTo(x+f*float64(contour.XCoordinates[i-1]), y+f*float64(contour.YCoordinates[i-1]), x+f*startX, y+f*startY)
