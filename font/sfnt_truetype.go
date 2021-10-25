@@ -337,7 +337,6 @@ func (glyf *glyfTable) ToPath(p Pather, glyphID, ppem uint16, xOffset, yOffset i
 		return err
 	}
 
-	f = 1.0
 	x, y := f*float64(xOffset), f*float64(yOffset)
 
 	var i uint16
