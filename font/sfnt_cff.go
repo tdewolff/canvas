@@ -66,6 +66,8 @@ func (sfnt *SFNT) parseCFF() error {
 	}
 	if topDICT.IsCID {
 		return fmt.Errorf("CFF: CID fonts not supported")
+	} else if topDICT.CharstringType != 2 {
+		return fmt.Errorf("CFF: Type %d Charstring format not supported", topDICT.CharstringType)
 	}
 
 	if len(b) < topDICT.PrivateOffset || len(b)-topDICT.PrivateOffset < topDICT.PrivateLength {
@@ -598,7 +600,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 				} else {
 					n = len(cff.globalSubrs.offset) - 1
 				}
-				i := stack[len(stack)-1]
+				i := stack[len(stack)-1] >> 16
 				if n < 1240 {
 					i += 107
 				} else if n < 33900 {
@@ -721,7 +723,7 @@ func parseINDEX(r *BinaryReader, isCFF2 bool) (*cffINDEX, error) {
 		}
 	} else if offSize == 3 {
 		for i := uint32(0); i < count+1; i++ {
-			t.offset[i] = uint32(r.ReadUint16()<<8) + uint32(r.ReadUint8()) - 1
+			t.offset[i] = uint32(r.ReadUint16())<<8 + uint32(r.ReadUint8()) - 1
 		}
 	} else {
 		for i := uint32(0); i < count+1; i++ {
