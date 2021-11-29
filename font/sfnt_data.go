@@ -95,6 +95,30 @@ const (
 	NameVariationsPostScriptPrefix = NameID(25)
 )
 
+type ScriptTag string
+
+const (
+	UnknownScript = ScriptTag("")
+	DefaultScript = ScriptTag("DFLT")
+	// TODO: add scripts
+)
+
+type LanguageTag string
+
+const (
+	UnknownLanguage = LanguageTag("")
+	DefaultLanguage = LanguageTag("DFLT") // permanently reserved and not used in font
+	// TODO: add languages
+)
+
+type FeatureTag string
+
+const (
+	UnknownFeature = FeatureTag("")
+
+// TODO: add features
+)
+
 var macintoshGlyphNames = []string{
 	".notdef",
 	".null",

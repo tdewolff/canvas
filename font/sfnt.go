@@ -62,7 +62,7 @@ type SFNT struct {
 	Vhea *vheaTable
 	//Hdmx *hdmxTable // TODO
 	Vmtx *vmtxTable
-	//Gpos *gposTable // TODO
+	Gpos *gposTable // TODO
 	//Gsub *gsubTable // TODO
 	//Gasp *gaspTable // TODO
 	//Base *baseTable // TODO
@@ -256,6 +256,8 @@ func ParseSFNT(b []byte, index int) (*SFNT, error) {
 			err = sfnt.parseCmap()
 		case "glyf":
 			err = sfnt.parseGlyf()
+		case "GPOS":
+			err = sfnt.parseGPOS()
 		case "hmtx":
 			err = sfnt.parseHmtx()
 		case "kern":
@@ -1513,73 +1515,3 @@ func (sfnt *SFNT) parsePost() error {
 	}
 	return fmt.Errorf("post: bad version")
 }
-
-////////////////////////////////////////////////////////////////
-
-//type scriptList struct {
-//	Data []byte
-//}
-//
-//type featureList struct {
-//	Data []byte
-//}
-//
-//type lookupList struct {
-//	Data []byte
-//}
-//
-//type featureVariations struct {
-//	Data []byte
-//}
-//
-//type gposTable struct {
-//	Scripts           scriptList
-//	Features          featureList
-//	Lookup            lookupList
-//	FeatureVariations featureVariations
-//}
-
-//func (sfnt *SFNT) parseGpos() error {
-//	b, ok := sfnt.Tables["GPOS"]
-//	if !ok {
-//		return fmt.Errorf("GPOS: missing table")
-//	} else if len(b) < 32 {
-//		return fmt.Errorf("GPOS: bad table")
-//	}
-//
-//	sfnt.Gpos = &gposTable{}
-//	r := NewBinaryReader(b)
-//	majorVersion := r.ReadUint16()
-//	minorVersion := r.ReadUint16()
-//	if majorVersion != 1 && minorVersion != 0 && minorVersion != 1 {
-//		return fmt.Errorf("GPOS: bad version")
-//	}
-//
-//	scriptListOffset := r.ReadUint16()
-//	if len(b)-2 < scriptListOffset {
-//		return fmt.Errorf("GPOS: bad scriptList offset")
-//	}
-//	sfnt.Gpos.Scripts = scriptList{b[scriptListOffset:]}
-//
-//	featureListOffset := r.ReadUint16()
-//	if len(b)-2 < featureListOffset {
-//		return fmt.Errorf("GPOS: bad featureList offset")
-//	}
-//	sfnt.Gpos.Features = featureList{b[featureListOffset:]}
-//
-//	lookupListOffset := r.ReadUint16()
-//	if len(b)-2 < lookupListOffset {
-//		return fmt.Errorf("GPOS: bad lookupList offset")
-//	}
-//	sfnt.Gpos.Lookup = lookupList{b[lookupListOffset:]}
-//
-//	var featureVariationsOffset uint32
-//	if minorVersion == 1 {
-//		featureVariationsOffset = r.ReadUint32()
-//		if len(b)-8 < featureVariationOffset {
-//			return fmt.Errorf("GPOS: bad featureVariation offset")
-//		}
-//		sfnt.Gpos.FeatureVariations = featureVariations{b[featureVariationOffset:]}
-//	}
-//	return nil
-//}
