@@ -7,7 +7,7 @@ require (
 	github.com/adrg/strutil v0.2.3 // indirect
 	github.com/adrg/sysfont v0.1.2
 	github.com/adrg/xdg v0.3.4 // indirect
-	github.com/benoitkugler/textlayout v0.0.2
+	github.com/benoitkugler/textlayout v0.0.5
 	github.com/dsnet/compress v0.0.1
 	github.com/go-gl/gl v0.0.0-20210813123233-e4099ee2221f
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20210410170116-ea3d685f79fb
@@ -17,7 +17,6 @@ require (
 	github.com/paulmach/osm v0.2.2
 	github.com/pkg/browser v0.0.0-20210115035449-ce105d075bb4
 	github.com/srwiley/oksvg v0.0.0-20210519022825-9fc0c575d5fe // indirect
-	github.com/tdewolff/argp v0.0.0-20211024182601-70fabe3b2369
 	github.com/tdewolff/minify/v2 v2.9.22
 	github.com/tdewolff/parse/v2 v2.5.22
 	github.com/tdewolff/test v1.0.6
