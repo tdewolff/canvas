@@ -1,3 +1,4 @@
+//go:build !harfbuzz || js
 // +build !harfbuzz js
 
 package text
@@ -18,8 +19,8 @@ type Shaper struct {
 }
 
 // NewShaper returns a new text shaper.
-func NewShaper(b []byte, index int) (Shaper, error) {
-	font, err := truetype.Parse(bytes.NewReader(b), true)
+func NewShaper(b []byte, _ int) (Shaper, error) {
+	font, err := truetype.Parse(bytes.NewReader(b))
 	if err != nil {
 		return Shaper{}, err
 	}
@@ -59,7 +60,7 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 
 	runeMap := make([]int, len(rtext))
 	j := 0
-	for i, _ := range text {
+	for i := range text {
 		runeMap[j] = i
 		j++
 	}
