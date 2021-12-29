@@ -16,6 +16,7 @@ require (
 	github.com/paulmach/orb v0.4.0
 	github.com/paulmach/osm v0.2.2
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
+	github.com/tdewolff/argp v0.0.0-20211024182601-70fabe3b2369
 	github.com/tdewolff/minify/v2 v2.9.24
 	github.com/tdewolff/parse/v2 v2.5.26
 	github.com/tdewolff/test v1.0.6

@@ -132,16 +132,15 @@ func (r *Gio) RenderText(text *canvas.Text, m canvas.Matrix) {
 
 // RenderImage renders an image to the canvas using a transformation matrix.
 func (r *Gio) RenderImage(img image.Image, m canvas.Matrix) {
-	defer op.Save(r.ops).Load()
-
 	paint.NewImageOp(img).Add(r.ops)
 	m = canvas.Identity.Scale(r.xScale, r.yScale).Mul(m)
 	m = m.Translate(0.0, float64(img.Bounds().Max.Y))
-	op.Affine(f32.NewAffine2D(
+	trans := op.Affine(f32.NewAffine2D(
 		float32(m[0][0]), -float32(m[0][1]), float32(m[0][2]),
 		-float32(m[1][0]), float32(m[1][1]), float32(r.yScale*r.height-m[1][2]),
-	)).Add(r.ops)
+	)).Push(r.ops)
 	paint.PaintOp{}.Add(r.ops)
+	trans.Pop()
 }
 
 func toNRGBA(col color.Color) color.NRGBA {
