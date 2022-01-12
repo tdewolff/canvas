@@ -92,24 +92,34 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	return glyphs
 }
 
+type ScriptItem struct {
+	Script
+	Text string
+}
+
 // ScriptItemizer divides the string in parts for each different script.
-func ScriptItemizer(text string) []string {
+func ScriptItemizer(text string, curScript Script) []ScriptItem {
 	i := 0
-	items := []string{}
-	curScript := ScriptInvalid
+	items := []ScriptItem{}
 	for j := 0; j < len(text); {
 		r, n := utf8.DecodeRuneInString(text[j:])
 		script := Script(language.LookupScript(r))
 		if j == 0 || curScript == ScriptInherited || curScript == ScriptCommon {
 			curScript = script
 		} else if script != curScript && script != ScriptInherited && script != ScriptCommon {
-			items = append(items, text[i:j])
+			items = append(items, ScriptItem{
+				Script: curScript,
+				Text:   text[i:j],
+			})
 			curScript = script
 			i = j
 		}
 		j += n
 	}
-	items = append(items, text[i:])
+	items = append(items, ScriptItem{
+		Script: curScript,
+		Text:   text[i:],
+	})
 	return items
 }
 
@@ -124,6 +134,8 @@ const (
 	TopToBottom                = Direction(harfbuzz.TopToBottom)
 	BottomToTop                = Direction(harfbuzz.BottomToTop)
 )
+
+//go:generate stringer -type Script
 
 // Script is the script.
 type Script uint32

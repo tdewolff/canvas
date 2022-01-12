@@ -6,6 +6,7 @@ import "github.com/tdewolff/canvas/font"
 type Glyph struct {
 	SFNT *font.SFNT
 	Size float64
+	Script
 
 	ID       uint16
 	Cluster  uint32

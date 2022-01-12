@@ -103,17 +103,19 @@ type TextSpan struct {
 
 ////////////////////////////////////////////////////////////////
 
-func itemizeString(log string) ([]string, []string) {
+func itemizeString(log string, script canvasText.Script) ([]string, []string) {
 	offset := 0
 	vis, mapV2L := canvasText.Bidi(log)
-	itemsV := canvasText.ScriptItemizer(vis)
-	itemsL := make([]string, 0, len(itemsV))
-	for _, item := range itemsV {
-		itemV := []rune(item)
+	items := canvasText.ScriptItemizer(vis, script)
+	itemsV := make([]string, 0, len(items))
+	itemsL := make([]string, 0, len(items))
+	for _, item := range items {
+		itemV := []rune(item.Text)
 		itemL := make([]rune, len(itemV))
 		for i := 0; i < len(itemV); i++ {
 			itemL[mapV2L[offset+i]-offset] = itemV[i]
 		}
+		itemsV = append(itemsV, item.Text)
 		itemsL = append(itemsL, string(itemL))
 		offset += len(itemV)
 	}
@@ -143,7 +145,7 @@ func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 				ppem := face.PPEM(DefaultResolution)
 				lineWidth := 0.0
 				line := line{y: y, spans: []TextSpan{}}
-				itemsL, itemsV := itemizeString(s[i:j])
+				itemsL, itemsV := itemizeString(s[i:j], face.Script)
 				for k := 0; k < len(itemsL); k++ {
 					glyphs := face.Font.shaper.Shape(itemsV[k], ppem, face.Direction, face.Script, face.Language, face.Font.features, face.Font.variations)
 					width := face.textWidth(glyphs)
@@ -302,17 +304,19 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 	// itemize string by font face and script
 	texts := []string{}
+	scripts := []canvasText.Script{}
 	faces := []*FontFace{}
 	i, j := 0, 0 // index into vis
 	curFace := 0 // index into rt.faces
 	for k, r := range []rune(vis) {
 		nextFace := rt.locs.index(mapV2L[k])
 		if nextFace != curFace {
-			scriptItems := canvasText.ScriptItemizer(vis[i:j])
-			texts = append(texts, scriptItems...)
-			for _, s := range scriptItems {
+			items := canvasText.ScriptItemizer(vis[i:j], rt.faces[curFace].Script)
+			for _, item := range items {
+				texts = append(texts, item.Text)
+				scripts = append(scripts, item.Script)
 				faces = append(faces, rt.faces[curFace])
-				i += len(s)
+				i += len(item.Text)
 			}
 			curFace = nextFace
 			i = j
@@ -320,11 +324,12 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		j += utf8.RuneLen(r)
 	}
 	if i < j {
-		scriptItems := canvasText.ScriptItemizer(vis[i:j])
-		texts = append(texts, scriptItems...)
-		for _, s := range scriptItems {
+		items := canvasText.ScriptItemizer(vis[i:j], rt.faces[curFace].Script)
+		for _, item := range items {
+			texts = append(texts, item.Text)
+			scripts = append(scripts, item.Script)
 			faces = append(faces, rt.faces[curFace])
-			i += len(s)
+			i += len(item.Text)
 		}
 	}
 
@@ -336,10 +341,12 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		face := faces[k]
 		ppem := face.PPEM(DefaultResolution)
 		direction := writingModeDirection(rt.mode, face.Direction)
+		script := scripts[k]
 		glyphsString := face.Font.shaper.Shape(text, ppem, direction, face.Script, face.Language, face.Font.features, face.Font.variations)
 		for i := range glyphsString {
 			glyphsString[i].SFNT = face.Font.SFNT
 			glyphsString[i].Size = face.Size
+			glyphsString[i].Script = script
 			glyphsString[i].Cluster += clusterOffset
 		}
 		glyphIndices = append(glyphIndices, len(glyphs))
