@@ -62,8 +62,9 @@ type SFNT struct {
 	Vhea *vheaTable
 	//Hdmx *hdmxTable // TODO
 	Vmtx *vmtxTable
-	Gpos *gposTable // TODO
-	//Gsub *gsubTable // TODO
+	Gpos *gposgsubTable
+	Gsub *gposgsubTable
+	Jsft *jsftTable
 	//Gasp *gaspTable // TODO
 	//Base *baseTable // TODO
 }
@@ -258,6 +259,8 @@ func ParseSFNT(b []byte, index int) (*SFNT, error) {
 			err = sfnt.parseGlyf()
 		case "GPOS":
 			err = sfnt.parseGPOS()
+		case "GSUB":
+			err = sfnt.parseGSUB()
 		case "hmtx":
 			err = sfnt.parseHmtx()
 		case "kern":

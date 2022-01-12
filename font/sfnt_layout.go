@@ -530,7 +530,187 @@ func (sfnt *SFNT) parsePairPosTable(b []byte) (interface{}, error) {
 
 ////////////////////////////////////////////////////////////////
 
-type gposTable struct {
+type singleSubstFormat1 struct {
+	coverageTable
+	deltaGlyphID int16
+}
+
+func (table *singleSubstFormat1) Get(glyphID uint16) (uint16, bool) {
+	if _, ok := table.Index(glyphID); ok {
+		// uint16 does modulo%65536
+		return uint16(int(glyphID) + int(table.deltaGlyphID)), true
+	}
+	return 0, false
+}
+
+type singleSubstFormat2 struct {
+	coverageTable
+	substituteGlyphIDs []uint16
+}
+
+func (table *singleSubstFormat2) Get(glyphID uint16) (uint16, bool) {
+	if i, ok := table.Index(glyphID); ok {
+		return table.substituteGlyphIDs[i], true
+	}
+	return 0, false
+}
+
+func (sfnt *SFNT) parseSingleSubstTable(b []byte) (interface{}, error) {
+	r := NewBinaryReader(b)
+	substFormat := r.ReadUint16()
+	coverageOffset := r.ReadUint16()
+	coverageTable, err := sfnt.parseCoverageTable(b[coverageOffset:])
+	if err != nil {
+		return nil, err
+	}
+
+	if substFormat == 1 {
+		deltaGlyphID := r.ReadInt16()
+		return &singleSubstFormat1{
+			coverageTable: coverageTable,
+			deltaGlyphID:  deltaGlyphID,
+		}, nil
+	} else if substFormat == 2 {
+		glyphCount := r.ReadUint16()
+		substituteGlyphIDs := make([]uint16, glyphCount)
+		for i := 0; i < int(glyphCount); i++ {
+			substituteGlyphIDs[i] = r.ReadUint16()
+		}
+		return &singleSubstFormat2{
+			coverageTable:      coverageTable,
+			substituteGlyphIDs: substituteGlyphIDs,
+		}, nil
+	}
+	return nil, fmt.Errorf("bad single substitution table format")
+}
+
+////////////////////////////////////////////////////////////////
+
+type multipleSubstFormat1 struct {
+	coverageTable
+	sequences [][]uint16
+}
+
+func (table *multipleSubstFormat1) Get(glyphID uint16) ([]uint16, bool) {
+	if i, ok := table.Index(glyphID); ok {
+		return table.sequences[i], true
+	}
+	return nil, false
+}
+
+func (sfnt *SFNT) parseMultipleSubstTable(b []byte) (interface{}, error) {
+	r := NewBinaryReader(b)
+	r2 := NewBinaryReader(b)
+	substFormat := r.ReadUint16()
+	if substFormat != 1 {
+		return nil, fmt.Errorf("bad multiple substitution table format")
+	}
+
+	coverageOffset := r.ReadUint16()
+	coverageTable, err := sfnt.parseCoverageTable(b[coverageOffset:])
+	if err != nil {
+		return nil, err
+	}
+
+	sequenceCount := r.ReadUint16()
+	sequences := make([][]uint16, sequenceCount)
+	for i := 0; i < int(sequenceCount); i++ {
+		sequenceOffset := r.ReadUint16()
+
+		r2.Seek(uint32(sequenceOffset))
+		glyphCount := r2.ReadUint16()
+		substituteGlyphIDs := make([]uint16, glyphCount)
+		for i := 0; i < int(glyphCount); i++ {
+			substituteGlyphIDs[i] = r2.ReadUint16()
+		}
+		sequences[i] = substituteGlyphIDs
+	}
+	return &multipleSubstFormat1{
+		coverageTable: coverageTable,
+		sequences:     sequences,
+	}, nil
+}
+
+func (sfnt *SFNT) parseAlternateSubstTable(b []byte) (interface{}, error) {
+	r := NewBinaryReader(b)
+	substFormat := r.ReadUint16()
+	if substFormat != 1 {
+		return nil, fmt.Errorf("bad alternate substitution table format")
+	}
+	return sfnt.parseMultipleSubstTable(b)
+}
+
+////////////////////////////////////////////////////////////////
+
+type ligature struct {
+	ligatureGlyph     uint16
+	componentGlyphIDs []uint16
+}
+
+type ligatureSubstFormat1 struct {
+	coverageTable
+	ligatures [][]ligature
+}
+
+func (table *ligatureSubstFormat1) Get(glyphIDs []uint16) (uint16, bool) {
+	if i, ok := table.Index(glyphIDs[0]); ok {
+	LigatureLoop:
+		for _, ligature := range table.ligatures[i] {
+			for j, componentGlyphID := range ligature.componentGlyphIDs {
+				if len(glyphIDs) <= j+1 || componentGlyphID != glyphIDs[j+1] {
+					continue LigatureLoop
+				}
+			}
+			return ligature.ligatureGlyph, true
+		}
+	}
+	return 0, false
+}
+
+func (sfnt *SFNT) parseLigatureSubstTable(b []byte) (interface{}, error) {
+	r := NewBinaryReader(b)
+	r2 := NewBinaryReader(b)
+	r3 := NewBinaryReader(b)
+	substFormat := r.ReadUint16()
+	if substFormat != 1 {
+		return nil, fmt.Errorf("bad ligature substitution table format")
+	}
+
+	coverageOffset := r.ReadUint16()
+	coverageTable, err := sfnt.parseCoverageTable(b[coverageOffset:])
+	if err != nil {
+		return nil, err
+	}
+
+	ligatureSetCount := r.ReadUint16()
+	ligatures := make([][]ligature, ligatureSetCount)
+	for i := 0; i < int(ligatureSetCount); i++ {
+		ligatureSetOffset := r.ReadUint16()
+
+		r2.Seek(uint32(ligatureSetOffset))
+		ligatureCount := r2.ReadUint16()
+		ligatures[i] = make([]ligature, ligatureCount)
+		for j := 0; j < int(ligatureCount); j++ {
+			ligatureOffset := r2.ReadUint16()
+
+			r3.Seek(uint32(ligatureOffset))
+			ligatures[i][j].ligatureGlyph = r3.ReadUint16()
+			componentCount := r3.ReadUint16() - 1
+			ligatures[i][j].componentGlyphIDs = make([]uint16, componentCount)
+			for k := 0; k < int(componentCount); k++ {
+				ligatures[i][j].componentGlyphIDs[k] = r3.ReadUint16()
+			}
+		}
+	}
+	return &ligatureSubstFormat1{
+		coverageTable: coverageTable,
+		ligatures:     ligatures,
+	}, nil
+}
+
+////////////////////////////////////////////////////////////////
+
+type gposgsubTable struct {
 	scriptList
 	featureList
 	lookupList
@@ -539,7 +719,7 @@ type gposTable struct {
 	tables []interface{}
 }
 
-func (table *gposTable) GetLookups(script ScriptTag, language LanguageTag, features []FeatureTag) ([]interface{}, error) {
+func (table *gposgsubTable) GetLookups(script ScriptTag, language LanguageTag, features []FeatureTag) ([]interface{}, error) {
 	var featureIndices []uint16
 	if langSys, ok := table.scriptList.getLangSys(script, language); ok {
 		featureIndices = append([]uint16{langSys.requiredFeatureIndex}, langSys.featureIndices...)
@@ -576,62 +756,83 @@ func (table *gposTable) GetLookups(script ScriptTag, language LanguageTag, featu
 	return tables, nil
 }
 
+type subtableMap map[uint16]func([]byte) (interface{}, error)
+
 func (sfnt *SFNT) parseGPOS() error {
-	b, ok := sfnt.Tables["GPOS"]
+	var err error
+	subtableMap := subtableMap{
+		1: sfnt.parseSinglePosTable,
+		2: sfnt.parsePairPosTable,
+	}
+	sfnt.Gpos, err = sfnt.parseGPOSGSUB("GPOS", subtableMap)
+	return err
+}
+
+func (sfnt *SFNT) parseGSUB() error {
+	var err error
+	subtableMap := subtableMap{
+		1: sfnt.parseSingleSubstTable,
+		2: sfnt.parseMultipleSubstTable,
+		3: sfnt.parseAlternateSubstTable,
+		4: sfnt.parseLigatureSubstTable,
+	}
+	sfnt.Gsub, err = sfnt.parseGPOSGSUB("GSUB", subtableMap)
+	return err
+}
+
+func (sfnt *SFNT) parseGPOSGSUB(name string, subtableMap subtableMap) (*gposgsubTable, error) {
+	b, ok := sfnt.Tables[name]
 	if !ok {
-		return fmt.Errorf("GPOS: missing table")
+		return nil, fmt.Errorf("%s: missing table", name)
 	} else if len(b) < 32 {
-		return fmt.Errorf("GPOS: bad table")
+		return nil, fmt.Errorf("%s: bad table", name)
 	}
 
-	sfnt.Gpos = &gposTable{}
+	table := &gposgsubTable{}
 	r := NewBinaryReader(b)
 	majorVersion := r.ReadUint16()
 	minorVersion := r.ReadUint16()
 	if majorVersion != 1 && minorVersion != 0 && minorVersion != 1 {
-		return fmt.Errorf("GPOS: bad version")
+		return nil, fmt.Errorf("%s: bad version", name)
 	}
 
 	var err error
 	scriptListOffset := r.ReadUint16()
 	if len(b)-2 < int(scriptListOffset) {
-		return fmt.Errorf("GPOS: bad scriptList offset")
+		return nil, fmt.Errorf("%s: bad scriptList offset", name)
 	}
-	sfnt.Gpos.scriptList, err = sfnt.parseScriptList(b[scriptListOffset:])
+	table.scriptList, err = sfnt.parseScriptList(b[scriptListOffset:])
 	if err != nil {
-		return fmt.Errorf("GPOS: %w", err)
+		return nil, fmt.Errorf("%s: %w", name, err)
 	}
 
 	featureListOffset := r.ReadUint16()
 	if len(b)-2 < int(featureListOffset) {
-		return fmt.Errorf("GPOS: bad featureList offset")
+		return nil, fmt.Errorf("%s: bad featureList offset", name)
 	}
-	sfnt.Gpos.featureList = sfnt.parseFeatureList(b[featureListOffset:])
+	table.featureList = sfnt.parseFeatureList(b[featureListOffset:])
 
 	lookupListOffset := r.ReadUint16()
 	if len(b)-2 < int(lookupListOffset) {
-		return fmt.Errorf("GPOS: bad lookupList offset")
+		return nil, fmt.Errorf("%s: bad lookupList offset", name)
 	}
-	sfnt.Gpos.lookupList = sfnt.parseLookupList(b[lookupListOffset:])
-
-	subtableMap := map[uint16]func([]byte) (interface{}, error){
-		1: sfnt.parseSinglePosTable,
-		2: sfnt.parsePairPosTable,
-	}
-	sfnt.Gpos.tables = make([]interface{}, len(sfnt.Gpos.lookupList))
-	for j, lookup := range sfnt.Gpos.lookupList {
+	table.lookupList = sfnt.parseLookupList(b[lookupListOffset:])
+	table.tables = make([]interface{}, len(table.lookupList))
+	for j, lookup := range table.lookupList {
 		if parseSubtable, ok := subtableMap[lookup.lookupType]; ok {
 			tables := make([]interface{}, len(lookup.subtable))
 			for i, data := range lookup.subtable {
 				var err error
 				tables[i], err = parseSubtable(data)
 				if err != nil {
-					return fmt.Errorf("GPOS: %w", err)
+					return nil, fmt.Errorf("%s: %w", name, err)
 				}
 			}
-			sfnt.Gpos.tables[j] = tables
+			table.tables[j] = tables
 		} else if lookup.lookupType == 0 || 9 < lookup.lookupType {
-			return fmt.Errorf("bad lookup table type")
+			return nil, fmt.Errorf("%s: bad lookup table type", name)
+		} else {
+			//fmt.Printf("%s: lookup table type %d not supported\n", name, lookup.lookupType)
 		}
 	}
 
@@ -639,9 +840,33 @@ func (sfnt *SFNT) parseGPOS() error {
 	if minorVersion == 1 {
 		featureVariationsOffset = r.ReadUint32()
 		if len(b)-8 < int(featureVariationsOffset) {
-			return fmt.Errorf("GPOS: bad featureVariations offset")
+			return nil, fmt.Errorf("%s: bad featureVariations offset", name)
 		}
-		sfnt.Gpos.featureVariationsList = featureVariationsList{b[featureVariationsOffset:]}
+		table.featureVariationsList = featureVariationsList{b[featureVariationsOffset:]}
 	}
+	return table, nil
+}
+
+////////////////////////////////////////////////////////////////
+
+type jsftTable struct {
+}
+
+func (sfnt *SFNT) parseJSFT() error {
+	b, ok := sfnt.Tables["JSFT"]
+	if !ok {
+		return fmt.Errorf("JSFT: missing table")
+	} else if len(b) < 32 {
+		return fmt.Errorf("JSFT: bad table")
+	}
+
+	sfnt.Jsft = &jsftTable{}
+	r := NewBinaryReader(b)
+	majorVersion := r.ReadUint16()
+	minorVersion := r.ReadUint16()
+	if majorVersion != 1 && minorVersion != 0 {
+		return fmt.Errorf("JSFT: bad version")
+	}
+	// TODO
 	return nil
 }
