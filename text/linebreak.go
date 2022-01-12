@@ -497,8 +497,8 @@ func isUpper(s string) bool {
 }
 
 func isSpace(s string) bool {
-	// no-break spaces such as U+00A0, U+202F, U+180E, and U+FEFF are used as boxes
-	spaces := []rune(" \u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u205F")
+	// no-break spaces such as U+00A0, U+180E, U+202F, and U+FEFF are used as boxes
+	spaces := []rune(" \u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u205F\u3000")
 	if r, size := utf8.DecodeRuneInString(s); size == len(s) {
 		for _, space := range spaces {
 			if r == space {
@@ -519,6 +519,11 @@ func isNewline(s string) bool {
 		}
 	}
 	return false
+}
+
+func isSpacelessScript(script Script) bool {
+	// missing: S'gaw Karen
+	return script == Han || script == Hangul || script == Katakana || script == Khmer || script == Lao || script == PhagsPa || script == Brahmi || script == TaiTham || script == NewTaiLue || script == TaiLe || script == TaiViet || script == Thai || script == Tibetan || script == Myanmar
 }
 
 // GlyphsToItems converts a slice of glyphs into the box/glue/penalty items model as used by Knuth's line breaking algorithm. The SFNT and Size of each glyph must be set. Indent and align specify the indentation width of the first line and the alignment (left, right, centered, justified) of the lines respectively. Vertical should be true for vertical scripts.
@@ -641,8 +646,13 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align, vertical bool) [
 				width = float64(-glyph.YAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
 			}
 			if 1 < len(items) && items[len(items)-1].Type == BoxType {
-				// merge with previous box only if it's not indent
-				items[len(items)-1].Width += width
+				if isSpacelessScript(glyph.Script) || isSpacelessScript(glyphs[i-1].Script) {
+					items = append(items, Penalty(0.0, 0.0, false))
+					items = append(items, Box(width))
+				} else {
+					// merge with previous box only if it's not indent
+					items[len(items)-1].Width += width
+				}
 			} else {
 				items = append(items, Box(width))
 			}
