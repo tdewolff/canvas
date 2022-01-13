@@ -11,9 +11,10 @@ import (
 
 type cffTable struct {
 	version     int
-	globalSubrs *cffINDEX
-	localSubrs  *cffINDEX
+	top         *cffTopDICT
 	charStrings *cffINDEX
+	globalSubrs *cffINDEX
+	fonts       *cffFontINDEX
 }
 
 func (sfnt *SFNT) parseCFF() error {
@@ -63,31 +64,8 @@ func (sfnt *SFNT) parseCFF() error {
 	topDICT, err := parseTopDICT(topINDEX.Get(0), stringINDEX)
 	if err != nil {
 		return fmt.Errorf("CFF: Top DICT: %w", err)
-	}
-	if topDICT.IsCID {
-		return fmt.Errorf("CFF: CID fonts not supported")
 	} else if topDICT.CharstringType != 2 {
 		return fmt.Errorf("CFF: Type %d Charstring format not supported", topDICT.CharstringType)
-	}
-
-	if len(b) < topDICT.PrivateOffset || len(b)-topDICT.PrivateOffset < topDICT.PrivateLength {
-		return fmt.Errorf("CFF: bad Private DICT offset")
-	}
-	privateDICT, err := parsePrivateDICT(b[topDICT.PrivateOffset:topDICT.PrivateOffset+topDICT.PrivateLength], false)
-	if err != nil {
-		return fmt.Errorf("CFF: Private DICT: %w", err)
-	}
-
-	localSubrsINDEX := &cffINDEX{}
-	if privateDICT.Subrs != 0 {
-		if len(b)-topDICT.PrivateOffset < privateDICT.Subrs {
-			return fmt.Errorf("CFF: bad Local Subrs INDEX offset")
-		}
-		r.Seek(uint32(topDICT.PrivateOffset + privateDICT.Subrs))
-		localSubrsINDEX, err = parseINDEX(r, false)
-		if err != nil {
-			return fmt.Errorf("CFF: Local Subrs INDEX: %w", err)
-		}
 	}
 
 	r.Seek(uint32(topDICT.CharStrings))
@@ -96,11 +74,51 @@ func (sfnt *SFNT) parseCFF() error {
 		return fmt.Errorf("CFF: CharStrings INDEX: %w", err)
 	}
 
-	sfnt.CFF = &cffTable{
-		version:     1,
-		globalSubrs: globalSubrsINDEX,
-		localSubrs:  localSubrsINDEX,
-		charStrings: charStringsINDEX,
+	if !topDICT.IsCID {
+		if len(b) < topDICT.PrivateOffset || len(b)-topDICT.PrivateOffset < topDICT.PrivateLength {
+			return fmt.Errorf("CFF: bad Private DICT offset")
+		}
+		privateDICT, err := parsePrivateDICT(b[topDICT.PrivateOffset:topDICT.PrivateOffset+topDICT.PrivateLength], false)
+		if err != nil {
+			return fmt.Errorf("CFF: Private DICT: %w", err)
+		}
+
+		localSubrsINDEX := &cffINDEX{}
+		if privateDICT.Subrs != 0 {
+			if len(b)-topDICT.PrivateOffset < privateDICT.Subrs {
+				return fmt.Errorf("CFF: bad Local Subrs INDEX offset")
+			}
+			r.Seek(uint32(topDICT.PrivateOffset + privateDICT.Subrs))
+			localSubrsINDEX, err = parseINDEX(r, false)
+			if err != nil {
+				return fmt.Errorf("CFF: Local Subrs INDEX: %w", err)
+			}
+		}
+
+		sfnt.CFF = &cffTable{
+			version:     1,
+			charStrings: charStringsINDEX,
+			globalSubrs: globalSubrsINDEX,
+			fonts: &cffFontINDEX{
+				privateDICT:     []*cffPrivateDICT{privateDICT},
+				localSubrsINDEX: []*cffINDEX{localSubrsINDEX},
+				first:           []uint32{0, uint32(charStringsINDEX.Len())},
+				fd:              []uint16{0},
+			},
+		}
+	} else {
+		// CID font
+		fonts, err := parseFontINDEX(b, topDICT.FDArray, topDICT.FDSelect, charStringsINDEX.Len(), false)
+		if err != nil {
+			return fmt.Errorf("CFF: %w", err)
+		}
+
+		sfnt.CFF = &cffTable{
+			version:     1,
+			charStrings: charStringsINDEX,
+			globalSubrs: globalSubrsINDEX,
+			fonts:       fonts,
+		}
 	}
 	return nil
 }
@@ -135,58 +153,36 @@ func (sfnt *SFNT) parseCFF2() error {
 		return fmt.Errorf("CFF2: Global Subrs INDEX: %w", err)
 	}
 
-	if len(b) < topDICT.FDArray {
-		return fmt.Errorf("CFF2: bad Font INDEX offset")
-	}
-	r.Seek(uint32(topDICT.FDArray))
-	fontINDEX, err := parseINDEX(r, true)
-	if err != nil {
-		return fmt.Errorf("CFF2: Font INDEX: %w", err)
-	}
-	if len(fontINDEX.offset) != 1 {
-		return fmt.Errorf("CFF2: multiple Font DICTs unsupported")
-	}
-
-	var PrivateOffset, PrivateLength int
-	return parseDICT(b, true, func(b0 int, is []int, fs []float64) bool {
-		if b0 == 18 {
-			PrivateOffset = is[0]
-			PrivateLength = is[1]
-			return true
-		}
-		return false
-	})
-
-	if len(b) < PrivateOffset || len(b)-PrivateOffset < PrivateLength {
-		return fmt.Errorf("CFF2: bad Private DICT offset")
-	}
-	privateDICT, err := parsePrivateDICT(b[PrivateOffset:PrivateOffset+PrivateLength], true)
-	if err != nil {
-		return fmt.Errorf("CFF2: Private DICT: %w", err)
-	}
-
-	if len(b)-PrivateOffset < privateDICT.Subrs {
-		return fmt.Errorf("CFF2: bad Local Subrs INDEX offset")
-	}
-	r.Seek(uint32(PrivateOffset + privateDICT.Subrs))
-	localSubrsINDEX, err := parseINDEX(r, true)
-	if err != nil {
-		return fmt.Errorf("CFF2: Local Subrs INDEX: %w", err)
-	}
-
 	r.Seek(uint32(topDICT.CharStrings))
 	charStringsINDEX, err := parseINDEX(r, true)
 	if err != nil {
 		return fmt.Errorf("CFF2: CharStrings INDEX: %w", err)
 	}
 
+	fonts, err := parseFontINDEX(b, topDICT.FDArray, topDICT.FDSelect, charStringsINDEX.Len(), true)
+	if err != nil {
+		return fmt.Errorf("CFF2: %w", err)
+	}
+
 	sfnt.CFF = &cffTable{
 		version:     2,
-		globalSubrs: globalSubrsINDEX,
-		localSubrs:  localSubrsINDEX,
 		charStrings: charStringsINDEX,
+		globalSubrs: globalSubrsINDEX,
+		fonts:       fonts,
 	}
 	return nil
+}
+
+func (cff *cffTable) Version() int {
+	return cff.version
+}
+
+func (cff *cffTable) TopDICT() *cffTopDICT {
+	return cff.top
+}
+
+func (cff *cffTable) PrivateDICT(glyphID uint16) (*cffPrivateDICT, error) {
+	return cff.fonts.GetPrivate(uint32(glyphID))
 }
 
 func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float64, hinting Hinting) error {
@@ -201,6 +197,10 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 		return fmt.Errorf("%v: bad glyphID %v", table, glyphID)
 	} else if 65525 < len(charString) {
 		return fmt.Errorf("%v: charstring too long", table)
+	}
+	localSubrs, err := cff.fonts.GetLocalSubrs(uint32(glyphID))
+	if err != nil {
+		return fmt.Errorf("%v: %w", table, err)
 	}
 
 	// raise to most-significant 16 bits and treat less-significant bits as fraction
@@ -596,7 +596,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 
 				n := 0
 				if b0 == 10 {
-					n = len(cff.localSubrs.offset) - 1
+					n = len(localSubrs.offset) - 1
 				} else {
 					n = len(cff.globalSubrs.offset) - 1
 				}
@@ -615,7 +615,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 
 				var subr []byte
 				if b0 == 10 {
-					subr = cff.localSubrs.Get(uint16(i))
+					subr = localSubrs.Get(uint16(i))
 				} else {
 					subr = cff.globalSubrs.Get(uint16(i))
 				}
@@ -667,8 +667,12 @@ type cffINDEX struct {
 	data   []byte
 }
 
+func (t *cffINDEX) Len() int {
+	return len(t.offset) - 1
+}
+
 func (t *cffINDEX) Get(i uint16) []byte {
-	if int(i) < len(t.offset)-1 {
+	if int(i) < t.Len() {
 		return t.data[t.offset[i]:t.offset[i+1]]
 	}
 	return nil
@@ -778,6 +782,12 @@ type cffTopDICT struct {
 	FDArray            int
 	FDSelect           int
 	FontName           string
+	Vstore             int // CFF2
+}
+
+type cffFontDICT struct {
+	PrivateOffset int
+	PrivateLength int
 }
 
 type cffPrivateDICT struct {
@@ -803,14 +813,6 @@ type cffPrivateDICT struct {
 	// CFF2
 	Vsindex int
 	Blend   []float64
-}
-
-type cff2TopDICT struct {
-	FontMatrix  [6]float64
-	CharStrings int
-	FDArray     int
-	FDSelect    int
-	Vstore      int
 }
 
 func parseTopDICT(b []byte, stringINDEX *cffINDEX) (*cffTopDICT, error) {
@@ -876,6 +878,7 @@ func parseTopDICT(b []byte, stringINDEX *cffINDEX) (*cffTopDICT, error) {
 		case 256 + 23:
 			dict.BaseFontBlend = is
 		case 256 + 30:
+			// TODO: it is unclear how the ROS operator influences the GIDs/CIDs
 			dict.IsCID = true
 			dict.ROS1 = stringINDEX.GetSID(is[0])
 			dict.ROS2 = stringINDEX.GetSID(is[1])
@@ -896,6 +899,24 @@ func parseTopDICT(b []byte, stringINDEX *cffINDEX) (*cffTopDICT, error) {
 			dict.FDSelect = is[0]
 		case 256 + 38:
 			dict.FontName = stringINDEX.GetSID(is[0])
+		default:
+			return false
+		}
+		return true
+	})
+}
+
+func parseFontDICT(b []byte, isCFF2 bool) (*cffFontDICT, error) {
+	dict := &cffFontDICT{}
+	return dict, parseDICT(b, isCFF2, func(b0 int, is []int, fs []float64) bool {
+		switch b0 {
+		case 18:
+			dict.PrivateOffset = is[1]
+			dict.PrivateLength = is[0]
+		case 256 + 7:
+			// FontMatrix
+		case 256 + 38:
+			// FontName
 		default:
 			return false
 		}
@@ -960,8 +981,8 @@ func parsePrivateDICT(b []byte, isCFF2 bool) (*cffPrivateDICT, error) {
 	})
 }
 
-func parseTopDICT2(b []byte) (*cff2TopDICT, error) {
-	dict := &cff2TopDICT{
+func parseTopDICT2(b []byte) (*cffTopDICT, error) {
+	dict := &cffTopDICT{
 		FontMatrix: [6]float64{0.001, 0.0, 0.0, 0.001, 0.0, 0.0},
 	}
 	return dict, parseDICT(b, true, func(b0 int, is []int, fs []float64) bool {
@@ -1091,4 +1112,120 @@ func parseDICTNumber(b0 int, r *BinaryReader) (int, float64) {
 		b1 := int(r.ReadUint8())
 		return -(b0-251)*256 - b1 - 108, math.NaN()
 	}
+}
+
+type cffFontINDEX struct {
+	privateDICT     []*cffPrivateDICT
+	localSubrsINDEX []*cffINDEX
+
+	fds   []uint8 // fds or the other two are used
+	first []uint32
+	fd    []uint16
+}
+
+func (t *cffFontINDEX) Index(glyphID uint32) (uint16, bool) {
+	if t.fds != nil {
+		if len(t.fds) <= int(glyphID) {
+			return 0, false
+		}
+		return uint16(t.fds[glyphID]), true
+	} else if t.first[len(t.first)-1] <= glyphID {
+		return 0, false
+	}
+
+	i := 0
+	for t.first[i+1] <= glyphID {
+		i++
+	}
+	return t.fd[i], true
+}
+
+func (t *cffFontINDEX) GetPrivate(glyphID uint32) (*cffPrivateDICT, error) {
+	i, ok := t.Index(glyphID)
+	if !ok {
+		return nil, fmt.Errorf("bad glyph ID %v", glyphID)
+	}
+	return t.privateDICT[i], nil
+}
+
+func (t *cffFontINDEX) GetLocalSubrs(glyphID uint32) (*cffINDEX, error) {
+	i, ok := t.Index(glyphID)
+	if !ok {
+		return nil, fmt.Errorf("bad glyph ID %v", glyphID)
+	}
+	return t.localSubrsINDEX[i], nil
+}
+
+func parseFontINDEX(b []byte, fdArray, fdSelect, nGlyphs int, isCFF2 bool) (*cffFontINDEX, error) {
+	if len(b) < fdArray {
+		return nil, fmt.Errorf("bad Font INDEX offset")
+	}
+
+	r := NewBinaryReader(b)
+	r.Seek(uint32(fdArray))
+	fontINDEX, err := parseINDEX(r, false)
+	if err != nil {
+		return nil, fmt.Errorf("Font INDEX: %w", err)
+	}
+
+	fonts := &cffFontINDEX{}
+	fonts.privateDICT = make([]*cffPrivateDICT, fontINDEX.Len())
+	fonts.localSubrsINDEX = make([]*cffINDEX, fontINDEX.Len())
+	for i := 0; i < fontINDEX.Len(); i++ {
+		fontDICT, err := parseFontDICT(fontINDEX.Get(uint16(i)), isCFF2)
+		if err != nil {
+			return nil, fmt.Errorf("Font DICT: %w", err)
+		}
+		if len(b) < fontDICT.PrivateOffset || len(b)-fontDICT.PrivateOffset < fontDICT.PrivateLength {
+			return nil, fmt.Errorf("Font DICT: bad Private DICT offset")
+		}
+		privateDICT, err := parsePrivateDICT(b[fontDICT.PrivateOffset:fontDICT.PrivateOffset+fontDICT.PrivateLength], isCFF2)
+		if err != nil {
+			return nil, fmt.Errorf("Private DICT: %w", err)
+		}
+		fonts.privateDICT[i] = privateDICT
+
+		if privateDICT.Subrs != 0 {
+			if len(b)-fontDICT.PrivateOffset < privateDICT.Subrs {
+				return nil, fmt.Errorf("bad Local Subrs INDEX offset")
+			}
+			r.Seek(uint32(fontDICT.PrivateOffset + privateDICT.Subrs))
+			fonts.localSubrsINDEX[i], err = parseINDEX(r, isCFF2)
+			if err != nil {
+				return nil, fmt.Errorf("Local Subrs INDEX: %w", err)
+			}
+		} else if isCFF2 {
+			return nil, fmt.Errorf("Private DICT must have Local Subrs INDEX offset")
+		}
+	}
+
+	r.Seek(uint32(fdSelect))
+	format := r.ReadUint8()
+	if format == 0 {
+		fonts.fds = make([]uint8, nGlyphs)
+		for i := 0; i < nGlyphs; i++ {
+			fonts.fds[i] = r.ReadUint8()
+		}
+	} else if format == 3 {
+		nRanges := r.ReadUint16()
+		fonts.first = make([]uint32, nRanges+1)
+		fonts.fd = make([]uint16, nRanges)
+		for i := 0; i < int(nRanges); i++ {
+			fonts.first[i] = uint32(r.ReadUint16())
+			fonts.fd[i] = uint16(r.ReadUint8())
+		}
+		fonts.first[nRanges] = uint32(r.ReadUint16())
+	} else if isCFF2 && format == 4 {
+		nRanges := r.ReadUint32()
+		fonts.first = make([]uint32, nRanges+1)
+		fonts.fd = make([]uint16, nRanges)
+		for i := 0; i < int(nRanges); i++ {
+			fonts.first[i] = r.ReadUint32()
+			fonts.fd[i] = r.ReadUint16()
+		}
+		fonts.first[nRanges] = r.ReadUint32()
+	} else {
+		return nil, fmt.Errorf("FDSelect: bad format")
+	}
+	return fonts, nil
 }
