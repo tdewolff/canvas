@@ -169,14 +169,14 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		fill = fill.Translate(-float64(x)/dpmm, -float64(y)/dpmm)
 		fill.ToRasterizer(ras, r.resolution)
 		col := r.ColorSpace.ToLinear(style.FillColor)
-		ras.Draw(r, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(col), image.Point{dx, dy})
+		ras.Draw(r.Image, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(col), image.Point{dx, dy})
 	}
 	if style.HasStroke() {
 		ras := vector.NewRasterizer(w, h)
 		stroke = stroke.Translate(-float64(x)/dpmm, -float64(y)/dpmm)
 		stroke.ToRasterizer(ras, r.resolution)
 		col := r.ColorSpace.ToLinear(style.StrokeColor)
-		ras.Draw(r, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(col), image.Point{dx, dy})
+		ras.Draw(r.Image, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(col), image.Point{dx, dy})
 	}
 }
 
