@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/renderers/rasterizer"
+	"github.com/tdewolff/canvas/renderers"
 	"github.com/tdewolff/canvas/text"
 )
 
@@ -40,7 +40,7 @@ func main() {
 
 	////////////////
 
-	c.WriteFile("preview.png", rasterizer.PNGWriter(3.2))
+	c.WriteFile("preview.png", renderers.PNG(3.2))
 }
 
 func drawText(c *canvas.Context, x, y float64, face *canvas.FontFace, rich *canvas.RichText) {

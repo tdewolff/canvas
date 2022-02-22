@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/renderers/rasterizer"
+	"github.com/tdewolff/canvas/renderers"
 )
 
 var fontFamily *canvas.FontFamily
@@ -18,7 +18,7 @@ func main() {
 	ctx.SetFillColor(canvas.White)
 	ctx.DrawPath(0, 0, canvas.Rectangle(c.W, c.H))
 	draw(ctx)
-	c.WriteFile("paths.png", rasterizer.PNGWriter(5.0))
+	c.WriteFile("paths.png", renderers.PNG(5.0))
 }
 
 func drawPos(c *canvas.Context, x, y float64) {

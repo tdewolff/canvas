@@ -4,7 +4,7 @@ import (
 	"image/color"
 
 	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/renderers/rasterizer"
+	"github.com/tdewolff/canvas/renderers"
 )
 
 var fontFamily *canvas.FontFamily
@@ -20,7 +20,7 @@ func main() {
 	ctx.SetFillColor(canvas.White)
 	ctx.DrawPath(0, 0, canvas.Rectangle(c.W, c.H))
 	draw(ctx)
-	c.WriteFile("text.png", rasterizer.PNGWriter(5.0))
+	c.WriteFile("text.png", renderers.PNG(5.0))
 }
 
 func drawText(c *canvas.Context, x, y float64, halign, valign canvas.TextAlign) {

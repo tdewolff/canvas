@@ -5,7 +5,7 @@ import (
 	"math"
 
 	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/renderers/rasterizer"
+	"github.com/tdewolff/canvas/renderers"
 )
 
 var fontFamily *canvas.FontFamily
@@ -22,7 +22,7 @@ func main() {
 	ctx.SetFillColor(canvas.White)
 	ctx.DrawPath(0, 0, canvas.Rectangle(c.W, c.H))
 	draw(ctx)
-	c.WriteFile("stroke.png", rasterizer.PNGWriter(5.0))
+	c.WriteFile("stroke.png", renderers.PNG(5.0))
 }
 
 func drawStrokedPath(c *canvas.Context, x, y float64, path string, cr canvas.Capper, jr canvas.Joiner) {

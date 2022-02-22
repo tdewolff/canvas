@@ -58,12 +58,13 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	buf.AddRunes(rtext, 0, -1)
 	buf.Shape(s.font, nil)
 
-	runeMap := make([]int, len(rtext))
+	runeMap := make([]int, len(rtext)+1)
 	j := 0
 	for i := range text {
 		runeMap[j] = i
 		j++
 	}
+	runeMap[len(rtext)] = len(text)
 
 	glyphs := make([]Glyph, len(buf.Info))
 	for i := 0; i < len(buf.Info); i++ {
@@ -77,17 +78,10 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 		glyphs[i].YOffset = int32(position.YOffset)
 
 		if reverse {
-			if i != 0 {
-				glyphs[i].Text = text[glyphs[i].Cluster:glyphs[i-1].Cluster]
-			} else {
-				glyphs[i].Text = text[glyphs[i].Cluster:]
-			}
-		} else if i != 0 {
-			glyphs[i-1].Text = text[glyphs[i-1].Cluster:glyphs[i].Cluster]
+			// TODO: what about reverse?
+		} else {
+			glyphs[i].Text = text[runeMap[info.Cluster]:runeMap[info.Cluster+1]]
 		}
-	}
-	if !reverse && 0 < len(glyphs) {
-		glyphs[len(glyphs)-1].Text = text[glyphs[len(glyphs)-1].Cluster:]
 	}
 	return glyphs
 }

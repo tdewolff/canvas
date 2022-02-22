@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/renderers/rasterizer"
+	"github.com/tdewolff/canvas/renderers"
 )
 
 func main() {
@@ -21,5 +21,5 @@ func main() {
 	ctx.DrawPath(20, 20, triangle)
 
 	// Rasterize the canvas and write to a PNG file with 3.2 dots-per-mm (320x320 px)
-	c.WriteFile("getting-started.png", rasterizer.PNGWriter(3.2))
+	c.WriteFile("getting-started.png", renderers.PNG(3.2))
 }
