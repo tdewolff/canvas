@@ -53,6 +53,15 @@ const (
 	VerticalLR
 )
 
+// TextOrientation specifies how non-CJK should be oriented between CJK.
+type TextOrientation int
+
+// see TextOrientation
+const (
+	Mixed TextOrientation = iota
+	Upright
+)
+
 func (wm WritingMode) String() string {
 	switch wm {
 	case HorizontalTB:
@@ -79,14 +88,27 @@ type line struct {
 }
 
 // Heights returns the maximum top, ascent, descent, and bottom heights of the line, where top and bottom are equal to ascent and descent respectively with added line spacing.
-func (l line) Heights() (float64, float64, float64, float64) {
+func (l line) Heights(mode WritingMode, orient TextOrientation) (float64, float64, float64, float64) {
 	top, ascent, descent, bottom := 0.0, 0.0, 0.0, 0.0
-	for _, span := range l.spans {
-		spanAscent, spanDescent, lineSpacing := span.Face.Metrics().Ascent, span.Face.Metrics().Descent, span.Face.Metrics().LineGap
-		top = math.Max(top, spanAscent+lineSpacing)
-		ascent = math.Max(ascent, spanAscent)
-		descent = math.Max(descent, spanDescent)
-		bottom = math.Max(bottom, spanDescent+lineSpacing)
+	if mode == HorizontalTB {
+		for _, span := range l.spans {
+			spanAscent, spanDescent, lineSpacing := span.Face.Metrics().Ascent, span.Face.Metrics().Descent, span.Face.Metrics().LineGap
+			top = math.Max(top, spanAscent+lineSpacing)
+			ascent = math.Max(ascent, spanAscent)
+			descent = math.Max(descent, spanDescent)
+			bottom = math.Max(bottom, spanDescent+lineSpacing)
+		}
+	} else {
+		width := 0.0
+		for _, span := range l.spans {
+			for _, glyph := range span.Glyphs {
+				width = math.Max(width, span.Face.textWidth([]canvasText.Glyph{glyph}))
+			}
+		}
+		top = width / 2.0
+		ascent = width / 2.0
+		descent = width / 2.0
+		bottom = width / 2.0
 	}
 	return top, ascent, descent, bottom
 }
@@ -209,9 +231,10 @@ func (indexer indexer) index(loc int) int {
 // TODO: RichText add support for decoration spans to properly underline the spaces betwee words too
 type RichText struct {
 	*strings.Builder
-	locs  indexer // faces locations ino string by number of runes
-	faces []*FontFace
-	mode  WritingMode
+	locs   indexer // faces locations ino string by number of runes
+	faces  []*FontFace
+	mode   WritingMode
+	orient TextOrientation
 }
 
 // NewRichText returns a new rich text with the given default font face.
@@ -221,6 +244,7 @@ func NewRichText(face *FontFace) *RichText {
 		locs:    indexer{0},
 		faces:   []*FontFace{face},
 		mode:    HorizontalTB,
+		orient:  Mixed,
 	}
 }
 
@@ -271,16 +295,21 @@ func (rt *RichText) SetFaceSpan(face *FontFace, start, end int) {
 	rt.faces = append(rt.faces[:i], append([]*FontFace{face}, rt.faces[j:]...)...)
 }
 
-// Add adds a string with a given font face to the rich text.
+// Add adds a string with a given font face.
 func (rt *RichText) Add(face *FontFace, text string) *RichText {
 	rt.SetFace(face)
 	rt.WriteString(text)
 	return rt
 }
 
-// SetWritingMode sets the final writing mode of the rich text.
+// SetWritingMode sets the writing mode.
 func (rt *RichText) SetWritingMode(mode WritingMode) {
 	rt.mode = mode
+}
+
+// SetTextOrientation sets the text orientation of non-CJK between CJK.
+func (rt *RichText) SetTextOrientation(orient TextOrientation) {
+	rt.orient = orient
 }
 
 func writingModeDirection(mode WritingMode, direction canvasText.Direction) canvasText.Direction {
@@ -354,14 +383,31 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		clusterOffset += uint32(len(text))
 	}
 
-	// break glyphs into lines following Donald Knuth's line breaking algorithm
+	mixed := rt.orient == Mixed
+	vertical := rt.mode != HorizontalTB
+	if vertical {
+		width, height = height, width
+		halign, valign = valign, halign
+		if halign == Top {
+			halign = Left
+		} else if halign == Bottom {
+			halign = Right
+		}
+		if valign == Left {
+			valign = Top
+		} else if valign == Right {
+			valign = Bottom
+		}
+	}
+
 	align := canvasText.Left
 	if halign == Justify {
 		align = canvasText.Justified
 	}
-	vertical := rt.mode != HorizontalTB
+
+	// break glyphs into lines following Donald Knuth's line breaking algorithm
 	looseness := 0
-	items := canvasText.GlyphsToItems(glyphs, indent, align, vertical)
+	items := canvasText.GlyphsToItems(glyphs, indent, align, vertical, mixed)
 
 	var breaks []*canvasText.Breakpoint
 	if width != 0.0 {
@@ -420,7 +466,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 				}
 			}
 
-			_, ascent, _, bottom := t.lines[j].Heights()
+			_, ascent, _, bottom := t.lines[j].Heights(rt.mode, rt.orient)
 			if 0 < j {
 				ascent *= lineSpacing
 			}
@@ -504,14 +550,14 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		i += item.Size
 	}
 
-	_, ascent, descent, bottom := t.lines[j].Heights()
+	_, ascent, descent, bottom := t.lines[j].Heights(rt.mode, rt.orient)
 	y -= bottom * lineSpacing
 
 	if height != 0.0 && height < y+descent {
 		// doesn't fit
 		t.lines = t.lines[:len(t.lines)-1]
 		if 0 < j {
-			_, _, descent2, bottom2 := t.lines[j-1].Heights()
+			_, _, descent2, bottom2 := t.lines[j-1].Heights(rt.mode, rt.orient)
 			y += descent2 - (bottom2+ascent)*lineSpacing
 		} else {
 			// no lines at all
@@ -522,6 +568,13 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	}
 
 	// vertical align
+	if rt.mode == VerticalRL {
+		if valign == Top {
+			valign = Bottom
+		} else if valign == Bottom {
+			valign = Top
+		}
+	}
 	if valign == Center || valign == Bottom {
 		dy := height - y
 		if valign == Center {
@@ -540,7 +593,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	}
 	if rt.mode == VerticalRL {
 		for j := range t.lines {
-			t.lines[j].y = width - t.lines[j].y
+			t.lines[j].y = height - t.lines[j].y
 		}
 	}
 	return t
@@ -563,8 +616,8 @@ func (t *Text) Heights() (float64, float64) {
 	}
 	firstLine := t.lines[0]
 	lastLine := t.lines[len(t.lines)-1]
-	_, ascent, _, _ := firstLine.Heights()
-	_, _, descent, _ := lastLine.Heights()
+	_, ascent, _, _ := firstLine.Heights(HorizontalTB, Mixed)
+	_, _, descent, _ := lastLine.Heights(HorizontalTB, Mixed)
 	return -firstLine.y + ascent, lastLine.y + descent
 }
 

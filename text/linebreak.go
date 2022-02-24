@@ -527,7 +527,7 @@ func isSpacelessScript(script Script) bool {
 }
 
 // GlyphsToItems converts a slice of glyphs into the box/glue/penalty items model as used by Knuth's line breaking algorithm. The SFNT and Size of each glyph must be set. Indent and align specify the indentation width of the first line and the alignment (left, right, centered, justified) of the lines respectively. Vertical should be true for vertical scripts.
-func GlyphsToItems(glyphs []Glyph, indent float64, align Align, vertical bool) []Item {
+func GlyphsToItems(glyphs []Glyph, indent float64, align Align, vertical, mixed bool) []Item {
 	if len(glyphs) == 0 {
 		return []Item{}
 	}
@@ -687,7 +687,8 @@ func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, indent, widt
 	toUnits := float64(sfnt.Head.UnitsPerEm) / size
 
 	vertical := false
-	items := GlyphsToItems(glyphs, indent, align, vertical)
+	mixed := false
+	items := GlyphsToItems(glyphs, indent, align, vertical, mixed)
 	breaks := Linebreak(items, width, looseness)
 
 	i, j := 0, 0 // index into: glyphs, breaks/lines

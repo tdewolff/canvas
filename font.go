@@ -372,7 +372,7 @@ type FontFace struct {
 
 	Language  string
 	Script    text.Script
-	Direction text.Direction
+	Direction text.Direction // TODO: really needed here?
 
 	// letter spacing
 	// stroke and stroke color
