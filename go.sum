@@ -2,8 +2,8 @@ cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMT
 cloud.google.com/go v0.34.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20201218220906-28db891af037/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
-fyne.io/fyne/v2 v2.1.2 h1:avp9CvLAUdvE7fDMtH1tVKyjxEWHWcpow6aI6L7Kvvw=
-fyne.io/fyne/v2 v2.1.2/go.mod h1:p+E/Dh+wPW8JwR2DVcsZ9iXgR9ZKde80+Y+40Is54AQ=
+fyne.io/fyne/v2 v2.1.4 h1:bt1+28++kAzRzPB0GM2EuSV4cnl8rXNX4cjfd8G06Rc=
+fyne.io/fyne/v2 v2.1.4/go.mod h1:p+E/Dh+wPW8JwR2DVcsZ9iXgR9ZKde80+Y+40Is54AQ=
 gioui.org v0.0.0-20210308172011-57750fc8a0a6/go.mod h1:RSH6KIUZ0p2xy5zHDxgAM4zumjgTw83q2ge/PI+yyw8=
 gioui.org v0.0.0-20211226092054-3a20330d8213 h1:6wyLPyusDRS1BZZO2dzhoxjCQXZAd2/uUh5FjR1bMkw=
 gioui.org v0.0.0-20211226092054-3a20330d8213/go.mod h1:yoWOxPng6WkDpsud+NRmkoftmyWn3rkKsYGEcWHpjTI=
@@ -358,8 +358,6 @@ github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5CcY=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
-github.com/tdewolff/argp v0.0.0-20211024182601-70fabe3b2369 h1:hSfGHFOlGdRjc4ZeNKd9OjZTSVCPEe9HCLt3Nr09V6U=
-github.com/tdewolff/argp v0.0.0-20211024182601-70fabe3b2369/go.mod h1:fF+gnKbmf3iMG+ErLiF+orMU/InyZIEnKVVigUjfriw=
 github.com/tdewolff/minify/v2 v2.10.0 h1:ovVAHUcjfGrBDf1EIvsodRUVJiZK/28mMose08B7k14=
 github.com/tdewolff/minify/v2 v2.10.0/go.mod h1:6XAjcHM46pFcRE0eztigFPm0Q+Cxsw8YhEWT+rDkcZM=
 github.com/tdewolff/parse/v2 v2.5.27 h1:PL3LzzXaOpmdrknnOlIeO2muIBHAwiKp6TxN1RbU5gI=
