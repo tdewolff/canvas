@@ -16,14 +16,13 @@ require (
 	github.com/paulmach/orb v0.4.0
 	github.com/paulmach/osm v0.2.2
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
-	github.com/tdewolff/argp v0.0.0-20211024182601-70fabe3b2369
 	github.com/tdewolff/minify/v2 v2.10.0
 	github.com/tdewolff/parse/v2 v2.5.27
 	github.com/tdewolff/test v1.0.6
 	github.com/wcharczuk/go-chart/v2 v2.1.0
-	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
+	golang.org/x/image v0.0.0-20220302094943-723b81ca9867
 	golang.org/x/text v0.3.7
-	gonum.org/v1/plot v0.10.0
+	gonum.org/v1/plot v0.11.0
 )
 
 require (
