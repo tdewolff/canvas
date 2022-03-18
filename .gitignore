@@ -26,3 +26,5 @@ font/tests/*/crashers
 font/tests/*/suppressions
 font/tests/*/corpus/*
 !font/tests/*/corpus/*.*
+/.idea/
+Test*.pdf
