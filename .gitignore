@@ -15,6 +15,7 @@ test/*
 *.fdb_latexmk
 *.synctex.gz
 *.log
+*.pdf
 cov
 tests/*/fuzz-fuzz.zip
 tests/*/crashers
@@ -26,3 +27,4 @@ font/tests/*/crashers
 font/tests/*/suppressions
 font/tests/*/corpus/*
 !font/tests/*/corpus/*.*
+/.idea/

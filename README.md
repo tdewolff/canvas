@@ -66,9 +66,11 @@ Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise pl
 
 **[TeX/PGF](https://github.com/tdewolff/canvas/tree/master/examples/tex)**: an example showing the usage of the PGF (TikZ) LaTeX package as renderer in order to generated a PDF using LaTeX.
 
-**[go-chart](https://github.com/tdewolff/canvas/tree/master/examples/go-chart)**: example usage of the [go-chart](https://github.com/wcharczuk/go-chart) library, plotting a financial graph.
+**[go-chart](https://github.com/tdewolff/canvas/tree/master/examples/go-chart)**: an example using the [go-chart](https://github.com/wcharczuk/go-chart) library, plotting a financial graph.
 
-**[gonum/plot](https://github.com/tdewolff/canvas/tree/master/examples/gonum-plot)**: example usage of the [gonum/plot](https://github.com/gonum/plot) library.
+**[gonum/plot](https://github.com/tdewolff/canvas/tree/master/examples/gonum-plot)**: an example using the [gonum/plot](https://github.com/gonum/plot) library.
+
+**[PDF](https://github.com/tdewolff/canvas/tree/master/examples/pdf)**: an example using the PDF backend.
 
 ## Articles
 * [Numerically stable quadratic formula](https://math.stackexchange.com/questions/866331/numerically-stable-algorithm-for-solving-the-quadratic-equation-when-a-is-very/2007723#2007723)
