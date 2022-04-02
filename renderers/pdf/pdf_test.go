@@ -3,6 +3,8 @@ package pdf
 import (
 	"bytes"
 	"image"
+	"io"
+	"os"
 	"strings"
 	"testing"
 
@@ -59,29 +61,50 @@ func TestPDFPath(t *testing.T) {
 	test.String(t, pdf.String(), " 2.8346457 0 0 2.8346457 0 0 cm /A0 gs 1 0 0 rg /A1 gs 0 0 1 RG 5 w 1 J 1 j [1 2 3 1 2 3] 2 d")
 }
 
+const fontDir = "../../resources/"
+
 func TestPDFText(t *testing.T) {
-	//dejaVuSerif := NewFontFamily("dejavu-serif")
-	//dejaVuSerif.LoadFontFile("font/DejaVuSerif.ttf", FontRegular)
+	doTestPDFText(t, false, 506000, "TestPDFText_no_subset.pdf")
+	doTestPDFText(t, true, 330000, "TestPDFText_subset_fonts.pdf")
+}
 
-	//ebGaramond := NewFontFamily("eb-garamond")
-	//ebGaramond.LoadFontFile("font/EBGaramond12-Regular.otf", FontRegular)
+func doTestPDFText(t *testing.T, subsetFonts bool, expectedSize int, filename string) {
+	dejaVuSerif := canvas.NewFontFamily("dejavu-serif")
+	err := dejaVuSerif.LoadFontFile(fontDir+"DejaVuSerif.ttf", canvas.FontRegular)
+	test.Error(t, err)
 
-	//dejaVu8 := dejaVuSerif.Face(8.0*ptPerMm, Black, FontRegular, FontNormal)
-	//dejaVu12 := dejaVuSerif.Face(12.0*ptPerMm, Red, FontItalic, FontNormal, FontUnderline)
-	//dejaVu12sub := dejaVuSerif.Face(12.0*ptPerMm, Black, FontRegular, FontSubscript)
-	//garamond10 := ebGaramond.Face(10.0*ptPerMm, Black, FontBold, FontNormal)
+	ebGaramond := canvas.NewFontFamily("eb-garamond")
+	err = ebGaramond.LoadFontFile(fontDir+"EBGaramond12-Regular.otf", canvas.FontRegular)
+	test.Error(t, err)
 
-	//rt := NewRichText()
-	//rt.Add(dejaVu8, "dejaVu8")
-	//rt.Add(dejaVu12, " glyphspacing")
-	//rt.Add(dejaVu12sub, " dejaVu12sub")
-	//rt.Add(garamond10, " garamond10")
-	//text := rt.ToText(dejaVu12.TextWidth("glyphspacing")+float64(len("glyphspacing")-1), 100.0, Justify, Top, 0.0, 0.0)
+	dejaVu8 := dejaVuSerif.Face(8, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	dejaVu12 := dejaVuSerif.Face(12, canvas.Red, canvas.FontRegular, canvas.FontNormal, canvas.FontUnderline)
+	dejaVu12sub := dejaVuSerif.Face(12, canvas.Black, canvas.FontRegular, canvas.FontSubscript)
+	garamond10 := ebGaramond.Face(10, canvas.Black, canvas.FontBold, canvas.FontNormal)
 
-	//buf := &bytes.Buffer{}
-	//pdf := newPDFWriter(buf).NewPage(210.0, 297.0)
-	//textLayer{text, Identity}.WritePDF(pdf) // this actually gives coverage to PDF font embedding, which we don't test...
-	//test.String(t, pdf.String(), " BT /F0 8 Tf 0 -7.421875 Td[(\x00G\x00H\x00M\x00D\x009) 63 (\x00X\x00\x1B)]TJ 1 0 0 rg 1 0 .3 1 0 -20.453125 Tm 1 Tc[(\x00J\x00O\x00\\\x00S\x00K\x00V\x00S\x00D\x00F\x00L\x00Q\x00J)]TJ 0 g 1 0 0 1 0 -29.765625 Tm 0 Tc 2 Tr .27984 w[(\x00G\x00H\x00M\x00D\x009) 63 (\x00X\x00\x14\x00\x15\x00V\x00X\x00E)]TJ /F1 10 Tf 0 -8.734375 Td .4 w[(\x00H\x00B\x00S\x00B\x00N\x00P\x00O\x00E\x00\x12\x00\x11)]TJ ET 1 0 0 rg 0 -22.703125 m 91.71875 -22.703125 l 91.71875 -21.803125 l 0 -21.803125 l f")
+	rt := canvas.NewRichText(dejaVu12)
+	rt.Add(dejaVu8, "dejaVu8")
+	rt.Add(dejaVu12, " glyphspacing")
+	rt.Add(dejaVu12sub, " dejaVu12sub")
+	rt.Add(garamond10, " garamond10")
+	text := rt.ToText(180, 20.0, canvas.Justify, canvas.Top, 0.0, 0.0)
+
+	buf := &bytes.Buffer{}
+	var w io.Writer = buf
+	if testing.Verbose() {
+		f, _ := os.Create(filename) // for manual inspection
+		defer f.Close()
+		w = io.MultiWriter(buf, f)
+	}
+
+	pdf := New(w, 210, 297, &Options{Compress: false, SubsetFonts: subsetFonts})
+
+	pdf.RenderText(text, canvas.Identity.Translate(15, 250))
+
+	pdf.Close()
+
+	written := len(buf.Bytes()) // expecting around 506K
+	test.That(t, expectedSize-1000 < written && written < expectedSize+1000, "Unexpected rendering result length")
 }
 
 func TestPDFImage(t *testing.T) {

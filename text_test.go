@@ -163,7 +163,7 @@ func TestTextBounds(t *testing.T) {
 	rt.Add(face12, "test")
 	text := rt.ToText(4096.0, 4096.0, Left, Top, 0.0, 0.0)
 
-	top, ascent, descent, bottom := text.lines[0].Heights()
+	top, ascent, descent, bottom := text.lines[0].Heights(0, 0)
 	test.Float(t, top, 1901*1.5)
 	test.Float(t, ascent, 1901*1.5)
 	test.Float(t, descent, 483*1.5)
