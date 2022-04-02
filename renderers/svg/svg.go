@@ -46,6 +46,7 @@ type SVG struct {
 	w             io.Writer
 	width, height float64
 	fonts         map[*canvas.Font]bool
+	fontSubset    map[*canvas.Font]*canvas.FontSubsetter
 	maskID        int
 	classes       []string
 	opts          *Options
@@ -67,13 +68,14 @@ func New(w io.Writer, width, height float64, opts *Options) *SVG {
 
 	fmt.Fprintf(w, `<svg version="1.1" width="%vmm" height="%vmm" viewBox="0 0 %v %v" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, dec(width), dec(height), dec(width), dec(height))
 	return &SVG{
-		w:       w,
-		width:   width,
-		height:  height,
-		fonts:   map[*canvas.Font]bool{},
-		maskID:  0,
-		classes: []string{},
-		opts:    opts,
+		w:          w,
+		width:      width,
+		height:     height,
+		fonts:      map[*canvas.Font]bool{},
+		fontSubset: map[*canvas.Font]*canvas.FontSubsetter{},
+		maskID:     0,
+		classes:    []string{},
+		opts:       opts,
 	}
 }
 
@@ -95,7 +97,8 @@ func (r *SVG) writeFonts() {
 		for font := range r.fonts {
 			b := font.SFNT.Data
 			if r.opts.SubsetFonts {
-				b, _ = font.SFNT.Subset(font.SubsetIDs())
+				glyphIDs := r.fontSubset[font].List()
+				b, _ = font.SFNT.Subset(glyphIDs)
 			}
 			fmt.Fprintf(r.w, "\n@font-face{font-family:'%s'", font.Name())
 			if font.Style().Weight() != canvas.FontRegular {
@@ -384,10 +387,15 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 	fmt.Fprintf(r.w, `">`)
 
 	text.WalkSpans(func(x, y float64, span canvas.TextSpan) {
-		r.fonts[span.Face.Font] = true
+		if ok, _ := r.fonts[span.Face.Font]; !ok {
+			r.fonts[span.Face.Font] = true
+			r.fontSubset[span.Face.Font] = canvas.NewFontSubsetter()
+		}
+
+		subset := r.fontSubset[span.Face.Font]
 		for _, r := range span.Text {
 			glyphID := span.Face.Font.SFNT.GlyphIndex(r)
-			_ = span.Face.Font.SubsetID(glyphID) // register usage of glyph for subsetting
+			_ = subset.Get(glyphID) // register usage of glyph for subsetting
 		}
 
 		x += x0

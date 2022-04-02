@@ -58,7 +58,7 @@ func main() {
 	c2.Render(p)
 
 	must(p.Close())
-	fmt.Printf("%s", time.Now().Sub(t0).Round(time.Millisecond))
+	fmt.Printf("%s\n", time.Now().Sub(t0).Round(time.Millisecond))
 }
 
 func must(err error) {

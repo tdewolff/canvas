@@ -76,13 +76,11 @@ const (
 // Font defines an SFNT font such as TTF or OTF.
 type Font struct {
 	*font.SFNT
-	name        string
-	style       FontStyle
-	subsetIDs   []uint16          // old glyphIDs for increasing new glyphIDs
-	subsetIDMap map[uint16]uint16 // old to new glyphID
-	shaper      text.Shaper
-	variations  string
-	features    string
+	name       string
+	style      FontStyle
+	shaper     text.Shaper
+	variations string
+	features   string
 }
 
 func parseFont(name string, style FontStyle, b []byte, index int) (*Font, error) {
@@ -97,12 +95,10 @@ func parseFont(name string, style FontStyle, b []byte, index int) (*Font, error)
 	}
 
 	font := &Font{
-		SFNT:        SFNT,
-		name:        name,
-		style:       style,
-		subsetIDs:   []uint16{0}, // .notdef should always be at zero
-		subsetIDMap: map[uint16]uint16{0: 0},
-		shaper:      shaper,
+		SFNT:   SFNT,
+		name:   name,
+		style:  style,
+		shaper: shaper,
 	}
 	return font, nil
 }
@@ -122,22 +118,6 @@ func (f *Font) Style() FontStyle {
 	return f.style
 }
 
-// SubsetID maps a glyphID of the original font to the subsetted font. If the glyphID is not subsetted, it will be added to the map.
-func (f *Font) SubsetID(glyphID uint16) uint16 {
-	if subsetGlyphID, ok := f.subsetIDMap[glyphID]; ok {
-		return subsetGlyphID
-	}
-	subsetGlyphID := uint16(len(f.subsetIDs))
-	f.subsetIDs = append(f.subsetIDs, glyphID)
-	f.subsetIDMap[glyphID] = subsetGlyphID
-	return subsetGlyphID
-}
-
-// SubsetIDs returns all subsetted IDs in the order of appearance.
-func (f *Font) SubsetIDs() []uint16 {
-	return f.subsetIDs
-}
-
 // SetVariations sets the font variations (not yet supported).
 func (f *Font) SetVariations(variations string) {
 	// TODO: support font variations
@@ -148,6 +128,36 @@ func (f *Font) SetVariations(variations string) {
 func (f *Font) SetFeatures(features string) {
 	// TODO: support font features
 	f.features = features
+}
+
+// FontSubsetter holds a map between original glyph IDs and new glyph IDs in a subsetted font.
+type FontSubsetter struct {
+	IDs   []uint16          // old glyphIDs for increasing new glyphIDs
+	IDMap map[uint16]uint16 // old to new glyphID
+}
+
+// NewFontSubsetter returns a new font subsetter.
+func NewFontSubsetter() *FontSubsetter {
+	return &FontSubsetter{
+		IDs:   []uint16{0}, // .notdef should always be at zero
+		IDMap: map[uint16]uint16{0: 0},
+	}
+}
+
+// Get maps a glyphID of the original font to the subsetted font. If the glyphID is not subsetted, it will be added to the map.
+func (subsetter *FontSubsetter) Get(glyphID uint16) uint16 {
+	if subsetGlyphID, ok := subsetter.IDMap[glyphID]; ok {
+		return subsetGlyphID
+	}
+	subsetGlyphID := uint16(len(subsetter.IDs))
+	subsetter.IDs = append(subsetter.IDs, glyphID)
+	subsetter.IDMap[glyphID] = subsetGlyphID
+	return subsetGlyphID
+}
+
+// IDs returns all subsetted IDs in the order of appearance.
+func (subsetter *FontSubsetter) List() []uint16 {
+	return subsetter.IDs
 }
 
 // FontFamily contains a family of fonts (bold, italic, ...). Allowing to select an italic style as the native italic font or to use faux italic if not present.

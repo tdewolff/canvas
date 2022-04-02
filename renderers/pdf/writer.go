@@ -30,22 +30,24 @@ type pdfWriter struct {
 	objOffsets []int
 	pages      []pdfRef
 
-	page     *pdfPageWriter
-	fontsH   map[*canvas.Font]pdfRef
-	fontsV   map[*canvas.Font]pdfRef
-	compress bool
-	subset   bool
-	title    string
-	subject  string
-	keywords string
-	author   string
-	creator  string
+	page       *pdfPageWriter
+	fontSubset map[*canvas.Font]*canvas.FontSubsetter
+	fontsH     map[*canvas.Font]pdfRef
+	fontsV     map[*canvas.Font]pdfRef
+	compress   bool
+	subset     bool
+	title      string
+	subject    string
+	keywords   string
+	author     string
+	creator    string
 }
 
 func newPDFWriter(writer io.Writer) *pdfWriter {
 	w := &pdfWriter{
 		w:          writer,
 		objOffsets: []int{0, 0, 0}, // catalog, metadata, page tree
+		fontSubset: map[*canvas.Font]*canvas.FontSubsetter{},
 		fontsH:     map[*canvas.Font]pdfRef{},
 		fontsV:     map[*canvas.Font]pdfRef{},
 		compress:   true,
@@ -242,13 +244,15 @@ func (w *pdfWriter) getFont(font *canvas.Font, vertical bool) pdfRef {
 	w.objOffsets = append(w.objOffsets, 0)
 	ref := pdfRef(len(w.objOffsets))
 	fonts[font] = ref
+
+	w.fontSubset[font] = canvas.NewFontSubsetter()
 	return ref
 }
 
 func (w *pdfWriter) writeFont(ref pdfRef, font *canvas.Font, vertical bool) {
 	// subset the font
 	fontProgram := font.SFNT.Data
-	glyphIDs := font.SubsetIDs()
+	glyphIDs := w.fontSubset[font].List()
 	if w.subset {
 		// TODO: remove all optional tables such as kern, GPOS, GSUB, ...
 		fontProgram, glyphIDs = font.SFNT.Subset(glyphIDs)
@@ -845,8 +849,9 @@ func (w *pdfPageWriter) WriteText(mode canvas.WritingMode, TJ ...interface{}) {
 		} else {
 			fmt.Fprintf(w, " (")
 		}
+		subset := w.pdf.fontSubset[w.font]
 		for _, glyph := range glyphs {
-			glyphID := w.font.SubsetID(glyph.ID)
+			glyphID := subset.Get(glyph.ID)
 			for _, c := range []uint8{uint8((glyphID & 0xff00) >> 8), uint8(glyphID & 0x00ff)} {
 				if c == '\n' {
 					binary.Write(w, binary.BigEndian, uint8('\\'))
