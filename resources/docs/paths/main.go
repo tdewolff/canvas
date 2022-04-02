@@ -18,7 +18,7 @@ func main() {
 	ctx.SetFillColor(canvas.White)
 	ctx.DrawPath(0, 0, canvas.Rectangle(c.W, c.H))
 	draw(ctx)
-	c.WriteFile("paths.png", renderers.PNG(5.0))
+	c.WriteFile("paths.png", renderers.PNG(canvas.DPMM(5.0)))
 }
 
 func drawPos(c *canvas.Context, x, y float64) {

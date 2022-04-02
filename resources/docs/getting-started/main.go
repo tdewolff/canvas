@@ -21,5 +21,5 @@ func main() {
 	ctx.DrawPath(20, 20, triangle)
 
 	// Rasterize the canvas and write to a PNG file with 3.2 dots-per-mm (320x320 px)
-	c.WriteFile("getting-started.png", renderers.PNG(3.2))
+	c.WriteFile("getting-started.png", renderers.PNG(canvas.DPMM(3.2)))
 }

@@ -40,7 +40,7 @@ func main() {
 
 	////////////////
 
-	c.WriteFile("preview.png", renderers.PNG(3.2))
+	c.WriteFile("preview.png", renderers.PNG(canvas.DPMM(3.2)))
 }
 
 func drawText(c *canvas.Context, x, y float64, face *canvas.FontFace, rich *canvas.RichText) {
