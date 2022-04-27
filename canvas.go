@@ -145,27 +145,38 @@ type CoordSystem int
 // see CoordSystem
 const (
 	CartesianI CoordSystem = iota
-	CartesianII
-	CartesianIII
 	CartesianIV
 )
+
+type ContextState struct {
+	Style
+	view        Matrix
+	coordView   Matrix
+	coordSystem CoordSystem
+}
 
 // Context maintains the state for the current path, path style, and view transformation matrix.
 type Context struct {
 	Renderer
 
 	path *Path
-	Style
-	styleStack     []Style
-	view           Matrix
-	viewStack      []Matrix
-	coordView      Matrix
-	coordViewStack []Matrix
+	ContextState
+	stack []ContextState
 }
 
 // NewContext returns a new context which is a wrapper around a renderer. Contexts maintain the state of the current path, path style, and view transformation matrix.
 func NewContext(r Renderer) *Context {
-	return &Context{r, &Path{}, DefaultStyle, nil, Identity, nil, Identity, nil}
+	return &Context{
+		Renderer: r,
+		path:     &Path{},
+		ContextState: ContextState{
+			Style:       DefaultStyle,
+			view:        Identity,
+			coordView:   Identity,
+			coordSystem: CartesianI,
+		},
+		stack: nil,
+	}
 }
 
 // Width returns the width of the canvas in millimeters.
@@ -182,22 +193,16 @@ func (c *Context) Height() float64 {
 
 // Push saves the current draw state so that it can be popped later on.
 func (c *Context) Push() {
-	c.styleStack = append(c.styleStack, c.Style)
-	c.viewStack = append(c.viewStack, c.view)
-	c.coordViewStack = append(c.coordViewStack, c.coordView)
+	c.stack = append(c.stack, c.ContextState)
 }
 
 // Pop restores the last pushed draw state and uses that as the current draw state. If there are no states on the stack, this will do nothing.
 func (c *Context) Pop() {
-	if len(c.styleStack) == 0 {
+	if len(c.stack) == 0 {
 		return
 	}
-	c.Style = c.styleStack[len(c.styleStack)-1]
-	c.styleStack = c.styleStack[:len(c.styleStack)-1]
-	c.view = c.viewStack[len(c.viewStack)-1]
-	c.viewStack = c.viewStack[:len(c.viewStack)-1]
-	c.coordView = c.coordViewStack[len(c.coordViewStack)-1]
-	c.coordViewStack = c.coordViewStack[:len(c.coordViewStack)-1]
+	c.ContextState = c.stack[len(c.stack)-1]
+	c.stack = c.stack[:len(c.stack)-1]
 }
 
 // CoordView returns the current affine transformation matrix through which all operation coordinates will be transformed.
@@ -217,17 +222,7 @@ func (c *Context) SetCoordRect(rect Rect, width, height float64) {
 
 // SetCoordSystem sets the current affine transformation matrix through which all operation coordinates will be transformed as a Cartesian coordinate system.
 func (c *Context) SetCoordSystem(coordSystem CoordSystem) {
-	w, h := c.Size()
-	switch coordSystem {
-	case CartesianI:
-		c.coordView = Identity
-	case CartesianII:
-		c.coordView = Identity.ReflectXAbout(w / 2.0)
-	case CartesianIII:
-		c.coordView = Identity.ReflectXAbout(w / 2.0).ReflectYAbout(h / 2.0)
-	case CartesianIV:
-		c.coordView = Identity.ReflectYAbout(h / 2.0)
-	}
+	c.coordSystem = coordSystem
 }
 
 // View returns the current affine transformation matrix through which all operations will be transformed.
@@ -444,7 +439,11 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 	}
 
 	coord := c.coordView.Dot(Point{x, y})
-	m := c.view.Translate(coord.X, coord.Y)
+	m := Identity
+	if c.coordSystem == CartesianIV {
+		m = m.ReflectYAbout(c.Height() / 2.0)
+	}
+	m = m.Mul(c.view).Translate(coord.X, coord.Y)
 	for _, path := range paths {
 		var dashes []float64
 		path, dashes = path.checkDash(c.Style.DashOffset, c.Style.Dashes)
@@ -459,7 +458,11 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 
 // DrawText draws text at position (x,y) using the current draw state.
 func (c *Context) DrawText(x, y float64, texts ...*Text) {
-	coord := c.coordView.Dot(Point{x, y})
+	coordView := Identity
+	if c.coordSystem == CartesianIV {
+		coordView = coordView.ReflectYAbout(c.Height() / 2.0)
+	}
+	coord := coordView.Mul(c.coordView).Dot(Point{x, y})
 	m := c.view.Translate(coord.X, coord.Y)
 	for _, text := range texts {
 		if text.Empty() {
@@ -475,8 +478,16 @@ func (c *Context) DrawImage(x, y float64, img image.Image, resolution Resolution
 		return
 	}
 
-	coord := c.coordView.Dot(Point{x, y})
+	var coord Point
+	if c.coordSystem == CartesianI {
+		coord = c.coordView.Dot(Point{x, y})
+	} else if c.coordSystem == CartesianIV {
+		coord = Identity.ReflectYAbout(c.Height() / 2.0).Mul(c.coordView).Dot(Point{x, y})
+	}
 	m := c.view.Translate(coord.X, coord.Y).Scale(1.0/resolution.DPMM(), 1.0/resolution.DPMM())
+	if c.coordSystem == CartesianIV {
+		m = m.Translate(0.0, -float64(img.Bounds().Size().Y))
+	}
 	c.RenderImage(img, m)
 }
 
