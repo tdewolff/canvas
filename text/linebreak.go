@@ -483,7 +483,9 @@ START:
 		breaks[b.Line] = b
 		b = b.parent
 	}
-	breaks = breaks[1:]
+	if 1 < len(breaks) {
+		breaks = breaks[1:]
+	}
 	return breaks
 }
 

@@ -2,7 +2,7 @@
 
 package text
 
-import "github.com/benoitkugler/textlayout/fribidi"
+import "github.com/benoitkugler/textprocessing/fribidi"
 
 // Bidi maps the string from its logical order to the visual order to correctly display mixed LTR/RTL text. It returns a mapping of rune positions.
 func Bidi(text string) (string, []int) {
