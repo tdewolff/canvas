@@ -11,7 +11,6 @@ require (
 	github.com/benoitkugler/textlayout v0.1.3
 	github.com/benoitkugler/textprocessing v0.0.2
 	github.com/dsnet/compress v0.0.1
-	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-gl/gl v0.0.0-20211210172815-726fda9656d6
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20211024062804-40e447a793be
 	github.com/go-latex/latex v0.0.0-20210823091927-c0d11ff05a81
@@ -19,9 +18,8 @@ require (
 	github.com/paulmach/orb v0.7.1
 	github.com/paulmach/osm v0.3.0
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
-	github.com/tdewolff/argp v0.0.0-20211024182601-70fabe3b2369
-	github.com/tdewolff/minify/v2 v2.11.5
-	github.com/tdewolff/parse/v2 v2.5.31
+	github.com/tdewolff/minify/v2 v2.11.7
+	github.com/tdewolff/parse/v2 v2.5.32
 	github.com/tdewolff/test v1.0.6
 	github.com/wcharczuk/go-chart/v2 v2.1.0
 	golang.org/x/exp v0.0.0-20220218215828-6cf2b201936e // indirect
