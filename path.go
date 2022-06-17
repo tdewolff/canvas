@@ -1399,49 +1399,6 @@ func (p *Path) Segments() []Segment {
 	return segs
 }
 
-// Iterate iterates over the path commands and calls the respective functions move, line, quad, cube, arc, close when encountering MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close commands respectively.
-// DEPRECATED
-func (p *Path) Iterate(
-	move func(Point, Point),
-	line func(Point, Point),
-	quad func(Point, Point, Point),
-	cube func(Point, Point, Point, Point),
-	arc func(Point, float64, float64, float64, bool, bool, Point),
-	close func(Point, Point),
-) {
-	var start, end Point
-	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
-		switch cmd {
-		case MoveToCmd:
-			end = Point{p.d[i+1], p.d[i+2]}
-			move(start, end)
-		case LineToCmd:
-			end = Point{p.d[i+1], p.d[i+2]}
-			line(start, end)
-		case QuadToCmd:
-			cp := Point{p.d[i+1], p.d[i+2]}
-			end = Point{p.d[i+3], p.d[i+4]}
-			quad(start, cp, end)
-		case CubeToCmd:
-			cp1 := Point{p.d[i+1], p.d[i+2]}
-			cp2 := Point{p.d[i+3], p.d[i+4]}
-			end = Point{p.d[i+5], p.d[i+6]}
-			cube(start, cp1, cp2, end)
-		case ArcToCmd:
-			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]*180.0/math.Pi
-			large, sweep := toArcFlags(p.d[i+4])
-			end = Point{p.d[i+5], p.d[i+6]}
-			arc(start, rx, ry, phi, large, sweep, end)
-		case CloseCmd:
-			end = Point{p.d[i+1], p.d[i+2]}
-			close(start, end)
-		}
-		start = end
-		i += cmdLen(cmd)
-	}
-}
-
 ////////////////////////////////////////////////////////////////
 
 func skipCommaWhitespace(path []byte) int {

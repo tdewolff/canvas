@@ -3,69 +3,12 @@ package rasterizer
 import (
 	"image"
 	"image/color"
-	"image/gif"
-	"image/jpeg"
-	"image/png"
-	"io"
-	"log"
 
 	"github.com/tdewolff/canvas"
-	"golang.org/x/image/bmp"
 	"golang.org/x/image/draw"
 	"golang.org/x/image/math/f64"
-	"golang.org/x/image/tiff"
 	"golang.org/x/image/vector"
 )
-
-// PNGWriter writes the canvas as a PNG file.
-// DEPRECATED
-func PNGWriter(resolution canvas.Resolution) canvas.Writer {
-	log.Println("WARNING: github.com/tdewolff/canvas/renderers/rasterizer.PNGWriter is deprecated, please use github.com/tdewolff/canvas/renderers.PNG")
-	return func(w io.Writer, c *canvas.Canvas) error {
-		img := Draw(c, resolution, nil)
-		return png.Encode(w, img)
-	}
-}
-
-// JPGWriter writes the canvas as a JPG file.
-// DEPRECATED
-func JPGWriter(resolution canvas.Resolution, opts *jpeg.Options) canvas.Writer {
-	log.Println("WARNING: github.com/tdewolff/canvas/renderers/rasterizer.JPGWriter is deprecated, please use github.com/tdewolff/canvas/renderers.JPG")
-	return func(w io.Writer, c *canvas.Canvas) error {
-		img := Draw(c, resolution, nil)
-		return jpeg.Encode(w, img, opts)
-	}
-}
-
-// GIFWriter writes the canvas as a GIF file.
-// DEPRECATED
-func GIFWriter(resolution canvas.Resolution, opts *gif.Options) canvas.Writer {
-	log.Println("WARNING: github.com/tdewolff/canvas/renderers/rasterizer.GIFWriter is deprecated, please use github.com/tdewolff/canvas/renderers.GIF")
-	return func(w io.Writer, c *canvas.Canvas) error {
-		img := Draw(c, resolution, nil)
-		return gif.Encode(w, img, opts)
-	}
-}
-
-// TIFFWriter writes the canvas as a TIFF file.
-// DEPRECATED
-func TIFFWriter(resolution canvas.Resolution, opts *tiff.Options) canvas.Writer {
-	log.Println("WARNING: github.com/tdewolff/canvas/renderers/rasterizer.TIFFWriter is deprecated, please use github.com/tdewolff/canvas/renderers.TIFF")
-	return func(w io.Writer, c *canvas.Canvas) error {
-		img := Draw(c, resolution, nil)
-		return tiff.Encode(w, img, opts)
-	}
-}
-
-// BMPWriter writes the canvas as a BMP file.
-// DEPRECATED
-func BMPWriter(resolution canvas.Resolution) canvas.Writer {
-	log.Println("WARNING: github.com/tdewolff/canvas/renderers/rasterizer.BMPWriter is deprecated, please use github.com/tdewolff/canvas/renderers.BMP")
-	return func(w io.Writer, c *canvas.Canvas) error {
-		img := Draw(c, resolution, nil)
-		return bmp.Encode(w, img)
-	}
-}
 
 // Draw draws the canvas on a new image with given resolution (in dots-per-millimeter). Higher resolution will result in larger images.
 func Draw(c *canvas.Canvas, resolution canvas.Resolution, colorSpace canvas.ColorSpace) *image.RGBA {
@@ -80,10 +23,10 @@ func Draw(c *canvas.Canvas, resolution canvas.Resolution, colorSpace canvas.Colo
 type Rasterizer struct {
 	draw.Image
 	resolution canvas.Resolution
-	ColorSpace canvas.ColorSpace
+	colorSpace canvas.ColorSpace
 }
 
-// New returns a renderer that draws to a rasterized image. By default the linear color space is used, which assumes input and output colors are in linearRGB. If the sRGB color space is used for drawing with an average of gamma=2.2, the input and output colors are assumed to be in sRGB and blending happens in linearRGB. Be aware that for text this results in thin stems for black-on-white (but wide stems for white-on-black).
+// New returns a renderer that draws to a rasterized image. By default the linear color space is used, which assumes input and output colors are in linearRGB. If the sRGB color space is used for drawing with an average of gamma=2.2, the input and output colors are assumed to be in sRGB (a common assumption) and blending happens in linearRGB. Be aware that for text this results in thin stems for black-on-white (but wide stems for white-on-black).
 func New(width, height float64, resolution canvas.Resolution, colorSpace canvas.ColorSpace) *Rasterizer {
 	img := image.NewRGBA(image.Rect(0, 0, int(width*resolution.DPMM()+0.5), int(height*resolution.DPMM()+0.5)))
 	return FromImage(img, resolution, colorSpace)
@@ -97,14 +40,14 @@ func FromImage(img draw.Image, resolution canvas.Resolution, colorSpace canvas.C
 	return &Rasterizer{
 		Image:      img,
 		resolution: resolution,
-		ColorSpace: colorSpace,
+		colorSpace: colorSpace,
 	}
 }
 
 func (r *Rasterizer) Close() {
-	if _, ok := r.ColorSpace.(canvas.LinearColorSpace); !ok {
+	if _, ok := r.colorSpace.(canvas.LinearColorSpace); !ok {
 		// gamma compress
-		changeColorSpace(r.Image, r.Image, r.ColorSpace.FromLinear)
+		changeColorSpace(r.Image, r.Image, r.colorSpace.FromLinear)
 	}
 }
 
@@ -168,14 +111,14 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		ras := vector.NewRasterizer(w, h)
 		fill = fill.Translate(-float64(x)/dpmm, -float64(y)/dpmm)
 		fill.ToRasterizer(ras, r.resolution)
-		col := r.ColorSpace.ToLinear(style.FillColor)
+		col := r.colorSpace.ToLinear(style.FillColor)
 		ras.Draw(r.Image, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(col), image.Point{dx, dy})
 	}
 	if style.HasStroke() {
 		ras := vector.NewRasterizer(w, h)
 		stroke = stroke.Translate(-float64(x)/dpmm, -float64(y)/dpmm)
 		stroke.ToRasterizer(ras, r.resolution)
-		col := r.ColorSpace.ToLinear(style.StrokeColor)
+		col := r.colorSpace.ToLinear(style.StrokeColor)
 		ras.Draw(r.Image, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(col), image.Point{dx, dy})
 	}
 }
@@ -201,9 +144,9 @@ func (r *Rasterizer) RenderImage(img image.Image, m canvas.Matrix) {
 	origin := m.Dot(canvas.Point{-float64(margin), float64(img2.Bounds().Size().Y - margin)}).Mul(dpmm)
 	m = m.Scale(dpmm, dpmm)
 
-	if _, ok := r.ColorSpace.(canvas.LinearColorSpace); !ok {
+	if _, ok := r.colorSpace.(canvas.LinearColorSpace); !ok {
 		// gamma decompress
-		changeColorSpace(img2, img2, r.ColorSpace.ToLinear)
+		changeColorSpace(img2, img2, r.colorSpace.ToLinear)
 	}
 
 	h := float64(r.Bounds().Size().Y)

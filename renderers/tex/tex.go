@@ -5,20 +5,10 @@ import (
 	"image"
 	"image/color"
 	"io"
-	"log"
 	"math"
 
 	"github.com/tdewolff/canvas"
 )
-
-// Writer writes the canvas as a TeX file using PGF (\usepackage{pgf}).
-// DEPRECATED
-func Writer(w io.Writer, c *canvas.Canvas) error {
-	log.Println("WARNING: github.com/tdewolff/canvas/renderers/tex.Writer is deprecated, please use github.com/tdewolff/canvas/renderers.TeX")
-	tex := New(w, c.W, c.H)
-	c.Render(tex)
-	return tex.Close()
-}
 
 // TeX is a TeX/PGF renderer. Be aware that TeX/PGF does not support transparency of colors.
 type TeX struct {

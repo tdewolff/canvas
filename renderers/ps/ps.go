@@ -7,7 +7,6 @@ import (
 	"image"
 	"image/color"
 	"io"
-	"log"
 	"math"
 	"strings"
 	"time"
@@ -33,15 +32,6 @@ type Options struct {
 
 var DefaultOptions = Options{
 	ImageEncoding: canvas.Lossless,
-}
-
-// Writer writes the canvas as a PS file.
-// DEPRECATED
-func Writer(w io.Writer, c *canvas.Canvas) error {
-	log.Println("WARNING: github.com/tdewolff/canvas/renderers/ps.Writer is deprecated, please use github.com/tdewolff/canvas/renderers.PS")
-	ps := New(w, c.W, c.H, nil)
-	c.Render(ps)
-	return ps.Close()
 }
 
 // PS is an PostScript renderer. Be aware that PostScript does not support transparency of colors.
