@@ -718,6 +718,11 @@ func (p *Path) Translate(x, y float64) *Path {
 	return p.Transform(Identity.Translate(x, y))
 }
 
+// Scale scales the path by (x,y) and returns a new path.
+func (p *Path) Scale(x, y float64) *Path {
+	return p.Transform(Identity.Scale(x, y))
+}
+
 // Flatten flattens all Bézier and arc curves into linear segments and returns a new path. It uses Tolerance as the maximum deviation.
 func (p *Path) Flatten() *Path {
 	return p.replace(nil, flattenQuadraticBezier, flattenCubicBezier, flattenEllipticArc)
