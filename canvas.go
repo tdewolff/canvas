@@ -181,14 +181,19 @@ func NewContext(r Renderer) *Context {
 
 // Width returns the width of the canvas in millimeters.
 func (c *Context) Width() float64 {
-	w, _ := c.Size()
+	w, _ := c.Renderer.Size()
 	return w
 }
 
 // Height returns the height of the canvas in millimeters.
 func (c *Context) Height() float64 {
-	_, h := c.Size()
+	_, h := c.Renderer.Size()
 	return h
+}
+
+// Size returns the width and height of the canvas in millimeters.
+func (c *Context) Size() (float64, float64) {
+	return c.Renderer.Size()
 }
 
 // Push saves the current draw state so that it can be popped later on.
