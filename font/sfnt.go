@@ -117,7 +117,7 @@ func (sfnt *SFNT) Kerning(left, right uint16) int16 {
 
 // ParseSFNT parses an OpenType file format (TTF, OTF, TTC). The index is used for font collections to select a single font.
 func ParseSFNT(b []byte, index int) (*SFNT, error) {
-	if len(b) < 12 || math.MaxUint32 < len(b) {
+	if len(b) < 12 || uint(math.MaxUint32) < uint(len(b)) {
 		return nil, ErrInvalidFontData
 	}
 

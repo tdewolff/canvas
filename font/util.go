@@ -67,7 +67,7 @@ type BinaryReader struct {
 
 // NewBinaryReader returns a big endian binary file format reader.
 func NewBinaryReader(buf []byte) *BinaryReader {
-	if math.MaxUint32 < uint64(len(buf)) {
+	if math.MaxUint32 < uint(len(buf)) {
 		return &BinaryReader{nil, 0, true}
 	}
 	return &BinaryReader{buf, 0, false}
@@ -207,7 +207,7 @@ type BitmapReader struct {
 
 // NewBitmapReader returns a binary bitmap reader.
 func NewBitmapReader(buf []byte) *BitmapReader {
-	if math.MaxUint32 < uint64(len(buf)) {
+	if math.MaxUint32 < uint(len(buf)) {
 		return &BitmapReader{nil, 0, true}
 	}
 	return &BitmapReader{buf, 0, false}
