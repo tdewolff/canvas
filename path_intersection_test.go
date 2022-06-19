@@ -29,12 +29,12 @@ func TestIntersectionLineLine(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.line1, "x", tt.line2), func(t *testing.T) {
-			line1Segs := MustParseSVG(tt.line1).Segments()
-			line2Segs := MustParseSVG(tt.line2).Segments()
-			line1 := line1Segs[len(line1Segs)-1]
-			line2 := line2Segs[len(line2Segs)-1]
+			line1 := MustParseSVG(tt.line1).ReverseScanner()
+			line2 := MustParseSVG(tt.line2).ReverseScanner()
+			line1.Scan()
+			line2.Scan()
 
-			zs := intersectionLineLine(line1.Start, line1.End, line2.Start, line2.End)
+			zs := intersectionLineLine(line1.Start(), line1.End(), line2.Start(), line2.End())
 			test.T(t, len(zs), len(tt.zs))
 			for i := range zs {
 				test.T(t, zs[i], tt.zs[i])
@@ -108,12 +108,12 @@ func TestIntersectionLineQuad(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.line, "x", tt.quad), func(t *testing.T) {
-			lineSegs := MustParseSVG(tt.line).Segments()
-			quadSegs := MustParseSVG(tt.quad).Segments()
-			line := lineSegs[len(lineSegs)-1]
-			quad := quadSegs[len(quadSegs)-1]
+			line := MustParseSVG(tt.line).ReverseScanner()
+			quad := MustParseSVG(tt.quad).ReverseScanner()
+			line.Scan()
+			quad.Scan()
 
-			zs := intersectionLineQuad(line.Start, line.End, quad.Start, quad.CP1(), quad.End)
+			zs := intersectionLineQuad(line.Start(), line.End(), quad.Start(), quad.CP1(), quad.End())
 			test.T(t, len(zs), len(tt.zs))
 			for i := range zs {
 				test.T(t, zs[i], tt.zs[i])
@@ -142,12 +142,12 @@ func TestIntersectionLineCube(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.line, "x", tt.cube), func(t *testing.T) {
-			lineSegs := MustParseSVG(tt.line).Segments()
-			cubeSegs := MustParseSVG(tt.cube).Segments()
-			line := lineSegs[len(lineSegs)-1]
-			cube := cubeSegs[len(cubeSegs)-1]
+			line := MustParseSVG(tt.line).ReverseScanner()
+			cube := MustParseSVG(tt.cube).ReverseScanner()
+			line.Scan()
+			cube.Scan()
 
-			zs := intersectionLineCube(line.Start, line.End, cube.Start, cube.CP1(), cube.CP2(), cube.End)
+			zs := intersectionLineCube(line.Start(), line.End(), cube.Start(), cube.CP1(), cube.CP2(), cube.End())
 			test.T(t, len(zs), len(tt.zs))
 			for i := range zs {
 				test.T(t, zs[i], tt.zs[i])
@@ -185,16 +185,16 @@ func TestIntersectionLineEllipse(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.line, "x", tt.arc), func(t *testing.T) {
-			lineSegs := MustParseSVG(tt.line).Segments()
-			arcSegs := MustParseSVG(tt.arc).Segments()
-			line := lineSegs[len(lineSegs)-1]
-			arc := arcSegs[len(arcSegs)-1]
+			line := MustParseSVG(tt.line).ReverseScanner()
+			arc := MustParseSVG(tt.arc).ReverseScanner()
+			line.Scan()
+			arc.Scan()
 
 			rx, ry, rot, large, sweep := arc.Arc()
 			phi := rot * math.Pi / 180.0
-			cx, cy, theta0, theta1 := ellipseToCenter(arc.Start.X, arc.Start.Y, rx, ry, phi, large, sweep, arc.End.X, arc.End.Y)
+			cx, cy, theta0, theta1 := ellipseToCenter(arc.Start().X, arc.Start().Y, rx, ry, phi, large, sweep, arc.End().X, arc.End().Y)
 
-			zs := intersectionLineEllipse(line.Start, line.End, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
+			zs := intersectionLineEllipse(line.Start(), line.End(), Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
 			test.T(t, len(zs), len(tt.zs))
 			for i := range zs {
 				test.T(t, zs[i], tt.zs[i])

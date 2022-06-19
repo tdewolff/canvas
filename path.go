@@ -2,6 +2,7 @@ package canvas
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"sort"
 	"strings"
@@ -195,6 +196,14 @@ func (p *Path) Coords() []Point {
 		}
 	}
 	return coords
+}
+
+func (p *Path) Scanner() *PathScanner {
+	return &PathScanner{p, -1}
+}
+
+func (p *Path) ReverseScanner() *PathReverseScanner {
+	return &PathReverseScanner{p, len(p.d)}
 }
 
 ////////////////////////////////////////////////////////////////
@@ -1336,7 +1345,10 @@ func (seg Segment) Arc() (float64, float64, float64, bool, bool) {
 }
 
 // Segments returns the path segments as a slice of segment structures.
+// DEPRECATED
 func (p *Path) Segments() []Segment {
+	log.Println("WARNING: github.com/tdewolff/canvas/path.Segments is deprecated, please use github.com/tdewolff/canvas/path.Scanner")
+
 	segs := []Segment{}
 	var start, end Point
 	for i := 0; i < len(p.d); {
