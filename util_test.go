@@ -44,10 +44,11 @@ func TestToFromFixed(t *testing.T) {
 }
 
 func TestPoint(t *testing.T) {
-	Epsilon = 0.01
+	defer setEpsilon(1e-6)()
+
 	p := Point{3, 4}
 	test.T(t, p.Mul(2.0), Point{6, 8})
-	test.T(t, p.Div(3.0), Point{1, 1.33})
+	test.T(t, p.Div(3.0), Point{1, 1.333333})
 	test.T(t, p.Rot90CW(), Point{4, -3})
 	test.T(t, p.Rot90CCW(), Point{-4, 3})
 	test.T(t, p.Rot(90*math.Pi/180.0, Point{}), p.Rot90CCW())
@@ -69,20 +70,22 @@ func TestPoint(t *testing.T) {
 }
 
 func TestRect(t *testing.T) {
-	Epsilon = 0.01
+	defer setEpsilon(1e-6)()
+
 	r := Rect{0, 0, 5, 5}
 	test.T(t, r.Move(Point{3, 3}), Rect{3, 3, 5, 5})
 	test.T(t, r.Add(Rect{5, 5, 5, 5}), Rect{0, 0, 10, 10})
 	test.T(t, r.Add(Rect{5, 5, 0, 5}), r)
 	test.T(t, Rect{5, 5, 0, 5}.Add(r), r)
 	test.T(t, r.Transform(Identity.Rotate(90)), Rect{-5, 0, 5, 5})
-	test.T(t, r.Transform(Identity.Rotate(45)), Rect{-3.53, 0.0, 7.07, 7.07})
+	test.T(t, r.Transform(Identity.Rotate(45)), Rect{-3.535533, 0.0, 7.071068, 7.071068})
 	test.T(t, r.ToPath(), MustParseSVG("M0,0H5V5H0z"))
 	test.String(t, r.String(), "(0,0)-(5,5)")
 }
 
 func TestMatrix(t *testing.T) {
-	Epsilon = 0.01
+	defer setEpsilon(1e-6)()
+
 	p := Point{3, 4}
 	test.T(t, Identity.Translate(2.0, 2.0).Dot(p), Point{5.0, 6.0})
 	test.T(t, Identity.Scale(2.0, 2.0).Dot(p), Point{6.0, 8.0})
@@ -110,8 +113,8 @@ func TestMatrix(t *testing.T) {
 	lambda1, lambda2, v1, v2 = Identity.Shear(1.0, 1.0).Eigen()
 	test.Float(t, lambda1, 0.0)
 	test.Float(t, lambda2, 2.0)
-	test.T(t, v1, Point{-0.707, 0.707})
-	test.T(t, v2, Point{0.707, 0.707})
+	test.T(t, v1, Point{-0.707107, 0.707107})
+	test.T(t, v2, Point{0.707107, 0.707107})
 
 	lambda1, lambda2, v1, v2 = Identity.Shear(1.0, 0.0).Eigen()
 	test.Float(t, lambda1, 1.0)

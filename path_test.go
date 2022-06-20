@@ -320,7 +320,8 @@ func TestPathInterior(t *testing.T) {
 }
 
 func TestPathBounds(t *testing.T) {
-	Epsilon = 1e-6
+	defer setEpsilon(1e-6)()
+
 	var tts = []struct {
 		orig   string
 		bounds Rect
@@ -382,7 +383,8 @@ func TestPathLength(t *testing.T) {
 }
 
 func TestPathTransform(t *testing.T) {
-	Epsilon = 1e-3
+	defer setEpsilon(1e-3)()
+
 	var tts = []struct {
 		orig string
 		m    Matrix
@@ -483,6 +485,8 @@ func TestPathMarkers(t *testing.T) {
 }
 
 func TestPathMarkersAligned(t *testing.T) {
+	defer setEpsilon(1e-3)()
+
 	start := MustParseSVG("L1 0L0 1z")
 	mid := MustParseSVG("M-1 0A1 1 0 0 0 1 0z")
 	end := MustParseSVG("L-1 0L0 1z")
@@ -553,6 +557,8 @@ func TestPathSplit(t *testing.T) {
 }
 
 func TestPathSplitAt(t *testing.T) {
+	defer setEpsilon(1e-3)()
+
 	var tts = []struct {
 		orig  string
 		d     []float64

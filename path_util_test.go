@@ -90,31 +90,32 @@ func TestEllipseSplit(t *testing.T) {
 }
 
 func TestArcToQuad(t *testing.T) {
-	Epsilon = 1e-2
 	test.T(t, arcToQuad(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}), MustParseSVG("M0 0Q0 100 100 100Q200 100 200 0"))
 }
 
 func TestArcToCube(t *testing.T) {
-	Epsilon = 1e-2
-	test.T(t, arcToCube(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}), MustParseSVG("M0 0C0 54.858 45.142 100 100 100C154.86 100 200 54.858 200 0"))
+	defer setEpsilon(1e-3)()
+
+	test.T(t, arcToCube(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}), MustParseSVG("M0 0C0 54.858 45.142 100 100 100C154.858 100 200 54.858 200 0"))
 }
 
 func TestFlattenEllipse(t *testing.T) {
-	Epsilon = 1e-2
-	Tolerance = 1.0
-	test.T(t, flattenEllipticArc(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}), MustParseSVG("M0 0L3.8202 27.243L15.092 52.545L33.225 74.179L56.889 90.115L84.082 98.716L100 100L127.24 96.18L152.55 84.908L174.18 66.775L190.12 43.111L198.72 15.918L200 0"))
+	defer setEpsilon(1e-3)()
+	defer setTolerance(1.0)()
+
+	test.T(t, flattenEllipticArc(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}), MustParseSVG("M0 0L3.8202 27.243L15.092 52.545L33.225 74.179L56.889 90.115L84.082 98.716L100 100L127.243 96.18L152.545 84.908L174.179 66.775L190.115 43.111L198.716 15.918L200 0"))
 }
 
 func TestQuadraticBezier(t *testing.T) {
-	Epsilon = 1e-3
+	defer setEpsilon(1e-6)()
 
 	p1, p2 := quadraticToCubicBezier(Point{0.0, 0.0}, Point{1.5, 0.0}, Point{3.0, 0.0})
 	test.T(t, p1, Point{1.0, 0.0})
 	test.T(t, p2, Point{2.0, 0.0})
 
 	p1, p2 = quadraticToCubicBezier(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0})
-	test.T(t, p1, Point{0.667, 0.0})
-	test.T(t, p2, Point{1.0, 0.333})
+	test.T(t, p1, Point{0.666667, 0.0})
+	test.T(t, p2, Point{1.0, 0.333333})
 
 	test.T(t, quadraticBezierPos(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 0.0), Point{0.0, 0.0})
 	test.T(t, quadraticBezierPos(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 0.5), Point{0.75, 0.25})
@@ -138,6 +139,8 @@ func TestQuadraticBezier(t *testing.T) {
 }
 
 func TestCubicBezier(t *testing.T) {
+	defer setEpsilon(1e-5)()
+
 	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}
 	test.T(t, cubicBezierPos(p0, p1, p2, p3, 0.0), Point{0.0, 0.0})
 	test.T(t, cubicBezierPos(p0, p1, p2, p3, 0.5), Point{0.75, 0.25})
@@ -176,7 +179,8 @@ func TestCubicBezier(t *testing.T) {
 }
 
 func TestCubicBezierStrokeHelpers(t *testing.T) {
-	Epsilon = 1e-5
+	defer setEpsilon(1e-6)()
+
 	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}
 
 	p := &Path{}
@@ -193,6 +197,8 @@ func TestCubicBezierStrokeHelpers(t *testing.T) {
 }
 
 func TestCubicBezierStrokeFlatten(t *testing.T) {
+	defer setEpsilon(1e-6)()
+
 	tests := []struct {
 		path      string
 		d         float64
@@ -200,10 +206,10 @@ func TestCubicBezierStrokeFlatten(t *testing.T) {
 		expected  string
 	}{
 		{"C0.666667 0 1 0.333333 1 1", 0.5, 0.5, "L1.5 1"},
-		{"C0.666667 0 1 0.333333 1 1", 0.5, 0.125, "L1.37615 0.308659L1.5 1"},
-		{"C1 0 2 1 3 2", 0.0, 0.1, "L1.09545 0.35131L2.57915 1.58191L3 2"},
-		{"C0 0 1 0 2 2", 0.0, 0.1, "L1.22865 0.8L2 2"},     // p0 == p1
-		{"C1 1 2 2 3 5", 0.0, 0.1, "L2.48111 3.61248L3 5"}, // s2 == 0
+		{"C0.666667 0 1 0.333333 1 1", 0.5, 0.125, "L1.376154 0.308659L1.5 1"},
+		{"C1 0 2 1 3 2", 0.0, 0.1, "L1.095445 0.351314L2.579154 1.581915L3 2"},
+		{"C0 0 1 0 2 2", 0.0, 0.1, "L1.22865 0.8L2 2"},       // p0 == p1
+		{"C1 1 2 2 3 5", 0.0, 0.1, "L2.481111 3.612482L3 5"}, // s2 == 0
 	}
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
@@ -278,8 +284,6 @@ func TestCubicBezierInflectionPointRange(t *testing.T) {
 }
 
 func TestCubicBezierStroke(t *testing.T) {
-	Epsilon = 1e-4
-
 	tests := []struct {
 		p []Point
 	}{
@@ -309,6 +313,8 @@ func TestCubicBezierStroke(t *testing.T) {
 			test.FloatDiff(t, flatLength, length, 0.25)
 		})
 	}
+
+	defer setEpsilon(1e-6)()
 
 	test.T(t, strokeCubicBezier(Point{0, 0}, Point{30, 0}, Point{30, 10}, Point{25, 10}, 5.0, 0.01).Bounds(), Rect{0.0, -5.0, 32.478752, 20.0})
 }

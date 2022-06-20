@@ -9,8 +9,9 @@ import (
 )
 
 func TestPathStroke(t *testing.T) {
-	Tolerance = 1.0
-	Epsilon = 1e-3
+	defer setTolerance(1.0)()
+	defer setEpsilon(1e-3)()
+
 	var tts = []struct {
 		orig   string
 		w      float64

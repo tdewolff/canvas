@@ -7,7 +7,8 @@ import (
 )
 
 func TestShapes(t *testing.T) {
-	Epsilon = 0.01
+	defer setEpsilon(0.01)()
+
 	test.T(t, Rectangle(0.0, 10.0), &Path{})
 	test.T(t, Rectangle(5.0, 10.0), MustParseSVG("H5V10H0z"))
 	test.T(t, RoundedRectangle(0.0, 10.0, 0.0), &Path{})
