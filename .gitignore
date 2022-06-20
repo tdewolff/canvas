@@ -28,3 +28,8 @@ font/tests/*/suppressions
 font/tests/*/corpus/*
 !font/tests/*/corpus/*.*
 /.idea/
+
+renderers/pdf/reader*
+renderers/nvpath
+examples/nvpath
+cmd/pdftext

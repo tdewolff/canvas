@@ -68,8 +68,8 @@ func TestPathStroke(t *testing.T) {
 		// no intersection
 		{"M0 0A2 2 0 0 1 2 2L5 2", 3.0, ButtCap, ArcsClipJoin(BevelJoin, 10.0), "M0 -1.5A3.5 3.5 0 0 1 3.5 2L2 .5L5 .5L5 3.5L2 3.5L.5 2A.5 .5 0 0 0 0 1.5z"},
 	}
-	for j, tt := range tts {
-		t.Run(fmt.Sprintf("%v", j), func(t *testing.T) {
+	for _, tt := range tts {
+		t.Run(tt.orig, func(t *testing.T) {
 			stroke := MustParseSVG(tt.orig).Stroke(tt.w, tt.cp, tt.jr)
 			test.T(t, stroke, MustParseSVG(tt.stroke))
 		})

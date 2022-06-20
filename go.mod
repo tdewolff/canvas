@@ -22,7 +22,7 @@ require (
 	github.com/tdewolff/argp v0.0.0-20211024182601-70fabe3b2369
 	github.com/tdewolff/minify/v2 v2.11.5
 	github.com/tdewolff/parse/v2 v2.5.31
-	github.com/tdewolff/test v1.0.6
+	github.com/tdewolff/test v1.0.7
 	github.com/wcharczuk/go-chart/v2 v2.1.0
 	golang.org/x/exp v0.0.0-20220218215828-6cf2b201936e // indirect
 	golang.org/x/exp/shiny v0.0.0-20220518171630-0b5c67f07fdf // indirect
