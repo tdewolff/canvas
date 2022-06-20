@@ -347,7 +347,7 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 		r.RenderPath(p, style, m)
 	})
 
-	faceMain := text.Face
+	faceMain := text.MostCommonFontFace()
 	x0, y0 := 0.0, 0.0
 	if m.IsTranslation() {
 		x0, y0 = m.Pos()

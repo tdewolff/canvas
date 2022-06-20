@@ -78,7 +78,6 @@ func (wm WritingMode) String() string {
 type Text struct {
 	lines []line
 	fonts map[*Font]bool
-	Face  *FontFace
 	Mode  WritingMode
 }
 
@@ -148,7 +147,6 @@ func itemizeString(log string, script canvasText.Script) ([]string, []string) {
 func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 	t := &Text{
 		fonts: map[*Font]bool{face.Font: true},
-		Face:  face,
 	}
 
 	ascent, descent, spacing := face.Metrics().Ascent, face.Metrics().Descent, face.Metrics().LineGap
@@ -426,7 +424,6 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	t := &Text{
 		lines: []line{{}},
 		fonts: map[*Font]bool{},
-		Face:  faces[0],
 		Mode:  rt.mode,
 	}
 	glyphs = append(glyphs, canvasText.Glyph{Cluster: uint32(len(vis))}) // makes indexing easier
@@ -678,53 +675,57 @@ func (t *Text) Fonts() []*Font {
 }
 
 // MostCommonFontFace returns the most common FontFace of the text.
-//func (t *Text) MostCommonFontFace() FontFace {
-//	families := map[*FontFamily]int{}
-//	sizes := map[float64]int{}
-//	styles := map[FontStyle]int{}
-//	variants := map[FontVariant]int{}
-//	colors := map[color.RGBA]int{}
-//	for _, line := range t.lines {
-//		for _, span := range line.spans {
-//			families[span.Face.family]++
-//			sizes[span.Face.Size]++
-//			styles[span.Face.Style]++
-//			variants[span.Face.Variant]++
-//			colors[span.Face.Color]++
-//		}
-//	}
-//	if len(families) == 0 {
-//		return FontFace{}
-//	}
-//
-//	family, size, style, variant, col := (*FontFamily)(nil), 0.0, FontRegular, FontNormal, Black
-//	for key, val := range families {
-//		if families[family] < val {
-//			family = key
-//		}
-//	}
-//	for key, val := range sizes {
-//		if sizes[size] < val {
-//			size = key
-//		}
-//	}
-//	for key, val := range styles {
-//		if styles[style] < val {
-//			style = key
-//		}
-//	}
-//	for key, val := range variants {
-//		if variants[variant] < val {
-//			variant = key
-//		}
-//	}
-//	for key, val := range colors {
-//		if colors[col] < val {
-//			col = key
-//		}
-//	}
-//	return family.Face(size*ptPerMm, col, style, variant)
-//}
+func (t *Text) MostCommonFontFace() *FontFace {
+	fonts := map[*Font]int{}
+	sizes := map[float64]int{}
+	styles := map[FontStyle]int{}
+	variants := map[FontVariant]int{}
+	colors := map[color.RGBA]int{}
+	for _, line := range t.lines {
+		for _, span := range line.spans {
+			fonts[span.Face.Font]++
+			sizes[span.Face.Size]++
+			styles[span.Face.Style]++
+			variants[span.Face.Variant]++
+			colors[span.Face.Color]++
+		}
+	}
+	if len(fonts) == 0 {
+		return nil
+	}
+
+	font, size, style, variant, col := (*Font)(nil), 0.0, FontRegular, FontNormal, Black
+	for key, val := range fonts {
+		if fonts[font] < val {
+			font = key
+		}
+	}
+	for key, val := range sizes {
+		if sizes[size] < val {
+			size = key
+		}
+	}
+	for key, val := range styles {
+		if styles[style] < val {
+			style = key
+		}
+	}
+	for key, val := range variants {
+		if variants[variant] < val {
+			variant = key
+		}
+	}
+	for key, val := range colors {
+		if colors[col] < val {
+			col = key
+		}
+	}
+
+	face := font.Face(size*ptPerMm, col)
+	face.Style = style
+	face.Variant = variant
+	return face
+}
 
 type decorationSpan struct {
 	deco  FontDecorator
