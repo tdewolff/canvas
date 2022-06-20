@@ -73,6 +73,50 @@ const (
 	FontSmallcaps
 )
 
+////////////////////////////////////////////////////////////////
+
+// FontSubsetter holds a map between original glyph IDs and new glyph IDs in a subsetted font.
+type FontSubsetter struct {
+	IDs   []uint16          // old glyphIDs for increasing new glyphIDs
+	IDMap map[uint16]uint16 // old to new glyphID
+}
+
+// NewFontSubsetter returns a new font subsetter.
+func NewFontSubsetter() *FontSubsetter {
+	return &FontSubsetter{
+		IDs:   []uint16{0}, // .notdef should always be at zero
+		IDMap: map[uint16]uint16{0: 0},
+	}
+}
+
+// Get maps a glyphID of the original font to the subsetted font. If the glyphID is not subsetted, it will be added to the map.
+func (subsetter *FontSubsetter) Get(glyphID uint16) uint16 {
+	if subsetGlyphID, ok := subsetter.IDMap[glyphID]; ok {
+		return subsetGlyphID
+	}
+	subsetGlyphID := uint16(len(subsetter.IDs))
+	subsetter.IDs = append(subsetter.IDs, glyphID)
+	subsetter.IDMap[glyphID] = subsetGlyphID
+	return subsetGlyphID
+}
+
+// IDs returns all subsetted IDs in the order of appearance.
+func (subsetter *FontSubsetter) List() []uint16 {
+	return subsetter.IDs
+}
+
+////////////////////////////////////////////////////////////////
+
+// FindLocalFont finds the path to a font from the system's fonts.
+func FindLocalFont(name string, style FontStyle) string {
+	// TODO: use style to match font
+	finder := sysfont.NewFinder(&sysfont.FinderOpts{
+		Extensions: []string{".ttf", ".otf", ".ttc", ".woff", ".woff2", ".eot"},
+	})
+	font := finder.Match(name)
+	return font.Filename
+}
+
 // Font defines an SFNT font such as TTF or OTF.
 type Font struct {
 	*font.SFNT
@@ -83,7 +127,33 @@ type Font struct {
 	features   string
 }
 
-func parseFont(name string, style FontStyle, b []byte, index int) (*Font, error) {
+// LoadLocalFont loads a font from the system's fonts.
+func LoadLocalFont(name string, style FontStyle) (*Font, error) {
+	return LoadFontFile(FindLocalFont(name, style), style)
+}
+
+// LoadFontFile loads a font from a file.
+func LoadFontFile(filename string, style FontStyle) (*Font, error) {
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load font file '%s': %w", filename, err)
+	}
+	return LoadFont(b, 0, style)
+}
+
+// LoadFontCollection loads a font from a collection file and uses the font at the specified index.
+func LoadFontCollection(filename string, index int, style FontStyle) (*Font, error) {
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load font file '%s': %w", filename, err)
+	}
+	return LoadFont(b, index, style)
+}
+
+var nonameFonts = 0
+
+// LoadFont loads a font from memory.
+func LoadFont(b []byte, index int, style FontStyle) (*Font, error) {
 	SFNT, err := font.ParseFont(b, index)
 	if err != nil {
 		return nil, err
@@ -92,6 +162,19 @@ func parseFont(name string, style FontStyle, b []byte, index int) (*Font, error)
 	shaper, err := text.NewShaperSFNT(SFNT)
 	if err != nil {
 		return nil, err
+	}
+
+	name := ""
+NameLoop:
+	for _, id := range []int{6, 4, 1} {
+		for _, record := range SFNT.Name.Get(font.NameID(id)) {
+			name = record.String()
+			break NameLoop
+		}
+	}
+	if name == "" {
+		name = fmt.Sprintf("f%d", nonameFonts)
+		nonameFonts++
 	}
 
 	font := &Font{
@@ -130,35 +213,22 @@ func (f *Font) SetFeatures(features string) {
 	f.features = features
 }
 
-// FontSubsetter holds a map between original glyph IDs and new glyph IDs in a subsetted font.
-type FontSubsetter struct {
-	IDs   []uint16          // old glyphIDs for increasing new glyphIDs
-	IDMap map[uint16]uint16 // old to new glyphID
+// Face gets the font face given by the font size in points and its style.
+func (f *Font) Face(size float64, col color.Color, deco ...FontDecorator) *FontFace {
+	face := &FontFace{}
+	face.Font = f
+	face.Size = size * mmPerPt
+	face.Style = f.style
+	face.Variant = FontNormal
+
+	r, g, b, a := col.RGBA()
+	face.Color = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+	face.Deco = deco
+	face.mmPerEm = face.Size / float64(face.Font.Head.UnitsPerEm)
+	return face
 }
 
-// NewFontSubsetter returns a new font subsetter.
-func NewFontSubsetter() *FontSubsetter {
-	return &FontSubsetter{
-		IDs:   []uint16{0}, // .notdef should always be at zero
-		IDMap: map[uint16]uint16{0: 0},
-	}
-}
-
-// Get maps a glyphID of the original font to the subsetted font. If the glyphID is not subsetted, it will be added to the map.
-func (subsetter *FontSubsetter) Get(glyphID uint16) uint16 {
-	if subsetGlyphID, ok := subsetter.IDMap[glyphID]; ok {
-		return subsetGlyphID
-	}
-	subsetGlyphID := uint16(len(subsetter.IDs))
-	subsetter.IDs = append(subsetter.IDs, glyphID)
-	subsetter.IDMap[glyphID] = subsetGlyphID
-	return subsetGlyphID
-}
-
-// IDs returns all subsetted IDs in the order of appearance.
-func (subsetter *FontSubsetter) List() []uint16 {
-	return subsetter.IDs
-}
+////////////////////////////////////////////////////////////////
 
 // FontFamily contains a family of fonts (bold, italic, ...). Allowing to select an italic style as the native italic font or to use faux italic if not present.
 type FontFamily struct {
@@ -200,46 +270,16 @@ func (family *FontFamily) SetFeatures(features string) {
 	}
 }
 
-// FindLocalFont finds the path to a font from the system's fonts.
-func (family *FontFamily) FindLocalFont(name string, style FontStyle) string {
-	// TODO: use style to match font
-	finder := sysfont.NewFinder(&sysfont.FinderOpts{
-		Extensions: []string{".ttf", ".otf", ".ttc", ".woff", ".woff2", ".eot"},
-	})
-	font := finder.Match(name)
-	return font.Filename
-}
-
 // LoadLocalFont loads a font from the system's fonts.
 func (family *FontFamily) LoadLocalFont(name string, style FontStyle) error {
-	return family.LoadFontFile(family.FindLocalFont(name, style), style)
+	return family.LoadFontFile(FindLocalFont(name, style), style)
+}
 
-	//match := name
-	//if style&FontExtraLight == FontExtraLight {
-	//	match += ":weight=40"
-	//} else if style&FontLight == FontLight {
-	//	match += ":weight=50"
-	//} else if style&FontBook == FontBook {
-	//	match += ":weight=75"
-	//} else if style&FontMedium == FontMedium {
-	//	match += ":weight=100"
-	//} else if style&FontSemibold == FontSemibold {
-	//	match += ":weight=180"
-	//} else if style&FontBold == FontBold {
-	//	match += ":weight=200"
-	//} else if style&FontBlack == FontBlack {
-	//	match += ":weight=205"
-	//} else if style&FontExtraBlack == FontExtraBlack {
-	//	match += ":weight=210"
-	//}
-	//if style&FontItalic == FontItalic {
-	//	match += ":italic"
-	//}
-	//b, err := exec.Command("fc-match", "--format=%{file}", match).Output()
-	//if err != nil {
-	//	return err
-	//}
-	//return family.LoadFontFile(string(b), style)
+// MustLoadLocalFont loads a font from the system's fonts and panics on error.
+func (family *FontFamily) MustLoadLocalFont(name string, style FontStyle) {
+	if err := family.LoadLocalFont(name, style); err != nil {
+		panic(err)
+	}
 }
 
 // LoadFontFile loads a font from a file.
@@ -251,6 +291,13 @@ func (family *FontFamily) LoadFontFile(filename string, style FontStyle) error {
 	return family.LoadFont(b, 0, style)
 }
 
+// MustLoadFontFile loads a font from a filea and panics on error.
+func (family *FontFamily) MustLoadFontFile(filename string, style FontStyle) {
+	if err := family.LoadFontFile(filename, style); err != nil {
+		panic(err)
+	}
+}
+
 // LoadFontCollection loads a font from a collection file and uses the font at the specified index.
 func (family *FontFamily) LoadFontCollection(filename string, index int, style FontStyle) error {
 	b, err := ioutil.ReadFile(filename)
@@ -260,14 +307,29 @@ func (family *FontFamily) LoadFontCollection(filename string, index int, style F
 	return family.LoadFont(b, index, style)
 }
 
+// MustLoadFontFile loads a font from a filea and panics on error.
+func (family *FontFamily) MustLoadFontCollection(filename string, index int, style FontStyle) {
+	if err := family.LoadFontCollection(filename, index, style); err != nil {
+		panic(err)
+	}
+}
+
 // LoadFont loads a font from memory.
 func (family *FontFamily) LoadFont(b []byte, index int, style FontStyle) error {
-	font, err := parseFont(family.name, style, b, index)
+	font, err := LoadFont(b, index, style)
 	if err != nil {
 		return err
 	}
+	font.name = family.name
 	family.fonts[style] = font
 	return nil
+}
+
+// MustLoadFont loads a font from memory and panics on error.
+func (family *FontFamily) MustLoadFont(b []byte, index int, style FontStyle) {
+	if err := family.LoadFont(b, index, style); err != nil {
+		panic(err)
+	}
 }
 
 // Face gets the font face given by the font size in points and its style.
@@ -365,6 +427,8 @@ func (family *FontFamily) Face(size float64, col color.Color, style FontStyle, v
 	return face
 }
 
+////////////////////////////////////////////////////////////////
+
 // FontFace defines a font face from a given font. It specifies the font size, color, faux styles and font decorations.
 type FontFace struct {
 	Font *Font
@@ -445,6 +509,12 @@ func (face *FontFace) Metrics() FontMetrics {
 func (face *FontFace) PPEM(resolution Resolution) uint16 {
 	// ppem is for hinting purposes only, this does not influence glyph advances
 	return uint16(resolution.DPMM() * face.Size)
+}
+
+// LineHeight returns the height (ascent+descent) of a line.
+func (face *FontFace) LineHeight() float64 {
+	metrics := face.Metrics()
+	return metrics.Ascent + metrics.Descent
 }
 
 // TextWidth returns the width of a given string in millimeters.
