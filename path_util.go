@@ -510,7 +510,7 @@ func cubicBezierSplit(p0, p1, p2, p3 Point, t float64) (Point, Point, Point, Poi
 }
 
 func addCubicBezierLine(p *Path, p0, p1, p2, p3 Point, t, d float64) {
-	if p0.X == p3.X && p0.Y == p3.X && (p0.X == p1.X && p0.Y == p1.Y || p0.X == p2.X && p0.Y == p2.Y) {
+	if p0.Equals(p3) && (p0.Equals(p1) || p0.Equals(p2)) {
 		// Bézier has p0=p1=p3 or p0=p2=p3 and thus has no surface or length
 		return
 	}
@@ -536,21 +536,57 @@ func addCubicBezierLine(p *Path, p0, p1, p2, p3 Point, t, d float64) {
 	p.LineTo(pos.X, pos.Y)
 }
 
-// split the curve and replace it by lines as long as maximum deviation = flatness is maintained.
-func flattenSmoothCubicBezier(p *Path, p0, p1, p2, p3 Point, d, flatness float64) {
-	// TODO: by also iterating in the reverse direction, we can take the t half way between the t's found one direction and t's found the reverse direction. this will improve smoothness without add points, it will distribute the points equally along the curve (and not close to the end points)
+func flattenQuadraticBezier(p0, p1, p2 Point) *Path {
+	// see Flat, precise flattening of cubic Bézier path and offset curves, by T.F. Hain et al., 2005,  https://www.sciencedirect.com/science/article/pii/S0097849305001287
 	t := 0.0
+	p := &Path{}
+	p.MoveTo(p0.X, p0.Y)
 	for t < 1.0 {
-		s2nom := (p2.X-p0.X)*(p1.Y-p0.Y) - (p2.Y-p0.Y)*(p1.X-p0.X)
-		denom := math.Hypot(p1.X-p0.X, p1.Y-p0.Y)
-		if s2nom*denom == 0.0 {
+		D := p1.Sub(p0)
+		denom := math.Hypot(D.X, D.Y) // equal to r1
+		s2nom := D.PerpDot(p2.Sub(p0))
+		//effFlatness := Tolerance / (1.0 - d*s2nom/(denom*denom*denom)/2.0)
+		t = 2.0 * math.Sqrt(Tolerance*math.Abs(denom/s2nom))
+		if t >= 1.0 {
 			break
 		}
 
-		s2 := s2nom / denom
-		//r1 := denom
-		effectiveFlatness := flatness // / (1.0 + 2.0*d*s2/3.0/r1/r1)  // TODO: (stroke bezier) unclear what to do when negative
-		t = 2.0 * math.Sqrt(effectiveFlatness/3.0/math.Abs(s2))
+		_, _, _, p0, p1, p2 = quadraticBezierSplit(p0, p1, p2, t)
+		p.LineTo(p0.X, p0.Y)
+	}
+	p.LineTo(p2.X, p2.Y)
+	return p
+}
+
+func flattenCubicBezier(p0, p1, p2, p3 Point) *Path {
+	return strokeCubicBezier(p0, p1, p2, p3, 0.0, Tolerance)
+}
+
+// split the curve and replace it by lines as long as (maximum deviation <= flatness) is maintained.
+func flattenSmoothCubicBezier(p *Path, p0, p1, p2, p3 Point, d, flatness float64) {
+	t := 0.0
+	for t < 1.0 {
+		D := p1.Sub(p0)
+		if p0.Equals(p1) {
+			// p0 == p1, base on p2
+			D = p2.Sub(p0)
+		}
+
+		denom := D.Length() // equal to r1
+		s2nom := D.PerpDot(p2.Sub(p0))
+		if math.Abs(s2nom) < Epsilon {
+			// s2 is zero, calculate s3 instead
+			s3nom := D.PerpDot(p3.Sub(p0))
+			s3inv := denom / s3nom
+			// we cannot calculate the effective flatness here
+			t = 2.0 * math.Cbrt(flatness*math.Abs(s3inv))
+		} else {
+			s2inv := denom / s2nom
+			// effective flatness distorts the stroke width as both sides have different cuts
+			//effFlatness := flatness / (1.0 - d*s2nom/(denom*denom*denom)*2.0/3.0)
+			t = 2.0 * math.Sqrt(flatness*math.Abs(s2inv)/3.0)
+		}
+
 		if t >= 1.0 {
 			break
 		}
@@ -623,15 +659,6 @@ func findInflectionPointRangeCubicBezier(p0, p1, p2, p3 Point, t, flatness float
 
 	tf := math.Cbrt(flatness / s3)
 	return t - tf*(1.0-t), t + tf*(1.0-t)
-}
-
-func flattenQuadraticBezier(p0, p1, p2 Point) *Path {
-	cp1, cp2 := quadraticToCubicBezier(p0, p1, p2)
-	return strokeCubicBezier(p0, cp1, cp2, p2, 0.0, Tolerance)
-}
-
-func flattenCubicBezier(p0, p1, p2, p3 Point) *Path {
-	return strokeCubicBezier(p0, p1, p2, p3, 0.0, Tolerance)
 }
 
 // see Flat, precise flattening of cubic Bézier path and offset curves, by T.F. Hain et al., 2005,  https://www.sciencedirect.com/science/article/pii/S0097849305001287

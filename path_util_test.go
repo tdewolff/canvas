@@ -175,6 +175,7 @@ func TestCubicBezier(t *testing.T) {
 }
 
 func TestCubicBezierStrokeHelpers(t *testing.T) {
+	Epsilon = 1e-5
 	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}
 
 	p := &Path{}
@@ -188,18 +189,34 @@ func TestCubicBezierStrokeHelpers(t *testing.T) {
 	p = &Path{}
 	addCubicBezierLine(p, p0, p1, p2, p3, 1.0, 0.5)
 	test.T(t, p, MustParseSVG("L1.5 1"))
+}
 
-	p = &Path{}
-	flattenSmoothCubicBezier(p, p0, p1, p2, p3, 0.5, 0.5)
-	test.T(t, p, MustParseSVG("L1.5 1"))
+func TestCubicBezierStrokeFlatten(t *testing.T) {
+	tests := []struct {
+		path      string
+		d         float64
+		tolerance float64
+		expected  string
+	}{
+		{"C0.666667 0 1 0.333333 1 1", 0.5, 0.5, "L1.5 1"},
+		{"C0.666667 0 1 0.333333 1 1", 0.5, 0.125, "L1.37615 0.308659L1.5 1"},
+		{"C1 0 2 1 3 2", 0.0, 0.1, "L1.09545 0.35131L2.57915 1.58191L3 2"},
+		{"C0 0 1 0 2 2", 0.0, 0.1, "L1.22865 0.8L2 2"},     // p0 == p1
+		{"C1 1 2 2 3 5", 0.0, 0.1, "L2.48111 3.61248L3 5"}, // s2 == 0
+	}
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			path := MustParseSVG(tt.path)
+			p0 := Point{path.d[1], path.d[2]}
+			p1 := Point{path.d[5], path.d[6]}
+			p2 := Point{path.d[7], path.d[8]}
+			p3 := Point{path.d[9], path.d[10]}
 
-	p = &Path{}
-	flattenSmoothCubicBezier(p, p0, p1, p2, p3, 0.5, 0.125)
-	test.T(t, p, MustParseSVG("L1.3762 0.30866L1.5 1"))
-
-	p = &Path{}
-	flattenSmoothCubicBezier(p, p0, p0, p2, p3, 0.5, 0.125) // denom == 0
-	test.T(t, p, MustParseSVG("L1.5 1"))
+			p := &Path{}
+			flattenSmoothCubicBezier(p, p0, p1, p2, p3, tt.d, tt.tolerance)
+			test.T(t, p, MustParseSVG(tt.expected))
+		})
+	}
 }
 
 func TestCubicBezierInflectionPoints(t *testing.T) {
