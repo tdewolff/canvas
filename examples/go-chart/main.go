@@ -8,7 +8,6 @@ import (
 	"github.com/golang/freetype/truetype"
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers"
-	"github.com/tdewolff/canvas/renderers/rasterizer"
 	"github.com/wcharczuk/go-chart/v2"
 	"github.com/wcharczuk/go-chart/v2/drawing"
 )
@@ -92,7 +91,7 @@ func main() {
 
 	f, _ = os.Create("output.png")
 	defer f.Close()
-	graph.Render(renderers.NewGoChart(rasterizer.PNGWriter(canvas.DPI(92.0))), f)
+	graph.Render(renderers.NewGoChart(renderers.PNG(canvas.DPI(100.0))), f)
 
 	f, _ = os.Create("target.png")
 	defer f.Close()
