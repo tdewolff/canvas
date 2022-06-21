@@ -827,7 +827,6 @@ func (sineUnderline) Decorate(face *FontFace, w float64) *Path {
 	y -= r
 
 	w -= r
-	dh := -face.Size * 0.15
 	d := 4.0 * r
 	n := int(0.5 + w/d)
 	if n == 0 {
@@ -836,13 +835,15 @@ func (sineUnderline) Decorate(face *FontFace, w float64) *Path {
 	d = (w - r) / float64(n)
 
 	dx := r
+	dh := -face.Size * 0.15
+	y += 0.5 * dh
 	p := &Path{}
 	p.MoveTo(dx, y)
 	for i := 0; i < n; i++ {
 		if i%2 == 0 {
-			p.CubeTo(dx+d*0.3642, y, dx+d*0.6358, y+dh, dx+d, y+dh)
+			p.QuadTo(dx+d*0.5, y-dh, dx+d, y)
 		} else {
-			p.CubeTo(dx+d*0.3642, y+dh, dx+d*0.6358, y, dx+d, y)
+			p.QuadTo(dx+d*0.5, y+dh, dx+d, y)
 		}
 		dx += d
 	}
