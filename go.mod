@@ -1,6 +1,6 @@
 module github.com/tdewolff/canvas
 
-go 1.16
+go 1.17
 
 require (
 	fyne.io/fyne/v2 v2.2.1
@@ -14,7 +14,6 @@ require (
 	github.com/benoitkugler/textprocessing v0.0.2
 	github.com/dsnet/compress v0.0.1
 	github.com/fyne-io/gl-js v0.0.0-20220516203408-b35fbccb7063 // indirect
-	github.com/fyne-io/glfw-js v0.0.0-20220517201726-bebc2019cd33 // indirect
 	github.com/go-gl/gl v0.0.0-20211210172815-726fda9656d6
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20220516021902-eb3e265c7661
 	github.com/go-latex/latex v0.0.0-20210823091927-c0d11ff05a81
