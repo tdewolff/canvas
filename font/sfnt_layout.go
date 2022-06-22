@@ -45,6 +45,9 @@ func (sfnt *SFNT) parseScriptList(b []byte) (scriptList, error) {
 			if j == -1 {
 				langSysTag = DefaultLanguage // permanently reserved and cannot be used in font
 				langSysOffset = defaultLangSysOffset
+				if langSysOffset == 0 {
+					continue
+				}
 			} else {
 				langSysTag = LanguageTag(r2.ReadString(4))
 				langSysOffset = r2.ReadUint16()
@@ -784,7 +787,7 @@ func (sfnt *SFNT) parseGPOSGSUB(name string, subtableMap subtableMap) (*gposgsub
 	b, ok := sfnt.Tables[name]
 	if !ok {
 		return nil, fmt.Errorf("%s: missing table", name)
-	} else if len(b) < 32 {
+	} else if len(b) < 10 {
 		return nil, fmt.Errorf("%s: bad table", name)
 	}
 
@@ -816,7 +819,9 @@ func (sfnt *SFNT) parseGPOSGSUB(name string, subtableMap subtableMap) (*gposgsub
 	if len(b)-2 < int(lookupListOffset) {
 		return nil, fmt.Errorf("%s: bad lookupList offset", name)
 	}
-	table.lookupList = sfnt.parseLookupList(b[lookupListOffset:])
+	if lookupListOffset != 0 {
+		table.lookupList = sfnt.parseLookupList(b[lookupListOffset:])
+	}
 	table.tables = make([]interface{}, len(table.lookupList))
 	for j, lookup := range table.lookupList {
 		if parseSubtable, ok := subtableMap[lookup.lookupType]; ok {
