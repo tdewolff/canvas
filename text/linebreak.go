@@ -523,13 +523,8 @@ func isNewline(s string) bool {
 	return false
 }
 
-func isSpacelessScript(script Script) bool {
-	// missing: S'gaw Karen
-	return script == Han || script == Hangul || script == Katakana || script == Khmer || script == Lao || script == PhagsPa || script == Brahmi || script == TaiTham || script == NewTaiLue || script == TaiLe || script == TaiViet || script == Thai || script == Tibetan || script == Myanmar
-}
-
 // GlyphsToItems converts a slice of glyphs into the box/glue/penalty items model as used by Knuth's line breaking algorithm. The SFNT and Size of each glyph must be set. Indent and align specify the indentation width of the first line and the alignment (left, right, centered, justified) of the lines respectively. Vertical should be true for vertical scripts.
-func GlyphsToItems(glyphs []Glyph, indent float64, align Align, vertical, mixed bool) []Item {
+func GlyphsToItems(glyphs []Glyph, indent float64, align Align, vertical, upright bool) []Item {
 	if len(glyphs) == 0 {
 		return []Item{}
 	}
@@ -648,7 +643,7 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align, vertical, mixed 
 				width = float64(-glyph.YAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
 			}
 			if 1 < len(items) && items[len(items)-1].Type == BoxType {
-				if isSpacelessScript(glyph.Script) || isSpacelessScript(glyphs[i-1].Script) {
+				if IsSpacelessScript(glyph.Script) || IsSpacelessScript(glyphs[i-1].Script) {
 					items = append(items, Penalty(0.0, 0.0, false))
 					items = append(items, Box(width))
 				} else {
@@ -689,8 +684,8 @@ func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, indent, widt
 	toUnits := float64(sfnt.Head.UnitsPerEm) / size
 
 	vertical := false
-	mixed := false
-	items := GlyphsToItems(glyphs, indent, align, vertical, mixed)
+	upright := false
+	items := GlyphsToItems(glyphs, indent, align, vertical, upright)
 	breaks := Linebreak(items, width, looseness)
 
 	i, j := 0, 0 // index into: glyphs, breaks/lines

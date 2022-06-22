@@ -53,13 +53,13 @@ const (
 	VerticalLR
 )
 
-// TextOrientation specifies how non-CJK should be oriented between CJK.
+// TextOrientation specifies how horizontal text should be oriented within vertical text, or how vertical-only text should be layed out in horizontal text.
 type TextOrientation int
 
 // see TextOrientation
 const (
-	Mixed TextOrientation = iota
-	Upright
+	Natural TextOrientation = iota // turn horizontal text 90deg clockwise for VerticalRL, and counter clockwise for VerticalLR
+	Upright                        // split characters and lay them out upright
 )
 
 func (wm WritingMode) String() string {
@@ -97,7 +97,7 @@ func (l line) Heights(mode WritingMode, orient TextOrientation) (float64, float6
 			descent = math.Max(descent, spanDescent)
 			bottom = math.Max(bottom, spanDescent+lineSpacing)
 		}
-	} else {
+	} else if orient == Upright {
 		width := 0.0
 		for _, span := range l.spans {
 			for _, glyph := range span.Glyphs {
@@ -108,6 +108,8 @@ func (l line) Heights(mode WritingMode, orient TextOrientation) (float64, float6
 		ascent = width / 2.0
 		descent = width / 2.0
 		bottom = width / 2.0
+	} else {
+		panic("not implemented")
 	}
 	return top, ascent, descent, bottom
 }
@@ -242,7 +244,7 @@ func NewRichText(face *FontFace) *RichText {
 		locs:    indexer{0},
 		faces:   []*FontFace{face},
 		mode:    HorizontalTB,
-		orient:  Mixed,
+		orient:  Natural,
 	}
 }
 
@@ -381,7 +383,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		clusterOffset += uint32(len(text))
 	}
 
-	mixed := rt.orient == Mixed
+	upright := rt.orient == Upright
 	vertical := rt.mode != HorizontalTB
 	if vertical {
 		width, height = height, width
@@ -405,7 +407,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 	// break glyphs into lines following Donald Knuth's line breaking algorithm
 	looseness := 0
-	items := canvasText.GlyphsToItems(glyphs, indent, align, vertical, mixed)
+	items := canvasText.GlyphsToItems(glyphs, indent, align, vertical, upright)
 
 	var breaks []*canvasText.Breakpoint
 	if width != 0.0 {
@@ -613,8 +615,8 @@ func (t *Text) Heights() (float64, float64) {
 	}
 	firstLine := t.lines[0]
 	lastLine := t.lines[len(t.lines)-1]
-	_, ascent, _, _ := firstLine.Heights(HorizontalTB, Mixed)
-	_, _, descent, _ := lastLine.Heights(HorizontalTB, Mixed)
+	_, ascent, _, _ := firstLine.Heights(HorizontalTB, Natural)
+	_, _, descent, _ := lastLine.Heights(HorizontalTB, Natural)
 	return -firstLine.y + ascent, lastLine.y + descent
 }
 
