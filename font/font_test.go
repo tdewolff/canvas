@@ -2,6 +2,7 @@ package font
 
 import (
 	"io/ioutil"
+	"path/filepath"
 	"testing"
 
 	"github.com/golang/freetype/truetype"
@@ -87,4 +88,27 @@ func TestFromGoSFNT(t *testing.T) {
 	sfnt, err := ParseSFNT(buf, 0)
 	test.Error(t, err)
 	test.T(t, sfnt.Head.UnitsPerEm, uint16(2048))
+}
+
+func BenchmarkParse(b *testing.B) {
+	samples := []string{
+		"../resources/DejaVuSerif.ttf",
+		"/usr/share/fonts/TTF/DejaVuSans.ttf",
+		"/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+	}
+	for _, sample := range samples {
+		b.Run(filepath.Base(sample), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				data, err := ioutil.ReadFile(sample)
+				if err != nil {
+					b.Fatal(err)
+				}
+
+				_, err = ParseFont(data, 0)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
 }

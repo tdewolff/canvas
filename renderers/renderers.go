@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	//webp "github.com/kolesa-team/go-webp/encoder"
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers/pdf"
 	"github.com/tdewolff/canvas/renderers/ps"
@@ -166,7 +167,7 @@ func BMP(opts ...interface{}) canvas.Writer {
 }
 
 //func WEBP(opts ...interface{}) canvas.Writer {
-//	var options *webp.Options
+//	options := &webp.Options{}
 //	resolution := canvas.DPMM(1.0)
 //	colorSpace := canvas.DefaultColorSpace
 //	for _, opt := range opts {
@@ -183,7 +184,11 @@ func BMP(opts ...interface{}) canvas.Writer {
 //	}
 //	return func(w io.Writer, c *canvas.Canvas) error {
 //		img := rasterizer.Draw(c, resolution, colorSpace)
-//		return webp.Encode(w, img, options)
+//		enc, err := webp.NewEncoder(img, options)
+//		if err != nil {
+//			return err
+//		}
+//		return enc.Encode(w)
 //	}
 //}
 
