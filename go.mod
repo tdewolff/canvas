@@ -11,7 +11,7 @@ require (
 	github.com/benoitkugler/textprocessing v0.0.2
 	github.com/dsnet/compress v0.0.1
 	github.com/go-gl/gl v0.0.0-20211210172815-726fda9656d6
-	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20220516021902-eb3e265c7661
+	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20220622232848-a6c407ee30a0
 	github.com/go-latex/latex v0.0.0-20210823091927-c0d11ff05a81
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/paulmach/orb v0.7.1
