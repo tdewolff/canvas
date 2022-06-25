@@ -417,23 +417,25 @@ func (c *Context) Close() {
 
 // Fill fills the current path and resets the path.
 func (c *Context) Fill() {
-	style := c.Style
-	style.StrokeColor = Transparent
-	c.RenderPath(c.path, style, c.view)
+	strokeColor := c.Style.StrokeColor
+	c.Style.StrokeColor = Transparent
+	c.DrawPath(0.0, 0.0, c.path)
+	c.Style.StrokeColor = strokeColor
 	c.path = &Path{}
 }
 
 // Stroke strokes the current path and resets the path.
 func (c *Context) Stroke() {
-	style := c.Style
-	style.FillColor = Transparent
-	c.RenderPath(c.path, style, c.view)
+	fillColor := c.Style.FillColor
+	c.Style.FillColor = Transparent
+	c.DrawPath(0.0, 0.0, c.path)
+	c.Style.FillColor = fillColor
 	c.path = &Path{}
 }
 
 // FillStroke fills and then strokes the current path and resets the path.
 func (c *Context) FillStroke() {
-	c.RenderPath(c.path, c.Style, c.view)
+	c.DrawPath(0.0, 0.0, c.path)
 	c.path = &Path{}
 }
 
