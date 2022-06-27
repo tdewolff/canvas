@@ -88,19 +88,19 @@ func (r *Gio) renderPath(path *canvas.Path, col color.RGBA) {
 
 	p := clip.Path{}
 	p.Begin(r.ops)
-	for _, seg := range path.Segments() {
-		switch seg.Cmd {
+	for scanner := path.Scanner(); scanner.Scan(); {
+		switch scanner.Cmd() {
 		case canvas.MoveToCmd:
-			p.MoveTo(r.point(seg.End))
+			p.MoveTo(r.point(scanner.End()))
 		case canvas.LineToCmd:
-			p.LineTo(r.point(seg.End))
+			p.LineTo(r.point(scanner.End()))
 		case canvas.QuadToCmd:
-			p.QuadTo(r.point(seg.CP1()), r.point(seg.End))
+			p.QuadTo(r.point(scanner.CP1()), r.point(scanner.End()))
 		case canvas.CubeToCmd:
-			p.CubeTo(r.point(seg.CP1()), r.point(seg.CP2()), r.point(seg.End))
+			p.CubeTo(r.point(scanner.CP1()), r.point(scanner.CP2()), r.point(scanner.End()))
 		case canvas.ArcToCmd:
 			// TODO: ArcTo
-			p.LineTo(r.point(seg.End))
+			p.LineTo(r.point(scanner.End()))
 		case canvas.CloseCmd:
 			p.Close()
 		}

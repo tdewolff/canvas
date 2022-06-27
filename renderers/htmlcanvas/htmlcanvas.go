@@ -45,18 +45,18 @@ func (r *HTMLCanvas) Size() (float64, float64) {
 
 func (r *HTMLCanvas) writePath(path *canvas.Path) {
 	r.ctx.Call("beginPath")
-	for _, seg := range path.Segments() {
-		end := seg.End
-		switch seg.Cmd {
+	for scanner := path.Scanner(); scanner.Scan(); {
+		end := scanner.End()
+		switch scanner.Cmd() {
 		case canvas.MoveToCmd:
 			r.ctx.Call("moveTo", end.X*r.dpm, r.height-end.Y*r.dpm)
 		case canvas.LineToCmd:
 			r.ctx.Call("lineTo", end.X*r.dpm, r.height-end.Y*r.dpm)
 		case canvas.QuadToCmd:
-			cp := seg.CP1()
+			cp := scanner.CP1()
 			r.ctx.Call("quadraticCurveTo", cp.X*r.dpm, r.height-cp.Y*r.dpm, end.X*r.dpm, r.height-end.Y*r.dpm)
 		case canvas.CubeToCmd:
-			cp1, cp2 := seg.CP1(), seg.CP2()
+			cp1, cp2 := scanner.CP1(), scanner.CP2()
 			r.ctx.Call("bezierCurveTo", cp1.X*r.dpm, r.height-cp1.Y*r.dpm, cp2.X*r.dpm, r.height-cp2.Y*r.dpm, end.X*r.dpm, r.height-end.Y*r.dpm)
 		case canvas.ArcToCmd:
 			panic("arcs should have been replaced")
