@@ -107,7 +107,12 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		return // has no size
 	}
 
-	if style.HasFill() {
+	if style.HasGradient() {
+		ras := vector.NewRasterizer(w, h)
+		fill = fill.Translate(-float64(x)/dpmm, -float64(y)/dpmm)
+		fill.ToRasterizer(ras, r.resolution)
+		ras.Draw(r.Image, image.Rect(x, size.Y-y, x+w, size.Y-y-h), *style.GradientInfo, image.Point{dx, dy})
+	} else if style.HasFill() {
 		ras := vector.NewRasterizer(w, h)
 		fill = fill.Translate(-float64(x)/dpmm, -float64(y)/dpmm)
 		fill.ToRasterizer(ras, r.resolution)

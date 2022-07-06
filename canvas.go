@@ -108,11 +108,18 @@ type Style struct {
 	DashOffset   float64
 	Dashes       []float64
 	FillRule     // TODO: test for all renderers
+
+	// Gradient support
+	GradientInfo *Gradient
 }
 
 // HasFill returns true if the style has a fill
 func (style Style) HasFill() bool {
 	return style.FillColor.A != 0
+}
+
+func (style Style) HasGradient() bool {
+	return style.GradientInfo != nil
 }
 
 // HasStroke returns true if the style has a stroke
