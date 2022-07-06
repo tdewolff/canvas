@@ -1,0 +1,3 @@
+all:
+	go build .
+	./gradient
