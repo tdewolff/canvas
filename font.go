@@ -437,8 +437,9 @@ type FontFace struct {
 	Style   FontStyle
 	Variant FontVariant
 
-	Color color.RGBA
-	Deco  []FontDecorator
+	GradientInfo *Gradient
+	Color        color.RGBA
+	Deco         []FontDecorator
 
 	// faux styles for bold, italic, and sub- and superscript
 	FauxBold, FauxItalic float64

@@ -95,6 +95,7 @@ func (g *linearGradient) At(x, y int) color.Color {
 func (g *linearGradient) Bounds() image.Rectangle {
 	x0, y0, x1, y1 := g.x0, g.y0, g.x1, g.y1
 	return image.Rect(int(x0), int(y0), int(x1), int(y1))
+	// return image.Rect(-1e6, -1e6, 1e6, 1e6)
 }
 
 func (g *linearGradient) ColorModel() color.Model {

@@ -31,10 +31,13 @@ func main() {
 		panic(err)
 	}
 
-	face := fontDejaVu.Face(100.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	f := canvas.NewLinearGradient(0, 0, 100, 100)
+	f.AddColorStop(0, canvas.Antiquewhite)
+	f.AddColorStop(1, canvas.Greenyellow)
 
-	ctx.SetFillColor(canvas.Mediumaquamarine)
-	ctx.Style.GradientInfo = &g
+	face := fontDejaVu.Face(100.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	face.GradientInfo = &f
+
 	ctx.DrawText(10, 10, canvas.NewTextLine(face, "Lorem ipsum", canvas.Left))
 
 	// Rasterize the canvas and write to a PNG file with 3.2 dots-per-mm (320x320 px)
