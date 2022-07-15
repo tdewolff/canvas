@@ -176,7 +176,7 @@ func (p Point) Dot(q Point) float64 {
 	return p.X*q.X + p.Y*q.Y
 }
 
-// PerpDot returns the perp dot product between OP and OQ, i.e. zero if aligned and |OP|*|OQ| if perpendicular.
+// PerpDot returns the perp dot product between OP and OQ, i.e. zero if aligned and |OP|*|OQ| if perpendicular. This is the cross product in two dimensions.
 func (p Point) PerpDot(q Point) float64 {
 	return p.X*q.Y - p.Y*q.X
 }
@@ -201,7 +201,7 @@ func (p Point) AngleBetween(q Point) float64 {
 	return math.Atan2(p.PerpDot(q), p.Dot(q))
 }
 
-// Norm normalized OP to be of given length.
+// Norm normalises OP to be of given length.
 func (p Point) Norm(length float64) Point {
 	d := p.Length()
 	if Equal(d, 0.0) {
@@ -241,15 +241,24 @@ func (r Rect) Move(p Point) Rect {
 
 // Add returns a rect that encompasses both the current rect and the given rect.
 func (r Rect) Add(q Rect) Rect {
-	if q.W == 0.0 || q.H == 0 {
+	if q.W == 0.0 || q.H == 0.0 {
 		return r
-	} else if r.W == 0.0 || r.H == 0 {
+	} else if r.W == 0.0 || r.H == 0.0 {
 		return q
 	}
 	x0 := math.Min(r.X, q.X)
 	y0 := math.Min(r.Y, q.Y)
 	x1 := math.Max(r.X+r.W, q.X+q.W)
 	y1 := math.Max(r.Y+r.H, q.Y+q.H)
+	return Rect{x0, y0, x1 - x0, y1 - y0}
+}
+
+// AddPoint returns a rect that encompasses both the current rect and the given point.
+func (r Rect) AddPoint(p Point) Rect {
+	x0 := math.Min(r.X, p.X)
+	y0 := math.Min(r.Y, p.Y)
+	x1 := math.Max(r.X+r.W, p.X)
+	y1 := math.Max(r.Y+r.H, p.Y)
 	return Rect{x0, y0, x1 - x0, y1 - y0}
 }
 
@@ -264,6 +273,25 @@ func (r Rect) Transform(m Matrix) Rect {
 	ymin := math.Min(p0.Y, math.Min(p1.Y, math.Min(p2.Y, p3.Y)))
 	ymax := math.Max(p0.Y, math.Max(p1.Y, math.Max(p2.Y, p3.Y)))
 	return Rect{xmin, ymin, xmax - xmin, ymax - ymin}
+}
+
+// Contains returns true if the rectangles contains a point, not if it touches an edge.
+func (r Rect) Contains(p Point) bool {
+	return r.X < p.X && p.X < r.X+r.W && r.Y < p.Y && p.Y < r.Y+r.H
+}
+
+// Overlaps returns true if both rectangles overlap.
+func (r Rect) Overlaps(q Rect) bool {
+	if r.W == 0.0 || r.H == 0.0 || q.W == 0.0 || q.H == 0.0 {
+		return false
+	} else if q.X+q.W <= r.X || r.X+r.W <= q.X {
+		// left or right
+		return false
+	} else if q.Y+q.H <= r.Y || r.Y+r.H <= q.Y {
+		// below or above
+		return false
+	}
+	return true
 }
 
 // ToPath converts the rectangle to a path.
