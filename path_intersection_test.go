@@ -15,13 +15,22 @@ func TestIntersectionLineLine(t *testing.T) {
 	}{
 		// secant
 		{"M2 0L2 3", "M1 2L3 2", intersections{{Point{2.0, 2.0}, 0, 0, 2.0 / 3.0, 0.5, false}}},
-		{"M2 0L2 3", "M2 2L3 2", intersections{{Point{2.0, 2.0}, 0, 0, 2.0 / 3.0, 0.0, false}}},
-		{"M2 0L2 2", "M2 2L3 2", intersections{{Point{2.0, 2.0}, 0, 0, 1.0, 0.0, false}}},
+
+		// tangent
+		{"M2 0L2 3", "M2 2L3 2", intersections{{Point{2.0, 2.0}, 0, 0, 2.0 / 3.0, 0.0, true}}},
+		{"M2 0L2 2", "M2 2L3 2", intersections{{Point{2.0, 2.0}, 0, 0, 1.0, 0.0, true}}},
+		{"M0 0L2 2", "M0 4L2 2", intersections{{Point{2.0, 2.0}, 0, 0, 1.0, 1.0, true}}},
+		{"L10 5", "M0 10L10 5", intersections{{Point{10.0, 5.0}, 0, 0, 1.0, 1.0, true}}},
+		{"M10 5L20 10", "M10 5L20 0", intersections{{Point{10.0, 5.0}, 0, 0, 0.0, 0.0, true}}},
 
 		// parallel
-		{"M2 0L2 2", "M2 0L2 2", intersections{}},
-		{"M2 0L2 2", "M2 1L2 3", intersections{}},
-		{"M2 0L2 2", "M2 2L2 4", intersections{}},
+		{"L2 2", "M3 3L5 5", intersections{}},
+		{"L2 2", "M-1 1L1 3", intersections{}},
+		{"L2 2", "M2 2L4 4", intersections{{Point{2.0, 2.0}, 0, 0, 1.0, 0.0, true}}},
+		{"L2 2", "M-2 -2L0 0", intersections{{Point{0.0, 0.0}, 0, 0, 0.0, 1.0, true}}},
+		{"L2 2", "L2 2", intersections{{Point{1.0, 1.0}, 0, 0, 0.5, 0.5, true}}},
+		{"L4 4", "M2 2L6 6", intersections{{Point{3.0, 3.0}, 0, 0, 0.75, 0.25, true}}},
+		{"L4 4", "M-2 -2L2 2", intersections{{Point{1.0, 1.0}, 0, 0, 0.25, 0.75, true}}},
 
 		// none
 		{"M2 0L2 1", "M3 0L3 1", intersections{}},
@@ -34,7 +43,8 @@ func TestIntersectionLineLine(t *testing.T) {
 			line1.Scan()
 			line2.Scan()
 
-			zs := intersectionLineLine(line1.Start(), line1.End(), line2.Start(), line2.End())
+			zs := intersections{}
+			zs = zs.LineLine(line1.Start(), line1.End(), line2.Start(), line2.End())
 			test.T(t, len(zs), len(tt.zs))
 			for i := range zs {
 				test.T(t, zs[i], tt.zs[i])
@@ -95,12 +105,12 @@ func TestIntersectionLineQuad(t *testing.T) {
 	}{
 		// secant
 		{"M0 5L10 5", "Q10 5 0 10", intersections{{Point{5.0, 5.0}, 0, 0, 0.5, 0.5, false}}},
-		{"M0 0L0 10", "Q10 5 0 10", intersections{
-			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, false},
-			{Point{0.0, 10.0}, 0, 0, 1.0, 1.0, false},
-		}},
 
 		// tangent
+		{"M0 0L0 10", "Q10 5 0 10", intersections{
+			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, true},
+			{Point{0.0, 10.0}, 0, 0, 1.0, 1.0, true},
+		}},
 		{"M5 0L5 10", "Q10 5 0 10", intersections{{Point{5.0, 5.0}, 0, 0, 0.5, 0.5, true}}},
 
 		// none
@@ -113,7 +123,8 @@ func TestIntersectionLineQuad(t *testing.T) {
 			line.Scan()
 			quad.Scan()
 
-			zs := intersectionLineQuad(line.Start(), line.End(), quad.Start(), quad.CP1(), quad.End())
+			zs := intersections{}
+			zs = zs.LineQuad(line.Start(), line.End(), quad.Start(), quad.CP1(), quad.End())
 			test.T(t, len(zs), len(tt.zs))
 			for i := range zs {
 				test.T(t, zs[i], tt.zs[i])
@@ -129,12 +140,12 @@ func TestIntersectionLineCube(t *testing.T) {
 	}{
 		// secant
 		{"M0 5L10 5", "C8 0 8 10 0 10", intersections{{Point{6.0, 5.0}, 0, 0, 0.6, 0.5, false}}},
-		{"M0 0L0 10", "C8 0 8 10 0 10", intersections{
-			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, false},
-			{Point{0.0, 10.0}, 0, 0, 1.0, 1.0, false},
-		}},
 
 		// tangent
+		{"M0 0L0 10", "C8 0 8 10 0 10", intersections{
+			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, true},
+			{Point{0.0, 10.0}, 0, 0, 1.0, 1.0, true},
+		}},
 		{"M6 0L6 10", "C8 0 8 10 0 10", intersections{{Point{6.0, 5.0}, 0, 0, 0.5, 0.5, true}}},
 
 		// none
@@ -147,7 +158,8 @@ func TestIntersectionLineCube(t *testing.T) {
 			line.Scan()
 			cube.Scan()
 
-			zs := intersectionLineCube(line.Start(), line.End(), cube.Start(), cube.CP1(), cube.CP2(), cube.End())
+			zs := intersections{}
+			zs = zs.LineCube(line.Start(), line.End(), cube.Start(), cube.CP1(), cube.CP2(), cube.End())
 			test.T(t, len(zs), len(tt.zs))
 			for i := range zs {
 				test.T(t, zs[i], tt.zs[i])
@@ -166,14 +178,14 @@ func TestIntersectionLineEllipse(t *testing.T) {
 		{"M0 5L10 5", "A5 5 0 1 1 0 10", intersections{{Point{5.0, 5.0}, 0, 0, 0.5, 0.5, false}}},
 		{"M0 5L-10 5", "A5 5 0 0 0 0 10", intersections{{Point{-5.0, 5.0}, 0, 0, 0.5, 0.5, false}}},
 		{"M-5 0L-5 -10", "A5 5 0 0 0 -10 0", intersections{{Point{-5.0, -5.0}, 0, 0, 0.5, 0.5, false}}},
-		{"M-5 0L-15 0", "A5 5 0 0 0 -10 0", intersections{{Point{-10.0, 0.0}, 0, 0, 0.5, 1.0, false}}},
-		{"M0 0L0 10", "A10 5 0 0 1 0 10", intersections{
-			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, false},
-			{Point{0.0, 10.0}, 0, 0, 1.0, 1.0, false},
-		}},
 		{"M0 10L10 10", "A10 5 90 0 1 0 20", intersections{{Point{5.0, 10.0}, 0, 0, 0.5, 0.5, false}}},
 
 		// tangent
+		{"M-5 0L-15 0", "A5 5 0 0 0 -10 0", intersections{{Point{-10.0, 0.0}, 0, 0, 0.5, 1.0, true}}},
+		{"M0 0L0 10", "A10 5 0 0 1 0 10", intersections{
+			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, true},
+			{Point{0.0, 10.0}, 0, 0, 1.0, 1.0, true},
+		}},
 		{"M5 0L5 10", "A5 5 0 0 1 0 10", intersections{{Point{5.0, 5.0}, 0, 0, 0.5, 0.5, true}}},
 		{"M-5 0L-5 10", "A5 5 0 0 0 0 10", intersections{{Point{-5.0, 5.0}, 0, 0, 0.5, 0.5, true}}},
 		{"M5 0L5 20", "A10 5 90 0 1 0 20", intersections{{Point{5.0, 10.0}, 0, 0, 0.5, 0.5, true}}},
@@ -194,7 +206,8 @@ func TestIntersectionLineEllipse(t *testing.T) {
 			phi := rot * math.Pi / 180.0
 			cx, cy, theta0, theta1 := ellipseToCenter(arc.Start().X, arc.Start().Y, rx, ry, phi, large, sweep, arc.End().X, arc.End().Y)
 
-			zs := intersectionLineEllipse(line.Start(), line.End(), Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
+			zs := intersections{}
+			zs = zs.LineEllipse(line.Start(), line.End(), Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
 			test.T(t, len(zs), len(tt.zs))
 			for i := range zs {
 				test.T(t, zs[i], tt.zs[i])
@@ -215,6 +228,22 @@ func TestIntersect(t *testing.T) {
 		{"L10 0L5 10z", "M0 -5L10 -5A5 5 0 0 1 0 -5", intersections{
 			{Point{5.0, 0.0}, 1, 2, 0.5, 0.5, true},
 		}},
+
+		// intersection on segment endpoint
+		{"L10 6L20 0", "M0 10L10 6L20 10", intersections{
+			{Point{10.0, 6.0}, 2, 2, 0.0, 0.0, true},
+		}},
+		//{"L10 6L20 10", "M0 10L10 6L20 0", intersections{
+		//	{Point{10.0, 6.0}, 2, 2, 0.0, 0.0, false},
+		//}},
+
+		// intersection with parallel lines
+		//{"L0 15", "M5 0L0 5L0 10L5 15", intersections{
+		//	{Point{0.0, 7.5}, 1, 2, 0.5, 0.5, true},
+		//}},
+		//{"L0 15", "M5 0L0 5L0 10L-5 15", intersections{
+		//	{Point{0.0, 7.5}, 1, 2, 0.5, 0.5, false},
+		//}},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {

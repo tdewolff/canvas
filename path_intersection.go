@@ -154,7 +154,7 @@ func (p *Path) cut(zs intersections) []*Path {
 				large, sweep := toArcFlags(p.d[i+4])
 				end := Point{p.d[i+5], p.d[i+6]}
 				cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
-				mid, large1, large2, ok := ellipseSplit(rx, ry, phi, cx, cy, theta0, theta1, zs[zi].TA)
+				mid, large1, large2, ok := ellipseSplit(rx, ry, phi, cx, cy, theta0, theta1, theta0+(theta1-theta0)*zs[zi].TA)
 				if !ok {
 					// should never happen
 					panic("theta not in elliptic arc range for splitting")
@@ -284,7 +284,7 @@ func pathIntersections(p, q *Path) *pathIntersection {
 // Intersections for path p by path q, sorted for path p.
 func (p *Path) Intersections(q *Path) intersections {
 	// TODO: uses O(N^2), try sweep line or bently-ottman to reduce to O((N+K) log N)
-	zss := intersections{}
+	zs := intersections{}
 	var pI, qI int
 	var pStart, qStart Point
 	for i := 0; i < len(p.d); {
@@ -295,12 +295,7 @@ func (p *Path) Intersections(q *Path) intersections {
 			for j := 0; j < len(q.d); {
 				qLen := cmdLen(q.d[j])
 				if q.d[j] != MoveToCmd {
-					zs := intersectSegments(pStart, p.d[i:i+pLen], qStart, q.d[j:j+qLen])
-					for k, _ := range zs {
-						zs[k].SegA = pI
-						zs[k].SegB = qI
-					}
-					zss = append(zss, zs...)
+					zs = zs.appendSegment(pI, pStart, p.d[i:i+pLen], qI, qStart, q.d[j:j+qLen])
 				}
 				j += qLen
 				qStart = Point{q.d[j-3], q.d[j-2]}
@@ -311,96 +306,29 @@ func (p *Path) Intersections(q *Path) intersections {
 		pStart = Point{p.d[i-3], p.d[i-2]}
 		pI++
 	}
-	sort.Stable(zss)
-	return zss
-}
-
-// intersect for path segments a and b, starting at a0 and b0
-func intersectSegments(a0 Point, a []float64, b0 Point, b []float64) intersections {
-	// TODO: add fast check if bounding boxes overlap
-	// check if approximated bounding boxes overlap
-	//axmin, axmax := math.Min(a0.X, a[len(a)-3]), math.Max(a0.X, a[len(a)-3])
-	//aymin, aymax := math.Min(a0.Y, a[len(a)-2]), math.Max(a0.Y, a[len(a)-2])
-	//if a[0] == QuadToCmd {
-	//	axmin, axmax = math.Min(axmin, a[len(a)-5]), math.Max(axmax, a[len(a)-5])
-	//	aymin, aymax = math.Min(aymin, a[len(a)-4]), math.Max(aymax, a[len(a)-4])
-	//} else if a[0] == CubeToCmd {
-	//	axmin, axmax = math.Min(axmin, a[len(a)-7]), math.Max(axmax, a[len(a)-7])
-	//	aymin, aymax = math.Min(aymin, a[len(a)-6]), math.Max(aymax, a[len(a)-6])
-	//	axmin, axmax = math.Min(axmin, a[len(a)-5]), math.Max(axmax, a[len(a)-5])
-	//	aymin, aymax = math.Min(aymin, a[len(a)-4]), math.Max(aymax, a[len(a)-4])
-	//} else if a[0] == ArcToCmd {
-	//}
-
-	if a[0] == LineToCmd || a[0] == CloseCmd {
-		if b[0] == LineToCmd || b[0] == CloseCmd {
-			return intersectionLineLine(a0, Point{a[1], a[2]}, b0, Point{b[1], b[2]})
-		} else if b[0] == QuadToCmd {
-			return intersectionLineQuad(a0, Point{a[1], a[2]}, b0, Point{b[1], b[2]}, Point{b[3], b[4]})
-		} else if b[0] == CubeToCmd {
-			return intersectionLineCube(a0, Point{a[1], a[2]}, b0, Point{b[1], b[2]}, Point{b[3], b[4]}, Point{b[5], b[6]})
-		} else if b[0] == ArcToCmd {
-			rx := b[1]
-			ry := b[2]
-			phi := b[3] * math.Pi / 180.0
-			large, sweep := toArcFlags(b[4])
-			cx, cy, theta0, theta1 := ellipseToCenter(b0.X, b0.Y, rx, ry, phi, large, sweep, b[5], b[6])
-			return intersectionLineEllipse(a0, Point{a[1], a[2]}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
-		}
-	} else if a[0] == QuadToCmd {
-		if b[0] == LineToCmd || b[0] == CloseCmd {
-			return intersectionLineQuad(b0, Point{b[1], b[2]}, a0, Point{a[1], a[2]}, Point{a[3], a[4]}).swapCurves()
-		} else if b[0] == QuadToCmd {
-			panic("unsupported intersection for quad-quad")
-		} else if b[0] == CubeToCmd {
-			panic("unsupported intersection for quad-cube")
-		} else if b[0] == ArcToCmd {
-			panic("unsupported intersection for quad-arc")
-		}
-	} else if a[0] == CubeToCmd {
-		if b[0] == LineToCmd || b[0] == CloseCmd {
-			return intersectionLineCube(b0, Point{b[1], b[2]}, a0, Point{a[1], a[2]}, Point{a[3], a[4]}, Point{a[5], a[6]}).swapCurves()
-		} else if b[0] == QuadToCmd {
-			panic("unsupported intersection for cube-quad")
-		} else if b[0] == CubeToCmd {
-			panic("unsupported intersection for cube-cube")
-		} else if b[0] == ArcToCmd {
-			panic("unsupported intersection for cube-arc")
-		}
-	} else if a[0] == ArcToCmd {
-		rx := a[1]
-		ry := a[2]
-		phi := a[3] * math.Pi / 180.0
-		large, sweep := toArcFlags(a[4])
-		cx, cy, theta0, theta1 := ellipseToCenter(b0.X, b0.Y, rx, ry, phi, large, sweep, a[5], a[6])
-		if b[0] == LineToCmd || b[0] == CloseCmd {
-			return intersectionLineEllipse(b0, Point{b[1], b[2]}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1).swapCurves()
-		} else if b[0] == QuadToCmd {
-			panic("unsupported intersection for arc-quad")
-		} else if b[0] == CubeToCmd {
-			panic("unsupported intersection for arc-cube")
-		} else if b[0] == ArcToCmd {
-			panic("unsupported intersection for arc-arc")
-		}
-	}
-	return intersections{} // has MoveCmd
+	sort.Stable(zs) // needed when q intersect a segment in p from high to low T
+	return zs
 }
 
 // see https://github.com/signavio/svg-intersections
 // see https://github.com/w8r/bezier-intersect
 // see https://cs.nyu.edu/exact/doc/subdiv1.pdf
 
-// Intersections amongst the combinations between line, quad, cube, elliptical arcs. We consider four cases: the curves do not cross nor touch (intersections is empty), the curves intersect (and cross), the curves intersect tangentially (touching), or the curves are identical (or parallel in the case of two lines). In the last case we say there are no intersections. As all curves are segments, it is considered a secant intersection when the segments touch but "intent to" cut at their ends (i.e. when s or t equals to 0 or 1 for either segment).
+// Intersections amongst the combinations between line, quad, cube, elliptical arcs. We consider four cases: the curves do not cross nor touch (intersections is empty), the curves intersect (and cross), the curves intersect tangentially (touching), or the curves are identical (or parallel in the case of two lines). In the last case we say there are no intersections. As all curves are segments, it is considered a secant intersection when the segments touch but "intent to" cut at their ends (i.e. when position equals to 0 or 1 for either segment).
 
 type intersection struct {
 	Point
 	SegA, SegB int     // segment indices
-	TA, TB     float64 // line or Bézier curve parameter, or arc angle, of intersection
-	Tangent    bool    // tangential non-crossing/touching
+	TA, TB     float64 // position along segment in [0,1]
+	Tangent    bool    // tangential, i.e. touching/non-crossing
+}
+
+func (z intersection) Equals(o intersection) bool {
+	return z.Point.Equals(o.Point) && z.SegA == o.SegA && z.SegB == o.SegB && Equal(z.TA, o.TA) && Equal(z.TB, o.TB) && z.Tangent == o.Tangent
 }
 
 func (z intersection) String() string {
-	s := fmt.Sprintf("pos=%v seg={%d,%d} t={%.5g,%.5g}", z.Point, z.SegA, z.SegB, z.TA, z.TB)
+	s := fmt.Sprintf("pos={%f,%f} seg={%d,%d} t={%f,%f}", z.Point.X, z.Point.Y, z.SegA, z.SegB, z.TA, z.TB)
 	if z.Tangent {
 		s += " tangent"
 	}
@@ -409,15 +337,6 @@ func (z intersection) String() string {
 
 // intersections sorted for curve A
 type intersections []intersection
-
-func (zs *intersections) add(pos Point, ta, tb float64, tangent bool) {
-	*zs = append(*zs, intersection{
-		Point:   pos,
-		TA:      ta,
-		TB:      tb,
-		Tangent: tangent,
-	})
-}
 
 func (zs intersections) Len() int {
 	return len(zs)
@@ -486,32 +405,336 @@ func (zs intersections) swappedArgSort() []int {
 	return idx
 }
 
-func (zs intersections) swapCurves() intersections {
-	zs2 := make(intersections, len(zs))
-	for i, _ := range zs {
-		zs2[i].SegA, zs2[i].SegB = zs[i].SegB, zs[i].SegA
-		zs2[i].TA, zs2[i].TB = zs[i].TB, zs[i].TA
+//func (zs intersections) swapCurves() intersections {
+//	zs2 := make(intersections, len(zs))
+//	for i, _ := range zs {
+//		zs2[i].SegA, zs2[i].SegB = zs[i].SegB, zs[i].SegA
+//		zs2[i].TA, zs2[i].TB = zs[i].TB, zs[i].TA
+//	}
+//	return zs2
+//}
+
+func segmentBounds(o Point, d []float64) Rect {
+	if d[0] == ArcToCmd {
+		return (&Path{append([]float64{MoveToCmd, o.X, o.Y, MoveToCmd}, d...)}).Bounds()
 	}
-	return zs2
+
+	r := Rect{}
+	r = r.AddPoint(o)
+	r = r.AddPoint(Point{d[len(d)-3], d[len(d)-2]})
+	if d[0] == QuadToCmd {
+		r = r.AddPoint(Point{d[1], d[2]})
+	} else if d[0] == CubeToCmd {
+		r = r.AddPoint(Point{d[1], d[2]})
+		r = r.AddPoint(Point{d[3], d[4]})
+	}
+	return r
+}
+
+// intersect for path segments a and b, starting at a0 and b0
+func (zs intersections) appendSegment(aSeg int, a0 Point, a []float64, bSeg int, b0 Point, b []float64) intersections {
+	// TODO: add fast check if bounding boxes overlap, below doesn't account for vertical/horizontal lines
+	//aRect := segmentBounds(a0, a)
+	//bRect := segmentBounds(b0, b)
+	//if !aRect.Overlaps(bRect) {
+	//	fmt.Println("NO INTERSECTIONS", a0, a, aRect, b0, b, bRect)
+	//	return zs
+	//}
+
+	n := len(zs)
+	swapCurves := false
+	if a[0] == LineToCmd || a[0] == CloseCmd {
+		if b[0] == LineToCmd || b[0] == CloseCmd {
+			zs = zs.LineLine(a0, Point{a[1], a[2]}, b0, Point{b[1], b[2]})
+		} else if b[0] == QuadToCmd {
+			zs = zs.LineQuad(a0, Point{a[1], a[2]}, b0, Point{b[1], b[2]}, Point{b[3], b[4]})
+		} else if b[0] == CubeToCmd {
+			zs = zs.LineCube(a0, Point{a[1], a[2]}, b0, Point{b[1], b[2]}, Point{b[3], b[4]}, Point{b[5], b[6]})
+		} else if b[0] == ArcToCmd {
+			rx := b[1]
+			ry := b[2]
+			phi := b[3] * math.Pi / 180.0
+			large, sweep := toArcFlags(b[4])
+			cx, cy, theta0, theta1 := ellipseToCenter(b0.X, b0.Y, rx, ry, phi, large, sweep, b[5], b[6])
+			zs = zs.LineEllipse(a0, Point{a[1], a[2]}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
+		}
+	} else if a[0] == QuadToCmd {
+		if b[0] == LineToCmd || b[0] == CloseCmd {
+			zs = zs.LineQuad(b0, Point{b[1], b[2]}, a0, Point{a[1], a[2]}, Point{a[3], a[4]})
+			swapCurves = true
+		} else if b[0] == QuadToCmd {
+			panic("unsupported intersection for quad-quad")
+		} else if b[0] == CubeToCmd {
+			panic("unsupported intersection for quad-cube")
+		} else if b[0] == ArcToCmd {
+			panic("unsupported intersection for quad-arc")
+		}
+	} else if a[0] == CubeToCmd {
+		if b[0] == LineToCmd || b[0] == CloseCmd {
+			zs = zs.LineCube(b0, Point{b[1], b[2]}, a0, Point{a[1], a[2]}, Point{a[3], a[4]}, Point{a[5], a[6]})
+			swapCurves = true
+		} else if b[0] == QuadToCmd {
+			panic("unsupported intersection for cube-quad")
+		} else if b[0] == CubeToCmd {
+			panic("unsupported intersection for cube-cube")
+		} else if b[0] == ArcToCmd {
+			panic("unsupported intersection for cube-arc")
+		}
+	} else if a[0] == ArcToCmd {
+		rx := a[1]
+		ry := a[2]
+		phi := a[3] * math.Pi / 180.0
+		large, sweep := toArcFlags(a[4])
+		cx, cy, theta0, theta1 := ellipseToCenter(b0.X, b0.Y, rx, ry, phi, large, sweep, a[5], a[6])
+		if b[0] == LineToCmd || b[0] == CloseCmd {
+			zs = zs.LineEllipse(b0, Point{b[1], b[2]}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
+			swapCurves = true
+		} else if b[0] == QuadToCmd {
+			panic("unsupported intersection for arc-quad")
+		} else if b[0] == CubeToCmd {
+			panic("unsupported intersection for arc-cube")
+		} else if b[0] == ArcToCmd {
+			panic("unsupported intersection for arc-arc")
+		}
+	} else {
+		// MoveCmd
+	}
+
+	// swap A and B in the intersection found to match segments A and B of this function
+	if swapCurves {
+		for i, _ := range zs[n:] {
+			zs[n+i].TA, zs[n+i].TB = zs[n+i].TB, zs[n+i].TA
+			zs[n+i].SegA, zs[n+i].SegB = aSeg, bSeg
+		}
+	} else {
+		for i, _ := range zs[n:] {
+			zs[n+i].SegA, zs[n+i].SegB = aSeg, bSeg
+		}
+	}
+
+	// remove previous intersection at t=1 if it is equal to the next intersection at t=0
+	if 0 < n && n < len(zs) && (zs[n].TA == 0.0 || zs[n].TB == 0.0) && (zs[n-1].TA == 1.0 || zs[n-1].TB == 1.0) {
+		zs = append(zs[:n-1], zs[n:]...)
+	}
+	return zs
+}
+
+func (zs intersections) add(pos Point, ta, tb float64, tangent bool) intersections {
+	if !tangent {
+		tangent = ta == 0.0 || ta == 1.0 || tb == 0.0 || tb == 1.0
+	}
+	return append(zs, intersection{
+		Point:   pos,
+		TA:      ta,
+		TB:      tb,
+		Tangent: tangent,
+	})
 }
 
 // http://www.cs.swan.ac.uk/~cssimon/line_intersection.html
-func intersectionLineLine(a0, a1, b0, b1 Point) intersections {
-	zs := intersections{}
+func (zs intersections) LineLine(a0, a1, b0, b1 Point) intersections {
 	da := a1.Sub(a0)
 	db := b1.Sub(b0)
 	div := da.PerpDot(db)
 	if Equal(div, 0.0) {
+		// parallel
+		if Equal(da.PerpDot(b1.Sub(a0)), 0.0) {
+			// aligned, rotate to x-axis
+			angle := da.Angle()
+			a := a0.Rot(-angle, Point{}).X
+			b := a1.Rot(-angle, Point{}).X
+			c := b0.Rot(-angle, Point{}).X
+			d := b1.Rot(-angle, Point{}).X
+			if c <= a && a <= d && c <= b && b <= d {
+				// a in b or a == b
+				mid := (a + b) / 2.0
+				zs = zs.add(a0.Interpolate(a1, 0.5), 0.5, (mid-c)/(d-c), true)
+			} else if a < c && c < b && a < d && d < b {
+				// b in a
+				mid := (c + d) / 2.0
+				zs = zs.add(b0.Interpolate(b1, 0.5), (mid-a)/(b-a), 0.5, true)
+			} else if a <= c && c <= b {
+				// a before b
+				mid := (c + b) / 2.0
+				zs = zs.add(b0.Interpolate(a1, 0.5), (mid-a)/(b-a), (mid-c)/(d-c), true)
+			} else if a <= d && d <= b {
+				// b before a
+				mid := (a + d) / 2.0
+				zs = zs.add(a0.Interpolate(b1, 0.5), (mid-a)/(b-a), (mid-c)/(d-c), true)
+			}
+		}
 		return zs
 	}
 
 	ta := db.PerpDot(a0.Sub(b0)) / div
 	tb := da.PerpDot(a0.Sub(b0)) / div
 	if 0.0 <= ta && ta <= 1.0 && 0.0 <= tb && tb <= 1.0 {
-		zs.add(a0.Interpolate(a1, ta), ta, tb, false)
+		zs = zs.add(a0.Interpolate(a1, ta), ta, tb, false)
 	}
 	return zs
 }
+
+// https://www.particleincell.com/2013/cubic-line-intersection/
+func (zs intersections) LineQuad(l0, l1, p0, p1, p2 Point) intersections {
+	// write line as A.X = bias
+	A := Point{l1.Y - l0.Y, l0.X - l1.X}
+	bias := l0.Dot(A)
+
+	a := A.Dot(p0.Sub(p1.Mul(2.0)).Add(p2))
+	b := A.Dot(p1.Sub(p0).Mul(2.0))
+	c := A.Dot(p0) - bias
+
+	roots := []float64{}
+	r0, r1 := solveQuadraticFormula(a, b, c)
+	if !math.IsNaN(r0) {
+		roots = append(roots, r0)
+		if !math.IsNaN(r1) {
+			roots = append(roots, r1)
+		}
+	}
+
+	horizontal := math.Abs(l1.Y-l0.Y) <= math.Abs(l1.X-l0.X)
+	if horizontal {
+		if l1.X < l0.X {
+			l0, l1 = l1, l0
+		}
+	} else if l1.Y < l0.Y {
+		l0, l1 = l1, l0
+	}
+
+	for _, root := range roots {
+		if 0.0 <= root && root <= 1.0 {
+			pos := quadraticBezierPos(p0, p1, p2, root)
+			dif := A.Dot(quadraticBezierDeriv(p0, p1, p2, root))
+			if horizontal {
+				if l0.X <= pos.X && pos.X <= l1.X {
+					zs = zs.add(pos, (pos.X-l0.X)/(l1.X-l0.X), root, Equal(dif, 0.0))
+				}
+			} else if l0.Y <= pos.Y && pos.Y <= l1.Y {
+				zs = zs.add(pos, (pos.Y-l0.Y)/(l1.Y-l0.Y), root, Equal(dif, 0.0))
+			}
+		}
+	}
+	return zs
+}
+
+// https://www.particleincell.com/2013/cubic-line-intersection/
+func (zs intersections) LineCube(l0, l1, p0, p1, p2, p3 Point) intersections {
+	// write line as A.X = bias
+	A := Point{l1.Y - l0.Y, l0.X - l1.X}
+	bias := l0.Dot(A)
+
+	a := A.Dot(p3.Sub(p0).Add(p1.Mul(3.0)).Sub(p2.Mul(3.0)))
+	b := A.Dot(p0.Mul(3.0).Sub(p1.Mul(6.0)).Add(p2.Mul(3.0)))
+	c := A.Dot(p1.Mul(3.0).Sub(p0.Mul(3.0)))
+	d := A.Dot(p0) - bias
+
+	roots := []float64{}
+	r0, r1, r2 := solveCubicFormula(a, b, c, d)
+	if !math.IsNaN(r0) {
+		roots = append(roots, r0)
+		if !math.IsNaN(r1) {
+			roots = append(roots, r1)
+			if !math.IsNaN(r2) {
+				roots = append(roots, r2)
+			}
+		}
+	}
+
+	horizontal := math.Abs(l1.Y-l0.Y) <= math.Abs(l1.X-l0.X)
+	if horizontal {
+		if l1.X < l0.X {
+			l0, l1 = l1, l0
+		}
+	} else if l1.Y < l0.Y {
+		l0, l1 = l1, l0
+	}
+
+	for _, root := range roots {
+		if 0.0 <= root && root <= 1.0 {
+			pos := cubicBezierPos(p0, p1, p2, p3, root)
+			dif := A.Dot(cubicBezierDeriv(p0, p1, p2, p3, root))
+			if horizontal {
+				if l0.X <= pos.X && pos.X <= l1.X {
+					zs = zs.add(pos, (pos.X-l0.X)/(l1.X-l0.X), root, Equal(dif, 0.0))
+				}
+			} else if l0.Y <= pos.Y && pos.Y <= l1.Y {
+				zs = zs.add(pos, (pos.Y-l0.Y)/(l1.Y-l0.Y), root, Equal(dif, 0.0))
+			}
+		}
+	}
+	return zs
+}
+
+func (zs intersections) LineEllipse(l0, l1, center, radius Point, phi, theta0, theta1 float64) intersections {
+	// we take the ellipse center as the origin and counter-rotate by phi
+	l0 = l0.Sub(center).Rot(-phi, Origin)
+	l1 = l1.Sub(center).Rot(-phi, Origin)
+
+	// write ellipse as Ax^2 + By^2 = 1 and line as Cx + Dy = E
+	A := 1.0 / (radius.X * radius.X)
+	B := 1.0 / (radius.Y * radius.Y)
+	C := l1.Y - l0.Y
+	D := l0.X - l1.X
+	E := l0.Dot(Point{C, D})
+
+	// rewrite as a polynomial by substituting x or y: ax^2 + bx + c = 0
+	var a, b, c float64
+	horizontal := math.Abs(C) <= math.Abs(D)
+	if horizontal {
+		a = A*D*D + B*C*C
+		b = -2.0 * B * E * C
+		c = B*E*E - D*D
+	} else {
+		a = B*C*C + A*D*D
+		b = -2.0 * A * E * D
+		c = A*E*E - C*C
+	}
+
+	// find solutions
+	roots := []float64{}
+	r0, r1 := solveQuadraticFormula(a, b, c)
+	if !math.IsNaN(r0) {
+		roots = append(roots, r0)
+		if !math.IsNaN(r1) && !Equal(r0, r1) {
+			roots = append(roots, r1)
+		}
+	}
+
+	for _, root := range roots {
+		// get intersection position with center as origin
+		var x, y, s float64
+		if horizontal {
+			x = root
+			y = (E - C*x) / D
+			s = (x - l0.X) / (l1.X - l0.X)
+		} else {
+			y = root
+			x = (E - D*x) / C
+			s = (y - l0.Y) / (l1.Y - l0.Y)
+		}
+
+		angle := math.Atan2(y, x)
+		if 0.0 <= s && s <= 1.0 && angleBetween(angle, theta0, theta1) {
+			t := angleNorm(angle-theta0) / angleNorm(theta1-theta0)
+			if theta1 < theta0 {
+				t = 2.0 - t
+			}
+			pos := Point{x, y}.Rot(phi, Origin).Add(center)
+			zs = zs.add(pos, s, t, Equal(root, 0.0))
+		}
+	}
+	return zs
+}
+
+// TODO: bezier-bezier intersection
+// TODO: bezier-ellipse intersection
+// TODO: ellipse-ellipse intersection
+
+// For Bézier-Bézier interesections:
+// see T.W. Sederberg, "Computer Aided Geometric Design", 2012
+// see T.W. Sederberg and T. Nishita, "Curve intersection using Bézier clipping", 1990
+// see T.W. Sederberg and S.R. Parry, "Comparison of three curve intersection algorithms", 1986
 
 // http://mathworld.wolfram.com/Circle-LineIntersection.html
 func intersectionRayCircle(l0, l1, c Point, r float64) (Point, Point, bool) {
@@ -552,168 +775,3 @@ func intersectionCircleCircle(c0 Point, r0 float64, c1 Point, r1 float64) (Point
 	i2 := Point{c1.Y - c0.Y, c0.X - c1.X}.Mul(c)
 	return i0.Add(i1).Add(i2), i0.Add(i1).Sub(i2), true
 }
-
-// https://www.particleincell.com/2013/cubic-line-intersection/
-func intersectionLineQuad(l0, l1, p0, p1, p2 Point) intersections {
-	// write line as A.X = bias
-	A := Point{l1.Y - l0.Y, l0.X - l1.X}
-	bias := l0.Dot(A)
-
-	a := A.Dot(p0.Sub(p1.Mul(2.0)).Add(p2))
-	b := A.Dot(p1.Sub(p0).Mul(2.0))
-	c := A.Dot(p0) - bias
-
-	roots := []float64{}
-	r0, r1 := solveQuadraticFormula(a, b, c)
-	if !math.IsNaN(r0) {
-		roots = append(roots, r0)
-		if !math.IsNaN(r1) {
-			roots = append(roots, r1)
-		}
-	}
-
-	horizontal := math.Abs(l1.Y-l0.Y) <= math.Abs(l1.X-l0.X)
-	if horizontal {
-		if l1.X < l0.X {
-			l0, l1 = l1, l0
-		}
-	} else if l1.Y < l0.Y {
-		l0, l1 = l1, l0
-	}
-
-	zs := intersections{}
-	for _, root := range roots {
-		if 0.0 <= root && root <= 1.0 {
-			pos := quadraticBezierPos(p0, p1, p2, root)
-			dif := A.Dot(quadraticBezierDeriv(p0, p1, p2, root))
-			if horizontal {
-				if l0.X <= pos.X && pos.X <= l1.X {
-					zs.add(pos, (pos.X-l0.X)/(l1.X-l0.X), root, Equal(dif, 0.0))
-				}
-			} else if l0.Y <= pos.Y && pos.Y <= l1.Y {
-				zs.add(pos, (pos.Y-l0.Y)/(l1.Y-l0.Y), root, Equal(dif, 0.0))
-			}
-		}
-	}
-	return zs
-}
-
-// https://www.particleincell.com/2013/cubic-line-intersection/
-func intersectionLineCube(l0, l1, p0, p1, p2, p3 Point) intersections {
-	// write line as A.X = bias
-	A := Point{l1.Y - l0.Y, l0.X - l1.X}
-	bias := l0.Dot(A)
-
-	a := A.Dot(p3.Sub(p0).Add(p1.Mul(3.0)).Sub(p2.Mul(3.0)))
-	b := A.Dot(p0.Mul(3.0).Sub(p1.Mul(6.0)).Add(p2.Mul(3.0)))
-	c := A.Dot(p1.Mul(3.0).Sub(p0.Mul(3.0)))
-	d := A.Dot(p0) - bias
-
-	roots := []float64{}
-	r0, r1, r2 := solveCubicFormula(a, b, c, d)
-	if !math.IsNaN(r0) {
-		roots = append(roots, r0)
-		if !math.IsNaN(r1) {
-			roots = append(roots, r1)
-			if !math.IsNaN(r2) {
-				roots = append(roots, r2)
-			}
-		}
-	}
-
-	horizontal := math.Abs(l1.Y-l0.Y) <= math.Abs(l1.X-l0.X)
-	if horizontal {
-		if l1.X < l0.X {
-			l0, l1 = l1, l0
-		}
-	} else if l1.Y < l0.Y {
-		l0, l1 = l1, l0
-	}
-
-	zs := intersections{}
-	for _, root := range roots {
-		if 0.0 <= root && root <= 1.0 {
-			pos := cubicBezierPos(p0, p1, p2, p3, root)
-			dif := A.Dot(cubicBezierDeriv(p0, p1, p2, p3, root))
-			if horizontal {
-				if l0.X <= pos.X && pos.X <= l1.X {
-					zs.add(pos, (pos.X-l0.X)/(l1.X-l0.X), root, Equal(dif, 0.0))
-				}
-			} else if l0.Y <= pos.Y && pos.Y <= l1.Y {
-				zs.add(pos, (pos.Y-l0.Y)/(l1.Y-l0.Y), root, Equal(dif, 0.0))
-			}
-		}
-	}
-	return zs
-}
-
-func intersectionLineEllipse(l0, l1, center, radius Point, phi, theta0, theta1 float64) intersections {
-	// we take the ellipse center as the origin and counter-rotate by phi
-	l0 = l0.Sub(center).Rot(-phi, Origin)
-	l1 = l1.Sub(center).Rot(-phi, Origin)
-
-	// write ellipse as Ax^2 + By^2 = 1 and line as Cx + Dy = E
-	A := 1.0 / (radius.X * radius.X)
-	B := 1.0 / (radius.Y * radius.Y)
-	C := l1.Y - l0.Y
-	D := l0.X - l1.X
-	E := l0.Dot(Point{C, D})
-
-	// rewrite as a polynomial by substituting x or y: ax^2 + bx + c = 0
-	var a, b, c float64
-	horizontal := math.Abs(C) <= math.Abs(D)
-	if horizontal {
-		a = A*D*D + B*C*C
-		b = -2.0 * B * E * C
-		c = B*E*E - D*D
-	} else {
-		a = B*C*C + A*D*D
-		b = -2.0 * A * E * D
-		c = A*E*E - C*C
-	}
-
-	// find solutions
-	roots := []float64{}
-	r0, r1 := solveQuadraticFormula(a, b, c)
-	if !math.IsNaN(r0) {
-		roots = append(roots, r0)
-		if !math.IsNaN(r1) && !Equal(r0, r1) {
-			roots = append(roots, r1)
-		}
-	}
-
-	zs := intersections{}
-	for _, root := range roots {
-		// get intersection position with center as origin
-		var x, y, s float64
-		if horizontal {
-			x = root
-			y = (E - C*x) / D
-			s = (x - l0.X) / (l1.X - l0.X)
-		} else {
-			y = root
-			x = (E - D*x) / C
-			s = (y - l0.Y) / (l1.Y - l0.Y)
-		}
-
-		angle := math.Atan2(y, x)
-		if 0.0 <= s && s <= 1.0 && angleBetween(angle, theta0, theta1) {
-			t := angleNorm(angle-theta0) / angleNorm(theta1-theta0)
-			if theta1 < theta0 {
-				t = 2.0 - t
-			}
-			pos := Point{x, y}.Rot(phi, Origin).Add(center)
-			zs.add(pos, s, t, Equal(root, 0.0))
-		}
-	}
-	return zs
-}
-
-// TODO: bezier-bezier intersection
-// TODO: bezier-ellipse intersection
-// TODO: ellipse-ellipse intersection
-
-// For Bézier-Bézier interesections:
-// see T.W. Sederberg, "Computer Aided Geometric Design", 2012
-// see T.W. Sederberg and T. Nishita, "Curve intersection using Bézier clipping", 1990
-// see T.W. Sederberg and S.R. Parry, "Comparison of three curve intersection algorithms", 1986
