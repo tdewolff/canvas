@@ -88,6 +88,14 @@ var (
 	Executive = Size{184.1, 266.7}
 )
 
+type ImageFit int
+
+const (
+	ImageFill ImageFit = iota
+	ImageContain
+	ImageCover
+)
+
 ////////////////////////////////////////////////////////////////
 
 // Style is the path style that defines how to draw the path. When FillColor is transparent it will not fill the path. If StrokeColor is transparent or StrokeWidth is zero, it will not stroke the path. If Dashes is an empty array, it will not draw dashes but instead a solid stroke line. FillRule determines how to fill the path when paths overlap and have certain directions (clockwise, counter clockwise).
@@ -437,6 +445,67 @@ func (c *Context) Stroke() {
 func (c *Context) FillStroke() {
 	c.DrawPath(0.0, 0.0, c.path)
 	c.path = &Path{}
+}
+
+// FitImage fits an image to a rectangle using different fit strategies.
+func (c *Context) FitImage(img image.Image, rect Rect, fit ImageFit) {
+	if img.Bounds().Size().Eq(image.Point{}) || rect.W == 0 || rect.H == 0 {
+		return
+	}
+
+	width := float64(img.Bounds().Max.X - img.Bounds().Min.X)
+	height := float64(img.Bounds().Max.Y - img.Bounds().Min.Y)
+
+	x, y := rect.X, rect.Y // offset to draw image
+	xres := width / rect.W
+	yres := height / rect.H
+	switch fit {
+	case ImageContain:
+		if xres < yres {
+			x += (rect.W - width/yres) / 2.0
+			xres = yres
+		} else {
+			y += (rect.H - height/xres) / 2.0
+			yres = xres
+		}
+	case ImageCover:
+		var dx, dy int // offset to crop image
+		if xres < yres {
+			dy = int((height-rect.H*xres)/2.0 + 0.5)
+			yres = (height - float64(2*dy)) / rect.H
+		} else {
+			dx = int((width-rect.W*yres)/2.0 + 0.5)
+			xres = (width - float64(2*dx)) / rect.W
+			//dx = int((width/yres-rect.W)/2.0 + 0.5)
+			//xres = width / (rect.W + float64(2*dx))
+		}
+		if subimg, ok := img.(interface {
+			SubImage(image.Rectangle) image.Image
+		}); ok {
+			imgRect := img.Bounds()
+			imgRect.Min.X += dx
+			imgRect.Min.Y += dy
+			imgRect.Max.X -= dx
+			imgRect.Max.Y -= dy
+			img = subimg.SubImage(imgRect)
+		} else {
+			panic("image doesn't have SubImage method")
+		}
+	default:
+		// ImageFill
+	}
+
+	var coord Point
+	if c.coordSystem == CartesianI {
+		coord = c.coordView.Dot(Point{x, y})
+	} else if c.coordSystem == CartesianIV {
+		coord = Identity.ReflectYAbout(c.Height() / 2.0).Mul(c.coordView).Dot(Point{x, y})
+	}
+	m := c.view.Translate(coord.X, coord.Y).Scale(1.0/xres, 1.0/yres)
+	if c.coordSystem == CartesianIV {
+		m = m.Translate(0.0, -float64(img.Bounds().Size().Y))
+	}
+	c.RenderImage(img, m)
 }
 
 // DrawPath draws a path at position (x,y) using the current draw state.
