@@ -63,21 +63,21 @@ func (r *TeX) getColor(col color.RGBA) string {
 
 func (r *TeX) writePath(path *canvas.Path) {
 	path = path.ReplaceArcs() // sometimes arcs generate errors of the form: Dimension too large
-	for _, seg := range path.Segments() {
-		end := seg.End
-		switch seg.Cmd {
+	for scanner := path.Scanner(); scanner.Scan(); {
+		end := scanner.End()
+		switch scanner.Cmd() {
 		case canvas.MoveToCmd:
 			fmt.Fprintf(r.w, "\n\\pgfpathmoveto{\\pgfpoint{%vmm}{%vmm}}", dec(end.X), dec(end.Y))
 		case canvas.LineToCmd:
 			fmt.Fprintf(r.w, "\n\\pgfpathlineto{\\pgfpoint{%vmm}{%vmm}}", dec(end.X), dec(end.Y))
 		case canvas.QuadToCmd:
-			cp := seg.CP1()
+			cp := scanner.CP1()
 			fmt.Fprintf(r.w, "\n\\pgfpathquadraticcurveto{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%vmm}{%vmm}}", dec(cp.X), dec(cp.Y), dec(end.X), dec(end.Y))
 		case canvas.CubeToCmd:
-			cp1, cp2 := seg.CP1(), seg.CP2()
+			cp1, cp2 := scanner.CP1(), scanner.CP2()
 			fmt.Fprintf(r.w, "\n\\pgfpathcurveto{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%vmm}{%vmm}}{\\pgfpoint{%vmm}{%vmm}}", dec(cp1.X), dec(cp1.Y), dec(cp2.X), dec(cp2.Y), dec(end.X), dec(end.Y))
 		case canvas.ArcToCmd:
-			rx, ry, rot, large, sweep := seg.Arc()
+			rx, ry, rot, large, sweep := scanner.Arc()
 			iLarge := 0
 			if large {
 				iLarge = 1
