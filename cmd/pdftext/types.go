@@ -6,6 +6,7 @@ import (
 	"encoding/ascii85"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 	"time"
 )
@@ -17,6 +18,7 @@ type pdfDict map[string]interface{}
 type pdfStream struct {
 	dict    pdfDict
 	filters []pdfName
+	params  []pdfDict
 	data    []byte
 }
 
@@ -61,11 +63,122 @@ func (v pdfStream) Decompress() (pdfStream, error) {
 				return pdfStream{}, err
 			}
 			r.Close()
+
+			predictor, _ := v.params[i]["Predictor"].(int)
+			if predictor == 0 || predictor == 1 {
+				// no-op
+			} else if predictor == 2 {
+				// TIFF predictor
+				return pdfStream{}, fmt.Errorf("unsupported flate predictor: %v", predictor)
+			} else if 10 <= predictor && predictor <= 15 {
+				// PNG prediction
+				columns, _ := v.params[i]["Columns"].(int)
+				if columns == 0 {
+					columns = 1
+				} else if len(b)%(columns+1) != 0 {
+					return pdfStream{}, fmt.Errorf("bad flate predictor columns")
+				}
+
+				colors, _ := v.params[i]["Colors"].(int)
+				if colors == 0 {
+					colors = 1
+				} else if colors < 1 {
+					return pdfStream{}, fmt.Errorf("bad flate predictor colors")
+				}
+
+				bpc, _ := v.params[i]["BitsPerComponent"].(int)
+				if bpc == 0 {
+					bpc = 8
+				} else if bpc != 1 && bpc != 2 && bpc != 4 && bpc != 8 && bpc != 16 {
+					return pdfStream{}, fmt.Errorf("bad flate predictor bits per component")
+				}
+
+				bpp := int((colors*bpc + 7) / 8) // round up to whole bytes
+				if columns < bpp {
+					return pdfStream{}, fmt.Errorf("bad flate predictor bits per pixel")
+				}
+
+				n := len(b) / (columns + 1)
+				for j := 0; j < n; j++ {
+					pos := j * (columns + 1)                   // src
+					start, end := j*columns, j*columns+columns // dst
+
+					filter := b[pos]
+					copy(b[start:], b[pos+1:pos+1+columns])
+					if filter == 0 {
+						// None
+					} else if filter == 1 {
+						// Sub
+						for k := start + bpp; k < end; k++ {
+							b[k] += b[k-bpp]
+						}
+					} else if filter == 2 {
+						// Up
+						if j != 0 {
+							for k := start; k < end; k++ {
+								b[k] += b[k-columns]
+							}
+						}
+					} else if filter == 3 {
+						// Average
+						for k := start; k < end; k++ {
+							A, B := 0, 0
+							if start+bpp <= k {
+								A = int(b[k-bpp])
+							}
+							if j != 0 {
+								B = int(b[k-columns])
+							}
+							b[k] += byte(math.Floor(float64(A+B) / 2.0))
+						}
+					} else if filter == 4 {
+						// Paeth
+						for k := start; k < end; k++ {
+							A, B, C := 0, 0, 0 // left, above, above-left
+							if start+bpp <= k {
+								A = int(b[k-bpp])
+							}
+							if j != 0 {
+								B = int(b[k-columns])
+								if start-columns+bpp <= k {
+									C = int(b[k-columns-bpp])
+								}
+							}
+							// Paeth predictor function
+							p := A + B - C
+							pa, pb, pc := p-A, p-B, p-C
+							if pa < 0 {
+								pa = -pa
+							}
+							if pb < 0 {
+								pb = -pb
+							}
+							if pc < 0 {
+								pc = -pc
+							}
+							if pa <= pb && pa <= pc {
+								p = A
+							} else if pb <= pc {
+								p = B
+							} else {
+								p = C
+							}
+							b[k] += byte(p)
+						}
+					} else {
+						return pdfStream{}, fmt.Errorf("bad flate PNG predictor filter: %v", filter)
+					}
+				}
+				b = b[:n*columns]
+			} else {
+				return pdfStream{}, fmt.Errorf("unsupported flate predictor: %v", predictor)
+			}
 		default:
 			return pdfStream{}, fmt.Errorf("unsupported filter: %v", filter)
 		}
 	}
 	delete(v.dict, "Filter")
+	delete(v.dict, "DecodeParms")
 	v.dict["Length"] = len(b)
 	v.data = b
 	return v, nil

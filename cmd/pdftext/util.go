@@ -78,7 +78,7 @@ func parseTextString(b []byte) string {
 }
 
 func parseDate(b []byte) time.Time {
-	t, _ := time.Parse("D:20060102150405Z07'00"[:len(b)], string(b))
+	t, _ := time.Parse("D:20060102150405Z07'00'"[:len(b)], string(b))
 	return t
 }
 
@@ -165,4 +165,13 @@ func (f dec) String() string {
 		}
 	}
 	return s
+}
+
+func readNumberLE(b []byte, n int) uint32 {
+	num := uint32(0)
+	for i := 0; i < n; i++ {
+		num <<= 8
+		num += uint32(b[i])
+	}
+	return num
 }

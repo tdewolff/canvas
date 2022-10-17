@@ -55,7 +55,6 @@ func (r *pdfReader) readEncrypt(password []byte) error {
 	if !ok {
 		length = 40
 	} else if length%8 != 0 || length < 40 || 128 < length {
-		fmt.Println(length)
 		return fmt.Errorf("bad encryption length")
 	}
 

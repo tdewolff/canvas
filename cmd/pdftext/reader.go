@@ -10,15 +10,24 @@ import (
 	"github.com/tdewolff/parse/v2/strconv"
 )
 
+var noEncryptRef = pdfRef{0, 0}
+
+type pdfObject struct {
+	free, compressed bool
+	offset           int
+	object           uint32 // compressed or next free object number
+}
+
 type pdfReader struct {
 	data    []byte
-	objects map[pdfRef]int
+	objects map[pdfRef]pdfObject
 	trailer pdfDict
 	encrypt pdfEncrypt
 	kids    []pdfRef
 
 	startxref int
 	eol       []byte
+	cache     map[pdfRef]interface{}
 }
 
 func NewPDFReader(reader io.Reader, password string) (*pdfReader, error) {
@@ -31,7 +40,8 @@ func NewPDFReader(reader io.Reader, password string) (*pdfReader, error) {
 
 	r := &pdfReader{
 		data:    data,
-		objects: map[pdfRef]int{},
+		objects: map[pdfRef]pdfObject{},
+		cache:   map[pdfRef]interface{}{},
 	}
 
 	// get startxref
@@ -64,16 +74,12 @@ func NewPDFReader(reader io.Reader, password string) (*pdfReader, error) {
 	return r, nil
 }
 
-func (r *pdfReader) readTrailer(startxref int) (pdfDict, error) {
-	var line []byte
+func (r *pdfReader) readCrossReferenceTable() (pdfDict, error) {
 	var starttrailer int
+	var line []byte
 
-	// cross reference table
-	r.startxref = startxref
-	lr := newLineReader(r.data, startxref)
-	if line = lr.Next(); !bytes.Equal(line, []byte("xref")) {
-		return pdfDict{}, fmt.Errorf("invalid cross reference table")
-	}
+	lr := newLineReader(r.data, r.startxref)
+	_ = lr.Next() // xref
 	for {
 		starttrailer = lr.Pos()
 		line = lr.Next()
@@ -110,11 +116,13 @@ func (r *pdfReader) readTrailer(startxref int) (pdfDict, error) {
 			if i == 0 && (!free || generation != 65535) {
 				return pdfDict{}, fmt.Errorf("invalid cross reference table")
 			}
-			if !free {
-				ref := pdfRef{uint32(first) + i, uint32(generation)}
-				if _, ok := r.objects[ref]; !ok {
-					// add object of previous generations only if not over-written by a new version
-					r.objects[ref] = int(offset)
+			ref := pdfRef{uint32(first) + i, uint32(generation)}
+			if _, ok := r.objects[ref]; !ok {
+				// add object of previous generations only if not over-written by a new version
+				if free {
+					r.objects[ref] = pdfObject{free: true, object: uint32(offset)}
+				} else {
+					r.objects[ref] = pdfObject{offset: int(offset)}
 				}
 			}
 		}
@@ -122,13 +130,135 @@ func (r *pdfReader) readTrailer(startxref int) (pdfDict, error) {
 
 	// trailer
 	starttrailer = moveWhiteSpace(r.data, starttrailer+7)
-	itrailer, _, err := pdfReadVal(r, pdfRef{}, r.data[starttrailer:])
+	itrailer, _, err := pdfReadVal(r, noEncryptRef, r.data[starttrailer:])
 	if err != nil {
 		return pdfDict{}, fmt.Errorf("invalid trailer: %w", err)
 	} else if _, ok := itrailer.(pdfDict); !ok {
 		return pdfDict{}, fmt.Errorf("invalid trailer: must be dictionary")
 	}
 	trailer := itrailer.(pdfDict)
+	return trailer, nil
+}
+
+func (r *pdfReader) readCrossReferenceStream() (pdfDict, error) {
+	istream, err := r.readObjectAt(noEncryptRef, r.startxref)
+	if err != nil {
+		return pdfDict{}, fmt.Errorf("invalid cross reference stream: %w", err)
+	}
+	stream, ok := istream.(pdfStream)
+	if !ok {
+		return pdfDict{}, fmt.Errorf("invalid cross reference stream")
+	}
+	size, err := r.GetInt(stream.dict["Size"])
+	if err != nil {
+		return pdfDict{}, fmt.Errorf("invalid cross reference stream")
+	}
+	ws, err := r.GetArray(stream.dict["W"])
+	if err != nil || len(ws) != 3 {
+		return pdfDict{}, fmt.Errorf("invalid cross reference stream")
+	}
+	W := [3]int{}
+	for i, w := range ws {
+		W[i], err = r.GetInt(w)
+		if err != nil || 4 < W[i] {
+			return pdfDict{}, fmt.Errorf("invalid cross reference stream")
+		}
+	}
+	indices := make([]int, size)
+	if _, ok := stream.dict["Index"]; ok {
+		is, err := r.GetArray(stream.dict["Index"])
+		if err != nil {
+			return pdfDict{}, fmt.Errorf("invalid cross reference stream")
+		}
+		d := 0
+		for i := 0; i < len(is); i += 2 {
+			first, err1 := r.GetInt(is[i+0])
+			n, err2 := r.GetInt(is[i+1])
+			if err1 != nil || err2 != nil {
+				return pdfDict{}, fmt.Errorf("invalid cross reference stream")
+			}
+			for j := 0; j < n; j++ {
+				indices[d+j] = first + j
+			}
+			d += n
+		}
+		indices = indices[:d]
+	} else {
+		for i := 0; i < size; i++ {
+			indices[i] = i
+		}
+	}
+	dW := W[0] + W[1] + W[2]
+	if len(stream.data) != dW*size || W[1] == 0 {
+		return pdfDict{}, fmt.Errorf("invalid cross reference stream")
+	}
+	for i := 0; i < size; i++ {
+		if len(indices) <= i {
+			break
+		}
+
+		d := i * dW
+		t := uint32(1)
+		if W[0] != 0 {
+			t = readNumberLE(stream.data[d:], W[0])
+		}
+		index := indices[i]
+		field2 := readNumberLE(stream.data[d+W[0]:], W[1])
+		field3 := uint32(0)
+		if W[2] != 0 {
+			field3 = readNumberLE(stream.data[d+W[0]+W[1]:], W[2])
+		}
+		if t == 0 {
+			// free object
+			ref := pdfRef{uint32(index), field3}
+			if _, ok := r.objects[ref]; !ok {
+				r.objects[ref] = pdfObject{free: true, object: field2}
+			}
+		} else if t == 1 {
+			// used object
+			ref := pdfRef{uint32(index), field3}
+			if _, ok := r.objects[ref]; !ok {
+				// add object of previous generations only if not over-written by a new version
+				r.objects[ref] = pdfObject{offset: int(field2)}
+			}
+		} else if t == 2 {
+			// compressed object
+			ref := pdfRef{uint32(index), 0}
+			if _, ok := r.objects[ref]; !ok {
+				// add object of previous generations only if not over-written by a new version
+				r.objects[ref] = pdfObject{compressed: true, offset: int(field3), object: field2}
+			}
+		} else {
+			// no-op
+		}
+	}
+	if prev, err := r.GetInt(stream.dict["Prev"]); err == nil {
+		if _, err = r.readTrailer(prev); err != nil {
+			return pdfDict{}, err
+		}
+	}
+
+	trailer := stream.dict
+	delete(trailer, "Type")
+	delete(trailer, "Index")
+	delete(trailer, "W")
+	delete(trailer, "Length")
+	return trailer, nil
+}
+
+func (r *pdfReader) readTrailer(startxref int) (pdfDict, error) {
+	r.startxref = startxref
+
+	var trailer pdfDict
+	var err error
+	if bytes.HasPrefix(r.data[startxref:], []byte("xref")) {
+		trailer, err = r.readCrossReferenceTable()
+	} else {
+		trailer, err = r.readCrossReferenceStream()
+	}
+	if err != nil {
+		return pdfDict{}, err
+	}
 	if prev, err := r.GetInt(trailer["Prev"]); err == nil {
 		if _, err = r.readTrailer(prev); err != nil {
 			return pdfDict{}, err
@@ -325,19 +455,71 @@ func (r *pdfReader) GetPage(index int) (pdfDict, []byte, error) {
 }
 
 func (r *pdfReader) readObject(ref pdfRef) (interface{}, error) {
-	offset, ok := r.objects[ref]
+	if val, ok := r.cache[ref]; ok {
+		return val, nil
+	}
+	obj, ok := r.objects[ref]
 	if !ok {
 		return nil, fmt.Errorf("unknown object %v", ref)
-	}
+	} else if obj.free {
+		return nil, fmt.Errorf("bad object %v is free", ref)
+	} else if obj.compressed {
+		iobjectStream, err := r.readObject(pdfRef{obj.object, 0})
+		if err != nil {
+			return nil, err
+		}
+		objectStream, ok := iobjectStream.(pdfStream)
+		if !ok {
+			return nil, fmt.Errorf("compressed object %v must refer to stream", ref)
+		}
 
+		b, i := objectStream.data, 0
+		object, offset := 0, 0
+		for index := 0; index <= obj.offset; index++ {
+			val, n, err := pdfReadContentVal(b[i:])
+			if err != nil {
+				return nil, fmt.Errorf("invalid stream: %w", err)
+			}
+			object, _ = val.(int)
+			i = moveWhiteSpace(b, i+n)
+
+			val, n, err = pdfReadContentVal(b[i:])
+			if err != nil {
+				return nil, fmt.Errorf("invalid stream: %w", err)
+			}
+			offset, _ = val.(int)
+			i = moveWhiteSpace(b, i+n)
+		}
+		if uint32(object) != ref[0] {
+			return nil, fmt.Errorf("bad object %v: invalid index in compressed object", ref)
+		}
+
+		first, _ := r.GetInt(objectStream.dict["First"])
+		offset += first
+		if len(b) <= offset {
+			return nil, fmt.Errorf("bad object %v: invalid offset in compressed object", ref)
+		}
+
+		val, _, err := pdfReadVal(r, ref, b[offset:])
+		if err != nil {
+			return nil, fmt.Errorf("bad object %v: %w", ref, err)
+		}
+		r.cache[ref] = val
+		return val, nil
+	}
+	val, err := r.readObjectAt(ref, obj.offset)
+	r.cache[ref] = val
+	return val, err
+}
+
+func (r *pdfReader) readObjectAt(ref pdfRef, i int) (interface{}, error) {
 	b := r.data
-	i := offset
-	val, n, err := pdfReadVal(nil, pdfRef{}, b[i:])
+	val, n, err := pdfReadContentVal(b[i:])
 	if _, ok := val.(int); !ok || err != nil {
 		return nil, fmt.Errorf("bad object %v", ref)
 	}
 	i = moveWhiteSpace(b, i+n)
-	val, n, err = pdfReadVal(nil, pdfRef{}, b[i:])
+	val, n, err = pdfReadContentVal(b[i:])
 	if _, ok := val.(int); !ok || err != nil {
 		return nil, fmt.Errorf("bad object %v", ref)
 	}
@@ -347,6 +529,9 @@ func (r *pdfReader) readObject(ref pdfRef) (interface{}, error) {
 	}
 	i = moveWhiteSpace(b, i+3)
 
+	if encryptRef, ok := r.trailer["Encrypt"].(pdfRef); ok && ref == encryptRef {
+		ref = noEncryptRef
+	}
 	val, n, err = pdfReadVal(r, ref, b[i:])
 	if err != nil {
 		return nil, fmt.Errorf("bad object %v: %w", ref, err)
@@ -357,6 +542,10 @@ func (r *pdfReader) readObject(ref pdfRef) (interface{}, error) {
 		return nil, fmt.Errorf("bad object %v", ref)
 	}
 	return val, nil
+}
+
+func pdfReadContentVal(b []byte) (interface{}, int, error) {
+	return pdfReadVal(nil, pdfRef{}, b)
 }
 
 func pdfReadVal(r *pdfReader, ref pdfRef, b []byte) (interface{}, int, error) {
@@ -401,7 +590,7 @@ func pdfReadVal(r *pdfReader, ref pdfRef, b []byte) (interface{}, int, error) {
 				i = moveWhiteSpace(b, i+n)
 				if object, ok := val.(int); ok && r != nil {
 					mark := i
-					val2, n, err := pdfReadVal(nil, pdfRef{}, b[i:])
+					val2, n, err := pdfReadContentVal(b[i:])
 					if generation, ok := val2.(int); ok && err == nil && 0 <= generation {
 						i = moveWhiteSpace(b, i+n)
 						if i < len(b) && b[i] == 'R' {
@@ -427,7 +616,7 @@ func pdfReadVal(r *pdfReader, ref pdfRef, b []byte) (interface{}, int, error) {
 				break
 			}
 
-			val, n, err := pdfReadVal(nil, pdfRef{}, b[i:])
+			val, n, err := pdfReadContentVal(b[i:])
 			key, ok := val.(pdfName)
 			if err != nil {
 				return nil, 0, err
@@ -443,7 +632,7 @@ func pdfReadVal(r *pdfReader, ref pdfRef, b []byte) (interface{}, int, error) {
 			i = moveWhiteSpace(b, i+n)
 			if object, ok := val.(int); ok && r != nil {
 				mark := i
-				val2, n, err := pdfReadVal(nil, pdfRef{}, b[i:])
+				val2, n, err := pdfReadContentVal(b[i:])
 				if generation, ok := val2.(int); ok && err == nil && 0 <= generation {
 					i = moveWhiteSpace(b, i+n)
 					if i < len(b) && b[i] == 'R' {
@@ -490,9 +679,42 @@ func pdfReadVal(r *pdfReader, ref pdfRef, b []byte) (interface{}, int, error) {
 				}
 			}
 
-			stream := pdfStream{dict, filters, b[i : i+length]}
-			if r.encrypt.isEncrypted {
-				// TODO: apply to all strings (possibly nested) and streams
+			var params []pdfDict
+			if _, ok := dict["DecodeParms"]; ok {
+				if p, err := r.GetDict(dict["DecodeParms"]); err == nil && len(filters) == 1 {
+					params = []pdfDict{p}
+				} else if ps, err := r.GetArray(dict["DecodeParms"]); err == nil && len(ps) == len(filters) {
+					for _, ip := range ps {
+						if p, err := r.GetDict(ip); err == nil {
+							params = append(params, p)
+						} else if ip == nil {
+							params = append(params, pdfDict{})
+						} else {
+							return nil, 0, fmt.Errorf("bad stream decode parameters")
+						}
+					}
+				} else {
+					return nil, 0, fmt.Errorf("bad stream decode parameters")
+				}
+			} else {
+				for i := 0; i < len(filters); i++ {
+					params = append(params, pdfDict{})
+				}
+			}
+			// dereference pdf references
+			for _, ps := range params {
+				for key, val := range ps {
+					if _, ok := val.(pdfRef); ok {
+						ps[key], err = r.get(val)
+						if err != nil {
+							return nil, 0, fmt.Errorf("bad stream decode parameters: %w", err)
+						}
+					}
+				}
+			}
+
+			stream := pdfStream{dict, filters, params, b[i : i+length]}
+			if r.encrypt.isEncrypted && ref != noEncryptRef {
 				stream.data = r.encrypt.Decrypt(ref, stream.data)
 			}
 			if stream, err = stream.Decompress(); err != nil {
@@ -568,6 +790,9 @@ func pdfReadVal(r *pdfReader, ref pdfRef, b []byte) (interface{}, int, error) {
 		}
 		s = append(s, b[j:i]...)
 		i++
+		if r != nil && r.encrypt.isEncrypted && ref != noEncryptRef {
+			s = r.encrypt.Decrypt(ref, s)
+		}
 		return s, i, nil
 	} else if b[0] == '<' {
 		i := 1
@@ -579,6 +804,9 @@ func pdfReadVal(r *pdfReader, ref pdfRef, b []byte) (interface{}, int, error) {
 		}
 		s := b[1:i:i]
 		i++
+		if r != nil && r.encrypt.isEncrypted && ref != noEncryptRef {
+			s = r.encrypt.Decrypt(ref, s)
+		}
 		if len(s)%2 == 1 {
 			s = append(s, '0') // allocates new slice
 		}
@@ -621,7 +849,7 @@ func (r *pdfStreamReader) Next() (string, []interface{}, error) {
 			return string(name), vals, nil
 		}
 
-		val, n, err := pdfReadVal(nil, pdfRef{}, r.b[r.i:])
+		val, n, err := pdfReadContentVal(r.b[r.i:])
 		if err != nil {
 			return "", nil, fmt.Errorf("invalid stream: %w", err)
 		}

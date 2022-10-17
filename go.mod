@@ -17,9 +17,9 @@ require (
 	github.com/paulmach/orb v0.7.1
 	github.com/paulmach/osm v0.5.0
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
-	github.com/tdewolff/argp v0.0.0-20220613210115-e74597c005ab
-	github.com/tdewolff/minify/v2 v2.11.10
-	github.com/tdewolff/parse/v2 v2.6.0
+	github.com/tdewolff/argp v0.0.0-20221007181215-ebef9ed8a560
+	github.com/tdewolff/minify/v2 v2.12.4
+	github.com/tdewolff/parse/v2 v2.6.4
 	github.com/tdewolff/test v1.0.7
 	github.com/wcharczuk/go-chart/v2 v2.1.0
 	golang.org/x/image v0.0.0-20220617043117-41969df76e82
@@ -53,6 +53,8 @@ require (
 	github.com/srwiley/oksvg v0.0.0-20220128195007-1f435e4c2b44 // indirect
 	github.com/srwiley/rasterx v0.0.0-20220615024203-67b7089efd25 // indirect
 	github.com/stretchr/testify v1.7.3 // indirect
+	github.com/tdewolff/minify v2.3.6+incompatible // indirect
+	github.com/tdewolff/parse v2.3.4+incompatible // indirect
 	github.com/tevino/abool v1.2.0 // indirect
 	github.com/yuin/goldmark v1.4.12 // indirect
 	golang.org/x/exp v0.0.0-20220218215828-6cf2b201936e // indirect
