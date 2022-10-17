@@ -67,6 +67,9 @@ type SFNT struct {
 	Jsft *jsftTable
 	//Gasp *gaspTable // TODO
 	//Base *baseTable // TODO
+	//Prep *baseTable // TODO
+	//Fpgm *baseTable // TODO
+	//Cvt *baseTable // TODO
 }
 
 // NumGlyphs returns the number of glyphs the font contains.
@@ -117,6 +120,15 @@ func (sfnt *SFNT) Kerning(left, right uint16) int16 {
 
 // ParseSFNT parses an OpenType file format (TTF, OTF, TTC). The index is used for font collections to select a single font.
 func ParseSFNT(b []byte, index int) (*SFNT, error) {
+	return parseSFNT(b, index, false)
+}
+
+// ParseEmbeddedSFNT is like ParseSFNT but for embedded font files in PDFs. It allows font files with fewer required tables.
+func ParseEmbeddedSFNT(b []byte, index int) (*SFNT, error) {
+	return parseSFNT(b, index, true)
+}
+
+func parseSFNT(b []byte, index int, embedded bool) (*SFNT, error) {
 	if len(b) < 12 || uint(math.MaxUint32) < uint(len(b)) {
 		return nil, ErrInvalidFontData
 	}
@@ -156,7 +168,7 @@ func ParseSFNT(b []byte, index int) (*SFNT, error) {
 	} else if index != 0 {
 		return nil, fmt.Errorf("bad font index %d", index)
 	}
-	if sfntVersion != "OTTO" && binary.BigEndian.Uint32([]byte(sfntVersion)) != 0x00010000 {
+	if sfntVersion != "OTTO" && sfntVersion != "true" && binary.BigEndian.Uint32([]byte(sfntVersion)) != 0x00010000 {
 		return nil, fmt.Errorf("bad SFNT version")
 	}
 	numTables := r.ReadUint16()
@@ -202,32 +214,50 @@ func ParseSFNT(b []byte, index int) (*SFNT, error) {
 	sfnt.Data = b
 	sfnt.Version = sfntVersion
 	sfnt.IsCFF = sfntVersion == "OTTO"
-	sfnt.IsTrueType = binary.BigEndian.Uint32([]byte(sfntVersion)) == 0x00010000
+	sfnt.IsTrueType = sfntVersion == "true" || binary.BigEndian.Uint32([]byte(sfntVersion)) == 0x00010000
 	sfnt.Tables = tables
 	if isCollection {
 		sfnt.Data = sfnt.Write()
 	}
 
-	requiredTables := []string{"cmap", "head", "hhea", "hmtx", "maxp", "name", "OS/2", "post"}
-	if sfnt.IsTrueType {
-		requiredTables = append(requiredTables, "glyf", "loca")
+	var requiredTables []string
+	if embedded {
+		// see Table 126 of the PDF32000 specification
+		if sfnt.IsTrueType {
+			requiredTables = []string{"glyf", "head", "hhea", "hmtx", "loca", "maxp"}
+		} else if sfnt.IsCFF {
+			requiredTables = []string{"cmap", "CFF "}
+		}
+	} else {
+		requiredTables = []string{"cmap", "head", "hhea", "hmtx", "maxp", "name", "post"} // OS/2 not required by TrueType
+		if sfnt.IsTrueType {
+			requiredTables = append(requiredTables, "glyf", "loca")
+		} else if sfnt.IsCFF {
+			_, hasCFF := tables["CFF "]
+			_, hasCFF2 := tables["CFF2"]
+			if !hasCFF && !hasCFF2 {
+				return nil, fmt.Errorf("CFF: missing table")
+			} else if hasCFF && hasCFF2 {
+				return nil, fmt.Errorf("CFF2: CFF table already exists")
+			}
+		}
 	}
 	for _, requiredTable := range requiredTables {
 		if _, ok := tables[requiredTable]; !ok {
 			return nil, fmt.Errorf("%s: missing table", requiredTable)
 		}
 	}
-	if sfnt.IsCFF {
-		_, hasCFF := tables["CFF "]
-		_, hasCFF2 := tables["CFF2"]
-		if !hasCFF && !hasCFF2 {
-			return nil, fmt.Errorf("CFF: missing table")
-		} else if hasCFF && hasCFF2 {
-			return nil, fmt.Errorf("CFF2: CFF table already exists")
+
+	if embedded && sfnt.IsCFF {
+		if err := sfnt.parseCFF(); err != nil {
+			return nil, err
+		} else if err := sfnt.parseCmap(); err != nil {
+			return nil, err
 		}
+		return sfnt, nil
 	}
 
-	// maxp and hhea tables are required for other tables to be parse first
+	// maxp and hhea tables are required before parsing other tables
 	if err := sfnt.parseHead(); err != nil {
 		return nil, err
 	} else if err := sfnt.parseMaxp(); err != nil {
@@ -280,7 +310,7 @@ func ParseSFNT(b []byte, index int) (*SFNT, error) {
 			return nil, err
 		}
 	}
-	if sfnt.OS2.Version <= 1 {
+	if sfnt.OS2 != nil && sfnt.OS2.Version <= 1 {
 		sfnt.estimateOS2()
 	}
 	return sfnt, nil
@@ -1478,6 +1508,10 @@ func (sfnt *SFNT) parsePost() error {
 	sfnt.Post.MinMemType1 = r.ReadUint32()
 	sfnt.Post.MaxMemType1 = r.ReadUint32()
 	if version == 0x00010000 && sfnt.IsTrueType && len(b) == 32 {
+		sfnt.Post.GlyphNameIndex = make([]uint16, 258)
+		for i := 0; i < 258; i++ {
+			sfnt.Post.GlyphNameIndex[i] = uint16(i)
+		}
 		return nil
 	} else if version == 0x00020000 && (sfnt.IsTrueType || isCFF2) && 34 <= len(b) {
 		// can be used for TrueType and CFF2 fonts, we check for this in the CFF table
@@ -1514,6 +1548,7 @@ func (sfnt *SFNT) parsePost() error {
 	} else if version == 0x00025000 && sfnt.IsTrueType && len(b) == 32 {
 		return fmt.Errorf("post: version 2.5 not supported")
 	} else if version == 0x00030000 && len(b) == 32 {
+		// no PostScript glyph names provided
 		return nil
 	}
 	return fmt.Errorf("post: bad version")

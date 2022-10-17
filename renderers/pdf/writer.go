@@ -206,6 +206,7 @@ func (w *pdfWriter) writeVal(i interface{}) {
 				w := ascii85.NewEncoder(&b2)
 				w.Write(b)
 				w.Close()
+				fmt.Fprintf(&b2, "~>")
 			case pdfFilterFlate:
 				w := zlib.NewWriter(&b2)
 				w.Write(b)
@@ -528,7 +529,7 @@ func (w *pdfWriter) Close() error {
 		"Info": pdfRef(2),
 		// TODO: write document ID
 	})
-	w.write("\nstartxref\n%v\n%%%%EOF", xrefOffset)
+	w.write("\nstartxref\n%v\n%%%%EOF\n", xrefOffset)
 	return w.err
 }
 
