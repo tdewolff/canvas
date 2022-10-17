@@ -11,6 +11,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"unicode"
 
 	"github.com/tdewolff/argp"
 	"github.com/tdewolff/canvas"
@@ -20,7 +21,7 @@ import (
 	"golang.org/x/image/vector"
 )
 
-type ShowOptions struct {
+type Show struct {
 	Index   int     `short:"i" desc:"Font index for font collections"`
 	GlyphID uint16  `short:"g" desc:"Glyph ID"`
 	Char    string  `short:"c" desc:"Unicode character"`
@@ -29,68 +30,63 @@ type ShowOptions struct {
 	Scale   int     `default:"4" desc:"Image scale"`
 	Ratio   float64 `desc:"Image width/height ratio"`
 	Output  string  `short:"o" desc:"Output filename"`
+	Input   string  `index:"0" desc:"Input file"`
 }
 
-type InfoOptions struct {
+type Info struct {
 	Index   int    `short:"i" desc:"Font index for font collections"`
 	Table   string `short:"t" desc:"OpenType table name"`
 	GlyphID uint16 `short:"g" desc:"Glyph ID"`
 	Char    string `short:"c" desc:"Unicode character"`
 	Output  string `short:"o" desc:"Output filename"`
+	Input   string `index:"0" desc:"Input file"`
 }
-
-var (
-	showOptions ShowOptions
-	infoOptions InfoOptions
-)
 
 func main() {
 	root := argp.New("Toolkit for TTF and OTF files")
-	show := root.AddCommand(show, "show", "Show glyphs in terminal or output to image")
-	show.AddStruct(&showOptions)
-
-	info := root.AddCommand(info, "info", "Get font info")
-	info.AddStruct(&infoOptions)
-
+	root.AddCmd(&Show{}, "show", "Show glyphs in terminal or output to image")
+	root.AddCmd(&Info{}, "info", "Get font info")
 	root.Parse()
 	root.PrintHelp()
 }
 
-func show(args []string) error {
-	terminal := showOptions.Output == "" || showOptions.Output == "-"
-	if len(args) != 1 {
-		return fmt.Errorf("must pass one font file")
-	}
+func (cmd *Show) Run() error {
+	terminal := cmd.Output == "" || cmd.Output == "-"
 
-	b, err := ioutil.ReadFile(args[0])
+	b, err := ioutil.ReadFile(cmd.Input)
 	if err != nil {
 		return err
 	}
 
-	sfnt, err := font.ParseSFNT(b, showOptions.Index)
+	sfnt, err := font.ParseSFNT(b, cmd.Index)
 	if err != nil {
 		return err
 	}
 
-	if showOptions.Char != "" {
-		rs := []rune(showOptions.Char)
+	if cmd.Char != "" {
+		rs := []rune(cmd.Char)
 		if len(rs) != 1 {
 			return fmt.Errorf("char must be one Unicode character")
 		}
-		showOptions.GlyphID = sfnt.GlyphIndex(rs[0])
+		cmd.GlyphID = sfnt.GlyphIndex(rs[0])
+	}
+	fmt.Println("GlyphID:", cmd.GlyphID)
+	fmt.Printf("Char: %v (%v)\n", printableRune(sfnt.Cmap.ToUnicode(cmd.GlyphID)), sfnt.Cmap.ToUnicode(cmd.GlyphID))
+	if name := sfnt.GlyphName(cmd.GlyphID); name != "" {
+		fmt.Println("Name:", name)
 	}
 
-	if showOptions.Width != 0 {
-		if showOptions.Width < 0 {
+	if cmd.Width != 0 {
+		if cmd.Width < 0 {
 			return fmt.Errorf("width must be positive")
 		}
-		showOptions.PPEM = uint16(float64(showOptions.Width) * float64(sfnt.Head.UnitsPerEm) / float64(sfnt.GlyphAdvance(showOptions.GlyphID)))
+		cmd.PPEM = uint16(float64(cmd.Width) * float64(sfnt.Head.UnitsPerEm) / float64(sfnt.GlyphAdvance(cmd.GlyphID)))
 	}
 
 	ascent := sfnt.Hhea.Ascender
 	descent := -sfnt.Hhea.Descender
-	width := int(float64(showOptions.PPEM)*float64(sfnt.GlyphAdvance(showOptions.GlyphID))/float64(sfnt.Head.UnitsPerEm) + 0.5)
-	height := int(float64(showOptions.PPEM)*float64(ascent+descent)/float64(sfnt.Head.UnitsPerEm) + 0.5)
+	width := int(float64(cmd.PPEM)*float64(sfnt.GlyphAdvance(cmd.GlyphID))/float64(sfnt.Head.UnitsPerEm) + 0.5)
+	height := int(float64(cmd.PPEM)*float64(ascent+descent)/float64(sfnt.Head.UnitsPerEm) + 0.5)
 	//baseline := int(float64(ppem)*float64(ascent)/float64(sfnt.Head.UnitsPerEm) + 0.5)
 	xpadding := int(float64(width)*0.2 + 0.5)
 	ypadding := xpadding
@@ -102,10 +98,10 @@ func show(args []string) error {
 		return fmt.Errorf("width cannot exceed 2048")
 	}
 
-	f := float64(showOptions.PPEM) / float64(sfnt.Head.UnitsPerEm)
+	f := float64(cmd.PPEM) / float64(sfnt.Head.UnitsPerEm)
 
 	p := &canvas.Path{}
-	err = sfnt.GlyphPath(p, showOptions.GlyphID, showOptions.PPEM, 0, int32(descent), 1.0, font.NoHinting)
+	err = sfnt.GlyphPath(p, cmd.GlyphID, cmd.PPEM, 0, int32(descent), 1.0, font.NoHinting)
 	if err != nil {
 		return err
 	}
@@ -120,18 +116,18 @@ func show(args []string) error {
 	p.ToRasterizer(ras, canvas.DPMM(f))
 	ras.Draw(img, glyphRect, image.NewUniform(canvas.Black), image.ZP)
 
-	if showOptions.Ratio == 0.0 {
+	if cmd.Ratio == 0.0 {
 		if terminal {
-			showOptions.Ratio = 2.0
+			cmd.Ratio = 2.0
 		} else {
-			showOptions.Ratio = 1.0
+			cmd.Ratio = 1.0
 		}
 	}
 
-	if showOptions.Ratio != 1.0 {
+	if cmd.Ratio != 1.0 {
 		origImg := img
 		origRect := rect
-		rect := image.Rect(0, 0, int(float64(origRect.Max.X)*showOptions.Ratio+0.5), origRect.Max.Y)
+		rect := image.Rect(0, 0, int(float64(origRect.Max.X)*cmd.Ratio+0.5), origRect.Max.Y)
 		img = image.NewRGBA(rect)
 		draw.ApproxBiLinear.Scale(img, rect, origImg, origRect, draw.Over, nil)
 	}
@@ -144,20 +140,20 @@ func show(args []string) error {
 		return nil
 	}
 
-	if showOptions.Scale != 1 {
+	if cmd.Scale != 1 {
 		origImg := img
 		origRect := rect
-		rect := image.Rect(0, 0, (origRect.Max.X)*showOptions.Scale, (origRect.Max.Y)*showOptions.Scale)
+		rect := image.Rect(0, 0, (origRect.Max.X)*cmd.Scale, (origRect.Max.Y)*cmd.Scale)
 		img = image.NewRGBA(rect)
 		draw.NearestNeighbor.Scale(img, rect, origImg, origRect, draw.Over, nil)
 	}
 
-	ext := filepath.Ext(showOptions.Output)
+	ext := filepath.Ext(cmd.Output)
 	if ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".gif" && ext != ".tiff" {
 		return fmt.Errorf("output extension must be PNG, JPG, GIF, or TIFF")
 	}
 
-	w, err := os.Create(showOptions.Output)
+	w, err := os.Create(cmd.Output)
 	if err != nil {
 		return err
 	}
@@ -179,6 +175,15 @@ func show(args []string) error {
 	return nil
 }
 
+func printableRune(r rune) string {
+	if unicode.IsGraphic(r) {
+		return fmt.Sprintf("%c", r)
+	} else if r < 128 {
+		return fmt.Sprintf("0x%02X", r)
+	}
+	return fmt.Sprintf("%U", r)
+}
+
 func printASCII(img image.Image) {
 	palette := []byte("$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ")
 
@@ -194,22 +199,18 @@ func printASCII(img image.Image) {
 	}
 }
 
-func info(args []string) error {
-	if len(args) != 1 {
-		return fmt.Errorf("must pass one font file")
-	}
-
-	b, err := ioutil.ReadFile(args[0])
+func (cmd *Info) Run() error {
+	b, err := ioutil.ReadFile(cmd.Input)
 	if err != nil {
 		return err
 	}
 
-	sfnt, err := font.ParseSFNT(b, infoOptions.Index)
+	sfnt, err := font.ParseSFNT(b, cmd.Index)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("File: %s\n\n", args[0])
+	fmt.Printf("File: %s\n\n", cmd.Input)
 	version := "TrueType"
 	if sfnt.Version == "OTTO" {
 		version = "CFF"
