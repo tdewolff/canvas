@@ -182,12 +182,6 @@ func (p *Path) cut(zs intersections) []*Path {
 	return ps
 }
 
-type pathIntersectionPos struct {
-	Point
-	seg int
-	t   float64
-}
-
 type pathIntersection struct {
 	intersection
 	prevA, nextA *pathIntersection

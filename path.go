@@ -23,6 +23,7 @@ const (
 	EvenOdd
 )
 
+// Command values as powers of 2 so that the float64 representation is exact
 const (
 	MoveToCmd = 1.0 << iota //  1.0
 	LineToCmd               //  2.0
@@ -99,6 +100,16 @@ func (p *Path) Copy() *Path {
 	q := &Path{}
 	q.d = append(q.d, p.d...)
 	return q
+}
+
+// Len returns the number of segments.
+func (p *Path) Len() int {
+	n := 0
+	for i := 0; i < len(p.d); {
+		i += cmdLen(p.d[i])
+		n++
+	}
+	return n
 }
 
 // Append appends path q to p and returns a new path if successful (otherwise either p or q are returned).
@@ -1792,6 +1803,11 @@ func (p *Path) ToPDF() string {
 
 // ToRasterizer rasterizes the path using the given rasterizer and resolution.
 func (p *Path) ToRasterizer(ras *vector.Rasterizer, resolution Resolution) {
+	// TODO: use Flatten, but this generates a lot more segments than the rasterizer's flattener!
+	//oldTolerance := Tolerance
+	//Tolerance = 0.1 / resolution.DPMM() // tolerance of 1/10 of a pixel
+	//p = p.Flatten()
+	//Tolerance = oldTolerance
 	p = p.ReplaceArcs()
 
 	dpmm := resolution.DPMM()
@@ -1809,6 +1825,9 @@ func (p *Path) ToRasterizer(ras *vector.Rasterizer, resolution Resolution) {
 			ras.CubeTo(float32(p.d[i+1]*dpmm), float32(dy-p.d[i+2]*dpmm), float32(p.d[i+3]*dpmm), float32(dy-p.d[i+4]*dpmm), float32(p.d[i+5]*dpmm), float32(dy-p.d[i+6]*dpmm))
 		case ArcToCmd:
 			panic("arcs should have been replaced")
+
+		//case QuadToCmd, CubeToCmd, ArcToCmd:
+		//	panic("Béziers and arcs should have been replaced")
 		case CloseCmd:
 			ras.ClosePath()
 		}
