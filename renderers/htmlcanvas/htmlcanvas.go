@@ -74,7 +74,7 @@ func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 
 	strokeUnsupported := false
 	if m.IsSimilarity() {
-		scale := math.Sqrt(m.Det())
+		scale := math.Sqrt(math.Abs(m.Det()))
 		style.StrokeWidth *= scale
 		style.DashOffset *= scale
 		dashes := make([]float64, len(style.Dashes))
