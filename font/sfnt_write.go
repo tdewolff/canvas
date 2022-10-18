@@ -7,6 +7,14 @@ import (
 	"time"
 )
 
+type WriteTables int
+
+const (
+	WriteAllTables WriteTables = iota
+	WriteMinTables
+	WritePDFTables
+)
+
 // Write writes out the SFNT file.
 func (sfnt *SFNT) Write() []byte {
 	tags := []string{}
@@ -73,7 +81,7 @@ func (sfnt *SFNT) Write() []byte {
 }
 
 // Subset regenerates a font file containing only the passed glyphIDs, thereby resulting in a significant size reduction. The glyphIDs will apear in the specified order in the file, and their dependencies are added to the end. It returns the compressed font file and the glyphIDs in the order in which they appear.
-func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
+func (sfnt *SFNT) Subset(glyphIDs []uint16, writeTables WriteTables) ([]byte, []uint16) {
 	if sfnt.IsCFF {
 		// TODO: support CFF
 		glyphIDs = glyphIDs[:0]
@@ -105,27 +113,42 @@ func (sfnt *SFNT) Subset(glyphIDs []uint16) ([]byte, []uint16) {
 	}
 
 	// specify tables to include
-	tags := []string{"cmap", "head", "hhea", "hmtx", "maxp", "name", "OS/2", "post"}
-	if sfnt.IsTrueType {
-		tags = append(tags, "glyf", "loca")
-	} else if sfnt.IsCFF {
-		if _, ok := sfnt.Tables["CFF2"]; ok {
-			tags = append(tags, "CFF2")
-		} else {
-			tags = append(tags, "CFF ")
+	var tags []string
+	if writeTables == WriteMinTables {
+		tags := []string{"cmap", "head", "hhea", "hmtx", "maxp", "name", "OS/2", "post"}
+		if sfnt.IsTrueType {
+			tags = append(tags, "glyf", "loca")
+		} else if sfnt.IsCFF {
+			if _, ok := sfnt.Tables["CFF2"]; ok {
+				tags = append(tags, "CFF2")
+			} else {
+				tags = append(tags, "CFF ")
+			}
 		}
-	}
-
-	// preserve tables
-	for _, tag := range []string{"cvt ", "fpgm", "prep"} {
-		if _, ok := sfnt.Tables[tag]; ok {
+	} else if writeTables == WritePDFTables {
+		if sfnt.IsTrueType {
+			tags = append(tags, "glyf", "head", "hhea", "hmtx", "loca", "maxp")
+			for _, tag := range []string{"cvt ", "fpgm", "prep"} {
+				if _, ok := sfnt.Tables[tag]; ok {
+					tags = append(tags, tag)
+				}
+			}
+		} else if sfnt.IsCFF {
+			if _, ok := sfnt.Tables["CFF2"]; ok {
+				tags = append(tags, "CFF2", "cmap") // not strictly allowed
+			} else {
+				tags = append(tags, "CFF ", "cmap")
+			}
+		}
+	} else {
+		for tag := range sfnt.Tables {
 			tags = append(tags, tag)
 		}
 	}
 
 	// handle kern table that could be removed
 	kernSubtables := []kernFormat0{}
-	if sfnt.Kern != nil {
+	if sfnt.Kern != nil && writeTables != WritePDFTables {
 		for _, subtable := range sfnt.Kern.Subtables {
 			pairs := []kernPair{}
 			for l, lOrig := range glyphIDs {

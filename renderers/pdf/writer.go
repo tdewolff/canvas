@@ -255,8 +255,9 @@ func (w *pdfWriter) writeFont(ref pdfRef, font *canvas.Font, vertical bool) {
 	fontProgram := font.SFNT.Data
 	glyphIDs := w.fontSubset[font].List()
 	if w.subset {
+		// TODO: CFF font subsetting doesn't work
 		// TODO: remove all optional tables such as kern, GPOS, GSUB, ...
-		fontProgram, glyphIDs = font.SFNT.Subset(glyphIDs)
+		fontProgram, glyphIDs = font.SFNT.Subset(glyphIDs, canvasFont.WritePDFTables)
 	}
 
 	// calculate the character widths for the W array and shorten it
@@ -359,8 +360,8 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 	// write font program
 	fontfileRef := w.writeObject(pdfStream{
 		dict: pdfDict{
-			//"Subtype": pdfName("OpenType"),
-			"Filter": pdfFilterFlate,
+			"Subtype": pdfName("OpenType"),
+			"Filter":  pdfFilterFlate,
 		},
 		stream: fontProgram,
 	})
@@ -371,22 +372,19 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 		name = records[0].String()
 	}
 	baseFont := strings.ReplaceAll(name, " ", "")
-	//if w.subset {
-	//	baseFont = "SUBSET+" + baseFont
-	//}
+	if w.subset {
+		baseFont = "SUBSET+" + baseFont // TODO: give unique subset name
+	}
 
 	encoding := "Identity-H"
 	if vertical {
 		encoding = "Identity-V"
 	}
 
-	fontFile := ""
 	cidSubtype := ""
 	if font.SFNT.IsTrueType {
-		fontFile = "FontFile2"
 		cidSubtype = "CIDFontType2"
 	} else if font.SFNT.IsCFF {
-		fontFile = "FontFile"
 		cidSubtype = "CIDFontType0"
 	}
 
@@ -419,12 +417,12 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 					int(f * float64(font.SFNT.Head.XMax)),
 					int(f * float64(font.SFNT.Head.YMax)),
 				},
-				"ItalicAngle":     float64(font.SFNT.Post.ItalicAngle),
-				"Ascent":          int(f * float64(font.SFNT.Hhea.Ascender)),
-				"Descent":         -int(f * float64(font.SFNT.Hhea.Descender)),
-				"CapHeight":       int(f * float64(font.SFNT.OS2.SCapHeight)),
-				"StemV":           80, // taken from Inkscape, should be calculated somehow, maybe use: 10+220*(usWeightClass-50)/900
-				pdfName(fontFile): fontfileRef,
+				"ItalicAngle": float64(font.SFNT.Post.ItalicAngle),
+				"Ascent":      int(f * float64(font.SFNT.Hhea.Ascender)),
+				"Descent":     -int(f * float64(font.SFNT.Hhea.Descender)),
+				"CapHeight":   int(f * float64(font.SFNT.OS2.SCapHeight)),
+				"StemV":       80, // taken from Inkscape, should be calculated somehow, maybe use: 10+220*(usWeightClass-50)/900
+				"FontFile3":   fontfileRef,
 			},
 		}},
 	}
@@ -455,6 +453,7 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 
 // Close finished the document.
 func (w *pdfWriter) Close() error {
+	// TODO: support cross reference table streams and compressed objects for all dicts
 	if w.page != nil {
 		w.pages = append(w.pages, w.page.writePage(pdfRef(3)))
 	}
