@@ -189,7 +189,7 @@ func TestTextBounds(t *testing.T) {
 func TestTextBox(t *testing.T) {
 	c := New(100, 100)
 	ctx := NewContext(c)
-	font, err := LoadFontFile("/usr/share/fonts/liberation/LiberationSans-Bold.ttf", FontRegular)
+	font, err := LoadFontFile("resources/DejaVuSerif.ttf", FontRegular)
 	if err != nil {
 		t.Fatal(err)
 	}
