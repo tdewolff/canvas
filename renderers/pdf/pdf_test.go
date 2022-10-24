@@ -65,7 +65,7 @@ const fontDir = "../../resources/"
 
 func TestPDFText(t *testing.T) {
 	doTestPDFText(t, false, 506000, "TestPDFText_no_subset.pdf")
-	doTestPDFText(t, true, 330000, "TestPDFText_subset_fonts.pdf")
+	doTestPDFText(t, true, 325000, "TestPDFText_subset_fonts.pdf")
 }
 
 func doTestPDFText(t *testing.T, subsetFonts bool, expectedSize int, filename string) {

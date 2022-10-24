@@ -55,7 +55,7 @@ func TestSFNTSubset(t *testing.T) {
 	sfnt, err := ParseSFNT(b, 0)
 	test.Error(t, err)
 
-	subset, glyphIDs := sfnt.Subset([]uint16{0, 3, 6, 36, 37, 38, 55, 131}) // .notdef, space, #, A, B, C, T, Á
+	subset, glyphIDs := sfnt.Subset([]uint16{0, 3, 6, 36, 37, 38, 55, 131}, WriteAllTables) // .notdef, space, #, A, B, C, T, Á
 	sfntSubset, err := ParseSFNT(subset, 0)
 	test.Error(t, err)
 
