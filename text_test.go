@@ -185,3 +185,15 @@ func TestTextBounds(t *testing.T) {
 	//test.Float(t, bounds.W, face8.TextWidth("test")+face12.TextWidth("test"))
 	//test.Float(t, bounds.H, 10.40625)
 }
+
+func TestTextBox(t *testing.T) {
+	c := New(100, 100)
+	ctx := NewContext(c)
+	font, err := LoadFontFile("/usr/share/fonts/liberation/LiberationSans-Bold.ttf", FontRegular)
+	if err != nil {
+		t.Fatal(err)
+	}
+	face := font.Face(12, Black)
+	ctx.DrawText(0, 0, NewTextBox(face, "\ntext", 100, 100, Left, Top, 0, 0))
+	ctx.DrawText(0, 0, NewTextBox(face, "text\n\ntext2", 100, 100, Left, Top, 0, 0))
+}

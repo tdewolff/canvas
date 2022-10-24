@@ -442,9 +442,11 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	for position, item := range items {
 		if position == breaks[j].Position {
 			// add spaces to previous span
-			for _, glyph := range glyphs[i : i+item.Size] {
-				if glyph.Text != "\u200B" {
-					t.lines[j].spans[len(t.lines[j].spans)-1].Text += glyph.Text
+			if 0 < len(t.lines[j].spans) { // don't add if there is an empty first line
+				for _, glyph := range glyphs[i : i+item.Size] {
+					if glyph.Text != "\u200B" {
+						t.lines[j].spans[len(t.lines[j].spans)-1].Text += glyph.Text
+					}
 				}
 			}
 
@@ -542,8 +544,10 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			x += width
 
 			// add spaces to previous span
-			for _, glyph := range glyphs[i : i+item.Size] {
-				t.lines[j].spans[len(t.lines[j].spans)-1].Text += glyph.Text
+			if 0 < len(t.lines[j].spans) { // don't add if there is an empty first line
+				for _, glyph := range glyphs[i : i+item.Size] {
+					t.lines[j].spans[len(t.lines[j].spans)-1].Text += glyph.Text
+				}
 			}
 		}
 		i += item.Size
