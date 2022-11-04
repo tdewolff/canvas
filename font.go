@@ -525,13 +525,9 @@ func (face *FontFace) TextWidth(s string) float64 {
 }
 
 func (face *FontFace) textWidth(glyphs []text.Glyph) float64 {
-	sfnt := face.Font.SFNT
 	w := int32(0)
-	for i, glyph := range glyphs {
-		if i != 0 {
-			w += int32(sfnt.Kerning(glyphs[i-1].ID, glyph.ID))
-		}
-		w += int32(sfnt.GlyphAdvance(glyph.ID))
+	for _, glyph := range glyphs {
+		w += glyph.XAdvance
 	}
 	return face.mmPerEm * float64(w)
 }

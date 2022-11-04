@@ -14,7 +14,7 @@ import (
 func Draw(c *canvas.Canvas, resolution canvas.Resolution, colorSpace canvas.ColorSpace) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, int(c.W*resolution.DPMM()+0.5), int(c.H*resolution.DPMM()+0.5)))
 	ras := FromImage(img, resolution, colorSpace)
-	c.Render(ras)
+	c.RenderTo(ras)
 	ras.Close()
 	return img
 }

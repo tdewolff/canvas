@@ -38,6 +38,10 @@ func (res Resolution) DPI() float64 {
 	return float64(res) * mmPerInch
 }
 
+func (res Resolution) Matrix() Matrix {
+	return Identity.Scale(1.0/res.DPMM(), 1.0/res.DPMM())
+}
+
 // DefaultResolution is the default resolution used for font PPEMs and is set to 96 DPI.
 const DefaultResolution = Resolution(96.0 * inchPerMm)
 
@@ -676,8 +680,17 @@ func (c *Canvas) Fit(margin float64) {
 	c.H = rect.H + 2*margin
 }
 
+type RendererViewer struct {
+	Renderer
+	Matrix
+}
+
+func (r RendererViewer) View() Matrix {
+	return r.Matrix
+}
+
 // Render renders the accumulated canvas drawing operations to another renderer.
-func (c *Canvas) Render(r Renderer) {
+func (c *Canvas) RenderTo(r Renderer) {
 	view := Identity
 	if viewer, ok := r.(interface{ View() Matrix }); ok {
 		view = viewer.View()

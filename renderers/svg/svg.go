@@ -348,6 +348,15 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 		r.RenderPath(p, style, m)
 	})
 
+	text.WalkSpans(func(x, y float64, span canvas.TextSpan) {
+		if !span.IsText() {
+			for _, obj := range span.Objects {
+				rv := canvas.RendererViewer{r, m.Mul(obj.View(x, y, span.Face))}
+				obj.Canvas.RenderTo(rv)
+			}
+		}
+	})
+
 	faceMain := text.MostCommonFontFace()
 	x0, y0 := 0.0, 0.0
 	if m.IsTranslation() {
@@ -378,25 +387,27 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 	fmt.Fprintf(r.w, `">`)
 
 	text.WalkSpans(func(x, y float64, span canvas.TextSpan) {
-		if ok, _ := r.fonts[span.Face.Font]; !ok {
-			r.fonts[span.Face.Font] = true
-			r.fontSubset[span.Face.Font] = canvas.NewFontSubsetter()
-		}
+		if span.IsText() {
+			if ok, _ := r.fonts[span.Face.Font]; !ok {
+				r.fonts[span.Face.Font] = true
+				r.fontSubset[span.Face.Font] = canvas.NewFontSubsetter()
+			}
 
-		subset := r.fontSubset[span.Face.Font]
-		for _, r := range span.Text {
-			glyphID := span.Face.Font.SFNT.GlyphIndex(r)
-			_ = subset.Get(glyphID) // register usage of glyph for subsetting
-		}
+			subset := r.fontSubset[span.Face.Font]
+			for _, r := range span.Text {
+				glyphID := span.Face.Font.SFNT.GlyphIndex(r)
+				_ = subset.Get(glyphID) // register usage of glyph for subsetting
+			}
 
-		x += x0
-		y = y0 - y
-		fmt.Fprintf(r.w, `<tspan x="%v" y="%v`, num(x), num(y))
-		r.writeFontStyle(span.Face, faceMain)
-		r.writeClasses(r.w)
-		fmt.Fprintf(r.w, `">`)
-		xml.EscapeText(r.w, []byte(span.Text))
-		fmt.Fprintf(r.w, `</tspan>`)
+			x += x0
+			y = y0 - y
+			fmt.Fprintf(r.w, `<tspan x="%v" y="%v`, num(x), num(y))
+			r.writeFontStyle(span.Face, faceMain)
+			r.writeClasses(r.w)
+			fmt.Fprintf(r.w, `">`)
+			xml.EscapeText(r.w, []byte(span.Text))
+			fmt.Fprintf(r.w, `</tspan>`)
+		}
 	})
 	fmt.Fprintf(r.w, `</text>`)
 }

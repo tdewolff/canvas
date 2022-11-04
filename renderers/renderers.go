@@ -211,7 +211,7 @@ func SVGZ(opts ...interface{}) canvas.Writer {
 	}
 	return func(w io.Writer, c *canvas.Canvas) error {
 		svg := svg.New(w, c.W, c.H, options)
-		c.Render(svg)
+		c.RenderTo(svg)
 		return svg.Close()
 	}
 }
@@ -228,7 +228,7 @@ func SVG(opts ...interface{}) canvas.Writer {
 	}
 	return func(w io.Writer, c *canvas.Canvas) error {
 		svg := svg.New(w, c.W, c.H, options)
-		c.Render(svg)
+		c.RenderTo(svg)
 		return svg.Close()
 	}
 }
@@ -245,7 +245,7 @@ func PDF(opts ...interface{}) canvas.Writer {
 	}
 	return func(w io.Writer, c *canvas.Canvas) error {
 		pdf := pdf.New(w, c.W, c.H, options)
-		c.Render(pdf)
+		c.RenderTo(pdf)
 		return pdf.Close()
 	}
 }
@@ -256,7 +256,7 @@ func TeX(opts ...interface{}) canvas.Writer {
 	}
 	return func(w io.Writer, c *canvas.Canvas) error {
 		tex := tex.New(w, c.W, c.H)
-		c.Render(tex)
+		c.RenderTo(tex)
 		return tex.Close()
 	}
 }
@@ -278,7 +278,7 @@ func PS(opts ...interface{}) canvas.Writer {
 	options.Format = ps.PostScript
 	return func(w io.Writer, c *canvas.Canvas) error {
 		ps := ps.New(w, c.W, c.H, options)
-		c.Render(ps)
+		c.RenderTo(ps)
 		return ps.Close()
 	}
 }
@@ -300,7 +300,7 @@ func EPS(opts ...interface{}) canvas.Writer {
 	options.Format = ps.EncapsulatedPostScript
 	return func(w io.Writer, c *canvas.Canvas) error {
 		ps := ps.New(w, c.W, c.H, options)
-		c.Render(ps)
+		c.RenderTo(ps)
 		return ps.Close()
 	}
 }

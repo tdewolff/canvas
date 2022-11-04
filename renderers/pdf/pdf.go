@@ -222,23 +222,30 @@ func (r *PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 	})
 
 	text.WalkSpans(func(x, y float64, span canvas.TextSpan) {
-		style := canvas.DefaultStyle
-		style.FillColor = span.Face.Color
+		if span.IsText() {
+			style := canvas.DefaultStyle
+			style.FillColor = span.Face.Color
 
-		r.w.StartTextObject()
-		r.w.SetFillColor(span.Face.Color)
-		r.w.SetFont(span.Face.Font, span.Face.Size, span.Direction)
-		r.w.SetTextPosition(m.Translate(x, y).Shear(span.Face.FauxItalic, 0.0))
+			r.w.StartTextObject()
+			r.w.SetFillColor(span.Face.Color)
+			r.w.SetFont(span.Face.Font, span.Face.Size, span.Direction)
+			r.w.SetTextPosition(m.Translate(x, y).Shear(span.Face.FauxItalic, 0.0))
 
-		if 0.0 < span.Face.FauxBold {
-			r.w.SetTextRenderMode(2)
-			r.w.SetStrokeColor(span.Face.Color)
-			fmt.Fprintf(r.w, " %v w", dec(span.Face.FauxBold*2.0))
+			if 0.0 < span.Face.FauxBold {
+				r.w.SetTextRenderMode(2)
+				r.w.SetStrokeColor(span.Face.Color)
+				fmt.Fprintf(r.w, " %v w", dec(span.Face.FauxBold*2.0))
+			} else {
+				r.w.SetTextRenderMode(0)
+			}
+			r.w.WriteText(text.Mode, span.Glyphs)
+			r.w.EndTextObject()
 		} else {
-			r.w.SetTextRenderMode(0)
+			for _, obj := range span.Objects {
+				rv := canvas.RendererViewer{r, m.Mul(obj.View(x, y, span.Face))}
+				obj.Canvas.RenderTo(rv)
+			}
 		}
-		r.w.WriteText(text.Mode, span.Glyphs)
-		r.w.EndTextObject()
 	})
 }
 

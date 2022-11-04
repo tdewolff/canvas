@@ -20,6 +20,7 @@ const (
 	Left TextAlign = iota
 	Right
 	Center
+	Middle
 	Top
 	Bottom
 	Justify
@@ -33,6 +34,8 @@ func (ta TextAlign) String() string {
 		return "Right"
 	case Center:
 		return "Center"
+	case Middle:
+		return "Middle"
 	case Top:
 		return "Top"
 	case Bottom:
@@ -91,17 +94,34 @@ func (l line) Heights(mode WritingMode, orient TextOrientation) (float64, float6
 	top, ascent, descent, bottom := 0.0, 0.0, 0.0, 0.0
 	if mode == HorizontalTB {
 		for _, span := range l.spans {
-			spanAscent, spanDescent, lineSpacing := span.Face.Metrics().Ascent, span.Face.Metrics().Descent, span.Face.Metrics().LineGap
-			top = math.Max(top, spanAscent+lineSpacing)
-			ascent = math.Max(ascent, spanAscent)
-			descent = math.Max(descent, spanDescent)
-			bottom = math.Max(bottom, spanDescent+lineSpacing)
+			if span.IsText() {
+				spanAscent, spanDescent, lineSpacing := span.Face.Metrics().Ascent, span.Face.Metrics().Descent, span.Face.Metrics().LineGap
+				top = math.Max(top, spanAscent+lineSpacing)
+				ascent = math.Max(ascent, spanAscent)
+				descent = math.Max(descent, spanDescent)
+				bottom = math.Max(bottom, spanDescent+lineSpacing)
+			} else { //if span.Object.VAlign != LineTop && span.Object.VAlign != LineMiddle && span.Object.VAlign != LineBottom {
+				for _, obj := range span.Objects {
+					spanAscent, spanDescent := obj.Heights(span.Face)
+					lineSpacing := span.Face.Metrics().LineGap
+					top = math.Max(top, spanAscent+lineSpacing)
+					ascent = math.Max(ascent, spanAscent)
+					descent = math.Max(descent, spanDescent)
+					bottom = math.Max(bottom, spanDescent+lineSpacing)
+				}
+			}
 		}
 	} else if orient == Upright {
 		width := 0.0
 		for _, span := range l.spans {
-			for _, glyph := range span.Glyphs {
-				width = math.Max(width, span.Face.textWidth([]canvasText.Glyph{glyph}))
+			if span.IsText() {
+				for _, glyph := range span.Glyphs {
+					width = math.Max(width, span.Face.textWidth([]canvasText.Glyph{glyph}))
+				}
+			} else {
+				for _, obj := range span.Objects {
+					width = math.Max(width, obj.Width)
+				}
 			}
 		}
 		top = width / 2.0
@@ -120,8 +140,13 @@ type TextSpan struct {
 	Width     float64
 	Face      *FontFace
 	Text      string
+	Objects   []TextObject
 	Glyphs    []canvasText.Glyph
 	Direction canvasText.Direction
+}
+
+func (span *TextSpan) IsText() bool {
+	return len(span.Objects) == 0
 }
 
 ////////////////////////////////////////////////////////////////
@@ -190,7 +215,7 @@ func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 					})
 					lineWidth += width
 				}
-				if halign == Center {
+				if halign == Center || halign == Middle {
 					for k := range line.spans {
 						line.spans[k].x = -lineWidth / 2.0
 					}
@@ -227,24 +252,78 @@ func (indexer indexer) index(loc int) int {
 	return len(indexer) - 1
 }
 
+// VerticalAlign specifies how the object should align vertically when embedded in text.
+type VerticalAlign int
+
+// see VerticalAlign
+const (
+	Baseline VerticalAlign = iota
+	//LineTop // TODO
+	//LineMiddle // TODO
+	//LineBottom // TODO
+	FontTop
+	FontMiddle
+	FontBottom
+)
+
+type TextObject struct {
+	*Canvas
+	Width, Height float64
+	VAlign        VerticalAlign
+	Text          string
+}
+
+func (obj *TextObject) Heights(face *FontFace) (float64, float64) {
+	switch obj.VAlign {
+	//case LineTop:
+	//	return lineAscent, lineAscent - obj.Height
+	//case LineMiddle:
+	//	return (lineAscent - lineDescent + obj.Height) / 2.0, (lineAscent - lineDescent - obj.Height) / 2.0
+	//case LineBottom:
+	//	return -lineDescent + obj.Height, -lineDescent
+	case FontTop:
+		ascent := face.Metrics().Ascent
+		return ascent, ascent - obj.Height
+	case FontMiddle:
+		ascent, descent := face.Metrics().Ascent, face.Metrics().Descent
+		return (ascent - descent + obj.Height) / 2.0, (ascent - descent - obj.Height) / 2.0
+	case FontBottom:
+		descent := face.Metrics().Descent
+		return -descent + obj.Height, -descent
+	}
+	return obj.Height, 0.0 // Baseline
+}
+
+func (obj *TextObject) View(x, y float64, face *FontFace) Matrix {
+	_, bottom := obj.Heights(face)
+	return Identity.Translate(x, y+bottom)
+}
+
 // RichText allows to build up a rich text with text spans of different font faces and fitting that into a box using Donald Knuth's line breaking algorithm.
 // TODO: RichText add support for decoration spans to properly underline the spaces betwee words too
 type RichText struct {
 	*strings.Builder
-	locs   indexer // faces locations ino string by number of runes
+	locs   indexer // faces locations in string by number of runes
 	faces  []*FontFace
 	mode   WritingMode
 	orient TextOrientation
+
+	defaultFace *FontFace
+	objects     []TextObject
 }
 
 // NewRichText returns a new rich text with the given default font face.
 func NewRichText(face *FontFace) *RichText {
+	if face == nil {
+		panic("FontFace cannot be nil")
+	}
 	return &RichText{
-		Builder: &strings.Builder{},
-		locs:    indexer{0},
-		faces:   []*FontFace{face},
-		mode:    HorizontalTB,
-		orient:  Natural,
+		Builder:     &strings.Builder{},
+		locs:        indexer{0},
+		faces:       []*FontFace{face},
+		mode:        HorizontalTB,
+		orient:      Natural,
+		defaultFace: face,
 	}
 }
 
@@ -302,6 +381,25 @@ func (rt *RichText) Add(face *FontFace, text string) *RichText {
 	return rt
 }
 
+// AddCanvas adds a canvas object that can have paths/images/texts.
+func (rt *RichText) AddCanvas(c *Canvas, valign VerticalAlign, alt string) *RichText {
+	if c == nil {
+		panic("Canvas cannot be nil")
+	}
+
+	width, height := c.Size()
+	rt.SetFace(nil)
+	rt.WriteRune(rune(len(rt.objects)))
+	rt.objects = append(rt.objects, TextObject{
+		Canvas: c,
+		Width:  width,
+		Height: height,
+		VAlign: valign,
+		Text:   alt,
+	})
+	return rt
+}
+
 // SetWritingMode sets the writing mode.
 func (rt *RichText) SetWritingMode(mode WritingMode) {
 	rt.mode = mode
@@ -340,12 +438,20 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	for k, r := range []rune(vis) {
 		nextFace := rt.locs.index(mapV2L[k])
 		if nextFace != curFace {
-			items := canvasText.ScriptItemizer(vis[i:j], rt.faces[curFace].Script)
-			for _, item := range items {
-				texts = append(texts, item.Text)
-				scripts = append(scripts, item.Script)
-				faces = append(faces, rt.faces[curFace])
-				i += len(item.Text)
+			if rt.faces[curFace] == nil {
+				// path/image objects
+				texts = append(texts, vis[i:j])
+				scripts = append(scripts, canvasText.ScriptInvalid)
+				faces = append(faces, nil)
+			} else {
+				// text
+				items := canvasText.ScriptItemizer(vis[i:j], rt.faces[curFace].Script)
+				for _, item := range items {
+					texts = append(texts, item.Text)
+					scripts = append(scripts, item.Script)
+					faces = append(faces, rt.faces[curFace])
+					i += len(item.Text)
+				}
 			}
 			curFace = nextFace
 			i = j
@@ -353,12 +459,20 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		j += utf8.RuneLen(r)
 	}
 	if i < j {
-		items := canvasText.ScriptItemizer(vis[i:j], rt.faces[curFace].Script)
-		for _, item := range items {
-			texts = append(texts, item.Text)
-			scripts = append(scripts, item.Script)
-			faces = append(faces, rt.faces[curFace])
-			i += len(item.Text)
+		if rt.faces[curFace] == nil {
+			// path/image objects
+			texts = append(texts, vis[i:j])
+			scripts = append(scripts, canvasText.ScriptInvalid)
+			faces = append(faces, nil)
+		} else {
+			// text
+			items := canvasText.ScriptItemizer(vis[i:j], rt.faces[curFace].Script)
+			for _, item := range items {
+				texts = append(texts, item.Text)
+				scripts = append(scripts, item.Script)
+				faces = append(faces, rt.faces[curFace])
+				i += len(item.Text)
+			}
 		}
 	}
 
@@ -368,15 +482,35 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	glyphs := []canvasText.Glyph{}
 	for k, text := range texts {
 		face := faces[k]
-		ppem := face.PPEM(DefaultResolution)
-		direction := writingModeDirection(rt.mode, face.Direction)
 		script := scripts[k]
-		glyphsString := face.Font.shaper.Shape(text, ppem, direction, face.Script, face.Language, face.Font.features, face.Font.variations)
-		for i := range glyphsString {
-			glyphsString[i].SFNT = face.Font.SFNT
-			glyphsString[i].Size = face.Size
-			glyphsString[i].Script = script
-			glyphsString[i].Cluster += clusterOffset
+		var glyphsString []canvasText.Glyph
+		if face == nil {
+			// path/image objects
+			for i, r := range text {
+				obj := rt.objects[r]
+				ppem := float64(rt.defaultFace.Font.SFNT.Head.UnitsPerEm)
+				glyphsString = append(glyphsString, canvasText.Glyph{
+					SFNT:     rt.defaultFace.Font.SFNT,
+					Size:     rt.defaultFace.Size,
+					Script:   script,
+					ID:       uint16(r),
+					Cluster:  clusterOffset + uint32(i),
+					XAdvance: int32(obj.Width * ppem / rt.defaultFace.Size),
+					YAdvance: int32(obj.Height * ppem / rt.defaultFace.Size),
+					Text:     obj.Text,
+				})
+			}
+		} else {
+			// text
+			ppem := face.PPEM(DefaultResolution)
+			direction := writingModeDirection(rt.mode, face.Direction)
+			glyphsString = face.Font.shaper.Shape(text, ppem, direction, face.Script, face.Language, face.Font.features, face.Font.variations)
+			for i := range glyphsString {
+				glyphsString[i].SFNT = face.Font.SFNT
+				glyphsString[i].Size = face.Size
+				glyphsString[i].Script = script
+				glyphsString[i].Cluster += clusterOffset
+			}
 		}
 		glyphIndices = append(glyphIndices, len(glyphs))
 		glyphs = append(glyphs, glyphsString...)
@@ -436,22 +570,20 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	lineSpacing := 1.0 + lineStretch
 	if halign == Right {
 		x += width - breaks[j].Width
-	} else if halign == Center {
+	} else if halign == Center || halign == Middle {
 		x += (width - breaks[j].Width) / 2.0
 	}
 	for position, item := range items {
 		if position == breaks[j].Position {
-			// add spaces to previous span
-			if 0 < len(t.lines[j].spans) { // don't add if there is an empty first line
+			if 0 < len(t.lines[j].spans) { // not if there is an empty first line
+				// add spaces to previous span
 				for _, glyph := range glyphs[i : i+item.Size] {
 					if glyph.Text != "\u200B" {
 						t.lines[j].spans[len(t.lines[j].spans)-1].Text += glyph.Text
 					}
 				}
-			}
 
-			if item.Type == canvasText.PenaltyType && item.Flagged && item.Width != 0.0 {
-				if 0 < len(t.lines[j].spans) {
+				if item.Type == canvasText.PenaltyType && item.Flagged && item.Width != 0.0 {
 					span := &t.lines[j].spans[len(t.lines[j].spans)-1]
 					id := span.Face.Font.GlyphIndex('-')
 					glyph := canvasText.Glyph{
@@ -487,12 +619,13 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			x = 0.0
 			if halign == Right {
 				x += width - breaks[j].Width
-			} else if halign == Center {
+			} else if halign == Center || halign == Middle {
 				x += (width - breaks[j].Width) / 2.0
 			}
 			atStart = true
 		} else if item.Type == canvasText.BoxType {
 			// find index k into faces/texts
+			// find a,b index range into glyphs
 			a := i
 			dx := 0.0
 			k := glyphIndices.index(i)
@@ -511,17 +644,43 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 					ar := utf8.RuneCountInString(vis[:ac])
 					br := utf8.RuneCountInString(vis[:bc])
 
+					face := faces[k]
+					var w float64
+					var objects []TextObject
+					var direction canvasText.Direction
+					if face != nil {
+						// text
+						w = face.textWidth(glyphs[a:b])
+						direction = writingModeDirection(rt.mode, face.Direction)
+						t.fonts[face.Font] = true
+					} else {
+						// path/image object, only one glyph is ever selected; b-a == 1
+						if 0 < len(t.lines[j].spans) {
+							face = t.lines[j].spans[len(t.lines[j].spans)-1].Face
+						} else {
+							face = rt.defaultFace
+						}
+						for _, glyph := range glyphs[a:b] {
+							obj := rt.objects[glyph.ID]
+							if rt.mode == HorizontalTB {
+								w += obj.Width
+							} else {
+								w += obj.Height
+							}
+							objects = append(objects, obj)
+						}
+					}
+
 					s := string(logRunes[ar:br])
-					w := faces[k].textWidth(glyphs[a:b])
 					t.lines[j].spans = append(t.lines[j].spans, TextSpan{
 						x:         x + dx,
 						Width:     w,
-						Face:      faces[k],
+						Face:      face,
 						Text:      s,
+						Objects:   objects,
 						Glyphs:    glyphs[a:b],
-						Direction: writingModeDirection(rt.mode, faces[k].Direction),
+						Direction: direction,
 					})
-					t.fonts[faces[k].Font] = true
 					k = nextK
 
 					a = b
@@ -578,9 +737,9 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			valign = Top
 		}
 	}
-	if valign == Center || valign == Bottom {
+	if valign == Center || valign == Middle || valign == Bottom {
 		dy := height - y
-		if valign == Center {
+		if valign == Center || valign == Middle {
 			dy /= 2.0
 		}
 		for j := range t.lines {
@@ -846,14 +1005,21 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
 				x, y = line.y, -span.x
 			}
 
-			style := DefaultStyle
-			style.FillColor = span.Face.Color
-			p, _, err := span.Face.toPath(span.Glyphs, span.Face.PPEM(resolution))
-			if err != nil {
-				panic(err)
+			if span.IsText() {
+				style := DefaultStyle
+				style.FillColor = span.Face.Color
+				p, _, err := span.Face.toPath(span.Glyphs, span.Face.PPEM(resolution))
+				if err != nil {
+					panic(err)
+				}
+				p = p.Translate(x, y)
+				r.RenderPath(p, style, m)
+			} else {
+				for _, obj := range span.Objects {
+					rv := RendererViewer{r, m.Mul(obj.View(x, y, span.Face))}
+					obj.RenderTo(rv)
+				}
 			}
-			p = p.Translate(x, y)
-			r.RenderPath(p, style, m)
 		}
 	}
 }
