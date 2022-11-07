@@ -238,7 +238,7 @@ func (r *PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 			} else {
 				r.w.SetTextRenderMode(0)
 			}
-			r.w.WriteText(text.Mode, span.Glyphs)
+			r.w.WriteText(text.WritingMode, span.Glyphs)
 			r.w.EndTextObject()
 		} else {
 			for _, obj := range span.Objects {

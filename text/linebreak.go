@@ -523,8 +523,8 @@ func isNewline(s string) bool {
 	return false
 }
 
-// GlyphsToItems converts a slice of glyphs into the box/glue/penalty items model as used by Knuth's line breaking algorithm. The SFNT and Size of each glyph must be set. Indent and align specify the indentation width of the first line and the alignment (left, right, centered, justified) of the lines respectively. Vertical should be true for vertical scripts.
-func GlyphsToItems(glyphs []Glyph, indent float64, align Align, vertical, upright bool) []Item {
+// GlyphsToItems converts a slice of glyphs into the box/glue/penalty items model as used by Knuth's line breaking algorithm. The SFNT and Size of each glyph must be set. Indent and align specify the indentation width of the first line and the alignment (left, right, centered, justified) of the lines respectively.
+func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 	if len(glyphs) == 0 {
 		return []Item{}
 	}
@@ -534,7 +534,7 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align, vertical, uprigh
 		n := 0.0
 		for _, glyph := range glyphs {
 			if isSpace(glyph.Text) {
-				if !vertical {
+				if !glyph.Vertical {
 					stretchWidth += float64(glyph.XAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
 				} else {
 					stretchWidth += float64(-glyph.YAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
@@ -553,7 +553,7 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align, vertical, uprigh
 	for i, glyph := range glyphs {
 		if isSpace(glyph.Text) {
 			var spaceWidth float64
-			if !vertical {
+			if !glyph.Vertical {
 				spaceWidth = float64(glyph.XAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
 			} else {
 				spaceWidth = float64(-glyph.YAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
@@ -616,7 +616,7 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align, vertical, uprigh
 		} else if glyph.Text == "\u200B" {
 			// optional hyphens
 			var hyphenWidth float64
-			if !vertical {
+			if !glyph.Vertical {
 				hyphenWidth = float64(glyph.SFNT.GlyphAdvance(glyph.SFNT.GlyphIndex('-')))
 			} else {
 				hyphenWidth = float64(glyph.SFNT.GlyphVerticalAdvance(glyph.SFNT.GlyphIndex('-')))
@@ -637,7 +637,7 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align, vertical, uprigh
 		} else {
 			// glyphs
 			var width float64
-			if !vertical {
+			if !glyph.Vertical {
 				width = float64(glyph.XAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
 			} else {
 				width = float64(-glyph.YAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
@@ -683,9 +683,7 @@ func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, indent, widt
 	hyphenID := sfnt.GlyphIndex('-')
 	toUnits := float64(sfnt.Head.UnitsPerEm) / size
 
-	vertical := false
-	upright := false
-	items := GlyphsToItems(glyphs, indent, align, vertical, upright)
+	items := GlyphsToItems(glyphs, indent, align)
 	breaks := Linebreak(items, width, looseness)
 
 	i, j := 0, 0 // index into: glyphs, breaks/lines

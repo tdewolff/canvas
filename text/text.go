@@ -1,12 +1,17 @@
 package text
 
-import "github.com/tdewolff/canvas/font"
+import (
+	"fmt"
+
+	"github.com/tdewolff/canvas/font"
+)
 
 // Glyph is a shaped glyph for the given font and font size. It specified the glyph ID, the cluster ID, its X and Y advance and offset in font units, and its representation as text.
 type Glyph struct {
 	SFNT *font.SFNT
 	Size float64
 	Script
+	Vertical bool
 
 	ID       uint16
 	Cluster  uint32
@@ -15,6 +20,10 @@ type Glyph struct {
 	XOffset  int32
 	YOffset  int32
 	Text     string
+}
+
+func (g Glyph) String() string {
+	return fmt.Sprintf("%s GID=%v Cluster=%v Adv=(%v,%v) Off=(%v,%v)", g.Text, g.ID, g.Cluster, g.XAdvance, g.YAdvance, g.XOffset, g.YOffset)
 }
 
 // TODO: implement Liang's (soft) hyphenation algorithm?
@@ -31,9 +40,22 @@ func IsSpacelessScript(script Script) bool {
 }
 
 func IsVerticalScript(script Script) bool {
-	return script == Han || script == Hangul || script == Yi || script == Mongolian || script == Bopomofo || script == Hiragana || script == Katakana || script == Ogham
+	return script == Bopomofo || script == EgyptianHieroglyphs || script == Hiragana || script == Katakana || script == Han || script == Hangul || script == MeroiticCursive || script == MeroiticHieroglyphs || script == Mongolian || script == Ogham || script == OldTurkic || script == PhagsPa || script == Yi
 }
 
-func IsRotatedScript(script Script) bool {
-	return script == Mongolian || script == Ogham
+type Rotation float64
+
+const (
+	NoRotation Rotation = 0.0
+	CW         Rotation = -90.0
+	CCW        Rotation = 90.0
+)
+
+func ScriptRotation(script Script) Rotation {
+	if script == Mongolian || script == PhagsPa {
+		return CW
+	} else if script == Ogham || script == OldTurkic {
+		return CCW
+	}
+	return NoRotation
 }

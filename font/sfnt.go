@@ -97,7 +97,7 @@ func (sfnt *SFNT) GlyphPath(p Pather, glyphID, ppem uint16, x, y int32, scale fl
 	return fmt.Errorf("only TrueType and CFF are supported")
 }
 
-// GlyphAdvance returns the advance width of the glyph.
+// GlyphAdvance returns the (horizontal) advance width of the glyph.
 func (sfnt *SFNT) GlyphAdvance(glyphID uint16) uint16 {
 	return sfnt.Hmtx.Advance(glyphID)
 }

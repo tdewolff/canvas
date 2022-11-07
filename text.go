@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"image"
 	"image/color"
 	"math"
 	"reflect"
@@ -46,6 +47,31 @@ func (ta TextAlign) String() string {
 	return "Invalid(" + strconv.Itoa(int(ta)) + ")"
 }
 
+// VerticalAlign specifies how the object should align vertically when embedded in text.
+type VerticalAlign int
+
+// see VerticalAlign
+const (
+	Baseline VerticalAlign = iota
+	FontTop
+	FontMiddle
+	FontBottom
+)
+
+func (valign VerticalAlign) String() string {
+	switch valign {
+	case Baseline:
+		return "Baseline"
+	case FontTop:
+		return "FontTop"
+	case FontMiddle:
+		return "FontMiddle"
+	case FontBottom:
+		return "FontBottom"
+	}
+	return "Invalid(" + strconv.Itoa(int(valign)) + ")"
+}
+
 // WritingMode specifies how the text lines should be laid out.
 type WritingMode int
 
@@ -54,15 +80,6 @@ const (
 	HorizontalTB WritingMode = iota
 	VerticalRL
 	VerticalLR
-)
-
-// TextOrientation specifies how horizontal text should be oriented within vertical text, or how vertical-only text should be layed out in horizontal text.
-type TextOrientation int
-
-// see TextOrientation
-const (
-	Natural TextOrientation = iota // turn horizontal text 90deg clockwise for VerticalRL, and counter clockwise for VerticalLR
-	Upright                        // split characters and lay them out upright
 )
 
 func (wm WritingMode) String() string {
@@ -77,11 +94,31 @@ func (wm WritingMode) String() string {
 	return "Invalid(" + strconv.Itoa(int(wm)) + ")"
 }
 
+// TextOrientation specifies how horizontal text should be oriented within vertical text, or how vertical-only text should be layed out in horizontal text.
+type TextOrientation int
+
+// see TextOrientation
+const (
+	Natural TextOrientation = iota // turn horizontal text 90deg clockwise for VerticalRL, and counter clockwise for VerticalLR
+	Upright                        // split characters and lay them out upright
+)
+
+func (orient TextOrientation) String() string {
+	switch orient {
+	case Natural:
+		return "Natural"
+	case Upright:
+		return "Upright"
+	}
+	return "Invalid(" + strconv.Itoa(int(orient)) + ")"
+}
+
 // Text holds the representation of a text object.
 type Text struct {
 	lines []line
 	fonts map[*Font]bool
-	Mode  WritingMode
+	WritingMode
+	TextOrientation
 }
 
 type line struct {
@@ -90,7 +127,7 @@ type line struct {
 }
 
 // Heights returns the maximum top, ascent, descent, and bottom heights of the line, where top and bottom are equal to ascent and descent respectively with added line spacing.
-func (l line) Heights(mode WritingMode, orient TextOrientation) (float64, float64, float64, float64) {
+func (l line) Heights(mode WritingMode) (float64, float64, float64, float64) {
 	top, ascent, descent, bottom := 0.0, 0.0, 0.0, 0.0
 	if mode == HorizontalTB {
 		for _, span := range l.spans {
@@ -100,7 +137,7 @@ func (l line) Heights(mode WritingMode, orient TextOrientation) (float64, float6
 				ascent = math.Max(ascent, spanAscent)
 				descent = math.Max(descent, spanDescent)
 				bottom = math.Max(bottom, spanDescent+lineSpacing)
-			} else { //if span.Object.VAlign != LineTop && span.Object.VAlign != LineMiddle && span.Object.VAlign != LineBottom {
+			} else {
 				for _, obj := range span.Objects {
 					spanAscent, spanDescent := obj.Heights(span.Face)
 					lineSpacing := span.Face.Metrics().LineGap
@@ -111,12 +148,25 @@ func (l line) Heights(mode WritingMode, orient TextOrientation) (float64, float6
 				}
 			}
 		}
-	} else if orient == Upright {
+	} else {
 		width := 0.0
 		for _, span := range l.spans {
 			if span.IsText() {
 				for _, glyph := range span.Glyphs {
-					width = math.Max(width, span.Face.textWidth([]canvasText.Glyph{glyph}))
+					if glyph.Vertical {
+						width = math.Max(width, span.Face.mmPerEm*float64(glyph.SFNT.GlyphAdvance(glyph.ID)))
+					} else {
+						spanAscent, spanDescent, lineSpacing, xHeight := span.Face.Metrics().Ascent, span.Face.Metrics().Descent, span.Face.Metrics().LineGap, span.Face.Metrics().XHeight
+						spanAscent -= xHeight / 2.0
+						spanDescent += xHeight / 2.0
+						if mode == VerticalLR {
+							spanAscent, spanDescent = spanDescent, spanAscent
+						}
+						top = math.Max(top, spanAscent+lineSpacing)
+						ascent = math.Max(ascent, spanAscent)
+						descent = math.Max(descent, spanDescent)
+						bottom = math.Max(bottom, spanDescent+lineSpacing)
+					}
 				}
 			} else {
 				for _, obj := range span.Objects {
@@ -124,12 +174,10 @@ func (l line) Heights(mode WritingMode, orient TextOrientation) (float64, float6
 				}
 			}
 		}
-		top = width / 2.0
-		ascent = width / 2.0
-		descent = width / 2.0
-		bottom = width / 2.0
-	} else {
-		panic("not implemented")
+		top = math.Max(top, width/2.0)
+		ascent = math.Max(ascent, width/2.0)
+		descent = math.Max(descent, width/2.0)
+		bottom = math.Max(bottom, width/2.0)
 	}
 	return top, ascent, descent, bottom
 }
@@ -140,13 +188,41 @@ type TextSpan struct {
 	Width     float64
 	Face      *FontFace
 	Text      string
-	Objects   []TextObject
+	Objects   []TextSpanObject
 	Glyphs    []canvasText.Glyph
 	Direction canvasText.Direction
+	Rotation  canvasText.Rotation
 }
 
 func (span *TextSpan) IsText() bool {
 	return len(span.Objects) == 0
+}
+
+type TextSpanObject struct {
+	*Canvas
+	Width, Height float64
+	VAlign        VerticalAlign
+	Text          string // alternative text represention
+}
+
+func (obj TextSpanObject) Heights(face *FontFace) (float64, float64) {
+	switch obj.VAlign {
+	case FontTop:
+		ascent := face.Metrics().Ascent
+		return ascent, ascent - obj.Height
+	case FontMiddle:
+		ascent, descent := face.Metrics().Ascent, face.Metrics().Descent
+		return (ascent - descent + obj.Height) / 2.0, (ascent - descent - obj.Height) / 2.0
+	case FontBottom:
+		descent := face.Metrics().Descent
+		return -descent + obj.Height, -descent
+	}
+	return obj.Height, 0.0 // Baseline
+}
+
+func (obj TextSpanObject) View(x, y float64, face *FontFace) Matrix {
+	_, bottom := obj.Heights(face)
+	return Identity.Translate(x, y+bottom)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -241,6 +317,22 @@ func NewTextBox(face *FontFace, s string, width, height float64, halign, valign 
 	return rt.ToText(width, height, halign, valign, indent, lineStretch)
 }
 
+//type faceSpan struct {
+//	start, end int
+//	face       *FontFace
+//}
+//
+//type faceSpans []faceSpan
+//
+//func (spans faceSpans) next(loc int) (*FontFace, int) {
+//	for index, start := range indexer {
+//		if loc < start {
+//			return index - 1
+//		}
+//	}
+//	return len(indexer) - 1
+//}
+
 type indexer []int
 
 func (indexer indexer) index(loc int) int {
@@ -250,53 +342,6 @@ func (indexer indexer) index(loc int) int {
 		}
 	}
 	return len(indexer) - 1
-}
-
-// VerticalAlign specifies how the object should align vertically when embedded in text.
-type VerticalAlign int
-
-// see VerticalAlign
-const (
-	Baseline VerticalAlign = iota
-	//LineTop // TODO
-	//LineMiddle // TODO
-	//LineBottom // TODO
-	FontTop
-	FontMiddle
-	FontBottom
-)
-
-type TextObject struct {
-	*Canvas
-	Width, Height float64
-	VAlign        VerticalAlign
-	Text          string
-}
-
-func (obj *TextObject) Heights(face *FontFace) (float64, float64) {
-	switch obj.VAlign {
-	//case LineTop:
-	//	return lineAscent, lineAscent - obj.Height
-	//case LineMiddle:
-	//	return (lineAscent - lineDescent + obj.Height) / 2.0, (lineAscent - lineDescent - obj.Height) / 2.0
-	//case LineBottom:
-	//	return -lineDescent + obj.Height, -lineDescent
-	case FontTop:
-		ascent := face.Metrics().Ascent
-		return ascent, ascent - obj.Height
-	case FontMiddle:
-		ascent, descent := face.Metrics().Ascent, face.Metrics().Descent
-		return (ascent - descent + obj.Height) / 2.0, (ascent - descent - obj.Height) / 2.0
-	case FontBottom:
-		descent := face.Metrics().Descent
-		return -descent + obj.Height, -descent
-	}
-	return obj.Height, 0.0 // Baseline
-}
-
-func (obj *TextObject) View(x, y float64, face *FontFace) Matrix {
-	_, bottom := obj.Heights(face)
-	return Identity.Translate(x, y+bottom)
 }
 
 // RichText allows to build up a rich text with text spans of different font faces and fitting that into a box using Donald Knuth's line breaking algorithm.
@@ -309,7 +354,7 @@ type RichText struct {
 	orient TextOrientation
 
 	defaultFace *FontFace
-	objects     []TextObject
+	objects     []TextSpanObject
 }
 
 // NewRichText returns a new rich text with the given default font face.
@@ -330,8 +375,18 @@ func NewRichText(face *FontFace) *RichText {
 // Reset resets the rich text to its initial state.
 func (rt *RichText) Reset() {
 	rt.Builder.Reset()
-	rt.locs = rt.locs[:0]
-	rt.faces = rt.faces[:0]
+	rt.locs = rt.locs[:1]
+	rt.faces = rt.faces[:1]
+}
+
+// SetWritingMode sets the writing mode.
+func (rt *RichText) SetWritingMode(mode WritingMode) {
+	rt.mode = mode
+}
+
+// SetTextOrientation sets the text orientation of non-CJK between CJK.
+func (rt *RichText) SetTextOrientation(orient TextOrientation) {
+	rt.orient = orient
 }
 
 // SetFace sets the font face.
@@ -390,7 +445,7 @@ func (rt *RichText) AddCanvas(c *Canvas, valign VerticalAlign, alt string) *Rich
 	width, height := c.Size()
 	rt.SetFace(nil)
 	rt.WriteRune(rune(len(rt.objects)))
-	rt.objects = append(rt.objects, TextObject{
+	rt.objects = append(rt.objects, TextSpanObject{
 		Canvas: c,
 		Width:  width,
 		Height: height,
@@ -400,27 +455,47 @@ func (rt *RichText) AddCanvas(c *Canvas, valign VerticalAlign, alt string) *Rich
 	return rt
 }
 
-// SetWritingMode sets the writing mode.
-func (rt *RichText) SetWritingMode(mode WritingMode) {
-	rt.mode = mode
+// AddPath adds a path.
+func (rt *RichText) AddPath(path *Path, col color.RGBA, alt string) *RichText {
+	style := DefaultStyle
+	style.FillColor = col
+	bounds := path.Bounds()
+	c := New(bounds.X+bounds.W, bounds.Y+bounds.H)
+	c.RenderPath(path, style, Identity)
+	rt.AddCanvas(c, Baseline, alt)
+	return rt
 }
 
-// SetTextOrientation sets the text orientation of non-CJK between CJK.
-func (rt *RichText) SetTextOrientation(orient TextOrientation) {
-	rt.orient = orient
+// AddImage adds an image.
+func (rt *RichText) AddImage(img image.Image, res Resolution, alt string) *RichText {
+	bounds := img.Bounds().Size()
+	c := New(float64(bounds.X)/res.DPMM(), float64(bounds.Y)/res.DPMM())
+	c.RenderImage(img, Identity.Scale(1.0/res.DPMM(), 1.0/res.DPMM()))
+	rt.AddCanvas(c, Baseline, alt)
+	return rt
 }
 
-func writingModeDirection(mode WritingMode, direction canvasText.Direction) canvasText.Direction {
+func scriptDirection(mode WritingMode, orient TextOrientation, script canvasText.Script, direction canvasText.Direction) (canvasText.Direction, canvasText.Rotation) {
 	if direction == canvasText.TopToBottom || direction == canvasText.BottomToTop {
 		if mode == HorizontalTB {
-			return canvasText.LeftToRight
+			direction = canvasText.LeftToRight
+		} else {
+			direction = canvasText.TopToBottom
 		}
-		return canvasText.TopToBottom
 	} else if mode != HorizontalTB {
 		// unknown, left to right, right to left
-		return canvasText.TopToBottom
+		direction = canvasText.TopToBottom
 	}
-	return direction
+	rotation := canvasText.NoRotation
+	if mode != HorizontalTB {
+		if !canvasText.IsVerticalScript(script) && orient == Natural {
+			direction = canvasText.LeftToRight
+			rotation = canvasText.CW
+		} else if rotation = canvasText.ScriptRotation(script); rotation != canvasText.NoRotation {
+			direction = canvasText.LeftToRight
+		}
+	}
+	return direction, rotation
 }
 
 // ToText takes the added text spans and fits them within a given box of certain width and height using Donald Knuth's line breaking algorithm.
@@ -503,13 +578,23 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		} else {
 			// text
 			ppem := face.PPEM(DefaultResolution)
-			direction := writingModeDirection(rt.mode, face.Direction)
-			glyphsString = face.Font.shaper.Shape(text, ppem, direction, face.Script, face.Language, face.Font.features, face.Font.variations)
+			direction, rotation := scriptDirection(rt.mode, rt.orient, script, face.Direction)
+			glyphsString = face.Font.shaper.Shape(text, ppem, direction, script, face.Language, face.Font.features, face.Font.variations)
 			for i := range glyphsString {
 				glyphsString[i].SFNT = face.Font.SFNT
 				glyphsString[i].Size = face.Size
 				glyphsString[i].Script = script
+				glyphsString[i].Vertical = direction == canvasText.TopToBottom || direction == canvasText.BottomToTop
 				glyphsString[i].Cluster += clusterOffset
+				if rt.mode != HorizontalTB && !canvasText.IsVerticalScript(script) {
+					if rt.orient == Natural && rotation != canvasText.NoRotation {
+						// center horizontal text by x-height when rotated in vertical layout
+						glyphsString[i].YOffset -= int32(face.Font.SFNT.OS2.SxHeight) / 2
+					} else if rt.orient == Upright && rotation == canvasText.NoRotation {
+						// center horizontal text vertically when upright in vertical layout
+						glyphsString[i].YOffset = -(int32(face.Font.SFNT.Head.UnitsPerEm) + int32(face.Font.SFNT.OS2.SxHeight)) / 2
+					}
+				}
 			}
 		}
 		glyphIndices = append(glyphIndices, len(glyphs))
@@ -517,9 +602,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		clusterOffset += uint32(len(text))
 	}
 
-	upright := rt.orient == Upright
-	vertical := rt.mode != HorizontalTB
-	if vertical {
+	if rt.mode != HorizontalTB {
 		width, height = height, width
 		halign, valign = valign, halign
 		if halign == Top {
@@ -541,7 +624,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 	// break glyphs into lines following Donald Knuth's line breaking algorithm
 	looseness := 0
-	items := canvasText.GlyphsToItems(glyphs, indent, align, vertical, upright)
+	items := canvasText.GlyphsToItems(glyphs, indent, align)
 
 	var breaks []*canvasText.Breakpoint
 	if width != 0.0 {
@@ -558,9 +641,10 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 	// build up lines
 	t := &Text{
-		lines: []line{{}},
-		fonts: map[*Font]bool{},
-		Mode:  rt.mode,
+		lines:           []line{{}},
+		fonts:           map[*Font]bool{},
+		WritingMode:     rt.mode,
+		TextOrientation: rt.orient,
 	}
 	glyphs = append(glyphs, canvasText.Glyph{Cluster: uint32(len(vis))}) // makes indexing easier
 
@@ -599,7 +683,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 				}
 			}
 
-			_, ascent, _, bottom := t.lines[j].Heights(rt.mode, rt.orient)
+			_, ascent, _, bottom := t.lines[j].Heights(rt.mode)
 			if 0 < j {
 				ascent *= lineSpacing
 			}
@@ -645,13 +729,15 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 					br := utf8.RuneCountInString(vis[:bc])
 
 					face := faces[k]
+					script := scripts[k]
 					var w float64
-					var objects []TextObject
+					var objects []TextSpanObject
 					var direction canvasText.Direction
+					var rotation canvasText.Rotation
 					if face != nil {
 						// text
 						w = face.textWidth(glyphs[a:b])
-						direction = writingModeDirection(rt.mode, face.Direction)
+						direction, rotation = scriptDirection(rt.mode, rt.orient, script, face.Direction)
 						t.fonts[face.Font] = true
 					} else {
 						// path/image object, only one glyph is ever selected; b-a == 1
@@ -680,6 +766,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 						Objects:   objects,
 						Glyphs:    glyphs[a:b],
 						Direction: direction,
+						Rotation:  rotation,
 					})
 					k = nextK
 
@@ -712,14 +799,14 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		i += item.Size
 	}
 
-	_, ascent, descent, bottom := t.lines[j].Heights(rt.mode, rt.orient)
+	_, ascent, descent, bottom := t.lines[j].Heights(rt.mode)
 	y -= bottom * lineSpacing
 
 	if height != 0.0 && height < y+descent {
 		// doesn't fit
 		t.lines = t.lines[:len(t.lines)-1]
 		if 0 < j {
-			_, _, descent2, bottom2 := t.lines[j-1].Heights(rt.mode, rt.orient)
+			_, _, descent2, bottom2 := t.lines[j-1].Heights(rt.mode)
 			y += descent2 - (bottom2+ascent)*lineSpacing
 		} else {
 			// no lines at all
@@ -778,8 +865,8 @@ func (t *Text) Heights() (float64, float64) {
 	}
 	firstLine := t.lines[0]
 	lastLine := t.lines[len(t.lines)-1]
-	_, ascent, _, _ := firstLine.Heights(HorizontalTB, Natural)
-	_, _, descent, _ := lastLine.Heights(HorizontalTB, Natural)
+	_, ascent, _, _ := firstLine.Heights(t.WritingMode)
+	_, _, descent, _ := lastLine.Heights(t.WritingMode)
 	return -firstLine.y + ascent, lastLine.y + descent
 }
 
@@ -981,7 +1068,7 @@ func (t *Text) WalkSpans(callback func(x, y float64, span TextSpan)) {
 		for _, span := range line.spans {
 			xOffset := span.Face.mmPerEm * float64(span.Face.XOffset)
 			yOffset := span.Face.mmPerEm * float64(span.Face.YOffset)
-			if t.Mode == HorizontalTB {
+			if t.WritingMode == HorizontalTB {
 				callback(span.x+xOffset, -line.y+yOffset, span)
 			} else {
 				callback(line.y+xOffset, -span.x+yOffset, span)
@@ -1001,7 +1088,7 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
 	for _, line := range t.lines {
 		for _, span := range line.spans {
 			x, y := span.x, -line.y
-			if t.Mode != HorizontalTB {
+			if t.WritingMode != HorizontalTB {
 				x, y = line.y, -span.x
 			}
 
@@ -1012,6 +1099,7 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
 				if err != nil {
 					panic(err)
 				}
+				p = p.Transform(Identity.Rotate(float64(span.Rotation)))
 				p = p.Translate(x, y)
 				r.RenderPath(p, style, m)
 			} else {

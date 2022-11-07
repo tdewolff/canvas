@@ -38,10 +38,6 @@ func (res Resolution) DPI() float64 {
 	return float64(res) * mmPerInch
 }
 
-func (res Resolution) Matrix() Matrix {
-	return Identity.Scale(1.0/res.DPMM(), 1.0/res.DPMM())
-}
-
 // DefaultResolution is the default resolution used for font PPEMs and is set to 96 DPI.
 const DefaultResolution = Resolution(96.0 * inchPerMm)
 
