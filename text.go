@@ -641,6 +641,24 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		breaks = append(breaks, &canvasText.Breakpoint{Position: len(items) - 1, Width: lineWidth})
 	}
 
+	// remove penalties that were not chosen as breaks, this concatenates adjacent boxes/spans
+	shift := 0 // break index shift
+	k := 0     // index into break
+	for i := 0; i < len(items); i++ {
+		if i == breaks[k].Position-shift {
+			breaks[k].Position -= shift
+			k++
+		} else if items[i].Type == canvasText.PenaltyType || (0 < i && items[i].Type == canvasText.BoxType && items[i-1].Type == canvasText.BoxType) {
+			if items[i].Type == canvasText.BoxType {
+				items[i-1].Width += items[i].Width
+				items[i-1].Size += items[i].Size
+			}
+			items = append(items[:i], items[i+1:]...)
+			shift++
+			i--
+		}
+	}
+
 	// build up lines
 	t := &Text{
 		lines:           []line{{}},

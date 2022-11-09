@@ -644,6 +644,7 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 			}
 			if 1 < len(items) && items[len(items)-1].Type == BoxType {
 				if IsSpacelessScript(glyph.Script) || IsSpacelessScript(glyphs[i-1].Script) {
+					// allow breaks around spaceless script glyphs, most commonly CJK
 					items = append(items, Penalty(0.0, 0.0, false))
 					items = append(items, Box(width))
 				} else {
