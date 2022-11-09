@@ -16,7 +16,6 @@ import (
 
 	"github.com/tdewolff/canvas"
 	canvasFont "github.com/tdewolff/canvas/font"
-	canvasText "github.com/tdewolff/canvas/text"
 )
 
 type Options struct {
@@ -380,8 +379,15 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 	if faceMain.Color != canvas.Black {
 		fmt.Fprintf(r.w, `;fill:%v`, canvas.CSSColor(faceMain.Color))
 	}
-	if faceMain.Direction == canvasText.TopToBottom || faceMain.Direction == canvasText.BottomToTop {
-		fmt.Fprintf(r.w, `;writing-mode:vertical-lr`)
+	if text.WritingMode != canvas.HorizontalTB {
+		if text.WritingMode == canvas.VerticalLR {
+			fmt.Fprintf(r.w, `;writing-mode:vertical-lr`)
+		} else if text.WritingMode == canvas.VerticalRL {
+			fmt.Fprintf(r.w, `;writing-mode:vertical-rl`)
+		}
+		if text.TextOrientation == canvas.Upright {
+			fmt.Fprintf(r.w, `;text-orientation:upright`)
+		}
 	}
 	r.writeClasses(r.w)
 	fmt.Fprintf(r.w, `">`)

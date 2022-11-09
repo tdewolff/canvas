@@ -878,23 +878,29 @@ func (w *pdfPageWriter) WriteText(mode canvas.WritingMode, TJ ...interface{}) {
 		write(glyphs)
 	}
 
+	position := w.textPosition
+	if glyphs, ok := TJ[0].([]canvasText.Glyph); ok && 0 < len(glyphs) && mode != canvas.HorizontalTB && !glyphs[0].Vertical {
+		glyphRotation, glyphOffset := glyphs[0].Rotation(), glyphs[0].YOffset-int32(glyphs[0].SFNT.Head.UnitsPerEm/2)
+		if glyphRotation != canvasText.NoRotation || glyphOffset != 0 {
+			w.SetTextPosition(position.Rotate(float64(glyphRotation)).Translate(0.0, glyphs[0].Size/float64(glyphs[0].SFNT.Head.UnitsPerEm)*mmPerPt*float64(glyphOffset)))
+		}
+	}
+
 	f := 1000.0 / float64(w.font.SFNT.Head.UnitsPerEm)
 	fmt.Fprintf(w, "[")
 	for _, tj := range TJ {
 		switch val := tj.(type) {
 		case []canvasText.Glyph:
 			i := 0
-			if mode == canvas.HorizontalTB {
-				for j, glyph := range val {
+			for j, glyph := range val {
+				if mode == canvas.HorizontalTB || !glyph.Vertical {
 					origXAdvance := int32(w.font.SFNT.GlyphAdvance(glyph.ID))
 					if glyph.XAdvance != origXAdvance {
 						write(val[i : j+1])
 						fmt.Fprintf(w, " %d", -int(f*float64(glyph.XAdvance-origXAdvance)+0.5))
 						i = j + 1
 					}
-				}
-			} else {
-				for j, glyph := range val {
+				} else {
 					origYAdvance := -int32(w.font.SFNT.GlyphVerticalAdvance(glyph.ID))
 					if glyph.YAdvance != origYAdvance {
 						write(val[i : j+1])

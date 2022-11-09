@@ -9,6 +9,7 @@ import (
 	"github.com/tdewolff/minify/v2"
 )
 
+const mmPerPt = 25.4 / 72.0
 const ptPerMm = 72 / 25.4
 
 ////////////////////////////////////////////////////////////////

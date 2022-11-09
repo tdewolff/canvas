@@ -586,11 +586,13 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 				glyphsString[i].Script = script
 				glyphsString[i].Vertical = direction == canvasText.TopToBottom || direction == canvasText.BottomToTop
 				glyphsString[i].Cluster += clusterOffset
-				if rt.mode != HorizontalTB && !canvasText.IsVerticalScript(script) {
-					if rt.orient == Natural && rotation != canvasText.NoRotation {
+				if rt.mode != HorizontalTB {
+					if script == canvasText.Mongolian {
+						glyphsString[i].YOffset += int32(face.Font.SFNT.Hhea.Descender)
+					} else if rotation != canvasText.NoRotation {
 						// center horizontal text by x-height when rotated in vertical layout
 						glyphsString[i].YOffset -= int32(face.Font.SFNT.OS2.SxHeight) / 2
-					} else if rt.orient == Upright && rotation == canvasText.NoRotation {
+					} else if rt.orient == Upright && rotation == canvasText.NoRotation && !canvasText.IsVerticalScript(script) {
 						// center horizontal text vertically when upright in vertical layout
 						glyphsString[i].YOffset = -(int32(face.Font.SFNT.Head.UnitsPerEm) + int32(face.Font.SFNT.OS2.SxHeight)) / 2
 					}

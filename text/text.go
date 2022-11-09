@@ -11,7 +11,7 @@ type Glyph struct {
 	SFNT *font.SFNT
 	Size float64
 	Script
-	Vertical bool
+	Vertical bool // is false for Latin/Mongolian/etc in a vertical layout
 
 	ID       uint16
 	Cluster  uint32
@@ -24,6 +24,17 @@ type Glyph struct {
 
 func (g Glyph) String() string {
 	return fmt.Sprintf("%s GID=%v Cluster=%v Adv=(%v,%v) Off=(%v,%v)", g.Text, g.ID, g.Cluster, g.XAdvance, g.YAdvance, g.XOffset, g.YOffset)
+}
+
+func (g Glyph) Rotation() Rotation {
+	rot := NoRotation
+	if !g.Vertical {
+		rot = ScriptRotation(g.Script)
+		if rot == NoRotation {
+			rot = CW
+		}
+	}
+	return rot
 }
 
 // TODO: implement Liang's (soft) hyphenation algorithm?
