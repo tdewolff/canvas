@@ -22,7 +22,7 @@ func New(width, height float64, resolution canvas.Resolution) *Fyne {
 
 func (r *Fyne) Content() fyne.CanvasObject {
 	ras := rasterizer.New(r.W, r.H, r.resolution, canvas.LinearColorSpace{})
-	r.Render(ras)
+	r.RenderTo(ras)
 	ras.Close()
 	return fyneCanvas.NewImageFromImage(ras)
 }

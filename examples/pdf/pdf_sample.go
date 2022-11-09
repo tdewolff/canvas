@@ -46,7 +46,7 @@ func main() {
 	ctx1.SetFillColor(canvas.Beige)
 	ctx1.DrawPath(0, 0, canvas.Rectangle(210, 297))
 	drawDocument(ctx1)
-	c1.Render(p)
+	c1.RenderTo(p)
 
 	p.NewPage(210, 297)
 
@@ -55,7 +55,7 @@ func main() {
 	ctx2.SetFillColor(canvas.White)
 	ctx2.DrawPath(0, 0, canvas.Rectangle(210, 297))
 	richDraw(ctx2)
-	c2.Render(p)
+	c2.RenderTo(p)
 
 	must(p.Close())
 	fmt.Printf("%s\n", time.Now().Sub(t0).Round(time.Millisecond))

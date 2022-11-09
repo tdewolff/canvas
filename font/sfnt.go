@@ -830,8 +830,8 @@ func (sfnt *SFNT) parseHhea() error {
 ////////////////////////////////////////////////////////////////
 
 type vheaTable struct {
-	Ascent               int16
-	Descent              int16
+	Ascender             int16
+	Descender            int16
 	LineGap              int16
 	AdvanceHeightMax     int16
 	MinTopSideBearing    int16
@@ -860,8 +860,8 @@ func (sfnt *SFNT) parseVhea() error {
 	if majorVersion != 1 && minorVersion != 0 && minorVersion != 1 {
 		return fmt.Errorf("vhea: bad version")
 	}
-	sfnt.Vhea.Ascent = r.ReadInt16()
-	sfnt.Vhea.Descent = r.ReadInt16()
+	sfnt.Vhea.Ascender = r.ReadInt16()
+	sfnt.Vhea.Descender = r.ReadInt16()
 	sfnt.Vhea.LineGap = r.ReadInt16()
 	sfnt.Vhea.AdvanceHeightMax = r.ReadInt16()
 	sfnt.Vhea.MinTopSideBearing = r.ReadInt16()
