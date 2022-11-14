@@ -200,6 +200,7 @@ func (span *TextSpan) IsText() bool {
 
 type TextSpanObject struct {
 	*Canvas
+	X, Y          float64
 	Width, Height float64
 	VAlign        VerticalAlign
 	Text          string // alternative text represention
@@ -222,7 +223,7 @@ func (obj TextSpanObject) Heights(face *FontFace) (float64, float64) {
 
 func (obj TextSpanObject) View(x, y float64, face *FontFace) Matrix {
 	_, bottom := obj.Heights(face)
-	return Identity.Translate(x, y+bottom)
+	return Identity.Translate(x+obj.X, y+obj.Y+bottom)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -437,7 +438,7 @@ func (rt *RichText) Add(face *FontFace, text string) *RichText {
 }
 
 // AddCanvas adds a canvas object that can have paths/images/texts.
-func (rt *RichText) AddCanvas(c *Canvas, valign VerticalAlign, alt string) *RichText {
+func (rt *RichText) AddCanvas(c *Canvas, valign VerticalAlign) *RichText {
 	if c == nil {
 		panic("Canvas cannot be nil")
 	}
@@ -450,28 +451,27 @@ func (rt *RichText) AddCanvas(c *Canvas, valign VerticalAlign, alt string) *Rich
 		Width:  width,
 		Height: height,
 		VAlign: valign,
-		Text:   alt,
 	})
 	return rt
 }
 
 // AddPath adds a path.
-func (rt *RichText) AddPath(path *Path, col color.RGBA, alt string) *RichText {
+func (rt *RichText) AddPath(path *Path, col color.RGBA) *RichText {
 	style := DefaultStyle
 	style.FillColor = col
 	bounds := path.Bounds()
 	c := New(bounds.X+bounds.W, bounds.Y+bounds.H)
 	c.RenderPath(path, style, Identity)
-	rt.AddCanvas(c, Baseline, alt)
+	rt.AddCanvas(c, Baseline)
 	return rt
 }
 
 // AddImage adds an image.
-func (rt *RichText) AddImage(img image.Image, res Resolution, alt string) *RichText {
+func (rt *RichText) AddImage(img image.Image, res Resolution) *RichText {
 	bounds := img.Bounds().Size()
 	c := New(float64(bounds.X)/res.DPMM(), float64(bounds.Y)/res.DPMM())
 	c.RenderImage(img, Identity.Scale(1.0/res.DPMM(), 1.0/res.DPMM()))
-	rt.AddCanvas(c, Baseline, alt)
+	rt.AddCanvas(c, Baseline)
 	return rt
 }
 
@@ -564,15 +564,19 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			for i, r := range text {
 				obj := rt.objects[r]
 				ppem := float64(rt.defaultFace.Font.SFNT.Head.UnitsPerEm)
+				xadv, yadv := obj.Width, obj.Height
+				if rt.mode != HorizontalTB {
+					yadv = -yadv
+				}
 				glyphsString = append(glyphsString, canvasText.Glyph{
 					SFNT:     rt.defaultFace.Font.SFNT,
 					Size:     rt.defaultFace.Size,
 					Script:   script,
+					Vertical: rt.mode != HorizontalTB,
 					ID:       uint16(r),
 					Cluster:  clusterOffset + uint32(i),
-					XAdvance: int32(obj.Width * ppem / rt.defaultFace.Size),
-					YAdvance: int32(obj.Height * ppem / rt.defaultFace.Size),
-					Text:     obj.Text,
+					XAdvance: int32(xadv * ppem / rt.defaultFace.Size),
+					YAdvance: int32(yadv * ppem / rt.defaultFace.Size),
 				})
 			}
 		} else {
@@ -769,8 +773,11 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 						for _, glyph := range glyphs[a:b] {
 							obj := rt.objects[glyph.ID]
 							if rt.mode == HorizontalTB {
+								obj.X = w
 								w += obj.Width
 							} else {
+								obj.X = -obj.Width / 2.0
+								obj.Y = -w - obj.Height
 								w += obj.Height
 							}
 							objects = append(objects, obj)
