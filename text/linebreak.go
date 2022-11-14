@@ -106,7 +106,7 @@ func (item Item) String() string {
 	return "?"
 }
 
-// Box returns a box item.
+// Box returns a box item of given width.
 func Box(width float64) Item {
 	return Item{
 		Type:  BoxType,
@@ -114,7 +114,7 @@ func Box(width float64) Item {
 	}
 }
 
-// Glue returns a glue item.
+// Glue returns a glue item where width is the default width, stretch*Tolerance the maximum width, and shrink*Tolerance the minimum width.
 func Glue(width, stretch, shrink float64) Item {
 	return Item{
 		Type:    GlueType,
@@ -124,7 +124,7 @@ func Glue(width, stretch, shrink float64) Item {
 	}
 }
 
-// Penalty returns a panalty item.
+// Penalty returns a panalty item with a given penalization factor. For hyphen insertion, width is the hyphen width and flagged should be set to discourage multiple hyphened lines next to each other.
 func Penalty(width, penalty float64, flagged bool) Item {
 	return Item{
 		Type:    PenaltyType,
@@ -245,7 +245,7 @@ func newLinebreaker(items []Item, width float64) *linebreaker {
 		activeNodes:   activeNodes,
 		inactiveNodes: &Breakpoints{},
 		width:         width,
-		nextTolerance: Infinity,
+		nextTolerance: math.Inf(1.0),
 	}
 }
 
@@ -255,16 +255,22 @@ func (lb *linebreaker) computeAdjustmentRatio(b int, active *Breakpoint) float64
 	if lb.items[b].Type == PenaltyType {
 		L += lb.items[b].Width
 	}
-	// using a finite value for infinity allows to break lines without a glue (one word)
-	// allowing negative ratios will break up words that are too long
 	ratio := 0.0
 	if L < lb.width {
-		ratio = (lb.width - L) / (lb.Y - active.Y)
+		if lb.Y-active.Y == 0.0 {
+			// no stretching allowed, add artificial space to distinguish unstretchable lines
+			// this helps with left/center/right aligned text
+			// this promotes putting as many glyphs (CJK) as possible on a line
+			return Infinity * (1.0 + (lb.width-L)/lb.width) // range [1000,2000]
+		} else {
+			ratio = (lb.width - L) / (lb.Y - active.Y)
+		}
 	} else if lb.width < L {
 		ratio = (lb.width - L) / (lb.Z - active.Z)
 	}
-	// restricting to Infinity helps for left/center/right aligned text
-	return math.Min(ratio, Infinity)
+	// limiting positive ratios gives space to distinguish non-stretchable lines
+	// allowing negative ratios will break up words that are too long
+	return math.Min(ratio, Infinity) // range [-inf,1000]
 }
 
 func (lb *linebreaker) computeSum(b int) (float64, float64, float64) {
@@ -411,7 +417,7 @@ START:
 
 		// do something drastic since there is no feasible solution
 		if lb.activeNodes.head == nil {
-			if tolerance != Infinity {
+			if tolerance != lb.nextTolerance {
 				tolerance = lb.nextTolerance
 				goto START
 			} else {
@@ -665,7 +671,7 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 		items = append(items, Glue(0.0, stretchWidth, 0.0))
 		items = append(items, Penalty(0.0, -Infinity, false))
 	} else {
-		items = append(items, Glue(0.0, 1.0e6, 0.0)) // using inf can causes NaNs
+		items = append(items, Glue(0.0, math.Inf(1.0), 0.0))
 		items = append(items, Penalty(0.0, -Infinity, true))
 	}
 	return items
