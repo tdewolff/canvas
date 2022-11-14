@@ -600,16 +600,13 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 			} else {
 				items = append(items, Glue(w, y, z))
 			}
-			if align == Justified {
-				items[len(items)-1].Size++
-			} else if align == Left || align == Right {
+			items[len(items)-1].Size++
+			if align == Left || align == Right {
 				items = append(items, Penalty(0.0, 0.0, false))
 				items = append(items, Glue(spaceWidth, -stretchWidth, 0.0))
-				items[len(items)-1].Size++
 			} else if align == Centered {
 				items = append(items, Penalty(0.0, 0.0, false))
 				items = append(items, Glue(spaceWidth, -stretchWidth, 0.0))
-				items[len(items)-1].Size++
 				items = append(items, Box(0.0))
 				items = append(items, Penalty(0.0, Infinity, false))
 				items = append(items, Glue(0.0, stretchWidth, 0.0))

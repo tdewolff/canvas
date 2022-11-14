@@ -645,18 +645,21 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		breaks = append(breaks, &canvasText.Breakpoint{Position: len(items) - 1, Width: lineWidth})
 	}
 
-	// remove penalties that were not chosen as breaks, this concatenates adjacent boxes/spans
+	// clean up items, remove penalties/glues that were not chosen as breaks, this concatenates adjacent boxes and thus spans
 	shift := 0 // break index shift
 	k := 0     // index into break
 	for i := 0; i < len(items); i++ {
 		if i == breaks[k].Position-shift {
+			// item marks a break
 			breaks[k].Position -= shift
 			k++
-		} else if items[i].Type == canvasText.PenaltyType || (0 < i && items[i].Type == canvasText.BoxType && items[i-1].Type == canvasText.BoxType) {
-			if items[i].Type == canvasText.BoxType {
-				items[i-1].Width += items[i].Width
-				items[i-1].Size += items[i].Size
-			}
+		} else if items[i].Type == canvasText.PenaltyType || items[i].Type == canvasText.GlueType && items[i].Size == 0 && breaks[k].Ratio == 0.0 { // remove penalties
+			items = append(items[:i], items[i+1:]...)
+			shift++
+			i--
+		} else if 0 < i && items[i-1].Type == canvasText.BoxType && (items[i].Type == canvasText.BoxType || items[i].Type == canvasText.GlueType && breaks[k].Ratio == 0.0) { // merge boxes and remove glues
+			items[i-1].Width += items[i].Width
+			items[i-1].Size += items[i].Size
 			items = append(items[:i], items[i+1:]...)
 			shift++
 			i--
