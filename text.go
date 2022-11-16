@@ -132,11 +132,11 @@ func (l line) Heights(mode WritingMode) (float64, float64, float64, float64) {
 	if mode == HorizontalTB {
 		for _, span := range l.spans {
 			if span.IsText() {
-				spanAscent, spanDescent, lineSpacing := span.Face.Metrics().Ascent, span.Face.Metrics().Descent, span.Face.Metrics().LineGap
-				top = math.Max(top, spanAscent+lineSpacing)
+				spanTop, spanAscent, spanDescent, spanBottom := span.Face.heights(mode)
+				top = math.Max(top, spanTop)
 				ascent = math.Max(ascent, spanAscent)
 				descent = math.Max(descent, spanDescent)
-				bottom = math.Max(bottom, spanDescent+lineSpacing)
+				bottom = math.Max(bottom, spanBottom)
 			} else {
 				for _, obj := range span.Objects {
 					spanAscent, spanDescent := obj.Heights(span.Face)
@@ -156,16 +156,11 @@ func (l line) Heights(mode WritingMode) (float64, float64, float64, float64) {
 					if glyph.Vertical {
 						width = math.Max(width, span.Face.mmPerEm*float64(glyph.SFNT.GlyphAdvance(glyph.ID)))
 					} else {
-						spanAscent, spanDescent, lineSpacing, xHeight := span.Face.Metrics().Ascent, span.Face.Metrics().Descent, span.Face.Metrics().LineGap, span.Face.Metrics().XHeight
-						spanAscent -= xHeight / 2.0
-						spanDescent += xHeight / 2.0
-						if mode == VerticalLR {
-							spanAscent, spanDescent = spanDescent, spanAscent
-						}
-						top = math.Max(top, spanAscent+lineSpacing)
+						spanTop, spanAscent, spanDescent, spanBottom := span.Face.heights(mode)
+						top = math.Max(top, spanTop)
 						ascent = math.Max(ascent, spanAscent)
 						descent = math.Max(descent, spanDescent)
-						bottom = math.Max(bottom, spanDescent+lineSpacing)
+						bottom = math.Max(bottom, spanBottom)
 					}
 				}
 			} else {
@@ -695,7 +690,12 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 				}
 			}
 
-			_, ascent, _, bottom := t.lines[j].Heights(rt.mode)
+			var ascent, bottom float64
+			if len(t.lines[j].spans) == 0 {
+				_, ascent, _, bottom = faces[glyphIndices.index(i)].heights(rt.mode)
+			} else {
+				_, ascent, _, bottom = t.lines[j].Heights(rt.mode)
+			}
 			if 0 < j {
 				ascent *= lineSpacing
 			}

@@ -536,6 +536,20 @@ func (face *FontFace) textWidth(glyphs []text.Glyph) float64 {
 	return face.mmPerEm * float64(w)
 }
 
+func (face *FontFace) heights(mode WritingMode) (float64, float64, float64, float64) {
+	metrics := face.Metrics()
+	if mode != HorizontalTB {
+		ascent, descent, lineGap, xHeight := metrics.Ascent, metrics.Descent, metrics.LineGap, metrics.XHeight
+		ascent -= xHeight / 2.0
+		descent += xHeight / 2.0
+		if mode == VerticalLR {
+			ascent, descent = descent, ascent
+		}
+		return ascent + lineGap, ascent, descent, descent + lineGap
+	}
+	return metrics.Ascent + metrics.LineGap, metrics.Ascent, metrics.Descent, metrics.Descent + metrics.LineGap
+}
+
 // Decorate will return the decoration path over a given width in millimeters.
 func (face *FontFace) Decorate(width float64) *Path {
 	p := &Path{}
