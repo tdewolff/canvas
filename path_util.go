@@ -389,6 +389,34 @@ func quadraticBezierSplit(p0, p1, p2 Point, t float64) (Point, Point, Point, Poi
 	return q0, q1, q2, r0, r1, r2
 }
 
+func quadraticBezierDistance(p0, p1, p2, q Point) float64 {
+	f := p0.Sub(p1.Mul(2.0)).Add(p2)
+	g := p1.Mul(2.0).Sub(p0.Mul(2.0))
+	h := p0.Sub(q)
+
+	a := 4.0 * (f.X*f.X + f.Y*f.Y)
+	b := 6.0 * (f.X*g.X + f.Y*g.Y)
+	c := 2.0 * (2.0*(f.X*h.X+f.Y*h.Y) + g.X*g.X + g.Y*g.Y)
+	d := 2.0 * (g.X*h.X + g.Y*h.Y)
+
+	dist := math.Inf(1.0)
+	t0, t1, t2 := solveCubicFormula(a, b, c, d)
+	ts := []float64{t0, t1, t2, 0.0, 1.0}
+	for _, t := range ts {
+		if !math.IsNaN(t) {
+			if t < 0.0 {
+				t = 0.0
+			} else if 1.0 < t {
+				t = 1.0
+			}
+			if tmpDist := quadraticBezierPos(p0, p1, p2, t).Sub(q).Length(); tmpDist < dist {
+				dist = tmpDist
+			}
+		}
+	}
+	return dist
+}
+
 func cubicBezierPos(p0, p1, p2, p3 Point, t float64) Point {
 	p0 = p0.Mul(1.0 - 3.0*t + 3.0*t*t - t*t*t)
 	p1 = p1.Mul(3.0*t - 6.0*t*t + 3.0*t*t*t)

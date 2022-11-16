@@ -138,6 +138,28 @@ func TestQuadraticBezier(t *testing.T) {
 	test.T(t, q2, Point{1.0, 1.0})
 }
 
+func TestQuadraticBezierDistance(t *testing.T) {
+	var tests = []struct {
+		p0, p1, p2 Point
+		q          Point
+		d          float64
+	}{
+		{Point{0.0, 0.0}, Point{4.0, 6.0}, Point{8.0, 0.0}, Point{9.0, 0.5}, math.Sqrt(1.25)},
+		{Point{0.0, 0.0}, Point{1.0, 1.0}, Point{2.0, 0.0}, Point{0.0, 0.0}, 0.0},
+		{Point{0.0, 0.0}, Point{1.0, 1.0}, Point{2.0, 0.0}, Point{1.0, 1.0}, 0.5},
+		{Point{0.0, 0.0}, Point{1.0, 1.0}, Point{2.0, 0.0}, Point{2.0, 0.0}, 0.0},
+		{Point{0.0, 0.0}, Point{1.0, 1.0}, Point{2.0, 0.0}, Point{1.0, 0.0}, 0.5},
+		{Point{0.0, 0.0}, Point{1.0, 1.0}, Point{2.0, 0.0}, Point{-1.0, 0.0}, 1.0},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v%v%v--%v", tt.p0, tt.p1, tt.p2, tt.q), func(t *testing.T) {
+			d := quadraticBezierDistance(tt.p0, tt.p1, tt.p2, tt.q)
+			test.Float(t, d, tt.d)
+		})
+	}
+}
+
 func TestCubicBezier(t *testing.T) {
 	defer setEpsilon(1e-5)()
 
