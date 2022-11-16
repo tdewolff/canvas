@@ -372,6 +372,13 @@ func (rt *RichText) SetTextOrientation(orient TextOrientation) {
 
 // SetFace sets the font face.
 func (rt *RichText) SetFace(face *FontFace) {
+	if face == nil {
+		panic("FontFace cannot be nil")
+	}
+	rt.setFace(face)
+}
+
+func (rt *RichText) setFace(face *FontFace) {
 	if face == rt.faces[len(rt.faces)-1] {
 		return
 	}
@@ -419,12 +426,10 @@ func (rt *RichText) Add(face *FontFace, text string) *RichText {
 
 // AddCanvas adds a canvas object that can have paths/images/texts.
 func (rt *RichText) AddCanvas(c *Canvas, valign VerticalAlign) *RichText {
-	if c == nil {
-		panic("Canvas cannot be nil")
-	}
 
 	width, height := c.Size()
-	rt.SetFace(nil)
+	face := rt.faces[len(rt.faces)-1]
+	rt.setFace(nil)
 	rt.WriteRune(rune(len(rt.objects)))
 	rt.objects = append(rt.objects, TextSpanObject{
 		Canvas: c,
@@ -432,6 +437,7 @@ func (rt *RichText) AddCanvas(c *Canvas, valign VerticalAlign) *RichText {
 		Height: height,
 		VAlign: valign,
 	})
+	rt.setFace(face)
 	return rt
 }
 
