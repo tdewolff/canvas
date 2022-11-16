@@ -1083,42 +1083,6 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 	return qs
 }
 
-//type intersection struct {
-//	i int     // index into path
-//	t float64 // parametric value
-//}
-//
-//func (p *Path) SplitAtIntersections(q *Path) ([]*Path, []*Path) {
-//	selfIntersect := p == q
-//	ps := []*Path{}
-//	qs := []*Path{}
-//	for _, pp := range p.Split() {
-//		for _, qq := range q.Split() {
-//			qu := []intersection{}
-//			for {
-//				_ = pp
-//				_ = qq
-//				// add to ps
-//			}
-//
-//			if !selfIntersect {
-//				sort.Slice(qu, func(i, j int) bool {
-//					return qu[i].i < qu[j].i || qu[i].i == qu[j].i && qu[i].t < qu[j].t
-//				})
-//
-//				for _, _ = range qu {
-//					// add to qs
-//				}
-//			}
-//		}
-//	}
-//
-//	if selfIntersect {
-//		return ps, ps
-//	}
-//	return ps, qs
-//}
-
 func dashStart(offset float64, d []float64) (int, float64) {
 	i0 := 0 // index in d
 	for d[i0] <= offset {

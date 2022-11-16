@@ -96,8 +96,10 @@ func TestRichText(t *testing.T) {
 
 	text = rt.ToText(0.0, 5000.0, Left, Top, 0.0, 0.0)
 	test.T(t, len(text.lines), 1)
-	test.T(t, len(text.lines[0].spans), 1)
+	test.T(t, len(text.lines[0].spans), 3)
 	test.Float(t, text.lines[0].spans[0].x, 0.0)
+	test.Float(t, text.lines[0].spans[1].x, 3726)
+	test.Float(t, text.lines[0].spans[2].x, 6801)
 
 	//rt = NewRichText()
 	//text = rt.ToText(55.0, 50.0, Left, Top, 0.0, 0.0)
