@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"fmt"
 	"image/color"
 	"math"
 	"testing"
@@ -214,50 +215,30 @@ func TestSolveQuadraticFormula(t *testing.T) {
 }
 
 func TestSolveCubicFormula(t *testing.T) {
-	x1, x2, x3 := solveCubicFormula(0.0, 1.0, 1.0, 0.25) // is quadratic formula
-	test.Float(t, x1, -0.5)
-	test.Float(t, x2, math.NaN())
-	test.Float(t, x3, math.NaN())
+	var tests = []struct {
+		a, b, c, d float64
+		x1, x2, x3 float64
+	}{
+		{0.0, 1.0, 1.0, 0.25, -0.5, math.NaN(), math.NaN()},     // is quadratic formula
+		{1.0, -15.0, 75.0, -125.0, 5.0, math.NaN(), math.NaN()}, // c0 == 0, c1 == 0
+		{1.0, -3.0, -6.0, 8.0, -2.0, 1.0, 4.0},                  // c0 == 0, c1 < 0
+		{1.0, -15.0, 75.0, -124.0, 4.0, math.NaN(), math.NaN()}, // c1 == 0, 0 < c0
+		{1.0, -15.0, 75.0, -126.0, 6.0, math.NaN(), math.NaN()}, // c1 == 0, c0 < 0
+		{1.0, 0.0, -7.0, 6.0, -3.0, 1.0, 2.0},                   // 0 < delta
+		{1.0, -3.0, -9.0, -5.0, -1.0, 5.0, math.NaN()},          // delta == 0
+		{1.0, -4.0, 2.0, -8.0, 4.0, math.NaN(), math.NaN()},     // delta < 0, 0 < tmp
+		{1.0, -4.0, 2.0, 7.0, -1.0, math.NaN(), math.NaN()},     // delta < 0, tmp < 0
+		{16.0, -24.0, 24.0, -8.0, 0.5, math.NaN(), math.NaN()},
+	}
 
-	x1, x2, x3 = solveCubicFormula(1.0, -15.0, 75.0, -125.0) // c0 == 0, c1 == 0
-	test.Float(t, x1, 5.0)
-	test.Float(t, x2, math.NaN())
-	test.Float(t, x3, math.NaN())
-
-	x1, x2, x3 = solveCubicFormula(1.0, -3.0, -6.0, 8.0) // c0 == 0, c1 < 0
-	test.Float(t, x1, -2.0)
-	test.Float(t, x2, 1.0)
-	test.Float(t, x3, 4.0)
-
-	x1, x2, x3 = solveCubicFormula(1.0, -15.0, 75.0, -124.0) // c1 == 0, 0 < c0
-	test.Float(t, x1, 4.0)
-	test.Float(t, x2, math.NaN())
-	test.Float(t, x3, math.NaN())
-
-	x1, x2, x3 = solveCubicFormula(1.0, -15.0, 75.0, -126.0) // c1 == 0, c0 < 0
-	test.Float(t, x1, 6.0)
-	test.Float(t, x2, math.NaN())
-	test.Float(t, x3, math.NaN())
-
-	x1, x2, x3 = solveCubicFormula(1.0, 0.0, -7.0, 6.0) // 0 < delta
-	test.Float(t, x1, -3.0)
-	test.Float(t, x2, 1.0)
-	test.Float(t, x3, 2.0)
-
-	x1, x2, x3 = solveCubicFormula(1.0, -3.0, -9.0, -5.0) // delta == 0
-	test.Float(t, x1, -1.0)
-	test.Float(t, x2, 5.0)
-	test.Float(t, x3, math.NaN())
-
-	x1, x2, x3 = solveCubicFormula(1.0, -4.0, 2.0, -8.0) // delta < 0, 0 < tmp
-	test.Float(t, x1, 4.0)
-	test.Float(t, x2, math.NaN())
-	test.Float(t, x3, math.NaN())
-
-	x1, x2, x3 = solveCubicFormula(1.0, -4.0, 2.0, 7.0) // delta < 0, tmp < 0
-	test.Float(t, x1, -1.0)
-	test.Float(t, x2, math.NaN())
-	test.Float(t, x3, math.NaN())
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("(%v %v %v %v)", tt.a, tt.b, tt.c, tt.d), func(t *testing.T) {
+			x1, x2, x3 := solveCubicFormula(tt.a, tt.b, tt.c, tt.d)
+			test.Float(t, x1, tt.x1)
+			test.Float(t, x2, tt.x2)
+			test.Float(t, x3, tt.x3)
+		})
+	}
 }
 
 func TestGaussLegendre(t *testing.T) {

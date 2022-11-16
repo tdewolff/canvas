@@ -183,7 +183,7 @@ func (p Point) PerpDot(q Point) float64 {
 
 // Length returns the length of OP.
 func (p Point) Length() float64 {
-	return math.Hypot(p.X, p.Y)
+	return math.Hypot(p.X, p.Y) // sqrt(p.X^2 + p.Y^2)
 }
 
 // Slope returns the slope between OP, i.e. y/x.
@@ -589,22 +589,23 @@ func solveCubicFormula(a, b, c, d float64) (float64, float64, float64) {
 	if Equal(a, 0.0) {
 		x1, x2 = solveQuadraticFormula(b, c, d)
 	} else {
-		// eliminate a
+		// obtain monic polynomial: x^3 + f.x^2 + g.x + h = 0
 		b /= a
 		c /= a
 		d /= a
 
+		// obtain depressed polynomial: x^3 + c1.x + c0
 		bthird := b / 3.0
 		c0 := d - bthird*(c-2.0*bthird*bthird)
 		c1 := c - b*bthird
 		if Equal(c0, 0.0) {
-			if Equal(c1, 0.0) {
-				x1 = 0.0 - bthird
-			} else if c1 < 0.0 {
+			if c1 < 0.0 {
 				tmp := math.Sqrt(-c1)
 				x1 = -tmp - bthird
 				x2 = tmp - bthird
 				x3 = 0.0 - bthird
+			} else {
+				x1 = 0.0 - bthird
 			}
 		} else if Equal(c1, 0.0) {
 			if 0.0 < c0 {
@@ -620,15 +621,15 @@ func solveCubicFormula(a, b, c, d float64) (float64, float64, float64) {
 
 			if delta < 0.0 {
 				betaRe := -c0 / 2.0
-				betaIm := math.Sqrt(-delta/27.0) / 2.0
+				betaIm := math.Sqrt(-delta / 108.0)
 				tmp := betaRe - betaIm
-				if 0 <= tmp {
+				if 0.0 <= tmp {
 					x1 = math.Cbrt(tmp)
 				} else {
 					x1 = -math.Cbrt(-tmp)
 				}
 				tmp = betaRe + betaIm
-				if 0 <= tmp {
+				if 0.0 <= tmp {
 					x1 += math.Cbrt(tmp)
 				} else {
 					x1 -= math.Cbrt(-tmp)
@@ -636,7 +637,7 @@ func solveCubicFormula(a, b, c, d float64) (float64, float64, float64) {
 				x1 -= bthird
 			} else if 0.0 < delta {
 				betaRe := -c0 / 2.0
-				betaIm := math.Sqrt(delta/27.0) / 2.0
+				betaIm := math.Sqrt(delta / 108.0)
 				theta := math.Atan2(betaIm, betaRe) / 3.0
 				sintheta, costheta := math.Sincos(theta)
 				distance := math.Sqrt(-c1 / 3.0) // same as rhoPowThird
@@ -645,7 +646,6 @@ func solveCubicFormula(a, b, c, d float64) (float64, float64, float64) {
 				x2 = -distance*costheta - tmp - bthird
 				x3 = -distance*costheta + tmp - bthird
 			} else {
-				// reference implementations differ
 				tmp := -3.0 * c0 / (2.0 * c1)
 				x1 = tmp - bthird
 				x2 = -2.0*tmp - bthird
