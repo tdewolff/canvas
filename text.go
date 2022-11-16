@@ -643,7 +643,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			items = append(items[:i], items[i+1:]...)
 			shift++
 			i--
-		} else if 0 < i && items[i-1].Type == canvasText.BoxType && (items[i].Type == canvasText.BoxType) { // merge boxes and remove glues
+		} else if 1 < i && items[i-1].Type == canvasText.BoxType && items[i].Type == canvasText.BoxType { // merge boxes (don't merge with indent box)
 			items[i-1].Width += items[i].Width
 			items[i-1].Size += items[i].Size
 			items = append(items[:i], items[i+1:]...)

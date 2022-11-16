@@ -61,7 +61,7 @@ require (
 	golang.org/x/exp/shiny v0.0.0-20220613132600-b0d781184e0d // indirect
 	golang.org/x/mobile v0.0.0-20220518205345-8578da9835fd // indirect
 	golang.org/x/net v0.0.0-20220617184016-355a448f1bc9 // indirect
-	golang.org/x/sys v0.0.0-20220615213510-4f61da869c0c // indirect
+	golang.org/x/sys v0.2.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	honnef.co/go/js/dom v0.0.0-20210725211120-f030747120f2 // indirect
