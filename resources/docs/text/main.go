@@ -19,8 +19,20 @@ func main() {
 	ctx := canvas.NewContext(c)
 	ctx.SetFillColor(canvas.White)
 	ctx.DrawPath(0, 0, canvas.Rectangle(c.W, c.H))
-	draw(ctx)
-	c.WriteFile("text.png", renderers.PNG(canvas.DPMM(5.0)))
+
+	face := fontFamily.Face(14.0, color.Black, canvas.FontRegular, canvas.FontNormal)
+	c.DrawText(132.5, 84.0, canvas.NewTextLine(face, "Different horizontal and vertical alignments with indent", canvas.Center))
+
+	drawText(c, 5.0, 80.0, canvas.Left, canvas.Top)
+	drawText(c, 70.0, 80.0, canvas.Center, canvas.Top)
+	drawText(c, 135.0, 80.0, canvas.Right, canvas.Top)
+	drawText(c, 200.0, 80.0, canvas.Justify, canvas.Top)
+	drawText(c, 5.0, 40.0, canvas.Left, canvas.Top)
+	drawText(c, 70.0, 40.0, canvas.Left, canvas.Center)
+	drawText(c, 135.0, 40.0, canvas.Left, canvas.Bottom)
+	drawText(c, 200.0, 40.0, canvas.Left, canvas.Justify)
+
+	renderers.Write("text.png", c, canvas.DPMM(5.0))
 }
 
 func drawText(c *canvas.Context, x, y float64, halign, valign canvas.TextAlign) {
@@ -33,19 +45,4 @@ func drawText(c *canvas.Context, x, y float64, halign, valign canvas.TextAlign) 
 	c.SetStrokeWidth(0.05)
 	c.DrawPath(x, y, canvas.Rectangle(60.0, -35.0))
 	c.DrawText(x, y, text)
-}
-
-func draw(c *canvas.Context) {
-	face := fontFamily.Face(14.0, color.Black, canvas.FontRegular, canvas.FontNormal)
-	c.SetFillColor(canvas.Black)
-	c.DrawText(132.5, 84.0, canvas.NewTextLine(face, "Different horizontal and vertical alignments with indent", canvas.Center))
-
-	drawText(c, 5.0, 80.0, canvas.Left, canvas.Top)
-	drawText(c, 70.0, 80.0, canvas.Center, canvas.Top)
-	drawText(c, 135.0, 80.0, canvas.Right, canvas.Top)
-	drawText(c, 200.0, 80.0, canvas.Justify, canvas.Top)
-	drawText(c, 5.0, 40.0, canvas.Left, canvas.Top)
-	drawText(c, 70.0, 40.0, canvas.Left, canvas.Center)
-	drawText(c, 135.0, 40.0, canvas.Left, canvas.Bottom)
-	drawText(c, 200.0, 40.0, canvas.Left, canvas.Justify)
 }

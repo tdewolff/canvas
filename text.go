@@ -154,7 +154,7 @@ func (l line) Heights(mode WritingMode) (float64, float64, float64, float64) {
 			if span.IsText() {
 				for _, glyph := range span.Glyphs {
 					if glyph.Vertical {
-						width = math.Max(width, span.Face.mmPerEm*float64(glyph.SFNT.GlyphAdvance(glyph.ID)))
+						width = math.Max(width, 1.2*span.Face.mmPerEm*float64(glyph.SFNT.GlyphAdvance(glyph.ID))) // TODO: what left/right padding should upright characters in a vertical layout have?
 					} else {
 						spanTop, spanAscent, spanDescent, spanBottom := span.Face.heights(mode)
 						top = math.Max(top, spanTop)
