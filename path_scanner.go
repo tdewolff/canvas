@@ -2,11 +2,13 @@ package canvas
 
 import "math"
 
+// PathScanner scans the path.
 type PathScanner struct {
 	p *Path
 	i int
 }
 
+// Scan scans a new path segment and should be called before the other methods.
 func (s *PathScanner) Scan() bool {
 	if s.i+1 < len(s.p.d) {
 		s.i += cmdLen(s.p.d[s.i+1])
@@ -15,14 +17,17 @@ func (s *PathScanner) Scan() bool {
 	return false
 }
 
+// Cmd returns the current path segment command.
 func (s *PathScanner) Cmd() float64 {
 	return s.p.d[s.i]
 }
 
+// Values returns the current path segment values.
 func (s *PathScanner) Values() []float64 {
 	return s.p.d[s.i-cmdLen(s.p.d[s.i])+2 : s.i]
 }
 
+// Start returns the current path segment start position.
 func (s *PathScanner) Start() Point {
 	i := s.i - cmdLen(s.p.d[s.i])
 	if i == -1 {
@@ -59,15 +64,36 @@ func (s *PathScanner) Arc() (float64, float64, float64, bool, bool) {
 	return s.p.d[i+1], s.p.d[i+2], s.p.d[i+3] * 180.0 / math.Pi, large, sweep
 }
 
+// End returns the current path segment end position.
 func (s *PathScanner) End() Point {
 	return Point{s.p.d[s.i-2], s.p.d[s.i-1]}
 }
 
+// Path returns the current path segment.
+func (s *PathScanner) Path() *Path {
+	p := &Path{}
+	p.MoveTo(s.Start().X, s.Start().Y)
+	switch s.Cmd() {
+	case LineToCmd:
+		p.LineTo(s.End().X, s.End().Y)
+	case QuadToCmd:
+		p.QuadTo(s.CP1().X, s.CP1().Y, s.End().X, s.End().Y)
+	case CubeToCmd:
+		p.CubeTo(s.CP1().X, s.CP1().Y, s.CP2().X, s.CP2().Y, s.End().X, s.End().Y)
+	case ArcToCmd:
+		rx, ry, rot, large, sweep := s.Arc()
+		p.ArcTo(rx, ry, rot, large, sweep, s.End().X, s.End().Y)
+	}
+	return p
+}
+
+// PathReverseScanner scans the path in reverse order.
 type PathReverseScanner struct {
 	p *Path
 	i int
 }
 
+// Scan scans a new path segment and should be called before the other methods.
 func (s *PathReverseScanner) Scan() bool {
 	if 0 < s.i {
 		s.i -= cmdLen(s.p.d[s.i-1])
@@ -76,14 +102,17 @@ func (s *PathReverseScanner) Scan() bool {
 	return false
 }
 
+// Cmd returns the current path segment command.
 func (s *PathReverseScanner) Cmd() float64 {
 	return s.p.d[s.i]
 }
 
+// Values returns the current path segment values.
 func (s *PathReverseScanner) Values() []float64 {
 	return s.p.d[s.i+1 : s.i+cmdLen(s.p.d[s.i])-1]
 }
 
+// Start returns the current path segment start position.
 func (s *PathReverseScanner) Start() Point {
 	if s.i == 0 {
 		return Point{}
@@ -116,7 +145,26 @@ func (s *PathReverseScanner) Arc() (float64, float64, float64, bool, bool) {
 	return s.p.d[s.i+1], s.p.d[s.i+2], s.p.d[s.i+3] * 180.0 / math.Pi, large, sweep
 }
 
+// End returns the current path segment end position.
 func (s *PathReverseScanner) End() Point {
 	i := s.i + cmdLen(s.p.d[s.i])
 	return Point{s.p.d[i-3], s.p.d[i-2]}
+}
+
+// Path returns the current path segment.
+func (s *PathReverseScanner) Path() *Path {
+	p := &Path{}
+	p.MoveTo(s.Start().X, s.Start().Y)
+	switch s.Cmd() {
+	case LineToCmd:
+		p.LineTo(s.End().X, s.End().Y)
+	case QuadToCmd:
+		p.QuadTo(s.CP1().X, s.CP1().Y, s.End().X, s.End().Y)
+	case CubeToCmd:
+		p.CubeTo(s.CP1().X, s.CP1().Y, s.CP2().X, s.CP2().Y, s.End().X, s.End().Y)
+	case ArcToCmd:
+		rx, ry, rot, large, sweep := s.Arc()
+		p.ArcTo(rx, ry, rot, large, sweep, s.End().X, s.End().Y)
+	}
+	return p
 }

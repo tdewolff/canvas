@@ -209,10 +209,12 @@ func (p *Path) Coords() []Point {
 	return coords
 }
 
+// Scanner returns a path scanner.
 func (p *Path) Scanner() *PathScanner {
 	return &PathScanner{p, -1}
 }
 
+// ReverseScanner returns a path scanner in reverse order.
 func (p *Path) ReverseScanner() *PathReverseScanner {
 	return &PathReverseScanner{p, len(p.d)}
 }
