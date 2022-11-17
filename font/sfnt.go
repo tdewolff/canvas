@@ -110,6 +110,71 @@ func (sfnt *SFNT) GlyphVerticalAdvance(glyphID uint16) uint16 {
 	return sfnt.Vmtx.Advance(glyphID)
 }
 
+type boundsPather struct {
+	xmin, ymin, xmax, ymax float64
+}
+
+func (p *boundsPather) MoveTo(x, y float64) {
+	p.xmin = math.Min(p.xmin, x)
+	p.ymin = math.Min(p.ymin, y)
+	p.xmax = math.Max(p.xmax, x)
+	p.ymax = math.Max(p.ymax, y)
+}
+
+func (p *boundsPather) LineTo(x, y float64) {
+	p.xmin = math.Min(p.xmin, x)
+	p.ymin = math.Min(p.ymin, y)
+	p.xmax = math.Max(p.xmax, x)
+	p.ymax = math.Max(p.ymax, y)
+}
+
+func (p *boundsPather) QuadTo(cpx, cpy, x, y float64) {
+	p.xmin = math.Min(p.xmin, cpx)
+	p.ymin = math.Min(p.ymin, cpy)
+	p.xmax = math.Max(p.xmax, cpx)
+	p.ymax = math.Max(p.ymax, cpy)
+	p.xmin = math.Min(p.xmin, x)
+	p.ymin = math.Min(p.ymin, y)
+	p.xmax = math.Max(p.xmax, x)
+	p.ymax = math.Max(p.ymax, y)
+}
+
+func (p *boundsPather) CubeTo(cp1x, cp1y, cp2x, cp2y, x, y float64) {
+	p.xmin = math.Min(p.xmin, cp1x)
+	p.ymin = math.Min(p.ymin, cp1y)
+	p.xmax = math.Max(p.xmax, cp1x)
+	p.ymax = math.Max(p.ymax, cp1y)
+	p.xmin = math.Min(p.xmin, cp2x)
+	p.ymin = math.Min(p.ymin, cp2y)
+	p.xmax = math.Max(p.xmax, cp2x)
+	p.ymax = math.Max(p.ymax, cp2y)
+	p.xmin = math.Min(p.xmin, x)
+	p.ymin = math.Min(p.ymin, y)
+	p.xmax = math.Max(p.xmax, x)
+	p.ymax = math.Max(p.ymax, y)
+}
+
+func (p *boundsPather) Close() {
+}
+
+// GlyphBounds returns the bounding rectangle (xmin,ymin,xmax,ymax) of the glyph.
+func (sfnt *SFNT) GlyphBounds(glyphID uint16) (int16, int16, int16, int16, error) {
+	if sfnt.IsTrueType {
+		contour, err := sfnt.Glyf.Contour(glyphID, 0)
+		if err != nil {
+			return 0, 0, 0, 0, err
+		}
+		return contour.XMin, contour.YMin, contour.XMax, contour.YMax, nil
+	} else if sfnt.IsCFF {
+		p := &boundsPather{}
+		if err := sfnt.CFF.ToPath(p, glyphID, 0, 0, 0, 1.0, NoHinting); err != nil {
+			return 0, 0, 0, 0, err
+		}
+		return int16(p.xmin), int16(p.ymin), int16(math.Ceil(p.xmax)), int16(math.Ceil(p.ymax)), nil
+	}
+	return 0, 0, 0, 0, fmt.Errorf("only TrueType is supported")
+}
+
 // Kerning returns the kerning between two glyphs, i.e. the advance correction for glyph pairs.
 func (sfnt *SFNT) Kerning(left, right uint16) int16 {
 	if sfnt.Kern == nil {

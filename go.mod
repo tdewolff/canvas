@@ -10,6 +10,10 @@ require (
 	github.com/benoitkugler/textlayout v0.1.3
 	github.com/benoitkugler/textprocessing v0.0.2
 	github.com/dsnet/compress v0.0.1
+	github.com/go-fonts/dejavu v0.1.0
+	github.com/go-fonts/latin-modern v0.2.0
+	github.com/go-fonts/liberation v0.2.0
+	github.com/go-fonts/stix v0.1.0
 	github.com/go-gl/gl v0.0.0-20211210172815-726fda9656d6
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20220622232848-a6c407ee30a0
 	github.com/go-latex/latex v0.0.0-20210823091927-c0d11ff05a81
@@ -18,6 +22,7 @@ require (
 	github.com/paulmach/osm v0.5.0
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/tdewolff/argp v0.0.0-20221007181215-ebef9ed8a560
+	github.com/tdewolff/minify v2.3.6+incompatible
 	github.com/tdewolff/minify/v2 v2.12.4
 	github.com/tdewolff/parse/v2 v2.6.4
 	github.com/tdewolff/test v1.0.7
@@ -42,7 +47,6 @@ require (
 	github.com/fyne-io/glfw-js v0.0.0-20220120001248-ee7290d23504 // indirect
 	github.com/fyne-io/image v0.0.0-20220602074514-4956b0afb3d2 // indirect
 	github.com/gioui/uax v0.2.1-0.20220325163150-e3d987515a12 // indirect
-	github.com/go-fonts/liberation v0.2.0 // indirect
 	github.com/go-pdf/fpdf v0.6.0 // indirect
 	github.com/go-text/typesetting v0.0.0-20220411150340-35994bc27a7b // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
@@ -53,7 +57,6 @@ require (
 	github.com/srwiley/oksvg v0.0.0-20220128195007-1f435e4c2b44 // indirect
 	github.com/srwiley/rasterx v0.0.0-20220615024203-67b7089efd25 // indirect
 	github.com/stretchr/testify v1.7.3 // indirect
-	github.com/tdewolff/minify v2.3.6+incompatible // indirect
 	github.com/tdewolff/parse v2.3.4+incompatible // indirect
 	github.com/tevino/abool v1.2.0 // indirect
 	github.com/yuin/goldmark v1.4.12 // indirect

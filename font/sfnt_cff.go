@@ -209,7 +209,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 	f /= float64(1 << 16) // correct back
 
 	hints := 0
-	stack := []int32{} // TODO: may overflow?t
+	stack := []int32{} // TODO: may overflow?
 	firstOperator := true
 	callStack := []*BinaryReader{}
 	r := NewBinaryReader(charString)

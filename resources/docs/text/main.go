@@ -92,10 +92,14 @@ func main() {
 	face := fontFamily.Face(10.0, color.Black, canvas.FontRegular, canvas.FontNormal)
 	rt := canvas.NewRichText(face)
 	rt.WriteString("Where ")
-	rt.AddPath(p, canvas.Green)
+	rt.AddPath(p, canvas.Green, canvas.Baseline)
 	rt.WriteString(" and ")
-	rt.AddImage(img, canvas.DPMM(200.0))
-	rt.WriteString(" refer to foo and bar respectively.")
+	rt.AddImage(img, canvas.DPMM(200.0), canvas.Baseline)
+	rt.WriteString(" refer to foo when ")
+	if err := rt.AddLaTeX("x = \\frac{5}{2}", 10.0, canvas.LatinModernFonts); err != nil {
+		panic(err)
+	}
+	rt.WriteString(".")
 	ctx.DrawText(40.0, 7.0, rt.ToText(00.0, 00.0, canvas.Center, canvas.Top, 0.0, 0.0))
 
 	renderers.Write("obj.png", c, canvas.DPMM(5.0))

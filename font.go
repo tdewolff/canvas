@@ -433,7 +433,7 @@ func (family *FontFamily) Face(size float64, col color.Color, style FontStyle, v
 type FontFace struct {
 	Font *Font
 
-	Size    float64 // in pt
+	Size    float64 // in mm
 	Style   FontStyle
 	Variant FontVariant
 
@@ -508,7 +508,7 @@ func (face *FontFace) Metrics() FontMetrics {
 // PPEM returns the pixels-per-EM for a given resolution of the font face.
 func (face *FontFace) PPEM(resolution Resolution) uint16 {
 	// ppem is for hinting purposes only, this does not influence glyph advances
-	return uint16(resolution.DPMM() * face.Size)
+	return uint16(resolution.DPMM() * face.mmPerEm)
 }
 
 // LineHeight returns the height (ascent+descent) of a line.

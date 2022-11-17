@@ -442,23 +442,33 @@ func (rt *RichText) AddCanvas(c *Canvas, valign VerticalAlign) *RichText {
 }
 
 // AddPath adds a path.
-func (rt *RichText) AddPath(path *Path, col color.RGBA) *RichText {
+func (rt *RichText) AddPath(path *Path, col color.RGBA, valign VerticalAlign) *RichText {
 	style := DefaultStyle
 	style.FillColor = col
 	bounds := path.Bounds()
 	c := New(bounds.X+bounds.W, bounds.Y+bounds.H)
 	c.RenderPath(path, style, Identity)
-	rt.AddCanvas(c, Baseline)
+	rt.AddCanvas(c, valign)
 	return rt
 }
 
 // AddImage adds an image.
-func (rt *RichText) AddImage(img image.Image, res Resolution) *RichText {
+func (rt *RichText) AddImage(img image.Image, res Resolution, valign VerticalAlign) *RichText {
 	bounds := img.Bounds().Size()
 	c := New(float64(bounds.X)/res.DPMM(), float64(bounds.Y)/res.DPMM())
 	c.RenderImage(img, Identity.Scale(1.0/res.DPMM(), 1.0/res.DPMM()))
-	rt.AddCanvas(c, Baseline)
+	rt.AddCanvas(c, valign)
 	return rt
+}
+
+// AddLaTeX adds a LaTeX formula.
+func (rt *RichText) AddLaTeX(s string, fontsize float64, fonts LaTeXFonts) error {
+	p, err := ParseLaTeX(s, fontsize, fonts)
+	if err != nil {
+		return err
+	}
+	rt.AddPath(p, Black, Baseline)
+	return nil
 }
 
 func scriptDirection(mode WritingMode, orient TextOrientation, script canvasText.Script, direction canvasText.Direction) (canvasText.Direction, canvasText.Rotation) {
