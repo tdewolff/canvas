@@ -117,18 +117,6 @@ func TestQuadraticBezier(t *testing.T) {
 	test.T(t, p1, Point{0.666667, 0.0})
 	test.T(t, p2, Point{1.0, 0.333333})
 
-	test.T(t, quadraticBezierPos(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 0.0), Point{0.0, 0.0})
-	test.T(t, quadraticBezierPos(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 0.5), Point{0.75, 0.25})
-	test.T(t, quadraticBezierPos(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 1.0), Point{1.0, 1.0})
-	test.T(t, quadraticBezierDeriv(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 0.0), Point{2.0, 0.0})
-	test.T(t, quadraticBezierDeriv(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 0.5), Point{1.0, 1.0})
-	test.T(t, quadraticBezierDeriv(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 1.0), Point{0.0, 2.0})
-	test.Float(t, quadraticBezierLength(Point{0.0, 0.0}, Point{0.5, 0.0}, Point{2.0, 0.0}), 2.0)
-	test.Float(t, quadraticBezierLength(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{2.0, 0.0}), 2.0)
-
-	// https://www.wolframalpha.com/input/?i=length+of+the+curve+%7Bx%3D2*%281-t%29*t*1.00+%2B+t%5E2*1.00%2C+y%3Dt%5E2*1.00%7D+from+0+to+1
-	test.Float(t, quadraticBezierLength(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}), 1.623225)
-
 	p0, p1, p2, q0, q1, q2 := quadraticBezierSplit(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 0.5)
 	test.T(t, p0, Point{0.0, 0.0})
 	test.T(t, p1, Point{0.5, 0.0})
@@ -136,6 +124,64 @@ func TestQuadraticBezier(t *testing.T) {
 	test.T(t, q0, Point{0.75, 0.25})
 	test.T(t, q1, Point{1.0, 0.5})
 	test.T(t, q2, Point{1.0, 1.0})
+}
+
+func TestQuadraticBezierPos(t *testing.T) {
+	var tests = []struct {
+		p0, p1, p2 Point
+		t          float64
+		q          Point
+	}{
+		{Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 0.0, Point{0.0, 0.0}},
+		{Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 0.5, Point{0.75, 0.25}},
+		{Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 1.0, Point{1.0, 1.0}},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v%v%v--%v", tt.p0, tt.p1, tt.p2, tt.t), func(t *testing.T) {
+			q := quadraticBezierPos(tt.p0, tt.p1, tt.p2, tt.t)
+			test.T(t, q, tt.q)
+		})
+	}
+}
+
+func TestQuadraticBezierDeriv(t *testing.T) {
+	var tests = []struct {
+		p0, p1, p2 Point
+		t          float64
+		q          Point
+	}{
+		{Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 0.0, Point{2.0, 0.0}},
+		{Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 0.5, Point{1.0, 1.0}},
+		{Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 1.0, Point{0.0, 2.0}},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v%v%v--%v", tt.p0, tt.p1, tt.p2, tt.t), func(t *testing.T) {
+			q := quadraticBezierDeriv(tt.p0, tt.p1, tt.p2, tt.t)
+			test.T(t, q, tt.q)
+		})
+	}
+}
+
+func TestQuadraticBezierLength(t *testing.T) {
+	var tests = []struct {
+		p0, p1, p2 Point
+		l          float64
+	}{
+		{Point{0.0, 0.0}, Point{0.5, 0.0}, Point{2.0, 0.0}, 2.0},
+		{Point{0.0, 0.0}, Point{1.0, 0.0}, Point{2.0, 0.0}, 2.0},
+
+		// https://www.wolframalpha.com/input/?i=length+of+the+curve+%7Bx%3D2*%281-t%29*t*1.00+%2B+t%5E2*1.00%2C+y%3Dt%5E2*1.00%7D+from+0+to+1
+		{Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 1.623225},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v%v%v", tt.p0, tt.p1, tt.p2), func(t *testing.T) {
+			l := quadraticBezierLength(tt.p0, tt.p1, tt.p2)
+			test.Float(t, l, tt.l)
+		})
+	}
 }
 
 func TestQuadraticBezierDistance(t *testing.T) {
@@ -160,36 +206,140 @@ func TestQuadraticBezierDistance(t *testing.T) {
 	}
 }
 
-func TestCubicBezier(t *testing.T) {
+func TestCubicBezierPos(t *testing.T) {
 	defer setEpsilon(1e-5)()
 
 	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}
-	test.T(t, cubicBezierPos(p0, p1, p2, p3, 0.0), Point{0.0, 0.0})
-	test.T(t, cubicBezierPos(p0, p1, p2, p3, 0.5), Point{0.75, 0.25})
-	test.T(t, cubicBezierPos(p0, p1, p2, p3, 1.0), Point{1.0, 1.0})
-	test.T(t, cubicBezierDeriv(p0, p1, p2, p3, 0.0), Point{2.0, 0.0})
-	test.T(t, cubicBezierDeriv(p0, p1, p2, p3, 0.5), Point{1.0, 1.0})
-	test.T(t, cubicBezierDeriv(p0, p1, p2, p3, 1.0), Point{0.0, 2.0})
-	test.T(t, cubicBezierDeriv2(p0, p1, p2, p3, 0.0), Point{-2.0, 2.0})
-	test.T(t, cubicBezierDeriv2(p0, p1, p2, p3, 0.5), Point{-2.0, 2.0})
-	test.T(t, cubicBezierDeriv2(p0, p1, p2, p3, 1.0), Point{-2.0, 2.0})
-	test.Float(t, cubicBezierCurvatureRadius(p0, p1, p2, p3, 0.0), 2.000004)
-	test.Float(t, cubicBezierCurvatureRadius(p0, p1, p2, p3, 0.5), 0.707107)
-	test.Float(t, cubicBezierCurvatureRadius(p0, p1, p2, p3, 1.0), 2.000004)
-	test.Float(t, cubicBezierCurvatureRadius(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{2.0, 0.0}, Point{3.0, 0.0}, 0.0), math.NaN())
-	test.T(t, cubicBezierNormal(p0, p1, p2, p3, 0.0, 1.0), Point{0.0, -1.0})
-	test.T(t, cubicBezierNormal(p0, p0, p1, p3, 0.0, 1.0), Point{0.0, -1.0})
-	test.T(t, cubicBezierNormal(p0, p0, p0, p1, 0.0, 1.0), Point{0.0, -1.0})
-	test.T(t, cubicBezierNormal(p0, p0, p0, p0, 0.0, 1.0), Point{})
-	test.T(t, cubicBezierNormal(p0, p1, p2, p3, 1.0, 1.0), Point{1.0, 0.0})
-	test.T(t, cubicBezierNormal(p0, p2, p3, p3, 1.0, 1.0), Point{1.0, 0.0})
-	test.T(t, cubicBezierNormal(p2, p3, p3, p3, 1.0, 1.0), Point{1.0, 0.0})
-	test.T(t, cubicBezierNormal(p3, p3, p3, p3, 1.0, 1.0), Point{})
+	var tests = []struct {
+		p0, p1, p2, p3 Point
+		t              float64
+		q              Point
+	}{
+		{p0, p1, p2, p3, 0.0, Point{0.0, 0.0}},
+		{p0, p1, p2, p3, 0.5, Point{0.75, 0.25}},
+		{p0, p1, p2, p3, 1.0, Point{1.0, 1.0}},
+	}
 
-	// https://www.wolframalpha.com/input/?i=length+of+the+curve+%7Bx%3D3*%281-t%29%5E2*t*0.666667+%2B+3*%281-t%29*t%5E2*1.00+%2B+t%5E3*1.00%2C+y%3D3*%281-t%29*t%5E2*0.333333+%2B+t%5E3*1.00%7D+from+0+to+1
-	test.Float(t, cubicBezierLength(p0, p1, p2, p3), 1.623225)
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v%v%v%v--%v", tt.p0, tt.p1, tt.p2, tt.p3, tt.t), func(t *testing.T) {
+			q := cubicBezierPos(tt.p0, tt.p1, tt.p2, tt.p3, tt.t)
+			test.T(t, q, tt.q)
+		})
+	}
+}
 
-	p0, p1, p2, p3, q0, q1, q2, q3 := cubicBezierSplit(p0, p1, p2, p3, 0.5)
+func TestCubicBezierDeriv(t *testing.T) {
+	defer setEpsilon(1e-5)()
+
+	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}
+	var tests = []struct {
+		p0, p1, p2, p3 Point
+		t              float64
+		q              Point
+	}{
+		{p0, p1, p2, p3, 0.0, Point{2.0, 0.0}},
+		{p0, p1, p2, p3, 0.5, Point{1.0, 1.0}},
+		{p0, p1, p2, p3, 1.0, Point{0.0, 2.0}},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v%v%v%v--%v", tt.p0, tt.p1, tt.p2, tt.p3, tt.t), func(t *testing.T) {
+			q := cubicBezierDeriv(tt.p0, tt.p1, tt.p2, tt.p3, tt.t)
+			test.T(t, q, tt.q)
+		})
+	}
+}
+
+func TestCubicBezierDeriv2(t *testing.T) {
+	defer setEpsilon(1e-5)()
+
+	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}
+	var tests = []struct {
+		p0, p1, p2, p3 Point
+		t              float64
+		q              Point
+	}{
+		{p0, p1, p2, p3, 0.0, Point{-2.0, 2.0}},
+		{p0, p1, p2, p3, 0.5, Point{-2.0, 2.0}},
+		{p0, p1, p2, p3, 1.0, Point{-2.0, 2.0}},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v%v%v%v--%v", tt.p0, tt.p1, tt.p2, tt.p3, tt.t), func(t *testing.T) {
+			q := cubicBezierDeriv2(tt.p0, tt.p1, tt.p2, tt.p3, tt.t)
+			test.T(t, q, tt.q)
+		})
+	}
+}
+
+func TestCubicBezierCurvatureRadius(t *testing.T) {
+	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}
+	var tests = []struct {
+		p0, p1, p2, p3 Point
+		t              float64
+		r              float64
+	}{
+		{p0, p1, p2, p3, 0.0, 2.000004},
+		{p0, p1, p2, p3, 0.5, 0.707107},
+		{p0, p1, p2, p3, 1.0, 2.000004},
+		{p0, Point{1.0, 0.0}, Point{2.0, 0.0}, Point{3.0, 0.0}, 0.0, math.NaN()},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v%v%v%v--%v", tt.p0, tt.p1, tt.p2, tt.p3, tt.t), func(t *testing.T) {
+			r := cubicBezierCurvatureRadius(tt.p0, tt.p1, tt.p2, tt.p3, tt.t)
+			test.Float(t, r, tt.r)
+		})
+	}
+}
+
+func TestCubicBezierNormal(t *testing.T) {
+	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}
+	var tests = []struct {
+		p0, p1, p2, p3 Point
+		t              float64
+		q              Point
+	}{
+		{p0, p1, p2, p3, 0.0, Point{0.0, -1.0}},
+		{p0, p0, p1, p3, 0.0, Point{0.0, -1.0}},
+		{p0, p0, p0, p1, 0.0, Point{0.0, -1.0}},
+		{p0, p0, p0, p0, 0.0, Point{0.0, 0.0}},
+		{p0, p1, p2, p3, 1.0, Point{1.0, 0.0}},
+		{p0, p2, p3, p3, 1.0, Point{1.0, 0.0}},
+		{p2, p3, p3, p3, 1.0, Point{1.0, 0.0}},
+		{p3, p3, p3, p3, 1.0, Point{0.0, 0.0}},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v%v%v%v--%v", tt.p0, tt.p1, tt.p2, tt.p3, tt.t), func(t *testing.T) {
+			q := cubicBezierNormal(tt.p0, tt.p1, tt.p2, tt.p3, tt.t, 1.0)
+			test.T(t, q, tt.q)
+		})
+	}
+}
+
+func TestCubicBezierLength(t *testing.T) {
+	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}
+	var tests = []struct {
+		p0, p1, p2, p3 Point
+		l              float64
+	}{
+		// https://www.wolframalpha.com/input/?i=length+of+the+curve+%7Bx%3D3*%281-t%29%5E2*t*0.666667+%2B+3*%281-t%29*t%5E2*1.00+%2B+t%5E3*1.00%2C+y%3D3*%281-t%29*t%5E2*0.333333+%2B+t%5E3*1.00%7D+from+0+to+1
+		{p0, p1, p2, p3, 1.623225},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v%v%v%v", tt.p0, tt.p1, tt.p2, tt.p3), func(t *testing.T) {
+			l := cubicBezierLength(tt.p0, tt.p1, tt.p2, tt.p3)
+			test.Float(t, l, tt.l)
+		})
+	}
+}
+
+func TestCubicBezierSplit(t *testing.T) {
+	defer setEpsilon(1e-5)()
+
+	p0, p1, p2, p3, q0, q1, q2, q3 := cubicBezierSplit(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.5)
 	test.T(t, p0, Point{0.0, 0.0})
 	test.T(t, p1, Point{0.333333, 0.0})
 	test.T(t, p2, Point{0.583333, 0.083333})
