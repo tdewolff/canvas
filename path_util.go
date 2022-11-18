@@ -599,22 +599,22 @@ func flattenSmoothCubicBezier(p *Path, p0, p1, p2, p3 Point, d, flatness float64
 			// p0 == p1, base on p2
 			D = p2.Sub(p0)
 		}
-
 		denom := D.Length() // equal to r1
-		s2nom := D.PerpDot(p2.Sub(p0))
-		if math.Abs(s2nom) < Epsilon {
-			// s2 is zero, calculate s3 instead
-			s3nom := D.PerpDot(p3.Sub(p0))
-			s3inv := denom / s3nom
-			// we cannot calculate the effective flatness here
-			t = 2.0 * math.Cbrt(flatness*math.Abs(s3inv))
-		} else {
-			s2inv := denom / s2nom
-			// effective flatness distorts the stroke width as both sides have different cuts
-			//effFlatness := flatness / (1.0 - d*s2nom/(denom*denom*denom)*2.0/3.0)
-			t = 2.0 * math.Sqrt(flatness*math.Abs(s2inv)/3.0)
-		}
 
+		// effective flatness distorts the stroke width as both sides have different cuts
+		//effFlatness := flatness / (1.0 - d*s2nom/(denom*denom*denom)*2.0/3.0)
+		s2nom := D.PerpDot(p2.Sub(p0))
+		s2inv := denom / s2nom
+		t2 := 2.0 * math.Sqrt(flatness*math.Abs(s2inv)/3.0)
+
+		// if s2 is small, s3 may represent the curvature more accurately
+		// we cannot calculate the effective flatness here
+		s3nom := D.PerpDot(p3.Sub(p0))
+		s3inv := denom / s3nom
+		t3 := 2.0 * math.Cbrt(flatness*math.Abs(s3inv))
+
+		// choose whichever is most curved, P2-P0 or P3-P0
+		t = math.Min(t2, t3)
 		if t >= 1.0 {
 			break
 		}
@@ -638,10 +638,10 @@ func findInflectionPointsCubicBezier(p0, p1, p2, p3 Point) (float64, float64) {
 	b := (ay*cx - ax*cy)
 	c := (by*cx - bx*cy)
 	x1, x2 := solveQuadraticFormula(a, b, c)
-	if x1 < 0.0 || 1.0 <= x1 {
+	if x1 < Epsilon/2.0 || 1.0-Epsilon/2.0 < x1 {
 		x1 = math.NaN()
 	}
-	if x2 < 0.0 || 1.0 <= x2 {
+	if x2 < Epsilon/2.0 || 1.0-Epsilon/2.0 < x2 {
 		x2 = math.NaN()
 	} else if math.IsNaN(x1) {
 		x1, x2 = x2, x1

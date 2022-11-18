@@ -19,7 +19,7 @@ var Precision = 8
 
 // Equal returns true if a and b are Equal with tolerance Epsilon.
 func Equal(a, b float64) bool {
-	return math.Abs(a-b) < Epsilon
+	return math.Abs(a-b) <= Epsilon
 }
 
 // angleNorm returns the angle theta in the range [0,2PI).
