@@ -32,7 +32,7 @@ var tempDir = path.Join(os.TempDir(), "tdewolff-canvas")
 //   \thispagestyle{empty}
 //   {{input}}
 //   \end{document}
-func ParseLaTeX(s string) (*Path, error) {
+func ParseLaTeX(s string, fontsize float64) (*Path, error) {
 	if err := os.MkdirAll(tempDir, os.ModePerm); err != nil {
 		panic(err)
 	}

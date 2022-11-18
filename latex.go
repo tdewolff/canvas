@@ -36,7 +36,9 @@ const (
 	GoFonts
 )
 
-func ParseLaTeX(s string, fontsize float64, fonts LaTeXFonts) (*Path, error) {
+func ParseLaTeX(s string, fontsize float64) (*Path, error) {
+	fonts := LatinModernFonts
+
 	backend, err := newBackend(fonts)
 	if err != nil {
 		return nil, err

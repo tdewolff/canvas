@@ -1525,7 +1525,7 @@ func (sfnt *SFNT) estimateOS2() {
 ////////////////////////////////////////////////////////////////
 
 type postTable struct {
-	ItalicAngle        uint32
+	ItalicAngle        float64
 	UnderlinePosition  int16
 	UnderlineThickness int16
 	IsFixedPitch       uint32
@@ -1564,7 +1564,7 @@ func (sfnt *SFNT) parsePost() error {
 	sfnt.Post = &postTable{}
 	r := NewBinaryReader(b)
 	version := r.ReadUint32()
-	sfnt.Post.ItalicAngle = r.ReadUint32()
+	sfnt.Post.ItalicAngle = float64(r.ReadInt32()) / (1 << 16)
 	sfnt.Post.UnderlinePosition = r.ReadInt16()
 	sfnt.Post.UnderlineThickness = r.ReadInt16()
 	sfnt.Post.IsFixedPitch = r.ReadUint32()

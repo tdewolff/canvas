@@ -462,8 +462,8 @@ func (rt *RichText) AddImage(img image.Image, res Resolution, valign VerticalAli
 }
 
 // AddLaTeX adds a LaTeX formula.
-func (rt *RichText) AddLaTeX(s string, fontsize float64, fonts LaTeXFonts) error {
-	p, err := ParseLaTeX(s, fontsize, fonts)
+func (rt *RichText) AddLaTeX(s string, fontsize float64) error {
+	p, err := ParseLaTeX(s, fontsize)
 	if err != nil {
 		return err
 	}
