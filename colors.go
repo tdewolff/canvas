@@ -120,6 +120,53 @@ func (SRGBColorSpace) FromLinear(col color.Color) color.RGBA {
 	}
 }
 
+func Hex(s string) color.RGBA {
+	if 0 < len(s) && s[0] == '#' {
+		s = s[1:]
+	}
+	h := make([]uint8, len(s))
+	for i, c := range s {
+		if '0' <= c && c <= '9' {
+			h[i] = uint8(c - '0')
+		} else if 'a' <= c && c <= 'f' {
+			h[i] = 10 + uint8(c-'a')
+		} else if 'A' <= c && c <= 'F' {
+			h[i] = 10 + uint8(c-'A')
+		}
+	}
+	if len(s) == 3 {
+		return color.RGBA{h[0]*16 + h[0], h[1]*16 + h[1], h[2]*16 + h[2], 0xff}
+	} else if len(s) == 4 {
+		a := float64(h[3]*16+h[0]) / 255.0
+		return color.RGBA{
+			uint8(a * float64(h[0]*16+h[0])),
+			uint8(a * float64(h[1]*16+h[1])),
+			uint8(a * float64(h[2]*16+h[2])),
+			h[3]*16 + h[3],
+		}
+	} else if len(s) == 6 {
+		return color.RGBA{h[0]*16 + h[1], h[2]*16 + h[3], h[4]*16 + h[5], 0xff}
+	} else if len(s) == 8 {
+		a := float64(h[6]*16+h[7]) / 255.0
+		return color.RGBA{
+			uint8(a * float64(h[0]*16+h[1])),
+			uint8(a * float64(h[2]*16+h[3])),
+			uint8(a * float64(h[4]*16+h[5])),
+			h[6]*16 + h[7],
+		}
+	}
+	return Black
+}
+
+func RGBA(r, g, b uint8, a float64) color.RGBA {
+	return color.RGBA{
+		uint8(a * float64(r)),
+		uint8(a * float64(g)),
+		uint8(a * float64(b)),
+		uint8(a * 255.0),
+	}
+}
+
 // Transparent when used as a fill or stroke color will indicate that the fill or stroke will not be drawn.
 var Transparent = color.RGBA{0x00, 0x00, 0x00, 0x00} // rgba(0, 0, 0, 0)
 
