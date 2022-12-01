@@ -207,20 +207,20 @@ func (obj TextSpanObject) Heights(face *FontFace) (float64, float64) {
 	switch obj.VAlign {
 	case FontTop:
 		ascent := face.Metrics().Ascent
-		return ascent, ascent - obj.Height
+		return ascent, -(ascent - obj.Height)
 	case FontMiddle:
 		ascent, descent := face.Metrics().Ascent, face.Metrics().Descent
-		return (ascent - descent + obj.Height) / 2.0, (ascent - descent - obj.Height) / 2.0
+		return (ascent - descent + obj.Height) / 2.0, -(ascent - descent - obj.Height) / 2.0
 	case FontBottom:
 		descent := face.Metrics().Descent
-		return -descent + obj.Height, -descent
+		return -descent + obj.Height, descent
 	}
 	return obj.Height, 0.0 // Baseline
 }
 
 func (obj TextSpanObject) View(x, y float64, face *FontFace) Matrix {
 	_, bottom := obj.Heights(face)
-	return Identity.Translate(x+obj.X, y+obj.Y+bottom)
+	return Identity.Translate(x+obj.X, y+obj.Y-bottom)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -649,7 +649,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			// item marks a break
 			breaks[k].Position -= shift
 			k++
-		} else if items[i].Type == canvasText.PenaltyType { // remove penalties
+		} else if items[i].Type == canvasText.PenaltyType && items[i].Size == 0 { // remove penalties
 			items = append(items[:i], items[i+1:]...)
 			shift++
 			i--
