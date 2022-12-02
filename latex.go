@@ -3,212 +3,260 @@
 package canvas
 
 import (
+	"bytes"
 	"fmt"
-	"unicode/utf8"
+	"math"
+	"strconv"
+	"strings"
 
-	"github.com/go-fonts/dejavu/dejavusans"
-	"github.com/go-fonts/dejavu/dejavusansbold"
-	"github.com/go-fonts/dejavu/dejavusansoblique"
+	"github.com/go-fonts/latin-modern/lmmath"
+	"github.com/go-fonts/latin-modern/lmmono10regular"
+	"github.com/go-fonts/latin-modern/lmmono12regular"
+	"github.com/go-fonts/latin-modern/lmmono8regular"
+	"github.com/go-fonts/latin-modern/lmmono9regular"
+	"github.com/go-fonts/latin-modern/lmmonocaps10regular"
+	"github.com/go-fonts/latin-modern/lmmonoslant10regular"
+	"github.com/go-fonts/latin-modern/lmroman10bold"
+	"github.com/go-fonts/latin-modern/lmroman10bolditalic"
+	"github.com/go-fonts/latin-modern/lmroman10italic"
+	"github.com/go-fonts/latin-modern/lmroman10regular"
 	"github.com/go-fonts/latin-modern/lmroman12bold"
 	"github.com/go-fonts/latin-modern/lmroman12italic"
 	"github.com/go-fonts/latin-modern/lmroman12regular"
-	"github.com/go-fonts/liberation/liberationsansbold"
-	"github.com/go-fonts/liberation/liberationsansitalic"
-	"github.com/go-fonts/liberation/liberationsansregular"
-	"github.com/go-fonts/stix/stix2textbold"
-	"github.com/go-fonts/stix/stix2textitalic"
-	"github.com/go-fonts/stix/stix2textregular"
-	"github.com/go-latex/latex/font"
-	"github.com/go-latex/latex/mtex"
-	"github.com/go-latex/latex/tex"
-	"golang.org/x/image/font/gofont/gobold"
-	"golang.org/x/image/font/gofont/goitalic"
-	"golang.org/x/image/font/gofont/goregular"
+	"github.com/go-fonts/latin-modern/lmroman17regular"
+	"github.com/go-fonts/latin-modern/lmroman5bold"
+	"github.com/go-fonts/latin-modern/lmroman5regular"
+	"github.com/go-fonts/latin-modern/lmroman6bold"
+	"github.com/go-fonts/latin-modern/lmroman6regular"
+	"github.com/go-fonts/latin-modern/lmroman7bold"
+	"github.com/go-fonts/latin-modern/lmroman7italic"
+	"github.com/go-fonts/latin-modern/lmroman7regular"
+	"github.com/go-fonts/latin-modern/lmroman8bold"
+	"github.com/go-fonts/latin-modern/lmroman8italic"
+	"github.com/go-fonts/latin-modern/lmroman8regular"
+	"github.com/go-fonts/latin-modern/lmroman9bold"
+	"github.com/go-fonts/latin-modern/lmroman9italic"
+	"github.com/go-fonts/latin-modern/lmroman9regular"
+	"github.com/go-fonts/latin-modern/lmromancaps10regular"
+	"github.com/go-fonts/latin-modern/lmromandunh10regular"
+	"github.com/go-fonts/latin-modern/lmromanslant10regular"
+	"github.com/go-fonts/latin-modern/lmromanslant12regular"
+	"github.com/go-fonts/latin-modern/lmromanslant17regular"
+	"github.com/go-fonts/latin-modern/lmromanslant8regular"
+	"github.com/go-fonts/latin-modern/lmromanslant9regular"
+	"github.com/go-fonts/latin-modern/lmromanunsl10regular"
+	"github.com/go-fonts/latin-modern/lmsans10bold"
+	"github.com/go-fonts/latin-modern/lmsans10oblique"
+	"github.com/go-fonts/latin-modern/lmsans10regular"
+	"github.com/go-fonts/latin-modern/lmsans12oblique"
+	"github.com/go-fonts/latin-modern/lmsans12regular"
+	"github.com/go-fonts/latin-modern/lmsans17oblique"
+	"github.com/go-fonts/latin-modern/lmsans17regular"
+	"github.com/go-fonts/latin-modern/lmsans8oblique"
+	"github.com/go-fonts/latin-modern/lmsans8regular"
+	"github.com/go-fonts/latin-modern/lmsans9oblique"
+	"github.com/go-fonts/latin-modern/lmsans9regular"
+	"github.com/go-fonts/latin-modern/lmsansdemicond10regular"
+	"github.com/go-fonts/latin-modern/lmsansquot8oblique"
+	canvasFont "github.com/tdewolff/canvas/font"
+	"star-tex.org/x/tex"
 )
 
-type LaTeXFonts int
+var preamble = `\nopagenumbers
 
-const (
-	LatinModernFonts LaTeXFonts = iota
-	STIXFonts
-	LiberationFonts
-	DejaVuFonts
-	GoFonts
-)
+\def\frac#1#2{{{#1}\over{#2}}}
+`
 
-func ParseLaTeX(s string, fontsize float64) (*Path, error) {
-	fonts := LatinModernFonts
-
-	backend, err := newBackend(fonts)
-	if err != nil {
+func ParseLaTeX(formula string) (*Path, error) {
+	r := strings.NewReader(fmt.Sprintf(`%s $%s$`, preamble, formula))
+	w := &bytes.Buffer{}
+	stdout := &bytes.Buffer{}
+	engine := tex.NewEngine(stdout, bytes.NewReader([]byte{}))
+	if err := engine.Process(w, r); err != nil {
+		fmt.Println(stdout.String())
 		return nil, err
 	}
 
-	box, err := mtex.Parse(s, fontsize, 1.0, backend)
+	p, err := DVI2Path(w.Bytes(), newFonts())
 	if err != nil {
-		return nil, fmt.Errorf("could not parse expression: %w", err)
+		fmt.Println(stdout.String())
+		return nil, err
 	}
-	backend.SetHeight(box.Height())
-
-	var sh tex.Ship
-	sh.Call(0, 0, box.(tex.Tree))
-	return backend.p, nil
+	return p, nil
 }
 
-type backend struct {
-	p     *Path
-	h     float64
-	fonts map[string]*FontFamily
+type dviFonts struct {
+	font map[string]*dviFont
 }
 
-func newBackend(latexFonts LaTeXFonts) (*backend, error) {
-	var err error
-	fonts := make(map[string]*FontFamily)
-	switch latexFonts {
-	case STIXFonts:
-		f := NewFontFamily("stix")
-		if err = f.LoadFont(stix2textregular.TTF, 0, FontRegular); err != nil {
-			return nil, err
-		}
-		if err = f.LoadFont(stix2textitalic.TTF, 0, FontItalic); err != nil {
-			return nil, err
-		}
-		if err = f.LoadFont(stix2textbold.TTF, 0, FontBold); err != nil {
-			return nil, err
-		}
-		fonts["default"] = f
-	case LiberationFonts:
-		f := NewFontFamily("liberation")
-		if err = f.LoadFont(liberationsansregular.TTF, 0, FontRegular); err != nil {
-			return nil, err
-		}
-		if err = f.LoadFont(liberationsansitalic.TTF, 0, FontItalic); err != nil {
-			return nil, err
-		}
-		if err = f.LoadFont(liberationsansbold.TTF, 0, FontBold); err != nil {
-			return nil, err
-		}
-		fonts["default"] = f
-	case DejaVuFonts:
-		f := NewFontFamily("dejavu")
-		if err = f.LoadFont(dejavusans.TTF, 0, FontRegular); err != nil {
-			return nil, err
-		}
-		if err = f.LoadFont(dejavusansoblique.TTF, 0, FontItalic); err != nil {
-			return nil, err
-		}
-		if err = f.LoadFont(dejavusansbold.TTF, 0, FontBold); err != nil {
-			return nil, err
-		}
-		fonts["default"] = f
-	case GoFonts:
-		f := NewFontFamily("go")
-		if err = f.LoadFont(goregular.TTF, 0, FontRegular); err != nil {
-			return nil, err
-		}
-		if err = f.LoadFont(goitalic.TTF, 0, FontItalic); err != nil {
-			return nil, err
-		}
-		if err = f.LoadFont(gobold.TTF, 0, FontBold); err != nil {
-			return nil, err
-		}
-		fonts["default"] = f
-	default:
-		f := NewFontFamily("lm")
-		if err = f.LoadFont(lmroman12regular.TTF, 0, FontRegular); err != nil {
-			return nil, err
-		}
-		if err = f.LoadFont(lmroman12italic.TTF, 0, FontItalic); err != nil {
-			return nil, err
-		}
-		if err = f.LoadFont(lmroman12bold.TTF, 0, FontBold); err != nil {
-			return nil, err
-		}
-		fonts["default"] = f
-	}
-
-	return &backend{
-		p:     &Path{},
-		fonts: fonts,
-	}, nil
+type dviFont struct {
+	sfnt   *canvasFont.SFNT
+	size   float64
+	italic bool
 }
 
-func (b *backend) SetHeight(h float64) {
-	b.h = h
-}
-
-func (b *backend) getFace(ft font.Font) *FontFace {
-	// font names: circled, default, cal, bf, regular, tt, scr, sf, frak, rm, it, bb
-	// font types: default, regular, rm, it, bf
-	style := FontRegular
-	if ft.Type == "it" {
-		style = FontItalic
-	} else if ft.Type == "bf" {
-		style = FontBold
-	}
-	return b.fonts["default"].Face(ft.Size, Black, style, FontNormal)
-}
-
-func (b *backend) RenderGlyph(x, y float64, ft font.Font, symbol string, dpi float64) {
-	face := b.getFace(ft)
-	p, _, err := face.ToPath(symbol)
-	if err != nil {
-		panic(err)
-	}
-	b.p = b.p.Append(p.Translate(x, b.h-y))
-}
-
-func (b *backend) RenderRectFilled(x1, y1, x2, y2 float64) {
-	b.p.MoveTo(x1, b.h-y1)
-	b.p.LineTo(x2, b.h-y1)
-	b.p.LineTo(x2, b.h-y2)
-	b.p.LineTo(x1, b.h-y2)
-	b.p.Close()
-}
-
-func (b *backend) Kern(ft1 font.Font, sym1 string, ft2 font.Font, sym2 string, dpi float64) float64 {
-	left, _ := utf8.DecodeRuneInString(sym1)
-	right, _ := utf8.DecodeRuneInString(sym2)
-	face1 := b.getFace(ft1)
-	face2 := b.getFace(ft2)
-
-	mmPerEm1 := face1.Size / float64(face1.Font.Head.UnitsPerEm)
-	mmPerEm2 := face2.Size / float64(face2.Font.Head.UnitsPerEm)
-	kern1 := mmPerEm1 * float64(face1.Font.Kerning(face1.Font.GlyphIndex(left), face1.Font.GlyphIndex(right)))
-	kern2 := mmPerEm2 * float64(face2.Font.Kerning(face2.Font.GlyphIndex(left), face2.Font.GlyphIndex(right)))
-	if kern1 < kern2 {
-		return kern2
-	}
-	return kern1
-}
-
-func (b *backend) Metrics(symbol string, ft font.Font, dpi float64, math bool) font.Metrics {
-	face := b.getFace(ft)
-	r, _ := utf8.DecodeRuneInString(symbol)
-	gid := face.Font.GlyphIndex(r)
-
-	advance := face.Font.GlyphAdvance(gid)
-	xmin, ymin, xmax, ymax, _ := face.Font.GlyphBounds(gid)
-
-	mmPerEm := face.Size / float64(face.Font.Head.UnitsPerEm)
-	return font.Metrics{
-		Advance: mmPerEm * float64(advance),
-		Width:   mmPerEm * float64(xmax-xmin),
-		Height:  mmPerEm * float64(ymax-ymin),
-		XMin:    mmPerEm * float64(xmin),
-		YMin:    mmPerEm * float64(ymin),
-		XMax:    mmPerEm * float64(xmax),
-		YMax:    mmPerEm * float64(ymax),
-		Iceberg: mmPerEm * float64(ymax),
-		Slanted: ft.Type == "it",
+func newFonts() *dviFonts {
+	return &dviFonts{
+		font: map[string]*dviFont{},
 	}
 }
 
-func (b *backend) XHeight(ft font.Font, dpi float64) float64 {
-	face := b.getFace(ft)
-	return face.Size / float64(face.Font.Head.UnitsPerEm) * face.Metrics().XHeight
+func (fs *dviFonts) Get(name string, scale float64) DVIFont {
+	i := 0
+	for i < len(name) && 'a' <= name[i] && name[i] <= 'z' {
+		i++
+	}
+	fontname := name[:i]
+	fontsize := 10.0
+	if ifontsize, err := strconv.Atoi(name[i:]); err == nil {
+		fontsize = float64(ifontsize)
+	}
+
+	f, ok := fs.font[name]
+	if !ok {
+		var fontSizes map[float64][]byte
+		switch fontname {
+		//case "cmbx":
+		//case "cmssbx":
+		case "cmmi", "cmti":
+			fontSizes = map[float64][]byte{
+				12.0: lmroman12italic.TTF,
+				10.0: lmroman10italic.TTF,
+				9.0:  lmroman9italic.TTF,
+				8.0:  lmroman8italic.TTF,
+				7.0:  lmroman7italic.TTF,
+			}
+		case "cmss":
+			fontSizes = map[float64][]byte{
+				17.0: lmsans17regular.TTF,
+				12.0: lmsans12regular.TTF,
+				10.0: lmsans10regular.TTF,
+				9.0:  lmsans9regular.TTF,
+				8.0:  lmsans8regular.TTF,
+			}
+		case "cmssqi":
+			fontSizes = map[float64][]byte{
+				8.0: lmsansquot8oblique.TTF,
+			}
+		case "cmssi":
+			fontSizes = map[float64][]byte{
+				17.0: lmsans17oblique.TTF,
+				12.0: lmsans12oblique.TTF,
+				10.0: lmsans10oblique.TTF,
+				9.0:  lmsans9oblique.TTF,
+				8.0:  lmsans8oblique.TTF,
+			}
+		case "cmssb":
+			fontSizes = map[float64][]byte{
+				10.0: lmsans10bold.TTF,
+			}
+		case "cmssdc":
+			fontSizes = map[float64][]byte{
+				10.0: lmsansdemicond10regular.TTF,
+			}
+		case "cmb":
+			fontSizes = map[float64][]byte{
+				12.0: lmroman12bold.TTF,
+				10.0: lmroman10bold.TTF,
+				9.0:  lmroman9bold.TTF,
+				8.0:  lmroman8bold.TTF,
+				7.0:  lmroman7bold.TTF,
+				6.0:  lmroman6bold.TTF,
+				5.0:  lmroman5bold.TTF,
+			}
+		case "cmtt":
+			fontSizes = map[float64][]byte{
+				12.0: lmmono12regular.TTF,
+				10.0: lmmono10regular.TTF,
+				9.0:  lmmono9regular.TTF,
+				8.0:  lmmono8regular.TTF,
+			}
+		case "cmsltt":
+			fontSizes = map[float64][]byte{
+				10.0: lmmonoslant10regular.TTF,
+			}
+		case "cmsl":
+			fontSizes = map[float64][]byte{
+				17.0: lmromanslant17regular.TTF,
+				12.0: lmromanslant12regular.TTF,
+				10.0: lmromanslant10regular.TTF,
+				9.0:  lmromanslant9regular.TTF,
+				8.0:  lmromanslant8regular.TTF,
+			}
+		case "cmu":
+			fontSizes = map[float64][]byte{
+				10.0: lmromanunsl10regular.TTF,
+			}
+		case "cmmib":
+			fontSizes = map[float64][]byte{
+				10.0: lmroman10bolditalic.TTF,
+			}
+		case "cmtcsc":
+			fontSizes = map[float64][]byte{
+				10.0: lmmonocaps10regular.TTF,
+			}
+		case "cmcsc":
+			fontSizes = map[float64][]byte{
+				10.0: lmromancaps10regular.TTF,
+			}
+		case "cmdunh":
+			fontSizes = map[float64][]byte{
+				10.0: lmromandunh10regular.TTF,
+			}
+		case "cmsy", "cmex", "cmbsy":
+			fontSizes = map[float64][]byte{
+				fontsize: lmmath.TTF,
+			}
+		default:
+			// cmr
+			if fontname != "cmr" {
+				fmt.Println("WARNING: unknown font", fontname)
+			}
+			fontSizes = map[float64][]byte{
+				17.0: lmroman17regular.TTF,
+				12.0: lmroman12regular.TTF,
+				10.0: lmroman10regular.TTF,
+				9.0:  lmroman9regular.TTF,
+				8.0:  lmroman8regular.TTF,
+				7.0:  lmroman7regular.TTF,
+				6.0:  lmroman6regular.TTF,
+				5.0:  lmroman5regular.TTF,
+			}
+		}
+
+		// select closest matching font size
+		var data []byte
+		var size float64
+		for isize, idata := range fontSizes {
+			if data == nil || math.Abs(isize-fontsize) < math.Abs(size-fontsize) {
+				data = idata
+				size = isize
+			}
+		}
+
+		// load font
+		sfnt, err := canvasFont.ParseSFNT(data, 0)
+		if err != nil {
+			fmt.Println("ERROR: %w", err)
+		}
+
+		// calculate size correction if the found font has a different font size than requested
+		fsize := scale * fontsize * mmPerPt / float64(sfnt.Head.UnitsPerEm)
+		fsizeCorr := fontsize / size
+		isItalic := 0 < len(fontname) && fontname[len(fontname)-1] == 'i'
+		fsizeCorr = 1.0
+
+		f = &dviFont{sfnt, fsizeCorr * fsize, isItalic}
+		fs.font[name] = f
+	}
+	return f
 }
 
-func (b *backend) UnderlineThickness(ft font.Font, dpi float64) float64 {
-	return ft.Size * mmPerPt * 0.05
+func (f *dviFont) Draw(p canvasFont.Pather, x, y float64, r rune) float64 {
+	gid := f.sfnt.GlyphIndex(r)
+	if f.italic {
+		x -= f.size * float64(f.sfnt.OS2.SxHeight) / 2.0 * math.Tan(-float64(f.sfnt.Post.ItalicAngle)*math.Pi/180.0)
+	}
+	_ = f.sfnt.GlyphPath(p, gid, 0, x, y, f.size, canvasFont.NoHinting)
+	return f.size * float64(f.sfnt.GlyphAdvance(gid)) // in mm
 }

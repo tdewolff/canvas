@@ -1,14 +1,13 @@
-package latex
+package canvas
 
 import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/tdewolff/canvas"
 	canvasFont "github.com/tdewolff/canvas/font"
 )
 
-// Fonts gets a font according to its font name and font size in points. Font names include:
+// DVIFonts gets a font according to its font name and font size in points. Font names include:
 //   cmr: Roman (5--10pt)
 //   cmmi: Math Italic (5--10pt)
 //   cmsy: Math Symbols (5--10pt)
@@ -27,12 +26,12 @@ import (
 //   cmcsc: Caps and Small caps (10pt)
 //   cmssbx: Sans serif bold extended (10pt)
 //   cmdunh: Dunhill style (10pt)
-type Fonts interface {
-	Get(string, float64) Font
+type DVIFonts interface {
+	Get(string, float64) DVIFont
 }
 
-// Font draws a rune/glyph to the Pather at a position in millimeters.
-type Font interface {
+// DVIFont draws a rune/glyph to the Pather at a position in millimeters.
+type DVIFont interface {
 	Draw(canvasFont.Pather, float64, float64, rune) float64
 }
 
@@ -40,22 +39,22 @@ type state struct {
 	h, v, w, x, y, z int32
 }
 
-func DVI2Path(b []byte, fonts Fonts) (*canvas.Path, error) {
+func DVI2Path(b []byte, fonts DVIFonts) (*Path, error) {
 	// state
 	var fnt uint32 // font index
 	s := state{}
 	stack := []state{}
 
-	f := 1.0                  // scale factor in mm/units
-	mag := uint32(1000)       // is set explicitly in preamble
-	fnts := map[uint32]Font{} // selected fonts for indices
+	f := 1.0                     // scale factor in mm/units
+	mag := uint32(1000)          // is set explicitly in preamble
+	fnts := map[uint32]DVIFont{} // selected fonts for indices
 
 	// first position of baseline which will be the path's origin
 	firstChar := true
 	h0 := int32(0)
 	v0 := int32(0)
 
-	p := &canvas.Path{}
+	p := &Path{}
 	r := &dviReader{b, 0}
 	for 0 < r.len() {
 		cmd := r.readByte()
@@ -69,8 +68,7 @@ func DVI2Path(b []byte, fonts Fonts) (*canvas.Path, error) {
 			if _, ok := fnts[fnt]; !ok {
 				return nil, fmt.Errorf("bad command: font %v undefined at position %v", fnt, r.i)
 			}
-			fmt.Println("c", c, string(c), s.h, s.v)
-			w := int32(fnts[fnt].Draw(p, f*float64(s.h), f*float64(s.v), c) / f)
+			w := int32(fnts[fnt].Draw(p, f*float64(s.h), -f*float64(s.v), c) / f)
 			s.h += w
 		} else if 128 <= cmd && cmd <= 131 {
 			// set
@@ -83,21 +81,19 @@ func DVI2Path(b []byte, fonts Fonts) (*canvas.Path, error) {
 				return nil, fmt.Errorf("bad command: %v at position %v", cmd, r.i)
 			}
 			c := rune(r.readUint32N(n)) // TODO: what to do with 2/3/4 bytes to rune?
-			fmt.Println("c", c, string(c), s.h, s.v)
 			if _, ok := fnts[fnt]; !ok {
 				return nil, fmt.Errorf("bad command: font %v undefined at position %v", fnt, r.i)
 			}
-			s.h += int32(fnts[fnt].Draw(p, f*float64(s.h), f*float64(s.v), c) / f)
+			s.h += int32(fnts[fnt].Draw(p, f*float64(s.h), -f*float64(s.v), c) / f)
 		} else if cmd == 132 {
 			// set_rule
 			height := r.readInt32()
 			width := r.readInt32()
-			fmt.Println("rule", width, height, s.h, s.v)
 			if 0 < width && 0 < height {
-				p.MoveTo(f*float64(s.h), f*float64(-s.v))
-				p.LineTo(f*float64(s.h+width), f*float64(-s.v))
-				p.LineTo(f*float64(s.h+width), f*float64(-s.v-height))
-				p.LineTo(f*float64(s.h), f*float64(-s.v-height))
+				p.MoveTo(f*float64(s.h), -f*float64(s.v))
+				p.LineTo(f*float64(s.h+width), -f*float64(s.v))
+				p.LineTo(f*float64(s.h+width), -f*float64(s.v+height))
+				p.LineTo(f*float64(s.h), -f*float64(s.v+height))
 				p.Close()
 			}
 			s.h += width
@@ -112,21 +108,19 @@ func DVI2Path(b []byte, fonts Fonts) (*canvas.Path, error) {
 				return nil, fmt.Errorf("bad command: %v at position %v", cmd, r.i)
 			}
 			c := rune(r.readUint32N(n)) // TODO: what to do with 2/3/4 bytes to rune?
-			fmt.Println("c", string(c), s.h, s.v)
 			if _, ok := fnts[fnt]; !ok {
 				return nil, fmt.Errorf("bad command: font %v undefined at position %v", fnt, r.i)
 			}
-			fnts[fnt].Draw(p, f*float64(s.h), f*float64(s.v), c)
+			fnts[fnt].Draw(p, f*float64(s.h), -f*float64(s.v), c)
 		} else if cmd == 137 {
 			// put_rule
 			height := r.readInt32()
 			width := r.readInt32()
-			fmt.Println("rule", width, height, s.h, s.v)
 			if 0 < width && 0 < height {
-				p.MoveTo(f*float64(s.h), f*float64(-s.v))
-				p.LineTo(f*float64(s.h+width), f*float64(-s.v))
-				p.LineTo(f*float64(s.h+width), f*float64(-s.v-height))
-				p.LineTo(f*float64(s.h), f*float64(-s.v-height))
+				p.MoveTo(f*float64(s.h), -f*float64(s.v))
+				p.LineTo(f*float64(s.h+width), -f*float64(s.v))
+				p.LineTo(f*float64(s.h+width), -f*float64(s.v+height))
+				p.LineTo(f*float64(s.h), -f*float64(s.v+height))
 				p.Close()
 			}
 		} else if cmd == 138 {
@@ -191,12 +185,10 @@ func DVI2Path(b []byte, fonts Fonts) (*canvas.Path, error) {
 				return nil, fmt.Errorf("bad command: %v at position %v", cmd, r.i)
 			}
 			d := r.readInt32N(n)
-			fmt.Println("down", d)
 			s.v += d
 		} else if 161 <= cmd && cmd <= 165 {
 			// y
 			if cmd == 161 {
-				fmt.Println("y", s.y)
 				s.v += s.y
 			} else {
 				n := int(cmd - 152)
@@ -204,14 +196,12 @@ func DVI2Path(b []byte, fonts Fonts) (*canvas.Path, error) {
 					return nil, fmt.Errorf("bad command: %v at position %v", cmd, r.i)
 				}
 				d := r.readInt32N(n)
-				fmt.Println("y", d)
 				s.y = d
 				s.v += d
 			}
 		} else if 166 <= cmd && cmd <= 170 {
 			// z
 			if cmd == 166 {
-				fmt.Println("z", s.z)
 				s.v += s.z
 			} else {
 				n := int(cmd - 166)
@@ -219,7 +209,6 @@ func DVI2Path(b []byte, fonts Fonts) (*canvas.Path, error) {
 					return nil, fmt.Errorf("bad command: %v at position %v", cmd, r.i)
 				}
 				d := r.readInt32N(n)
-				fmt.Println("z", s.z)
 				s.z = d
 				s.v += d
 			}
@@ -261,7 +250,6 @@ func DVI2Path(b []byte, fonts Fonts) (*canvas.Path, error) {
 			}
 			_ = r.readString(int(a)) // area
 			name := r.readString(int(l))
-			fmt.Println("font ", name)
 			fnts[k] = fonts.Get(name, float64(mag)*float64(size)/1000.0/float64(design))
 		} else if cmd == 247 {
 			// pre
@@ -293,7 +281,7 @@ func DVI2Path(b []byte, fonts Fonts) (*canvas.Path, error) {
 			return nil, fmt.Errorf("bad command: %v at position %v", cmd, r.i)
 		}
 	}
-	p = p.Translate(-f*float64(h0), -f*float64(v0))
+	p = p.Translate(-f*float64(h0), f*float64(v0))
 	return p, nil
 }
 
@@ -345,6 +333,15 @@ func (r *dviReader) readUint32N(n int) uint32 {
 }
 
 func (r *dviReader) readInt32N(n int) int32 {
+	if n == 3 {
+		a := r.readByte()
+		b := r.readByte()
+		c := r.readByte()
+		if a < 128 {
+			return int32(uint32(a)<<16 | uint32(b)<<8 | uint32(c))
+		}
+		return int32((uint32(a)-256)<<16 | uint32(b)<<8 | uint32(c))
+	}
 	return int32(r.readUint32N(n))
 }
 
