@@ -185,7 +185,7 @@ func (cff *cffTable) PrivateDICT(glyphID uint16) (*cffPrivateDICT, error) {
 	return cff.fonts.GetPrivate(uint32(glyphID))
 }
 
-func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float64, hinting Hinting) error {
+func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x0, y0, f float64, hinting Hinting) error {
 	table := "CFF"
 	if cff.version == 2 {
 		table = "CFF2"
@@ -203,9 +203,8 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 		return fmt.Errorf("%v: %w", table, err)
 	}
 
-	// raise to most-significant 16 bits and treat less-significant bits as fraction
-	x <<= 16
-	y <<= 16
+	// x,y are raise to most-significant 16 bits and treat less-significant bits as fraction
+	var x, y int32
 	f /= float64(1 << 16) // correct back
 
 	hints := 0
@@ -272,7 +271,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 				x += stack[0]
 				y += stack[1]
 				p.Close()
-				p.MoveTo(f*float64(x), f*float64(y))
+				p.MoveTo(x0+f*float64(x), y0+f*float64(y))
 				stack = stack[:0]
 			case 22:
 				// hmoveto
@@ -281,7 +280,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 				}
 				x += stack[0]
 				p.Close()
-				p.MoveTo(f*float64(x), f*float64(y))
+				p.MoveTo(x0+f*float64(x), y0+f*float64(y))
 				stack = stack[:0]
 			case 4:
 				// vmoveto
@@ -290,7 +289,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 				}
 				y += stack[0]
 				p.Close()
-				p.MoveTo(f*float64(x), f*float64(y))
+				p.MoveTo(x0+f*float64(x), y0+f*float64(y))
 				stack = stack[:0]
 			case 5:
 				// rlineto
@@ -300,7 +299,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 				for i := 0; i < len(stack); i += 2 {
 					x += stack[i+0]
 					y += stack[i+1]
-					p.LineTo(f*float64(x), f*float64(y))
+					p.LineTo(x0+f*float64(x), y0+f*float64(y))
 				}
 				stack = stack[:0]
 			case 6, 7:
@@ -315,7 +314,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 					} else {
 						y += stack[i]
 					}
-					p.LineTo(f*float64(x), f*float64(y))
+					p.LineTo(x0+f*float64(x), y0+f*float64(y))
 					vertical = !vertical
 				}
 				stack = stack[:0]
@@ -333,7 +332,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 					cpx2, cpy2 := x, y
 					x += stack[i+4]
 					y += stack[i+5]
-					p.CubeTo(f*float64(cpx1), f*float64(cpy1), f*float64(cpx2), f*float64(cpy2), f*float64(x), f*float64(y))
+					p.CubeTo(x0+f*float64(cpx1), y0+f*float64(cpy1), x0+f*float64(cpx2), y0+f*float64(cpy2), x0+f*float64(x), y0+f*float64(y))
 				}
 				stack = stack[:0]
 			case 27, 26:
@@ -366,7 +365,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 					} else {
 						y += stack[i+3]
 					}
-					p.CubeTo(f*float64(cpx1), f*float64(cpy1), f*float64(cpx2), f*float64(cpy2), f*float64(x), f*float64(y))
+					p.CubeTo(x0+f*float64(cpx1), y0+f*float64(cpy1), x0+f*float64(cpx2), y0+f*float64(cpy2), x0+f*float64(x), y0+f*float64(y))
 				}
 				stack = stack[:0]
 			case 31, 30:
@@ -398,7 +397,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 						}
 						i++
 					}
-					p.CubeTo(f*float64(cpx1), f*float64(cpy1), f*float64(cpx2), f*float64(cpy2), f*float64(x), f*float64(y))
+					p.CubeTo(x0+f*float64(cpx1), y0+f*float64(cpy1), x0+f*float64(cpx2), y0+f*float64(cpy2), x0+f*float64(x), y0+f*float64(y))
 					vertical = !vertical
 				}
 				stack = stack[:0]
@@ -417,11 +416,11 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 					cpx2, cpy2 := x, y
 					x += stack[i+4]
 					y += stack[i+5]
-					p.CubeTo(f*float64(cpx1), f*float64(cpy1), f*float64(cpx2), f*float64(cpy2), f*float64(x), f*float64(y))
+					p.CubeTo(x0+f*float64(cpx1), y0+f*float64(cpy1), x0+f*float64(cpx2), y0+f*float64(cpy2), x0+f*float64(x), y0+f*float64(y))
 				}
 				x += stack[i+0]
 				y += stack[i+1]
-				p.LineTo(f*float64(x), f*float64(y))
+				p.LineTo(x0+f*float64(x), y0+f*float64(y))
 				stack = stack[:0]
 			case 25:
 				// rlinecurve
@@ -432,7 +431,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 				for ; i < len(stack)-6; i += 2 {
 					x += stack[i+0]
 					y += stack[i+1]
-					p.LineTo(f*float64(x), f*float64(y))
+					p.LineTo(x0+f*float64(x), y0+f*float64(y))
 				}
 				x += stack[i+0]
 				y += stack[i+1]
@@ -442,7 +441,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 				cpx2, cpy2 := x, y
 				x += stack[i+4]
 				y += stack[i+5]
-				p.CubeTo(f*float64(cpx1), f*float64(cpy1), f*float64(cpx2), f*float64(cpy2), f*float64(x), f*float64(y))
+				p.CubeTo(x0+f*float64(cpx1), y0+f*float64(cpy1), x0+f*float64(cpx2), y0+f*float64(cpy2), x0+f*float64(x), y0+f*float64(y))
 				stack = stack[:0]
 			case 256 + 35:
 				// flex
@@ -459,7 +458,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 					cpx2, cpy2 := x, y
 					x += stack[i+4]
 					y += stack[i+5]
-					p.CubeTo(f*float64(cpx1), f*float64(cpy1), f*float64(cpx2), f*float64(cpy2), f*float64(x), f*float64(y))
+					p.CubeTo(x0+f*float64(cpx1), y0+f*float64(cpy1), x0+f*float64(cpx2), y0+f*float64(cpy2), x0+f*float64(x), y0+f*float64(y))
 				}
 				stack = stack[:0]
 			case 256 + 34:
@@ -468,22 +467,22 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 					return errBadNumOperands
 				}
 				// always use cubic Béziers
-				y0 := y
+				y1 := y
 				x += stack[0]
 				cpx1, cpy1 := x, y
 				x += stack[1]
 				y += stack[2]
 				cpx2, cpy2 := x, y
 				x += stack[3]
-				p.CubeTo(f*float64(cpx1), f*float64(cpy1), f*float64(cpx2), f*float64(cpy2), f*float64(x), f*float64(y))
+				p.CubeTo(x0+f*float64(cpx1), y0+f*float64(cpy1), x0+f*float64(cpx2), y0+f*float64(cpy2), x0+f*float64(x), y0+f*float64(y))
 
 				x += stack[4]
 				cpx1, cpy1 = x, y
 				x += stack[5]
-				y = y0
+				y = y1
 				cpx2, cpy2 = x, y
 				x += stack[6]
-				p.CubeTo(f*float64(cpx1), f*float64(cpy1), f*float64(cpx2), f*float64(cpy2), f*float64(x), f*float64(y))
+				p.CubeTo(x0+f*float64(cpx1), y0+f*float64(cpy1), x0+f*float64(cpx2), y0+f*float64(cpy2), x0+f*float64(x), y0+f*float64(y))
 				stack = stack[:0]
 			case 256 + 36:
 				// hflex1
@@ -491,7 +490,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 					return errBadNumOperands
 				}
 				// always use cubic Béziers
-				y0 := y
+				y1 := y
 				x += stack[0]
 				y += stack[1]
 				cpx1, cpy1 := x, y
@@ -499,7 +498,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 				y += stack[3]
 				cpx2, cpy2 := x, y
 				x += stack[4]
-				p.CubeTo(f*float64(cpx1), f*float64(cpy1), f*float64(cpx2), f*float64(cpy2), f*float64(x), f*float64(y))
+				p.CubeTo(x0+f*float64(cpx1), y0+f*float64(cpy1), x0+f*float64(cpx2), y0+f*float64(cpy2), x0+f*float64(x), y0+f*float64(y))
 
 				x += stack[5]
 				cpx1, cpy1 = x, y
@@ -507,8 +506,8 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 				y += stack[7]
 				cpx2, cpy2 = x, y
 				x += stack[8]
-				y = y0
-				p.CubeTo(f*float64(cpx1), f*float64(cpy1), f*float64(cpx2), f*float64(cpy2), f*float64(x), f*float64(y))
+				y = y1
+				p.CubeTo(x0+f*float64(cpx1), y0+f*float64(cpy1), x0+f*float64(cpx2), y0+f*float64(cpy2), x0+f*float64(x), y0+f*float64(y))
 				stack = stack[:0]
 			case 256 + 37:
 				// flex1
@@ -516,7 +515,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 					return errBadNumOperands
 				}
 				// always use cubic Béziers
-				x0, y0 := x, y
+				x1, y1 := x, y
 				x += stack[0]
 				y += stack[1]
 				cpx1, cpy1 := x, y
@@ -525,7 +524,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 				cpx2, cpy2 := x, y
 				x += stack[4]
 				y += stack[5]
-				p.CubeTo(f*float64(cpx1), f*float64(cpy1), f*float64(cpx2), f*float64(cpy2), f*float64(x), f*float64(y))
+				p.CubeTo(x0+f*float64(cpx1), y0+f*float64(cpy1), x0+f*float64(cpx2), y0+f*float64(cpy2), x0+f*float64(x), y0+f*float64(y))
 
 				x += stack[6]
 				y += stack[7]
@@ -533,7 +532,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 				x += stack[8]
 				y += stack[9]
 				cpx2, cpy2 = x, y
-				dx, dy := x-x0, y-y0
+				dx, dy := x-x1, y-y1
 				if dx < 0 {
 					dx = -dx
 				}
@@ -542,12 +541,12 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x, y int32, f float6
 				}
 				if dy < dx {
 					x += stack[10]
-					y = y0
+					y = y1
 				} else {
-					x = x0
+					x = x1
 					y += stack[10]
 				}
-				p.CubeTo(f*float64(cpx1), f*float64(cpy1), f*float64(cpx2), f*float64(cpy2), f*float64(x), f*float64(y))
+				p.CubeTo(x0+f*float64(cpx1), y0+f*float64(cpy1), x0+f*float64(cpx2), y0+f*float64(cpy2), x0+f*float64(x), y0+f*float64(y))
 				stack = stack[:0]
 			case 14:
 				// endchar

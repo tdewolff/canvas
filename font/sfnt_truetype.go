@@ -331,13 +331,11 @@ func (glyf *glyfTable) Contour(glyphID uint16, level int) (*glyfContour, error) 
 	return contour, nil
 }
 
-func (glyf *glyfTable) ToPath(p Pather, glyphID, ppem uint16, xOffset, yOffset int32, f float64, hinting Hinting) error {
+func (glyf *glyfTable) ToPath(p Pather, glyphID, ppem uint16, x, y, f float64, hinting Hinting) error {
 	contour, err := glyf.Contour(glyphID, 0)
 	if err != nil {
 		return err
 	}
-
-	x, y := f*float64(xOffset), f*float64(yOffset)
 
 	var i uint16
 	for _, endPoint := range contour.EndPoints {

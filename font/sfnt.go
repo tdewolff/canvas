@@ -88,7 +88,7 @@ func (sfnt *SFNT) GlyphName(glyphID uint16) string {
 }
 
 // GlyphPath draws the glyph's contour as a path to the pather interface. It will use the specified ppem (pixels-per-EM) for hinting purposes. The path is draws to the (x,y) coordinate and scaled using the given scale factor.
-func (sfnt *SFNT) GlyphPath(p Pather, glyphID, ppem uint16, x, y int32, scale float64, hinting Hinting) error {
+func (sfnt *SFNT) GlyphPath(p Pather, glyphID, ppem uint16, x, y, scale float64, hinting Hinting) error {
 	if sfnt.IsTrueType {
 		return sfnt.Glyf.ToPath(p, glyphID, ppem, x, y, scale, hinting)
 	} else if sfnt.IsCFF {
