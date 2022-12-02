@@ -7,11 +7,12 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/tdewolff/canvas/text"
 )
 
-func DrawPreview(c Renderer) error {
+func DrawPreview(ctx *Context) error {
 	root := os.Getenv("GOPATH")
 	if root == "" {
 		root = filepath.Join(os.Getenv("HOME"), "go")
@@ -34,10 +35,10 @@ func DrawPreview(c Renderer) error {
 	if err != nil {
 		return err
 	}
-	return DrawPreviewWithAssets(c, latin, arabic, devanagari, lenna)
+	return DrawPreviewWithAssets(ctx, latin, arabic, devanagari, lenna)
 }
 
-func DrawPreviewWithAssets(c Renderer, latin, arabic, devanagari, lenna []byte) error {
+func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte) error {
 	fontLatin := NewFontFamily("latin")
 	if err := fontLatin.LoadFont(latin, 0, FontRegular); err != nil {
 		return err
@@ -53,8 +54,7 @@ func DrawPreviewWithAssets(c Renderer, latin, arabic, devanagari, lenna []byte) 
 		return err
 	}
 
-	W, H := c.Size()
-	ctx := NewContext(c)
+	W, H := ctx.Size()
 	ctx.SetFillColor(White)
 	ctx.DrawPath(0, 0, Rectangle(W, H))
 
@@ -128,13 +128,15 @@ func DrawPreviewWithAssets(c Renderer, latin, arabic, devanagari, lenna []byte) 
 	ctx.DrawPath(100, 5, p.Stroke(0.75, RoundCap, RoundJoin))
 
 	// Draw a LaTeX formula
-	latex, err := ParseLaTeX(`$y_i = \frac{\sin(x)}{2} e^{\frac{a*b}{c}}$`)
-	if err != nil {
-		return err
+	if runtime.GOOS != "js" {
+		latex, err := ParseLaTeX(`$y_i = \frac{\sin(x)}{2} e^{\frac{a*b}{c}}$`)
+		if err != nil {
+			return err
+		}
+		latex = latex.Transform(Identity.Rotate(-30).Scale(2.0, 2.0))
+		ctx.SetFillColor(Black)
+		ctx.DrawPath(150, 90, latex)
 	}
-	latex = latex.Transform(Identity.Rotate(-30).Scale(2.0, 2.0))
-	ctx.SetFillColor(Black)
-	ctx.DrawPath(150, 90, latex)
 
 	// Draw an elliptic arc being dashed
 	ellipse, err := ParseSVG(fmt.Sprintf("A10 30 30 1 0 30 0z"))
@@ -160,9 +162,10 @@ func DrawPreviewWithAssets(c Renderer, latin, arabic, devanagari, lenna []byte) 
 	if err != nil {
 		return err
 	}
+	ctx.Push()
 	ctx.Rotate(5)
 	ctx.DrawImage(50.0, 0.0, img, 15)
-	ctx.SetView(Identity)
+	ctx.Pop()
 
 	// Draw an closed set of points being smoothed
 	polyline := &Polyline{}
@@ -201,6 +204,5 @@ func DrawPreviewWithAssets(c Renderer, latin, arabic, devanagari, lenna []byte) 
 	for _, coord := range polyline.Coords() {
 		ctx.DrawPath(10, 15, Circle(2.0).Translate(coord.X, coord.Y))
 	}
-
 	return nil
 }

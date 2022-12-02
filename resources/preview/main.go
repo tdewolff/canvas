@@ -9,7 +9,8 @@ import (
 
 func main() {
 	c := canvas.New(200, 100)
-	if err := canvas.DrawPreview(c); err != nil {
+	ctx := canvas.NewContext(c)
+	if err := canvas.DrawPreview(ctx); err != nil {
 		panic(err)
 	}
 	c.WriteFile("preview.png", renderers.PNG(canvas.DPMM(3.2)))

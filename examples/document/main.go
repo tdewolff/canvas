@@ -1,67 +1,113 @@
 package main
 
 import (
+	"fmt"
 	"image/png"
 	"os"
+	"time"
 
 	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/renderers"
+	"github.com/tdewolff/canvas/renderers/pdf"
 )
 
-var fontFamily *canvas.FontFamily
+var fontLatin *canvas.FontFamily
 
 func main() {
-	fontFamily = canvas.NewFontFamily("times")
-	if err := fontFamily.LoadLocalFont("NimbusRoman-Regular", canvas.FontRegular); err != nil {
+	t0 := time.Now()
+	fontLatin = canvas.NewFontFamily("DejaVu Serif")
+	if err := fontLatin.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 
-	c := canvas.New(200, 230)
-	ctx := canvas.NewContext(c)
-	ctx.SetFillColor(canvas.White)
-	ctx.DrawPath(0, 0, canvas.Rectangle(c.W, c.H))
-	draw(ctx)
-	renderers.Write("out.png", c, canvas.DPMM(5.0))
+	f, err := os.Create("document.pdf")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	p := pdf.New(f, 210, 297, nil)
+
+	c1 := canvas.New(210, 297)
+	ctx1 := canvas.NewContext(c1)
+	ctx1.SetFillColor(canvas.Beige)
+	ctx1.DrawPath(0, 0, canvas.Rectangle(210, 297))
+	drawDocument(ctx1)
+	c1.RenderTo(p)
+
+	p.NewPage(210, 297)
+
+	c2 := canvas.New(210, 297)
+	ctx2 := canvas.NewContext(c2)
+	ctx2.SetView(Identity.Translate(0.0, 197.0))
+	if err := canvas.DrawPreview(ctx2); err != nil {
+		panic(err)
+	}
+	c2.RenderTo(p)
+
+	if err := p.Close(); err != nil {
+		panic(err)
+	}
+	fmt.Printf("%s\n", time.Now().Sub(t0).Round(time.Millisecond))
 }
 
 var lorem = []string{
-	`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla malesuada fringilla libero vel ultricies. Phasellus eu lobortis lorem. Phasellus eu cursus mi. Sed enim ex, ornare et velit vitae, sollicitudin volutpat dolor. Sed aliquam sit amet nisi id sodales. Aliquam erat volutpat. In hac habitasse platea dictumst. Pellentesque luctus varius nibh sit amet porta. Vivamus tempus, enim ut sodales aliquet, magna massa viverra eros, nec gravida risus ipsum a erat. Etiam dapibus sem augue, at porta nisi dictum non. Vestibulum quis urna ut ligula dapibus mollis eu vel nisl. Vestibulum lorem dolor, eleifend lacinia fringilla eu, pulvinar vitae metus.`,
-	`Morbi dapibus purus vel erat auctor, vehicula tempus leo maximus. Aenean feugiat vel quam sit amet iaculis. Fusce et justo nec arcu maximus porttitor. Cras sed aliquam ipsum. Sed molestie mauris nec dui interdum sollicitudin. Nulla id egestas massa. Fusce congue ante. Interdum et malesuada fames ac ante ipsum primis in faucibus. Praesent faucibus tellus eu viverra blandit. Vivamus mi massa, hendrerit in commodo et, luctus vitae felis.`,
-	`Quisque semper aliquet augue, in dignissim eros cursus eu. Pellentesque suscipit consequat nibh, sit amet ultricies risus. Suspendisse blandit interdum tortor, consectetur tristique magna aliquet eu. Aliquam sollicitudin eleifend sapien, in pretium nisi. Sed tempor eleifend velit quis vulputate. Donec condimentum, lectus vel viverra pharetra, ex enim cursus metus, quis luctus est urna ut purus. Donec tempus gravida pharetra. Sed leo nibh, cursus at hendrerit at, ultricies a dui. Maecenas eget elit magna. Quisque sollicitudin odio erat, sed consequat libero tincidunt in. Nullam imperdiet, neque quis consequat pellentesque, metus nisl consectetur eros, ut vehicula dui augue sed tellus.`,
-	//` Vivamus varius ex sed nisi vestibulum, sit amet tincidunt ante vestibulum. Nullam et augue blandit dolor accumsan tempus. Quisque at dictum elit, id ullamcorper dolor. Nullam feugiat mauris eu aliquam accumsan.`,
+	`- Russian ‘Молоко и творог’ - “milk and cottage cheese”`,
+	`- Welsh ‘Côf a lithr, llythyrau a geidw’ - “memory slips, letters remain”`,
+	`- Danish ‘Så er den ged barberet’ - “now that goat has been shaved” (the work is done)`,
+	`- Icelandic ‘Árinni kennir illur ræðari‘ - “a bad rower blames his oars”`,
+	`- Greek ‘Όταν λείπει η γάτα, χορεύουν τα ποντίκια’ - “when the cat’s away, the mice dance”`,
+	`# Meaningless Lorem Ipsum`,
+	`Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. In arcu cursus euismod quis viverra nibh cras pulvinar. Tempor nec feugiat nisl pretium fusce id velit ut. Elementum nibh tellus molestie nunc non blandit massa enim nec. Placerat orci nulla pellentesque dignissim enim sit amet venenatis urna. Eros in cursus turpis massa tincidunt dui ut. Sit amet volutpat consequat mauris nunc congue. Curabitur vitae nunc sed velit dignissim sodales ut eu sem. Egestas fringilla phasellus faucibus scelerisque eleifend donec. Blandit libero volutpat sed cras ornare arcu dui.`,
+	`Gravida neque convallis a cras semper auctor. Eget mi proin sed libero enim sed faucibus. Non odio euismod lacinia at quis risus sed. Non curabitur gravida arcu ac tortor dignissim. In mollis nunc sed id semper risus in hendrerit. Orci dapibus ultrices in iaculis nunc sed. Porta lorem mollis aliquam ut porttitor leo. A scelerisque purus semper eget duis at. Ullamcorper a lacus vestibulum sed arcu non odio euismod lacinia. Cras tincidunt lobortis feugiat vivamus at.`,
+	`Ut porttitor leo a diam sollicitudin. Faucibus purus in massa tempor. Ante in nibh mauris cursus mattis molestie. In tellus integer feugiat scelerisque varius morbi. Viverra justo nec ultrices dui sapien eget mi proin. Adipiscing elit pellentesque habitant morbi tristique senectus. Nulla posuere sollicitudin aliquam ultrices sagittis orci a. Fames ac turpis egestas sed tempus urna et pharetra pharetra. Nascetur ridiculus mus mauris vitae. Feugiat nisl pretium fusce id velit. Mollis nunc sed id semper risus. Dictum fusce ut placerat orci nulla. Sit amet nulla facilisi morbi tempus iaculis. Iaculis at erat pellentesque adipiscing commodo elit at imperdiet dui. Non quam lacus suspendisse faucibus interdum posuere lorem ipsum. Vitae ultricies leo integer malesuada nunc vel risus commodo viverra. Pretium fusce id velit ut tortor pretium viverra suspendisse. Metus vulputate eu scelerisque felis imperdiet proin fermentum leo.`,
 }
 
-var y = 205.0
+const lenna = "../../resources/lenna.png"
 
-func drawText(c *canvas.Context, x float64, text *canvas.Text) {
-	h := text.Bounds().H
+var y = 290.0
+
+func drawTextAndMoveDown(c *canvas.Context, x float64, text *canvas.Text) {
 	c.DrawText(x, y, text)
-	y -= h + 10.0
+	const spacing = 5
+	y -= text.Bounds().H + spacing
 }
 
-func draw(c *canvas.Context) {
+func drawDocument(c *canvas.Context) {
+	y = 290.0
 	c.SetFillColor(canvas.Black)
 
-	headerFace := fontFamily.Face(28.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
-	textFace := fontFamily.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	headerFace := fontLatin.Face(24.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	text12Face := fontLatin.Face(12.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	text10Face := fontLatin.Face(10.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	boldFace := fontLatin.Face(12.0, canvas.Black, canvas.FontBold, canvas.FontNormal)
 
-	drawText(c, 30.0, canvas.NewTextBox(headerFace, "Document Example", 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
-	drawText(c, 30.0, canvas.NewTextBox(textFace, lorem[0], 140.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0))
-
-	lenna, err := os.Open("../../resources/lenna.png")
+	logo, err := os.Open(lenna)
 	if err != nil {
 		panic(err)
 	}
-	img, err := png.Decode(lenna)
+	img, err := png.Decode(logo)
 	if err != nil {
 		panic(err)
 	}
-	imgDPMM := 15.0
+	imgDPMM := 20.0
 	imgWidth := float64(img.Bounds().Max.X) / imgDPMM
 	imgHeight := float64(img.Bounds().Max.Y) / imgDPMM
-	c.DrawImage(170.0-imgWidth, y-imgHeight, img, canvas.DPMM(imgDPMM))
+	c.DrawImage(190.0-imgWidth, y-imgHeight, img, canvas.DPMM(imgDPMM))
 
-	drawText(c, 30.0, canvas.NewTextBox(textFace, lorem[1], 140.0-imgWidth-10.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0))
-	drawText(c, 30.0, canvas.NewTextBox(textFace, lorem[2], 140.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0))
-	//drawText(c, 30.0, canvas.NewTextBox(textFace, lorem[3], 140.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0))
+	y -= 10
+	txt := canvas.NewTextBox(headerFace, "Document Example", 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0)
+	drawTextAndMoveDown(c, 20.0, txt)
+
+	for _, t := range lorem {
+		if len(t) > 0 {
+			if t[0] == '#' {
+				txt = canvas.NewTextBox(boldFace, t[2:], 170.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0)
+			} else if t[0] == '-' {
+				txt = canvas.NewTextBox(text10Face, t[2:], 170.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0)
+			} else {
+				txt = canvas.NewTextBox(text12Face, t, 170.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0)
+			}
+			drawTextAndMoveDown(c, 20.0, txt)
+		}
+	}
 }

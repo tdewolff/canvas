@@ -16,7 +16,8 @@ func main() {
 	runtime.LockOSThread()
 
 	opengl := opengl.New(200.0, 100.0, canvas.DPMM(5.0))
-	if err := canvas.DrawPreview(opengl); err != nil {
+	ctx := canvas.NewContext(opengl)
+	if err := canvas.DrawPreview(ctx); err != nil {
 		panic(err)
 	}
 
