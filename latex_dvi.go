@@ -68,7 +68,6 @@ func DVI2Path(b []byte, fonts DVIFonts) (*Path, error) {
 			if _, ok := fnts[fnt]; !ok {
 				return nil, fmt.Errorf("bad command: font %v undefined at position %v", fnt, r.i)
 			}
-			fmt.Println("char =", string(c), "fnt =", fnt, " h,v =", s.h, s.v)
 			w := int32(fnts[fnt].Draw(p, f*float64(s.h), -f*float64(s.v), c) / f)
 			s.h += w
 		} else if 128 <= cmd && cmd <= 131 {
@@ -137,11 +136,9 @@ func DVI2Path(b []byte, fonts DVIFonts) (*Path, error) {
 			// eop
 		} else if cmd == 141 {
 			// push
-			fmt.Println("push")
 			stack = append(stack, s)
 		} else if cmd == 142 {
 			// pop
-			fmt.Println("pop")
 			if len(stack) == 0 {
 				return nil, fmt.Errorf("bad command: stack is empty at position %v", r.i)
 			}
@@ -188,12 +185,10 @@ func DVI2Path(b []byte, fonts DVIFonts) (*Path, error) {
 				return nil, fmt.Errorf("bad command: %v at position %v", cmd, r.i)
 			}
 			d := r.readInt32N(n)
-			fmt.Println("down", d)
 			s.v += d
 		} else if 161 <= cmd && cmd <= 165 {
 			// y
 			if cmd == 161 {
-				fmt.Println("y", s.y)
 				s.v += s.y
 			} else {
 				n := int(cmd - 152)
@@ -201,14 +196,12 @@ func DVI2Path(b []byte, fonts DVIFonts) (*Path, error) {
 					return nil, fmt.Errorf("bad command: %v at position %v", cmd, r.i)
 				}
 				d := r.readInt32N(n)
-				fmt.Println("y", d)
 				s.y = d
 				s.v += d
 			}
 		} else if 166 <= cmd && cmd <= 170 {
 			// z
 			if cmd == 166 {
-				fmt.Println("z", s.z)
 				s.v += s.z
 			} else {
 				n := int(cmd - 166)
@@ -216,7 +209,6 @@ func DVI2Path(b []byte, fonts DVIFonts) (*Path, error) {
 					return nil, fmt.Errorf("bad command: %v at position %v", cmd, r.i)
 				}
 				d := r.readInt32N(n)
-				fmt.Println("z", d)
 				s.z = d
 				s.v += d
 			}
@@ -258,7 +250,6 @@ func DVI2Path(b []byte, fonts DVIFonts) (*Path, error) {
 			}
 			_ = r.readString(int(a)) // area
 			name := r.readString(int(l))
-			fmt.Println("fnddef", k, name)
 			fnts[k] = fonts.Get(name, float64(mag)*float64(size)/1000.0/float64(design))
 		} else if cmd == 247 {
 			// pre

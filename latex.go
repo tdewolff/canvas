@@ -80,8 +80,6 @@ func ParseLaTeX(formula string) (*Path, error) {
 		return nil, err
 	}
 
-	//os.WriteFile("test.dvi", w.Bytes(), 0644)
-
 	p, err := DVI2Path(w.Bytes(), newFonts())
 	if err != nil {
 		fmt.Println(stdout.String())
