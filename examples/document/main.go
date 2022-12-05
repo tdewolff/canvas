@@ -38,7 +38,7 @@ func main() {
 
 	c2 := canvas.New(210, 297)
 	ctx2 := canvas.NewContext(c2)
-	ctx2.SetView(Identity.Translate(0.0, 197.0))
+	ctx2.SetView(canvas.Identity.Translate(0.0, 197.0))
 	if err := canvas.DrawPreview(ctx2); err != nil {
 		panic(err)
 	}

@@ -101,7 +101,7 @@ func (cmd *Show) Run() error {
 	f := float64(cmd.PPEM) / float64(sfnt.Head.UnitsPerEm)
 
 	p := &canvas.Path{}
-	err = sfnt.GlyphPath(p, cmd.GlyphID, cmd.PPEM, 0.0, descent, 1.0, font.NoHinting)
+	err = sfnt.GlyphPath(p, cmd.GlyphID, cmd.PPEM, 0.0, float64(descent), 1.0, font.NoHinting)
 	if err != nil {
 		return err
 	}

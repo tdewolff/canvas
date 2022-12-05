@@ -96,7 +96,7 @@ func main() {
 	rt.WriteString(" and ")
 	rt.AddImage(img, canvas.DPMM(200.0), canvas.Baseline)
 	rt.WriteString(" refer to foo when ")
-	if err := rt.AddLaTeX("x = \\frac{5}{2}", 10.0); err != nil {
+	if err := rt.AddLaTeX("x = \\frac{5}{2}"); err != nil {
 		panic(err)
 	}
 	rt.WriteString(".")
