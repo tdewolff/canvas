@@ -125,7 +125,7 @@ func (p *Path) Append(q *Path) *Path {
 	return &Path{append(p.d, q.d...)}
 }
 
-// Join joins path q to p and returns a new path if successful (otherwise either p or q are returned). It's like executing the commands in q to p in sequence, where if the first MoveTo of q doesn't coincide with p it will fallback to appending the paths.
+// Join joins path q to p and returns a new path if successful (otherwise either p or q are returned). It's like executing the commands in q to p in sequence, where if the first MoveTo of q doesn't coincide with p, or if p ends in Close, it will fallback to appending the paths.
 func (p *Path) Join(q *Path) *Path {
 	if q == nil || q.Empty() {
 		return p
@@ -133,9 +133,8 @@ func (p *Path) Join(q *Path) *Path {
 		return q
 	}
 
-	if !Equal(p.d[len(p.d)-3], q.d[1]) || !Equal(p.d[len(p.d)-2], q.d[2]) {
-		p.d[len(p.d)-3] = (p.d[len(p.d)-3] + q.d[1]) / 2.0
-		p.d[len(p.d)-2] = (p.d[len(p.d)-2] + q.d[2]) / 2.0
+	if p.d[len(p.d)-1] == CloseCmd || !Equal(p.d[len(p.d)-3], q.d[1]) || !Equal(p.d[len(p.d)-2], q.d[2]) {
+		return &Path{append(p.d, q.d...)}
 	}
 
 	q.d = q.d[cmdLen(MoveToCmd):]
@@ -461,6 +460,7 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 
 	testPoints := make([]Point, 0, len(pls))
 	for i, pl := range pls {
+		// TODO: is this always valid? is there a better method?
 		offset := pl.coords[1].Sub(pl.coords[0]).Rot90CW().Norm(Epsilon)
 		if ccw[i] {
 			offset = offset.Neg()
@@ -488,6 +488,7 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 
 // Interior is true when the point (x,y) is in the interior of the path, i.e. gets filled. This depends on the FillRule.
 func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
+	// TODO: optimize, use ray towards inf and count intersections?
 	fillCount := 0
 	test := Point{x, y}
 	for _, ps := range p.Split() {
@@ -841,6 +842,7 @@ func (p *Path) Markers(first, mid, last *Path, align bool) []*Path {
 				n1Prev = n1
 				switch cmd {
 				case LineToCmd, CloseCmd:
+					// TODO: why not CCW?
 					n := end.Sub(start).Rot90CW().Norm(1.0)
 					n0, n1 = n, n
 				case QuadToCmd, CubeToCmd:

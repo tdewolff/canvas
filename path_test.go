@@ -55,13 +55,16 @@ func TestPathJoin(t *testing.T) {
 	test.T(t, (&Path{}).Join(MustParseSVG("M5 0L5 10")), MustParseSVG("M5 0L5 10"))
 
 	p := MustParseSVG("M5 0L5 10").Join(MustParseSVG("L10 15"))
-	test.T(t, p, MustParseSVG("M5 0L2.5 5L10 15"))
+	test.T(t, p, MustParseSVG("M5 0L5 10M0 0L10 15"))
+
+	p = MustParseSVG("M5 0L5 10z").Join(MustParseSVG("M5 0L10 15"))
+	test.T(t, p, MustParseSVG("M5 0L5 10zM5 0L10 15"))
 
 	p = MustParseSVG("M5 0L5 10").Join(MustParseSVG("M5 10L10 15"))
 	test.T(t, p, MustParseSVG("M5 0L5 10L10 15"))
 
 	p = MustParseSVG("M5 0L5 10").Join(MustParseSVG("L10 15M20 15L25 15"))
-	test.T(t, p, MustParseSVG("M5 0L2.5 5L10 15M20 15L25 15"))
+	test.T(t, p, MustParseSVG("M5 0L5 10M0 0L10 15M20 15L25 15"))
 
 	p = MustParseSVG("M5 0L5 10").Join(MustParseSVG("M5 10L10 15M20 15L25 15"))
 	test.T(t, p, MustParseSVG("M5 0L5 10L10 15M20 15L25 15"))
@@ -70,7 +73,7 @@ func TestPathJoin(t *testing.T) {
 	test.T(t, p, MustParseSVG("M5 0L15 10"))
 
 	p = MustParseSVG("M5 0L10 5").Join(MustParseSVG("L5 5z"))
-	test.T(t, p, MustParseSVG("M5 0L5 2.5L5 5z"))
+	test.T(t, p, MustParseSVG("M5 0L10 5M0 0L5 5z"))
 }
 
 func TestPathCoords(t *testing.T) {
