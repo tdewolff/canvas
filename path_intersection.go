@@ -33,7 +33,7 @@ func segmentNormal(start Point, d []float64, t float64) Point {
 
 // get points in the interior of p close to the first MoveTo
 func (p *Path) interiorPoint() Point {
-	if len(p.d) <= 4+cmdLen(p.d[4]) {
+	if len(p.d) <= 4 || len(p.d) <= 4+cmdLen(p.d[4]) {
 		panic("path too small or empty")
 	}
 
@@ -58,6 +58,9 @@ func (p *Path) interiorPoint() Point {
 
 // returns true if p is inside q or equivalent to q, paths may not intersect
 func (p *Path) inside(q *Path) bool {
+	if len(p.d) <= 4 || len(p.d) <= 4+cmdLen(p.d[4]) || len(q.d) <= 4 || len(q.d) <= 4+cmdLen(q.d[4]) {
+		return false
+	}
 	offset := p.interiorPoint()
 	return q.Interior(offset.X, offset.Y, NonZero)
 }
