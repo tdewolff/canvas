@@ -114,12 +114,12 @@ func Ellipse(rx, ry float64) *Path {
 	return p
 }
 
-// RegularPolygon returns a regular polygon with radius r and rotation rot in degrees. It uses n vertices/edges, so when n approaches infinity this will return a path that approximates a circle. n must be 3 or more. The up boolean defines whether the first point will point north or not.
+// RegularPolygon returns a regular polygon with radius r. It uses n vertices/edges, so when n approaches infinity this will return a path that approximates a circle. n must be 3 or more. The up boolean defines whether the first point will point north or south.
 func RegularPolygon(n int, r float64, up bool) *Path {
 	return RegularStarPolygon(n, 1, r, up)
 }
 
-// RegularStarPolygon returns a regular star polygon with radius r and rotation rot in degrees. It uses n vertices of density d. This will result in a self-intersection star in counter clockwise direction. If n/2 < d the star will be clockwise and if n and d are not coprime a regular polygon will be obtained, possible with multiple windings. n must be 3 or more and d 2 or more. The up boolean defines whether the first point will point north or not.
+// RegularStarPolygon returns a regular star polygon with radius r. It uses n vertices of density d. This will result in a self-intersection star in counter clockwise direction. If n/2 < d the star will be clockwise and if n and d are not coprime a regular polygon will be obtained, possible with multiple windings. n must be 3 or more and d 2 or more. The up boolean defines whether the first point will point north or south.
 func RegularStarPolygon(n, d int, r float64, up bool) *Path {
 	if n < 3 || d < 1 || n == d*2 || Equal(r, 0.0) {
 		return &Path{}
@@ -128,7 +128,7 @@ func RegularStarPolygon(n, d int, r float64, up bool) *Path {
 	dtheta := 2.0 * math.Pi / float64(n)
 	theta0 := 0.5 * math.Pi
 	if !up {
-		theta0 += dtheta / 2.0
+		theta0 += math.Pi
 	}
 
 	p := &Path{}
@@ -145,7 +145,7 @@ func RegularStarPolygon(n, d int, r float64, up bool) *Path {
 	return p
 }
 
-// StarPolygon returns a star polygon of n points with alternating radius R and r. The up boolean defines whether the first point (true) or second point (false) will be pointing north.
+// StarPolygon returns a star polygon of n points with alternating radius R and r. The up boolean defines whether the first point will be point north or south.
 func StarPolygon(n int, R, r float64, up bool) *Path {
 	if n < 3 || Equal(R, 0.0) || Equal(r, 0.0) {
 		return &Path{}
@@ -155,7 +155,7 @@ func StarPolygon(n int, R, r float64, up bool) *Path {
 	dtheta := 2.0 * math.Pi / float64(n)
 	theta0 := 0.5 * math.Pi
 	if !up {
-		theta0 += dtheta
+		theta0 += math.Pi
 	}
 
 	p := &Path{}
