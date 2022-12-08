@@ -22,6 +22,11 @@ func Equal(a, b float64) bool {
 	return math.Abs(a-b) <= Epsilon
 }
 
+// Interval returns true if f is in closed interval [lower-Epsilon,upper+Epsilon] with lower<=upper.
+func Interval(f, lower, upper float64) bool {
+	return lower-Epsilon <= f && f <= upper+Epsilon
+}
+
 // angleNorm returns the angle theta in the range [0,2PI).
 func angleNorm(theta float64) float64 {
 	theta = math.Mod(theta, 2.0*math.Pi)
@@ -34,9 +39,9 @@ func angleNorm(theta float64) float64 {
 // angleBetween is true when theta is in range [lower,upper] including the end points. Angles can be outside the [0,2PI) range.
 func angleBetween(theta, lower, upper float64) bool {
 	sweep := lower <= upper // true for CCW, ie along a positive angle
-	theta = angleNorm(theta - lower)
-	upper = angleNorm(upper - lower)
-	if sweep && theta <= upper || !sweep && theta >= upper {
+	theta = angleNorm(theta - lower + Epsilon)
+	upper = angleNorm(upper - lower + 2.0*Epsilon)
+	if sweep && theta <= upper || !sweep && upper <= theta {
 		return true
 	}
 	return false

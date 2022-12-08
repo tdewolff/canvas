@@ -549,24 +549,24 @@ func collisions(p, q *Path, keepTangents bool) intersections {
 	for i := 0; i < len(zs); i++ {
 		z0 := zs[i]
 		if z0.Tangent {
-			if z0.TA != 0.0 && z0.TB != 0.0 && z0.TA != 1.0 && z0.TB != 1.0 {
+			if !Equal(z0.TA, 0.0) && !Equal(z0.TB, 0.0) && !Equal(z0.TA, 1.0) && !Equal(z0.TB, 1.0) {
 				// regular tangent that is not at segment extreme, does not intersect
 				if !keepTangents {
 					zs = append(zs[:i], zs[i+1:]...)
 					i--
 				}
-			} else if z0.TA == 0.0 && z0.TB == 1.0 || z0.TA == 1.0 && z0.TB == 0.0 {
+			} else if Equal(z0.TA, 0.0) && Equal(z0.TB, 1.0) || Equal(z0.TA, 1.0) && Equal(z0.TB, 0.0) {
 				// ignore connected segment endpoints that are not both start or end points
 				zs = append(zs[:i], zs[i+1:]...)
 				i--
-			} else if z0.TA == 1.0 || z0.TB == 0.0 || z0.TB == 1.0 {
+			} else if Equal(z0.TA, 1.0) || Equal(z0.TB, 0.0) || Equal(z0.TB, 1.0) {
 				// search for second tangent intersection at z1.TA == z1.TB == 0.0, this may not
 				// always be the next segment due to potentially parallel segments in between
 				for j := (i + 1) % len(zs); j != i; j = (j + 1) % len(zs) {
 					z1 := zs[j]
 					// either TA or TB must be 0.0, while ignoring connected segment endpoints that are not both start or end points (like above)
 					// note that B may be in reversed order, which is why we check it against z0
-					if z1.Tangent && (z1.TA == 0.0 && z1.TB != z0.TB || z1.TA != 1.0 && z1.TB == 1.0-z0.TB) {
+					if z1.Tangent && (Equal(z1.TA, 0.0) && !Equal(z1.TB, z0.TB) || !Equal(z1.TA, 1.0) && Equal(z1.TB, 1.0-z0.TB)) {
 						if z0.BintoA() != z1.BintoA() {
 							// no intersection, paths only touch on segment ends
 							if !keepTangents {
@@ -776,18 +776,9 @@ func (zs intersections) swappedArgSort() []int {
 }
 
 func (zs intersections) add(pos Point, ta, tb float64, dira, dirb float64, tangent bool) intersections {
-	if ta == 0.0 || tb == 0.0 || ta == 1.0 || tb == 1.0 {
+	if Equal(ta, 0.0) || Equal(tb, 0.0) || Equal(ta, 1.0) || Equal(tb, 1.0) {
 		tangent = true
 	}
-	//if ta == 0.0 && tb == 1.0 || ta == 1.0 && tb == 0.0 {
-	//	// ignore connected segment endpoints that are not both start or end points
-	//	return zs
-	//} else if ta == 0.0 || tb == 0.0 || ta == 1.0 || tb == 1.0 {
-	//	tangent = true
-	//} else if tangent {
-	//	// ignore regular tangents that are not at the extremes of path segments
-	//	return zs
-	//}
 	return append(zs, intersection{
 		Point:   pos,
 		TA:      ta,
@@ -810,7 +801,7 @@ func (zs intersections) LineLine(a0, a1, b0, b1 Point) intersections {
 
 	ta := db.PerpDot(a0.Sub(b0)) / div
 	tb := da.PerpDot(a0.Sub(b0)) / div
-	if 0.0 <= ta && ta <= 1.0 && 0.0 <= tb && tb <= 1.0 {
+	if Interval(ta, 0.0, 1.0) && Interval(tb, 0.0, 1.0) {
 		zs = zs.add(a0.Interpolate(a1, ta), ta, tb, da.Angle(), db.Angle(), false)
 	}
 	return zs
@@ -846,7 +837,7 @@ func (zs intersections) LineQuad(l0, l1, p0, p1, p2 Point) intersections {
 	}
 
 	for _, root := range roots {
-		if 0.0 <= root && root <= 1.0 {
+		if Interval(root, 0.0, 1.0) {
 			pos := quadraticBezierPos(p0, p1, p2, root)
 			deriv := quadraticBezierDeriv(p0, p1, p2, root)
 			dif := A.Dot(deriv)
@@ -896,7 +887,7 @@ func (zs intersections) LineCube(l0, l1, p0, p1, p2, p3 Point) intersections {
 	}
 
 	for _, root := range roots {
-		if 0.0 <= root && root <= 1.0 {
+		if Interval(root, 0.0, 1.0) {
 			pos := cubicBezierPos(p0, p1, p2, p3, root)
 			deriv := cubicBezierDeriv(p0, p1, p2, p3, root)
 			dif := A.Dot(deriv)
@@ -963,7 +954,7 @@ func (zs intersections) LineEllipse(l0, l1, center, radius Point, phi, theta0, t
 		}
 
 		angle := math.Atan2(y, x)
-		if 0.0 <= s && s <= 1.0 && angleBetween(angle, theta0, theta1) {
+		if Interval(s, 0.0, 1.0) && angleBetween(angle, theta0, theta1) {
 			t := angleNorm(angle-theta0) / angleNorm(theta1-theta0)
 			if theta1 < theta0 {
 				t = 2.0 - t
