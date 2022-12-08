@@ -38,10 +38,13 @@ func angleNorm(theta float64) float64 {
 
 // angleBetween is true when theta is in range [lower,upper] including the end points. Angles can be outside the [0,2PI) range.
 func angleBetween(theta, lower, upper float64) bool {
-	sweep := lower <= upper // true for CCW, ie along a positive angle
+	if upper < lower {
+		// sweep is false, ie direction is along negative angle (clockwise)
+		lower, upper = upper, lower
+	}
 	theta = angleNorm(theta - lower + Epsilon)
 	upper = angleNorm(upper - lower + 2.0*Epsilon)
-	if sweep && theta <= upper || !sweep && upper <= theta {
+	if theta <= upper {
 		return true
 	}
 	return false

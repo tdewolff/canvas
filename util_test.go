@@ -10,30 +10,52 @@ import (
 )
 
 func TestAngleNorm(t *testing.T) {
-	test.Float(t, angleNorm(0.0), 0.0)
-	test.Float(t, angleNorm(1.0*math.Pi), 1.0*math.Pi)
-	test.Float(t, angleNorm(2.0*math.Pi), 0.0)
-	test.Float(t, angleNorm(3.0*math.Pi), 1.0*math.Pi)
-	test.Float(t, angleNorm(-1.0*math.Pi), 1.0*math.Pi)
-	test.Float(t, angleNorm(-2.0*math.Pi), 0.0)
+	var tests = []struct {
+		theta float64
+		norm  float64
+	}{
+		{0.0, 0.0},
+		{1.0 * math.Pi, 1.0 * math.Pi},
+		{2.0 * math.Pi, 0.0},
+		{3.0 * math.Pi, 1.0 * math.Pi},
+		{-1.0 * math.Pi, 1.0 * math.Pi},
+		{-2.0 * math.Pi, 0.0},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%g", tt.theta), func(t *testing.T) {
+			test.T(t, angleNorm(tt.theta), tt.norm)
+		})
+	}
 }
 
 func TestAngleBetween(t *testing.T) {
-	test.T(t, angleBetween(0.0, 0.0, 1.0), true)
-	test.T(t, angleBetween(1.0, 0.0, 1.0), true)
-	test.T(t, angleBetween(0.5, 0.0, 1.0), true)
-	test.T(t, angleBetween(0.5+2.0*math.Pi, 0.0, 1.0), true)
-	test.T(t, angleBetween(0.5, 0.0+2.0*math.Pi, 1.0+2.0*math.Pi), true)
-	test.T(t, angleBetween(0.5, 1.0+2.0*math.Pi, 0.0+2.0*math.Pi), true)
-	test.T(t, angleBetween(0.5-2.0*math.Pi, 0.0, 1.0), true)
-	test.T(t, angleBetween(0.5, 0.0-2.0*math.Pi, 1.0-2.0*math.Pi), true)
-	test.T(t, angleBetween(0.5, 1.0-2.0*math.Pi, 0.0-2.0*math.Pi), true)
-	test.T(t, angleBetween(-0.1, 0.0, 1.0), false)
-	test.T(t, angleBetween(1.1, 0.0, 1.0), false)
+	var tests = []struct {
+		theta, lower, upper float64
+		between             bool
+	}{
+		{0.0, 0.0, 1.0, true},
+		{1.0, 0.0, 1.0, true},
+		{0.5, 0.0, 1.0, true},
+		{0.5 + 2.0*math.Pi, 0.0, 1.0, true},
+		{0.5, 0.0 + 2.0*math.Pi, 1.0 + 2.0*math.Pi, true},
+		{0.5, 1.0 + 2.0*math.Pi, 0.0 + 2.0*math.Pi, true},
+		{0.5 - 2.0*math.Pi, 0.0, 1.0, true},
+		{0.5, 0.0 - 2.0*math.Pi, 1.0 - 2.0*math.Pi, true},
+		{0.5, 1.0 - 2.0*math.Pi, 0.0 - 2.0*math.Pi, true},
+		{-0.1, 0.0, 1.0, false},
+		{1.1, 0.0, 1.0, false},
 
-	// tolerance
-	test.T(t, angleBetween(0.0-Epsilon, 0.0, 1.0), true)
-	test.T(t, angleBetween(1.0+Epsilon, 0.0, 1.0), true)
+		// tolerance
+		{0.0 - Epsilon, 0.0, 1.0, true},
+		{1.0 + Epsilon, 0.0, 1.0, true},
+		{0.0 - Epsilon, 1.0, 0.0, true},
+		{1.0 + Epsilon, 1.0, 0.0, true},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%g<=%g<=%g", tt.theta, tt.lower, tt.upper), func(t *testing.T) {
+			test.T(t, angleBetween(tt.theta, tt.lower, tt.upper), tt.between)
+		})
+	}
 }
 
 func TestCSSColor(t *testing.T) {
