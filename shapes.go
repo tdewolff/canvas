@@ -125,11 +125,11 @@ func RegularStarPolygon(n, d int, r float64, up bool) *Path {
 		return &Path{}
 	}
 
-	theta0 := 0.0
-	if up {
-		theta0 = 0.5 * math.Pi
-	}
 	dtheta := 2.0 * math.Pi / float64(n)
+	theta0 := 0.5 * math.Pi
+	if !up {
+		theta0 += dtheta / 2.0
+	}
 
 	p := &Path{}
 	for i := 0; i == 0 || i%n != 0; i += d {
@@ -151,12 +151,12 @@ func StarPolygon(n int, R, r float64, up bool) *Path {
 		return &Path{}
 	}
 
-	theta0 := 0.0
-	if up {
-		theta0 = 0.5 * math.Pi
-	}
 	n *= 2
 	dtheta := 2.0 * math.Pi / float64(n)
+	theta0 := 0.5 * math.Pi
+	if !up {
+		theta0 += dtheta
+	}
 
 	p := &Path{}
 	for i := 0; i < n; i++ {
