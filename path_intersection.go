@@ -4,263 +4,375 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 )
 
+// Paths are cut at their intersections where each subpath is paired between two intersections going "forward" on both paths. This will give a list of subpath pairs between which we should choose the right subpath depending on the operation. There can be circular loops when choosing subpaths based on a condition, so we should take care to visit all intersections.
+
+// get RHS normal vector at path segment extreme
+func segmentNormal(start Point, d []float64, t float64) Point {
+	if d[0] == LineToCmd || d[0] == CloseCmd {
+		return Point{d[1], d[2]}.Sub(start).Rot90CW().Norm(Epsilon)
+	} else if d[0] == QuadToCmd {
+		cp := Point{d[1], d[2]}
+		end := Point{d[3], d[4]}
+		return quadraticBezierNormal(start, cp, end, t, Epsilon)
+	} else if d[0] == CubeToCmd {
+		cp1 := Point{d[1], d[2]}
+		cp2 := Point{d[3], d[4]}
+		end := Point{d[5], d[6]}
+		return cubicBezierNormal(start, cp1, cp2, end, t, Epsilon)
+	} else if d[0] == ArcToCmd {
+		rx, ry, phi := d[1], d[2], d[3]
+		large, sweep := toArcFlags(d[4])
+		_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, d[5], d[6])
+		return ellipseNormal(rx, ry, phi, sweep, theta0+t*(theta1-theta0), Epsilon)
+	}
+	return Point{}
+}
+
+// get points in the interior of p close to the first MoveTo
+func (p *Path) interiorPoint() Point {
+	if len(p.d) <= 4+cmdLen(p.d[4]) {
+		panic("path too small or empty")
+	}
+
+	p0 := Point{p.d[1], p.d[2]}
+	n0 := segmentNormal(p0, p.d[4:], 0.0)
+
+	i := len(p.d) - 4
+	p1 := Point{p.d[i-3], p.d[i-2]}
+	if p0.Equals(p1) {
+		// CloseCmd is an empty segment
+		i -= cmdLen(p.d[i-1])
+		p1 = Point{p.d[i-3], p.d[i-2]}
+	}
+	n1 := segmentNormal(p1, p.d[i:], 1.0)
+
+	n := n0.Add(n1).Norm(Epsilon)
+	if p.CCW() {
+		n = n.Neg()
+	}
+	return p0.Add(n)
+}
+
+// returns true if p is inside q or equivalent to q, paths may not intersect
+func (p *Path) inside(q *Path) bool {
+	offset := p.interiorPoint()
+	return q.Interior(offset.X, offset.Y, NonZero)
+}
+
+// Contains returns true if path q is contained within path p, i.e. path q is inside path p and both paths have no intersections (but may touch).
+func (p *Path) Contains(q *Path) bool {
+	if q.inside(p) {
+		headA, _ := pathIntersections(p, q)
+		return headA == nil
+	}
+	return false
+}
+
+// And returns the boolean path operation of path p and q.
 func (p *Path) And(q *Path) *Path {
-	return nil
-	//ps, qs, err := cutPair(p, q)
-	//if err != nil {
-	//	panic(err)
-	//} else if ps == nil {
-	//	return &Path{}
-	//}
+	headA, _ := pathIntersections(p, q)
+	if headA == nil {
+		// paths are not intersecting
+		if p.inside(q) {
+			return p
+		} else if q.inside(p) {
+			return q
+		}
+		return &Path{} // paths have no overlap
+	}
 
-	//r := &Path{}
-	//state := q.in(ps[0])
-	//for i := range ps {
-	//	if state {
-	//		r = r.Join(ps[i])
-	//	} else {
-	//		r = r.Join(qs[i])
-	//	}
-	//	state = !state
-	//}
-	//r.Close()
-	//return r
+	r := &Path{}
+	visited := map[int]bool{}
+	ccwA, ccwB := p.CCW(), q.CCW()
+	for z0 := headA; ; z0 = z0.nextA {
+		if !visited[z0.i] {
+			onB := false
+			for z := z0; ; {
+				visited[z.i] = true
+				if !onB {
+					if ccwA == z.BintoA() {
+						r = r.Join(z.b)
+						z = z.nextB
+					} else {
+						r = r.Join(z.prevB.b.Reverse())
+						z = z.prevB
+					}
+				} else {
+					if ccwB == z.BintoA() {
+						r = r.Join(z.prevA.a.Reverse())
+						z = z.prevA
+					} else {
+						r = r.Join(z.a)
+						z = z.nextA
+					}
+				}
+				if z == z0 {
+					break
+				}
+				onB = !onB
+			}
+			r.Close()
+		}
+		if z0.nextA == headA {
+			break
+		}
+	}
+	return r
 }
 
-func (p *Path) Not(q *Path) *Path {
-	return nil
-	//ps, qs, err := cutPair(p, q)
-	//if err != nil {
-	//	panic(err)
-	//} else if ps == nil {
-	//	return &Path{}
-	//}
-
-	//r := &Path{}
-	//state := q.in(ps[0])
-	//for i := range ps {
-	//	fmt.Println(state)
-	//	fmt.Println(ps[i])
-	//	fmt.Println(qs[i])
-	//	if state {
-	//		r = r.Join(qs[i].Reverse())
-	//	} else {
-	//		r = r.Join(ps[i])
-	//	}
-	//	state = !state
-	//}
-	//r.Close()
-	//return r
-}
-
+// Or returns the boolean path operation of path p and q.
 func (p *Path) Or(q *Path) *Path {
-	zs := p.Intersections(q)
-	return p.cut(zs)[0]
+	headA, _ := pathIntersections(p, q)
+	if headA == nil {
+		// paths are not intersecting
+		if p.inside(q) {
+			return q
+		} else if q.inside(p) {
+			return p
+		}
+		return p.Append(q) // paths have no overlap
+	}
+
+	r := &Path{}
+	visited := map[int]bool{}
+	ccwA, ccwB := p.CCW(), q.CCW()
+	for z0 := headA; ; z0 = z0.nextA {
+		if !visited[z0.i] {
+			onB := false
+			for z := z0; ; {
+				visited[z.i] = true
+				if !onB {
+					if ccwA == z.BintoA() {
+						r = r.Join(z.prevB.b.Reverse())
+						z = z.prevB
+					} else {
+						r = r.Join(z.b)
+						z = z.nextB
+					}
+				} else {
+					if ccwB == z.BintoA() {
+						r = r.Join(z.a)
+						z = z.nextA
+					} else {
+						r = r.Join(z.prevA.a.Reverse())
+						z = z.prevA
+					}
+				}
+				if z == z0 {
+					break
+				}
+				onB = !onB
+			}
+			r.Close()
+		}
+		if z0.nextA == headA {
+			break
+		}
+	}
+	return r
 }
 
+// Xor returns the boolean path operation of path p and q.
 func (p *Path) Xor(q *Path) *Path {
-	zs := p.Intersections(q)
-	return p.cut(zs)[0]
-}
-
-func (p *Path) Div(q *Path) []*Path {
-	return nil
-	//zs := p.Intersections(q)
-	//if len(zs) == 0 {
-	//	return nil
-	//}
-
-	//ps := p.cut(zs)
-	//qs := q.cut(zs.swapCurves())
-	//if len(ps) != len(qs) {
-	//	panic("len(ps) != len(qs)")
-	//} else if len(ps) == 0 {
-	//	panic("len(ps) == 0")
-	//}
-
-	//rs := []*Path{}
-	//in := p.in(qs[0])
-	//for i := range ps {
-	//	if in {
-	//		rs = append(rs, qs[i])
-	//	} else {
-	//		rs = append(rs, ps[i])
-	//	}
-	//}
-	//return rs
-}
-
-func (p *Path) Cut(q *Path) []*Path {
-	zs := p.Intersections(q)
-	return p.cut(zs)
-}
-
-func (p *Path) in(q *Path) bool {
-	fillRule := NonZero // TODO: let user pass, or get from Path?
-	q0 := q.StartPos()
-	i := 0
-	if q.d[0] == MoveToCmd {
-		i += cmdLen(MoveToCmd)
-	}
-	i += cmdLen(q.d[i])
-	q1 := Point{q.d[i-3], q.d[i-2]}
-	qMid := q0.Interpolate(q1, 0.5)
-	return p.Interior(qMid.X, qMid.Y, fillRule)
-}
-
-func (p *Path) cut(zs intersections) []*Path {
-	var ii int // segment index into p
-	var zi int // intersection index into zs
-	var start Point
-	var iLastMoveTo int
-	ps := []*Path{&Path{}}
-	ps[0].MoveTo(0.0, 0.0)
-	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
-		if cmd == MoveToCmd {
-			iLastMoveTo = len(ps) - 1
-			if !ps[len(ps)-1].Pos().Equals(Point{p.d[i+1], p.d[i+2]}) {
-				ps[len(ps)-1].MoveTo(p.d[i+1], p.d[i+2])
-			}
-		} else if zi < len(zs) && ii == zs[zi].SegA {
-			switch cmd {
-			case LineToCmd, CloseCmd:
-				for zi < len(zs) && ii == zs[zi].SegA {
-					ps[len(ps)-1].LineTo(zs[zi].X, zs[zi].Y)
-					ps = append(ps, &Path{})
-					ps[len(ps)-1].MoveTo(zs[zi].X, zs[zi].Y)
-					zi++
-				}
-				ps[len(ps)-1].LineTo(p.d[i+1], p.d[i+2])
-			case QuadToCmd:
-				// TODO: loop zis
-				_, a1, a2, b0, b1, b2 := quadraticBezierSplit(start, Point{p.d[i+1], p.d[i+2]}, Point{p.d[i+3], p.d[i+4]}, zs[zi].TA)
-				ps[len(ps)-1].QuadTo(a1.X, a1.Y, a2.X, a2.Y)
-				ps = append(ps, &Path{})
-				ps[len(ps)-1].MoveTo(b0.X, b0.Y)
-				ps[len(ps)-1].QuadTo(b1.X, b1.Y, b2.X, b2.Y)
-			case CubeToCmd:
-				// TODO: loop zis
-				_, a1, a2, a3, b0, b1, b2, b3 := cubicBezierSplit(start, Point{p.d[i+1], p.d[i+2]}, Point{p.d[i+3], p.d[i+4]}, Point{p.d[i+5], p.d[i+6]}, zs[zi].TA)
-				ps[len(ps)-1].CubeTo(a1.X, a1.Y, a2.X, a2.Y, a3.X, a3.Y)
-				ps = append(ps, &Path{})
-				ps[len(ps)-1].MoveTo(b0.X, b0.Y)
-				ps[len(ps)-1].CubeTo(b1.X, b1.Y, b2.X, b2.Y, b3.X, b3.Y)
-			case ArcToCmd:
-				// TODO: loop zis
-				rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
-				large, sweep := toArcFlags(p.d[i+4])
-				end := Point{p.d[i+5], p.d[i+6]}
-				cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
-				mid, large1, large2, ok := ellipseSplit(rx, ry, phi, cx, cy, theta0, theta1, theta0+(theta1-theta0)*zs[zi].TA)
-				if !ok {
-					// should never happen
-					panic("theta not in elliptic arc range for splitting")
-				}
-
-				ps[len(ps)-1].ArcTo(rx, ry, phi*180.0/math.Pi, large1, sweep, mid.X, mid.Y)
-				ps = append(ps, &Path{})
-				ps[len(ps)-1].MoveTo(mid.X, mid.Y)
-				ps[len(ps)-1].ArcTo(rx, ry, phi*180.0/math.Pi, large2, sweep, end.X, end.Y)
-			}
-		} else if cmd == CloseCmd {
-			ps[len(ps)-1].LineTo(p.d[i+1], p.d[i+2])
-		} else {
-			ps[len(ps)-1].d = append(ps[len(ps)-1].d, p.d[i:i+cmdLen(cmd)]...)
+	headA, _ := pathIntersections(p, q)
+	if headA == nil {
+		// paths are not intersecting
+		pInQ := p.inside(q)
+		qInP := q.inside(p)
+		if pInQ && qInP {
+			return &Path{} // equal
+		} else if pInQ {
+			return q.Append(p.Reverse())
+		} else if qInP {
+			return p.Append(q.Reverse())
 		}
-		if cmd == CloseCmd && iLastMoveTo != len(ps)-1 {
-			// join close command with last moveto
-			ps[iLastMoveTo] = ps[len(ps)-1].Join(ps[iLastMoveTo])
-			ps = ps[:len(ps)-1]
-		}
-		i += cmdLen(cmd)
-		start = Point{p.d[i-3], p.d[i-2]}
-		ii++
+		return p.Append(q) // paths have no overlap
 	}
-	return ps
+
+	r := &Path{}
+	visited := map[int]bool{}
+	ccwA, ccwB := p.CCW(), q.CCW()
+	for z0 := headA; ; z0 = z0.nextA {
+		if !visited[z0.i] {
+			for _, direction := range []bool{true, false} {
+				onB := false
+				for z := z0; ; {
+					visited[z.i] = true
+					if !onB {
+						if direction == (ccwA == z.BintoA()) {
+							r = r.Join(z.b)
+							z = z.nextB
+						} else {
+							r = r.Join(z.prevB.b.Reverse())
+							z = z.prevB
+						}
+					} else {
+						if direction == (ccwB == z.BintoA()) {
+							r = r.Join(z.a)
+							z = z.nextA
+						} else {
+							r = r.Join(z.prevA.a.Reverse())
+							z = z.prevA
+						}
+					}
+					if z == z0 {
+						break
+					}
+					onB = !onB
+				}
+				r.Close()
+			}
+		}
+		if z0.nextA == headA {
+			break
+		}
+	}
+	return r
+}
+
+// Not returns the boolean path operation of path p and q.
+func (p *Path) Not(q *Path) *Path {
+	headA, _ := pathIntersections(p, q)
+	if headA == nil {
+		// paths are not intersecting
+		pInQ := p.inside(q)
+		qInP := q.inside(p)
+		if pInQ && qInP {
+			return &Path{} // equal
+		} else if pInQ {
+			return &Path{}
+		} else if qInP {
+			return p.Append(q.Reverse())
+		}
+		return p // paths have no overlap
+	}
+
+	r := &Path{}
+	visited := map[int]bool{}
+	ccwA, ccwB := p.CCW(), q.CCW()
+	for z0 := headA; ; z0 = z0.nextA {
+		if !visited[z0.i] {
+			onB := false
+			for z := z0; ; {
+				visited[z.i] = true
+				if !onB {
+					if ccwA == z.BintoA() {
+						r = r.Join(z.b)
+						z = z.nextB
+					} else {
+						r = r.Join(z.prevB.b.Reverse())
+						z = z.prevB
+					}
+				} else {
+					if ccwB == z.BintoA() {
+						r = r.Join(z.a)
+						z = z.nextA
+					} else {
+						r = r.Join(z.prevA.a.Reverse())
+						z = z.prevA
+					}
+				}
+				if z == z0 {
+					break
+				}
+				onB = !onB
+			}
+			r.Close()
+		}
+		if z0.nextA == headA {
+			break
+		}
+	}
+	return r
+}
+
+// Cut returns the parts of path p and path q cut by the other at intersections.
+func (p *Path) Cut(q *Path) ([]*Path, []*Path) {
+	ps, qs := []*Path{}, []*Path{}
+	headA, headB := pathIntersections(p, q)
+	for z := headA; ; z = z.nextA {
+		ps = append(ps, z.a)
+		if z.nextA == headA {
+			break
+		}
+	}
+	for z := headB; ; z = z.nextB {
+		qs = append(qs, z.b)
+		if z.nextB == headB {
+			break
+		}
+	}
+	return ps, qs
 }
 
 type pathIntersection struct {
+	i int // intersection index in path A
 	intersection
 	prevA, nextA *pathIntersection
 	prevB, nextB *pathIntersection
+
+	// towards next intersection
+	a, b *Path
 }
 
-func cutPath(p, q *Path, z0, z1 intersection) (*Path, *Path) {
-	pReverse := z1.SegA < z0.SegA || z1.SegA == z0.SegA && z1.TA < z0.TA
-	qReverse := z1.SegB < z0.SegB || z1.SegB == z0.SegB && z1.TB < z0.TB
-
-	// order intersections
-	zp0, zp1 := z0, z1
-	if pReverse {
-		zp0, zp1 = z1, z0
-	}
-	zq0, zq1 := z0, z1
-	if qReverse {
-		zq0, zq1 = z1, z0
-	}
-
-	seg := 0
-	var start Point
-	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
-		if seg == zp0.SegA {
-			t0 := zp0.TA
-			t1 := 1.0
-			if seg == zp1.SegA {
-				t1 = zp1.TA
-			}
-			_, _, _, _ = zp0, zp1, zq0, zq1
-			_, _ = t0, t1
-			_ = start
-			//cutPathSegment(start, p.d[i:i+cmdLen(cmd)], zp0, zp1, t0, t1)
+func (head *pathIntersection) String() string {
+	i := 0
+	sb := strings.Builder{}
+	fmt.Fprintf(&sb, "Intersections on A:\n")
+	for z := head; ; z = z.nextA {
+		fmt.Fprintf(&sb, "%v %v %v\n", i, z.intersection, z.a)
+		if z.nextA == head {
+			break
 		}
-		i += cmdLen(cmd)
-		start = Point{p.d[i-3], p.d[i-2]}
-		seg++
+		i++
 	}
-
-	return nil, nil
-}
-
-func cutPathSegment(p0 Point, p []float64, pos0, pos1 Point, t0, t1 float64) *Path {
-	return &Path{}
-	//r := &Path{}
-	//if p[0] == LineToCmd || p[0] == CloseCmd {
-	//	r.MoveTo(pos0.X, pos0.Y)
-	//	r.LineTo(
-
-	//}
+	fmt.Fprintf(&sb, "Intersections on B:\n")
+	for z := head; ; z = z.nextB {
+		fmt.Fprintf(&sb, "%v %v %v\n", i, z.intersection, z.b)
+		if z.nextB == head {
+			break
+		}
+		i++
+	}
+	return sb.String()
 }
 
 // get intersections for paths p and q sorted for both
-func pathIntersections(p, q *Path) *pathIntersection {
+func pathIntersections(p, q *Path) (*pathIntersection, *pathIntersection) {
 	zs := p.Intersections(q)
 	if len(zs) == 0 {
-		return nil
+		return nil, nil
 	} else if len(zs)%2 != 0 {
 		panic("len(zs)%2 != 0")
 	}
 
-	head := &pathIntersection{
+	// build linked list for path P
+	headA := &pathIntersection{
 		intersection: zs[0],
+		a:            &Path{},
+		b:            &Path{},
 	}
-	prev := head
-	list := []*pathIntersection{head}
-	for _, z := range zs[1:] {
-		next := &pathIntersection{
+	prevA := headA
+	list := []*pathIntersection{headA}
+	for i, z := range zs[1:] {
+		nextA := &pathIntersection{
+			i:            i + 1,
 			intersection: z,
-			prevA:        prev,
+			prevA:        prevA,
+			a:            &Path{},
+			b:            &Path{},
 		}
-		list = append(list, next)
-		prev.nextA = next
-		prev = next
+		list = append(list, nextA)
+		prevA.nextA = nextA
+		prevA = nextA
 	}
-	head.prevA = prev
-	prev.nextA = head
+	headA.prevA = prevA
+	prevA.nextA = headA
 
+	// build linked list for path Q
 	idxs := zs.swappedArgSort() // sorted indices for intersections of q by p
 	for idxQ, idxP := range idxs {
 		if 0 < idxQ {
@@ -272,11 +384,139 @@ func pathIntersections(p, q *Path) *pathIntersection {
 	}
 	list[idxs[0]].prevB = list[idxs[len(idxs)-1]]
 	list[idxs[len(idxs)-1]].nextB = list[idxs[0]]
-	return head
+	headB := list[idxs[0]]
+
+	// cut path segments for path P
+	seg := 0
+	z := headA
+	var first *Path
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		if cmd == CloseCmd {
+			p.d[i], p.d[i+3] = LineToCmd, LineToCmd
+		}
+		if seg == z.SegA {
+			// segment has an intersection, cut it up and append first part to prev intersection
+			p0, p1 := cutPathSegment(Point{p.d[i-3], p.d[i-2]}, p.d[i:i+cmdLen(cmd)], z.TA)
+			z.prevA.a.d = append(z.prevA.a.d, p0.d[4:]...)
+
+			for z.nextA != headA && seg == z.nextA.SegA {
+				// next cut is on the same segment, find new t after the first cut and set path
+				z = z.nextA
+				t := (z.TA - z.prevA.TA) / (1.0 - z.prevA.TA)
+				p0, p1 = cutPathSegment(Point{p1.d[1], p1.d[2]}, p1.d[4:], t)
+				z.prevA.a = p0
+			}
+			if z.nextA == headA {
+				first = z.a // take aside the path to the first intersection to later append it
+			}
+			z.a = p1
+			z = z.nextA
+		} else {
+			// segment has no intersection, add to previous intersection
+			z.prevA.a.d = append(z.prevA.a.d, p.d[i:i+cmdLen(cmd)]...)
+		}
+		i += cmdLen(cmd)
+		seg++
+	}
+	headA.prevA.a.d = append(headA.prevA.a.d, first.d[4:]...)
+
+	// cut path segments for path Q
+	seg = 0
+	z = headB
+	for i := 0; i < len(q.d); {
+		cmd := q.d[i]
+		if cmd == CloseCmd {
+			q.d[i], q.d[i+3] = LineToCmd, LineToCmd
+		}
+		if seg == z.SegB {
+			// segment has an intersection, cut it up and append first part to prev intersection
+			p0, p1 := cutPathSegment(Point{q.d[i-3], q.d[i-2]}, q.d[i:i+cmdLen(cmd)], z.TB)
+			z.prevB.b.d = append(z.prevB.b.d, p0.d[4:]...)
+
+			for z.nextB != headB && seg == z.nextB.SegB {
+				// next cut is on the same segment, find new t after the first cut and set path
+				z = z.nextB
+				t := (z.TB - z.prevB.TB) / (1.0 - z.prevB.TB)
+				p0, p1 = cutPathSegment(Point{p1.d[1], p1.d[2]}, p1.d[4:], t)
+				z.prevB.b = p0
+			}
+			if z.nextB == headB {
+				first = z.b // take aside the path to the first intersection to later append it
+			}
+			z.b = p1
+			z = z.nextB
+		} else {
+			// segment has no intersection, add to previous intersection
+			z.prevB.b.d = append(z.prevB.b.d, q.d[i:i+cmdLen(cmd)]...)
+		}
+		i += cmdLen(cmd)
+		seg++
+	}
+	headB.prevB.b.d = append(headB.prevB.b.d, first.d[4:]...)
+
+	return headA, headB
+}
+
+func cutPathSegment(start Point, d []float64, t float64) (*Path, *Path) {
+	p0, p1 := &Path{}, &Path{}
+	if d[0] == LineToCmd {
+		c := start.Interpolate(Point{d[len(d)-3], d[len(d)-2]}, t)
+		p0.MoveTo(start.X, start.Y)
+		p0.LineTo(c.X, c.Y)
+		p1.MoveTo(c.X, c.Y)
+		p1.LineTo(d[len(d)-3], d[len(d)-2])
+	} else if d[0] == QuadToCmd {
+		r0, r1, r2, q0, q1, q2 := quadraticBezierSplit(start, Point{d[1], d[2]}, Point{d[3], d[4]}, t)
+		p0.MoveTo(r0.X, r0.Y)
+		p0.QuadTo(r1.X, r1.Y, r2.X, r2.Y)
+		p1.MoveTo(q0.X, q0.Y)
+		p1.QuadTo(q1.X, q1.Y, q2.X, q2.Y)
+	} else if d[0] == CubeToCmd {
+		r0, r1, r2, r3, q0, q1, q2, q3 := cubicBezierSplit(start, Point{d[1], d[2]}, Point{d[3], d[4]}, Point{d[5], d[6]}, t)
+		p0.MoveTo(r0.X, r0.Y)
+		p0.CubeTo(r1.X, r1.Y, r2.X, r2.Y, r3.X, r3.Y)
+		p1.MoveTo(q0.X, q0.Y)
+		p1.CubeTo(q1.X, q1.Y, q2.X, q2.Y, q3.X, q3.Y)
+	} else if d[0] == ArcToCmd {
+		large, sweep := toArcFlags(d[4])
+		cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, d[1], d[2], d[3], large, sweep, d[5], d[6])
+		c, large0, large1, ok := ellipseSplit(d[1], d[2], d[3], cx, cy, theta0, theta1, t)
+		if !ok {
+			// should never happen
+			panic("theta not in elliptic arc range for splitting")
+		}
+		p0.MoveTo(start.X, start.Y)
+		p0.ArcTo(d[1], d[2], d[3]*180.0/math.Pi, large0, sweep, c.X, c.Y)
+		p1.MoveTo(c.X, c.Y)
+		p1.ArcTo(d[1], d[2], d[3]*180.0/math.Pi, large1, sweep, d[len(d)-3], d[len(d)-2])
+	}
+	return p0, p1
+}
+
+// Intersects returns true if path p and path q intersect.
+func (p *Path) Intersects(q *Path) bool {
+	zs := collisions(p, q, false)
+	return 0 < len(zs)
 }
 
 // Intersections for path p by path q, sorted for path p.
 func (p *Path) Intersections(q *Path) intersections {
+	return collisions(p, q, false)
+}
+
+// Touches returns true if path p and path q touch or intersect.
+func (p *Path) Touches(q *Path) bool {
+	zs := collisions(p, q, true)
+	return 0 < len(zs)
+}
+
+// Collisions (secants/intersections and tangents/touches) for path p by path q, sorted for path p.
+func (p *Path) Collisions(q *Path) intersections {
+	return collisions(p, q, true)
+}
+
+func collisions(p, q *Path, keepTangents bool) intersections {
 	// TODO: uses O(N^2), try sweep line or bently-ottman to reduce to O((N+K) log N)
 	zs := intersections{}
 	var pI, qI int
@@ -300,7 +540,132 @@ func (p *Path) Intersections(q *Path) intersections {
 		pStart = Point{p.d[i-3], p.d[i-2]}
 		pI++
 	}
-	sort.Stable(zs) // needed when q intersect a segment in p from high to low T
+	sort.Stable(zs) // needed when q intersects a segment in p from high to low T
+
+	// remove duplicate tangent collisions at segment endpoints: either 4 degenerate collisions
+	// when for both path p and path q the endpoints coincide, or 2 degenerate collisions when
+	// an endpoint collides within a segment
+	// note that collisions between segments of the same path are never generated
+	for i := 0; i < len(zs); i++ {
+		z0 := zs[i]
+		if z0.Tangent {
+			if z0.TA != 0.0 && z0.TB != 0.0 && z0.TA != 1.0 && z0.TB != 1.0 {
+				// regular tangent that is not at segment extreme, does not intersect
+				if !keepTangents {
+					zs = append(zs[:i], zs[i+1:]...)
+					i--
+				}
+			} else if z0.TA == 0.0 && z0.TB == 1.0 || z0.TA == 1.0 && z0.TB == 0.0 {
+				// ignore connected segment endpoints that are not both start or end points
+				zs = append(zs[:i], zs[i+1:]...)
+				i--
+			} else if z0.TA == 1.0 || z0.TB == 0.0 || z0.TB == 1.0 {
+				// search for second tangent intersection at z1.TA == z1.TB == 0.0, this may not
+				// always be the next segment due to potentially parallel segments in between
+				for j := (i + 1) % len(zs); j != i; j = (j + 1) % len(zs) {
+					z1 := zs[j]
+					// either TA or TB must be 0.0, while ignoring connected segment endpoints that are not both start or end points (like above)
+					// note that B may be in reversed order, which is why we check it against z0
+					if z1.Tangent && (z1.TA == 0.0 && z1.TB != z0.TB || z1.TA != 1.0 && z1.TB == 1.0-z0.TB) {
+						if z0.BintoA() != z1.BintoA() {
+							// no intersection, paths only touch on segment ends
+							if !keepTangents {
+								zs = append(zs[:j], zs[j+1:]...)
+								if j < i {
+									i--
+								}
+							}
+						} else {
+							// intersection, keep the second on P of the two tangent intersections
+							zs[j].Tangent = false
+						}
+
+						// remove first (duplicate) tangent intersection
+						zs = append(zs[:i], zs[i+1:]...)
+						i--
+						break
+					}
+				}
+			}
+		}
+	}
+	return zs
+}
+
+// intersect for path segments a and b, starting at a0 and b0
+func (zs intersections) appendSegment(aSeg int, a0 Point, a []float64, bSeg int, b0 Point, b []float64) intersections {
+	// TODO: add fast check if bounding boxes overlap, below doesn't account for vertical/horizontal lines
+
+	n := len(zs)
+	swapCurves := false
+	if a[0] == LineToCmd || a[0] == CloseCmd {
+		if b[0] == LineToCmd || b[0] == CloseCmd {
+			zs = zs.LineLine(a0, Point{a[1], a[2]}, b0, Point{b[1], b[2]})
+		} else if b[0] == QuadToCmd {
+			zs = zs.LineQuad(a0, Point{a[1], a[2]}, b0, Point{b[1], b[2]}, Point{b[3], b[4]})
+		} else if b[0] == CubeToCmd {
+			zs = zs.LineCube(a0, Point{a[1], a[2]}, b0, Point{b[1], b[2]}, Point{b[3], b[4]}, Point{b[5], b[6]})
+		} else if b[0] == ArcToCmd {
+			rx := b[1]
+			ry := b[2]
+			phi := b[3] * math.Pi / 180.0
+			large, sweep := toArcFlags(b[4])
+			cx, cy, theta0, theta1 := ellipseToCenter(b0.X, b0.Y, rx, ry, phi, large, sweep, b[5], b[6])
+			zs = zs.LineEllipse(a0, Point{a[1], a[2]}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
+		}
+	} else if a[0] == QuadToCmd {
+		if b[0] == LineToCmd || b[0] == CloseCmd {
+			zs = zs.LineQuad(b0, Point{b[1], b[2]}, a0, Point{a[1], a[2]}, Point{a[3], a[4]})
+			swapCurves = true
+		} else if b[0] == QuadToCmd {
+			panic("unsupported intersection for quad-quad")
+		} else if b[0] == CubeToCmd {
+			panic("unsupported intersection for quad-cube")
+		} else if b[0] == ArcToCmd {
+			panic("unsupported intersection for quad-arc")
+		}
+	} else if a[0] == CubeToCmd {
+		if b[0] == LineToCmd || b[0] == CloseCmd {
+			zs = zs.LineCube(b0, Point{b[1], b[2]}, a0, Point{a[1], a[2]}, Point{a[3], a[4]}, Point{a[5], a[6]})
+			swapCurves = true
+		} else if b[0] == QuadToCmd {
+			panic("unsupported intersection for cube-quad")
+		} else if b[0] == CubeToCmd {
+			panic("unsupported intersection for cube-cube")
+		} else if b[0] == ArcToCmd {
+			panic("unsupported intersection for cube-arc")
+		}
+	} else if a[0] == ArcToCmd {
+		rx := a[1]
+		ry := a[2]
+		phi := a[3] * math.Pi / 180.0
+		large, sweep := toArcFlags(a[4])
+		cx, cy, theta0, theta1 := ellipseToCenter(b0.X, b0.Y, rx, ry, phi, large, sweep, a[5], a[6])
+		if b[0] == LineToCmd || b[0] == CloseCmd {
+			zs = zs.LineEllipse(b0, Point{b[1], b[2]}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
+			swapCurves = true
+		} else if b[0] == QuadToCmd {
+			panic("unsupported intersection for arc-quad")
+		} else if b[0] == CubeToCmd {
+			panic("unsupported intersection for arc-cube")
+		} else if b[0] == ArcToCmd {
+			panic("unsupported intersection for arc-arc")
+		}
+	} else {
+		// MoveCmd
+	}
+
+	// swap A and B in the intersection found to match segments A and B of this function
+	if swapCurves {
+		for i, _ := range zs[n:] {
+			zs[n+i].TA, zs[n+i].TB = zs[n+i].TB, zs[n+i].TA
+			zs[n+i].SegA, zs[n+i].SegB = aSeg, bSeg
+		}
+	} else {
+		for i, _ := range zs[n:] {
+			zs[n+i].SegA, zs[n+i].SegB = aSeg, bSeg
+		}
+	}
 	return zs
 }
 
@@ -314,15 +679,26 @@ type intersection struct {
 	Point
 	SegA, SegB int     // segment indices
 	TA, TB     float64 // position along segment in [0,1]
+	DirA, DirB float64 // angle of direction along segment
 	Tangent    bool    // tangential, i.e. touching/non-crossing
 }
 
+// BintoA returns true if B goes towards the LHS of A
+func (z intersection) BintoA() bool {
+	return angleNorm(z.DirB-z.DirA) < math.Pi
+}
+
+// AintoB returns true if A goes towards the LHS of B
+func (z intersection) AintoB() bool {
+	return !z.BintoA()
+}
+
 func (z intersection) Equals(o intersection) bool {
-	return z.Point.Equals(o.Point) && z.SegA == o.SegA && z.SegB == o.SegB && Equal(z.TA, o.TA) && Equal(z.TB, o.TB) && z.Tangent == o.Tangent
+	return z.Point.Equals(o.Point) && z.SegA == o.SegA && z.SegB == o.SegB && Equal(z.TA, o.TA) && Equal(z.TB, o.TB) && Equal(angleNorm(z.DirA), angleNorm(o.DirA)) && Equal(angleNorm(z.DirB), angleNorm(o.DirB)) && z.Tangent == o.Tangent
 }
 
 func (z intersection) String() string {
-	s := fmt.Sprintf("pos={%f,%f} seg={%d,%d} t={%f,%f}", z.Point.X, z.Point.Y, z.SegA, z.SegB, z.TA, z.TB)
+	s := fmt.Sprintf("pos={%g,%g} seg={%d,%d} t={%g,%g} dir={%g°,%g°}", z.Point.X, z.Point.Y, z.SegA, z.SegB, z.TA, z.TB, angleNorm(z.DirA)*180.0/math.Pi, angleNorm(z.DirB)*180.0/math.Pi)
 	if z.Tangent {
 		s += " tangent"
 	}
@@ -399,128 +775,25 @@ func (zs intersections) swappedArgSort() []int {
 	return idx
 }
 
-//func (zs intersections) swapCurves() intersections {
-//	zs2 := make(intersections, len(zs))
-//	for i, _ := range zs {
-//		zs2[i].SegA, zs2[i].SegB = zs[i].SegB, zs[i].SegA
-//		zs2[i].TA, zs2[i].TB = zs[i].TB, zs[i].TA
-//	}
-//	return zs2
-//}
-
-func segmentBounds(o Point, d []float64) Rect {
-	if d[0] == ArcToCmd {
-		return (&Path{append([]float64{MoveToCmd, o.X, o.Y, MoveToCmd}, d...)}).Bounds()
+func (zs intersections) add(pos Point, ta, tb float64, dira, dirb float64, tangent bool) intersections {
+	if ta == 0.0 || tb == 0.0 || ta == 1.0 || tb == 1.0 {
+		tangent = true
 	}
-
-	r := Rect{}
-	r = r.AddPoint(o)
-	r = r.AddPoint(Point{d[len(d)-3], d[len(d)-2]})
-	if d[0] == QuadToCmd {
-		r = r.AddPoint(Point{d[1], d[2]})
-	} else if d[0] == CubeToCmd {
-		r = r.AddPoint(Point{d[1], d[2]})
-		r = r.AddPoint(Point{d[3], d[4]})
-	}
-	return r
-}
-
-// intersect for path segments a and b, starting at a0 and b0
-func (zs intersections) appendSegment(aSeg int, a0 Point, a []float64, bSeg int, b0 Point, b []float64) intersections {
-	// TODO: add fast check if bounding boxes overlap, below doesn't account for vertical/horizontal lines
-	//aRect := segmentBounds(a0, a)
-	//bRect := segmentBounds(b0, b)
-	//if !aRect.Overlaps(bRect) {
-	//	fmt.Println("NO INTERSECTIONS", a0, a, aRect, b0, b, bRect)
+	//if ta == 0.0 && tb == 1.0 || ta == 1.0 && tb == 0.0 {
+	//	// ignore connected segment endpoints that are not both start or end points
+	//	return zs
+	//} else if ta == 0.0 || tb == 0.0 || ta == 1.0 || tb == 1.0 {
+	//	tangent = true
+	//} else if tangent {
+	//	// ignore regular tangents that are not at the extremes of path segments
 	//	return zs
 	//}
-
-	n := len(zs)
-	swapCurves := false
-	if a[0] == LineToCmd || a[0] == CloseCmd {
-		if b[0] == LineToCmd || b[0] == CloseCmd {
-			zs = zs.LineLine(a0, Point{a[1], a[2]}, b0, Point{b[1], b[2]})
-		} else if b[0] == QuadToCmd {
-			zs = zs.LineQuad(a0, Point{a[1], a[2]}, b0, Point{b[1], b[2]}, Point{b[3], b[4]})
-		} else if b[0] == CubeToCmd {
-			zs = zs.LineCube(a0, Point{a[1], a[2]}, b0, Point{b[1], b[2]}, Point{b[3], b[4]}, Point{b[5], b[6]})
-		} else if b[0] == ArcToCmd {
-			rx := b[1]
-			ry := b[2]
-			phi := b[3] * math.Pi / 180.0
-			large, sweep := toArcFlags(b[4])
-			cx, cy, theta0, theta1 := ellipseToCenter(b0.X, b0.Y, rx, ry, phi, large, sweep, b[5], b[6])
-			zs = zs.LineEllipse(a0, Point{a[1], a[2]}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
-		}
-	} else if a[0] == QuadToCmd {
-		if b[0] == LineToCmd || b[0] == CloseCmd {
-			zs = zs.LineQuad(b0, Point{b[1], b[2]}, a0, Point{a[1], a[2]}, Point{a[3], a[4]})
-			swapCurves = true
-		} else if b[0] == QuadToCmd {
-			panic("unsupported intersection for quad-quad")
-		} else if b[0] == CubeToCmd {
-			panic("unsupported intersection for quad-cube")
-		} else if b[0] == ArcToCmd {
-			panic("unsupported intersection for quad-arc")
-		}
-	} else if a[0] == CubeToCmd {
-		if b[0] == LineToCmd || b[0] == CloseCmd {
-			zs = zs.LineCube(b0, Point{b[1], b[2]}, a0, Point{a[1], a[2]}, Point{a[3], a[4]}, Point{a[5], a[6]})
-			swapCurves = true
-		} else if b[0] == QuadToCmd {
-			panic("unsupported intersection for cube-quad")
-		} else if b[0] == CubeToCmd {
-			panic("unsupported intersection for cube-cube")
-		} else if b[0] == ArcToCmd {
-			panic("unsupported intersection for cube-arc")
-		}
-	} else if a[0] == ArcToCmd {
-		rx := a[1]
-		ry := a[2]
-		phi := a[3] * math.Pi / 180.0
-		large, sweep := toArcFlags(a[4])
-		cx, cy, theta0, theta1 := ellipseToCenter(b0.X, b0.Y, rx, ry, phi, large, sweep, a[5], a[6])
-		if b[0] == LineToCmd || b[0] == CloseCmd {
-			zs = zs.LineEllipse(b0, Point{b[1], b[2]}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
-			swapCurves = true
-		} else if b[0] == QuadToCmd {
-			panic("unsupported intersection for arc-quad")
-		} else if b[0] == CubeToCmd {
-			panic("unsupported intersection for arc-cube")
-		} else if b[0] == ArcToCmd {
-			panic("unsupported intersection for arc-arc")
-		}
-	} else {
-		// MoveCmd
-	}
-
-	// swap A and B in the intersection found to match segments A and B of this function
-	if swapCurves {
-		for i, _ := range zs[n:] {
-			zs[n+i].TA, zs[n+i].TB = zs[n+i].TB, zs[n+i].TA
-			zs[n+i].SegA, zs[n+i].SegB = aSeg, bSeg
-		}
-	} else {
-		for i, _ := range zs[n:] {
-			zs[n+i].SegA, zs[n+i].SegB = aSeg, bSeg
-		}
-	}
-
-	// remove previous intersection at t=1 if it is equal to the next intersection at t=0
-	if 0 < n && n < len(zs) && (zs[n].TA == 0.0 || zs[n].TB == 0.0) && (zs[n-1].TA == 1.0 || zs[n-1].TB == 1.0) {
-		zs = append(zs[:n-1], zs[n:]...)
-	}
-	return zs
-}
-
-func (zs intersections) add(pos Point, ta, tb float64, tangent bool) intersections {
-	if !tangent {
-		tangent = ta == 0.0 || ta == 1.0 || tb == 0.0 || tb == 1.0
-	}
 	return append(zs, intersection{
 		Point:   pos,
 		TA:      ta,
 		TB:      tb,
+		DirA:    dira,
+		DirB:    dirb,
 		Tangent: tangent,
 	})
 }
@@ -532,38 +805,13 @@ func (zs intersections) LineLine(a0, a1, b0, b1 Point) intersections {
 	div := da.PerpDot(db)
 	if Equal(div, 0.0) {
 		// parallel
-		if Equal(da.PerpDot(b1.Sub(a0)), 0.0) {
-			// aligned, rotate to x-axis
-			angle := da.Angle()
-			a := a0.Rot(-angle, Point{}).X
-			b := a1.Rot(-angle, Point{}).X
-			c := b0.Rot(-angle, Point{}).X
-			d := b1.Rot(-angle, Point{}).X
-			if c <= a && a <= d && c <= b && b <= d {
-				// a in b or a == b
-				mid := (a + b) / 2.0
-				zs = zs.add(a0.Interpolate(a1, 0.5), 0.5, (mid-c)/(d-c), true)
-			} else if a < c && c < b && a < d && d < b {
-				// b in a
-				mid := (c + d) / 2.0
-				zs = zs.add(b0.Interpolate(b1, 0.5), (mid-a)/(b-a), 0.5, true)
-			} else if a <= c && c <= b {
-				// a before b
-				mid := (c + b) / 2.0
-				zs = zs.add(b0.Interpolate(a1, 0.5), (mid-a)/(b-a), (mid-c)/(d-c), true)
-			} else if a <= d && d <= b {
-				// b before a
-				mid := (a + d) / 2.0
-				zs = zs.add(a0.Interpolate(b1, 0.5), (mid-a)/(b-a), (mid-c)/(d-c), true)
-			}
-		}
 		return zs
 	}
 
 	ta := db.PerpDot(a0.Sub(b0)) / div
 	tb := da.PerpDot(a0.Sub(b0)) / div
 	if 0.0 <= ta && ta <= 1.0 && 0.0 <= tb && tb <= 1.0 {
-		zs = zs.add(a0.Interpolate(a1, ta), ta, tb, false)
+		zs = zs.add(a0.Interpolate(a1, ta), ta, tb, da.Angle(), db.Angle(), false)
 	}
 	return zs
 }
@@ -587,6 +835,7 @@ func (zs intersections) LineQuad(l0, l1, p0, p1, p2 Point) intersections {
 		}
 	}
 
+	dira := l1.Sub(l0).Angle()
 	horizontal := math.Abs(l1.Y-l0.Y) <= math.Abs(l1.X-l0.X)
 	if horizontal {
 		if l1.X < l0.X {
@@ -599,13 +848,14 @@ func (zs intersections) LineQuad(l0, l1, p0, p1, p2 Point) intersections {
 	for _, root := range roots {
 		if 0.0 <= root && root <= 1.0 {
 			pos := quadraticBezierPos(p0, p1, p2, root)
-			dif := A.Dot(quadraticBezierDeriv(p0, p1, p2, root))
+			deriv := quadraticBezierDeriv(p0, p1, p2, root)
+			dif := A.Dot(deriv)
 			if horizontal {
 				if l0.X <= pos.X && pos.X <= l1.X {
-					zs = zs.add(pos, (pos.X-l0.X)/(l1.X-l0.X), root, Equal(dif, 0.0))
+					zs = zs.add(pos, (pos.X-l0.X)/(l1.X-l0.X), root, dira, deriv.Angle(), Equal(dif, 0.0))
 				}
 			} else if l0.Y <= pos.Y && pos.Y <= l1.Y {
-				zs = zs.add(pos, (pos.Y-l0.Y)/(l1.Y-l0.Y), root, Equal(dif, 0.0))
+				zs = zs.add(pos, (pos.Y-l0.Y)/(l1.Y-l0.Y), root, dira, deriv.Angle(), Equal(dif, 0.0))
 			}
 		}
 	}
@@ -635,6 +885,7 @@ func (zs intersections) LineCube(l0, l1, p0, p1, p2, p3 Point) intersections {
 		}
 	}
 
+	dira := l1.Sub(l0).Angle()
 	horizontal := math.Abs(l1.Y-l0.Y) <= math.Abs(l1.X-l0.X)
 	if horizontal {
 		if l1.X < l0.X {
@@ -647,13 +898,14 @@ func (zs intersections) LineCube(l0, l1, p0, p1, p2, p3 Point) intersections {
 	for _, root := range roots {
 		if 0.0 <= root && root <= 1.0 {
 			pos := cubicBezierPos(p0, p1, p2, p3, root)
-			dif := A.Dot(cubicBezierDeriv(p0, p1, p2, p3, root))
+			deriv := cubicBezierDeriv(p0, p1, p2, p3, root)
+			dif := A.Dot(deriv)
 			if horizontal {
 				if l0.X <= pos.X && pos.X <= l1.X {
-					zs = zs.add(pos, (pos.X-l0.X)/(l1.X-l0.X), root, Equal(dif, 0.0))
+					zs = zs.add(pos, (pos.X-l0.X)/(l1.X-l0.X), root, dira, deriv.Angle(), Equal(dif, 0.0))
 				}
 			} else if l0.Y <= pos.Y && pos.Y <= l1.Y {
-				zs = zs.add(pos, (pos.Y-l0.Y)/(l1.Y-l0.Y), root, Equal(dif, 0.0))
+				zs = zs.add(pos, (pos.Y-l0.Y)/(l1.Y-l0.Y), root, dira, deriv.Angle(), Equal(dif, 0.0))
 			}
 		}
 	}
@@ -661,6 +913,8 @@ func (zs intersections) LineCube(l0, l1, p0, p1, p2, p3 Point) intersections {
 }
 
 func (zs intersections) LineEllipse(l0, l1, center, radius Point, phi, theta0, theta1 float64) intersections {
+	dira := l1.Sub(l0).Angle()
+
 	// we take the ellipse center as the origin and counter-rotate by phi
 	l0 = l0.Sub(center).Rot(-phi, Origin)
 	l1 = l1.Sub(center).Rot(-phi, Origin)
@@ -715,7 +969,8 @@ func (zs intersections) LineEllipse(l0, l1, center, radius Point, phi, theta0, t
 				t = 2.0 - t
 			}
 			pos := Point{x, y}.Rot(phi, Origin).Add(center)
-			zs = zs.add(pos, s, t, Equal(root, 0.0))
+			deriv := ellipseDeriv(radius.X, radius.Y, phi, theta0 <= theta1, angle)
+			zs = zs.add(pos, s, t, dira, deriv.Angle(), Equal(root, 0.0))
 		}
 	}
 	return zs
