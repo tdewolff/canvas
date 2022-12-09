@@ -295,29 +295,44 @@ func TestPathIntersections(t *testing.T) {
 	}{
 		{"V50H10V0z", "M30 10V40H-10V30H20V20H-10V10z",
 			[]Point{{0, 10}, {0, 20}, {0, 30}, {0, 40}, {10, 40}, {10, 30}, {10, 20}, {10, 10}},
-			[]Point{{10, 40}, {0, 40}, {0, 30}, {10, 30}, {10, 20}, {0, 20}, {0, 10}, {10, 10}},
+			[]Point{{0, 10}, {10, 10}, {10, 40}, {0, 40}, {0, 30}, {10, 30}, {10, 20}, {0, 20}},
 		},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
 			p := MustParseSVG(tt.p)
 			q := MustParseSVG(tt.q)
-			headA, headB := pathIntersections(p, q)
+			zs := pathIntersections(p, q)
+
 			i := 0
-			for cur := headA; ; cur = cur.nextA {
-				test.T(t, cur.Point, tt.zsP[i])
-				if cur.nextA == headA {
-					break
+			visited := map[int]bool{}
+			for _, z0 := range zs {
+				if !visited[z0.i] {
+					for z := z0; ; {
+						visited[z.i] = true
+						test.T(t, z.Point, tt.zsP[i])
+						i++
+						z = z.nextA
+						if z.i == z0.i {
+							break
+						}
+					}
 				}
-				i++
 			}
 			i = 0
-			for cur := headB; ; cur = cur.nextB {
-				test.T(t, cur.Point, tt.zsQ[i])
-				if cur.nextB == headB {
-					break
+			visited = map[int]bool{}
+			for _, z0 := range zs {
+				if !visited[z0.i] {
+					for z := z0; ; {
+						visited[z.i] = true
+						test.T(t, z.Point, tt.zsQ[i])
+						i++
+						z = z.nextB
+						if z.i == z0.i {
+							break
+						}
+					}
 				}
-				i++
 			}
 		})
 	}
@@ -328,7 +343,14 @@ func TestPathCut(t *testing.T) {
 		p, q   string
 		ps, qs []string
 	}{
-		{"L10 0L5 10z", "M0 5L10 5L5 15z", []string{"M7.5 5L5 10L2.5 5", "M2.5 5L0 0L10 0L7.5 5"}, []string{"M2.5 5L7.5 5", "M7.5 5L10 5L5 15L0 5L2.5 5"}},
+		{"L10 0L5 10z", "M0 5L10 5L5 15z",
+			[]string{"M7.5 5L5 10L2.5 5", "M2.5 5L0 0L10 0L7.5 5"},
+			[]string{"M7.5 5L10 5L5 15L0 5L2.5 5", "M2.5 5L7.5 5"},
+		},
+		{"L2 0L2 2L0 2zM4 0L6 0L6 2L4 2z", "M1 1L5 1L5 3L1 3z",
+			[]string{"M2 1L2 2L1 2", "M1 2L0 2L0 0L2 0L2 1", "M5 2L4 2L4 1", "M4 1L4 0L6 0L6 2L5 2"},
+			[]string{"M2 1L4 1", "M4 1L5 1L5 2", "M5 2L5 3L1 3L1 2", "M1 2L1 1L2 1"},
+		},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {

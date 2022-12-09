@@ -68,16 +68,15 @@ func (p *Path) inside(q *Path) bool {
 // Contains returns true if path q is contained within path p, i.e. path q is inside path p and both paths have no intersections (but may touch).
 func (p *Path) Contains(q *Path) bool {
 	if q.inside(p) {
-		headA, _ := pathIntersections(p, q)
-		return headA == nil
+		return len(pathIntersections(p, q)) == 0
 	}
 	return false
 }
 
 // And returns the boolean path operation of path p and q.
 func (p *Path) And(q *Path) *Path {
-	headA, _ := pathIntersections(p, q)
-	if headA == nil {
+	zs := pathIntersections(p, q)
+	if len(zs) == 0 {
 		// paths are not intersecting
 		if p.inside(q) {
 			return p
@@ -90,13 +89,14 @@ func (p *Path) And(q *Path) *Path {
 	r := &Path{}
 	visited := map[int]bool{}
 	ccwA, ccwB := p.CCW(), q.CCW()
-	for z0 := headA; ; z0 = z0.nextA {
+	for _, z0 := range zs {
 		if !visited[z0.i] {
 			onB := false
 			for z := z0; ; {
 				visited[z.i] = true
 				if !onB {
 					if ccwA == z.BintoA() {
+						// TODO: don't join between subpaths
 						r = r.Join(z.b)
 						z = z.nextB
 					} else {
@@ -112,15 +112,12 @@ func (p *Path) And(q *Path) *Path {
 						z = z.nextA
 					}
 				}
-				if z == z0 {
+				if z.i == z0.i {
 					break
 				}
 				onB = !onB
 			}
 			r.Close()
-		}
-		if z0.nextA == headA {
-			break
 		}
 	}
 	return r
@@ -128,8 +125,8 @@ func (p *Path) And(q *Path) *Path {
 
 // Or returns the boolean path operation of path p and q.
 func (p *Path) Or(q *Path) *Path {
-	headA, _ := pathIntersections(p, q)
-	if headA == nil {
+	zs := pathIntersections(p, q)
+	if len(zs) == 0 {
 		// paths are not intersecting
 		if p.inside(q) {
 			return q
@@ -142,7 +139,7 @@ func (p *Path) Or(q *Path) *Path {
 	r := &Path{}
 	visited := map[int]bool{}
 	ccwA, ccwB := p.CCW(), q.CCW()
-	for z0 := headA; ; z0 = z0.nextA {
+	for _, z0 := range zs {
 		if !visited[z0.i] {
 			onB := false
 			for z := z0; ; {
@@ -164,15 +161,12 @@ func (p *Path) Or(q *Path) *Path {
 						z = z.prevA
 					}
 				}
-				if z == z0 {
+				if z.i == z0.i {
 					break
 				}
 				onB = !onB
 			}
 			r.Close()
-		}
-		if z0.nextA == headA {
-			break
 		}
 	}
 	return r
@@ -180,8 +174,8 @@ func (p *Path) Or(q *Path) *Path {
 
 // Xor returns the boolean path operation of path p and q.
 func (p *Path) Xor(q *Path) *Path {
-	headA, _ := pathIntersections(p, q)
-	if headA == nil {
+	zs := pathIntersections(p, q)
+	if len(zs) == 0 {
 		// paths are not intersecting
 		pInQ := p.inside(q)
 		qInP := q.inside(p)
@@ -198,7 +192,7 @@ func (p *Path) Xor(q *Path) *Path {
 	r := &Path{}
 	visited := map[int]bool{}
 	ccwA, ccwB := p.CCW(), q.CCW()
-	for z0 := headA; ; z0 = z0.nextA {
+	for _, z0 := range zs {
 		if !visited[z0.i] {
 			for _, direction := range []bool{true, false} {
 				onB := false
@@ -221,7 +215,7 @@ func (p *Path) Xor(q *Path) *Path {
 							z = z.prevA
 						}
 					}
-					if z == z0 {
+					if z.i == z0.i {
 						break
 					}
 					onB = !onB
@@ -229,17 +223,14 @@ func (p *Path) Xor(q *Path) *Path {
 				r.Close()
 			}
 		}
-		if z0.nextA == headA {
-			break
-		}
 	}
 	return r
 }
 
 // Not returns the boolean path operation of path p and q.
 func (p *Path) Not(q *Path) *Path {
-	headA, _ := pathIntersections(p, q)
-	if headA == nil {
+	zs := pathIntersections(p, q)
+	if len(zs) == 0 {
 		// paths are not intersecting
 		pInQ := p.inside(q)
 		qInP := q.inside(p)
@@ -256,7 +247,7 @@ func (p *Path) Not(q *Path) *Path {
 	r := &Path{}
 	visited := map[int]bool{}
 	ccwA, ccwB := p.CCW(), q.CCW()
-	for z0 := headA; ; z0 = z0.nextA {
+	for _, z0 := range zs {
 		if !visited[z0.i] {
 			onB := false
 			for z := z0; ; {
@@ -278,15 +269,12 @@ func (p *Path) Not(q *Path) *Path {
 						z = z.prevA
 					}
 				}
-				if z == z0 {
+				if z.i == z0.i {
 					break
 				}
 				onB = !onB
 			}
 			r.Close()
-		}
-		if z0.nextA == headA {
-			break
 		}
 	}
 	return r
@@ -294,18 +282,35 @@ func (p *Path) Not(q *Path) *Path {
 
 // Cut returns the parts of path p and path q cut by the other at intersections.
 func (p *Path) Cut(q *Path) ([]*Path, []*Path) {
+	zs := pathIntersections(p, q)
+	if len(zs) == 0 {
+		return []*Path{p}, []*Path{q}
+	}
 	ps, qs := []*Path{}, []*Path{}
-	headA, headB := pathIntersections(p, q)
-	for z := headA; ; z = z.nextA {
-		ps = append(ps, z.a)
-		if z.nextA == headA {
-			break
+	visited := map[int]bool{}
+	for _, z0 := range zs {
+		if !visited[z0.i] {
+			for z := z0; ; {
+				visited[z.i] = true
+				ps = append(ps, z.a)
+				z = z.nextA
+				if z.i == z0.i {
+					break
+				}
+			}
 		}
 	}
-	for z := headB; ; z = z.nextB {
-		qs = append(qs, z.b)
-		if z.nextB == headB {
-			break
+	visited = map[int]bool{}
+	for _, z0 := range zs {
+		if !visited[z0.i] {
+			for z := z0; ; {
+				visited[z.i] = true
+				qs = append(qs, z.b)
+				z = z.nextB
+				if z.i == z0.i {
+					break
+				}
+			}
 		}
 	}
 	return ps, qs
@@ -321,144 +326,151 @@ type pathIntersection struct {
 	a, b *Path
 }
 
-func (head *pathIntersection) String() string {
-	i := 0
-	sb := strings.Builder{}
-	fmt.Fprintf(&sb, "Intersections on A:\n")
-	for z := head; ; z = z.nextA {
-		fmt.Fprintf(&sb, "%v %v %v\n", i, z.intersection, z.a)
-		if z.nextA == head {
-			break
-		}
-		i++
-	}
-	fmt.Fprintf(&sb, "Intersections on B:\n")
-	for z := head; ; z = z.nextB {
-		fmt.Fprintf(&sb, "%v %v %v\n", i, z.intersection, z.b)
-		if z.nextB == head {
-			break
-		}
-		i++
-	}
-	return sb.String()
+func (z *pathIntersection) String() string {
+	return fmt.Sprintf("%v %v nextA=%v nextB=%v", z.i, z.intersection, z.nextA.i, z.nextB.i)
 }
 
 // get intersections for paths p and q sorted for both
-func pathIntersections(p, q *Path) (*pathIntersection, *pathIntersection) {
-	zs := p.Intersections(q)
-	if len(zs) == 0 {
-		return nil, nil
-	} else if len(zs)%2 != 0 {
-		panic("len(zs)%2 != 0")
+func pathIntersections(p, q *Path) []*pathIntersection {
+	Zs := p.Intersections(q)
+	if len(Zs) == 0 {
+		return nil
+	} else if len(Zs)%2 != 0 {
+		panic("number of intersections must be even")
 	}
 
-	// build linked list for path P
-	headA := &pathIntersection{
-		intersection: zs[0],
-		a:            &Path{},
-		b:            &Path{},
-	}
-	prevA := headA
-	list := []*pathIntersection{headA}
-	for i, z := range zs[1:] {
-		nextA := &pathIntersection{
-			i:            i + 1,
+	zs := make([]*pathIntersection, len(Zs))
+	for i, z := range Zs {
+		zs[i] = &pathIntersection{
+			i:            i,
 			intersection: z,
-			prevA:        prevA,
 			a:            &Path{},
 			b:            &Path{},
 		}
-		list = append(list, nextA)
-		prevA.nextA = nextA
-		prevA = nextA
 	}
-	headA.prevA = prevA
-	prevA.nextA = headA
-
-	// build linked list for path Q
-	idxs := zs.swappedArgSort() // sorted indices for intersections of q by p
-	for idxQ, idxP := range idxs {
-		if 0 < idxQ {
-			list[idxP].prevB = list[idxs[idxQ-1]]
-		}
-		if idxQ < len(idxs)-1 {
-			list[idxP].nextB = list[idxs[idxQ+1]]
-		}
-	}
-	list[idxs[0]].prevB = list[idxs[len(idxs)-1]]
-	list[idxs[len(idxs)-1]].nextB = list[idxs[0]]
-	headB := list[idxs[0]]
 
 	// cut path segments for path P
-	seg := 0
-	z := headA
-	var first *Path
+	seg := 0      // index into path segments
+	j, j0 := 0, 0 // index into intersections
+	var first, cur []float64
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
-		if cmd == CloseCmd {
+		if cmd == MoveToCmd {
+			if first != nil {
+				// there were intersections in the last subpath
+				zs[j-1].a.d = append(cur, first[4:]...)
+				zs[j-1].nextA = zs[j0]
+				zs[j0].prevA = zs[j-1]
+			}
+			first, cur = nil, nil
+			j0 = j
+		} else if cmd == CloseCmd {
 			p.d[i], p.d[i+3] = LineToCmd, LineToCmd
 		}
-		if seg == z.SegA {
+		if j < len(zs) && seg == zs[j].SegA {
 			// segment has an intersection, cut it up and append first part to prev intersection
-			p0, p1 := cutPathSegment(Point{p.d[i-3], p.d[i-2]}, p.d[i:i+cmdLen(cmd)], z.TA)
-			z.prevA.a.d = append(z.prevA.a.d, p0.d[4:]...)
+			p0, p1 := cutPathSegment(Point{p.d[i-3], p.d[i-2]}, p.d[i:i+cmdLen(cmd)], zs[j].TA)
+			cur = append(cur, p0.d[4:]...)
 
-			for z.nextA != headA && seg == z.nextA.SegA {
+			for j+1 < len(zs) && seg == zs[j+1].SegA {
 				// next cut is on the same segment, find new t after the first cut and set path
-				z = z.nextA
-				t := (z.TA - z.prevA.TA) / (1.0 - z.prevA.TA)
+				if first == nil {
+					first = cur // take aside the path to the first intersection to later append it
+				} else {
+					zs[j-1].a.d = cur
+					zs[j-1].nextA = zs[j]
+					zs[j].prevA = zs[j-1]
+				}
+				j++
+				t := (zs[j].TA - zs[j-1].TA) / (1.0 - zs[j-1].TA)
 				p0, p1 = cutPathSegment(Point{p1.d[1], p1.d[2]}, p1.d[4:], t)
-				z.prevA.a = p0
+				cur = p0.d
 			}
-			if z.nextA == headA {
-				first = z.a // take aside the path to the first intersection to later append it
+			if first == nil {
+				first = cur // take aside the path to the first intersection to later append it
+			} else {
+				zs[j-1].a.d = cur
+				zs[j-1].nextA = zs[j]
+				zs[j].prevA = zs[j-1]
 			}
-			z.a = p1
-			z = z.nextA
+			cur = p1.d
+			j++
 		} else {
 			// segment has no intersection, add to previous intersection
-			z.prevA.a.d = append(z.prevA.a.d, p.d[i:i+cmdLen(cmd)]...)
+			cur = append(cur, p.d[i:i+cmdLen(cmd)]...)
 		}
 		i += cmdLen(cmd)
 		seg++
 	}
-	headA.prevA.a.d = append(headA.prevA.a.d, first.d[4:]...)
+	if first != nil {
+		zs[len(zs)-1].a.d = append(cur, first[4:]...)
+		zs[len(zs)-1].nextA = zs[j0]
+		zs[j0].prevA = zs[len(zs)-1]
+	}
+
+	// build index map for intersections on Q to P (zs is sorted for P)
+	idxs := Zs.swappedArgSort() // sorted indices for intersections of q by p
 
 	// cut path segments for path Q
-	seg = 0
-	z = headB
+	seg = 0      // index into path segments
+	j, j0 = 0, 0 // index into intersections
+	first, cur = nil, nil
 	for i := 0; i < len(q.d); {
 		cmd := q.d[i]
-		if cmd == CloseCmd {
+		if cmd == MoveToCmd {
+			if first != nil {
+				// there were intersections in the last subpath
+				zs[idxs[j-1]].b.d = append(cur, first[4:]...)
+				zs[idxs[j-1]].nextB = zs[idxs[j0]]
+				zs[idxs[j0]].prevB = zs[idxs[j-1]]
+			}
+			first, cur = nil, nil
+			j0 = j
+		} else if cmd == CloseCmd {
 			q.d[i], q.d[i+3] = LineToCmd, LineToCmd
 		}
-		if seg == z.SegB {
+		if j < len(zs) && seg == zs[idxs[j]].SegB {
 			// segment has an intersection, cut it up and append first part to prev intersection
-			p0, p1 := cutPathSegment(Point{q.d[i-3], q.d[i-2]}, q.d[i:i+cmdLen(cmd)], z.TB)
-			z.prevB.b.d = append(z.prevB.b.d, p0.d[4:]...)
+			p0, p1 := cutPathSegment(Point{q.d[i-3], q.d[i-2]}, q.d[i:i+cmdLen(cmd)], zs[idxs[j]].TB)
+			cur = append(cur, p0.d[4:]...)
 
-			for z.nextB != headB && seg == z.nextB.SegB {
+			for j+1 < len(zs) && seg == zs[idxs[j+1]].SegB {
 				// next cut is on the same segment, find new t after the first cut and set path
-				z = z.nextB
-				t := (z.TB - z.prevB.TB) / (1.0 - z.prevB.TB)
+				if first == nil {
+					first = cur // take aside the path to the first intersection to later append it
+				} else {
+					zs[idxs[j-1]].b.d = cur
+					zs[idxs[j-1]].nextB = zs[idxs[j]]
+					zs[idxs[j]].prevB = zs[idxs[j-1]]
+				}
+				j++
+				t := (zs[idxs[j]].TB - zs[idxs[j-1]].TB) / (1.0 - zs[idxs[j-1]].TB)
 				p0, p1 = cutPathSegment(Point{p1.d[1], p1.d[2]}, p1.d[4:], t)
-				z.prevB.b = p0
+				cur = p0.d
 			}
-			if z.nextB == headB {
-				first = z.b // take aside the path to the first intersection to later append it
+			if first == nil {
+				first = cur // take aside the path to the first intersection to later append it
+			} else {
+				zs[idxs[j-1]].b.d = cur
+				zs[idxs[j-1]].nextB = zs[idxs[j]]
+				zs[idxs[j]].prevB = zs[idxs[j-1]]
 			}
-			z.b = p1
-			z = z.nextB
+			cur = p1.d
+			j++
 		} else {
 			// segment has no intersection, add to previous intersection
-			z.prevB.b.d = append(z.prevB.b.d, q.d[i:i+cmdLen(cmd)]...)
+			cur = append(cur, q.d[i:i+cmdLen(cmd)]...)
 		}
 		i += cmdLen(cmd)
 		seg++
 	}
-	headB.prevB.b.d = append(headB.prevB.b.d, first.d[4:]...)
+	if first != nil {
+		zs[idxs[len(zs)-1]].b.d = append(cur, first[4:]...)
+		zs[idxs[len(zs)-1]].nextB = zs[idxs[j0]]
+		zs[idxs[j0]].prevB = zs[idxs[len(zs)-1]]
+	}
 
-	return headA, headB
+	return zs
 }
 
 func cutPathSegment(start Point, d []float64, t float64) (*Path, *Path) {
@@ -749,6 +761,14 @@ func (zs intersections) HasTangent() bool {
 		}
 	}
 	return false
+}
+
+func (zs intersections) String() string {
+	sb := strings.Builder{}
+	for i, z := range zs {
+		fmt.Fprintf(&sb, "%v %v\n", i, z)
+	}
+	return sb.String()
 }
 
 // sort indices of intersections for curve B
