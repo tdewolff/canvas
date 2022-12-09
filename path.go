@@ -119,7 +119,7 @@ func (p *Path) Len() int {
 func (p *Path) Append(q *Path) *Path {
 	if q == nil || q.Empty() {
 		return p
-	} else if p.Empty() {
+	} else if p == nil || p.Empty() {
 		return q
 	}
 	return &Path{append(p.d, q.d...)}
@@ -129,7 +129,7 @@ func (p *Path) Append(q *Path) *Path {
 func (p *Path) Join(q *Path) *Path {
 	if q == nil || q.Empty() {
 		return p
-	} else if p.Empty() {
+	} else if p == nil || p.Empty() {
 		return q
 	}
 
@@ -137,30 +137,30 @@ func (p *Path) Join(q *Path) *Path {
 		return &Path{append(p.d, q.d...)}
 	}
 
-	q.d = q.d[cmdLen(MoveToCmd):]
+	d := q.d[cmdLen(MoveToCmd):]
 
 	// add the first command through the command functions to use the optimization features
 	// q is not empty, so starts with a MoveTo followed by other commands
-	cmd := q.d[0]
+	cmd := d[0]
 	switch cmd {
 	case MoveToCmd:
-		p.MoveTo(q.d[1], q.d[2])
+		p.MoveTo(d[1], d[2])
 	case LineToCmd:
-		p.LineTo(q.d[1], q.d[2])
+		p.LineTo(d[1], d[2])
 	case QuadToCmd:
-		p.QuadTo(q.d[1], q.d[2], q.d[3], q.d[4])
+		p.QuadTo(d[1], d[2], d[3], d[4])
 	case CubeToCmd:
-		p.CubeTo(q.d[1], q.d[2], q.d[3], q.d[4], q.d[5], q.d[6])
+		p.CubeTo(d[1], d[2], d[3], d[4], d[5], d[6])
 	case ArcToCmd:
-		large, sweep := toArcFlags(q.d[4])
-		p.ArcTo(q.d[1], q.d[2], q.d[3]*180.0/math.Pi, large, sweep, q.d[5], q.d[6])
+		large, sweep := toArcFlags(d[4])
+		p.ArcTo(d[1], d[2], d[3]*180.0/math.Pi, large, sweep, d[5], d[6])
 	case CloseCmd:
 		p.Close()
 	}
 
 	i := len(p.d)
 	end := p.StartPos()
-	p = &Path{append(p.d, q.d[cmdLen(cmd):]...)}
+	p = &Path{append(p.d, d[cmdLen(cmd):]...)}
 
 	// repair close commands
 	for i < len(p.d) {
