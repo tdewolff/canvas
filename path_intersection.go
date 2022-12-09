@@ -588,7 +588,20 @@ func collisions(p, q *Path, keepTangents bool) intersections {
 					z1 := zs[j]
 					// either TA or TB must be 0.0, while ignoring connected segment endpoints that are not both start or end points (like above)
 					// note that B may be in reversed order, which is why we check it against z0
-					if z1.Tangent && (Equal(z1.TA, 0.0) && !Equal(z1.TB, z0.TB) || !Equal(z1.TA, 1.0) && Equal(z1.TB, 1.0-z0.TB)) {
+					a, b := 0, 0
+					if Equal(z0.TA, 1.0) {
+						a++
+					}
+					if Equal(z0.TB, 1.0) || Equal(z0.TB, 0.0) {
+						a++
+					}
+					if Equal(z1.TA, 0.0) {
+						b++
+					}
+					if (Equal(z1.TB, 1.0) || Equal(z1.TB, 0.0)) && !Equal(z1.TB, z0.TB) {
+						b++
+					}
+					if z1.Tangent && a == b {
 						if z0.BintoA() != z1.BintoA() {
 							// no intersection, paths only touch on segment ends
 							if !keepTangents {

@@ -229,13 +229,21 @@ func TestIntersections(t *testing.T) {
 		{"L10 0L5 10z", "M0 -5L10 -5A5 5 0 0 1 0 -5", intersections{}},
 
 		// intersection on one segment endpoint
-		{"L0 10", "M5 0L0 5L5 5", intersections{}},
-		{"L0 10", "M5 0L0 5L-5 5", intersections{
-			{Point{0.0, 5.0}, 1, 2, 0.5, 0.0, 0.5 * math.Pi, math.Pi, false},
+		{"L0 15", "M5 0L0 5L5 5", intersections{}},
+		{"L0 15", "M5 0L0 5L-5 5", intersections{
+			{Point{0.0, 5.0}, 1, 2, 1.0 / 3.0, 0.0, 0.5 * math.Pi, math.Pi, false},
 		}},
-		{"L0 10", "M5 5L0 5L5 0", intersections{}},
-		{"L0 10", "M-5 5L0 5L5 0", intersections{
-			{Point{0.0, 5.0}, 1, 2, 0.5, 0.0, 0.5 * math.Pi, 1.75 * math.Pi, false},
+		{"L0 15", "M5 5L0 5L5 0", intersections{}},
+		{"L0 15", "M-5 5L0 5L5 0", intersections{
+			{Point{0.0, 5.0}, 1, 2, 1.0 / 3.0, 0.0, 0.5 * math.Pi, 1.75 * math.Pi, false},
+		}},
+		{"M5 0L0 5L5 5", "L0 15", intersections{}},
+		{"M5 0L0 5L-5 5", "L0 15", intersections{
+			{Point{0.0, 5.0}, 2, 1, 0.0, 1.0 / 3.0, math.Pi, 0.5 * math.Pi, false},
+		}},
+		{"M5 5L0 5L5 0", "L0 15", intersections{}},
+		{"M-5 5L0 5L5 0", "L0 15", intersections{
+			{Point{0.0, 5.0}, 2, 1, 0.0, 1.0 / 3.0, 1.75 * math.Pi, 0.5 * math.Pi, false},
 		}},
 
 		// intersection on two segment endpoint
