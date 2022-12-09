@@ -86,17 +86,17 @@ func (p *Path) And(q *Path) *Path {
 		return &Path{} // paths have no overlap
 	}
 
-	r := &Path{}
+	R := &Path{}
 	visited := map[int]bool{}
 	ccwA, ccwB := p.CCW(), q.CCW()
 	for _, z0 := range zs {
 		if !visited[z0.i] {
-			onB := false
+			r := &Path{}
+			onB := ccwB == z0.BintoA()
 			for z := z0; ; {
 				visited[z.i] = true
 				if !onB {
 					if ccwA == z.BintoA() {
-						// TODO: don't join between subpaths
 						r = r.Join(z.b)
 						z = z.nextB
 					} else {
@@ -118,9 +118,10 @@ func (p *Path) And(q *Path) *Path {
 				onB = !onB
 			}
 			r.Close()
+			R = R.Append(r)
 		}
 	}
-	return r
+	return R
 }
 
 // Or returns the boolean path operation of path p and q.
@@ -136,12 +137,13 @@ func (p *Path) Or(q *Path) *Path {
 		return p.Append(q) // paths have no overlap
 	}
 
-	r := &Path{}
+	R := &Path{}
 	visited := map[int]bool{}
 	ccwA, ccwB := p.CCW(), q.CCW()
 	for _, z0 := range zs {
 		if !visited[z0.i] {
-			onB := false
+			r := &Path{}
+			onB := ccwB == z0.BintoA()
 			for z := z0; ; {
 				visited[z.i] = true
 				if !onB {
@@ -167,9 +169,10 @@ func (p *Path) Or(q *Path) *Path {
 				onB = !onB
 			}
 			r.Close()
+			R = R.Append(r)
 		}
 	}
-	return r
+	return R
 }
 
 // Xor returns the boolean path operation of path p and q.
@@ -189,13 +192,14 @@ func (p *Path) Xor(q *Path) *Path {
 		return p.Append(q) // paths have no overlap
 	}
 
-	r := &Path{}
+	R := &Path{}
 	visited := map[int]bool{}
 	ccwA, ccwB := p.CCW(), q.CCW()
 	for _, z0 := range zs {
 		if !visited[z0.i] {
 			for _, direction := range []bool{true, false} {
-				onB := false
+				r := &Path{}
+				onB := ccwB == z0.BintoA()
 				for z := z0; ; {
 					visited[z.i] = true
 					if !onB {
@@ -221,10 +225,11 @@ func (p *Path) Xor(q *Path) *Path {
 					onB = !onB
 				}
 				r.Close()
+				R = R.Append(r)
 			}
 		}
 	}
-	return r
+	return R
 }
 
 // Not returns the boolean path operation of path p and q.
@@ -244,12 +249,13 @@ func (p *Path) Not(q *Path) *Path {
 		return p // paths have no overlap
 	}
 
-	r := &Path{}
+	R := &Path{}
 	visited := map[int]bool{}
 	ccwA, ccwB := p.CCW(), q.CCW()
 	for _, z0 := range zs {
 		if !visited[z0.i] {
-			onB := false
+			r := &Path{}
+			onB := ccwB == z0.BintoA()
 			for z := z0; ; {
 				visited[z.i] = true
 				if !onB {
@@ -275,9 +281,10 @@ func (p *Path) Not(q *Path) *Path {
 				onB = !onB
 			}
 			r.Close()
+			R = R.Append(r)
 		}
 	}
-	return r
+	return R
 }
 
 // Cut returns the parts of path p and path q cut by the other at intersections.
