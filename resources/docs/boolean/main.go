@@ -10,12 +10,12 @@ var font *canvas.FontFamily
 // Shapes from http://assets.paperjs.org/boolean/
 func main() {
 	font = canvas.NewFontFamily("latin")
-	if err := font.LoadFontFile("/usr/share/fonts/TTF/DejaVuSerif.ttf", canvas.FontRegular); err != nil {
+	if err := font.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 
 	W := 74.0
-	H := 200.0
+	H := 182.0
 
 	c := canvas.New(W, H)
 	ctx := canvas.NewContext(c)
@@ -45,14 +45,21 @@ func main() {
 	bezier = bezier.Transform(canvas.Identity.Scale(0.05, -0.05).Translate(-100.0, -100.0))
 	draw(ctx, H-145.0, "Cubic beziers", bezier.Translate(5.0, 5.0), bezier.Scale(-1.0, 1.0).Translate(5.0, 5.0))
 
-	a, _, _ := font.Face(20.0, canvas.Black, canvas.FontRegular, canvas.FontNormal).ToPath("a")
-	p := canvas.Circle(3.0).Translate(6.0, 5.0)
+	var p *canvas.Path
+	a, _, _ := font.Face(40.0, canvas.Black, canvas.FontRegular, canvas.FontNormal).ToPath("a")
+	p = canvas.Circle(3.0).Translate(6.0, 5.0)
+	p = p.Append(canvas.Circle(1.5).Reverse().Translate(8.0, 7.0))
 	p = p.Append(canvas.Circle(1.0).Translate(2.0, 8.0))
-	draw(ctx, H-157.0, "Holes and islands 1", a, p)
+	//draw(ctx, H-157.0, "Holes and islands 1", a.Translate(1.0,1.0), p)
+
+	p = canvas.Circle(5.0).Translate(5.0, 5.0)
+	p = p.Append(canvas.Circle(3.0).Reverse().Translate(5.0, 5.0))
+	p = p.Append(canvas.Circle(1.5).Translate(5.0, 5.0))
+	draw(ctx, H-169.0, "Holes and islands 2", a.Translate(0.5, 1.0), p)
 
 	p = canvas.Rectangle(5.0, 9.0)
 	p = p.Append(canvas.Rectangle(3.0, 6.0).Translate(0.5, 0.5).Reverse())
-	draw(ctx, H-169.0, "Holes and islands 4", canvas.Rectangle(5.5, 6.0).Translate(1.0, 1.0), p.Translate(5.0, 0.0))
+	draw(ctx, H-181.0, "Holes and islands 3", canvas.Rectangle(5.5, 6.0).Translate(1.0, 1.0), p.Translate(5.0, 0.0))
 
 	renderers.Write("boolean.png", c, canvas.DPMM(20.0))
 }
@@ -76,6 +83,25 @@ func draw(ctx *canvas.Context, y float64, title string, p, q *canvas.Path) {
 	ctx.SetStrokeWidth(0.1)
 	ctx.DrawPath(3.0, y, p)
 	ctx.DrawPath(3.0, y, q)
+
+	//ps, qs := p.Cut(q)
+	//for i, p := range ps {
+	//	if i%2 == 0 {
+	//		ctx.SetStrokeColor(canvas.Green)
+	//	} else {
+	//		ctx.SetStrokeColor(canvas.Red)
+	//	}
+	//	ctx.DrawPath(15.0, y, p)
+	//}
+	//for i, q := range qs {
+	//	if i%2 == 0 {
+	//		ctx.SetStrokeColor(canvas.Green)
+	//	} else {
+	//		ctx.SetStrokeColor(canvas.Red)
+	//	}
+	//	ctx.DrawPath(27.0, y, q)
+	//}
+	//return
 
 	ctx.SetFillColor(canvas.Transparent)
 	ctx.SetStrokeColor(canvas.Hex("#CCC"))
