@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// Paths are cut at their intersections where each subpath is paired between two intersections going "forward" on both paths. This will give a list of subpath pairs between which we should choose the right subpath depending on the operation. There can be circular loops when choosing subpaths based on a condition, so we should take care to visit all intersections.
+// Paths are cut at the intersections between P and Q. The intersections are put into a doubly linked list with paths going forward and backward over P and Q. Depending on the boolean operation we should choose the right cut. Note that there can be circular loops when choosing cuts based on a condition, so we should take care to visit all intersections. Additionally, if path P or path Q contain subpaths with a different winding, we will first combine the subpaths so to remove all subpath intersections.
 
 // get RHS normal vector at path segment extreme
 func segmentNormal(start Point, d []float64, t float64) Point {
@@ -50,7 +50,7 @@ func (p *Path) interiorPoint() Point {
 	n1 := segmentNormal(p1, p.d[i:], 1.0)
 
 	n := n0.Add(n1).Norm(Epsilon)
-	if p.CCW() {
+	if p.CCW() { // TODO what about subpaths
 		n = n.Neg()
 	}
 	return p0.Add(n)
@@ -75,6 +75,10 @@ func (p *Path) Contains(q *Path) bool {
 
 // And returns the boolean path operation of path p and q.
 func (p *Path) And(q *Path) *Path {
+	// remove subpath intersections
+	p = p.Combine()
+	q = q.Combine()
+
 	zs := pathIntersections(p, q)
 	if len(zs) == 0 {
 		// paths are not intersecting
@@ -85,47 +89,15 @@ func (p *Path) And(q *Path) *Path {
 		}
 		return &Path{} // paths have no overlap
 	}
-
-	R := &Path{}
-	visited := map[int]bool{}
-	ccwA, ccwB := p.CCW(), q.CCW()
-	for _, z0 := range zs {
-		if !visited[z0.i] {
-			r := &Path{}
-			onB := ccwB == z0.BintoA()
-			for z := z0; ; {
-				visited[z.i] = true
-				if !onB {
-					if ccwA == z.BintoA() {
-						r = r.Join(z.b)
-						z = z.nextB
-					} else {
-						r = r.Join(z.prevB.b.Reverse())
-						z = z.prevB
-					}
-				} else {
-					if ccwB == z.BintoA() {
-						r = r.Join(z.prevA.a.Reverse())
-						z = z.prevA
-					} else {
-						r = r.Join(z.a)
-						z = z.nextA
-					}
-				}
-				if z.i == z0.i {
-					break
-				}
-				onB = !onB
-			}
-			r.Close()
-			R = R.Append(r)
-		}
-	}
-	return R
+	return boolean(pathOpAnd, zs, p.CCW(), q.CCW())
 }
 
 // Or returns the boolean path operation of path p and q.
 func (p *Path) Or(q *Path) *Path {
+	// remove subpath intersections
+	p = p.Combine()
+	q = q.Combine()
+
 	zs := pathIntersections(p, q)
 	if len(zs) == 0 {
 		// paths are not intersecting
@@ -133,50 +105,20 @@ func (p *Path) Or(q *Path) *Path {
 			return q
 		} else if q.inside(p) {
 			return p
+		} else {
+			return p.Append(q) // paths have no overlap
 		}
-		return p.Append(q) // paths have no overlap
+		return &Path{} // paths have no overlap
 	}
-
-	R := &Path{}
-	visited := map[int]bool{}
-	ccwA, ccwB := p.CCW(), q.CCW()
-	for _, z0 := range zs {
-		if !visited[z0.i] {
-			r := &Path{}
-			onB := ccwB == z0.BintoA()
-			for z := z0; ; {
-				visited[z.i] = true
-				if !onB {
-					if ccwA == z.BintoA() {
-						r = r.Join(z.prevB.b.Reverse())
-						z = z.prevB
-					} else {
-						r = r.Join(z.b)
-						z = z.nextB
-					}
-				} else {
-					if ccwB == z.BintoA() {
-						r = r.Join(z.a)
-						z = z.nextA
-					} else {
-						r = r.Join(z.prevA.a.Reverse())
-						z = z.prevA
-					}
-				}
-				if z.i == z0.i {
-					break
-				}
-				onB = !onB
-			}
-			r.Close()
-			R = R.Append(r)
-		}
-	}
-	return R
+	return boolean(pathOpOr, zs, p.CCW(), q.CCW())
 }
 
 // Xor returns the boolean path operation of path p and q.
 func (p *Path) Xor(q *Path) *Path {
+	// remove subpath intersections
+	p = p.Combine()
+	q = q.Combine()
+
 	zs := pathIntersections(p, q)
 	if len(zs) == 0 {
 		// paths are not intersecting
@@ -188,52 +130,20 @@ func (p *Path) Xor(q *Path) *Path {
 			return q.Append(p.Reverse())
 		} else if qInP {
 			return p.Append(q.Reverse())
+		} else {
+			return p.Append(q) // paths have no overlap
 		}
-		return p.Append(q) // paths have no overlap
+		return &Path{} // paths have no overlap
 	}
-
-	R := &Path{}
-	visited := map[int]bool{}
-	ccwA, ccwB := p.CCW(), q.CCW()
-	for _, z0 := range zs {
-		if !visited[z0.i] {
-			for _, direction := range []bool{true, false} {
-				r := &Path{}
-				onB := ccwB == z0.BintoA()
-				for z := z0; ; {
-					visited[z.i] = true
-					if !onB {
-						if direction == (ccwA == z.BintoA()) {
-							r = r.Join(z.b)
-							z = z.nextB
-						} else {
-							r = r.Join(z.prevB.b.Reverse())
-							z = z.prevB
-						}
-					} else {
-						if direction == (ccwB == z.BintoA()) {
-							r = r.Join(z.a)
-							z = z.nextA
-						} else {
-							r = r.Join(z.prevA.a.Reverse())
-							z = z.prevA
-						}
-					}
-					if z.i == z0.i {
-						break
-					}
-					onB = !onB
-				}
-				r.Close()
-				R = R.Append(r)
-			}
-		}
-	}
-	return R
+	return boolean(pathOpXor, zs, p.CCW(), q.CCW())
 }
 
 // Not returns the boolean path operation of path p and q.
 func (p *Path) Not(q *Path) *Path {
+	// remove subpath intersections
+	p = p.Combine()
+	q = q.Combine()
+
 	zs := pathIntersections(p, q)
 	if len(zs) == 0 {
 		// paths are not intersecting
@@ -245,43 +155,120 @@ func (p *Path) Not(q *Path) *Path {
 			return &Path{}
 		} else if qInP {
 			return p.Append(q.Reverse())
+		} else {
+			return p // paths have no overlap
 		}
-		return p // paths have no overlap
+		return &Path{} // paths have no overlap
+	}
+	return boolean(pathOpNot, zs, p.CCW(), q.CCW())
+}
+
+// DivideBy returns division of path p by path q at the intersections.
+func (p *Path) DivideBy(q *Path) ([]*Path, []*Path) {
+	// TODO
+	return nil, nil
+}
+
+// Combine combines the subpaths of path p, removing all intersections between the subpaths (but leaving self-intersections).
+func (p *Path) Combine() *Path {
+	if p.Empty() {
+		return p
+	}
+	ps := p.Split()
+	p = ps[0]
+	for _, q := range ps[1:] {
+		zs := pathIntersections(p, q)
+		ccwA, ccwB := p.CCW(), q.CCW()
+		if ccwA == ccwB {
+			// OR
+			if len(zs) == 0 {
+				// paths are not intersecting
+				if p.inside(q) {
+					p = q
+				} else if q.inside(p) {
+				} else {
+					p = p.Append(q) // paths have no overlap
+				}
+				continue
+			}
+			p = boolean(pathOpOr, zs, ccwA, ccwB)
+		} else {
+			// XOR
+			if len(zs) == 0 {
+				// paths are not intersecting
+				pInQ := p.inside(q)
+				qInP := q.inside(p)
+				if pInQ && qInP {
+					// equal
+				} else {
+					p = p.Append(q)
+				}
+				continue
+			}
+			p = boolean(pathOpXor, zs, ccwA, ccwB)
+		}
+	}
+	return p
+}
+
+type pathOp int
+
+const (
+	pathOpAnd pathOp = iota
+	pathOpOr  pathOp = iota
+	pathOpXor pathOp = iota
+	pathOpNot pathOp = iota
+)
+
+func boolean(op pathOp, zs []*pathIntersection, ccwA, ccwB bool) *Path {
+	directions := []bool{true}
+	startInwards, invertA, invertB := false, false, false
+	if op == pathOpAnd {
+		startInwards, invertA = true, true
+	} else if op == pathOpOr {
+		invertB = true
+	} else if op == pathOpXor {
+		directions = []bool{true, false}
+	} else if op == pathOpNot {
 	}
 
 	R := &Path{}
-	visited := map[int]bool{}
-	ccwA, ccwB := p.CCW(), q.CCW()
+	visited := map[bool]map[int]bool{ // per direction
+		true:  map[int]bool{},
+		false: map[int]bool{},
+	}
 	for _, z0 := range zs {
-		if !visited[z0.i] {
-			r := &Path{}
-			onB := ccwB == z0.BintoA()
-			for z := z0; ; {
-				visited[z.i] = true
-				if !onB {
-					if ccwA == z.BintoA() {
-						r = r.Join(z.b)
-						z = z.nextB
+		for _, direction := range directions {
+			if !visited[direction][z0.i] {
+				r := &Path{}
+				gotoB := startInwards == (ccwB == z0.BintoA())
+				for z := z0; ; {
+					visited[direction][z.i] = true
+					if gotoB {
+						if invertB != direction == (ccwA == z.BintoA()) {
+							r = r.Join(z.b)
+							z = z.nextB
+						} else {
+							r = r.Join(z.prevB.b.Reverse())
+							z = z.prevB
+						}
 					} else {
-						r = r.Join(z.prevB.b.Reverse())
-						z = z.prevB
+						if invertA != direction == (ccwB == z.BintoA()) {
+							r = r.Join(z.a)
+							z = z.nextA
+						} else {
+							r = r.Join(z.prevA.a.Reverse())
+							z = z.prevA
+						}
 					}
-				} else {
-					if ccwB == z.BintoA() {
-						r = r.Join(z.a)
-						z = z.nextA
-					} else {
-						r = r.Join(z.prevA.a.Reverse())
-						z = z.prevA
+					if z.i == z0.i {
+						break
 					}
+					gotoB = !gotoB
 				}
-				if z.i == z0.i {
-					break
-				}
-				onB = !onB
+				r.Close()
+				R = R.Append(r)
 			}
-			r.Close()
-			R = R.Append(r)
 		}
 	}
 	return R
@@ -293,6 +280,7 @@ func (p *Path) Cut(q *Path) ([]*Path, []*Path) {
 	if len(zs) == 0 {
 		return []*Path{p}, []*Path{q}
 	}
+
 	ps, qs := []*Path{}, []*Path{}
 	visited := map[int]bool{}
 	for _, z0 := range zs {
@@ -334,7 +322,7 @@ type pathIntersection struct {
 }
 
 func (z *pathIntersection) String() string {
-	return fmt.Sprintf("%v %v nextA=%v nextB=%v", z.i, z.intersection, z.nextA.i, z.nextB.i)
+	return fmt.Sprintf("%v %v A=[%v→,→%v] B=[%v→,→%v]", z.i, z.intersection, z.prevA.i, z.nextA.i, z.prevB.i, z.nextB.i)
 }
 
 // get intersections for paths p and q sorted for both
@@ -476,7 +464,6 @@ func pathIntersections(p, q *Path) []*pathIntersection {
 		zs[idxs[len(zs)-1]].nextB = zs[idxs[j0]]
 		zs[idxs[j0]].prevB = zs[idxs[len(zs)-1]]
 	}
-
 	return zs
 }
 
@@ -733,7 +720,7 @@ func (z intersection) Equals(o intersection) bool {
 }
 
 func (z intersection) String() string {
-	s := fmt.Sprintf("pos={%g,%g} seg={%d,%d} t={%g,%g} dir={%g°,%g°}", z.Point.X, z.Point.Y, z.SegA, z.SegB, z.TA, z.TB, angleNorm(z.DirA)*180.0/math.Pi, angleNorm(z.DirB)*180.0/math.Pi)
+	s := fmt.Sprintf("pos={%.3g,%.3g} seg={%d,%d} t={%.3g,%.3g} dir={%.3g°,%.3g°}", z.Point.X, z.Point.Y, z.SegA, z.SegB, z.TA, z.TB, angleNorm(z.DirA)*180.0/math.Pi, angleNorm(z.DirB)*180.0/math.Pi)
 	if z.Tangent {
 		s += " tangent"
 	}

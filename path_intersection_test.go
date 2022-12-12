@@ -376,16 +376,39 @@ func TestPathCut(t *testing.T) {
 	}
 }
 
+func TestPathCombine(t *testing.T) {
+	var tts = []struct {
+		p string
+		r string
+	}{
+		{"L10 0L10 10L0 10zM5 5L15 5L15 15L5 15z", "M10 5L15 5L15 15L5 15L5 10L0 10L0 0L10 0z"},
+		{"L10 0L10 10L0 10zM5 5L5 15L15 15L15 5z", "M10 5L5 5L5 10L0 10L0 0L10 0zM10 5L15 5L15 15L5 15L5 10L10 10z"},
+	}
+	for _, tt := range tts {
+		t.Run(fmt.Sprint(tt.p), func(t *testing.T) {
+			p := MustParseSVG(tt.p)
+			test.T(t, p.Combine(), MustParseSVG(tt.r))
+		})
+	}
+}
+
 func TestPathAnd(t *testing.T) {
 	var tts = []struct {
 		p, q string
 		r    string
 	}{
 		// overlap
-		{"L10 0L5 10z", "M0 5L10 5L5 15z", "M7.5 5L2.5 5L5 10z"},
-		{"L10 0L5 10z", "M0 5L5 15L10 5z", "M7.5 5L2.5 5L5 10z"},
-		{"L5 10L10 0z", "M0 5L10 5L5 15z", "M2.5 5L7.5 5L5 10z"},
-		{"L5 10L10 0z", "M0 5L5 15L10 5z", "M2.5 5L7.5 5L5 10z"},
+		{"L10 0L5 10z", "M0 5L10 5L5 15z", "M7.5 5L5 10L2.5 5z"},
+		{"L10 0L5 10z", "M0 5L5 15L10 5z", "M7.5 5L5 10L2.5 5z"},
+		{"L5 10L10 0z", "M0 5L10 5L5 15z", "M2.5 5L5 10L7.5 5z"},
+		{"L5 10L10 0z", "M0 5L5 15L10 5z", "M2.5 5L5 10L7.5 5z"},
+
+		// touching edges
+		{"L2 0L2 2L0 2z", "M2 0L4 0L4 2L2 2z", ""},
+		{"L2 0L2 2L0 2z", "M2 1L4 1L4 3L2 3z", ""},
+
+		// subpath winding
+		{"M1 0L3 0L3 4L1 4z", "M0 1L4 1L4 3L0 3zM2 2L2 5L5 5L5 2z", "M3 1L3 2L2 2L2 3L1 3L1 1zM3 3L3 4L2 4L2 3z"},
 
 		// no overlap
 		{"L10 0L5 10z", "M0 10L10 10L5 20z", ""},
@@ -421,6 +444,13 @@ func TestPathOr(t *testing.T) {
 		{"L5 10L10 0z", "M0 5L10 5L5 15z", "M2.5 5L0 5L5 15L10 5L7.5 5L10 0L0 0z"},
 		{"L5 10L10 0z", "M0 5L5 15L10 5z", "M2.5 5L0 5L5 15L10 5L7.5 5L10 0L0 0z"},
 
+		// touching edges
+		{"L2 0L2 2L0 2z", "M2 0L4 0L4 2L2 2z", "L2 0L2 2L0 2zM2 0L4 0L4 2L2 2z"},
+		{"L2 0L2 2L0 2z", "M2 1L4 1L4 3L2 3z", "L2 0L2 2L0 2zM2 1L4 1L4 3L2 3z"},
+
+		// subpath winding
+		{"M1 0L3 0L3 4L1 4z", "M0 1L4 1L4 3L0 3zM2 2L2 5L5 5L5 2z", "M3 1L4 1L4 2L3 2L3 3L4 3L4 2L5 2L5 5L2 5L2 4L1 4L1 3L0 3L0 1L1 1L1 0L3 0z"},
+
 		// no overlap
 		{"L10 0L5 10z", "M0 10L10 10L5 20z", "L10 0L5 10zM0 10L10 10L5 20z"},
 
@@ -451,6 +481,13 @@ func TestPathXor(t *testing.T) {
 		{"L10 0L5 10z", "M0 5L5 15L10 5z", "M7.5 5L2.5 5L0 0L10 0zM7.5 5L10 5L5 15L0 5L2.5 5L5 10z"},
 		{"L5 10L10 0z", "M0 5L10 5L5 15z", "M2.5 5L7.5 5L10 0L0 0zM2.5 5L0 5L5 15L10 5L7.5 5L5 10z"},
 		{"L5 10L10 0z", "M0 5L5 15L10 5z", "M2.5 5L7.5 5L10 0L0 0zM2.5 5L0 5L5 15L10 5L7.5 5L5 10z"},
+
+		// touching edges
+		{"L2 0L2 2L0 2z", "M2 0L4 0L4 2L2 2z", "L2 0L2 2L0 2zM2 0L4 0L4 2L2 2z"},
+		{"L2 0L2 2L0 2z", "M2 1L4 1L4 3L2 3z", "L2 0L2 2L0 2zM2 1L4 1L4 3L2 3z"},
+
+		// subpath winding
+		{"M1 0L3 0L3 4L1 4z", "M0 1L4 1L4 3L0 3zM2 2L2 5L5 5L5 2z", "M3 1L1 1L1 0L3 0zM3 1L4 1L4 2L3 2zM3 2L3 3L2 3L2 4L1 4L1 3L2 3L2 2zM3 3L4 3L4 2L5 2L5 5L2 5L2 4L3 4zM1 3L0 3L0 1L1 1z"},
 
 		// no overlap
 		{"L10 0L5 10z", "M0 10L10 10L5 20z", "L10 0L5 10zM0 10L10 10L5 20z"},
@@ -487,6 +524,16 @@ func TestPathNot(t *testing.T) {
 		{"M0 5L10 5L5 15z", "L5 10L10 0z", "M2.5 5L5 10L7.5 5L10 5L5 15L0 5z"},
 		{"M0 5L5 15L10 5z", "L10 0L5 10z", "M7.5 5L5 10L2.5 5L0 5L5 15L10 5z"},
 		{"M0 5L5 15L10 5z", "L5 10L10 0z", "M7.5 5L5 10L2.5 5L0 5L5 15L10 5z"},
+
+		// touching edges
+		{"L2 0L2 2L0 2z", "M2 0L4 0L4 2L2 2z", "L2 0L2 2L0 2z"},
+		{"L2 0L2 2L0 2z", "M2 1L4 1L4 3L2 3z", "L2 0L2 2L0 2z"},
+		{"M2 0L4 0L4 2L2 2z", "L2 0L2 2L0 2z", "M2 0L4 0L4 2L2 2z"},
+		{"M2 1L4 1L4 3L2 3z", "L2 0L2 2L0 2z", "M2 1L4 1L4 3L2 3z"},
+
+		// subpath winding
+		{"M1 0L3 0L3 4L1 4z", "M0 1L4 1L4 3L0 3zM2 2L2 5L5 5L5 2z", "M3 1L1 1L1 0L3 0zM3 2L3 3L2 3L2 4L1 4L1 3L2 3L2 2z"},
+		{"M0 1L4 1L4 3L0 3zM2 2L2 5L5 5L5 2z", "M1 0L3 0L3 4L1 4z", "M3 2L3 1L4 1L4 2zM1 3L0 3L0 1L1 1zM2 4L3 4L3 3L4 3L4 2L5 2L5 5L2 5z"},
 
 		// no overlap
 		{"L10 0L5 10z", "M0 10L10 10L5 20z", "L10 0L5 10z"},
