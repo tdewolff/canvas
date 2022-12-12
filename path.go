@@ -1166,23 +1166,23 @@ REPEAT:
 	return offset, d
 }
 
-func (p *Path) checkDash(offset float64, d []float64) (*Path, []float64) {
+func (p *Path) checkDash(offset float64, d []float64) ([]float64, bool) {
 	offset, d = dashCanonical(offset, d)
 	if len(d) == 0 {
-		return p, d
+		return d, true // stroke without dashes
 	} else if len(d) == 1 && d[0] == 0.0 {
-		return &Path{}, d
+		return d[:0], false // no dashes, no stroke
 	}
 
 	length := p.Length()
 	i, pos := dashStart(offset, d)
 	if length <= d[i]-pos {
 		if i%2 == 0 {
-			return p, nil // first dash covers whole path
+			return d[:0], true // first dash covers whole path, stroke without dashes
 		}
-		return &Path{}, nil // first space covers whole path
+		return d[:0], false // first space covers whole path, no stroke
 	}
-	return p, d
+	return d, true
 }
 
 // Dash returns a new path that consists of dashes. The elements in d specify the width of the dashes and gaps. It will alternate between dashes and gaps when picking widths. If d is an array of odd length, it is equivalent of passing d twice in sequence. The offset specifies the offset used into d (or negative offset into the path). Dash will be applied to each subpath independently.
