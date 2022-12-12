@@ -21,6 +21,19 @@ func (p *Polyline) Add(x, y float64) *Polyline {
 	return p
 }
 
+// Close adds a new point equal to the first, closing the polyline.
+func (p *Polyline) Close() *Polyline {
+	if 0 < len(p.coords) {
+		p.coords = append(p.coords, p.coords[0])
+	}
+	return p
+}
+
+// Closed returns true if the last point coincides with the first.
+func (p *Polyline) Closed() bool {
+	return 0 < len(p.coords) && p.coords[0].Equals(p.coords[len(p.coords)-1])
+}
+
 // Coords returns the list of coordinates of the polyline.
 func (p *Polyline) Coords() []Point {
 	return p.coords
@@ -80,6 +93,9 @@ func (p *Polyline) Smoothen() *Path {
 	if len(K) < 2 {
 		return &Path{}
 	} else if len(K) == 2 { // there are only two coordinates, that's a straight line
+		if p.Closed() {
+			return &Path{}
+		}
 		q := &Path{}
 		q.MoveTo(K[0].X, K[0].Y)
 		q.LineTo(K[1].X, K[1].Y)
@@ -87,7 +103,7 @@ func (p *Polyline) Smoothen() *Path {
 	}
 
 	var p1, p2 []Point
-	closed := K[0].Equals(K[len(K)-1])
+	closed := p.Closed()
 	if closed {
 		// see http://www.jacos.nl/jacos_html/spline/circular/index.html
 		n := len(K) - 1
