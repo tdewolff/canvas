@@ -581,7 +581,7 @@ func collisions(p, q *Path, keepTangents bool) intersections {
 				// ignore connected segment endpoints that are not both start or end points
 				zs = append(zs[:i], zs[i+1:]...)
 				i--
-			} else if Equal(z0.TA, 1.0) || Equal(z0.TB, 0.0) || Equal(z0.TB, 1.0) {
+			} else if Equal(z0.TA, 1.0) || !Equal(z0.TA, 0.0) && (Equal(z0.TB, 0.0) || Equal(z0.TB, 1.0)) {
 				// search for second tangent intersection at z1.TA == z1.TB == 0.0, this may not
 				// always be the next segment due to potentially parallel segments in between
 				for j := (i + 1) % len(zs); j != i; j = (j + 1) % len(zs) {
