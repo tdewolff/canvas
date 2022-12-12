@@ -521,13 +521,12 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 	}
 	m = m.Mul(c.view).Translate(coord.X, coord.Y)
 	for _, path := range paths {
-		var dashes []float64
-		path, dashes = path.checkDash(c.Style.DashOffset, c.Style.Dashes)
-		if path.Empty() {
-			continue
-		}
+		var ok bool
 		style := c.Style
-		style.Dashes = dashes
+		style.Dashes, ok = path.checkDash(c.Style.DashOffset, c.Style.Dashes)
+		if !ok {
+			style.StrokeColor = Transparent
+		}
 		c.RenderPath(path, style, m)
 	}
 }
