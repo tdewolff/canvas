@@ -985,9 +985,11 @@ func (zs intersections) LineEllipse(l0, l1, center, radius Point, phi, theta0, t
 
 		angle := math.Atan2(y, x)
 		if Interval(s, 0.0, 1.0) && angleBetween(angle, theta0, theta1) {
-			t := angleNorm(angle-theta0) / angleNorm(theta1-theta0)
-			if theta1 < theta0 {
-				t = 2.0 - t
+			var t float64
+			if theta0 <= theta1 {
+				t = angleNorm(angle-theta0) / angleNorm(theta1-theta0)
+			} else {
+				t = 1.0 - angleNorm(angle-theta1)/angleNorm(theta0-theta1)
 			}
 			pos := Point{x, y}.Rot(phi, Origin).Add(center)
 			deriv := ellipseDeriv(radius.X, radius.Y, phi, theta0 <= theta1, angle)
