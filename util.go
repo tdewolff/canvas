@@ -27,6 +27,11 @@ func Interval(f, lower, upper float64) bool {
 	return lower-Epsilon <= f && f <= upper+Epsilon
 }
 
+// angleEqual returns true if both angles are equal.
+func angleEqual(a, b float64) bool {
+	return angleBetween(a, b, b) // angleBetween will add Epsilon to lower and upper
+}
+
 // angleNorm returns the angle theta in the range [0,2PI).
 func angleNorm(theta float64) float64 {
 	theta = math.Mod(theta, 2.0*math.Pi)

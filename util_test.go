@@ -44,6 +44,7 @@ func TestAngleBetween(t *testing.T) {
 		{0.5, 1.0 - 2.0*math.Pi, 0.0 - 2.0*math.Pi, true},
 		{-0.1, 0.0, 1.0, false},
 		{1.1, 0.0, 1.0, false},
+		{2.0, 3.0, 1.0, true},
 
 		// tolerance
 		{0.0 - Epsilon, 0.0, 1.0, true},

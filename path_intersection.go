@@ -68,7 +68,7 @@ func (p *Path) inside(q *Path) bool {
 // Contains returns true if path q is contained within path p, i.e. path q is inside path p and both paths have no intersections (but may touch).
 func (p *Path) Contains(q *Path) bool {
 	if q.inside(p) {
-		return len(pathIntersections(p, q)) == 0
+		return len(intersectionNodes(p, q)) == 0
 	}
 	return false
 }
@@ -79,7 +79,7 @@ func (p *Path) And(q *Path) *Path {
 	p = p.Combine()
 	q = q.Combine()
 
-	zs := pathIntersections(p, q)
+	zs := intersectionNodes(p, q)
 	if len(zs) == 0 {
 		// paths are not intersecting
 		if p.inside(q) {
@@ -98,7 +98,7 @@ func (p *Path) Or(q *Path) *Path {
 	p = p.Combine()
 	q = q.Combine()
 
-	zs := pathIntersections(p, q)
+	zs := intersectionNodes(p, q)
 	if len(zs) == 0 {
 		// paths are not intersecting
 		if p.inside(q) {
@@ -119,7 +119,7 @@ func (p *Path) Xor(q *Path) *Path {
 	p = p.Combine()
 	q = q.Combine()
 
-	zs := pathIntersections(p, q)
+	zs := intersectionNodes(p, q)
 	if len(zs) == 0 {
 		// paths are not intersecting
 		pInQ := p.inside(q)
@@ -144,7 +144,7 @@ func (p *Path) Not(q *Path) *Path {
 	p = p.Combine()
 	q = q.Combine()
 
-	zs := pathIntersections(p, q)
+	zs := intersectionNodes(p, q)
 	if len(zs) == 0 {
 		// paths are not intersecting
 		pInQ := p.inside(q)
@@ -177,7 +177,7 @@ func (p *Path) Combine() *Path {
 	ps := p.Split()
 	p = ps[0]
 	for _, q := range ps[1:] {
-		zs := pathIntersections(p, q)
+		zs := intersectionNodes(p, q)
 		ccwA, ccwB := p.CCW(), q.CCW()
 		if ccwA == ccwB {
 			// OR
@@ -220,7 +220,7 @@ const (
 	pathOpNot pathOp = iota
 )
 
-func boolean(op pathOp, zs []*pathIntersection, ccwA, ccwB bool) *Path {
+func boolean(op pathOp, zs []*intersectionNode, ccwA, ccwB bool) *Path {
 	directions := []bool{true}
 	startInwards, invertA, invertB := false, false, false
 	if op == pathOpAnd {
@@ -276,7 +276,7 @@ func boolean(op pathOp, zs []*pathIntersection, ccwA, ccwB bool) *Path {
 
 // Cut returns the parts of path p and path q cut by the other at intersections.
 func (p *Path) Cut(q *Path) ([]*Path, []*Path) {
-	zs := pathIntersections(p, q)
+	zs := intersectionNodes(p, q)
 	if len(zs) == 0 {
 		return []*Path{p}, []*Path{q}
 	}
@@ -311,22 +311,22 @@ func (p *Path) Cut(q *Path) ([]*Path, []*Path) {
 	return ps, qs
 }
 
-type pathIntersection struct {
+type intersectionNode struct {
 	i int // intersection index in path A
 	intersection
-	prevA, nextA *pathIntersection
-	prevB, nextB *pathIntersection
+	prevA, nextA *intersectionNode
+	prevB, nextB *intersectionNode
 
 	// towards next intersection
 	a, b *Path
 }
 
-func (z *pathIntersection) String() string {
+func (z *intersectionNode) String() string {
 	return fmt.Sprintf("%v %v A=[%v→,→%v] B=[%v→,→%v]", z.i, z.intersection, z.prevA.i, z.nextA.i, z.prevB.i, z.nextB.i)
 }
 
 // get intersections for paths p and q sorted for both
-func pathIntersections(p, q *Path) []*pathIntersection {
+func intersectionNodes(p, q *Path) []*intersectionNode {
 	Zs := p.Intersections(q)
 	if len(Zs) == 0 {
 		return nil
@@ -334,9 +334,9 @@ func pathIntersections(p, q *Path) []*pathIntersection {
 		panic("number of intersections must be even")
 	}
 
-	zs := make([]*pathIntersection, len(Zs))
+	zs := make([]*intersectionNode, len(Zs))
 	for i, z := range Zs {
-		zs[i] = &pathIntersection{
+		zs[i] = &intersectionNode{
 			i:            i,
 			intersection: z,
 			a:            &Path{},
@@ -1013,8 +1013,8 @@ func (zs intersections) LineEllipse(l0, l1, center, radius Point, phi, theta0, t
 				t = 1.0 - angleNorm(angle-theta1)/angleNorm(theta0-theta1)
 			}
 			pos := Point{x, y}.Rot(phi, Origin).Add(center)
-			deriv := ellipseDeriv(radius.X, radius.Y, phi, theta0 <= theta1, angle)
-			zs = zs.add(pos, s, t, dira, deriv.Angle(), Equal(root, 0.0))
+			dirb := ellipseDeriv(radius.X, radius.Y, phi, theta0 <= theta1, angle).Angle()
+			zs = zs.add(pos, s, t, dira, dirb, Equal(root, 0.0))
 		}
 	}
 	return zs
