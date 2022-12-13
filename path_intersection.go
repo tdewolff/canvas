@@ -241,11 +241,11 @@ func boolean(op pathOp, zs []*intersectionNode, ccwA, ccwB bool) *Path {
 		for _, direction := range directions {
 			if !visited[direction][z0.i] {
 				r := &Path{}
-				gotoB := startInwards == (ccwB == z0.BintoA())
+				gotoB := startInwards == (ccwB == z0.BintoA)
 				for z := z0; ; {
 					visited[direction][z.i] = true
 					if gotoB {
-						if invertB != direction == (ccwA == z.BintoA()) {
+						if invertB != direction == (ccwA == z.BintoA) {
 							r = r.Join(z.b)
 							z = z.nextB
 						} else {
@@ -253,7 +253,7 @@ func boolean(op pathOp, zs []*intersectionNode, ccwA, ccwB bool) *Path {
 							z = z.prevB
 						}
 					} else {
-						if invertA != direction == (ccwB == z.BintoA()) {
+						if invertA != direction == (ccwB == z.BintoA) {
 							r = r.Join(z.a)
 							z = z.nextA
 						} else {
@@ -548,7 +548,7 @@ func (p *Path) Collisions(q *Path) intersections {
 
 func collisions(p, q *Path, keepTangents bool) intersections {
 	// TODO: uses O(N^2), try sweep line or bently-ottman to reduce to O((N+K) log N)
-	zs := intersections{}
+	Zs := intersections{}
 	var pI, qI int
 	var pStart, qStart Point
 	for i := 0; i < len(p.d); {
@@ -559,7 +559,7 @@ func collisions(p, q *Path, keepTangents bool) intersections {
 			for j := 0; j < len(q.d); {
 				qLen := cmdLen(q.d[j])
 				if q.d[j] != MoveToCmd {
-					zs = zs.appendSegment(pI, pStart, p.d[i:i+pLen], qI, qStart, q.d[j:j+qLen])
+					Zs = Zs.appendSegment(pI, pStart, p.d[i:i+pLen], qI, qStart, q.d[j:j+qLen])
 				}
 				j += qLen
 				qStart = Point{q.d[j-3], q.d[j-2]}
@@ -570,66 +570,79 @@ func collisions(p, q *Path, keepTangents bool) intersections {
 		pStart = Point{p.d[i-3], p.d[i-2]}
 		pI++
 	}
-	sort.Stable(zs) // needed when q intersects a segment in p from high to low T
+	sort.Stable(Zs) // needed when q intersects a segment in p from high to low T
 
 	// remove duplicate tangent collisions at segment endpoints: either 4 degenerate collisions
 	// when for both path p and path q the endpoints coincide, or 2 degenerate collisions when
-	// an endpoint collides within a segment
+	// an endpoint collides within a segment, for each parallel segment in between an additional 2 degenerate collisions are created
 	// note that collisions between segments of the same path are never generated
-	for i := 0; i < len(zs); i++ {
-		z0 := zs[i]
-		if z0.Tangent {
-			if !Equal(z0.TA, 0.0) && !Equal(z0.TB, 0.0) && !Equal(z0.TA, 1.0) && !Equal(z0.TB, 1.0) {
-				// regular tangent that is not at segment extreme, does not intersect
-				if !keepTangents {
-					zs = append(zs[:i], zs[i+1:]...)
-					i--
-				}
-			} else if Equal(z0.TA, 0.0) && Equal(z0.TB, 1.0) || Equal(z0.TA, 1.0) && Equal(z0.TB, 0.0) {
-				// ignore connected segment endpoints that are not both start or end points
-				zs = append(zs[:i], zs[i+1:]...)
-				i--
-			} else if Equal(z0.TA, 1.0) || !Equal(z0.TA, 0.0) && (Equal(z0.TB, 0.0) || Equal(z0.TB, 1.0)) {
-				// search for second tangent intersection at z1.TA == z1.TB == 0.0, this may not
-				// always be the next segment due to potentially parallel segments in between
-				for j := (i + 1) % len(zs); j != i; j = (j + 1) % len(zs) {
-					z1 := zs[j]
-					// either TA or TB must be 0.0, while ignoring connected segment endpoints that are not both start or end points (like above)
-					// note that B may be in reversed order, which is why we check it against z0
-					a, b := 0, 0
-					if Equal(z0.TA, 1.0) {
-						a++
-					}
-					if Equal(z0.TB, 1.0) || Equal(z0.TB, 0.0) {
-						a++
-					}
-					if Equal(z1.TA, 0.0) {
-						b++
-					}
-					if (Equal(z1.TB, 1.0) || Equal(z1.TB, 0.0)) && !Equal(z1.TB, z0.TB) {
-						b++
-					}
-					if z1.Tangent && a == b {
-						if z0.BintoA() != z1.BintoA() {
-							// no intersection, paths only touch on segment ends
-							if !keepTangents {
-								zs = append(zs[:j], zs[j+1:]...)
-								if j < i {
-									i--
-								}
-							}
-						} else {
-							// intersection, keep the second on P of the two tangent intersections
-							zs[j].Tangent = false
-						}
-
-						// remove first (duplicate) tangent intersection
-						zs = append(zs[:i], zs[i+1:]...)
-						i--
-						break
-					}
-				}
+	zs := intersections{}
+Main:
+	for i := 0; i < len(Zs); i++ {
+		z0 := Zs[i]
+		if !z0.Tangent {
+			zs = append(zs, z0)
+		} else if !Equal(z0.TA, 0.0) && !Equal(z0.TB, 0.0) && !Equal(z0.TA, 1.0) && !Equal(z0.TB, 1.0) {
+			// regular tangent that is not at segment extreme, does not intersect
+			if keepTangents {
+				zs = append(zs, z0)
 			}
+		} else if (z0.SegA != 0 || !Equal(z0.TA, 0.0)) && (z0.SegB != 0 || !Equal(z0.TB, 0.0)) {
+			ends := 0
+			qReverse := Equal(z0.TB, 0.0)
+			if Equal(z0.TA, 1.0) {
+				ends++
+			}
+			if qReverse || Equal(z0.TB, 1.0) {
+				ends++
+			}
+
+			n := 1
+			j := (i + 1) % len(Zs)
+			for ; j != i; j = (j + 1) % len(Zs) {
+				z := Zs[j]
+				if ends == 0 {
+					break
+				} else if !z.Tangent || !Equal(z.TA, 0.0) && !Equal(z.TB, 0.0) && !Equal(z.TA, 1.0) && !Equal(z.TB, 1.0) {
+					continue Main
+				}
+				if Equal(z.TA, 0.0) {
+					ends--
+				} else if Equal(z.TA, 1.0) {
+					ends++
+				}
+				if Equal(z.TB, 0.0) {
+					if qReverse {
+						ends++
+					} else {
+						ends--
+					}
+				} else if Equal(z.TB, 1.0) {
+					if qReverse {
+						ends--
+					} else {
+						ends++
+					}
+				}
+				n++
+			}
+			z1 := Zs[(i+n-1)%len(Zs)]
+			if 2 < n {
+				// for intersections on endpoints we need to check incoming/outgoing angles
+				theta0 := angleNorm(z0.DirA + math.Pi)
+				theta1 := theta0 - angleNorm(theta0-z1.DirA)
+				dirb0, dirb1 := z0.DirB, z1.DirB
+				if qReverse {
+					dirb0, dirb1 = z1.DirB, z0.DirB
+				}
+				z0.BintoA = !angleBetween(dirb0+math.Pi, theta0, theta1)
+				z1.BintoA = angleBetween(dirb1, theta0, theta1)
+			}
+			z1.Tangent = z0.BintoA != z1.BintoA
+			if !z1.Tangent || keepTangents {
+				zs = append(zs, z1)
+			}
+			i += n - 1
 		}
 	}
 	return zs
@@ -720,28 +733,24 @@ func (zs intersections) appendSegment(aSeg int, a0 Point, a []float64, bSeg int,
 
 type intersection struct {
 	Point
-	SegA, SegB int     // segment indices
+	SegA, SegB int
 	TA, TB     float64 // position along segment in [0,1]
-	DirA, DirB float64 // angle of direction along segment
-	Tangent    bool    // tangential, i.e. touching/non-crossing
-}
-
-// BintoA returns true if B goes towards the LHS of A
-func (z intersection) BintoA() bool {
-	return angleNorm(z.DirB-z.DirA) < math.Pi
-}
-
-// AintoB returns true if A goes towards the LHS of B
-func (z intersection) AintoB() bool {
-	return !z.BintoA()
+	DirA, DirB float64 // angle of direction along segment TODO: remove?
+	BintoA     bool
+	Tangent    bool // tangential, i.e. touching/non-crossing
 }
 
 func (z intersection) Equals(o intersection) bool {
-	return z.Point.Equals(o.Point) && z.SegA == o.SegA && z.SegB == o.SegB && Equal(z.TA, o.TA) && Equal(z.TB, o.TB) && Equal(angleNorm(z.DirA), angleNorm(o.DirA)) && Equal(angleNorm(z.DirB), angleNorm(o.DirB)) && z.Tangent == o.Tangent
+	return z.Point.Equals(o.Point) && z.SegA == o.SegA && z.SegB == o.SegB && Equal(z.TA, o.TA) && Equal(z.TB, o.TB) && angleEqual(z.DirA, o.DirA) && angleEqual(z.DirB, o.DirB) && z.Tangent == o.Tangent
 }
 
 func (z intersection) String() string {
-	s := fmt.Sprintf("pos={%.3g,%.3g} seg={%d,%d} t={%.3g,%.3g} dir={%.3g°,%.3g°}", z.Point.X, z.Point.Y, z.SegA, z.SegB, z.TA, z.TB, angleNorm(z.DirA)*180.0/math.Pi, angleNorm(z.DirB)*180.0/math.Pi)
+	s := fmt.Sprintf("pos={%.3g,%.3g} seg={%d,%d} t={%.3g,%.3g} dir={%g°,%g°}", z.Point.X, z.Point.Y, z.SegA, z.SegB, z.TA, z.TB, angleNorm(z.DirA)*180.0/math.Pi, angleNorm(z.DirB)*180.0/math.Pi)
+	if z.BintoA {
+		s += " BintoA"
+	} else {
+		s += " AintoB"
+	}
 	if z.Tangent {
 		s += " tangent"
 	}
@@ -836,6 +845,7 @@ func (zs intersections) add(pos Point, ta, tb float64, dira, dirb float64, tange
 		TB:      tb,
 		DirA:    dira,
 		DirB:    dirb,
+		BintoA:  angleNorm(dirb-dira) < math.Pi,
 		Tangent: tangent,
 	})
 }
