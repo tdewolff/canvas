@@ -365,7 +365,9 @@ func pathIntersections(p, q *Path) []*pathIntersection {
 		if j < len(zs) && seg == zs[j].SegA {
 			// segment has an intersection, cut it up and append first part to prev intersection
 			p0, p1 := cutPathSegment(Point{p.d[i-3], p.d[i-2]}, p.d[i:i+cmdLen(cmd)], zs[j].TA)
-			cur = append(cur, p0.d[4:]...)
+			if !p0.Empty() {
+				cur = append(cur, p0.d[4:]...)
+			}
 
 			for j+1 < len(zs) && seg == zs[j+1].SegA {
 				// next cut is on the same segment, find new t after the first cut and set path
@@ -378,7 +380,11 @@ func pathIntersections(p, q *Path) []*pathIntersection {
 				}
 				j++
 				t := (zs[j].TA - zs[j-1].TA) / (1.0 - zs[j-1].TA)
-				p0, p1 = cutPathSegment(Point{p1.d[1], p1.d[2]}, p1.d[4:], t)
+				if !p1.Empty() {
+					p0, p1 = cutPathSegment(Point{p1.d[1], p1.d[2]}, p1.d[4:], t)
+				} else {
+					p0 = &Path{}
+				}
 				cur = p0.d
 			}
 			if first == nil {
@@ -427,7 +433,9 @@ func pathIntersections(p, q *Path) []*pathIntersection {
 		if j < len(zs) && seg == zs[idxs[j]].SegB {
 			// segment has an intersection, cut it up and append first part to prev intersection
 			p0, p1 := cutPathSegment(Point{q.d[i-3], q.d[i-2]}, q.d[i:i+cmdLen(cmd)], zs[idxs[j]].TB)
-			cur = append(cur, p0.d[4:]...)
+			if !p0.Empty() {
+				cur = append(cur, p0.d[4:]...)
+			}
 
 			for j+1 < len(zs) && seg == zs[idxs[j+1]].SegB {
 				// next cut is on the same segment, find new t after the first cut and set path
@@ -440,7 +448,11 @@ func pathIntersections(p, q *Path) []*pathIntersection {
 				}
 				j++
 				t := (zs[idxs[j]].TB - zs[idxs[j-1]].TB) / (1.0 - zs[idxs[j-1]].TB)
-				p0, p1 = cutPathSegment(Point{p1.d[1], p1.d[2]}, p1.d[4:], t)
+				if !p1.Empty() {
+					p0, p1 = cutPathSegment(Point{p1.d[1], p1.d[2]}, p1.d[4:], t)
+				} else {
+					p0 = &Path{}
+				}
 				cur = p0.d
 			}
 			if first == nil {
@@ -469,6 +481,15 @@ func pathIntersections(p, q *Path) []*pathIntersection {
 
 func cutPathSegment(start Point, d []float64, t float64) (*Path, *Path) {
 	p0, p1 := &Path{}, &Path{}
+	if Equal(t, 0.0) {
+		p1.MoveTo(start.X, start.Y)
+		p1.d = append(p1.d, d...)
+		return p0, p1
+	} else if Equal(t, 1.0) {
+		p0.MoveTo(start.X, start.Y)
+		p0.d = append(p0.d, d...)
+		return p0, p1
+	}
 	if d[0] == LineToCmd {
 		c := start.Interpolate(Point{d[len(d)-3], d[len(d)-2]}, t)
 		p0.MoveTo(start.X, start.Y)
