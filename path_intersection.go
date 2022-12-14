@@ -322,11 +322,18 @@ type intersectionNode struct {
 }
 
 func (z *intersectionNode) String() string {
-	return fmt.Sprintf("%v %v A=[%v→,→%v] B=[%v→,→%v]", z.i, z.intersection, z.prevA.i, z.nextA.i, z.prevB.i, z.nextB.i)
+	return fmt.Sprintf("(%v %v A=[%v→,→%v] B=[%v→,→%v])", z.i, z.intersection, z.prevA.i, z.nextA.i, z.prevB.i, z.nextB.i)
 }
 
 // get intersections for paths p and q sorted for both
 func intersectionNodes(p, q *Path) []*intersectionNode {
+	if !p.Closed() {
+		p.Close()
+	}
+	if !q.Closed() {
+		q.Close()
+	}
+
 	Zs := p.Intersections(q)
 	if len(Zs) == 0 {
 		return nil
@@ -410,7 +417,7 @@ func intersectionNodes(p, q *Path) []*intersectionNode {
 	}
 
 	// build index map for intersections on Q to P (zs is sorted for P)
-	idxs := Zs.swappedArgSort() // sorted indices for intersections of q by p
+	idxs := Zs.argBSort() // sorted indices for intersections of q by p
 
 	// cut path segments for path Q
 	seg = 0      // index into path segments
@@ -547,6 +554,7 @@ func (p *Path) Collisions(q *Path) intersections {
 }
 
 func collisions(p, q *Path, keepTangents bool) intersections {
+	// TODO: collision code is ugly
 	// TODO: uses O(N^2), try sweep line or bently-ottman to reduce to O((N+K) log N)
 	Zs := intersections{}
 	var pI, qI int
@@ -570,7 +578,7 @@ func collisions(p, q *Path, keepTangents bool) intersections {
 		pStart = Point{p.d[i-3], p.d[i-2]}
 		pI++
 	}
-	sort.Stable(Zs) // needed when q intersects a segment in p from high to low T
+	sort.Stable(intersectionASort{Zs}) // needed when q intersects a segment in p from high to low T
 
 	// remove duplicate tangent collisions at segment endpoints: either 4 degenerate collisions
 	// when for both path p and path q the endpoints coincide, or 2 degenerate collisions when
@@ -773,23 +781,7 @@ func (z intersection) String() string {
 	return s
 }
 
-// intersections sorted for curve A
 type intersections []intersection
-
-func (zs intersections) Len() int {
-	return len(zs)
-}
-
-func (zs intersections) Swap(i, j int) {
-	zs[i], zs[j] = zs[j], zs[i]
-}
-
-func (zs intersections) Less(i, j int) bool {
-	if zs[i].SegA == zs[j].SegA {
-		return zs[i].TA < zs[j].TA
-	}
-	return zs[i].SegA < zs[j].SegA
-}
 
 // There are intersections.
 func (zs intersections) Has() bool {
@@ -824,30 +816,54 @@ func (zs intersections) String() string {
 	return sb.String()
 }
 
+// sort indices of intersections for curve A
+type intersectionASort struct {
+	zs intersections
+}
+
+func (a intersectionASort) Len() int {
+	return len(a.zs)
+}
+
+func (a intersectionASort) Swap(i, j int) {
+	a.zs[i], a.zs[j] = a.zs[j], a.zs[i]
+}
+
+func (a intersectionASort) Less(i, j int) bool {
+	if a.zs[i].SegA == a.zs[j].SegA {
+		return a.zs[i].TA < a.zs[j].TA
+	}
+	return a.zs[i].SegA < a.zs[j].SegA
+}
+
 // sort indices of intersections for curve B
-type intersectionsSwappedArgSort struct {
-	intersections
+type intersectionArgBSort struct {
+	zs  intersections
 	idx []int
 }
 
-func (zs intersectionsSwappedArgSort) Swap(i, j int) {
-	zs.idx[i], zs.idx[j] = zs.idx[j], zs.idx[i]
+func (a intersectionArgBSort) Len() int {
+	return len(a.zs)
 }
 
-func (zs intersectionsSwappedArgSort) Less(i, j int) bool {
-	if zs.intersections[zs.idx[i]].SegB == zs.intersections[zs.idx[j]].SegB {
-		return zs.intersections[zs.idx[i]].TB < zs.intersections[zs.idx[j]].TB
+func (a intersectionArgBSort) Swap(i, j int) {
+	a.idx[i], a.idx[j] = a.idx[j], a.idx[i]
+}
+
+func (a intersectionArgBSort) Less(i, j int) bool {
+	if a.zs[a.idx[i]].SegB == a.zs[a.idx[j]].SegB {
+		return a.zs[a.idx[i]].TB < a.zs[a.idx[j]].TB
 	}
-	return zs.intersections[zs.idx[i]].SegB < zs.intersections[zs.idx[j]].SegB
+	return a.zs[a.idx[i]].SegB < a.zs[a.idx[j]].SegB
 }
 
 // get indices of sorted intersections for curve B
-func (zs intersections) swappedArgSort() []int {
+func (zs intersections) argBSort() []int {
 	idx := make([]int, len(zs))
 	for i := range idx {
 		idx[i] = i
 	}
-	sort.Stable(intersectionsSwappedArgSort{zs, idx})
+	sort.Stable(intersectionArgBSort{zs, idx})
 	return idx
 }
 
@@ -868,11 +884,53 @@ func (zs intersections) add(pos Point, ta, tb float64, dira, dirb float64, tange
 
 // http://www.cs.swan.ac.uk/~cssimon/line_intersection.html
 func (zs intersections) LineLine(a0, a1, b0, b1 Point) intersections {
+	if a0.Equals(a1) || b0.Equals(b1) {
+		return zs
+	}
+
 	da := a1.Sub(a0)
 	db := b1.Sub(b0)
 	div := da.PerpDot(db)
 	if Equal(div, 0.0) {
 		// parallel
+		if Equal(da.PerpDot(b1.Sub(a0)), 0.0) {
+			// aligned, rotate to x-axis
+			angle := da.Angle()
+			a := a0.Rot(-angle, Point{}).X
+			b := a1.Rot(-angle, Point{}).X
+			c := b0.Rot(-angle, Point{}).X
+			d := b1.Rot(-angle, Point{}).X
+			//if c <= a && a <= d && c <= b && b <= d {
+			//	// a in b or a == b
+			//	mid := (a + b) / 2.0
+			//	zs = zs.add(a0.Interpolate(a1, 0.5), 0.5, (mid-c)/(d-c), true)
+			//} else if a < c && c < b && a < d && d < b {
+			//	// b in a
+			//	mid := (c + d) / 2.0
+			//	zs = zs.add(b0.Interpolate(b1, 0.5), (mid-a)/(b-a), 0.5, true)
+			//} else if a <= c && c <= b {
+			//	// a before b
+			//	mid := (c + b) / 2.0
+			//	zs = zs.add(b0.Interpolate(a1, 0.5), (mid-a)/(b-a), (mid-c)/(d-c), true)
+			//} else if a <= d && d <= b {
+			//	// b before a
+			//	mid := (a + d) / 2.0
+			//	zs = zs.add(a0.Interpolate(b1, 0.5), (mid-a)/(b-a), (mid-c)/(d-c), true)
+			//}
+			if c < d && Equal(b, c) {
+				// a before b
+				zs = zs.add(a1, 1.0, 0.0, angle, angle, true)
+			} else if c < d && Equal(a, d) {
+				// b before a
+				zs = zs.add(a0, 0.0, 1.0, angle, angle, true)
+			} else if d < c && Equal(b, d) {
+				// a before b (inverted)
+				zs = zs.add(a1, 1.0, 1.0, angle, -angle, true)
+			} else if d < c && Equal(a, c) {
+				// b (inverted) before a
+				zs = zs.add(a0, 0.0, 0.0, angle, -angle, true)
+			}
+		}
 		return zs
 	}
 

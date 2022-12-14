@@ -83,8 +83,12 @@ func TestIntersectionLineLine(t *testing.T) {
 		// parallel
 		{"L2 2", "M3 3L5 5", intersections{}},
 		{"L2 2", "M-1 1L1 3", intersections{}},
-		{"L2 2", "M2 2L4 4", intersections{}},
-		{"L2 2", "M-2 -2L0 0", intersections{}},
+		{"L2 2", "M2 2L4 4", intersections{
+			{Point{2.0, 2.0}, 0, 0, 1.0, 0.0, 0.25 * math.Pi, 0.25 * math.Pi, true, true},
+		}},
+		{"L2 2", "M-2 -2L0 0", intersections{
+			{Point{0.0, 0.0}, 0, 0, 0.0, 1.0, 0.25 * math.Pi, 0.25 * math.Pi, true, true},
+		}},
 		{"L2 2", "L2 2", intersections{}},
 		{"L4 4", "M2 2L6 6", intersections{}},
 		{"L4 4", "M-2 -2L2 2", intersections{}},
@@ -315,7 +319,13 @@ func TestIntersections(t *testing.T) {
 		}},
 
 		// touches / parallel
-		{"M2 1L4 1L4 3L2 3z", "L2 0L2 2L0 2z", intersections{}},
+		{"L2 0L2 2L0 2z", "M2 0L4 0L4 2L2 2z", intersections{}},
+		{"L2 0L2 2L0 2z", "M2 0L2 2L4 2L4 0z", intersections{}},
+		{"M2 0L4 0L4 2L2 2z", "L2 0L2 2L0 2z", intersections{}},
+		{"L2 0L2 2L0 2z", "M2 1L4 1L4 3L2 3z", intersections{}},
+		{"L2 0L2 2L0 2z", "M2 -1L4 -1L4 1L2 1z", intersections{}},
+		{"L2 0L2 2L0 2z", "M2 -1L4 -1L4 3L2 3z", intersections{}},
+		{"M0 -1L2 -1L2 3L0 3z", "M2 0L4 0L4 2L2 2z", intersections{}},
 
 		// head-on collisions
 		{"M2 0L2 2L0 2", "M4 2L2 2L2 4", intersections{}},
@@ -476,7 +486,7 @@ func TestPathCombine(t *testing.T) {
 		{"L10 0L10 10L0 10zM5 5L15 5L15 15L5 15z", "M10 5L15 5L15 15L5 15L5 10L0 10L0 0L10 0z"},
 		{"L10 0L10 10L0 10zM5 5L5 15L15 15L15 5z", "M10 5L5 5L5 10L0 10L0 0L10 0zM10 5L15 5L15 15L5 15L5 10L10 10z"},
 
-		{"M0 1L4 1L4 3L0 3zM4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", ""},
+		{"M0 1L4 1L4 3L0 3zM4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", "M4 3A1 1 0 0 0 2 3L0 3L0 1L4 1zM4 3L2 3A1 1 0 0 0 4 3z"},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p), func(t *testing.T) {
