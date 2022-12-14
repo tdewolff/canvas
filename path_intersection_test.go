@@ -306,9 +306,33 @@ func TestIntersections(t *testing.T) {
 		{"M20 10L10 6L0 0", "M20 0L10 6L0 10", intersections{
 			{Point{10.0, 6.0}, 2, 2, 0.0, 0.0, Point{-10.0, -6.0}.Angle(), Point{-10.0, 4.0}.Angle(), false, false},
 		}},
-
 		{"M4 1L4 3L0 3", "M3 4L4 3L3 2", intersections{
 			{Point{4.0, 3.0}, 2, 2, 0.0, 0.0, math.Pi, 1.25 * math.Pi, true, false},
+		}},
+		{"M0 1L4 1L4 3L0 3z", MustParseSVG("M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z").Flatten().ToSVG(), intersections{
+			{Point{4.0, 3.0}, 3, 24, 0.0, 1.0, math.Pi, 274.61176078 * math.Pi / 180.0, true, false},
+			{Point{2.0, 3.0}, 3, 13, 0.5, 0.0, math.Pi, 82.01783160 * math.Pi / 180.0, false, false},
+		}},
+
+		// touches / parallel
+		{"M2 1L4 1L4 3L2 3z", "L2 0L2 2L0 2z", intersections{}},
+
+		// head-on collisions
+		{"M2 0L2 2L0 2", "M4 2L2 2L2 4", intersections{}},
+		{"M0 2Q2 4 2 2Q4 2 2 4", "M2 4L2 2L4 2", intersections{
+			{Point{2.0, 2.0}, 2, 2, 0.0, 0.0, 0.0, 0.0, false, false},
+		}},
+		{"M0 2C0 4 2 4 2 2C4 2 4 4 2 4", "M2 4L2 2L4 2", intersections{
+			{Point{2.0, 2.0}, 2, 2, 0.0, 0.0, 0.0, 0.0, false, false},
+		}},
+		{"M0 2A1 1 0 0 0 2 2A1 1 0 0 1 2 4", "M2 4L2 2L4 2", intersections{
+			{Point{2.0, 2.0}, 2, 2, 0.0, 0.0, 0.0, 0.0, false, false},
+		}},
+		{"M0 2A1 1 0 0 1 2 2A1 1 0 0 1 2 4", "M2 4L2 2L4 2", intersections{
+			{Point{2.0, 2.0}, 2, 2, 0.0, 0.0, 0.0, 0.0, false, false},
+		}},
+		{"M0 2A1 1 0 0 1 2 2A1 1 0 0 1 2 4", "M2 0L2 2L0 2", intersections{
+			{Point{2.0, 2.0}, 2, 2, 0.0, 0.0, math.Pi, 0.0, false, false},
 		}},
 		{"M0 1L4 1L4 3L0 3z", "M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", intersections{
 			{Point{4.0, 3.0}, 3, 2, 0.0, 1.0, math.Pi, 1.5 * math.Pi, true, false},
@@ -318,10 +342,11 @@ func TestIntersections(t *testing.T) {
 			{Point{3.0, 2.0}, 2, 1, 0.5, 0.5, 0.5 * math.Pi, math.Pi, true, false},
 			{Point{3.0, 4.0}, 3, 2, 0.0, 0.5, math.Pi, 0.0, false, false},
 		}},
-		{"M0 1L4 1L4 3L0 3z", MustParseSVG("M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z").Flatten().ToSVG(), intersections{
-			{Point{4.0, 3.0}, 3, 24, 0.0, 1.0, math.Pi, 274.61176078 * math.Pi / 180.0, true, false},
-			{Point{2.0, 3.0}, 3, 13, 0.5, 0.0, math.Pi, 82.01783160 * math.Pi / 180.0, false, false},
+		{"M1 0L3 0L3 4L1 4z", "M3 0A1 1 0 0 0 1 0A1 1 0 0 0 3 0z", intersections{
+			{Point{1.0, 0.0}, 1, 2, 0.0, 0.0, 0.0, 0.5 * math.Pi, true, false},
+			{Point{3.0, 0.0}, 2, 2, 0.0, 1.0, 0.5 * math.Pi, 1.5 * math.Pi, false, false},
 		}},
+		{"M1 0L3 0L3 4L1 4z", "M1 0A1 1 0 0 0 -1 0A1 1 0 0 0 1 0z", intersections{}},
 
 		// intersection with parallel lines
 		{"L0 15", "M5 0L0 5L0 10L5 15", intersections{}},

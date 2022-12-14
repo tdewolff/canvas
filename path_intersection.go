@@ -576,6 +576,7 @@ func collisions(p, q *Path, keepTangents bool) intersections {
 	// when for both path p and path q the endpoints coincide, or 2 degenerate collisions when
 	// an endpoint collides within a segment, for each parallel segment in between an additional 2 degenerate collisions are created
 	// note that collisions between segments of the same path are never generated
+	i0 := -1
 	zs := intersections{}
 Main:
 	for i := 0; i < len(Zs); i++ {
@@ -587,7 +588,7 @@ Main:
 			if keepTangents {
 				zs = append(zs, z0)
 			}
-		} else if (z0.SegA != 0 || !Equal(z0.TA, 0.0)) && (z0.SegB != 0 || !Equal(z0.TB, 0.0)) {
+		} else if !Equal(z0.TA, 0.0) {
 			ends := 0
 			qReverse := Equal(z0.TB, 0.0)
 			if Equal(z0.TA, 1.0) {
@@ -599,7 +600,10 @@ Main:
 
 			n := 1
 			j := (i + 1) % len(Zs)
-			for ; j != i; j = (j + 1) % len(Zs) {
+			if i0 == -1 {
+				i0 = i
+			}
+			for ; j != i0; j = (j + 1) % len(Zs) {
 				z := Zs[j]
 				if ends == 0 {
 					break
@@ -626,6 +630,13 @@ Main:
 				}
 				n++
 			}
+			if n == 1 {
+				if keepTangents {
+					zs = append(zs, z0)
+				}
+				continue Main
+			}
+
 			z1 := Zs[(i+n-1)%len(Zs)]
 			if 2 < n {
 				// for intersections on endpoints we need to check incoming/outgoing angles
@@ -635,12 +646,17 @@ Main:
 				if qReverse {
 					dirb0, dirb1 = z1.DirB, z0.DirB
 				}
-				z0.BintoA = !angleBetween(dirb0+math.Pi, theta0, theta1)
+				z0.BintoA = !angleBetweenExclusive(dirb0+math.Pi, theta0, theta1)
 				z1.BintoA = angleBetween(dirb1, theta0, theta1)
 			}
 			z1.Tangent = z0.BintoA != z1.BintoA
 			if !z1.Tangent || keepTangents {
-				zs = append(zs, z1)
+				if z1.SegA == 1 {
+					// is at start of path P
+					zs = append([]intersection{z1}, zs...)
+				} else {
+					zs = append(zs, z1)
+				}
 			}
 			i += n - 1
 		}
@@ -696,7 +712,7 @@ func (zs intersections) appendSegment(aSeg int, a0 Point, a []float64, bSeg int,
 		ry := a[2]
 		phi := a[3] * math.Pi / 180.0
 		large, sweep := toArcFlags(a[4])
-		cx, cy, theta0, theta1 := ellipseToCenter(b0.X, b0.Y, rx, ry, phi, large, sweep, a[5], a[6])
+		cx, cy, theta0, theta1 := ellipseToCenter(a0.X, a0.Y, rx, ry, phi, large, sweep, a[5], a[6])
 		if b[0] == LineToCmd || b[0] == CloseCmd {
 			zs = zs.LineEllipse(b0, Point{b[1], b[2]}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
 			swapCurves = true
@@ -889,25 +905,28 @@ func (zs intersections) LineQuad(l0, l1, p0, p1, p2 Point) intersections {
 
 	dira := l1.Sub(l0).Angle()
 	horizontal := math.Abs(l1.Y-l0.Y) <= math.Abs(l1.X-l0.X)
-	if horizontal {
-		if l1.X < l0.X {
-			l0, l1 = l1, l0
-		}
-	} else if l1.Y < l0.Y {
-		l0, l1 = l1, l0
-	}
-
 	for _, root := range roots {
 		if Interval(root, 0.0, 1.0) {
-			pos := quadraticBezierPos(p0, p1, p2, root)
 			deriv := quadraticBezierDeriv(p0, p1, p2, root)
+			dirb := deriv.Angle()
+			// deviate angle slightly to distinguish between BintoA/AintoB on head-on directions
+			if (Equal(root, 0.0) || Equal(root, 1.0)) && (angleEqual(dira, dirb) || angleEqual(dira, dirb+math.Pi)) {
+				deriv2 := quadraticBezierDeriv2(p0, p1, p2)
+				if 0.0 <= deriv.PerpDot(deriv2) {
+					dirb -= Epsilon // CCW
+				} else {
+					dirb += Epsilon // CW
+				}
+			}
+
+			pos := quadraticBezierPos(p0, p1, p2, root)
 			dif := A.Dot(deriv)
 			if horizontal {
 				if l0.X <= pos.X && pos.X <= l1.X {
-					zs = zs.add(pos, (pos.X-l0.X)/(l1.X-l0.X), root, dira, deriv.Angle(), Equal(dif, 0.0))
+					zs = zs.add(pos, (pos.X-l0.X)/(l1.X-l0.X), root, dira, dirb, Equal(dif, 0.0))
 				}
 			} else if l0.Y <= pos.Y && pos.Y <= l1.Y {
-				zs = zs.add(pos, (pos.Y-l0.Y)/(l1.Y-l0.Y), root, dira, deriv.Angle(), Equal(dif, 0.0))
+				zs = zs.add(pos, (pos.Y-l0.Y)/(l1.Y-l0.Y), root, dira, dirb, Equal(dif, 0.0))
 			}
 		}
 	}
@@ -939,25 +958,28 @@ func (zs intersections) LineCube(l0, l1, p0, p1, p2, p3 Point) intersections {
 
 	dira := l1.Sub(l0).Angle()
 	horizontal := math.Abs(l1.Y-l0.Y) <= math.Abs(l1.X-l0.X)
-	if horizontal {
-		if l1.X < l0.X {
-			l0, l1 = l1, l0
-		}
-	} else if l1.Y < l0.Y {
-		l0, l1 = l1, l0
-	}
-
 	for _, root := range roots {
 		if Interval(root, 0.0, 1.0) {
-			pos := cubicBezierPos(p0, p1, p2, p3, root)
 			deriv := cubicBezierDeriv(p0, p1, p2, p3, root)
+			dirb := deriv.Angle()
+			// deviate angle slightly to distinguish between BintoA/AintoB on head-on directions
+			if (Equal(root, 0.0) || Equal(root, 1.0)) && (angleEqual(dira, dirb) || angleEqual(dira, dirb+math.Pi)) {
+				deriv2 := cubicBezierDeriv2(p0, p1, p2, p3, root)
+				if 0.0 <= deriv.PerpDot(deriv2) {
+					dirb -= Epsilon // CCW
+				} else {
+					dirb += Epsilon // CW
+				}
+			}
+
+			pos := cubicBezierPos(p0, p1, p2, p3, root)
 			dif := A.Dot(deriv)
 			if horizontal {
 				if l0.X <= pos.X && pos.X <= l1.X {
-					zs = zs.add(pos, (pos.X-l0.X)/(l1.X-l0.X), root, dira, deriv.Angle(), Equal(dif, 0.0))
+					zs = zs.add(pos, (pos.X-l0.X)/(l1.X-l0.X), root, dira, dirb, Equal(dif, 0.0))
 				}
 			} else if l0.Y <= pos.Y && pos.Y <= l1.Y {
-				zs = zs.add(pos, (pos.Y-l0.Y)/(l1.Y-l0.Y), root, dira, deriv.Angle(), Equal(dif, 0.0))
+				zs = zs.add(pos, (pos.Y-l0.Y)/(l1.Y-l0.Y), root, dira, dirb, Equal(dif, 0.0))
 			}
 		}
 	}
@@ -1024,6 +1046,14 @@ func (zs intersections) LineEllipse(l0, l1, center, radius Point, phi, theta0, t
 			}
 			pos := Point{x, y}.Rot(phi, Origin).Add(center)
 			dirb := ellipseDeriv(radius.X, radius.Y, phi, theta0 <= theta1, angle).Angle()
+			// deviate angle slightly to distinguish between BintoA/AintoB on head-on directions
+			if (Equal(t, 0.0) || Equal(t, 1.0)) && (angleEqual(dira, dirb) || angleEqual(dira, dirb+math.Pi)) {
+				if theta0 <= theta1 {
+					dirb -= Epsilon // CCW
+				} else {
+					dirb += Epsilon // CW
+				}
+			}
 			zs = zs.add(pos, s, t, dira, dirb, Equal(root, 0.0))
 		}
 	}

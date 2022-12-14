@@ -55,6 +55,20 @@ func angleBetween(theta, lower, upper float64) bool {
 	return false
 }
 
+// angleBetweenExclusive is true when theta is in range (lower,upper) excluding the end points. Angles can be outside the [0,2PI) range.
+func angleBetweenExclusive(theta, lower, upper float64) bool {
+	if upper < lower {
+		// sweep is false, ie direction is along negative angle (clockwise)
+		lower, upper = upper, lower
+	}
+	theta = angleNorm(theta - lower)
+	upper = angleNorm(upper - lower)
+	if 0.0 < theta && theta < upper {
+		return true
+	}
+	return false
+}
+
 ////////////////////////////////////////////////////////////////
 
 type num float64

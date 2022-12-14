@@ -357,6 +357,13 @@ func quadraticBezierDeriv(p0, p1, p2 Point, t float64) Point {
 	return p0.Add(p1).Add(p2)
 }
 
+func quadraticBezierDeriv2(p0, p1, p2 Point) Point {
+	p0 = p0.Mul(2.0)
+	p1 = p1.Mul(-4.0)
+	p2 = p2.Mul(2.0)
+	return p0.Add(p1).Add(p2)
+}
+
 // return the normal at the right-side of the curve (when increasing t)
 func quadraticBezierNormal(p0, p1, p2 Point, t, d float64) Point {
 	if t == 0.0 {
