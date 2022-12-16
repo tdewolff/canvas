@@ -22,8 +22,11 @@ func Equal(a, b float64) bool {
 	return math.Abs(a-b) <= Epsilon
 }
 
-// Interval returns true if f is in closed interval [lower-Epsilon,upper+Epsilon] with lower<=upper.
+// Interval returns true if f is in closed interval [lower-Epsilon,upper+Epsilon] where lower and upper can be interchanged.
 func Interval(f, lower, upper float64) bool {
+	if upper < lower {
+		lower, upper = upper, lower
+	}
 	return lower-Epsilon <= f && f <= upper+Epsilon
 }
 
