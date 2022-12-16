@@ -585,6 +585,9 @@ func solveQuadraticFormula(a, b, c float64) (float64, float64) {
 
 	if c == 0.0 {
 		// no constant term, one solution at zero and one from solving linearly
+		if b == 0.0 {
+			return 0.0, math.NaN()
+		}
 		return 0.0, -b / a
 	}
 

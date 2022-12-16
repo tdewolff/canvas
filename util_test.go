@@ -239,6 +239,10 @@ func TestSolveQuadraticFormula(t *testing.T) {
 	x1, x2 = solveQuadraticFormula(2.0, -5.0, 2.0) // negative b, flip x1 and x2
 	test.Float(t, x1, 0.5)
 	test.Float(t, x2, 2.0)
+
+	x1, x2 = solveQuadraticFormula(-4.0, 0.0, 0.0)
+	test.Float(t, x1, 0.0)
+	test.Float(t, x2, math.NaN())
 }
 
 func TestSolveCubicFormula(t *testing.T) {
