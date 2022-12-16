@@ -241,11 +241,11 @@ func boolean(op pathOp, zs []*intersectionNode, ccwA, ccwB bool) *Path {
 		for _, direction := range directions {
 			if !visited[direction][z0.i] {
 				r := &Path{}
-				gotoB := startInwards == (ccwB == z0.BintoA)
+				gotoB := startInwards == (ccwB == (z0.Kind == BintoA))
 				for z := z0; ; {
 					visited[direction][z.i] = true
 					if gotoB {
-						if invertB != direction == (ccwA == z.BintoA) {
+						if invertB != direction == (ccwA == (z.Kind == BintoA)) {
 							r = r.Join(z.b)
 							z = z.nextB
 						} else {
@@ -253,7 +253,7 @@ func boolean(op pathOp, zs []*intersectionNode, ccwA, ccwB bool) *Path {
 							z = z.prevB
 						}
 					} else {
-						if invertA != direction == (ccwB == z.BintoA) {
+						if invertA != direction == (ccwB == (z.Kind == BintoA)) {
 							r = r.Join(z.a)
 							z = z.nextA
 						} else {
@@ -554,7 +554,6 @@ func (p *Path) Collisions(q *Path) intersections {
 }
 
 func collisions(p, q *Path, keepTangents bool) intersections {
-	// TODO: collision code is ugly
 	// TODO: uses O(N^2), try sweep line or bently-ottman to reduce to O((N+K) log N)
 	Zs := intersections{}
 	var pI, qI int
@@ -578,102 +577,135 @@ func collisions(p, q *Path, keepTangents bool) intersections {
 		pStart = Point{p.d[i-3], p.d[i-2]}
 		pI++
 	}
-	sort.Stable(intersectionASort{Zs}) // needed when q intersects a segment in p from high to low T
+	if len(Zs) == 0 {
+		return intersections{}
+	}
+	Zs.Sort(p, q) // sort by position on P and secondary to Q
 
 	// remove duplicate tangent collisions at segment endpoints: either 4 degenerate collisions
 	// when for both path p and path q the endpoints coincide, or 2 degenerate collisions when
 	// an endpoint collides within a segment, for each parallel segment in between an additional 2 degenerate collisions are created
 	// note that collisions between segments of the same path are never generated
-	i0 := -1
+	i := 0
 	zs := intersections{}
-Main:
-	for i := 0; i < len(Zs); i++ {
-		z0 := Zs[i]
-		if !z0.Tangent {
-			zs = append(zs, z0)
-		} else if !Equal(z0.TA, 0.0) && !Equal(z0.TB, 0.0) && !Equal(z0.TA, 1.0) && !Equal(z0.TB, 1.0) {
-			// regular tangent that is not at segment extreme, does not intersect
+	closedA, closedB := p.Closed(), q.Closed()
+	lenA, lenB := p.Len(), q.Len()
+	for ; i < len(Zs); i++ {
+		z := Zs[i]
+		if z.Kind != Tangent {
+			// regular intersection
+			zs = append(zs, z)
+		} else if !Equal(z.TA, 0.0) && !Equal(z.TB, 0.0) && !Equal(z.TA, 1.0) && !Equal(z.TB, 1.0) {
+			// regular tangent that is not at segment end point, does not intersect
 			if keepTangents {
-				zs = append(zs, z0)
+				zs = append(zs, z)
 			}
-		} else if !Equal(z0.TA, 0.0) {
-			ends := 0
-			qReverse := Equal(z0.TB, 0.0)
+		} else if !closedA && (z.SegA == 1 && Equal(z.TA, 0.0) || z.SegA == lenA-1 && Equal(z.TA, 1.0)) || !closedB && (z.SegB == 1 && Equal(z.TB, 0.0) || z.SegB == lenB-1 && Equal(z.TB, 1.0)) {
+			// tangent at start/end of path p or path q
+			if keepTangents {
+				zs = append(zs, z)
+			}
+		} else {
+			i0 := i
+			var parallel, reverse bool // reverse is set when parallel and in reverse order
+		Next:
+			if i0 < i && i%len(Zs) == i0 {
+				// we went round the path and all were parallel, paths are equal
+				return zs
+			}
+
+			// tangent at segment end point: we either have a regular (mid-mid),
+			// 2-degenerate (mid-end), or 4-degenerate (end-end) intersection
+			m := 1
+			z0 := Zs[i%len(Zs)]
 			if Equal(z0.TA, 1.0) {
-				ends++
+				m *= 2
 			}
-			if qReverse || Equal(z0.TB, 1.0) {
-				ends++
+			if Equal(z0.TB, 0.0) || Equal(z0.TB, 1.0) {
+				m *= 2
 			}
-
-			n := 1
-			j := (i + 1) % len(Zs)
-			if i0 == -1 {
-				i0 = i
-			}
-			for ; j != i0; j = (j + 1) % len(Zs) {
-				z := Zs[j]
-				if ends == 0 {
+			if !closedA && len(Zs) < i+m {
+				// don't wrap around to the start for open paths
+				m = len(Zs) - i
+				if m == 1 {
+					if keepTangents {
+						zs = append(zs, z0)
+					}
 					break
-				} else if !z.Tangent || !Equal(z.TA, 0.0) && !Equal(z.TB, 0.0) && !Equal(z.TA, 1.0) && !Equal(z.TB, 1.0) {
-					continue Main
+				} else if m != 2 && m != 4 {
+					panic(fmt.Sprintf("bug: m=%d", m))
 				}
-				if Equal(z.TA, 0.0) {
-					ends--
-				} else if Equal(z.TA, 1.0) {
-					ends++
-				}
-				if Equal(z.TB, 0.0) {
-					if qReverse {
-						ends++
-					} else {
-						ends--
-					}
-				} else if Equal(z.TB, 1.0) {
-					if qReverse {
-						ends--
-					} else {
-						ends++
-					}
-				}
-				n++
 			}
-			if n == 1 {
-				if keepTangents {
-					zs = append(zs, z0)
-				}
-				continue Main
+			z1 := Zs[(i+m-1)%len(Zs)]
+			i += m
+			if len(Zs)+4 < i {
+				panic("bug: infinite loop")
 			}
 
-			z1 := Zs[(i+n-1)%len(Zs)]
-			if 2 < n {
-				// for intersections on endpoints we need to check incoming/outgoing angles
-				theta0 := angleNorm(z0.DirA + math.Pi)
-				theta1 := theta0 - angleNorm(theta0-z1.DirA)
-				dirb0, dirb1 := z0.DirB, z1.DirB
-				if qReverse {
-					dirb0, dirb1 = z1.DirB, z0.DirB
-				}
-				z0.BintoA = !angleBetweenExclusive(dirb0+math.Pi, theta0, theta1)
-				z1.BintoA = angleBetween(dirb1, theta0, theta1)
+			// ends in parallel segment, follow until we reach a non-parallel segment
+			if !reverse && angleNorm(z1.DirA) == angleNorm(z1.DirB) {
+				// parallel
+				parallel = true
+				goto Next
+			} else if (!parallel || reverse) && angleNorm(z1.DirA) == angleNorm(z0.DirB+math.Pi) {
+				// reverse and parallel
+				reverse = true
+				parallel = true
+				goto Next
 			}
-			z1.Tangent = z0.BintoA != z1.BintoA
-			if !z1.Tangent || keepTangents {
-				if z1.SegA == 1 {
-					// is at start of path P
-					zs = append([]intersection{z1}, zs...)
+			if Equal(z0.TB, 0.0) {
+				reverse = !reverse
+			}
+
+			i1 := i - 1
+			zi := Zs[i0%len(Zs)]
+			zo := Zs[i1%len(Zs)]
+			theta0 := angleNorm(zo.DirA)
+			theta1 := theta0 + angleNorm(zi.DirA+math.Pi-theta0)
+
+			if reverse {
+				i0++
+				i1--
+			}
+			bi := angleBetweenExclusive(Zs[i0%len(Zs)].DirB+math.Pi, theta0, theta1)
+			bo := angleBetweenExclusive(Zs[i1%len(Zs)].DirB, theta0, theta1)
+			if bi != bo {
+				// intersection is not tangent
+				if !parallel {
+					if bo {
+						zo.Kind = BintoA
+					} else {
+						zo.Kind = AintoB
+					}
+					zo.Parallel = NoParallel
+					zs = append(zs, zo)
 				} else {
-					zs = append(zs, z1)
+					zi = Zs[i0%len(Zs)] // select for q.T == 0
+					if bo {
+						zi.Kind = BintoA
+						zo.Kind = BintoA
+					} else {
+						zi.Kind = AintoB
+						zo.Kind = AintoB
+					}
+					if !reverse {
+						zi.Parallel = Parallel
+						zo.Parallel = NoParallel
+					} else {
+						zi.Parallel = AParallel
+						zo.Parallel = BParallel
+					}
+					zs = append(zs, zi, zo)
 				}
 			}
-			i += n - 1
+			i--
 		}
 	}
 	return zs
 }
 
 // intersect for path segments a and b, starting at a0 and b0
-func (zs intersections) appendSegment(aSeg int, a0 Point, a []float64, bSeg int, b0 Point, b []float64) intersections {
+func (zs intersections) appendSegment(segA int, a0 Point, a []float64, segB int, b0 Point, b []float64) intersections {
 	// TODO: add fast check if bounding boxes overlap, below doesn't account for vertical/horizontal lines
 
 	n := len(zs)
@@ -737,13 +769,14 @@ func (zs intersections) appendSegment(aSeg int, a0 Point, a []float64, bSeg int,
 
 	// swap A and B in the intersection found to match segments A and B of this function
 	if swapCurves {
-		for i, _ := range zs[n:] {
-			zs[n+i].TA, zs[n+i].TB = zs[n+i].TB, zs[n+i].TA
-			zs[n+i].SegA, zs[n+i].SegB = aSeg, bSeg
+		for i := n; i < len(zs); i++ {
+			zs[i].SegA, zs[i].SegB = segA, segB
+			zs[i].TA, zs[i].TB = zs[i].TB, zs[i].TA
+			zs[i].DirA, zs[i].DirB = zs[i].DirB, zs[i].DirA
 		}
 	} else {
-		for i, _ := range zs[n:] {
-			zs[n+i].SegA, zs[n+i].SegB = aSeg, bSeg
+		for i := n; i < len(zs); i++ {
+			zs[i].SegA, zs[i].SegB = segA, segB
 		}
 	}
 	return zs
@@ -755,28 +788,52 @@ func (zs intersections) appendSegment(aSeg int, a0 Point, a []float64, bSeg int,
 
 // Intersections amongst the combinations between line, quad, cube, elliptical arcs. We consider four cases: the curves do not cross nor touch (intersections is empty), the curves intersect (and cross), the curves intersect tangentially (touching), or the curves are identical (or parallel in the case of two lines). In the last case we say there are no intersections. As all curves are segments, it is considered a secant intersection when the segments touch but "intent to" cut at their ends (i.e. when position equals to 0 or 1 for either segment).
 
+type intersectionKind int
+
+const (
+	AintoB intersectionKind = iota
+	BintoA
+	Tangent
+)
+
+type intersectionParallel int
+
+const (
+	NoParallel intersectionParallel = iota
+	AParallel                       // parallel along A
+	BParallel                       // parallel along B
+	Parallel                        // parallel along both
+)
+
 type intersection struct {
+	// SegA, SegB, and Parallel are filled/specified only for path intersections, not segment
 	Point
 	SegA, SegB int
 	TA, TB     float64 // position along segment in [0,1]
-	DirA, DirB float64 // angle of direction along segment TODO: remove?
-	BintoA     bool
-	Tangent    bool // tangential, i.e. touching/non-crossing
+	DirA, DirB float64 // angle of direction along segment
+	Kind       intersectionKind
+	Parallel   intersectionParallel // 3 = parallel along A and B
 }
 
 func (z intersection) Equals(o intersection) bool {
-	return z.Point.Equals(o.Point) && z.SegA == o.SegA && z.SegB == o.SegB && Equal(z.TA, o.TA) && Equal(z.TB, o.TB) && angleEqual(z.DirA, o.DirA) && angleEqual(z.DirB, o.DirB) && z.Tangent == o.Tangent
+	return z.Point.Equals(o.Point) && z.SegA == o.SegA && z.SegB == o.SegB && Equal(z.TA, o.TA) && Equal(z.TB, o.TB) && angleEqual(z.DirA, o.DirA) && angleEqual(z.DirB, o.DirB) && z.Kind == o.Kind && z.Parallel == o.Parallel
 }
 
 func (z intersection) String() string {
 	s := fmt.Sprintf("pos={%.3g,%.3g} seg={%d,%d} t={%.3g,%.3g} dir={%g°,%g°}", z.Point.X, z.Point.Y, z.SegA, z.SegB, z.TA, z.TB, angleNorm(z.DirA)*180.0/math.Pi, angleNorm(z.DirB)*180.0/math.Pi)
-	if z.BintoA {
+	if z.Kind == AintoB {
+		s += " AintoB"
+	} else if z.Kind == BintoA {
 		s += " BintoA"
 	} else {
-		s += " AintoB"
+		s += " Tangent"
 	}
-	if z.Tangent {
-		s += " tangent"
+	if z.Parallel == Parallel {
+		s += " Parallel"
+	} else if z.Parallel == AParallel {
+		s += " AParallel"
+	} else if z.Parallel == BParallel {
+		s += " BParallel"
 	}
 	return s
 }
@@ -791,7 +848,7 @@ func (zs intersections) Has() bool {
 // There are secants, i.e. the curves intersect and cross (they cut).
 func (zs intersections) HasSecant() bool {
 	for _, z := range zs {
-		if !z.Tangent {
+		if z.Kind != Tangent {
 			return true
 		}
 	}
@@ -801,7 +858,7 @@ func (zs intersections) HasSecant() bool {
 // There are tangents, i.e. the curves intersect but don't cross (they touch).
 func (zs intersections) HasTangent() bool {
 	for _, z := range zs {
-		if z.Tangent {
+		if z.Kind == Tangent {
 			return true
 		}
 	}
@@ -816,24 +873,58 @@ func (zs intersections) String() string {
 	return sb.String()
 }
 
-// sort indices of intersections for curve A
-type intersectionASort struct {
-	zs intersections
+func (zs intersections) Sort(p, q *Path) {
+	lenA, lenB := p.Len(), q.Len()
+	// disable putting intersection at the end of the curve at the beginning
+	if !p.Closed() {
+		lenA = 0
+	}
+	if !q.Closed() {
+		lenB = 0
+	}
+	sort.Stable(intersectionSort{zs, lenA, lenB})
 }
 
-func (a intersectionASort) Len() int {
+// sort indices of intersections for curve A
+type intersectionSort struct {
+	zs         intersections
+	lenA, lenB int
+}
+
+func (a intersectionSort) Len() int {
 	return len(a.zs)
 }
 
-func (a intersectionASort) Swap(i, j int) {
+func (a intersectionSort) Swap(i, j int) {
 	a.zs[i], a.zs[j] = a.zs[j], a.zs[i]
 }
 
-func (a intersectionASort) Less(i, j int) bool {
-	if a.zs[i].SegA == a.zs[j].SegA {
+func (a intersectionSort) Less(i, j int) bool {
+	// sort by P and secondary to Q. Consider a point at the very end of the curve (seg=len-1, t=1) as if it were at the beginning, since it is on the starting point of the path
+	segai, segaj := a.zs[i].SegA, a.zs[j].SegA
+	if a.zs[i].SegA == a.lenA-1 && Equal(a.zs[i].TA, 1.0) {
+		segai = -1
+	}
+	if a.zs[j].SegA == a.lenA-1 && Equal(a.zs[j].TA, 1.0) {
+		segaj = -1
+	}
+	if segai == segaj {
+		if Equal(a.zs[i].TA, a.zs[j].TA) {
+			segbi, segbj := a.zs[i].SegB, a.zs[j].SegB
+			if a.zs[i].SegB == a.lenB-1 && Equal(a.zs[i].TB, 1.0) {
+				segbi = -1
+			}
+			if a.zs[j].SegB == a.lenB-1 && Equal(a.zs[j].TB, 1.0) {
+				segbj = -1
+			}
+			if segbi == segbj {
+				return a.zs[i].TB < a.zs[j].TB
+			}
+			return segbi < segbj
+		}
 		return a.zs[i].TA < a.zs[j].TA
 	}
-	return a.zs[i].SegA < a.zs[j].SegA
+	return segai < segaj
 }
 
 // sort indices of intersections for curve B
@@ -868,17 +959,26 @@ func (zs intersections) argBSort() []int {
 }
 
 func (zs intersections) add(pos Point, ta, tb float64, dira, dirb float64, tangent bool) intersections {
-	if Equal(ta, 0.0) || Equal(tb, 0.0) || Equal(ta, 1.0) || Equal(tb, 1.0) {
-		tangent = true
+	var kind intersectionKind
+	var parallel intersectionParallel
+	if angleEqual(dira, dirb) || angleEqual(dira, dirb+math.Pi) {
+		parallel = Parallel
+	}
+	if tangent || parallel == Parallel || Equal(ta, 0.0) || Equal(tb, 0.0) || Equal(ta, 1.0) || Equal(tb, 1.0) {
+		kind = Tangent
+	} else if angleNorm(dirb-dira) < math.Pi {
+		kind = BintoA
+	} else {
+		kind = AintoB
 	}
 	return append(zs, intersection{
-		Point:   pos,
-		TA:      ta,
-		TB:      tb,
-		DirA:    dira,
-		DirB:    dirb,
-		BintoA:  angleNorm(dirb-dira) < math.Pi,
-		Tangent: tangent,
+		Point:    pos,
+		TA:       ta,
+		TB:       tb,
+		DirA:     dira,
+		DirB:     dirb,
+		Kind:     kind,
+		Parallel: parallel,
 	})
 }
 
@@ -895,40 +995,36 @@ func (zs intersections) LineLine(a0, a1, b0, b1 Point) intersections {
 		// parallel
 		if Equal(da.PerpDot(b1.Sub(a0)), 0.0) {
 			// aligned, rotate to x-axis
-			angle := da.Angle()
-			a := a0.Rot(-angle, Point{}).X
-			b := a1.Rot(-angle, Point{}).X
-			c := b0.Rot(-angle, Point{}).X
-			d := b1.Rot(-angle, Point{}).X
-			//if c <= a && a <= d && c <= b && b <= d {
-			//	// a in b or a == b
-			//	mid := (a + b) / 2.0
-			//	zs = zs.add(a0.Interpolate(a1, 0.5), 0.5, (mid-c)/(d-c), true)
-			//} else if a < c && c < b && a < d && d < b {
-			//	// b in a
-			//	mid := (c + d) / 2.0
-			//	zs = zs.add(b0.Interpolate(b1, 0.5), (mid-a)/(b-a), 0.5, true)
-			//} else if a <= c && c <= b {
-			//	// a before b
-			//	mid := (c + b) / 2.0
-			//	zs = zs.add(b0.Interpolate(a1, 0.5), (mid-a)/(b-a), (mid-c)/(d-c), true)
-			//} else if a <= d && d <= b {
-			//	// b before a
-			//	mid := (a + d) / 2.0
-			//	zs = zs.add(a0.Interpolate(b1, 0.5), (mid-a)/(b-a), (mid-c)/(d-c), true)
-			//}
-			if c < d && Equal(b, c) {
-				// a before b
-				zs = zs.add(a1, 1.0, 0.0, angle, angle, true)
-			} else if c < d && Equal(a, d) {
-				// b before a
-				zs = zs.add(a0, 0.0, 1.0, angle, angle, true)
-			} else if d < c && Equal(b, d) {
-				// a before b (inverted)
-				zs = zs.add(a1, 1.0, 1.0, angle, -angle, true)
-			} else if d < c && Equal(a, c) {
-				// b (inverted) before a
-				zs = zs.add(a0, 0.0, 0.0, angle, -angle, true)
+			angle0 := da.Angle()
+			angle1 := db.Angle()
+			a := a0.Rot(-angle0, Point{}).X
+			b := a1.Rot(-angle0, Point{}).X
+			c := b0.Rot(-angle0, Point{}).X
+			d := b1.Rot(-angle0, Point{}).X
+			if (c <= a && a <= d && c <= b && b <= d) || (d <= a && a <= c && d <= b && b <= c) {
+				// a-b in c-d or a-b == c-d
+				zs = zs.add(a0, 0.0, (a-c)/(d-c), angle0, angle1, true)
+				zs = zs.add(a1, 1.0, (b-c)/(d-c), angle0, angle1, true)
+			} else if a < c && c < b && a < d && d < b {
+				// c-d in a-b
+				zs = zs.add(b0, (c-a)/(b-a), 0.0, angle0, angle1, true)
+				zs = zs.add(b1, (d-a)/(b-a), 1.0, angle0, angle1, true)
+			} else if c <= a && a <= d || d <= a && a <= c {
+				// a in c-d
+				zs = zs.add(a0, 0.0, (a-c)/(d-c), angle0, angle1, true)
+				if a < d {
+					zs = zs.add(b1, (d-a)/(b-a), 1.0, angle0, angle1, true)
+				} else if a < c {
+					zs = zs.add(b0, (c-a)/(b-a), 0.0, angle0, angle1, true)
+				}
+			} else if c <= b && b <= d || d <= b && b <= c {
+				// b in c-d
+				if c < b {
+					zs = zs.add(b0, (c-a)/(b-a), 0.0, angle0, angle1, true)
+				} else if d < b {
+					zs = zs.add(b1, (d-a)/(b-a), 1.0, angle0, angle1, true)
+				}
+				zs = zs.add(a1, 1.0, (b-c)/(d-c), angle0, angle1, true)
 			}
 		}
 		return zs
@@ -968,22 +1064,22 @@ func (zs intersections) LineQuad(l0, l1, p0, p1, p2 Point) intersections {
 			deriv := quadraticBezierDeriv(p0, p1, p2, root)
 			dirb := deriv.Angle()
 			// deviate angle slightly to distinguish between BintoA/AintoB on head-on directions
-			if (Equal(root, 0.0) || Equal(root, 1.0)) && (angleEqual(dira, dirb) || angleEqual(dira, dirb+math.Pi)) {
-				deriv2 := quadraticBezierDeriv2(p0, p1, p2)
-				if 0.0 <= deriv.PerpDot(deriv2) {
-					dirb -= Epsilon // CCW
-				} else {
-					dirb += Epsilon // CW
-				}
+			//if Equal(root, 0.0) || Equal(root, 1.0) {
+			deriv2 := quadraticBezierDeriv2(p0, p1, p2)
+			if (0.0 <= deriv.PerpDot(deriv2)) == Equal(root, 0.0) {
+				dirb += Epsilon / 2.0 // t=0 and CCW, or t=1 and CW
+			} else {
+				dirb -= Epsilon / 2.0 // t=0 and CW, or t=1 and CCW
 			}
+			//}
 
 			pos := quadraticBezierPos(p0, p1, p2, root)
 			dif := A.Dot(deriv)
 			if horizontal {
-				if l0.X <= pos.X && pos.X <= l1.X {
+				if Interval(pos.X, l0.X, l1.X) {
 					zs = zs.add(pos, (pos.X-l0.X)/(l1.X-l0.X), root, dira, dirb, Equal(dif, 0.0))
 				}
-			} else if l0.Y <= pos.Y && pos.Y <= l1.Y {
+			} else if Interval(pos.Y, l0.Y, l1.Y) {
 				zs = zs.add(pos, (pos.Y-l0.Y)/(l1.Y-l0.Y), root, dira, dirb, Equal(dif, 0.0))
 			}
 		}
@@ -1021,22 +1117,22 @@ func (zs intersections) LineCube(l0, l1, p0, p1, p2, p3 Point) intersections {
 			deriv := cubicBezierDeriv(p0, p1, p2, p3, root)
 			dirb := deriv.Angle()
 			// deviate angle slightly to distinguish between BintoA/AintoB on head-on directions
-			if (Equal(root, 0.0) || Equal(root, 1.0)) && (angleEqual(dira, dirb) || angleEqual(dira, dirb+math.Pi)) {
-				deriv2 := cubicBezierDeriv2(p0, p1, p2, p3, root)
-				if 0.0 <= deriv.PerpDot(deriv2) {
-					dirb -= Epsilon // CCW
-				} else {
-					dirb += Epsilon // CW
-				}
+			//if Equal(root, 0.0) || Equal(root, 1.0) {
+			deriv2 := cubicBezierDeriv2(p0, p1, p2, p3, root)
+			if (0.0 <= deriv.PerpDot(deriv2)) == Equal(root, 0.0) {
+				dirb += Epsilon / 2.0 // t=0 and CCW, or t=1 and CW
+			} else {
+				dirb -= Epsilon / 2.0 // t=0 and CW, or t=1 and CCW
 			}
+			//}
 
 			pos := cubicBezierPos(p0, p1, p2, p3, root)
 			dif := A.Dot(deriv)
 			if horizontal {
-				if l0.X <= pos.X && pos.X <= l1.X {
+				if Interval(pos.X, l0.X, l1.X) {
 					zs = zs.add(pos, (pos.X-l0.X)/(l1.X-l0.X), root, dira, dirb, Equal(dif, 0.0))
 				}
-			} else if l0.Y <= pos.Y && pos.Y <= l1.Y {
+			} else if Interval(pos.Y, l0.Y, l1.Y) {
 				zs = zs.add(pos, (pos.Y-l0.Y)/(l1.Y-l0.Y), root, dira, dirb, Equal(dif, 0.0))
 			}
 		}
@@ -1105,13 +1201,13 @@ func (zs intersections) LineEllipse(l0, l1, center, radius Point, phi, theta0, t
 			pos := Point{x, y}.Rot(phi, Origin).Add(center)
 			dirb := ellipseDeriv(radius.X, radius.Y, phi, theta0 <= theta1, angle).Angle()
 			// deviate angle slightly to distinguish between BintoA/AintoB on head-on directions
-			if (Equal(t, 0.0) || Equal(t, 1.0)) && (angleEqual(dira, dirb) || angleEqual(dira, dirb+math.Pi)) {
-				if theta0 <= theta1 {
-					dirb -= Epsilon // CCW
-				} else {
-					dirb += Epsilon // CW
-				}
+			//if Equal(t, 0.0) || Equal(t, 1.0) {
+			if (theta0 <= theta1) == Equal(t, 0.0) {
+				dirb += Epsilon / 2.0 // t=0 and CCW, or t=1 and CW
+			} else {
+				dirb -= Epsilon / 2.0 // t=0 and CW, or t=1 and CCW
 			}
+			//}
 			zs = zs.add(pos, s, t, dira, dirb, Equal(root, 0.0))
 		}
 	}
