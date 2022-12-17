@@ -356,7 +356,7 @@ func TestIntersections(t *testing.T) {
 			{Point{2.0, 2.0}, 2, 2, 0.0, 0.0, 0.0, math.Pi, BintoA, NoParallel},
 		}},
 		{"M0 1L4 1L4 3L0 3z", "M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", intersections{
-			{Point{4.0, 3.0}, 3, 2, 0.0, 1.0, math.Pi, 1.5 * math.Pi, BintoA, NoParallel},
+			{Point{4.0, 3.0}, 3, 1, 0.0, 0.0, math.Pi, 1.5 * math.Pi, BintoA, NoParallel},
 			{Point{2.0, 3.0}, 3, 2, 0.5, 0.0, math.Pi, 0.5 * math.Pi, AintoB, NoParallel},
 		}},
 		{"M1 0L3 0L3 4L1 4z", "M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", intersections{
@@ -365,7 +365,7 @@ func TestIntersections(t *testing.T) {
 		}},
 		{"M1 0L3 0L3 4L1 4z", "M3 0A1 1 0 0 0 1 0A1 1 0 0 0 3 0z", intersections{
 			{Point{1.0, 0.0}, 1, 2, 0.0, 0.0, 0.0, 0.5 * math.Pi, BintoA, NoParallel},
-			{Point{3.0, 0.0}, 2, 2, 0.0, 1.0, 0.5 * math.Pi, 1.5 * math.Pi, AintoB, NoParallel},
+			{Point{3.0, 0.0}, 2, 1, 0.0, 0.0, 0.5 * math.Pi, 1.5 * math.Pi, AintoB, NoParallel},
 		}},
 		{"M1 0L3 0L3 4L1 4z", "M1 0A1 1 0 0 0 -1 0A1 1 0 0 0 1 0z", intersections{}},
 		{"M1 0L3 0L3 4L1 4z", "M1 0L1 -1L0 0z", intersections{}},
@@ -380,7 +380,7 @@ func TestIntersections(t *testing.T) {
 		// intersection with parallel lines
 		{"L0 15", "M5 0L0 5L0 10L5 15", intersections{}},
 		{"L0 15", "M5 0L0 5L0 10L-5 15", intersections{
-			{Point{0.0, 5.0}, 1, 1, 1.0 / 3.0, 1.0, 0.5 * math.Pi, 0.75 * math.Pi, BintoA, Parallel},
+			{Point{0.0, 5.0}, 1, 2, 1.0 / 3.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, BintoA, Parallel},
 			{Point{0.0, 10.0}, 1, 3, 2.0 / 3.0, 0.0, 0.5 * math.Pi, 0.75 * math.Pi, BintoA, NoParallel},
 		}},
 		{"L0 15", "M5 15L0 10L0 5L5 0", intersections{}},
@@ -390,7 +390,7 @@ func TestIntersections(t *testing.T) {
 		}},
 		{"L0 10L-5 15", "M5 0L0 5L0 15", intersections{}},
 		{"L0 10L5 15", "M5 0L0 5L0 15", intersections{
-			{Point{0.0, 5.0}, 1, 1, 0.5, 1.0, 0.5 * math.Pi, 0.75 * math.Pi, BintoA, Parallel},
+			{Point{0.0, 5.0}, 1, 2, 0.5, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, BintoA, Parallel},
 			{Point{0.0, 10.0}, 2, 2, 0.0, 0.5, 0.25 * math.Pi, 0.5 * math.Pi, BintoA, NoParallel},
 		}},
 		{"L0 10L-5 15", "M0 15L0 5L5 0", intersections{}},
@@ -400,16 +400,22 @@ func TestIntersections(t *testing.T) {
 		}},
 		{"L5 5L5 10L0 15", "M10 0L5 5L5 15", intersections{}},
 		{"L5 5L5 10L10 15", "M10 0L5 5L5 15", intersections{
-			{Point{5.0, 5.0}, 1, 1, 1.0, 1.0, 0.25 * math.Pi, 0.75 * math.Pi, BintoA, Parallel},
+			{Point{5.0, 5.0}, 2, 2, 0.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, BintoA, Parallel},
 			{Point{5.0, 10.0}, 3, 2, 0.0, 0.5, 0.25 * math.Pi, 0.5 * math.Pi, BintoA, NoParallel},
 		}},
 		{"L5 5L5 10L0 15", "M10 0L5 5L5 10L10 15", intersections{}},
 		{"L5 5L5 10L10 15", "M10 0L5 5L5 10L0 15", intersections{
-			{Point{5.0, 5.0}, 1, 1, 1.0, 1.0, 0.25 * math.Pi, 0.75 * math.Pi, BintoA, Parallel},
+			{Point{5.0, 5.0}, 2, 2, 0.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, BintoA, Parallel},
 			{Point{5.0, 10.0}, 3, 3, 0.0, 0.0, 0.25 * math.Pi, 0.75 * math.Pi, BintoA, NoParallel},
 		}},
 		{"L5 5L5 10L10 15L5 20", "M10 0L5 5L5 10L10 15L10 20", intersections{}},
 		{"L5 5L5 10L10 15L5 20", "M10 20L10 15L5 10L5 5L10 0", intersections{}},
+		{"L2 0L2 1L0 1z", "M1 0L3 0L3 1L1 1z", intersections{
+			{Point{1.0, 0.0}, 1, 1, 0.5, 0.0, 0.0, 0.0, AintoB, Parallel},
+			{Point{2.0, 0.0}, 2, 1, 0.0, 0.5, 0.5 * math.Pi, 0.0, AintoB, NoParallel},
+			{Point{2.0, 1.0}, 3, 3, 0.0, 0.5, math.Pi, math.Pi, BintoA, Parallel},
+			{Point{1.0, 1.0}, 3, 4, 0.5, 0.0, math.Pi, 1.5 * math.Pi, BintoA, NoParallel},
+		}},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
@@ -538,9 +544,6 @@ func TestPathAnd(t *testing.T) {
 		{"L2 0L2 2L0 2z", "M2 0L4 0L4 2L2 2z", ""},
 		{"L2 0L2 2L0 2z", "M2 1L4 1L4 3L2 3z", ""},
 
-		// subpath winding
-		{"M1 0L3 0L3 4L1 4z", "M0 1L4 1L4 3L0 3zM2 2L2 5L5 5L5 2z", "M3 1L3 2L2 2L2 3L1 3L1 1zM3 3L3 4L2 4L2 3z"},
-
 		// no overlap
 		{"L10 0L5 10z", "M0 10L10 10L5 20z", ""},
 
@@ -553,6 +556,13 @@ func TestPathAnd(t *testing.T) {
 		{"L10 0L5 10z", "L5 10L10 0z", "L10 0L5 10z"},
 		{"L5 10L10 0z", "L10 0L5 10z", "L5 10L10 0z"},
 		{"L5 10L10 0z", "L5 10L10 0z", "L5 10L10 0z"},
+
+		// subpaths
+		{"M1 0L3 0L3 4L1 4z", "M0 1L4 1L4 3L0 3zM2 2L2 5L5 5L5 2z", "M3 1L3 2L2 2L2 3L1 3L1 1zM3 3L3 4L2 4L2 3z"},                                      // different winding
+		{"L2 0L2 1L0 1zM0 2L2 2L2 3L0 3z", "M1 0L3 0L3 1L1 1zM1 2L3 2L3 3L1 3z", "M1 0L2 0L2 1L1 1zM1 2L2 2L2 3L1 3z"},                                 // two overlapping
+		{"L2 0L2 1L0 1zM0 2L2 2L2 3L0 3z", "M1 0L3 0L3 1L1 1zM0 2L2 2L2 3L0 3z", "M1 0L2 0L2 1L1 1zM0 2L2 2L2 3L0 3z"},                                 // one overlapping, one equal
+		{"L2 0L2 1L0 1zM0 2L2 2L2 3L0 3z", "M1 0L3 0L3 1L1 1zM0.1 2.1L1.9 2.1L1.9 2.9L0.1 2.9z", "M1 0L2 0L2 1L1 1zM0.1 2.1L1.9 2.1L1.9 2.9L0.1 2.9z"}, // one overlapping, one inside the other
+		{"L2 0L2 1L0 1zM0 2L2 2L2 3L0 3z", "M1 0L3 0L3 1L1 1zM2 2L4 2L4 3L2 3z", "M1 0L2 0L2 1L1 1z"},                                                  // one overlapping, the others separate
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
