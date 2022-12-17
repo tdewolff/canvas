@@ -336,6 +336,7 @@ func TestIntersections(t *testing.T) {
 		{"L2 0L2 2L0 2z", "M2 -1L4 -1L4 1L2 1z", intersections{}},
 		{"L2 0L2 2L0 2z", "M2 -1L4 -1L4 3L2 3z", intersections{}},
 		{"M0 -1L2 -1L2 3L0 3z", "M2 0L4 0L4 2L2 2z", intersections{}},
+		{"L1 0L1 1zM2 0L1.9 1L1.9 -1z", "L1 0L1 -1zM2 0L1.9 1L1.9 -1z", intersections{}},
 
 		// head-on collisions
 		{"M2 0L2 2L0 2", "M4 2L2 2L2 4", intersections{}},
