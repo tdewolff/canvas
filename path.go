@@ -906,9 +906,8 @@ func (p *Path) Markers(first, mid, last *Path, align bool) []*Path {
 
 // Split splits the path into its independent subpaths. The path is split before each MoveTo command. None of the subpaths shall be empty.
 func (p *Path) Split() []*Path {
-	ps := []*Path{}
-
 	var i, j int
+	ps := []*Path{}
 	for j < len(p.d) {
 		cmd := p.d[j]
 		if i < j && cmd == MoveToCmd {

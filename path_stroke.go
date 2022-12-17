@@ -575,12 +575,10 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 		if lhs != nil { // closed path
 			// inner path should go opposite direction to cancel the outer path
 			if ps.CCW() {
-				lhs = lhs.Reverse()
 				q = q.Append(rhs)
-				q = q.Append(lhs)
+				q = q.Append(lhs.Reverse())
 			} else {
-				rhs = rhs.Reverse()
-				q = q.Append(lhs)
+				q = q.Append(lhs.Reverse())
 				q = q.Append(rhs)
 			}
 		} else {
