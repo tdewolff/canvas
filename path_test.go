@@ -265,6 +265,12 @@ func TestPathCCW(t *testing.T) {
 	test.That(t, !MustParseSVG("L10 0L10 -10z").CCW())
 	test.That(t, MustParseSVG("L10 0").CCW())
 	test.That(t, MustParseSVG("M10 0").CCW())
+	test.That(t, MustParseSVG("Q0 -1 1 0").CCW())
+	test.That(t, !MustParseSVG("Q0 1 1 0").CCW())
+	test.That(t, MustParseSVG("C0 -1 1 -1 1 0").CCW())
+	test.That(t, !MustParseSVG("C0 1 1 1 1 0").CCW())
+	test.That(t, MustParseSVG("A1 1 0 0 1 2 0").CCW())
+	test.That(t, !MustParseSVG("A1 1 0 0 0 2 0").CCW())
 }
 
 func TestPathFilling(t *testing.T) {

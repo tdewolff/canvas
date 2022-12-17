@@ -512,7 +512,7 @@ func TestPathCombine(t *testing.T) {
 		{"L10 0L10 10L0 10zM5 5L15 5L15 15L5 15z", "M10 5L15 5L15 15L5 15L5 10L0 10L0 0L10 0z"},
 		{"L10 0L10 10L0 10zM5 5L5 15L15 15L15 5z", "M10 5L5 5L5 10L0 10L0 0L10 0zM10 5L15 5L15 15L5 15L5 10L10 10z"},
 
-		{"M0 1L4 1L4 3L0 3zM4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", "M4 3A1 1 0 0 0 2 3L0 3L0 1L4 1zM4 3L2 3A1 1 0 0 0 4 3z"},
+		{"M0 1L4 1L4 3L0 3zM4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", "M4 3A1 1 0 0 0 2 3L0 3L0 1L4 1zM4 3A1 1 0 0 1 2 3z"},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p), func(t *testing.T) {
@@ -573,6 +573,7 @@ func TestPathOr(t *testing.T) {
 		{"L10 0L5 10z", "M0 5L5 15L10 5z", "M7.5 5L10 5L5 15L0 5L2.5 5L0 0L10 0z"},
 		{"L5 10L10 0z", "M0 5L10 5L5 15z", "M2.5 5L0 5L5 15L10 5L7.5 5L10 0L0 0z"},
 		{"L5 10L10 0z", "M0 5L5 15L10 5z", "M2.5 5L0 5L5 15L10 5L7.5 5L10 0L0 0z"},
+		{"M0 1L4 1L4 3L0 3z", "M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", "M4 3A1 1 0 0 1 2 3L0 3L0 1L4 1z"},
 
 		// touching edges
 		{"L2 0L2 2L0 2z", "M2 0L4 0L4 2L2 2z", "L2 0L2 2L0 2zM2 0L4 0L4 2L2 2z"},
@@ -611,6 +612,7 @@ func TestPathXor(t *testing.T) {
 		{"L10 0L5 10z", "M0 5L5 15L10 5z", "M7.5 5L2.5 5L0 0L10 0zM7.5 5L10 5L5 15L0 5L2.5 5L5 10z"},
 		{"L5 10L10 0z", "M0 5L10 5L5 15z", "M2.5 5L7.5 5L10 0L0 0zM2.5 5L0 5L5 15L10 5L7.5 5L5 10z"},
 		{"L5 10L10 0z", "M0 5L5 15L10 5z", "M2.5 5L7.5 5L10 0L0 0zM2.5 5L0 5L5 15L10 5L7.5 5L5 10z"},
+		{"M0 1L4 1L4 3L0 3z", "M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", "M4 3A1 1 0 0 0 2 3L0 3L0 1L4 1zM4 3A1 1 0 0 1 2 3z"},
 
 		// touching edges
 		{"L2 0L2 2L0 2z", "M2 0L4 0L4 2L2 2z", "L2 0L2 2L0 2zM2 0L4 0L4 2L2 2z"},

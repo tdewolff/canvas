@@ -327,6 +327,7 @@ func (z *intersectionNode) String() string {
 
 // get intersections for paths p and q sorted for both
 func intersectionNodes(p, q *Path) []*intersectionNode {
+	// TODO: use AParallel and BParallel to determine along which path a node has a parallel piece, keep it separate from the a,b paths in each node so that it can be appended only when needed. This avoids cuts that go along the parallel segments only to go back immediately after the intersection
 	if !p.Closed() {
 		p.Close()
 	}
@@ -338,7 +339,7 @@ func intersectionNodes(p, q *Path) []*intersectionNode {
 	if len(Zs) == 0 {
 		return nil
 	} else if len(Zs)%2 != 0 {
-		panic("number of intersections must be even")
+		panic("bug: number of intersections must be even")
 	}
 
 	zs := make([]*intersectionNode, len(Zs))
@@ -390,7 +391,7 @@ func intersectionNodes(p, q *Path) []*intersectionNode {
 				if !p1.Empty() {
 					p0, p1 = cutPathSegment(Point{p1.d[1], p1.d[2]}, p1.d[4:], t)
 				} else {
-					p0 = &Path{}
+					p0 = p1
 				}
 				cur = p0.d
 			}
@@ -405,7 +406,9 @@ func intersectionNodes(p, q *Path) []*intersectionNode {
 			j++
 		} else {
 			// segment has no intersection, add to previous intersection
-			cur = append(cur, p.d[i:i+cmdLen(cmd)]...)
+			if len(cur) == 0 || cmd != CloseCmd || p.d[i+1] != cur[len(cur)-3] || p.d[i+2] != cur[len(cur)-2] {
+				cur = append(cur, p.d[i:i+cmdLen(cmd)]...)
+			}
 		}
 		i += cmdLen(cmd)
 		seg++
@@ -458,7 +461,7 @@ func intersectionNodes(p, q *Path) []*intersectionNode {
 				if !p1.Empty() {
 					p0, p1 = cutPathSegment(Point{p1.d[1], p1.d[2]}, p1.d[4:], t)
 				} else {
-					p0 = &Path{}
+					p0 = p1
 				}
 				cur = p0.d
 			}
@@ -473,7 +476,9 @@ func intersectionNodes(p, q *Path) []*intersectionNode {
 			j++
 		} else {
 			// segment has no intersection, add to previous intersection
-			cur = append(cur, q.d[i:i+cmdLen(cmd)]...)
+			if len(cur) == 0 || cmd != CloseCmd || q.d[i+1] != cur[len(cur)-3] || q.d[i+2] != cur[len(cur)-2] {
+				cur = append(cur, q.d[i:i+cmdLen(cmd)]...)
+			}
 		}
 		i += cmdLen(cmd)
 		seg++
@@ -489,12 +494,14 @@ func intersectionNodes(p, q *Path) []*intersectionNode {
 func cutPathSegment(start Point, d []float64, t float64) (*Path, *Path) {
 	p0, p1 := &Path{}, &Path{}
 	if Equal(t, 0.0) {
+		p0.MoveTo(start.X, start.Y)
 		p1.MoveTo(start.X, start.Y)
 		p1.d = append(p1.d, d...)
 		return p0, p1
 	} else if Equal(t, 1.0) {
 		p0.MoveTo(start.X, start.Y)
 		p0.d = append(p0.d, d...)
+		p1.MoveTo(d[len(d)-3], d[len(d)-2])
 		return p0, p1
 	}
 	if d[0] == LineToCmd {
@@ -638,7 +645,7 @@ func collisions(p, q *Path, keepTangents bool) intersections {
 			}
 			z1 := Zs[(i+m-1)%len(Zs)]
 			i += m
-			if len(Zs)+4 < i {
+			if i0+len(Zs) < i {
 				panic("bug: infinite loop")
 			}
 

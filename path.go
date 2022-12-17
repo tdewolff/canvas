@@ -204,7 +204,7 @@ func (p *Path) Coords() []Point {
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		i += cmdLen(cmd)
-		if cmd != CloseCmd || !Equal(coords[len(coords)-1].X, p.d[i-3]) || !Equal(coords[len(coords)-1].Y, p.d[i-2]) {
+		if len(coords) == 0 || !Equal(coords[len(coords)-1].X, p.d[i-3]) || !Equal(coords[len(coords)-1].Y, p.d[i-2]) {
 			coords = append(coords, Point{p.d[i-3], p.d[i-2]})
 		}
 	}
@@ -398,7 +398,7 @@ func (p *Path) Close() {
 
 func (p *Path) simplifyToCoords() []Point {
 	coords := p.Coords()
-	if len(coords) == 3 {
+	if len(coords) <= 3 {
 		// if there are just two commands, linearizing them gives us an area of no surface. To avoid this we add extra coordinates halfway for QuadTo, CubeTo and ArcTo.
 		coords = []Point{}
 		for i := 0; i < len(p.d); {
