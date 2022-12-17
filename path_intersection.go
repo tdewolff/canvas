@@ -139,17 +139,77 @@ func boolean(op pathOp, p, q *Path) *Path {
 		}
 		return &Path{}
 	}
-
 	if op != pathOpCombine {
 		// remove subpath intersections within each path
 		p = p.Combine()
 		q = q.Combine()
 	}
 
-	R := &Path{}
 	zs := intersectionNodes(p, q)
 	ps, qs := p.Split(), q.Split()
 	ccwA, ccwB := ps[0].CCW(), qs[0].CCW()
+
+	R := &Path{}
+	if len(zs) == 0 {
+		// paths are not intersecting
+		pInQ := p.inside(q)
+		qInP := q.inside(p)
+		if op == pathOpAnd {
+			if pInQ {
+				R = p
+			} else if qInP {
+				R = q
+			} else {
+				// no overlap
+			}
+		} else if op == pathOpOr {
+			if pInQ {
+				R = q
+			} else if qInP {
+				R = p
+			} else {
+				R = p.Append(q) // no overlap
+			}
+		} else if op == pathOpXor {
+			if pInQ && qInP {
+				// equal
+			} else if pInQ {
+				R = q.Append(p.Reverse())
+			} else if qInP {
+				R = p.Append(q.Reverse())
+			} else {
+				R = p.Append(q) // no overlap
+			}
+		} else if op == pathOpNot {
+			if pInQ && qInP {
+				// equal
+			} else if pInQ {
+			} else if qInP {
+				R = p.Append(q.Reverse())
+			} else {
+				R = p // no overlap
+			}
+		} else if op == pathOpCombine {
+			if ccwA == ccwB {
+				if pInQ {
+					R = q
+				} else if qInP {
+				} else {
+					R = p.Append(q) // no overlap
+				}
+			} else {
+				if pInQ && qInP {
+					// equal
+				} else {
+					R = p.Append(q)
+				}
+			}
+		}
+		return R
+	}
+
+	directions := []bool{true}
+	startInwards, invertA, invertB := false, false, false
 	if op == pathOpCombine {
 		if ccwA == ccwB {
 			op = pathOpOr
@@ -157,9 +217,6 @@ func boolean(op pathOp, p, q *Path) *Path {
 			op = pathOpXor
 		}
 	}
-
-	directions := []bool{true}
-	startInwards, invertA, invertB := false, false, false
 	if op == pathOpAnd {
 		startInwards, invertA = true, true
 	} else if op == pathOpOr {
@@ -204,48 +261,6 @@ func boolean(op pathOp, p, q *Path) *Path {
 				}
 				r.Close()
 				R = R.Append(r)
-			}
-		}
-	}
-
-	if len(zs) == 0 {
-		// paths are not intersecting
-		pInQ := p.inside(q)
-		qInP := q.inside(p)
-		if op == pathOpAnd {
-			if pInQ {
-				R = p
-			} else if qInP {
-				R = q
-			} else {
-				// no overlap
-			}
-		} else if op == pathOpOr {
-			if pInQ {
-				R = q
-			} else if qInP {
-				R = p
-			} else {
-				R = p.Append(q) // no overlap
-			}
-		} else if op == pathOpXor {
-			if pInQ && qInP {
-				// equal
-			} else if pInQ {
-				R = q.Append(p.Reverse())
-			} else if qInP {
-				R = p.Append(q.Reverse())
-			} else {
-				R = p.Append(q) // no overlap
-			}
-		} else if op == pathOpNot {
-			if pInQ && qInP {
-				// equal
-			} else if pInQ {
-			} else if qInP {
-				R = p.Append(q.Reverse())
-			} else {
-				R = p // no overlap
 			}
 		}
 	}
