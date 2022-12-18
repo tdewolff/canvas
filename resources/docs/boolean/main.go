@@ -55,6 +55,30 @@ func main() {
 	p = p.Append(canvas.Rectangle(3.0, 6.0).Translate(0.5, 0.5).Reverse())
 	draw(ctx, -181.0, "Holes and islands 3", canvas.Rectangle(5.0, 7.0).Translate(0.5, 0.3), p.Translate(5.0, 0.0))
 
+	p = canvas.Rectangle(6.0, 2.0).Translate(0.0, 4.0)
+	p = p.Append(canvas.Circle(1.0).Reverse().Translate(6.0, 5.0))
+	p = p.Append(canvas.Circle(0.8).Translate(8.0, 7.0))
+	p = p.Append(canvas.Circle(0.8).Translate(8.0, 3.0))
+	q := canvas.Rectangle(4.0, 4.0).Translate(1.0, 3.0)
+	q = q.Append(canvas.Circle(0.8).Translate(8.0, 7.0))
+	draw(ctx, -193.0, "Holes and islands 4", q, p)
+
+	p = &canvas.Path{}
+	p.MoveTo(1.0, 3.0)
+	p.LineTo(4.0, 3.0)
+	p.LineTo(4.0, 4.0)
+	p.LineTo(6.0, 6.0)
+	p.LineTo(6.0, 7.0)
+	p.LineTo(1.0, 7.0)
+	p.Close()
+	q = &canvas.Path{}
+	q.MoveTo(9.0, 3.0)
+	q.LineTo(4.0, 3.0)
+	q.LineTo(4.0, 7.0)
+	q.LineTo(9.0, 7.0)
+	q.Close()
+	draw(ctx, -205.0, "Parallel segments", p, q)
+
 	c.Fit(1.0)
 	c.SetZIndex(-1)
 	ctx.SetFillColor(canvas.White)

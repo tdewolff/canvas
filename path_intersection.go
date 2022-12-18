@@ -975,14 +975,14 @@ func (a intersectionSort) Swap(i, j int) {
 
 func (a intersectionSort) pos(z intersection) (float64, float64) {
 	posa := float64(z.SegA) + z.TA
-	if z.TA == 1.0 {
+	if Equal(z.TA, 1.0) {
 		posa -= Epsilon
 		if z.SegA == a.segOffsetA+a.lenA-1 {
 			posa -= float64(a.lenA - 1) // put end into first segment (moveto)
 		}
 	}
 	posb := float64(z.SegB) + z.TB
-	if z.TB == 1.0 {
+	if Equal(z.TB, 1.0) {
 		posb -= Epsilon
 		if z.SegB == a.segOffsetB+a.lenB-1 {
 			posb -= float64(a.lenB - 1) // put end into first segment (moveto)
@@ -1033,6 +1033,18 @@ func (zs intersections) argBSort() []int {
 }
 
 func (zs intersections) add(pos Point, ta, tb float64, dira, dirb float64, tangent bool) intersections {
+	// the segment-segment functions check whether ta/tb are between [0.0,1.0+Epsilon], clamp
+	if ta < 0.0 {
+		ta = 0.0
+	} else if 1.0 < ta {
+		ta = 1.0
+	}
+	if tb < 0.0 {
+		tb = 0.0
+	} else if 1.0 < tb {
+		tb = 1.0
+	}
+
 	var kind intersectionKind
 	var parallel intersectionParallel
 	if angleEqual(dira, dirb) || angleEqual(dira, dirb+math.Pi) {

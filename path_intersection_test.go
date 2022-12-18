@@ -335,6 +335,10 @@ func TestIntersections(t *testing.T) {
 			{Point{4.0, 3.0}, 3, 1, 0.0, 0.0, math.Pi, 262.01783160 * math.Pi / 180.0, BintoA, NoParallel},
 			{Point{2.0, 3.0}, 3, 13, 0.5, 0.0, math.Pi, 82.01783160 * math.Pi / 180.0, AintoB, NoParallel},
 		}},
+		{"M5 1L9 1L9 5L5 5z", MustParseSVG("M9 5A4 4 0 0 1 1 5A4 4 0 0 1 9 5z").Flatten().ToSVG(), intersections{
+			{Point{5.0, 1.0}, 1, 37, 0.0, 0.0, 0.0, 4.02145240 * math.Pi / 180.0, BintoA, NoParallel},
+			{Point{9.0, 5.0}, 3, 1, 0.0, 0.0, math.Pi, 94.02145240 * math.Pi / 180.0, AintoB, NoParallel},
+		}},
 
 		// touches / parallel
 		{"L2 0L2 2L0 2z", "M2 0L4 0L4 2L2 2z", intersections{}},
