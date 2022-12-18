@@ -45,6 +45,7 @@ func TestAngleBetween(t *testing.T) {
 		{-0.1, 0.0, 1.0, false},
 		{1.1, 0.0, 1.0, false},
 		{2.0, 3.0, 1.0, true},
+		{0.75 * math.Pi, 1.5 * math.Pi, 2.5 * math.Pi, false},
 
 		// tolerance
 		{0.0 - Epsilon, 0.0, 1.0, true},
@@ -55,6 +56,34 @@ func TestAngleBetween(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%g<=%g<=%g", tt.theta, tt.lower, tt.upper), func(t *testing.T) {
 			test.T(t, angleBetween(tt.theta, tt.lower, tt.upper), tt.between)
+		})
+	}
+}
+
+func TestAngleBetweenExclusive(t *testing.T) {
+	var tests = []struct {
+		theta, lower, upper float64
+		between             bool
+	}{
+		{0.0, 0.0, 1.0, false},
+		{1.0, 0.0, 1.0, false},
+		{0.5, 0.0, 1.0, true},
+		{0.5, 1.0, 0.0, true},
+		{0.5 + 2.0*math.Pi, 0.0, 1.0, true},
+		{0.5, 0.0 + 2.0*math.Pi, 1.0 + 2.0*math.Pi, true},
+		{0.5, 1.0 + 2.0*math.Pi, 0.0 + 2.0*math.Pi, true},
+		{0.5 - 2.0*math.Pi, 0.0, 1.0, true},
+		{0.5, 0.0 - 2.0*math.Pi, 1.0 - 2.0*math.Pi, true},
+		{0.5, 1.0 - 2.0*math.Pi, 0.0 - 2.0*math.Pi, true},
+		{-0.1, 0.0, 1.0, false},
+		{1.1, 0.0, 1.0, false},
+		{2.0, 3.0, 1.0, true},
+		{0.75 * math.Pi, 1.5 * math.Pi, 2.5 * math.Pi, false},
+		{0.5 * math.Pi, 1.75 * math.Pi, 3.0 * math.Pi, true},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%g<%g<%g", tt.theta, tt.lower, tt.upper), func(t *testing.T) {
+			test.T(t, angleBetweenExclusive(tt.theta, tt.lower, tt.upper), tt.between)
 		})
 	}
 }

@@ -602,17 +602,12 @@ func collisions(ps, qs *Path, keepTangents bool) intersections {
 				pointCloseB = 1
 			}
 			Zs.SortAndWrapEnd(segOffsetA, segOffsetB, lenA-pointCloseA, lenB-pointCloseB)
-			for _, z := range Zs {
-				fmt.Println(z)
-			}
 
 			// remove duplicate tangent collisions at segment endpoints: either 4 degenerate collisions
 			// when for both path p and path q the endpoints coincide, or 2 degenerate collisions when
 			// an endpoint collides within a segment, for each parallel segment in between an additional 2 degenerate collisions are created
 			// note that collisions between segments of the same path are never generated
-			i := 0
-			closedA, closedB := p.Closed(), q.Closed()
-			for ; i < len(Zs); i++ {
+			for i := 0; i < len(Zs); i++ {
 				z := Zs[i]
 				if z.Kind != Tangent {
 					// regular intersection
@@ -631,23 +626,25 @@ func collisions(ps, qs *Path, keepTangents bool) intersections {
 					i0 := i
 					var parallel, reverse bool // reverse is set when parallel and in reverse order
 				Next:
-					if 0 < i && i%len(Zs) == 0 {
-						// we went round the path and all were parallel, paths are equal
-						break
-					}
-
 					// tangent at segment end point: we either have a regular (mid-mid),
 					// 2-degenerate (mid-end), or 4-degenerate (end-end) intersection
 					m := 1
-					zi := Zs[i] // incoming intersection
+					zi := Zs[i%len(Zs)] // incoming intersection
 					if Equal(zi.TA, 1.0) {
 						m *= 2
 					}
 					if Equal(zi.TB, 0.0) || Equal(zi.TB, 1.0) {
 						m *= 2
 					}
+					zo := Zs[(i+m-1)%len(Zs)] // outgoing intersection
+
+					// skip if incoming is parallel since we're in the middle of a series of parallel segmentes, and we need to be at the start
+					if !parallel && (angleNorm(zi.DirA) == angleNorm(zi.DirB) || angleNorm(zi.DirA) == angleNorm(zo.DirB+math.Pi)) {
+						// when the whole path is equal (i.e. all parallels), this will skip all
+						i += m - 1
+						continue
+					}
 					i += m
-					zo := Zs[i-1] // outgoing intersection
 
 					// ends in parallel segment, follow until we reach a non-parallel segment
 					if !reverse && angleNorm(zo.DirA) == angleNorm(zo.DirB) {
@@ -662,7 +659,7 @@ func collisions(ps, qs *Path, keepTangents bool) intersections {
 					}
 
 					// choose both angles of A of the first and second intersection
-					i1, i2, i3 := i0+1, i-2, i-1
+					i1, i2, i3 := i0+1, (i-2)%len(Zs), (i-1)%len(Zs)
 					if Equal(Zs[i1].TA, 1.0) {
 						i1 += 2 // first intersection at endpoint of A, select the outgoing angle
 					}
@@ -684,7 +681,7 @@ func collisions(ps, qs *Path, keepTangents bool) intersections {
 					gamma0, gamma1 := Zs[i0].DirB+math.Pi, Zs[i3].DirB
 					if reverse {
 						gamma0, gamma1 = Zs[i2].DirB+math.Pi, Zs[i1].DirB
-						theta0, theta1 = theta2, theta3
+						theta0, theta1, theta2, theta3 = theta2, theta3, theta0, theta1
 					}
 					bi := angleBetweenExclusive(gamma0, theta0, theta1)
 					bo := angleBetweenExclusive(gamma1, theta2, theta3)
