@@ -302,6 +302,14 @@ func TestIntersections(t *testing.T) {
 		{"M-5 5L0 5L5 0", "L0 15", intersections{
 			{Point{0.0, 5.0}, 2, 1, 0.0, 1.0 / 3.0, 1.75 * math.Pi, 0.5 * math.Pi, BintoA, NoParallel},
 		}},
+		{"L0 10", "M5 0A5 5 0 0 0 0 5A5 5 0 0 0 5 10", intersections{}},
+		{"L0 10", "M5 10A5 5 0 0 1 0 5A5 5 0 0 1 5 0", intersections{}},
+		{"L0 5L5 5", "M5 0A5 5 0 0 0 5 10", intersections{
+			{Point{0.0, 5.0}, 2, 1, 0.0, 0.5, 0.0, 0.5 * math.Pi, BintoA, NoParallel},
+		}},
+		{"L0 5L5 5", "M5 10A5 5 0 0 1 5 0", intersections{
+			{Point{0.0, 5.0}, 2, 1, 0.0, 0.5, 0.0, 1.5 * math.Pi, AintoB, NoParallel},
+		}},
 
 		// intersection on two segment endpoint
 		{"L10 6L20 0", "M0 10L10 6L20 10", intersections{}},

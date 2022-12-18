@@ -292,6 +292,12 @@ func boolean(op pathOp, p, q *Path) *Path {
 	return R
 }
 
+// Clip clips path p by path q so that only the part of path p that is inside path q remains.
+func (p *Path) Clip(q *Path) *Path {
+	// TODO
+	return nil
+}
+
 // Cut returns the parts of path p and path q cut by the other at intersections.
 func (p *Path) Cut(q *Path) ([]*Path, []*Path) {
 	zs := intersectionNodes(p, q)
@@ -299,14 +305,13 @@ func (p *Path) Cut(q *Path) ([]*Path, []*Path) {
 		return []*Path{p}, []*Path{q}
 	}
 
-	// TODO: use parallel
 	ps, qs := []*Path{}, []*Path{}
 	visited := map[int]bool{}
 	for _, z0 := range zs {
 		if !visited[z0.i] {
 			for z := z0; ; {
 				visited[z.i] = true
-				ps = append(ps, z.a)
+				ps = append(ps, z.c.Append(z.a))
 				z = z.nextA
 				if z.i == z0.i {
 					break
@@ -319,7 +324,11 @@ func (p *Path) Cut(q *Path) ([]*Path, []*Path) {
 		if !visited[z0.i] {
 			for z := z0; ; {
 				visited[z.i] = true
-				qs = append(qs, z.b)
+				if z.parallel != AParallel {
+					qs = append(qs, z.c.Append(z.b))
+				} else {
+					qs = append(qs, z.c.Reverse().Append(z.b))
+				}
 				z = z.nextB
 				if z.i == z0.i {
 					break
@@ -347,7 +356,7 @@ func (z *intersectionNode) String() string {
 
 // get intersections for paths p and q sorted for both
 func intersectionNodes(p, q *Path) []*intersectionNode {
-	// close all subpaths
+	// close all subpaths, TODO: really necessary, for Clip/Cut?
 	ps, qs := p.Split(), q.Split()
 	p, q = &Path{}, &Path{}
 	for _, pi := range ps {
@@ -1126,26 +1135,27 @@ func (zs intersections) LineQuad(l0, l1, p0, p1, p2 Point) intersections {
 	horizontal := math.Abs(l1.Y-l0.Y) <= math.Abs(l1.X-l0.X)
 	for _, root := range roots {
 		if Interval(root, 0.0, 1.0) {
-			deriv := quadraticBezierDeriv(p0, p1, p2, root)
-			dirb := deriv.Angle()
-			// deviate angle slightly to distinguish between BintoA/AintoB on head-on directions
-			//if Equal(root, 0.0) || Equal(root, 1.0) {
-			deriv2 := quadraticBezierDeriv2(p0, p1, p2)
-			if (0.0 <= deriv.PerpDot(deriv2)) == Equal(root, 0.0) {
-				dirb += Epsilon / 2.0 // t=0 and CCW, or t=1 and CW
-			} else {
-				dirb -= Epsilon / 2.0 // t=0 and CW, or t=1 and CCW
-			}
-			//}
-
+			var s float64
 			pos := quadraticBezierPos(p0, p1, p2, root)
-			dif := A.Dot(deriv)
 			if horizontal {
-				if Interval(pos.X, l0.X, l1.X) {
-					zs = zs.add(pos, (pos.X-l0.X)/(l1.X-l0.X), root, dira, dirb, Equal(dif, 0.0))
+				s = (pos.X - l0.X) / (l1.X - l0.X)
+			} else {
+				s = (pos.Y - l0.Y) / (l1.Y - l0.Y)
+			}
+			if Interval(s, 0.0, 1.0) {
+				deriv := quadraticBezierDeriv(p0, p1, p2, root)
+				dirb := deriv.Angle()
+				// deviate angle slightly to distinguish between BintoA/AintoB on head-on collision
+				if Equal(root, 0.0) || Equal(root, 1.0) || Equal(s, 0.0) || Equal(s, 1.0) {
+					deriv2 := quadraticBezierDeriv2(p0, p1, p2)
+					if (0.0 <= deriv.PerpDot(deriv2)) == (Equal(root, 0.0) || !Equal(root, 1.0) && Equal(s, 0.0)) {
+						dirb += Epsilon / 2.0 // t=0 and CCW, or t=1 and CW
+					} else {
+						dirb -= Epsilon / 2.0 // t=0 and CW, or t=1 and CCW
+					}
 				}
-			} else if Interval(pos.Y, l0.Y, l1.Y) {
-				zs = zs.add(pos, (pos.Y-l0.Y)/(l1.Y-l0.Y), root, dira, dirb, Equal(dif, 0.0))
+				dif := A.Dot(deriv)
+				zs = zs.add(pos, s, root, dira, dirb, Equal(dif, 0.0))
 			}
 		}
 	}
@@ -1179,26 +1189,27 @@ func (zs intersections) LineCube(l0, l1, p0, p1, p2, p3 Point) intersections {
 	horizontal := math.Abs(l1.Y-l0.Y) <= math.Abs(l1.X-l0.X)
 	for _, root := range roots {
 		if Interval(root, 0.0, 1.0) {
-			deriv := cubicBezierDeriv(p0, p1, p2, p3, root)
-			dirb := deriv.Angle()
-			// deviate angle slightly to distinguish between BintoA/AintoB on head-on directions
-			//if Equal(root, 0.0) || Equal(root, 1.0) {
-			deriv2 := cubicBezierDeriv2(p0, p1, p2, p3, root)
-			if (0.0 <= deriv.PerpDot(deriv2)) == Equal(root, 0.0) {
-				dirb += Epsilon / 2.0 // t=0 and CCW, or t=1 and CW
-			} else {
-				dirb -= Epsilon / 2.0 // t=0 and CW, or t=1 and CCW
-			}
-			//}
-
+			var s float64
 			pos := cubicBezierPos(p0, p1, p2, p3, root)
-			dif := A.Dot(deriv)
 			if horizontal {
-				if Interval(pos.X, l0.X, l1.X) {
-					zs = zs.add(pos, (pos.X-l0.X)/(l1.X-l0.X), root, dira, dirb, Equal(dif, 0.0))
+				s = (pos.X - l0.X) / (l1.X - l0.X)
+			} else {
+				s = (pos.Y - l0.Y) / (l1.Y - l0.Y)
+			}
+			if Interval(s, 0.0, 1.0) {
+				deriv := cubicBezierDeriv(p0, p1, p2, p3, root)
+				dirb := deriv.Angle()
+				// deviate angle slightly to distinguish between BintoA/AintoB on head-on collision
+				if Equal(root, 0.0) || Equal(root, 1.0) || Equal(s, 0.0) || Equal(s, 1.0) {
+					deriv2 := cubicBezierDeriv2(p0, p1, p2, p3, root)
+					if (0.0 <= deriv.PerpDot(deriv2)) == (Equal(root, 0.0) || !Equal(root, 1.0) && Equal(s, 0.0)) {
+						dirb += Epsilon / 2.0 // t=0 and CCW, or t=1 and CW
+					} else {
+						dirb -= Epsilon / 2.0 // t=0 and CW, or t=1 and CCW
+					}
 				}
-			} else if Interval(pos.Y, l0.Y, l1.Y) {
-				zs = zs.add(pos, (pos.Y-l0.Y)/(l1.Y-l0.Y), root, dira, dirb, Equal(dif, 0.0))
+				dif := A.Dot(deriv)
+				zs = zs.add(pos, s, root, dira, dirb, Equal(dif, 0.0))
 			}
 		}
 	}
@@ -1266,13 +1277,14 @@ func (zs intersections) LineEllipse(l0, l1, center, radius Point, phi, theta0, t
 			pos := Point{x, y}.Rot(phi, Origin).Add(center)
 			dirb := ellipseDeriv(radius.X, radius.Y, phi, theta0 <= theta1, angle).Angle()
 			// deviate angle slightly to distinguish between BintoA/AintoB on head-on directions
-			//if Equal(t, 0.0) || Equal(t, 1.0) {
-			if (theta0 <= theta1) == Equal(t, 0.0) {
-				dirb += Epsilon / 2.0 // t=0 and CCW, or t=1 and CW
-			} else {
-				dirb -= Epsilon / 2.0 // t=0 and CW, or t=1 and CCW
+			if Equal(t, 0.0) || Equal(t, 1.0) || Equal(s, 0.0) || Equal(s, 1.0) {
+				if (theta0 <= theta1) == (Equal(t, 0.0) || !Equal(t, 1.0) && Equal(s, 0.0)) {
+					dirb += Epsilon / 2.0 // t=0 and CCW, or t=1 and CW
+				} else {
+					dirb -= Epsilon / 2.0 // t=0 and CW, or t=1 and CCW
+				}
 			}
-			//}
+			fmt.Println(pos, "s t", s, t, "dir", dira*180/math.Pi, dirb*180/math.Pi)
 			zs = zs.add(pos, s, t, dira, dirb, Equal(root, 0.0))
 		}
 	}
