@@ -234,24 +234,49 @@ func boolean(op pathOp, p, q *Path) *Path {
 		for _, direction := range directions {
 			if !visited[direction][z0.i] {
 				r := &Path{}
-				gotoB := startInwards == (ccwB == (z0.Kind == BintoA))
+				prevReverse := false
+				gotoB := startInwards == (ccwB == (z0.kind == BintoA))
 				for z := z0; ; {
 					visited[direction][z.i] = true
 					if gotoB {
-						if invertB != direction == (ccwA == (z.Kind == BintoA)) {
+						if invertB != direction == (ccwA == (z.kind == BintoA)) {
+							if z.i != z0.i && prevReverse == (z.parallel == AParallel) {
+								if prevReverse {
+									r = r.Join(z.c.Reverse())
+								} else {
+									r = r.Join(z.c)
+								}
+							}
 							r = r.Join(z.b)
 							z = z.nextB
+							prevReverse = false
 						} else {
+							if z.i != z0.i && prevReverse == (z.parallel == Parallel) {
+								if prevReverse {
+									r = r.Join(z.c.Reverse())
+								} else {
+									r = r.Join(z.c)
+								}
+							}
 							r = r.Join(z.prevB.b.Reverse())
 							z = z.prevB
+							prevReverse = true
 						}
 					} else {
-						if invertA != direction == (ccwB == (z.Kind == BintoA)) {
+						if invertA != direction == (ccwB == (z.kind == BintoA)) {
+							if z.i != z0.i && prevReverse == (z.parallel == AParallel) {
+								r = r.Join(z.c)
+							}
 							r = r.Join(z.a)
 							z = z.nextA
+							prevReverse = false
 						} else {
+							if z.i != z0.i && prevReverse == (z.parallel == Parallel) {
+								r = r.Join(z.c.Reverse())
+							}
 							r = r.Join(z.prevA.a.Reverse())
 							z = z.prevA
+							prevReverse = true
 						}
 					}
 					if z.i == z0.i {
@@ -274,6 +299,7 @@ func (p *Path) Cut(q *Path) ([]*Path, []*Path) {
 		return []*Path{p}, []*Path{q}
 	}
 
+	// TODO: use parallel
 	ps, qs := []*Path{}, []*Path{}
 	visited := map[int]bool{}
 	for _, z0 := range zs {
@@ -305,22 +331,22 @@ func (p *Path) Cut(q *Path) ([]*Path, []*Path) {
 }
 
 type intersectionNode struct {
-	i int // intersection index in path A
-	intersection
+	i            int // intersection index in path A
 	prevA, nextA *intersectionNode
 	prevB, nextB *intersectionNode
 
-	// towards next intersection
-	a, b *Path
+	kind     intersectionKind
+	parallel intersectionParallel
+	a, b     *Path // towards next intersection
+	c        *Path // common (parallel) along A
 }
 
 func (z *intersectionNode) String() string {
-	return fmt.Sprintf("(%v %v A=[%v→,→%v] B=[%v→,→%v])", z.i, z.intersection, z.prevA.i, z.nextA.i, z.prevB.i, z.nextB.i)
+	return fmt.Sprintf("(%v A=[%v→,→%v] B=[%v→,→%v])", z.i, z.prevA.i, z.nextA.i, z.prevB.i, z.nextB.i)
 }
 
 // get intersections for paths p and q sorted for both
 func intersectionNodes(p, q *Path) []*intersectionNode {
-	// TODO: use AParallel and BParallel to determine along which path a node has a parallel piece, keep it separate from the a,b paths in each node so that it can be appended only when needed. This avoids cuts that go along the parallel segments only to go back immediately after the intersection
 	// close all subpaths
 	ps, qs := p.Split(), q.Split()
 	p, q = &Path{}, &Path{}
@@ -347,10 +373,11 @@ func intersectionNodes(p, q *Path) []*intersectionNode {
 	zs := make([]*intersectionNode, len(Zs))
 	for i, z := range Zs {
 		zs[i] = &intersectionNode{
-			i:            i,
-			intersection: z,
-			a:            &Path{},
-			b:            &Path{},
+			i:    i,
+			kind: z.Kind,
+			a:    &Path{},
+			b:    &Path{},
+			c:    &Path{},
 		}
 	}
 
@@ -372,14 +399,14 @@ func intersectionNodes(p, q *Path) []*intersectionNode {
 		} else if cmd == CloseCmd {
 			p.d[i], p.d[i+3] = LineToCmd, LineToCmd
 		}
-		if j < len(zs) && seg == zs[j].SegA {
+		if j < len(Zs) && seg == Zs[j].SegA {
 			// segment has an intersection, cut it up and append first part to prev intersection
-			p0, p1 := cutPathSegment(Point{p.d[i-3], p.d[i-2]}, p.d[i:i+cmdLen(cmd)], zs[j].TA)
+			p0, p1 := cutPathSegment(Point{p.d[i-3], p.d[i-2]}, p.d[i:i+cmdLen(cmd)], Zs[j].TA)
 			if !p0.Empty() {
 				cur = append(cur, p0.d[4:]...)
 			}
 
-			for j+1 < len(zs) && seg == zs[j+1].SegA {
+			for j+1 < len(Zs) && seg == Zs[j+1].SegA {
 				// next cut is on the same segment, find new t after the first cut and set path
 				if first == nil {
 					first = cur // take aside the path to the first intersection to later append it
@@ -389,7 +416,7 @@ func intersectionNodes(p, q *Path) []*intersectionNode {
 					zs[j].prevA = zs[j-1]
 				}
 				j++
-				t := (zs[j].TA - zs[j-1].TA) / (1.0 - zs[j-1].TA)
+				t := (Zs[j].TA - Zs[j-1].TA) / (1.0 - Zs[j-1].TA)
 				if !p1.Empty() {
 					p0, p1 = cutPathSegment(Point{p1.d[1], p1.d[2]}, p1.d[4:], t)
 				} else {
@@ -442,14 +469,14 @@ func intersectionNodes(p, q *Path) []*intersectionNode {
 		} else if cmd == CloseCmd {
 			q.d[i], q.d[i+3] = LineToCmd, LineToCmd
 		}
-		if j < len(zs) && seg == zs[idxs[j]].SegB {
+		if j < len(Zs) && seg == Zs[idxs[j]].SegB {
 			// segment has an intersection, cut it up and append first part to prev intersection
-			p0, p1 := cutPathSegment(Point{q.d[i-3], q.d[i-2]}, q.d[i:i+cmdLen(cmd)], zs[idxs[j]].TB)
+			p0, p1 := cutPathSegment(Point{q.d[i-3], q.d[i-2]}, q.d[i:i+cmdLen(cmd)], Zs[idxs[j]].TB)
 			if !p0.Empty() {
 				cur = append(cur, p0.d[4:]...)
 			}
 
-			for j+1 < len(zs) && seg == zs[idxs[j+1]].SegB {
+			for j+1 < len(Zs) && seg == Zs[idxs[j+1]].SegB {
 				// next cut is on the same segment, find new t after the first cut and set path
 				if first == nil {
 					first = cur // take aside the path to the first intersection to later append it
@@ -459,7 +486,7 @@ func intersectionNodes(p, q *Path) []*intersectionNode {
 					zs[idxs[j]].prevB = zs[idxs[j-1]]
 				}
 				j++
-				t := (zs[idxs[j]].TB - zs[idxs[j-1]].TB) / (1.0 - zs[idxs[j-1]].TB)
+				t := (Zs[idxs[j]].TB - Zs[idxs[j-1]].TB) / (1.0 - Zs[idxs[j-1]].TB)
 				if !p1.Empty() {
 					p0, p1 = cutPathSegment(Point{p1.d[1], p1.d[2]}, p1.d[4:], t)
 				} else {
@@ -489,6 +516,24 @@ func intersectionNodes(p, q *Path) []*intersectionNode {
 		zs[idxs[len(zs)-1]].b.d = append(cur, first[4:]...)
 		zs[idxs[len(zs)-1]].nextB = zs[idxs[j0]]
 		zs[idxs[j0]].prevB = zs[idxs[len(zs)-1]]
+	}
+
+	// collapse nodes for parallel lines
+	for j := len(Zs) - 1; 0 <= j; j-- {
+		if Zs[j].Parallel == Parallel || Zs[j].Parallel == AParallel {
+			// remove node at j and join with next
+			zs[j].nextA.c = zs[j].a
+			if Zs[j].Parallel == AParallel {
+				zs[j].prevB.b = zs[j].b
+			}
+			zs[j].nextA.parallel = Zs[j].Parallel
+
+			zs[j].prevA.nextA = zs[j].nextA
+			zs[j].nextA.prevA = zs[j].prevA
+			zs[j].prevB.nextB = zs[j].nextB
+			zs[j].nextB.prevB = zs[j].prevB
+			zs = append(zs[:j], zs[j+1:]...)
+		}
 	}
 	return zs
 }

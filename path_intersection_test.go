@@ -431,56 +431,6 @@ func TestIntersections(t *testing.T) {
 	}
 }
 
-func TestPathIntersectionNodes(t *testing.T) {
-	var tts = []struct {
-		p, q     string
-		zsP, zsQ []Point
-	}{
-		{"V50H10V0z", "M30 10V40H-10V30H20V20H-10V10z",
-			[]Point{{0, 10}, {0, 20}, {0, 30}, {0, 40}, {10, 40}, {10, 30}, {10, 20}, {10, 10}},
-			[]Point{{0, 10}, {10, 10}, {10, 40}, {0, 40}, {0, 30}, {10, 30}, {10, 20}, {0, 20}},
-		},
-	}
-	for _, tt := range tts {
-		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
-			p := MustParseSVG(tt.p)
-			q := MustParseSVG(tt.q)
-			zs := intersectionNodes(p, q)
-
-			i := 0
-			visited := map[int]bool{}
-			for _, z0 := range zs {
-				if !visited[z0.i] {
-					for z := z0; ; {
-						visited[z.i] = true
-						test.T(t, z.Point, tt.zsP[i])
-						i++
-						z = z.nextA
-						if z.i == z0.i {
-							break
-						}
-					}
-				}
-			}
-			i = 0
-			visited = map[int]bool{}
-			for _, z0 := range zs {
-				if !visited[z0.i] {
-					for z := z0; ; {
-						visited[z.i] = true
-						test.T(t, z.Point, tt.zsQ[i])
-						i++
-						z = z.nextB
-						if z.i == z0.i {
-							break
-						}
-					}
-				}
-			}
-		})
-	}
-}
-
 func TestPathCut(t *testing.T) {
 	var tts = []struct {
 		p, q   string
@@ -556,6 +506,10 @@ func TestPathAnd(t *testing.T) {
 		{"L10 0L5 10z", "L5 10L10 0z", "L10 0L5 10z"},
 		{"L5 10L10 0z", "L10 0L5 10z", "L5 10L10 0z"},
 		{"L5 10L10 0z", "L5 10L10 0z", "L5 10L10 0z"},
+
+		// partly parallel
+		{"M1 3L4 3L4 4L6 6L6 7L1 7z", "M9 3L4 3L4 7L9 7z", "M4 4L6 6L6 7L4 7z"},
+		{"M1 3L6 3L6 4L4 6L4 7L1 7z", "M9 3L4 3L4 7L9 7z", "M6 3L6 4L4 6L4 3z"},
 
 		// subpaths
 		{"M1 0L3 0L3 4L1 4z", "M0 1L4 1L4 3L0 3zM2 2L2 5L5 5L5 2z", "M3 1L3 2L2 2L2 3L1 3L1 1zM3 3L3 4L2 4L2 3z"},                                      // different winding
