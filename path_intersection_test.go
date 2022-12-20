@@ -443,6 +443,32 @@ func TestIntersections(t *testing.T) {
 	}
 }
 
+func TestPathCut(t *testing.T) {
+	var tts = []struct {
+		p, q string
+		rs   []string
+	}{
+		{"L10 0L5 10z", "M0 5L10 5L5 15z",
+			[]string{"M7.5 5L5 10L2.5 5", "M2.5 5L0 0L10 0L7.5 5"},
+		},
+		{"L2 0L2 2L0 2zM4 0L6 0L6 2L4 2z", "M1 1L5 1L5 3L1 3z",
+			[]string{"M2 1L2 2L1 2", "M1 2L0 2L0 0L2 0L2 1", "M5 2L4 2L4 1", "M4 1L4 0L6 0L6 2L5 2"},
+		},
+	}
+	for _, tt := range tts {
+		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
+			p := MustParseSVG(tt.p)
+			q := MustParseSVG(tt.q)
+
+			rs := p.Cut(q)
+			test.T(t, len(rs), len(tt.rs))
+			for i := range rs {
+				test.T(t, rs[i], MustParseSVG(tt.rs[i]))
+			}
+		})
+	}
+}
+
 func TestPathSettle(t *testing.T) {
 	var tts = []struct {
 		p string
@@ -658,19 +684,20 @@ func TestPathNot(t *testing.T) {
 	}
 }
 
-func TestPathCut(t *testing.T) {
+func TestPathDivideBy(t *testing.T) {
 	var tts = []struct {
 		p, q string
 		r    string
 	}{
-		{"L10 0L5 10z", "M0 5L10 5L5 15z", "M7.5 5L5 10L2.5 5M2.5 5L0 0L10 0L7.5 5M7.5 5L10 5L5 15L0 5L2.5 5M2.5 5L7.5 5"},
-		{"L2 0L2 2L0 2zM4 0L6 0L6 2L4 2z", "M1 1L5 1L5 3L1 3z", "M2 1L2 2L1 2M1 2L0 2L0 0L2 0L2 1M5 2L4 2L4 1M4 1L4 0L6 0L6 2L5 2M2 1L4 1M4 1L5 1L5 2M5 2L5 3L1 3L1 2M1 2L1 1L2 1"},
+		{"L10 0L5 10z", "M0 5L10 5L5 15z", "M7.5 5L2.5 5L0 0L10 0zM7.5 5L5 10L2.5 5z"},
+		{"L2 0L2 2L0 2zM4 0L6 0L6 2L4 2z", "M1 1L5 1L5 3L1 3z", "M2 1L1 1L1 2L0 2L0 0L2 0zM2 1L2 2L1 2L1 1zM5 2L5 1L4 1L4 0L6 0L6 2zM5 2L4 2L4 1L5 1z"},
+		{"L2 0L2 2L0 2zM4 0L6 0L6 2L4 2z", "M1 1L1 3L5 3L5 1z", "M2 1L1 1L1 2L0 2L0 0L2 0zM2 1L2 2L1 2L1 1zM5 2L5 1L4 1L4 0L6 0L6 2zM5 2L4 2L4 1L5 1z"},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
 			p := MustParseSVG(tt.p)
 			q := MustParseSVG(tt.q)
-			test.T(t, p.Cut(q), MustParseSVG(tt.r))
+			test.T(t, p.DivideBy(q), MustParseSVG(tt.r))
 		})
 	}
 }

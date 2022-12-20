@@ -115,11 +115,9 @@ func (p *Path) Not(q *Path) *Path {
 	return boolean(p, pathOpNot, q)
 }
 
-// Cut returns the division of path p by path q at intersections.
-func (p *Path) Cut(q *Path) *Path {
-	// TODO: could avoid recalculating intersections
-	// TODO: handle open paths on q
-	return boolean(p, pathOpNot, q).Append(boolean(p, pathOpAnd, q))
+// DivideBy returns the division of path p by path q at intersections.
+func (p *Path) DivideBy(q *Path) *Path {
+	return boolean(p, pathOpDivide, q)
 }
 
 type pathOp int
@@ -129,6 +127,7 @@ const (
 	pathOpOr
 	pathOpXor
 	pathOpNot
+	pathOpDivide
 	pathOpSettle
 )
 
@@ -155,7 +154,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 
 	// return in case of one path is empty
 	if q.Empty() {
-		if op == pathOpOr || op == pathOpXor || op == pathOpNot || op == pathOpSettle {
+		if op != pathOpAnd {
 			return p
 		}
 		return &Path{}
@@ -229,33 +228,44 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		qIndex = append(qIndex, qs[i].Len())
 	}
 
-	directions := []bool{true}
-	startInwards, invertA, invertB := false, false, false
+	K := 1 // number of time to run from each intersection
+	directions := []bool{true, false}
+	startInwards := []bool{false, false}
+	invertA := []bool{false, false}
+	invertB := []bool{false, false}
 	if op == pathOpAnd {
-		startInwards, invertA = true, true
+		startInwards[0], invertA[0] = true, true
 	} else if op == pathOpOr || op == pathOpSettle && ccwA == ccwB {
-		invertB = true
+		invertB[0] = true
 	} else if op == pathOpXor || op == pathOpSettle && ccwA != ccwB {
+		K = 2
 		directions = []bool{true, false}
+		startInwards = []bool{false, false}
 	} else if op == pathOpNot {
+	} else if op == pathOpDivide {
+		// run as NOT and then as AND
+		K = 2
+		directions[1] = true
+		startInwards[1] = true
+		invertA[1] = true
 	}
 
 	R := &Path{}
-	visited := map[bool]map[int]bool{ // per direction
-		true:  map[int]bool{},
-		false: map[int]bool{},
-	}
 	zs := intersectionNodes(Zs, p, q)
+	visited := map[int]map[int]bool{} // per direction
+	for k := 0; k < K; k++ {
+		visited[k] = map[int]bool{}
+	}
 	for _, z0 := range zs {
-		for _, direction := range directions {
-			if !visited[direction][z0.i] {
+		for k := 0; k < K; k++ {
+			if !visited[k][z0.i] {
 				r := &Path{}
 				prevReverse := false
-				gotoB := startInwards == (ccwB == (z0.kind == BintoA))
+				gotoB := startInwards[k] == (ccwB == (z0.kind == BintoA))
 				for z := z0; ; {
-					visited[direction][z.i] = true
+					visited[k][z.i] = true
 					if gotoB {
-						if invertB != (direction == (ccwA == (z.kind == BintoA))) {
+						if invertB[k] != (directions[k] == (ccwA == (z.kind == BintoA))) {
 							if z.i != z0.i && prevReverse == (z.parallel == AParallel) {
 								if prevReverse {
 									r = r.Join(z.c.Reverse())
@@ -279,7 +289,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 							prevReverse = true
 						}
 					} else {
-						if invertA != (direction == (ccwB == (z.kind == BintoA))) {
+						if invertA[k] != (directions[k] == (ccwB == (z.kind == BintoA))) {
 							if z.i != z0.i && prevReverse == (z.parallel == AParallel) {
 								r = r.Join(z.c)
 							}
@@ -321,14 +331,14 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 			}
 			if pInQ && qInP {
 				// equal
-				if op == pathOpAnd || op == pathOpOr || op == pathOpSettle && ccwA == ccwB {
+				if op == pathOpAnd || op == pathOpOr || op == pathOpDivide || op == pathOpSettle && ccwA == ccwB {
 					if !pHandled[i] && !qHandled[j] {
 						R = R.Append(pi)
 					}
 				}
 			} else if pInQ {
 				// p is inside q
-				if op == pathOpAnd {
+				if op == pathOpAnd || op == pathOpDivide {
 					if !pHandled[i] {
 						R = R.Append(pi)
 					}
@@ -354,12 +364,17 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 					if !pHandled[i] {
 						R = R.Append(pi)
 					}
-				} else if op == pathOpXor || op == pathOpNot {
+				} else if op == pathOpXor || op == pathOpNot || op == pathOpDivide {
 					if !pHandled[i] {
 						R = R.Append(pi)
 					}
 					if !qHandled[j] {
 						R = R.Append(qi.Reverse())
+					}
+				}
+				if op == pathOpDivide {
+					if !qHandled[j] {
+						R = R.Append(qi)
 					}
 				}
 			}
@@ -369,7 +384,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 	}
 
 	// no overlap
-	if op == pathOpOr || op == pathOpXor || op == pathOpSettle || op == pathOpNot {
+	if op != pathOpAnd {
 		for i, pi := range ps {
 			if !pHandled[i] {
 				R = R.Append(pi)
@@ -384,6 +399,83 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		}
 	}
 	return R.Append(Ropen)
+}
+
+// Cut cuts path p by path q and returns the parts.
+func (p *Path) Cut(q *Path) []*Path {
+	return cut(p.Intersections(q), p)
+}
+
+func cut(Zs intersections, p *Path) []*Path {
+	if len(Zs) == 0 {
+		return []*Path{p}
+	}
+
+	// cut path segments for path P
+	j := 0   // index into intersections
+	seg := 0 // index into path segments
+	ps := []*Path{}
+	var first, cur []float64
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		if cmd == MoveToCmd {
+			if first != nil {
+				// there were intersections in the last subpath
+				cur = append(cur, first[4:]...)
+				ps = append(ps, &Path{cur})
+				cur = nil
+			}
+			first = nil
+		} else if cmd == CloseCmd {
+			p.d[i], p.d[i+3] = LineToCmd, LineToCmd
+		}
+		if j < len(Zs) && seg == Zs[j].SegA {
+			// segment has an intersection, cut it up and append first part to prev intersection
+			p0, p1 := cutPathSegment(Point{p.d[i-3], p.d[i-2]}, p.d[i:i+cmdLen(cmd)], Zs[j].TA)
+			if !p0.Empty() {
+				cur = append(cur, p0.d[4:]...)
+			}
+
+			for j+1 < len(Zs) && seg == Zs[j+1].SegA {
+				// next cut is on the same segment, find new t after the first cut and set path
+				if first == nil {
+					first = cur // take aside the path to the first intersection to later append it
+				} else {
+					ps = append(ps, &Path{cur})
+				}
+				j++
+				t := (Zs[j].TA - Zs[j-1].TA) / (1.0 - Zs[j-1].TA)
+				if !p1.Empty() {
+					p0, p1 = cutPathSegment(Point{p1.d[1], p1.d[2]}, p1.d[4:], t)
+				} else {
+					p0 = p1
+				}
+				cur = p0.d
+			}
+			if first == nil {
+				first = cur // take aside the path to the first intersection to later append it
+			} else {
+				ps = append(ps, &Path{cur})
+			}
+			cur = p1.d
+			j++
+		} else {
+			// segment has no intersection, add to previous intersection
+			if len(cur) == 0 || cmd != CloseCmd || p.d[i+1] != cur[len(cur)-3] || p.d[i+2] != cur[len(cur)-2] {
+				cur = append(cur, p.d[i:i+cmdLen(cmd)]...)
+			}
+		}
+		if cmd == CloseCmd {
+			p.d[i], p.d[i+3] = CloseCmd, CloseCmd // keep the original unchanged
+		}
+		i += cmdLen(cmd)
+		seg++
+	}
+	if first != nil {
+		cur = append(cur, first[4:]...)
+	}
+	ps = append(ps, &Path{cur})
+	return ps
 }
 
 type intersectionNode struct {
@@ -478,6 +570,9 @@ func intersectionNodes(Zs intersections, p, q *Path) []*intersectionNode {
 				cur = append(cur, p.d[i:i+cmdLen(cmd)]...)
 			}
 		}
+		if cmd == CloseCmd {
+			p.d[i], p.d[i+3] = CloseCmd, CloseCmd // keep the original unchanged
+		}
 		i += cmdLen(cmd)
 		seg++
 	}
@@ -547,6 +642,9 @@ func intersectionNodes(Zs intersections, p, q *Path) []*intersectionNode {
 			if len(cur) == 0 || cmd != CloseCmd || q.d[i+1] != cur[len(cur)-3] || q.d[i+2] != cur[len(cur)-2] {
 				cur = append(cur, q.d[i:i+cmdLen(cmd)]...)
 			}
+		}
+		if cmd == CloseCmd {
+			q.d[i], q.d[i+3] = CloseCmd, CloseCmd // keep the original unchanged
 		}
 		i += cmdLen(cmd)
 		seg++
