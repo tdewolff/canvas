@@ -749,6 +749,18 @@ func (p *Path) Scale(x, y float64) *Path {
 	return p.Transform(Identity.Scale(x, y))
 }
 
+// Flat returns true if the path is flat.
+func (p *Path) Flat() bool {
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		if cmd == QuadToCmd || cmd == CubeToCmd || cmd == ArcToCmd {
+			return false
+		}
+		i += cmdLen(cmd)
+	}
+	return true
+}
+
 // Flatten flattens all Bézier and arc curves into linear segments and returns a new path. It uses Tolerance as the maximum deviation.
 func (p *Path) Flatten() *Path {
 	return p.replace(nil, flattenQuadraticBezier, flattenCubicBezier, flattenEllipticArc)
