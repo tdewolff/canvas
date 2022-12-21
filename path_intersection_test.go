@@ -454,6 +454,9 @@ func TestPathCut(t *testing.T) {
 		{"L2 0L2 2L0 2zM4 0L6 0L6 2L4 2z", "M1 1L5 1L5 3L1 3z",
 			[]string{"M2 1L2 2L1 2", "M1 2L0 2L0 0L2 0L2 1", "M5 2L4 2L4 1", "M4 1L4 0L6 0L6 2L5 2"},
 		},
+		{"L2 0M2 1L4 1L4 3L2 3zM0 4L2 4", "M1 -1L1 5",
+			[]string{"L1 0", "M1 0L2 0M2 1L4 1L4 3L2 3zM0 4L1 4", "M1 4L2 4"},
+		},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
@@ -476,8 +479,11 @@ func TestPathSettle(t *testing.T) {
 	}{
 		{"L10 0L10 10L0 10zM5 5L15 5L15 15L5 15z", "M10 5L15 5L15 15L5 15L5 10L0 10L0 0L10 0z"},
 		{"L10 0L10 10L0 10zM5 5L5 15L15 15L15 5z", "M10 5L5 5L5 10L0 10L0 0L10 0zM10 5L15 5L15 15L5 15L5 10L10 10z"},
-
 		{"M0 1L4 1L4 3L0 3zM4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", "M4 3A1 1 0 0 0 2 3L0 3L0 1L4 1zM4 3A1 1 0 0 1 2 3z"},
+		{"L0 1L1 1L1 0z", "L1 0L1 1L0 1z"}, // to CCW
+		{"L2 0L2 2L0 2zM1 1L1 3L3 3L3 1z", "M2 1L1 1L1 2L0 2L0 0L2 0zM2 1L3 1L3 3L1 3L1 2L2 2z"}, // to CCW
+		{"L0 2L2 2L2 0zM1 1L1 3L3 3L3 1z", "M1 2L0 2L0 0L2 0L2 1L3 1L3 3L1 3z"},                  // to CCW
+		{"L0 2L2 2L2 0zM1 1L3 1L3 3L1 3z", "M1 2L2 2L2 1L3 1L3 3L1 3zM1 2L0 2L0 0L2 0L2 1L1 1z"}, // to CCW
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p), func(t *testing.T) {
@@ -495,8 +501,8 @@ func TestPathAnd(t *testing.T) {
 		// overlap
 		{"L10 0L5 10z", "M0 5L10 5L5 15z", "M7.5 5L5 10L2.5 5z"},
 		{"L10 0L5 10z", "M0 5L5 15L10 5z", "M7.5 5L5 10L2.5 5z"},
-		{"L5 10L10 0z", "M0 5L10 5L5 15z", "M2.5 5L5 10L7.5 5z"},
-		{"L5 10L10 0z", "M0 5L5 15L10 5z", "M2.5 5L5 10L7.5 5z"},
+		{"L5 10L10 0z", "M0 5L10 5L5 15z", "M7.5 5L5 10L2.5 5z"},
+		{"L5 10L10 0z", "M0 5L5 15L10 5z", "M7.5 5L5 10L2.5 5z"},
 
 		// touching edges
 		{"L2 0L2 2L0 2z", "M2 0L4 0L4 2L2 2z", ""},
@@ -512,8 +518,8 @@ func TestPathAnd(t *testing.T) {
 		// equal
 		{"L10 0L5 10z", "L10 0L5 10z", "L10 0L5 10z"},
 		{"L10 0L5 10z", "L5 10L10 0z", "L10 0L5 10z"},
-		{"L5 10L10 0z", "L10 0L5 10z", "L5 10L10 0z"},
-		{"L5 10L10 0z", "L5 10L10 0z", "L5 10L10 0z"},
+		{"L5 10L10 0z", "L10 0L5 10z", "L10 0L5 10z"},
+		{"L5 10L10 0z", "L5 10L10 0z", "L10 0L5 10z"},
 
 		// partly parallel
 		{"M1 3L4 3L4 4L6 6L6 7L1 7z", "M9 3L4 3L4 7L9 7z", "M4 4L6 6L6 7L4 7z"},
@@ -549,8 +555,8 @@ func TestPathOr(t *testing.T) {
 		// overlap
 		{"L10 0L5 10z", "M0 5L10 5L5 15z", "M7.5 5L10 5L5 15L0 5L2.5 5L0 0L10 0z"},
 		{"L10 0L5 10z", "M0 5L5 15L10 5z", "M7.5 5L10 5L5 15L0 5L2.5 5L0 0L10 0z"},
-		{"L5 10L10 0z", "M0 5L10 5L5 15z", "M2.5 5L0 5L5 15L10 5L7.5 5L10 0L0 0z"},
-		{"L5 10L10 0z", "M0 5L5 15L10 5z", "M2.5 5L0 5L5 15L10 5L7.5 5L10 0L0 0z"},
+		{"L5 10L10 0z", "M0 5L10 5L5 15z", "M7.5 5L10 5L5 15L0 5L2.5 5L0 0L10 0z"},
+		{"L5 10L10 0z", "M0 5L5 15L10 5z", "M7.5 5L10 5L5 15L0 5L2.5 5L0 0L10 0z"},
 		{"M0 1L4 1L4 3L0 3z", "M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", "M4 3A1 1 0 0 1 2 3L0 3L0 1L4 1z"},
 
 		// touching edges
@@ -594,8 +600,8 @@ func TestPathXor(t *testing.T) {
 		// overlap
 		{"L10 0L5 10z", "M0 5L10 5L5 15z", "M7.5 5L2.5 5L0 0L10 0zM7.5 5L10 5L5 15L0 5L2.5 5L5 10z"},
 		{"L10 0L5 10z", "M0 5L5 15L10 5z", "M7.5 5L2.5 5L0 0L10 0zM7.5 5L10 5L5 15L0 5L2.5 5L5 10z"},
-		{"L5 10L10 0z", "M0 5L10 5L5 15z", "M2.5 5L7.5 5L10 0L0 0zM2.5 5L0 5L5 15L10 5L7.5 5L5 10z"},
-		{"L5 10L10 0z", "M0 5L5 15L10 5z", "M2.5 5L7.5 5L10 0L0 0zM2.5 5L0 5L5 15L10 5L7.5 5L5 10z"},
+		{"L5 10L10 0z", "M0 5L10 5L5 15z", "M7.5 5L2.5 5L0 0L10 0zM7.5 5L10 5L5 15L0 5L2.5 5L5 10z"},
+		{"L5 10L10 0z", "M0 5L5 15L10 5z", "M7.5 5L2.5 5L0 0L10 0zM7.5 5L10 5L5 15L0 5L2.5 5L5 10z"},
 		{"M0 1L4 1L4 3L0 3z", "M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", "M4 3A1 1 0 0 0 2 3L0 3L0 1L4 1zM4 3A1 1 0 0 1 2 3z"},
 
 		// touching edges
@@ -639,13 +645,13 @@ func TestPathNot(t *testing.T) {
 		// overlap
 		{"L10 0L5 10z", "M0 5L10 5L5 15z", "M7.5 5L2.5 5L0 0L10 0z"},
 		{"L10 0L5 10z", "M0 5L5 15L10 5z", "M7.5 5L2.5 5L0 0L10 0z"},
-		{"L5 10L10 0z", "M0 5L10 5L5 15z", "M2.5 5L7.5 5L10 0L0 0z"},
-		{"L5 10L10 0z", "M0 5L5 15L10 5z", "M2.5 5L7.5 5L10 0L0 0z"},
+		{"L5 10L10 0z", "M0 5L10 5L5 15z", "M7.5 5L2.5 5L0 0L10 0z"},
+		{"L5 10L10 0z", "M0 5L5 15L10 5z", "M7.5 5L2.5 5L0 0L10 0z"},
 
 		{"M0 5L10 5L5 15z", "L10 0L5 10z", "M2.5 5L5 10L7.5 5L10 5L5 15L0 5z"},
 		{"M0 5L10 5L5 15z", "L5 10L10 0z", "M2.5 5L5 10L7.5 5L10 5L5 15L0 5z"},
-		{"M0 5L5 15L10 5z", "L10 0L5 10z", "M7.5 5L5 10L2.5 5L0 5L5 15L10 5z"},
-		{"M0 5L5 15L10 5z", "L5 10L10 0z", "M7.5 5L5 10L2.5 5L0 5L5 15L10 5z"},
+		{"M0 5L5 15L10 5z", "L10 0L5 10z", "M2.5 5L5 10L7.5 5L10 5L5 15L0 5z"},
+		{"M0 5L5 15L10 5z", "L5 10L10 0z", "M2.5 5L5 10L7.5 5L10 5L5 15L0 5z"},
 
 		// touching edges
 		{"L2 0L2 2L0 2z", "M2 0L4 0L4 2L2 2z", "L2 0L2 2L0 2z"},

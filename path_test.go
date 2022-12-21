@@ -260,79 +260,90 @@ func TestPathCommands(t *testing.T) {
 	test.T(t, p, MustParseSVG("A2 1 0 0 0 4 0A2 1 0 0 0 0 0"))
 }
 
-func TestPathCCW(t *testing.T) {
-	test.That(t, MustParseSVG("L10 0L10 10z").CCW())
-	test.That(t, !MustParseSVG("L10 0L10 -10z").CCW())
-	test.That(t, MustParseSVG("L10 0").CCW())
-	test.That(t, MustParseSVG("M10 0").CCW())
-	test.That(t, MustParseSVG("Q0 -1 1 0").CCW())
-	test.That(t, !MustParseSVG("Q0 1 1 0").CCW())
-	test.That(t, MustParseSVG("C0 -1 1 -1 1 0").CCW())
-	test.That(t, !MustParseSVG("C0 1 1 1 1 0").CCW())
-	test.That(t, MustParseSVG("A1 1 0 0 1 2 0").CCW())
-	test.That(t, !MustParseSVG("A1 1 0 0 0 2 0").CCW())
+func TestPathInterior(t *testing.T) {
+	var tts = []struct {
+		p    string
+		pos  Point
+		rule FillRule
+		in   bool
+	}{
+		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", Point{1.0, 1.0}, NonZero, true},
+		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", Point{3.0, 3.0}, NonZero, true},
+		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", Point{1.0, 1.0}, NonZero, true},
+		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", Point{3.0, 3.0}, NonZero, false},
+		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", Point{1.0, 1.0}, EvenOdd, true},
+		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", Point{3.0, 3.0}, EvenOdd, false},
+		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", Point{1.0, 1.0}, EvenOdd, true},
+		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", Point{3.0, 3.0}, EvenOdd, false},
+
+		{"Q10 5 0 10", Point{2.0, 5.0}, NonZero, true},
+		{"Q-10 5 0 10", Point{-2.0, 5.0}, NonZero, false},
+	}
+	for _, tt := range tts {
+		t.Run(fmt.Sprint(tt.p, " at ", tt.pos), func(t *testing.T) {
+			test.T(t, MustParseSVG(tt.p).Interior(tt.pos.X, tt.pos.Y, tt.rule), tt.in)
+		})
+	}
 }
 
 func TestPathFilling(t *testing.T) {
-	fillings := MustParseSVG("M0 0").Filling(NonZero)
-	test.T(t, len(fillings), 0)
-
-	fillings = MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Filling(NonZero) // outer CCW, inner CCW
-	test.T(t, len(fillings), 2)
-	test.T(t, fillings[0], true)
-	test.T(t, fillings[1], true)
-
-	fillings = MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Filling(NonZero) // outer CCW, inner CW
-	test.T(t, fillings[0], true)
-	test.T(t, fillings[1], false)
-
-	fillings = MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Filling(EvenOdd) // outer CCW, inner CCW
-	test.T(t, fillings[0], true)
-	test.T(t, fillings[1], false)
-
-	fillings = MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Filling(EvenOdd) // outer CCW, inner CW
-	test.T(t, fillings[0], true)
-	test.T(t, fillings[1], false)
-
-	fillings = MustParseSVG("L10 10z").Filling(NonZero)
-	test.T(t, fillings[0], false)
-
-	fillings = MustParseSVG("C5 0 10 5 10 10z").Filling(NonZero)
-	test.T(t, fillings[0], true)
-
-	fillings = MustParseSVG("C0 5 5 10 10 10z").Filling(NonZero)
-	test.T(t, fillings[0], true)
-
-	fillings = MustParseSVG("Q10 0 10 10z").Filling(NonZero)
-	test.T(t, fillings[0], true)
-
-	fillings = MustParseSVG("Q0 10 10 10z").Filling(NonZero)
-	test.T(t, fillings[0], true)
-
-	fillings = MustParseSVG("A10 10 0 0 1 10 10z").Filling(NonZero)
-	test.T(t, fillings[0], true)
-
-	fillings = MustParseSVG("A10 10 0 0 0 10 10z").Filling(NonZero)
-	test.T(t, fillings[0], true)
+	var tts = []struct {
+		p       string
+		filling []bool
+		rule    FillRule
+	}{
+		{"M0 0", []bool{}, NonZero},
+		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", []bool{true, true}, NonZero},  // outer CCW, inner CCW
+		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", []bool{true, false}, NonZero}, // outer CCW, inner CW
+		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", []bool{true, false}, EvenOdd}, // outer CCW, inner CCW
+		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", []bool{true, false}, EvenOdd}, // outer CCW, inner CW
+		{"L10 10z", []bool{false}, NonZero},
+		{"C5 0 10 5 10 10z", []bool{true}, NonZero},
+		{"C0 5 5 10 10 10z", []bool{true}, NonZero},
+		{"Q10 0 10 10z", []bool{true}, NonZero},
+		{"Q0 10 10 10z", []bool{true}, NonZero},
+		{"A10 10 0 0 1 10 10z", []bool{true}, NonZero},
+		{"A10 10 0 0 0 10 10z", []bool{true}, NonZero},
+	}
+	for _, tt := range tts {
+		t.Run(tt.p, func(t *testing.T) {
+			filling := MustParseSVG(tt.p).Filling(tt.rule)
+			test.T(t, len(filling), len(tt.filling))
+			for i := range filling {
+				test.T(t, filling[i], tt.filling[i])
+			}
+		})
+	}
 }
 
-func TestPathInterior(t *testing.T) {
-	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Interior(1, 1, NonZero))
-	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Interior(3, 3, NonZero))
-	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Interior(1, 1, NonZero))
-	test.That(t, !MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Interior(3, 3, NonZero))
-
-	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Interior(1, 1, EvenOdd))
-	test.That(t, !MustParseSVG("L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z").Interior(3, 3, EvenOdd))
-	test.That(t, MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Interior(1, 1, EvenOdd))
-	test.That(t, !MustParseSVG("L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z").Interior(3, 3, EvenOdd))
+func TestPathCCW(t *testing.T) {
+	var tts = []struct {
+		p   string
+		ccw bool
+	}{
+		{"L10 0L10 10z", true},
+		{"L10 0L10 -10z", false},
+		{"L10 0", true},
+		{"M10 0", true},
+		{"Q0 -1 1 0", true},
+		{"Q0 1 1 0", false},
+		{"C0 -1 1 -1 1 0", true},
+		{"C0 1 1 1 1 0", false},
+		{"A1 1 0 0 1 2 0", true},
+		{"A1 1 0 0 0 2 0", false},
+	}
+	for _, tt := range tts {
+		t.Run(tt.p, func(t *testing.T) {
+			test.T(t, MustParseSVG(tt.p).CCW(), tt.ccw)
+		})
+	}
 }
 
 func TestPathBounds(t *testing.T) {
 	defer setEpsilon(1e-6)()
 
 	var tts = []struct {
-		orig   string
+		p      string
 		bounds Rect
 	}{
 		{"", Rect{}},
@@ -354,8 +365,8 @@ func TestPathBounds(t *testing.T) {
 		{"A100 100 0 1 1 -100 100", Rect{-100, 0, 200, 200}},    // hit xmax, ymax
 	}
 	for _, tt := range tts {
-		t.Run(tt.orig, func(t *testing.T) {
-			test.T(t, MustParseSVG(tt.orig).Bounds(), tt.bounds)
+		t.Run(tt.p, func(t *testing.T) {
+			test.T(t, MustParseSVG(tt.p).Bounds(), tt.bounds)
 		})
 	}
 }
@@ -365,7 +376,7 @@ func TestPathBounds(t *testing.T) {
 // for ellipse use https://www.wolframalpha.com/input/?i=length+of+the+curve+%7Bx%3D10.00*cos(t),+y%3D20.0*sin(t)%7D+from+0+to+pi
 func TestPathLength(t *testing.T) {
 	var tts = []struct {
-		orig   string
+		p      string
 		length float64
 	}{
 		{"M10 0z", 0.0},
@@ -382,8 +393,8 @@ func TestPathLength(t *testing.T) {
 		{"A10 20 30 0 0 20 0", 31.4622},
 	}
 	for _, tt := range tts {
-		t.Run(tt.orig, func(t *testing.T) {
-			length := MustParseSVG(tt.orig).Length()
+		t.Run(tt.p, func(t *testing.T) {
+			length := MustParseSVG(tt.p).Length()
 			if math.Abs(tt.length-length)/length > 0.01 {
 				test.Fail(t, length, "!=", tt.length, "±1%")
 			}
@@ -395,9 +406,9 @@ func TestPathTransform(t *testing.T) {
 	defer setEpsilon(1e-3)()
 
 	var tts = []struct {
-		orig string
-		m    Matrix
-		res  string
+		p string
+		m Matrix
+		r string
 	}{
 		{"M0 0L10 0Q15 10 20 0C23 10 27 10 30 0z", Identity.Translate(0, 100), "M0 100L10 100Q15 110 20 100C23 110 27 110 30 100z"},
 		{"A10 10 0 0 0 20 0", Identity.Translate(0, 10), "M0 10A10 10 0 0 0 20 10"},
@@ -406,8 +417,8 @@ func TestPathTransform(t *testing.T) {
 		{"A10 10 0 0 0 20 0", Identity.Rotate(120).Scale(1, -2), "M0 0A20 10 30 0 1 -10 17.321"},
 	}
 	for _, tt := range tts {
-		t.Run(tt.orig, func(t *testing.T) {
-			test.T(t, MustParseSVG(tt.orig).Transform(tt.m), MustParseSVG(tt.res))
+		t.Run(tt.r, func(t *testing.T) {
+			test.T(t, MustParseSVG(tt.p).Transform(tt.m), MustParseSVG(tt.r))
 		})
 	}
 }
@@ -465,8 +476,8 @@ func TestPathMarkers(t *testing.T) {
 	end := MustParseSVG("L-1 0L0 1z")
 
 	var tts = []struct {
-		orig    string
-		markers []string
+		p  string
+		rs []string
 	}{
 		{"M10 0", []string{}},
 		{"M10 0L20 10", []string{"M10 0L11 0L10 1z", "M20 10L19 10L20 11z"}},
@@ -475,18 +486,18 @@ func TestPathMarkers(t *testing.T) {
 		{"M10 0L20 10M30 0L40 10", []string{"M10 0L11 0L10 1z", "M20 10L19 10L20 11z", "M30 0L31 0L30 1z", "M40 10L39 10L40 11z"}},
 	}
 	for _, tt := range tts {
-		t.Run(tt.orig, func(t *testing.T) {
-			p := MustParseSVG(tt.orig)
+		t.Run(tt.p, func(t *testing.T) {
+			p := MustParseSVG(tt.p)
 			ps := p.Markers(start, mid, end, false)
-			if len(ps) != len(tt.markers) {
+			if len(ps) != len(tt.rs) {
 				origs := []string{}
 				for _, p := range ps {
 					origs = append(origs, p.String())
 				}
-				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.markers, "\n"))
+				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.rs, "\n"))
 			} else {
 				for i, p := range ps {
-					test.T(t, p, MustParseSVG(tt.markers[i]))
+					test.T(t, p, MustParseSVG(tt.rs[i]))
 				}
 			}
 		})
@@ -501,8 +512,8 @@ func TestPathMarkersAligned(t *testing.T) {
 	end := MustParseSVG("L-1 0L0 1z")
 
 	var tts = []struct {
-		orig    string
-		markers []string
+		p  string
+		rs []string
 	}{
 		{"M10 0z", []string{}},
 		{"M10 0L20 10", []string{"M10 0L10.707 0.707L9.293 0.707z", "M20 10L19.293 9.293L19.293 10.707z"}},
@@ -514,18 +525,18 @@ func TestPathMarkersAligned(t *testing.T) {
 		{"A10 10 0 0 0 10 10A10 10 0 0 0 20 0", []string{"L0 1L-1 0z", "M9 10A1 1 0 0 0 11 10z", "M20 0L20 1L21 0z"}},
 	}
 	for _, tt := range tts {
-		t.Run(tt.orig, func(t *testing.T) {
-			p := MustParseSVG(tt.orig)
+		t.Run(tt.p, func(t *testing.T) {
+			p := MustParseSVG(tt.p)
 			ps := p.Markers(start, mid, end, true)
-			if len(ps) != len(tt.markers) {
+			if len(ps) != len(tt.rs) {
 				origs := []string{}
 				for _, p := range ps {
 					origs = append(origs, p.String())
 				}
-				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.markers, "\n"))
+				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.rs, "\n"))
 			} else {
 				for i, p := range ps {
-					test.T(t, p, MustParseSVG(tt.markers[i]))
+					test.T(t, p, MustParseSVG(tt.rs[i]))
 				}
 			}
 		})
@@ -534,8 +545,8 @@ func TestPathMarkersAligned(t *testing.T) {
 
 func TestPathSplit(t *testing.T) {
 	var tts = []struct {
-		orig  string
-		split []string
+		p  string
+		rs []string
 	}{
 		{"M5 5L6 6z", []string{"M5 5L6 6z"}},
 		{"L5 5M10 10L20 20z", []string{"L5 5", "M10 10L20 20z"}},
@@ -543,18 +554,18 @@ func TestPathSplit(t *testing.T) {
 		{"M5 5L15 5zL10 10zL20 20", []string{"M5 5L15 5z", "M5 5L10 10z", "M5 5L20 20"}},
 	}
 	for _, tt := range tts {
-		t.Run(tt.orig, func(t *testing.T) {
-			p := MustParseSVG(tt.orig)
+		t.Run(tt.p, func(t *testing.T) {
+			p := MustParseSVG(tt.p)
 			ps := p.Split()
-			if len(ps) != len(tt.split) {
+			if len(ps) != len(tt.rs) {
 				origs := []string{}
 				for _, p := range ps {
 					origs = append(origs, p.String())
 				}
-				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.split, "\n"))
+				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.rs, "\n"))
 			} else {
 				for i, p := range ps {
-					test.T(t, p, MustParseSVG(tt.split[i]))
+					test.T(t, p, MustParseSVG(tt.rs[i]))
 				}
 			}
 		})
@@ -569,9 +580,9 @@ func TestPathSplitAt(t *testing.T) {
 	defer setEpsilon(1e-3)()
 
 	var tts = []struct {
-		orig  string
-		d     []float64
-		split []string
+		p  string
+		d  []float64
+		rs []string
 	}{
 		{"L4 3L8 0z", []float64{}, []string{"L4 3L8 0z"}},
 		{"M2 0L4 3Q10 10 20 0C20 10 30 10 30 0A10 10 0 0 0 50 0z", []float64{0.0}, []string{"M2 0L4 3Q10 10 20 0C20 10 30 10 30 0A10 10 0 0 0 50 0L2 0"}},
@@ -585,18 +596,18 @@ func TestPathSplitAt(t *testing.T) {
 		{"A10 10 0 1 0 2.9289 -7.0711", []float64{15.707963}, []string{"A10 10 0 0 0 10.024 9.9999", "M10.024 9.9999A10 10 0 1 0 2.9289 -7.0711"}},
 	}
 	for _, tt := range tts {
-		t.Run(tt.orig, func(t *testing.T) {
-			p := MustParseSVG(tt.orig)
+		t.Run(tt.p, func(t *testing.T) {
+			p := MustParseSVG(tt.p)
 			ps := p.SplitAt(tt.d...)
-			if len(ps) != len(tt.split) {
+			if len(ps) != len(tt.rs) {
 				origs := []string{}
 				for _, p := range ps {
 					origs = append(origs, p.String())
 				}
-				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.split, "\n"))
+				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.rs, "\n"))
 			} else {
 				for i, p := range ps {
-					test.T(t, p, MustParseSVG(tt.split[i]))
+					test.T(t, p, MustParseSVG(tt.rs[i]))
 				}
 			}
 		})
@@ -650,7 +661,7 @@ func TestDashCanonical(t *testing.T) {
 
 func TestPathDash(t *testing.T) {
 	var tts = []struct {
-		orig   string
+		p      string
 		offset float64
 		d      []float64
 		dashes string
@@ -671,16 +682,16 @@ func TestPathDash(t *testing.T) {
 		{"L10 0M0 10L10 10", 0.0, []float64{8.0}, "L8 0M0 10L8 10"},
 	}
 	for _, tt := range tts {
-		t.Run(tt.orig, func(t *testing.T) {
-			test.T(t, MustParseSVG(tt.orig).Dash(tt.offset, tt.d...), MustParseSVG(tt.dashes))
+		t.Run(tt.p, func(t *testing.T) {
+			test.T(t, MustParseSVG(tt.p).Dash(tt.offset, tt.d...), MustParseSVG(tt.dashes))
 		})
 	}
 }
 
 func TestPathReverse(t *testing.T) {
 	var tts = []struct {
-		orig string
-		inv  string
+		p string
+		r string
 	}{
 		{"", ""},
 		{"M5 5", "M5 5"},
@@ -710,16 +721,16 @@ func TestPathReverse(t *testing.T) {
 		{"M5 5L10 10zL15 10", "M15 10L5 5M5 5L10 10z"},
 	}
 	for _, tt := range tts {
-		t.Run(tt.orig, func(t *testing.T) {
-			test.T(t, MustParseSVG(tt.orig).Reverse(), MustParseSVG(tt.inv))
+		t.Run(tt.p, func(t *testing.T) {
+			test.T(t, MustParseSVG(tt.p).Reverse(), MustParseSVG(tt.r))
 		})
 	}
 }
 
 func TestPathParseSVG(t *testing.T) {
 	var tts = []struct {
-		orig string
-		res  string
+		p string
+		r string
 	}{
 		{"M10 0L20 0H30V10C40 10 50 10 50 0Q55 10 60 0A5 5 0 0 0 70 0Z", "M10 0L20 0L30 0L30 10C40 10 50 10 50 0Q55 10 60 0A5 5 0 0 0 70 0z"},
 		{"m10 0l10 0h10v10c10 0 20 0 20 -10q5 10 10 0a5 5 0 0 0 10 0z", "M10 0L20 0L30 0L30 10C40 10 50 10 50 0Q55 10 60 0A5 5 0 0 0 70 0z"},
@@ -735,18 +746,18 @@ func TestPathParseSVG(t *testing.T) {
 		{"V0 ", ""},
 	}
 	for _, tt := range tts {
-		t.Run(tt.orig, func(t *testing.T) {
-			p, err := ParseSVG(tt.orig)
+		t.Run(tt.p, func(t *testing.T) {
+			p, err := ParseSVG(tt.p)
 			test.Error(t, err)
-			test.T(t, p, MustParseSVG(tt.res))
+			test.T(t, p, MustParseSVG(tt.r))
 		})
 	}
 }
 
 func TestPathParseSVGErrors(t *testing.T) {
 	var tts = []struct {
-		orig string
-		err  string
+		p   string
+		err string
 	}{
 		{"5", "bad path: path should start with command"},
 		{"MM", "bad path: sets of 2 numbers should follow command 'M' at position 2"},
@@ -760,8 +771,8 @@ func TestPathParseSVGErrors(t *testing.T) {
 		{"l00000000000000000000+00000000000000000000 00000000000000000000", "bad path: sets of 2 numbers should follow command 'l' at position 64"},
 	}
 	for _, tt := range tts {
-		t.Run(tt.orig, func(t *testing.T) {
-			_, err := ParseSVG(tt.orig)
+		t.Run(tt.p, func(t *testing.T) {
+			_, err := ParseSVG(tt.p)
 			test.That(t, err != nil)
 			test.T(t, err.Error(), tt.err)
 		})
@@ -770,8 +781,8 @@ func TestPathParseSVGErrors(t *testing.T) {
 
 func TestPathToSVG(t *testing.T) {
 	var tts = []struct {
-		orig string
-		ps   string
+		p   string
+		svg string
 	}{
 		{"", ""},
 		{"L10 0Q15 10 20 0M20 10C20 20 30 20 30 10z", "M0 0H10Q15 10 20 0M20 10C20 20 30 20 30 10z"},
@@ -783,17 +794,17 @@ func TestPathToSVG(t *testing.T) {
 		{"M20 0L20 0", ""},
 	}
 	for _, tt := range tts {
-		t.Run(tt.orig, func(t *testing.T) {
-			p := MustParseSVG(tt.orig)
-			test.T(t, p.ToSVG(), tt.ps)
+		t.Run(tt.p, func(t *testing.T) {
+			p := MustParseSVG(tt.p)
+			test.T(t, p.ToSVG(), tt.svg)
 		})
 	}
 }
 
 func TestPathToPS(t *testing.T) {
 	var tts = []struct {
-		orig string
-		ps   string
+		p  string
+		ps string
 	}{
 		{"", ""},
 		{"L10 0Q15 10 20 0M20 10C20 20 30 20 30 10z", "0 0 moveto 10 0 lineto 13.333333 6.6666667 16.666667 6.6666667 20 0 curveto 20 10 moveto 20 20 30 20 30 10 curveto closepath"},
@@ -802,24 +813,24 @@ func TestPathToPS(t *testing.T) {
 		{"A10 5 90 0 0 10 0", "0 0 moveto 5 0 10 5 90 -90 90 ellipsen"},
 	}
 	for _, tt := range tts {
-		t.Run(tt.orig, func(t *testing.T) {
-			test.T(t, MustParseSVG(tt.orig).ToPS(), tt.ps)
+		t.Run(tt.p, func(t *testing.T) {
+			test.T(t, MustParseSVG(tt.p).ToPS(), tt.ps)
 		})
 	}
 }
 
 func TestPathToPDF(t *testing.T) {
 	var tts = []struct {
-		orig string
-		ps   string
+		p   string
+		pdf string
 	}{
 		{"", ""},
 		{"L10 0Q15 10 20 0M20 10C20 20 30 20 30 10z", "0 0 m 10 0 l 13.333333 6.6666667 16.666667 6.6666667 20 0 c 20 10 m 20 20 30 20 30 10 c h"},
 		{"L10 0M20 0L30 0", "0 0 m 10 0 l 20 0 m 30 0 l"},
 	}
 	for _, tt := range tts {
-		t.Run(tt.orig, func(t *testing.T) {
-			test.T(t, MustParseSVG(tt.orig).ToPDF(), tt.ps)
+		t.Run(tt.p, func(t *testing.T) {
+			test.T(t, MustParseSVG(tt.p).ToPDF(), tt.pdf)
 		})
 	}
 }

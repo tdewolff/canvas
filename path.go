@@ -142,6 +142,7 @@ func (p *Path) Join(q *Path) *Path {
 	// add the first command through the command functions to use the optimization features
 	// q is not empty, so starts with a MoveTo followed by other commands
 	cmd := d[0]
+	p = p.Copy()
 	switch cmd {
 	case MoveToCmd:
 		p.MoveTo(d[1], d[2])
@@ -432,72 +433,141 @@ func (p *Path) simplifyToCoords() []Point {
 	return coords
 }
 
+// Interior is true when the point (x,y) is in the interior of the path, i.e. gets filled. This depends on the FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with the path.
+func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
+	n := 0
+	var start, end Point
+	zs := intersections{}
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		switch cmd {
+		case MoveToCmd:
+			end = Point{p.d[i+1], p.d[i+2]}
+		case LineToCmd, CloseCmd:
+			end = Point{p.d[i+1], p.d[i+2]}
+			if start.Y < y && y < end.Y || end.Y < y && y < start.Y {
+				if xmin := math.Min(start.X, end.X); x < xmin {
+					if start.Y < y {
+						n++
+					} else {
+						n--
+					}
+				} else if xmax := math.Max(start.X, end.X); x < xmax {
+					zs = zs.LineLine(Point{x, y}, Point{xmax + Epsilon, y}, start, end)
+				}
+			}
+		case QuadToCmd:
+			cp := Point{p.d[i+1], p.d[i+2]}
+			end = Point{p.d[i+3], p.d[i+4]}
+			ymin := math.Min(math.Min(start.Y, end.Y), cp.Y)
+			ymax := math.Max(math.Max(start.Y, end.Y), cp.Y)
+			xmax := math.Max(math.Max(start.X, end.X), cp.X)
+			if ymin < y && y < ymax && x < xmax {
+				zs = zs.LineQuad(Point{x, y}, Point{xmax + Epsilon, y}, start, cp, end)
+			}
+		case CubeToCmd:
+			cp1 := Point{p.d[i+1], p.d[i+2]}
+			cp2 := Point{p.d[i+3], p.d[i+4]}
+			end = Point{p.d[i+5], p.d[i+6]}
+			ymin := math.Min(math.Min(start.Y, end.Y), math.Min(cp1.Y, cp2.Y))
+			ymax := math.Max(math.Max(start.Y, end.Y), math.Max(cp1.Y, cp2.Y))
+			xmax := math.Max(math.Max(start.X, end.X), math.Max(cp1.X, cp2.X))
+			if ymin < y && y < ymax && x < xmax {
+				zs = zs.LineCube(Point{x, y}, Point{xmax + Epsilon, y}, start, cp1, cp2, end)
+			}
+		case ArcToCmd:
+			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
+			large, sweep := toArcFlags(p.d[i+4])
+			end = Point{p.d[i+5], p.d[i+6]}
+			cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
+			zs = zs.LineEllipse(Point{x, y}, Point{cx + rx + Epsilon, y}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
+		}
+		i += cmdLen(cmd)
+		start = end
+	}
+	for _, z := range zs {
+		if z.Kind != Tangent {
+			if angleBetweenExclusive(z.DirB, 0.0, math.Pi) {
+				n++
+			} else {
+				n--
+			}
+		}
+	}
+	return fillRule == NonZero && n != 0 || n%2 != 0
+}
+
+// get direction vector at position in path segment
+func segmentDeriv(start Point, d []float64, t float64) Point {
+	if d[0] == LineToCmd || d[0] == CloseCmd {
+		return Point{d[1], d[2]}.Sub(start).Norm(1.0)
+	} else if d[0] == QuadToCmd {
+		cp := Point{d[1], d[2]}
+		end := Point{d[3], d[4]}
+		return quadraticBezierDeriv(start, cp, end, t)
+	} else if d[0] == CubeToCmd {
+		cp1 := Point{d[1], d[2]}
+		cp2 := Point{d[3], d[4]}
+		end := Point{d[5], d[6]}
+		return cubicBezierDeriv(start, cp1, cp2, end, t)
+	} else if d[0] == ArcToCmd {
+		rx, ry, phi := d[1], d[2], d[3]
+		large, sweep := toArcFlags(d[4])
+		_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, d[5], d[6])
+		return ellipseDeriv(rx, ry, phi, sweep, theta0+t*(theta1-theta0))
+	}
+	return Point{}
+}
+
+// get points in the interior of p close to the first MoveTo
+// p and q should not have subpaths
+func (p *Path) interiorPoint() Point {
+	if len(p.d) <= 4 || len(p.d) <= 4+cmdLen(p.d[4]) {
+		panic("path too small or empty")
+	}
+
+	p0 := Point{p.d[1], p.d[2]}
+	d0 := segmentDeriv(p0, p.d[4:], 0.0)
+
+	i := len(p.d) - 4
+	p1 := Point{p.d[i-3], p.d[i-2]}
+	if p0.Equals(p1) {
+		// CloseCmd is an empty segment
+		i -= cmdLen(p.d[i-1])
+		p1 = Point{p.d[i-3], p.d[i-2]}
+	}
+	d1 := segmentDeriv(p1, p.d[i:], 1.0)
+
+	dir0 := angleNorm(d1.Angle())
+	dir1 := dir0 + angleNorm(d0.Angle()+math.Pi-dir0)
+	n := PolarPoint((dir0+dir1)/2.0, 1e-6) // LHS
+	if !p.CCW() {
+		n = n.Neg() // RHS
+	}
+	return p0.Add(n)
+}
+
+// Filling returns whether each subpath gets filled or not. A path may not be filling when it negates another path and depends on the FillRule. If a subpath is not closed, it is implicitly assumed to be closed. If the path has no area it will return false.
+func (p *Path) Filling(fillRule FillRule) []bool {
+	var filling []bool
+	for _, pi := range p.Split() {
+		pos := pi.interiorPoint()
+		filling = append(filling, p.Interior(pos.X, pos.Y, fillRule))
+	}
+	return filling
+}
+
 // CCW returns true when the path has (mostly) a counter clockwise direction. It does not need the path to be closed and will return true for a empty or straight line.
 func (p *Path) CCW() bool {
 	// use the Shoelace formula
 	area := 0.0
-	for _, ps := range p.Split() {
-		coords := ps.simplifyToCoords()
+	for _, pi := range p.Split() {
+		coords := pi.simplifyToCoords()
 		for i := 1; i < len(coords); i++ {
 			area += (coords[i].X - coords[i-1].X) * (coords[i-1].Y + coords[i].Y)
 		}
 	}
 	return area <= 0.0
-}
-
-// Filling returns whether each subpath gets filled or not. A path may not be filling when it negates another path and depends on the FillRule. If a subpath is not closed, it is implicitly assumed to be closed. If the path has no area it will return false.
-func (p *Path) Filling(fillRule FillRule) []bool {
-	var pls []*Polyline
-	var ccw []bool
-	for _, ps := range p.Split() {
-		ps.Close()
-
-		coords := ps.simplifyToCoords()
-		polyline := &Polyline{coords}
-		pls = append(pls, polyline) // no need for flattening as we pick our test point to be inside the polyline
-		ccw = append(ccw, ps.CCW())
-	}
-
-	testPoints := make([]Point, 0, len(pls))
-	for i, pl := range pls {
-		// TODO: is this always valid? is there a better method?
-		offset := pl.coords[1].Sub(pl.coords[0]).Rot90CW().Norm(Epsilon)
-		if ccw[i] {
-			offset = offset.Neg()
-		}
-		testPoints = append(testPoints, pl.coords[0].Interpolate(pl.coords[1], 0.5).Add(offset))
-	}
-
-	fillCounts := make([]int, len(testPoints))
-	for _, pl := range pls {
-		for i, test := range testPoints {
-			fillCounts[i] += pl.FillCount(test.X, test.Y)
-		}
-	}
-
-	fillings := make([]bool, len(fillCounts))
-	for i := range fillCounts {
-		if fillRule == NonZero {
-			fillings[i] = fillCounts[i] != 0
-		} else {
-			fillings[i] = fillCounts[i]%2 != 0
-		}
-	}
-	return fillings
-}
-
-// Interior is true when the point (x,y) is in the interior of the path, i.e. gets filled. This depends on the FillRule.
-func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
-	// TODO: optimize, use ray towards inf and count intersections?
-	fillCount := 0
-	test := Point{x, y}
-	for _, ps := range p.Split() {
-		fillCount += PolylineFromPath(ps).FillCount(test.X, test.Y) // uses flattening
-	}
-	if fillRule == NonZero {
-		return fillCount != 0
-	}
-	return fillCount%2 != 0
 }
 
 // Bounds returns the bounding box rectangle of the path.
@@ -592,7 +662,7 @@ func (p *Path) Bounds() Rect {
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			large, sweep := toArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
-			cx, cy, theta1, theta2 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
+			cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
 
 			// find the four extremes (top, bottom, left, right) and apply those who are between theta1 and theta2
 			// x(theta) = cx + rx*cos(theta)*cos(phi) - ry*sin(theta)*sin(phi)
@@ -608,16 +678,16 @@ func (p *Path) Bounds() Rect {
 
 			dx := math.Sqrt(rx*rx*cosphi*cosphi + ry*ry*sinphi*sinphi)
 			dy := math.Sqrt(rx*rx*sinphi*sinphi + ry*ry*cosphi*cosphi)
-			if angleBetween(thetaLeft, theta1, theta2) {
+			if angleBetween(thetaLeft, theta0, theta1) {
 				xmin = math.Min(xmin, cx-dx)
 			}
-			if angleBetween(thetaRight, theta1, theta2) {
+			if angleBetween(thetaRight, theta0, theta1) {
 				xmax = math.Max(xmax, cx+dx)
 			}
-			if angleBetween(thetaBottom, theta1, theta2) {
+			if angleBetween(thetaBottom, theta0, theta1) {
 				ymin = math.Min(ymin, cy-dy)
 			}
-			if angleBetween(thetaTop, theta1, theta2) {
+			if angleBetween(thetaTop, theta0, theta1) {
 				ymax = math.Max(ymax, cy+dy)
 			}
 			xmin = math.Min(xmin, end.X)

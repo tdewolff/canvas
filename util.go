@@ -147,6 +147,14 @@ type Point struct {
 	X, Y float64
 }
 
+// PolarPoint returns a point from polar coordinates, with angle in radians CCW and radius the distance from (0,0).
+func PolarPoint(angle, radius float64) Point {
+	return Point{
+		X: radius * math.Cos(angle),
+		Y: radius * math.Sin(angle),
+	}
+}
+
 // IsZero returns true if P is exactly zero.
 func (p Point) IsZero() bool {
 	return p.X == 0.0 && p.Y == 0.0
@@ -234,7 +242,7 @@ func (p Point) AngleBetween(q Point) float64 {
 // Norm normalises OP to be of given length.
 func (p Point) Norm(length float64) Point {
 	d := p.Length()
-	if Equal(d, 0.0) {
+	if d == 0.0 {
 		return Point{}
 	}
 	return Point{p.X / d * length, p.Y / d * length}

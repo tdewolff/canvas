@@ -9,54 +9,6 @@ import (
 
 // Paths are cut at the intersections between P and Q. The intersections are put into a doubly linked list with paths going forward and backward over P and Q. Depending on the boolean operation we should choose the right cut. Note that there can be circular loops when choosing cuts based on a condition, so we should take care to visit all intersections. Additionally, if path P or path Q contain subpaths with a different winding, we will first combine the subpaths so to remove all subpath intersections.
 
-// get RHS normal vector at path segment extreme
-func segmentNormal(start Point, d []float64, t float64) Point {
-	if d[0] == LineToCmd || d[0] == CloseCmd {
-		return Point{d[1], d[2]}.Sub(start).Rot90CW().Norm(Epsilon)
-	} else if d[0] == QuadToCmd {
-		cp := Point{d[1], d[2]}
-		end := Point{d[3], d[4]}
-		return quadraticBezierNormal(start, cp, end, t, Epsilon)
-	} else if d[0] == CubeToCmd {
-		cp1 := Point{d[1], d[2]}
-		cp2 := Point{d[3], d[4]}
-		end := Point{d[5], d[6]}
-		return cubicBezierNormal(start, cp1, cp2, end, t, Epsilon)
-	} else if d[0] == ArcToCmd {
-		rx, ry, phi := d[1], d[2], d[3]
-		large, sweep := toArcFlags(d[4])
-		_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, d[5], d[6])
-		return ellipseNormal(rx, ry, phi, sweep, theta0+t*(theta1-theta0), Epsilon)
-	}
-	return Point{}
-}
-
-// get points in the interior of p close to the first MoveTo
-// p and q should not have subpaths
-func (p *Path) interiorPoint() Point {
-	if len(p.d) <= 4 || len(p.d) <= 4+cmdLen(p.d[4]) {
-		panic("path too small or empty")
-	}
-
-	p0 := Point{p.d[1], p.d[2]}
-	n0 := segmentNormal(p0, p.d[4:], 0.0)
-
-	i := len(p.d) - 4
-	p1 := Point{p.d[i-3], p.d[i-2]}
-	if p0.Equals(p1) {
-		// CloseCmd is an empty segment
-		i -= cmdLen(p.d[i-1])
-		p1 = Point{p.d[i-3], p.d[i-2]}
-	}
-	n1 := segmentNormal(p1, p.d[i:], 1.0)
-
-	n := n0.Add(n1).Norm(Epsilon)
-	if p.CCW() {
-		n = n.Neg()
-	}
-	return p0.Add(n)
-}
-
 // returns true if p is inside q or equivalent to q, paths may not intersect
 // p and q should not have subpaths
 func (p *Path) inside(q *Path) bool {
@@ -82,7 +34,6 @@ func (p *Path) Contains(q *Path) bool {
 // Settle combines the path p with itself, including all subpaths, removing all self-intersections and overlapping parts. It returns subpaths with counter clockwise directions.
 func (p *Path) Settle() *Path {
 	// TODO: remove self-intersections too
-	// TODO: make all subpaths CCW
 	if p.Empty() {
 		return p
 	}
@@ -91,6 +42,9 @@ func (p *Path) Settle() *Path {
 	p = ps[0]
 	for _, q := range ps[1:] {
 		p = boolean(p, pathOpSettle, q)
+	}
+	if !ps[0].CCW() {
+		p = p.Reverse() // make all paths go CCW
 	}
 	return p
 }
@@ -170,13 +124,23 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 	if !p.Flat() {
 		q = q.Flatten()
 	}
+	ccwA, ccwB := true, true // by default true after Settle, except when operation is Settle
 	ps, qs := p.Split(), q.Split()
 	if op == pathOpSettle {
 		// implicitly close all subpaths of path q
 		// given the if above, this will close q for all boolean operations (once)
+		for i := range ps {
+			if ps[i].Closed() {
+				ccwA = ps[i].CCW()
+				break
+			}
+		}
 		for i := range qs {
 			if !qs[i].Closed() {
 				qs[i].Close()
+			}
+			if i == 0 {
+				ccwB = qs[i].CCW()
 			}
 		}
 	}
@@ -185,9 +149,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 	Zs := collisions(ps, qs, false)
 
 	// handle open subpaths on path p and remove from Zs
-	first := true
 	Ropen := &Path{}
-	var ccwA, ccwB bool
 	p, q = &Path{}, &Path{}
 	pIndex, qIndex := make(indexPath, 0, len(ps)), make(indexPath, 0, len(qs))
 	j, segOffsetA, d := 0, 0, 0 // j is index into Zs, d is number of removed segments
@@ -212,17 +174,11 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 			d += lenA
 			i--
 		} else {
-			if first {
-				// first closed path determines positive winding direction
-				ccwA = ps[i].CCW()
-				first = false
-			}
 			p = p.Append(ps[i])
 			pIndex = append(pIndex, lenA)
 		}
 		j += n
 	}
-	ccwB = qs[0].CCW()
 	for i := range qs {
 		q = q.Append(qs[i])
 		qIndex = append(qIndex, qs[i].Len())
@@ -353,6 +309,13 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 					if !pHandled[i] {
 						R = R.Append(pi.Reverse())
 					}
+				} else if op == pathOpSettle && ccwA != ccwB {
+					if !pHandled[i] {
+						R = R.Append(pi)
+					}
+					if !qHandled[j] {
+						R = R.Append(qi)
+					}
 				}
 			} else {
 				// q is inside p
@@ -364,15 +327,27 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 					if !pHandled[i] {
 						R = R.Append(pi)
 					}
-				} else if op == pathOpXor || op == pathOpNot || op == pathOpDivide {
+				} else if op == pathOpXor || op == pathOpNot {
 					if !pHandled[i] {
 						R = R.Append(pi)
 					}
 					if !qHandled[j] {
 						R = R.Append(qi.Reverse())
 					}
-				}
-				if op == pathOpDivide {
+				} else if op == pathOpSettle && ccwA != ccwB {
+					if !pHandled[i] {
+						R = R.Append(pi)
+					}
+					if !qHandled[j] {
+						R = R.Append(qi)
+					}
+				} else if op == pathOpDivide {
+					if !pHandled[i] {
+						R = R.Append(pi)
+					}
+					if !qHandled[j] {
+						R = R.Append(qi.Reverse())
+					}
 					if !qHandled[j] {
 						R = R.Append(qi)
 					}
@@ -398,7 +373,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 			}
 		}
 	}
-	return R.Append(Ropen)
+	return R.Append(Ropen) // add the open paths
 }
 
 // Cut cuts path p by path q and returns the parts.
@@ -413,19 +388,29 @@ func cut(Zs intersections, p *Path) []*Path {
 
 	// cut path segments for path P
 	j := 0   // index into intersections
+	k := 0   // index into ps
 	seg := 0 // index into path segments
 	ps := []*Path{}
 	var first, cur []float64
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		if cmd == MoveToCmd {
+			closed := 3 < i && p.d[i-1] == CloseCmd
 			if first != nil {
 				// there were intersections in the last subpath
-				cur = append(cur, first[4:]...)
-				ps = append(ps, &Path{cur})
-				cur = nil
+				if closed {
+					cur = append(cur, first[4:]...) // last subpath was closed
+					ps = append(ps, &Path{cur})
+					cur = nil
+				} else {
+					ps = append(ps[:k], append([]*Path{&Path{first}}, ps[k:]...)...)
+				}
+			} else if closed {
+				cur[len(cur)-1] = CloseCmd
+				cur[len(cur)-4] = CloseCmd
 			}
 			first = nil
+			k = len(ps)
 		} else if cmd == CloseCmd {
 			p.d[i], p.d[i+3] = LineToCmd, LineToCmd
 		}
@@ -460,7 +445,7 @@ func cut(Zs intersections, p *Path) []*Path {
 			cur = p1.d
 			j++
 		} else {
-			// segment has no intersection, add to previous intersection
+			// segment has no intersection
 			if len(cur) == 0 || cmd != CloseCmd || p.d[i+1] != cur[len(cur)-3] || p.d[i+2] != cur[len(cur)-2] {
 				cur = append(cur, p.d[i:i+cmdLen(cmd)]...)
 			}
@@ -471,8 +456,17 @@ func cut(Zs intersections, p *Path) []*Path {
 		i += cmdLen(cmd)
 		seg++
 	}
+	closed := 3 < len(p.d) && p.d[len(p.d)-1] == CloseCmd
 	if first != nil {
-		cur = append(cur, first[4:]...)
+		// there were intersections in the last subpath
+		if closed {
+			cur = append(cur, first[4:]...) // last subpath was closed
+		} else {
+			ps = append(ps[:k], append([]*Path{&Path{first}}, ps[k:]...)...)
+		}
+	} else if closed {
+		cur[len(cur)-1] = CloseCmd
+		cur[len(cur)-4] = CloseCmd
 	}
 	ps = append(ps, &Path{cur})
 	return ps
@@ -565,7 +559,7 @@ func intersectionNodes(Zs intersections, p, q *Path) []*intersectionNode {
 			cur = p1.d
 			j++
 		} else {
-			// segment has no intersection, add to previous intersection
+			// segment has no intersection
 			if len(cur) == 0 || cmd != CloseCmd || p.d[i+1] != cur[len(cur)-3] || p.d[i+2] != cur[len(cur)-2] {
 				cur = append(cur, p.d[i:i+cmdLen(cmd)]...)
 			}
@@ -638,7 +632,7 @@ func intersectionNodes(Zs intersections, p, q *Path) []*intersectionNode {
 			cur = p1.d
 			j++
 		} else {
-			// segment has no intersection, add to previous intersection
+			// segment has no intersection
 			if len(cur) == 0 || cmd != CloseCmd || q.d[i+1] != cur[len(cur)-3] || q.d[i+2] != cur[len(cur)-2] {
 				cur = append(cur, q.d[i:i+cmdLen(cmd)]...)
 			}
@@ -1037,7 +1031,7 @@ func (z intersection) Equals(o intersection) bool {
 }
 
 func (z intersection) String() string {
-	s := fmt.Sprintf("pos={%.3g,%.3g} seg={%d,%d} t={%.3g,%.3g} dir={%g°,%g°}", z.Point.X, z.Point.Y, z.SegA, z.SegB, z.TA, z.TB, angleNorm(z.DirA)*180.0/math.Pi, angleNorm(z.DirB)*180.0/math.Pi)
+	s := fmt.Sprintf("pos={%g,%g} seg={%d,%d} t={%g,%g} dir={%g°,%g°}", z.Point.X, z.Point.Y, z.SegA, z.SegB, z.TA, z.TB, angleNorm(z.DirA)*180.0/math.Pi, angleNorm(z.DirB)*180.0/math.Pi)
 	if z.Kind == AintoB {
 		s += " AintoB"
 	} else if z.Kind == BintoA {
@@ -1062,7 +1056,7 @@ func (zs intersections) Has() bool {
 	return 0 < len(zs)
 }
 
-// There are secants, i.e. the curves intersect and cross (they cut).
+// HasSecant returns true when there are secant intersections, i.e. the curves intersect and cross (they cut).
 func (zs intersections) HasSecant() bool {
 	for _, z := range zs {
 		if z.Kind != Tangent {
@@ -1072,7 +1066,7 @@ func (zs intersections) HasSecant() bool {
 	return false
 }
 
-// There are tangents, i.e. the curves intersect but don't cross (they touch).
+// HasTangent returns true when there are tangent intersections, i.e. the curves intersect but don't cross (they touch).
 func (zs intersections) HasTangent() bool {
 	for _, z := range zs {
 		if z.Kind == Tangent {
@@ -1306,8 +1300,7 @@ func (zs intersections) LineQuad(l0, l1, p0, p1, p2 Point) intersections {
 						dirb -= Epsilon / 2.0 // t=0 and CW, or t=1 and CCW
 					}
 				}
-				dif := A.Dot(deriv)
-				zs = zs.add(pos, s, root, dira, dirb, Equal(dif, 0.0))
+				zs = zs.add(pos, s, root, dira, dirb, Equal(A.Dot(deriv), 0.0))
 			}
 		}
 	}
@@ -1360,8 +1353,14 @@ func (zs intersections) LineCube(l0, l1, p0, p1, p2, p3 Point) intersections {
 						dirb -= Epsilon / 2.0 // t=0 and CW, or t=1 and CCW
 					}
 				}
-				dif := A.Dot(deriv)
-				zs = zs.add(pos, s, root, dira, dirb, Equal(dif, 0.0))
+
+				// deviate angle slightly to distinguish between BintoA/AintoB when the line and the cubic bezier are parallel only in the intersection, but the paths do cross
+				tangent := Equal(A.Dot(deriv), 0.0)
+				if !Equal(root, 0.0) && !Equal(root, 1.0) && (angleEqual(dira, dirb) || angleEqual(dira, dirb+math.Pi)) {
+					dirb = p3.Sub(p0).Angle()
+					tangent = false
+				}
+				zs = zs.add(pos, s, root, dira, dirb, tangent)
 			}
 		}
 	}
