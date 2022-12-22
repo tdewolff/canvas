@@ -185,7 +185,6 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 	}
 
 	K := 1 // number of time to run from each intersection
-	directions := []bool{true, false}
 	startInwards := []bool{false, false}
 	invertA := []bool{false, false}
 	invertB := []bool{false, false}
@@ -195,13 +194,12 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		invertB[0] = true
 	} else if op == pathOpXor || op == pathOpSettle && ccwA != ccwB {
 		K = 2
-		directions = []bool{true, false}
-		startInwards = []bool{false, false}
+		invertA[1] = true
+		invertB[1] = true
 	} else if op == pathOpNot {
 	} else if op == pathOpDivide {
 		// run as NOT and then as AND
 		K = 2
-		directions[1] = true
 		startInwards[1] = true
 		invertA[1] = true
 	}
@@ -216,49 +214,38 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		for k := 0; k < K; k++ {
 			if !visited[k][z0.i] {
 				r := &Path{}
-				prevReverse := false
-				gotoB := startInwards[k] == (ccwB == (z0.kind == BintoA))
+				var forwardA, forwardB bool
+				gotoB := startInwards[k] == (ccwB == (z0.kind&BintoA != 0)) // ensure result is CCW
 				for z := z0; ; {
 					visited[k][z.i] = true
 					if gotoB {
-						if invertB[k] != (directions[k] == (ccwA == (z.kind == BintoA))) {
-							if z.i != z0.i && prevReverse == (z.parallel == AParallel) {
-								if prevReverse {
-									r = r.Join(z.c.Reverse())
-								} else {
-									r = r.Join(z.c)
-								}
-							}
+						forwardB = invertB[k] != (ccwA == (z.kind&BintoA != 0))
+					} else {
+						forwardA = invertA[k] != (ccwB == (z.kind&BintoA != 0))
+					}
+					if z.i != z0.i && (forwardA == forwardB) == (z.parallel == Parallel) {
+						// parallel lines
+						if forwardA {
+							r = r.Join(z.c)
+						} else {
+							r = r.Join(z.c.Reverse())
+						}
+					}
+					if gotoB {
+						if forwardB {
 							r = r.Join(z.b)
 							z = z.nextB
-							prevReverse = false
 						} else {
-							if z.i != z0.i && prevReverse == (z.parallel == Parallel) {
-								if prevReverse {
-									r = r.Join(z.c.Reverse())
-								} else {
-									r = r.Join(z.c)
-								}
-							}
 							r = r.Join(z.prevB.b.Reverse())
 							z = z.prevB
-							prevReverse = true
 						}
 					} else {
-						if invertA[k] != (directions[k] == (ccwB == (z.kind == BintoA))) {
-							if z.i != z0.i && prevReverse == (z.parallel == AParallel) {
-								r = r.Join(z.c)
-							}
+						if forwardA {
 							r = r.Join(z.a)
 							z = z.nextA
-							prevReverse = false
 						} else {
-							if z.i != z0.i && prevReverse == (z.parallel == Parallel) {
-								r = r.Join(z.c.Reverse())
-							}
 							r = r.Join(z.prevA.a.Reverse())
 							z = z.prevA
-							prevReverse = true
 						}
 					}
 					if z.i == z0.i {
