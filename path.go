@@ -497,24 +497,23 @@ func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 	return fillRule == NonZero && n != 0 || n%2 != 0
 }
 
-// get direction vector at position in path segment
-func segmentDeriv(start Point, d []float64, t float64) Point {
+func segmentPos(start Point, d []float64, t float64) Point {
 	if d[0] == LineToCmd || d[0] == CloseCmd {
-		return Point{d[1], d[2]}.Sub(start).Norm(1.0)
+		return start.Interpolate(Point{d[1], d[2]}, t)
 	} else if d[0] == QuadToCmd {
 		cp := Point{d[1], d[2]}
 		end := Point{d[3], d[4]}
-		return quadraticBezierDeriv(start, cp, end, t)
+		return quadraticBezierPos(start, cp, end, t)
 	} else if d[0] == CubeToCmd {
 		cp1 := Point{d[1], d[2]}
 		cp2 := Point{d[3], d[4]}
 		end := Point{d[5], d[6]}
-		return cubicBezierDeriv(start, cp1, cp2, end, t)
+		return cubicBezierPos(start, cp1, cp2, end, t)
 	} else if d[0] == ArcToCmd {
 		rx, ry, phi := d[1], d[2], d[3]
 		large, sweep := toArcFlags(d[4])
-		_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, d[5], d[6])
-		return ellipseDeriv(rx, ry, phi, sweep, theta0+t*(theta1-theta0))
+		cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, d[5], d[6])
+		return EllipsePos(rx, ry, phi, cx, cy, theta0+t*(theta1-theta0))
 	}
 	return Point{}
 }
@@ -526,25 +525,34 @@ func (p *Path) interiorPoint() Point {
 		panic("path too small or empty")
 	}
 
-	p0 := Point{p.d[1], p.d[2]}
-	d0 := segmentDeriv(p0, p.d[4:], 0.0)
+	p1 := Point{p.d[1], p.d[2]}
+	p2 := segmentPos(p1, p.d[4:], 0.0+1e4*Epsilon)
 
 	i := len(p.d) - 4
-	p1 := Point{p.d[i-3], p.d[i-2]}
-	if p0.Equals(p1) {
+	q0 := Point{p.d[i-3], p.d[i-2]}
+	if p1.Equals(q0) {
 		// CloseCmd is an empty segment
 		i -= cmdLen(p.d[i-1])
-		p1 = Point{p.d[i-3], p.d[i-2]}
+		q0 = Point{p.d[i-3], p.d[i-2]}
 	}
-	d1 := segmentDeriv(p1, p.d[i:], 1.0)
+	p0 := segmentPos(q0, p.d[i:], 1.0-1e4*Epsilon)
+	di := p1.Sub(p0)
+	do := p2.Sub(p1)
 
-	dir0 := angleNorm(d1.Angle())
-	dir1 := dir0 + angleNorm(d0.Angle()+math.Pi-dir0)
-	n := PolarPoint((dir0+dir1)/2.0, 100.0*Epsilon) // LHS
-	if !p.CCW() {
-		n = n.Neg() // RHS
+	var n Point // LHS point
+	diro := angleNorm(do.Angle())
+	diri := diro + angleNorm(di.Angle()+math.Pi-diro)
+	if angleEqual(diri-diro, math.Pi) {
+		n = do.Rot90CCW() // segments are colinear
+	} else if diri-diro < math.Pi {
+		n = di.Neg().Add(do).Div(2.0) // segments turn CCW
+	} else {
+		n = di.Neg().Add(do).Div(-2.0) // segments turn CW
 	}
-	return p0.Add(n)
+	if !p.CCW() {
+		n = n.Neg() // RHS point
+	}
+	return p1.Add(n)
 }
 
 // Filling returns whether each subpath gets filled or not. A path may not be filling when it negates another path and depends on the FillRule. If a subpath is not closed, it is implicitly assumed to be closed. If the path has no area it will return false.

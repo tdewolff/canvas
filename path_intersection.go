@@ -12,7 +12,7 @@ import (
 // returns true if p is inside q or equivalent to q, paths may not intersect
 // p and q should not have subpaths
 func (p *Path) inside(q *Path) bool {
-	if len(p.d) <= 4 || len(p.d) <= 4+cmdLen(p.d[4]) || len(q.d) <= 4 || len(q.d) <= 4+cmdLen(q.d[4]) {
+	if len(p.d) <= 4 || len(p.d) <= 4+cmdLen(p.d[4]) {
 		return false
 	}
 	offset := p.interiorPoint()
@@ -43,10 +43,19 @@ func (p *Path) Settle() *Path {
 	for _, q := range ps[1:] {
 		p = boolean(p, pathOpSettle, q)
 	}
-	if !ps[0].CCW() {
-		p = p.Reverse() // make all paths go CCW
+
+	// make all filling paths go CCW
+	r := &Path{}
+	ps = p.Split()
+	for i := range ps {
+		pos := ps[i].interiorPoint()
+		if ps[i].CCW() == p.Interior(pos.X, pos.Y, NonZero) {
+			r = r.Append(ps[i])
+		} else {
+			r = r.Append(ps[i].Reverse())
+		}
 	}
-	return p
+	return r
 }
 
 // And returns the boolean path operation of path p and q. Path q is implicitly closed.
@@ -212,50 +221,51 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 	}
 	for _, z0 := range zs {
 		for k := 0; k < K; k++ {
-			if !visited[k][z0.i] {
-				r := &Path{}
-				var forwardA, forwardB bool
-				gotoB := startInwards[k] == (ccwB == (z0.kind&BintoA != 0)) // ensure result is CCW
-				for z := z0; ; {
-					visited[k][z.i] = true
-					if gotoB {
-						forwardB = invertB[k] != (ccwA == (z.kind&BintoA != 0))
-					} else {
-						forwardA = invertA[k] != (ccwB == (z.kind&BintoA != 0))
-					}
-					if z.i != z0.i && (forwardA == forwardB) == (z.parallel == Parallel) {
-						// parallel lines
-						if forwardA {
-							r = r.Join(z.c)
-						} else {
-							r = r.Join(z.c.Reverse())
-						}
-					}
-					if gotoB {
-						if forwardB {
-							r = r.Join(z.b)
-							z = z.nextB
-						} else {
-							r = r.Join(z.prevB.b.Reverse())
-							z = z.prevB
-						}
-					} else {
-						if forwardA {
-							r = r.Join(z.a)
-							z = z.nextA
-						} else {
-							r = r.Join(z.prevA.a.Reverse())
-							z = z.prevA
-						}
-					}
-					if z.i == z0.i {
-						break
-					}
-					gotoB = !gotoB
-				}
-				r.Close()
-				R = R.Append(r)
+			if visited[k][z0.i] {
+				continue
 			}
+			r := &Path{}
+			var forwardA, forwardB bool
+			gotoB := startInwards[k] == (ccwB == (z0.kind == BintoA)) // ensure result is CCW
+			for z := z0; ; {
+				visited[k][z.i] = true
+				if gotoB {
+					forwardB = invertB[k] != (ccwA == (z.kind == BintoA))
+				} else {
+					forwardA = invertA[k] != (ccwB == (z.kind == BintoA))
+				}
+				if z.i != z0.i && (forwardA == forwardB) == (z.parallel == Parallel) {
+					// parallel lines
+					if forwardA {
+						r = r.Join(z.c)
+					} else {
+						r = r.Join(z.c.Reverse())
+					}
+				}
+				if gotoB {
+					if forwardB {
+						r = r.Join(z.b)
+						z = z.nextB
+					} else {
+						r = r.Join(z.prevB.b.Reverse())
+						z = z.prevB
+					}
+				} else {
+					if forwardA {
+						r = r.Join(z.a)
+						z = z.nextA
+					} else {
+						r = r.Join(z.prevA.a.Reverse())
+						z = z.prevA
+					}
+				}
+				if z.i == z0.i {
+					break
+				}
+				gotoB = !gotoB
+			}
+			r.Close()
+			R = R.Append(r)
 		}
 	}
 
@@ -471,7 +481,7 @@ type intersectionNode struct {
 }
 
 func (z *intersectionNode) String() string {
-	return fmt.Sprintf("(%v A=[%v→,→%v] B=[%v→,→%v])", z.i, z.prevA.i, z.nextA.i, z.prevB.i, z.nextB.i)
+	return fmt.Sprintf("(%v A=[%v→,→%v] B=[%v→,→%v] %v %v)", z.i, z.prevA.i, z.nextA.i, z.prevB.i, z.nextB.i, z.kind, z.parallel)
 }
 
 // get intersections for paths p and q sorted for both, both paths must be closed
@@ -994,6 +1004,15 @@ const (
 	Tangent
 )
 
+func (v intersectionKind) String() string {
+	if v == AintoB {
+		return "AintoB"
+	} else if v == BintoA {
+		return "BintoA"
+	}
+	return "Tangent"
+}
+
 type intersectionParallel int
 
 const (
@@ -1002,6 +1021,17 @@ const (
 	BParallel                       // parallel along B
 	Parallel                        // parallel along both
 )
+
+func (v intersectionParallel) String() string {
+	if v == Parallel {
+		return "Parallel"
+	} else if v == AParallel {
+		return "AParallel"
+	} else if v == BParallel {
+		return "BParallel"
+	}
+	return "NoParallel"
+}
 
 type intersection struct {
 	// SegA, SegB, and Parallel are filled/specified only for path intersections, not segment
@@ -1018,22 +1048,7 @@ func (z intersection) Equals(o intersection) bool {
 }
 
 func (z intersection) String() string {
-	s := fmt.Sprintf("pos={%g,%g} seg={%d,%d} t={%g,%g} dir={%g°,%g°}", z.Point.X, z.Point.Y, z.SegA, z.SegB, z.TA, z.TB, angleNorm(z.DirA)*180.0/math.Pi, angleNorm(z.DirB)*180.0/math.Pi)
-	if z.Kind == AintoB {
-		s += " AintoB"
-	} else if z.Kind == BintoA {
-		s += " BintoA"
-	} else {
-		s += " Tangent"
-	}
-	if z.Parallel == Parallel {
-		s += " Parallel"
-	} else if z.Parallel == AParallel {
-		s += " AParallel"
-	} else if z.Parallel == BParallel {
-		s += " BParallel"
-	}
-	return s
+	return fmt.Sprintf("pos={%g,%g} seg={%d,%d} t={%g,%g} dir={%g°,%g°} %v %v", z.Point.X, z.Point.Y, z.SegA, z.SegB, z.TA, z.TB, angleNorm(z.DirA)*180.0/math.Pi, angleNorm(z.DirB)*180.0/math.Pi, z.Kind, z.Parallel)
 }
 
 type intersections []intersection
