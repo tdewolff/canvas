@@ -433,7 +433,7 @@ func (p *Path) simplifyToCoords() []Point {
 	return coords
 }
 
-// Interior is true when the point (x,y) is in the interior of the path, i.e. gets filled. This depends on the FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with the path.
+// Interior is true when the point (x,y) is in the interior of the path, i.e. gets filled. This depends on the FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with the path. When the point is on the boundary it may or may not be considered interior, specifically when it is on the left part it is considered interior and on the right side exterior.
 func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 	n := 0
 	var start, end Point
@@ -453,7 +453,7 @@ func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 						n--
 					}
 				} else if xmax := math.Max(start.X, end.X); x < xmax {
-					zs = zs.LineLine(Point{x, y}, Point{xmax + Epsilon, y}, start, end)
+					zs = zs.LineLine(Point{x, y}, Point{xmax + 10.0*Epsilon, y}, start, end)
 				}
 			}
 		case QuadToCmd:
@@ -463,7 +463,7 @@ func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 			ymax := math.Max(math.Max(start.Y, end.Y), cp.Y)
 			xmax := math.Max(math.Max(start.X, end.X), cp.X)
 			if ymin < y && y < ymax && x < xmax {
-				zs = zs.LineQuad(Point{x, y}, Point{xmax + Epsilon, y}, start, cp, end)
+				zs = zs.LineQuad(Point{x, y}, Point{xmax + 10.0*Epsilon, y}, start, cp, end)
 			}
 		case CubeToCmd:
 			cp1 := Point{p.d[i+1], p.d[i+2]}
@@ -473,14 +473,14 @@ func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 			ymax := math.Max(math.Max(start.Y, end.Y), math.Max(cp1.Y, cp2.Y))
 			xmax := math.Max(math.Max(start.X, end.X), math.Max(cp1.X, cp2.X))
 			if ymin < y && y < ymax && x < xmax {
-				zs = zs.LineCube(Point{x, y}, Point{xmax + Epsilon, y}, start, cp1, cp2, end)
+				zs = zs.LineCube(Point{x, y}, Point{xmax + 10.0*Epsilon, y}, start, cp1, cp2, end)
 			}
 		case ArcToCmd:
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			large, sweep := toArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
 			cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
-			zs = zs.LineEllipse(Point{x, y}, Point{cx + rx + Epsilon, y}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
+			zs = zs.LineEllipse(Point{x, y}, Point{cx + rx + 10.0*Epsilon, y}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
 		}
 		i += cmdLen(cmd)
 		start = end
@@ -540,7 +540,7 @@ func (p *Path) interiorPoint() Point {
 
 	dir0 := angleNorm(d1.Angle())
 	dir1 := dir0 + angleNorm(d0.Angle()+math.Pi-dir0)
-	n := PolarPoint((dir0+dir1)/2.0, 1e-6) // LHS
+	n := PolarPoint((dir0+dir1)/2.0, 100.0*Epsilon) // LHS
 	if !p.CCW() {
 		n = n.Neg() // RHS
 	}

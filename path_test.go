@@ -276,8 +276,27 @@ func TestPathInterior(t *testing.T) {
 		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", Point{1.0, 1.0}, EvenOdd, true},
 		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", Point{3.0, 3.0}, EvenOdd, false},
 
+		// within segment
+		{"L10 10", Point{2.0, 5.0}, NonZero, true},
+		{"L-10 10", Point{-2.0, 5.0}, NonZero, false},
 		{"Q10 5 0 10", Point{2.0, 5.0}, NonZero, true},
 		{"Q-10 5 0 10", Point{-2.0, 5.0}, NonZero, false},
+		{"C10 0 10 10 0 10", Point{2.0, 5.0}, NonZero, true},
+		{"C-10 0 -10 10 0 10", Point{-2.0, 5.0}, NonZero, false},
+		{"A5 5 0 0 1 0 10", Point{2.0, 5.0}, NonZero, true},
+		{"A5 5 0 0 0 0 10", Point{-2.0, 5.0}, NonZero, false},
+
+		// on boundary
+		{"L10 0L10 10L0 10z", Point{0.0, 5.0}, EvenOdd, true},
+		{"L10 0L10 10L0 10z", Point{10.0, 5.0}, EvenOdd, false},
+		{"L0 10L10 10L10 0z", Point{0.0, 5.0}, EvenOdd, true},
+		{"L0 10L10 10L10 0z", Point{10.0, 5.0}, EvenOdd, false},
+		{"L10 0L10 10L0 10z", Point{0.0, 0.0}, EvenOdd, false},
+		{"L10 0L10 10L0 10z", Point{5.0, 0.0}, EvenOdd, false},
+		{"L10 0L10 10L0 10z", Point{10.0, 0.0}, EvenOdd, false},
+		{"L10 0L10 10L0 10z", Point{0.0, 10.0}, EvenOdd, false},
+		{"L10 0L10 10L0 10z", Point{5.0, 10.0}, EvenOdd, false},
+		{"L10 0L10 10L0 10z", Point{10.0, 10.0}, EvenOdd, false},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, " at ", tt.pos), func(t *testing.T) {
