@@ -32,6 +32,10 @@ func TestPathEquals(t *testing.T) {
 	test.That(t, MustParseSVG("M5 0L5 10").Equals(MustParseSVG("M5 0L5 10")))
 }
 
+func TestPathEqualShape(t *testing.T) {
+	test.That(t, MustParseSVG("L1 0L1 1L0 1z").EqualShape(MustParseSVG("L0 1L1 1L1 0z")))
+}
+
 func TestPathClosed(t *testing.T) {
 	test.That(t, !MustParseSVG("M5 0L5 10").Closed())
 	test.That(t, MustParseSVG("M5 0L5 10z").Closed())

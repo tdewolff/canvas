@@ -10,7 +10,7 @@ import (
 // Paths are cut at the intersections between P and Q. The intersections are put into a doubly linked list with paths going forward and backward over P and Q. Depending on the boolean operation we should choose the right cut. Note that there can be circular loops when choosing cuts based on a condition, so we should take care to visit all intersections. Additionally, if path P or path Q contain subpaths with a different winding, we will first combine the subpaths so to remove all subpath intersections.
 
 // returns true if p is inside q or equivalent to q, paths may not intersect
-// p and q should not have subpaths
+// p should not have subpaths
 func (p *Path) inside(q *Path) bool {
 	if len(p.d) <= 4 || len(p.d) <= 4+cmdLen(p.d[4]) {
 		return false
@@ -269,93 +269,59 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		}
 	}
 
-	// handle the remaining subpaths that are non-intersecting but possibly overlapping, either con containment or by being equal
+	// handle the remaining subpaths that are non-intersecting but possibly overlapping, either one containing the other or by being equal
 	pHandled, qHandled := make([]bool, len(ps)), make([]bool, len(qs))
 	for _, z := range Zs {
 		pHandled[pIndex.get(z.SegA)] = true
 		qHandled[qIndex.get(z.SegB)] = true
 	}
+
+	// find equal polygons
 	for i, pi := range ps {
-		for j, qi := range qs {
-			pInQ := pi.inside(qi)
-			qInP := qi.inside(pi)
-			if !pInQ && !qInP {
-				continue
-			}
-			if pInQ && qInP {
-				// equal
-				if op == pathOpAnd || op == pathOpOr || op == pathOpDivide || op == pathOpSettle && ccwA == ccwB {
-					if !pHandled[i] && !qHandled[j] {
-						R = R.Append(pi)
-					}
-				}
-			} else if pInQ {
-				// p is inside q
-				if op == pathOpAnd || op == pathOpDivide {
-					if !pHandled[i] {
-						R = R.Append(pi)
-					}
-				} else if op == pathOpOr || op == pathOpSettle && ccwA == ccwB {
-					if !qHandled[j] {
-						R = R.Append(qi)
-					}
-				} else if op == pathOpXor {
-					if !qHandled[j] {
-						R = R.Append(qi)
-					}
-					if !pHandled[i] {
-						R = R.Append(pi.Reverse())
-					}
-				} else if op == pathOpSettle && ccwA != ccwB {
-					if !pHandled[i] {
-						R = R.Append(pi)
-					}
-					if !qHandled[j] {
-						R = R.Append(qi)
-					}
-				}
-			} else {
-				// q is inside p
-				if op == pathOpAnd {
-					if !qHandled[j] {
-						R = R.Append(qi)
-					}
-				} else if op == pathOpOr {
-					if !pHandled[i] {
-						R = R.Append(pi)
-					}
-				} else if op == pathOpXor || op == pathOpNot {
-					if !pHandled[i] {
-						R = R.Append(pi)
-					}
-					if !qHandled[j] {
-						R = R.Append(qi.Reverse())
-					}
-				} else if op == pathOpSettle && ccwA != ccwB {
-					if !pHandled[i] {
-						R = R.Append(pi)
-					}
-					if !qHandled[j] {
-						R = R.Append(qi)
-					}
-				} else if op == pathOpDivide {
-					if !pHandled[i] {
-						R = R.Append(pi)
-					}
-					if !qHandled[j] {
-						R = R.Append(qi.Reverse())
-					}
-					if !qHandled[j] {
-						R = R.Append(qi)
+		if !pHandled[i] {
+			for j, qi := range qs {
+				if !qHandled[j] {
+					if pi.EqualShape(qi) {
+						if op == pathOpAnd || op == pathOpOr || op == pathOpSettle {
+							R = R.Append(pi)
+						}
+						pHandled[i] = true
+						qHandled[j] = true
 					}
 				}
 			}
-			pHandled[i] = true
-			qHandled[j] = true
 		}
 	}
 
-	// no overlap
+	// find contained polygons
+	for i, pi := range ps {
+		if !pHandled[i] {
+			pInQ := pi.inside(q)
+			if pInQ {
+				if op == pathOpAnd || op == pathOpDivide || op == pathOpSettle && ccwA != ccwB {
+					R = R.Append(pi)
+				} else if op == pathOpXor {
+					R = R.Append(pi.Reverse())
+				}
+				pHandled[i] = true
+			}
+		}
+	}
+	for i, qi := range qs {
+		if !qHandled[i] {
+			qInP := qi.inside(p)
+			if qInP {
+				if op == pathOpAnd || op == pathOpDivide || op == pathOpSettle && ccwA != ccwB {
+					R = R.Append(qi)
+				} else if op == pathOpXor || op == pathOpNot {
+					R = R.Append(qi.Reverse())
+				}
+				qHandled[i] = true
+			}
+		}
+	}
+
+	// polygons with no overlap
 	if op != pathOpAnd {
 		for i, pi := range ps {
 			if !pHandled[i] {

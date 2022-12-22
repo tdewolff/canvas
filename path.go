@@ -93,6 +93,41 @@ func (p *Path) Equals(q *Path) bool {
 	return true
 }
 
+// EqualShape returns true if p and q are equal shapes within tolerance Epsilon. Path q may start at an offset into path p or may be in the reverse direction.
+func (p *Path) EqualShape(q *Path) bool {
+	// TODO: improve, does not handle subpaths or Close vs LineTo
+	if len(p.d) != len(q.d) {
+		return false
+	}
+	qr := q.Reverse() // TODO: can we do without?
+	for j := 0; j < len(q.d); {
+		equal := true
+		for i := 0; i < len(p.d); i++ {
+			if !Equal(p.d[i], q.d[(j+i)%len(q.d)]) {
+				equal = false
+				break
+			}
+		}
+		if equal {
+			return true
+		}
+
+		// backwards
+		equal = true
+		for i := 0; i < len(p.d); i++ {
+			if !Equal(p.d[i], qr.d[(j+i)%len(qr.d)]) {
+				equal = false
+				break
+			}
+		}
+		if equal {
+			return true
+		}
+		j += cmdLen(q.d[j])
+	}
+	return false
+}
+
 // Closed returns true if the last subpath of p is a closed path.
 func (p *Path) Closed() bool {
 	return 0 < len(p.d) && p.d[len(p.d)-1] == CloseCmd
