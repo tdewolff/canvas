@@ -276,7 +276,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		qHandled[qIndex.get(z.SegB)] = true
 	}
 
-	// find equal polygons
+	// equal polygons
 	for i, pi := range ps {
 		if !pHandled[i] {
 			for j, qi := range qs {
@@ -293,7 +293,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		}
 	}
 
-	// find contained polygons
+	// contained polygons
 	for i, pi := range ps {
 		if !pHandled[i] {
 			pInQ := pi.inside(q)
@@ -307,6 +307,16 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 			}
 		}
 	}
+	// polygons with no overlap
+	if op != pathOpAnd {
+		for i, pi := range ps {
+			if !pHandled[i] {
+				R = R.Append(pi)
+			}
+		}
+	}
+
+	// contained polygons
 	for i, qi := range qs {
 		if !qHandled[i] {
 			qInP := qi.inside(p)
@@ -320,15 +330,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 			}
 		}
 	}
-
 	// polygons with no overlap
-	if op != pathOpAnd {
-		for i, pi := range ps {
-			if !pHandled[i] {
-				R = R.Append(pi)
-			}
-		}
-	}
 	if op == pathOpOr || op == pathOpXor || op == pathOpSettle {
 		for i, qi := range qs {
 			if !qHandled[i] {

@@ -171,6 +171,14 @@ func TestIntersectionLineCube(t *testing.T) {
 		{"M0 5L10 5", "C8 0 8 10 0 10", intersections{
 			{Point{6.0, 5.0}, 0, 0, 0.6, 0.5, 0.0, 0.5 * math.Pi, BintoA, NoParallel},
 		}},
+		{"M0 1L1 1", "C0 2 1 0 1 2", intersections{ // parallel at intersection
+			{Point{0.5, 1.0}, 0, 0, 0.5, 0.5, 0.0, math.Atan(2.0), BintoA, NoParallel}, // direction is incorrect on purpose
+		}},
+		{"M0 1L1 1", "C0 3 1 -1 1 2", intersections{ // three intersections
+			{Point{0.0791512117, 1.0}, 0, 0, 0.0791512117, 0.1726731646, 0.0, 74.05460410 / 180.0 * math.Pi, BintoA, NoParallel},
+			{Point{0.5, 1.0}, 0, 0, 0.5, 0.5, 0.0, 315 / 180.0 * math.Pi, AintoB, NoParallel},
+			{Point{0.9208487883, 1.0}, 0, 0, 0.9208487883, 0.8273268354, 0.0, 74.05460410 / 180.0 * math.Pi, BintoA, NoParallel},
+		}},
 
 		// tangent
 		{"L0 10", "C8 0 8 10 0 10", intersections{
@@ -483,7 +491,7 @@ func TestPathSettle(t *testing.T) {
 		{"L0 1L1 1L1 0z", "L1 0L1 1L0 1z"}, // to CCW
 		{"L2 0L2 2L0 2zM1 1L1 3L3 3L3 1z", "M2 1L1 1L1 2L0 2L0 0L2 0zM2 1L3 1L3 3L1 3L1 2L2 2z"}, // to CCW
 		{"L0 2L2 2L2 0zM1 1L1 3L3 3L3 1z", "M1 2L0 2L0 0L2 0L2 1L3 1L3 3L1 3z"},                  // to CCW
-		{"L0 2L2 2L2 0zM1 1L3 1L3 3L1 3z", "M1 2L2 2L2 1L3 1L3 3L1 3zM1 2L0 2L0 0L2 0L2 1L1 1z"}, // to CCW
+		{"L0 2L2 2L2 0zM1 1L3 1L3 3L1 3z", "M1 2L0 2L0 0L2 0L2 1L1 1zM1 2L2 2L2 1L3 1L3 3L1 3z"}, // to CCW
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p), func(t *testing.T) {
@@ -613,7 +621,7 @@ func TestPathXor(t *testing.T) {
 
 		// containment
 		{"L10 0L5 10z", "M2 2L8 2L5 8z", "L10 0L5 10zM2 2L5 8L8 2z"},
-		{"M2 2L8 2L5 8z", "L10 0L5 10z", "L10 0L5 10zM2 2L5 8L8 2z"},
+		{"M2 2L8 2L5 8z", "L10 0L5 10z", "M2 2L5 8L8 2zM0 0L10 0L5 10z"},
 
 		// equal
 		{"L10 0L5 10z", "L10 0L5 10z", ""},
@@ -625,7 +633,7 @@ func TestPathXor(t *testing.T) {
 		{"L2 0L2 1L0 1zM0 2L2 2L2 3L0 3z", "M1 0L3 0L3 1L1 1zM0.1 2.1L1.9 2.1L1.9 2.9L0.1 2.9z", "M1 0L1 1L0 1L0 0zM2 0L3 0L3 1L2 1zM0 2L2 2L2 3L0 3zM0.1 2.1L0.1 2.9L1.9 2.9L1.9 2.1z"},     // one overlapping, one inside the other
 		{"L2 0L2 1L0 1zM0 2L2 2L2 3L0 3z", "M1 0L3 0L3 1L1 1zM2 2L4 2L4 3L2 3z", "M1 0L1 1L0 1L0 0zM2 0L3 0L3 1L2 1zM0 2L2 2L2 3L0 3zM2 2L4 2L4 3L2 3z"},                                     // one overlapping, the others separate
 		{"L7 0L7 4L0 4z", "M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z", "L7 0L7 4L0 4zM1 1L1 3L3 3L3 1zM4 1L4 3L6 3L6 1z"},                                                                           // two inside the same
-		{"M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z", "L7 0L7 4L0 4z", "L7 0L7 4L0 4zM1 1L1 3L3 3L3 1zM4 1L4 3L6 3L6 1z"},                                                                           // two inside the same
+		{"M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z", "L7 0L7 4L0 4z", "M1 1L1 3L3 3L3 1zM4 1L4 3L6 3L6 1zM0 0L7 0L7 4L0 4z"},                                                                       // two inside the same
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {

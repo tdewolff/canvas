@@ -470,6 +470,7 @@ func (p *Path) simplifyToCoords() []Point {
 
 // Interior is true when the point (x,y) is in the interior of the path, i.e. gets filled. This depends on the FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with the path. When the point is on the boundary it may or may not be considered interior, specifically when it is on the left part it is considered interior and on the right side exterior.
 func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
+	// TODO: inconsistent on the boundaries
 	n := 0
 	var start, end Point
 	zs := intersections{}
@@ -480,7 +481,7 @@ func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 			end = Point{p.d[i+1], p.d[i+2]}
 		case LineToCmd, CloseCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
-			if start.Y < y && y < end.Y || end.Y < y && y < start.Y {
+			if start.Y <= y && y < end.Y || end.Y < y && y <= start.Y {
 				if xmin := math.Min(start.X, end.X); x < xmin {
 					if start.Y < y {
 						n++
@@ -521,7 +522,7 @@ func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 		start = end
 	}
 	for _, z := range zs {
-		if z.Kind != Tangent {
+		if z.Parallel == NoParallel && !Equal(z.TB, 1.0) {
 			if angleBetweenExclusive(z.DirB, 0.0, math.Pi) {
 				n++
 			} else {
