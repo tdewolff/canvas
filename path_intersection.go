@@ -16,7 +16,8 @@ func (p *Path) inside(q *Path) bool {
 		return false
 	}
 	offset := p.interiorPoint()
-	return q.Interior(offset.X, offset.Y, NonZero)
+	interior, _ := q.Interior(offset.X, offset.Y, NonZero)
+	return interior
 }
 
 // Contains returns true if path q is contained within path p, i.e. path q is inside path p and both paths have no intersections (but may touch).
@@ -54,7 +55,8 @@ func (p *Path) Settle() *Path {
 		}
 
 		pos := ps[i].interiorPoint()
-		if ps[i].CCW() == p.Interior(pos.X, pos.Y, NonZero) {
+		interior, _ := p.Interior(pos.X, pos.Y, NonZero)
+		if ps[i].CCW() == interior {
 			r = r.Append(ps[i])
 		} else {
 			r = r.Append(ps[i].Reverse())
@@ -166,6 +168,10 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 	Ropen := &Path{}
 	p, q = &Path{}, &Path{}
 	pIndex, qIndex := make(indexPath, 0, len(ps)), make(indexPath, 0, len(qs))
+	for i := range qs {
+		q = q.Append(qs[i])
+		qIndex = append(qIndex, qs[i].Len())
+	}
 	j, segOffsetA, d := 0, 0, 0 // j is index into Zs, d is number of removed segments
 	for i := 0; i < len(ps); i++ {
 		lenA := ps[i].Len()
@@ -181,8 +187,33 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		segOffsetA += lenA
 
 		if !closed {
-			//zs := Zs[j : j+n]
-			// TODO: handle open paths
+			zs := Zs[j : j+n]
+			if len(zs) == 0 {
+				p0 := ps[i].StartPos()
+				in, boundary := q.Interior(p0.X, p0.Y, NonZero)
+				for k := 4; k < len(ps[i].d) && boundary; {
+					p0 = segmentPos(Point{ps[i].d[k-3], ps[i].d[k-2]}, ps[i].d[k:], 0.5)
+					in, boundary = q.Interior(p0.X, p0.Y, NonZero)
+					k += cmdLen(ps[i].d[k])
+				}
+				if op == pathOpOr || op == pathOpSettle || in && op == pathOpAnd || !in && !boundary && (op == pathOpXor || op == pathOpNot) {
+					Ropen = Ropen.Append(ps[i])
+				}
+			} else {
+				pss := cut(zs, ps[i])
+				in := zs[0].Kind&BintoA != 0
+				if op == pathOpOr || op == pathOpSettle || in && op == pathOpAnd || !in && (op == pathOpXor || op == pathOpNot) {
+					Ropen = Ropen.Append(pss[0])
+				}
+				for k := 1; k < len(pss); k++ {
+					if zs[k-1].Parallel != Parallel && zs[k-1].Parallel != AParallel {
+						in := zs[k-1].Kind&BintoA == 0
+						if op == pathOpOr || op == pathOpSettle || in && op == pathOpAnd || !in && (op == pathOpXor || op == pathOpNot) {
+							Ropen = Ropen.Append(pss[k])
+						}
+					}
+				}
+			}
 			Zs = append(Zs[:j], Zs[j+n:]...)
 			ps = append(ps[:i], ps[i+1:]...)
 			d += lenA
@@ -192,10 +223,6 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 			pIndex = append(pIndex, lenA)
 		}
 		j += n
-	}
-	for i := range qs {
-		q = q.Append(qs[i])
-		qIndex = append(qIndex, qs[i].Len())
 	}
 
 	K := 1 // number of time to run from each intersection

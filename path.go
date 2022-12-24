@@ -468,8 +468,8 @@ func (p *Path) simplifyToCoords() []Point {
 	return coords
 }
 
-// Interior is true when the point (x,y) is in the interior of the path, i.e. gets filled. This depends on the FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with the path. When the point is on the boundary it is considered to be exterior.
-func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
+// Interior is true when the point (x,y) is in the interior of the path, i.e. gets filled, and whether it's on the boundary. This depends on the FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with the path. When the point is on the boundary it is considered to be exterior.
+func (p *Path) Interior(x, y float64, fillRule FillRule) (bool, bool) {
 	n := 0
 	var start, end Point
 	zs := intersections{}
@@ -523,7 +523,11 @@ func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 		start = end
 	}
 	ccw := p.CCW()
+	boundary := false
 	for _, z := range zs {
+		if Equal(z.TA, 0.0) {
+			boundary = true
+		}
 		if z.Parallel == NoParallel && !Equal(z.TB, 0.0) {
 			if angleBetweenExclusive(z.DirB, 0.0, math.Pi) {
 				if !Equal(z.TA, 0.0) || !ccw {
@@ -545,7 +549,7 @@ func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 			}
 		}
 	}
-	return fillRule == NonZero && n != 0 || n%2 != 0
+	return fillRule == NonZero && n != 0 || n%2 != 0, boundary
 }
 
 func segmentPos(start Point, d []float64, t float64) Point {
@@ -617,7 +621,8 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 	var filling []bool
 	for _, pi := range p.Split() {
 		pos := pi.interiorPoint()
-		filling = append(filling, p.Interior(pos.X, pos.Y, fillRule))
+		interior, _ := p.Interior(pos.X, pos.Y, fillRule)
+		filling = append(filling, interior)
 	}
 	return filling
 }
