@@ -468,7 +468,7 @@ func (p *Path) simplifyToCoords() []Point {
 	return coords
 }
 
-// Interior is true when the point (x,y) is in the interior of the path, i.e. gets filled. This depends on the FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with the path. When the point is on the boundary it is considered to be in the interior.
+// Interior is true when the point (x,y) is in the interior of the path, i.e. gets filled. This depends on the FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with the path. When the point is on the boundary it is considered to be exterior.
 func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 	n := 0
 	var start, end Point
@@ -480,15 +480,17 @@ func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 			end = Point{p.d[i+1], p.d[i+2]}
 		case LineToCmd, CloseCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
-			if start.Y <= y && y <= end.Y || end.Y < y && y <= start.Y {
-				if xmin := math.Min(start.X, end.X); x < xmin && y != end.Y {
+			ymin := math.Min(start.Y, end.Y)
+			ymax := math.Max(start.Y, end.Y)
+			if ymin <= y && y <= ymax {
+				if xmin := math.Min(start.X, end.X); x < xmin && ymin < y && y < ymax {
 					if y < end.Y {
 						n++
 					} else {
 						n--
 					}
 				} else if xmax := math.Max(start.X, end.X); x <= xmax {
-					zs = zs.LineLine(Point{x, y}, Point{xmax + 10.0*Epsilon, y}, start, end)
+					zs = zs.LineLine(Point{x, y}, Point{xmax + 1.0, y}, start, end)
 				}
 			}
 		case QuadToCmd:
@@ -497,8 +499,8 @@ func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 			ymin := math.Min(math.Min(start.Y, end.Y), cp.Y)
 			ymax := math.Max(math.Max(start.Y, end.Y), cp.Y)
 			xmax := math.Max(math.Max(start.X, end.X), cp.X)
-			if ymin < y && y < ymax && x <= xmax {
-				zs = zs.LineQuad(Point{x, y}, Point{xmax + 10.0*Epsilon, y}, start, cp, end)
+			if ymin <= y && y < ymax && x <= xmax {
+				zs = zs.LineQuad(Point{x, y}, Point{xmax + 1.0, y}, start, cp, end)
 			}
 		case CubeToCmd:
 			cp1 := Point{p.d[i+1], p.d[i+2]}
@@ -507,34 +509,40 @@ func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 			ymin := math.Min(math.Min(start.Y, end.Y), math.Min(cp1.Y, cp2.Y))
 			ymax := math.Max(math.Max(start.Y, end.Y), math.Max(cp1.Y, cp2.Y))
 			xmax := math.Max(math.Max(start.X, end.X), math.Max(cp1.X, cp2.X))
-			if ymin < y && y < ymax && x <= xmax {
-				zs = zs.LineCube(Point{x, y}, Point{xmax + 10.0*Epsilon, y}, start, cp1, cp2, end)
+			if ymin <= y && y < ymax && x <= xmax {
+				zs = zs.LineCube(Point{x, y}, Point{xmax + 1.0, y}, start, cp1, cp2, end)
 			}
 		case ArcToCmd:
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			large, sweep := toArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
 			cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
-			zs = zs.LineEllipse(Point{x, y}, Point{cx + rx + 10.0*Epsilon, y}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
+			zs = zs.LineEllipse(Point{x, y}, Point{cx + rx + 1.0, y}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
 		}
 		i += cmdLen(cmd)
 		start = end
 	}
 	ccw := p.CCW()
 	for _, z := range zs {
-		if z.Parallel == NoParallel && !Equal(z.TB, 1.0) {
+		if z.Parallel == NoParallel && !Equal(z.TB, 0.0) {
 			if angleBetweenExclusive(z.DirB, 0.0, math.Pi) {
-				if z.Kind&Tangent == 0 || ccw {
+				if !Equal(z.TA, 0.0) || !ccw {
 					n++
 				}
 			} else {
-				if z.Kind&Tangent == 0 || !ccw {
+				if !Equal(z.TA, 0.0) || ccw {
 					n--
 				}
 			}
-		} else if z.Parallel == Parallel && Equal(z.TB, 0.0) && ccw == angleEqual(z.DirB, math.Pi) {
-			// top boundary, parallels give two intersections, pick the one at t=0 which also works with only one intersection (i.e. parallel but touches on segment ends)
-			n++
+		} else if z.Parallel == Parallel && Equal(z.TB, 0.0) {
+			// horizontal boundary, parallels give two intersections, pick the one at t=0 which also works with only one intersection (i.e. parallel but touches on segment ends)
+			if !Equal(z.TA, 0.0) || angleEqual(z.DirB, 0.0) {
+				if ccw == angleEqual(z.DirB, 0.0) {
+					n++
+				} else {
+					n--
+				}
+			}
 		}
 	}
 	return fillRule == NonZero && n != 0 || n%2 != 0
@@ -564,21 +572,27 @@ func segmentPos(start Point, d []float64, t float64) Point {
 // get points in the interior of p close to the first MoveTo
 // p and q should not have subpaths
 func (p *Path) interiorPoint() Point {
-	if len(p.d) <= 4 || len(p.d) <= 4+cmdLen(p.d[4]) {
-		panic("path too small or empty")
+	if len(p.d) <= 4 {
+		return Point{}
 	}
 
 	p1 := Point{p.d[1], p.d[2]}
-	p2 := segmentPos(p1, p.d[4:], 0.0+1e4*Epsilon)
+	if len(p.d) == 4 {
+		return p1
+	}
+	p2 := segmentPos(p1, p.d[4:], 0.0+1e6*Epsilon)
 
 	i := len(p.d) - 4
 	q0 := Point{p.d[i-3], p.d[i-2]}
 	if p1.Equals(q0) {
 		// CloseCmd is an empty segment
 		i -= cmdLen(p.d[i-1])
+		if i < 0 {
+			return p1
+		}
 		q0 = Point{p.d[i-3], p.d[i-2]}
 	}
-	p0 := segmentPos(q0, p.d[i:], 1.0-1e4*Epsilon)
+	p0 := segmentPos(q0, p.d[i:], 1.0-1e6*Epsilon)
 	di := p1.Sub(p0)
 	do := p2.Sub(p1)
 

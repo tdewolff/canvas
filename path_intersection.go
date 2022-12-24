@@ -48,6 +48,11 @@ func (p *Path) Settle() *Path {
 	r := &Path{}
 	ps = p.Split()
 	for i := range ps {
+		if ps[i].Empty() || !ps[i].Closed() {
+			r = r.Append(ps[i])
+			continue
+		}
+
 		pos := ps[i].interiorPoint()
 		if ps[i].CCW() == p.Interior(pos.X, pos.Y, NonZero) {
 			r = r.Append(ps[i])
