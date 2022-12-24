@@ -292,22 +292,22 @@ func TestPathInterior(t *testing.T) {
 
 		// on boundary
 		{"L10 0L10 10L0 10z", Point{0.0, 5.0}, EvenOdd, true},
-		{"L10 0L10 10L0 10z", Point{10.0, 5.0}, EvenOdd, false},
+		{"L10 0L10 10L0 10z", Point{10.0, 5.0}, EvenOdd, true},
 		{"L0 10L10 10L10 0z", Point{0.0, 5.0}, EvenOdd, true},
-		{"L0 10L10 10L10 0z", Point{10.0, 5.0}, EvenOdd, false},
+		{"L0 10L10 10L10 0z", Point{10.0, 5.0}, EvenOdd, true},
 		{"L10 0L10 10L0 10z", Point{0.0, 0.0}, EvenOdd, true},
 		{"L10 0L10 10L0 10z", Point{5.0, 0.0}, EvenOdd, true},
-		{"L10 0L10 10L0 10z", Point{10.0, 0.0}, EvenOdd, false},
-		{"L10 0L10 10L0 10z", Point{0.0, 10.0}, EvenOdd, false},
-		{"L10 0L10 10L0 10z", Point{5.0, 10.0}, EvenOdd, false},
-		{"L10 0L10 10L0 10z", Point{10.0, 10.0}, EvenOdd, false},
+		{"L10 0L10 10L0 10z", Point{10.0, 0.0}, EvenOdd, true},
+		{"L10 0L10 10L0 10z", Point{0.0, 10.0}, EvenOdd, true},
+		{"L10 0L10 10L0 10z", Point{5.0, 10.0}, EvenOdd, true},
+		{"L10 0L10 10L0 10z", Point{10.0, 10.0}, EvenOdd, true},
 
 		// on segment end
 		{"L5 -5L10 0L5 5z", Point{5.0, 0.0}, EvenOdd, true},
-		{"L5 -5L10 0L5 5z", Point{0.0, 0.0}, EvenOdd, false},
-		{"L5 -5L10 0L5 5z", Point{10.0, 0.0}, EvenOdd, false},
+		{"L5 -5L10 0L5 5z", Point{0.0, 0.0}, EvenOdd, true},
+		{"L5 -5L10 0L5 5z", Point{10.0, 0.0}, EvenOdd, true},
 		{"M10 0A5 5 0 0 0 0 0A5 5 0 0 0 10 0z", Point{5.0, 0.0}, EvenOdd, true},
-		{"M10 0A5 5 0 0 0 0 0A5 5 0 0 0 10 0z", Point{0.0, 0.0}, EvenOdd, false},
+		{"M10 0A5 5 0 0 0 0 0A5 5 0 0 0 10 0z", Point{0.0, 0.0}, EvenOdd, true},
 		{"M10 0A5 5 0 0 0 0 0A5 5 0 0 0 10 0z", Point{10.0, 0.0}, EvenOdd, true},
 	}
 	for _, tt := range tts {
@@ -328,7 +328,7 @@ func TestPathFilling(t *testing.T) {
 		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", []bool{true, false}, NonZero}, // outer CCW, inner CW
 		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", []bool{true, false}, EvenOdd}, // outer CCW, inner CCW
 		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", []bool{true, false}, EvenOdd}, // outer CCW, inner CW
-		{"L10 10z", []bool{false}, NonZero},
+		{"L10 10z", []bool{true}, NonZero},
 		{"C5 0 10 5 10 10z", []bool{true}, NonZero},
 		{"C0 5 5 10 10 10z", []bool{true}, NonZero},
 		{"Q10 0 10 10z", []bool{true}, NonZero},

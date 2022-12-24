@@ -468,9 +468,8 @@ func (p *Path) simplifyToCoords() []Point {
 	return coords
 }
 
-// Interior is true when the point (x,y) is in the interior of the path, i.e. gets filled. This depends on the FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with the path. When the point is on the boundary it may or may not be considered interior, specifically when it is on the left part it is considered interior and on the right side exterior.
+// Interior is true when the point (x,y) is in the interior of the path, i.e. gets filled. This depends on the FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with the path. When the point is on the boundary it is considered to be in the interior.
 func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
-	// TODO: inconsistent on the boundaries
 	n := 0
 	var start, end Point
 	zs := intersections{}
@@ -481,14 +480,14 @@ func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 			end = Point{p.d[i+1], p.d[i+2]}
 		case LineToCmd, CloseCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
-			if start.Y <= y && y < end.Y || end.Y < y && y <= start.Y {
-				if xmin := math.Min(start.X, end.X); x < xmin {
-					if start.Y < y {
+			if start.Y <= y && y <= end.Y || end.Y < y && y <= start.Y {
+				if xmin := math.Min(start.X, end.X); x < xmin && y != end.Y {
+					if y < end.Y {
 						n++
 					} else {
 						n--
 					}
-				} else if xmax := math.Max(start.X, end.X); x < xmax {
+				} else if xmax := math.Max(start.X, end.X); x <= xmax {
 					zs = zs.LineLine(Point{x, y}, Point{xmax + 10.0*Epsilon, y}, start, end)
 				}
 			}
@@ -498,7 +497,7 @@ func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 			ymin := math.Min(math.Min(start.Y, end.Y), cp.Y)
 			ymax := math.Max(math.Max(start.Y, end.Y), cp.Y)
 			xmax := math.Max(math.Max(start.X, end.X), cp.X)
-			if ymin < y && y < ymax && x < xmax {
+			if ymin < y && y < ymax && x <= xmax {
 				zs = zs.LineQuad(Point{x, y}, Point{xmax + 10.0*Epsilon, y}, start, cp, end)
 			}
 		case CubeToCmd:
@@ -508,7 +507,7 @@ func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 			ymin := math.Min(math.Min(start.Y, end.Y), math.Min(cp1.Y, cp2.Y))
 			ymax := math.Max(math.Max(start.Y, end.Y), math.Max(cp1.Y, cp2.Y))
 			xmax := math.Max(math.Max(start.X, end.X), math.Max(cp1.X, cp2.X))
-			if ymin < y && y < ymax && x < xmax {
+			if ymin < y && y < ymax && x <= xmax {
 				zs = zs.LineCube(Point{x, y}, Point{xmax + 10.0*Epsilon, y}, start, cp1, cp2, end)
 			}
 		case ArcToCmd:
@@ -521,13 +520,21 @@ func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
 		i += cmdLen(cmd)
 		start = end
 	}
+	ccw := p.CCW()
 	for _, z := range zs {
 		if z.Parallel == NoParallel && !Equal(z.TB, 1.0) {
 			if angleBetweenExclusive(z.DirB, 0.0, math.Pi) {
-				n++
+				if z.Kind&Tangent == 0 || ccw {
+					n++
+				}
 			} else {
-				n--
+				if z.Kind&Tangent == 0 || !ccw {
+					n--
+				}
 			}
+		} else if z.Parallel == Parallel && Equal(z.TB, 0.0) && ccw == angleEqual(z.DirB, math.Pi) {
+			// top boundary, parallels give two intersections, pick the one at t=0 which also works with only one intersection (i.e. parallel but touches on segment ends)
+			n++
 		}
 	}
 	return fillRule == NonZero && n != 0 || n%2 != 0
@@ -591,7 +598,7 @@ func (p *Path) interiorPoint() Point {
 	return p1.Add(n)
 }
 
-// Filling returns whether each subpath gets filled or not. A path may not be filling when it negates another path and depends on the FillRule. If a subpath is not closed, it is implicitly assumed to be closed. If the path has no area it will return false.
+// Filling returns whether each subpath gets filled or not. A path may not be filling when it negates another path and depends on the FillRule. If a subpath is not closed, it is implicitly assumed to be closed.
 func (p *Path) Filling(fillRule FillRule) []bool {
 	var filling []bool
 	for _, pi := range p.Split() {
