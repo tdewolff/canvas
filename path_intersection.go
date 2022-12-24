@@ -227,13 +227,17 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 			r := &Path{}
 			var forwardA, forwardB bool
 			gotoB := startInwards[k] == (ccwB == (z0.kind == BintoA)) // ensure result is CCW
+			if gotoB {
+				forwardB = invertB[k] != (ccwA == (z0.kind == BintoA))
+			} else {
+				forwardA = invertA[k] != (ccwB == (z0.kind == BintoA))
+			}
+			tangentStart := z0.tangentStart(gotoB, forwardA, forwardB)
+			if tangentStart {
+				continue
+			}
 			for z := z0; ; {
 				visited[k][z.i] = true
-				if gotoB {
-					forwardB = invertB[k] != (ccwA == (z.kind == BintoA))
-				} else {
-					forwardA = invertA[k] != (ccwB == (z.kind == BintoA))
-				}
 				if z.i != z0.i && (forwardA == forwardB) == (z.parallel == Parallel) {
 					// parallel lines
 					if forwardA {
@@ -259,10 +263,17 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 						z = z.prevA
 					}
 				}
+				gotoB = !gotoB
 				if z.i == z0.i {
 					break
+				} else if !tangentStart {
+					if gotoB {
+						forwardB = invertB[k] != (ccwA == (z.kind == BintoA))
+					} else {
+						forwardA = invertA[k] != (ccwB == (z.kind == BintoA))
+					}
 				}
-				gotoB = !gotoB
+				tangentStart = z.tangentStart(gotoB, forwardA, forwardB)
 			}
 			r.Close()
 			R = R.Append(r)
@@ -293,7 +304,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		}
 	}
 
-	// contained polygons
+	// contained (non-touching) polygons
 	for i, pi := range ps {
 		if !pHandled[i] {
 			pInQ := pi.inside(q)
@@ -316,7 +327,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		}
 	}
 
-	// contained polygons
+	// contained (non-touching) polygons
 	for i, qi := range qs {
 		if !qHandled[i] {
 			qInP := qi.inside(p)
@@ -444,12 +455,25 @@ type intersectionNode struct {
 
 	kind     intersectionKind
 	parallel intersectionParallel
+	tangent  bool
 	a, b     *Path // towards next intersection
 	c        *Path // common (parallel) along A
 }
 
 func (z *intersectionNode) String() string {
-	return fmt.Sprintf("(%v A=[%v→,→%v] B=[%v→,→%v] %v %v)", z.i, z.prevA.i, z.nextA.i, z.prevB.i, z.nextB.i, z.kind, z.parallel)
+	tangent := ""
+	if z.tangent {
+		tangent = " Tangent"
+	}
+	return fmt.Sprintf("(%v A=[%v→,→%v] B=[%v→,→%v] %v %v%v)", z.i, z.prevA.i, z.nextA.i, z.prevB.i, z.nextB.i, z.kind, z.parallel, tangent)
+}
+
+func (z *intersectionNode) tangentStart(gotoB, forwardA, forwardB bool) bool {
+	return z.tangent && (gotoB &&
+		(forwardB && (z.parallel == Parallel || z.parallel == BParallel) ||
+			!forwardB && (z.prevB.parallel == Parallel || z.prevB.parallel == BParallel)) ||
+		!gotoB && (forwardA && (z.parallel == Parallel || z.parallel == AParallel) ||
+			!forwardA && (z.prevA.parallel == Parallel || z.prevA.parallel == AParallel)))
 }
 
 // get intersections for paths p and q sorted for both, both paths must be closed
@@ -464,7 +488,7 @@ func intersectionNodes(Zs intersections, p, q *Path) []*intersectionNode {
 	for i, z := range Zs {
 		zs[i] = &intersectionNode{
 			i:    i,
-			kind: z.Kind,
+			kind: z.Kind & (^Tangent), // touching lines have e.g. Tangent|BintA, keep only BintoA
 			a:    &Path{},
 			b:    &Path{},
 			c:    &Path{},
@@ -614,9 +638,12 @@ func intersectionNodes(Zs intersections, p, q *Path) []*intersectionNode {
 		zs[idxs[j0]].prevB = zs[idxs[len(zs)-1]]
 	}
 
-	// collapse nodes for parallel lines
+	// collapse nodes for parallel lines, except when tangent
 	for j := len(Zs) - 1; 0 <= j; j-- {
-		if Zs[j].Parallel == Parallel || Zs[j].Parallel == AParallel {
+		if Zs[j].Kind&Tangent != 0 {
+			zs[j].parallel = Zs[j].Parallel
+			zs[j].tangent = true
+		} else if Zs[j].Parallel == Parallel || Zs[j].Parallel == AParallel {
 			// remove node at j and join with next
 			zs[j].nextA.c = zs[j].a
 			if Zs[j].Parallel == AParallel {
@@ -820,54 +847,68 @@ func collisions(ps, qs []*Path, keepTangents bool) intersections {
 						i1-- // prefer TA=TB=0 to append to intersections
 					}
 					if Equal(Zs[i2].TA, 0.0) {
-						i2-- // second, intersection at endpoint of A, select incoming angle
+						i2 -= 2 // second, intersection at endpoint of A, select incoming angle
 					}
 					z0, z1, z2, z3 := Zs[i0], Zs[i1], Zs[i2], Zs[i3]
-					// first intersection is LHS of A between (theta0,theta1)
-					// second intersecton is LHS of A between (theta2,theta3)
-					theta0 := angleNorm(z1.DirA)
-					theta1 := theta0 + angleNorm(z0.DirA+math.Pi-theta0)
-					theta2 := angleNorm(z3.DirA)
-					theta3 := theta2 + angleNorm(z2.DirA+math.Pi-theta2)
+					// first intersection is LHS of A when between (theta0,theta1)
+					// second intersection is LHS of A when between (theta2,theta3)
+					alpha0 := angleNorm(z1.DirA)
+					alpha1 := alpha0 + angleNorm(z0.DirA+math.Pi-alpha0)
+					alpha2 := angleNorm(z3.DirA)
+					alpha3 := alpha2 + angleNorm(z2.DirA+math.Pi-alpha2)
 
 					// check whether the incoming and outgoing angle of B is (going) LHS of A
-					gamma0, gamma1 := Zs[i0].DirB+math.Pi, Zs[i3].DirB
-					if reverse {
-						gamma0, gamma1 = Zs[i2].DirB+math.Pi, Zs[i1].DirB
-						theta0, theta1, theta2, theta3 = theta2, theta3, theta0, theta1
+					var beta1, beta2 float64
+					if !reverse {
+						beta0 := angleNorm(z1.DirB)
+						beta1 = beta0 + angleNorm(z0.DirB+math.Pi-beta0)
+						beta2 = angleNorm(z3.DirB)
+					} else {
+						beta0 := angleNorm(z0.DirB + math.Pi)
+						beta1 = beta0 + angleNorm(z1.DirB-beta0)
+						beta2 = angleNorm(z2.DirB + math.Pi)
 					}
-					bi := angleBetweenExclusive(gamma0, theta0, theta1)
-					bo := angleBetweenExclusive(gamma1, theta2, theta3)
-					if bi != bo {
-						// intersection is not tangent
-						if !parallel {
-							// no parallels in between, add one intersection
-							if bo {
-								z3.Kind = BintoA
-							} else {
-								z3.Kind = AintoB
-							}
-							z3.Parallel = NoParallel
-							zs = append(zs, z3)
+					bi := angleBetweenExclusive(beta1, alpha0, alpha1)
+					bo := angleBetweenExclusive(beta2, alpha2, alpha3)
+
+					if !parallel && bi != bo {
+						// no parallels in between, add one intersection
+						if bo != reverse {
+							z3.Kind = BintoA
 						} else {
-							// parallels in between, add an intersection at the start and end
-							z0 = Zs[i1]
-							if bo {
+							z3.Kind = AintoB
+						}
+						z3.Parallel = NoParallel
+						zs = append(zs, z3)
+					} else if parallel {
+						// parallels in between, add an intersection at the start and end
+						z0 = Zs[i1] // get intersection at t=0 for B
+						if bi != bo {
+							if bo != reverse {
 								z0.Kind = BintoA
 								z3.Kind = BintoA
 							} else {
 								z0.Kind = AintoB
 								z3.Kind = AintoB
 							}
-							if !reverse {
-								z0.Parallel = Parallel
-								z3.Parallel = NoParallel
+						} else {
+							// parallel touches, but we add them as if they intersect
+							if bo != reverse {
+								z0.Kind |= AintoB
+								z3.Kind |= BintoA
 							} else {
-								z0.Parallel = AParallel
-								z3.Parallel = BParallel
+								z0.Kind |= BintoA
+								z3.Kind |= AintoB
 							}
-							zs = append(zs, z0, z3)
 						}
+						if !reverse {
+							z0.Parallel = Parallel
+							z3.Parallel = NoParallel
+						} else {
+							z0.Parallel = AParallel
+							z3.Parallel = BParallel
+						}
+						zs = append(zs, z0, z3)
 					}
 					i--
 				}
@@ -973,12 +1014,16 @@ const (
 )
 
 func (v intersectionKind) String() string {
-	if v == AintoB {
-		return "AintoB"
-	} else if v == BintoA {
-		return "BintoA"
+	var s string
+	if v&BintoA != 0 {
+		s = "BintoA"
+	} else {
+		s = "AintoB"
 	}
-	return "Tangent"
+	if v&Tangent != 0 {
+		s += " Tangent"
+	}
+	return s
 }
 
 type intersectionParallel int

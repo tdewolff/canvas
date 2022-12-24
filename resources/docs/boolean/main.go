@@ -61,7 +61,7 @@ func main() {
 	p = p.Append(canvas.Circle(0.8).Translate(8.0, 3.0))
 	q := canvas.Rectangle(4.0, 4.0).Translate(1.0, 3.0)
 	q = q.Append(canvas.Circle(0.8).Translate(8.0, 7.0))
-	draw(ctx, -193.0, "Holes and islands 4", q, p)
+	draw(ctx, -193.0, "Holes and islands 4", q.Translate(1.0, -1.0), p.Translate(1.0, -1.0))
 
 	p = &canvas.Path{}
 	p.MoveTo(1.0, 3.0)
