@@ -22,14 +22,20 @@ func (p *Path) inside(q *Path) bool {
 
 // Contains returns true if path q is contained within path p, i.e. path q is inside path p and both paths have no intersections (but may touch).
 func (p *Path) Contains(q *Path) bool {
-	// TODO: what about subpaths?
-	if q.inside(p) {
-		if !p.Flat() {
-			q = q.Flatten()
+	ps, qs := p.Split(), q.Split()
+	for _, qi := range qs {
+		inside := false
+		for _, pi := range ps {
+			if qi.inside(pi) && len(collisions([]*Path{pi}, []*Path{qi}, false)) == 0 {
+				inside = true
+				break
+			}
 		}
-		return len(collisions(p.Split(), q.Split(), false)) == 0
+		if !inside {
+			return false
+		}
 	}
-	return false
+	return true
 }
 
 // Settle combines the path p with itself, including all subpaths, removing all self-intersections and overlapping parts. It returns subpaths with counter clockwise directions.
