@@ -727,7 +727,8 @@ func cutPathSegment(start Point, d []float64, t float64) (*Path, *Path) {
 	} else if d[0] == ArcToCmd {
 		large, sweep := toArcFlags(d[4])
 		cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, d[1], d[2], d[3], large, sweep, d[5], d[6])
-		c, large0, large1, ok := ellipseSplit(d[1], d[2], d[3], cx, cy, theta0, theta1, t)
+		theta := theta0 + (theta1-theta0)*t
+		c, large0, large1, ok := ellipseSplit(d[1], d[2], d[3], cx, cy, theta0, theta1, theta)
 		if !ok {
 			// should never happen
 			panic("theta not in elliptic arc range for splitting")
@@ -851,7 +852,7 @@ func collisions(ps, qs []*Path, keepTangents bool) intersections {
 					zo := Zs[(i+m-1)%len(Zs)] // outgoing intersection
 
 					// skip if incoming is parallel since we're in the middle of a series of parallel segmentes, and we need to be at the start
-					if !parallel && (angleNorm(zi.DirA) == angleNorm(zi.DirB) || angleNorm(zi.DirA) == angleNorm(zo.DirB+math.Pi)) {
+					if !parallel && (angleEqual(zi.DirA, zi.DirB) || angleEqual(zi.DirA, zo.DirB+math.Pi)) {
 						// when the whole path is equal (i.e. all parallels), this will skip all
 						i += m - 1
 						continue
@@ -859,11 +860,11 @@ func collisions(ps, qs []*Path, keepTangents bool) intersections {
 					i += m
 
 					// ends in parallel segment, follow until we reach a non-parallel segment
-					if !reverse && angleNorm(zo.DirA) == angleNorm(zo.DirB) {
+					if !reverse && angleEqual(zo.DirA, zo.DirB) {
 						// parallel
 						parallel = true
 						goto Next
-					} else if (!parallel || reverse) && angleNorm(zo.DirA) == angleNorm(zi.DirB+math.Pi) {
+					} else if (!parallel || reverse) && angleEqual(zo.DirA, zi.DirB+math.Pi) {
 						// reverse and parallel
 						reverse = true
 						parallel = true
@@ -1022,6 +1023,11 @@ func (zs intersections) appendSegment(segA int, a0 Point, a []float64, segB int,
 			zs[i].SegA, zs[i].SegB = segA, segB
 			zs[i].TA, zs[i].TB = zs[i].TB, zs[i].TA
 			zs[i].DirA, zs[i].DirB = zs[i].DirB, zs[i].DirA
+			if zs[i].Kind == AintoB {
+				zs[i].Kind = BintoA
+			} else if zs[i].Kind == BintoA {
+				zs[i].Kind = AintoB
+			}
 		}
 	} else {
 		for i := n; i < len(zs); i++ {
@@ -1460,18 +1466,18 @@ func (zs intersections) LineEllipse(l0, l1, center, radius Point, phi, theta0, t
 			s = (x - l0.X) / (l1.X - l0.X)
 		} else {
 			y = root
-			x = (E - D*x) / C
+			x = (E - D*y) / C
 			s = (y - l0.Y) / (l1.Y - l0.Y)
 		}
 
 		angle := math.Atan2(y, x)
 		if Interval(s, 0.0, 1.0) && angleBetween(angle, theta0, theta1) {
-			var t float64
 			if theta0 <= theta1 {
-				t = angleNorm(angle-theta0) / angleNorm(theta1-theta0)
+				angle = theta0 - Epsilon + angleNorm(angle-theta0+Epsilon)
 			} else {
-				t = 1.0 - angleNorm(angle-theta1)/angleNorm(theta0-theta1)
+				angle = theta1 - Epsilon + angleNorm(angle-theta1+Epsilon)
 			}
+			t := (angle - theta0) / (theta1 - theta0)
 			pos := Point{x, y}.Rot(phi, Origin).Add(center)
 			dirb := ellipseDeriv(radius.X, radius.Y, phi, theta0 <= theta1, angle).Angle()
 			// deviate angle slightly to distinguish between BintoA/AintoB on head-on directions

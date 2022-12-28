@@ -33,6 +33,7 @@ require (
 )
 
 require (
+	fyne.io/fyne v1.4.3 // indirect
 	fyne.io/systray v1.10.0 // indirect
 	gioui.org/cpu v0.0.0-20220412190645-f1e9e8c3b1f7 // indirect
 	gioui.org/shader v1.0.6 // indirect
