@@ -270,6 +270,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 			} else {
 				forwardA = invertA[k] != (ccwB == (z0.kind == BintoA))
 			}
+			// parallel lines for touching intersections
 			tangentStart := z0.tangentStart(gotoB, forwardA, forwardB)
 			if tangentStart {
 				continue
@@ -277,7 +278,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 			for z := z0; ; {
 				visited[k][z.i] = true
 				if z.i != z0.i && (forwardA == forwardB) == (z.parallel == Parallel) {
-					// parallel lines
+					// parallel lines for crossing intersections
 					if forwardA {
 						r = r.Join(z.c)
 					} else {
@@ -1354,9 +1355,9 @@ func (zs intersections) LineQuad(l0, l1, p0, p1, p2 Point) intersections {
 				if Equal(root, 0.0) || Equal(root, 1.0) || Equal(s, 0.0) || Equal(s, 1.0) {
 					deriv2 := quadraticBezierDeriv2(p0, p1, p2)
 					if (0.0 <= deriv.PerpDot(deriv2)) == (Equal(root, 0.0) || !Equal(root, 1.0) && Equal(s, 0.0)) {
-						dirb += Epsilon / 2.0 // t=0 and CCW, or t=1 and CW
+						dirb += Epsilon * 2.0 // t=0 and CCW, or t=1 and CW
 					} else {
-						dirb -= Epsilon / 2.0 // t=0 and CW, or t=1 and CCW
+						dirb -= Epsilon * 2.0 // t=0 and CW, or t=1 and CCW
 					}
 				}
 				zs = zs.add(pos, s, root, dira, dirb, Equal(A.Dot(deriv), 0.0))
@@ -1407,9 +1408,9 @@ func (zs intersections) LineCube(l0, l1, p0, p1, p2, p3 Point) intersections {
 				if Equal(root, 0.0) || Equal(root, 1.0) || Equal(s, 0.0) || Equal(s, 1.0) {
 					deriv2 := cubicBezierDeriv2(p0, p1, p2, p3, root)
 					if (0.0 <= deriv.PerpDot(deriv2)) == (Equal(root, 0.0) || !Equal(root, 1.0) && Equal(s, 0.0)) {
-						dirb += Epsilon / 2.0 // t=0 and CCW, or t=1 and CW
+						dirb += Epsilon * 2.0 // t=0 and CCW, or t=1 and CW
 					} else {
-						dirb -= Epsilon / 2.0 // t=0 and CW, or t=1 and CCW
+						dirb -= Epsilon * 2.0 // t=0 and CW, or t=1 and CCW
 					}
 				}
 
@@ -1489,9 +1490,9 @@ func (zs intersections) LineEllipse(l0, l1, center, radius Point, phi, theta0, t
 			// deviate angle slightly to distinguish between BintoA/AintoB on head-on directions
 			if Equal(t, 0.0) || Equal(t, 1.0) || Equal(s, 0.0) || Equal(s, 1.0) {
 				if (theta0 <= theta1) == (Equal(t, 0.0) || !Equal(t, 1.0) && Equal(s, 0.0)) {
-					dirb += Epsilon / 2.0 // t=0 and CCW, or t=1 and CW
+					dirb += Epsilon * 2.0 // t=0 and CCW, or t=1 and CW
 				} else {
-					dirb -= Epsilon / 2.0 // t=0 and CW, or t=1 and CCW
+					dirb -= Epsilon * 2.0 // t=0 and CW, or t=1 and CCW
 				}
 			}
 			zs = zs.add(pos, s, t, dira, dirb, Equal(root, 0.0))

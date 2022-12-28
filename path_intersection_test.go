@@ -155,9 +155,11 @@ func TestIntersectionLineQuad(t *testing.T) {
 			zs := intersections{}
 			zs = zs.LineQuad(line.Start(), line.End(), quad.Start(), quad.CP1(), quad.End())
 			test.T(t, len(zs), len(tt.zs))
+			reset := setEpsilon(3.0 * Epsilon)
 			for i := range zs {
 				test.T(t, zs[i], tt.zs[i])
 			}
+			reset()
 		})
 	}
 }
@@ -202,9 +204,11 @@ func TestIntersectionLineCube(t *testing.T) {
 			zs := intersections{}
 			zs = zs.LineCube(line.Start(), line.End(), cube.Start(), cube.CP1(), cube.CP2(), cube.End())
 			test.T(t, len(zs), len(tt.zs))
+			reset := setEpsilon(3.0 * Epsilon)
 			for i := range zs {
 				test.T(t, zs[i], tt.zs[i])
 			}
+			reset()
 		})
 	}
 }
@@ -275,9 +279,11 @@ func TestIntersectionLineEllipse(t *testing.T) {
 			zs := intersections{}
 			zs = zs.LineEllipse(line.Start(), line.End(), Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
 			test.T(t, len(zs), len(tt.zs))
+			reset := setEpsilon(3.0 * Epsilon)
 			for i := range zs {
 				test.T(t, zs[i], tt.zs[i])
 			}
+			reset()
 		})
 	}
 }
@@ -293,7 +299,7 @@ func TestIntersections(t *testing.T) {
 		}},
 		{"L10 0L5 10z", "M0 -5L10 -5A5 5 0 0 1 0 -5", intersections{}},
 		{"M5 5L0 0", "M-5 0A5 5 0 0 0 5 0", intersections{
-			{Point{5.0 / math.Sqrt(2.0), 5.0 / math.Sqrt(2.0)}, 1, 1, 0.0, 0.75, 0.0, 0.0, BintoA, NoParallel},
+			{Point{5.0 / math.Sqrt(2.0), 5.0 / math.Sqrt(2.0)}, 1, 1, 0.292893219, 0.75, 1.25 * math.Pi, 1.75 * math.Pi, BintoA, NoParallel},
 		}},
 
 		// intersection on one segment endpoint
@@ -501,9 +507,11 @@ func TestIntersections(t *testing.T) {
 
 			zs := p.Intersections(q)
 			test.T(t, len(zs), len(tt.zs))
+			reset := setEpsilon(3.0 * Epsilon)
 			for i := range zs {
 				test.T(t, zs[i], tt.zs[i])
 			}
+			reset()
 		})
 	}
 }
