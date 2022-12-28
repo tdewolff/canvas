@@ -605,7 +605,7 @@ func intersectionNodes(Zs intersections, p, q *Path) []*intersectionNode {
 	}
 
 	// build index map for intersections on Q to P (zs is sorted for P)
-	idxs := Zs.argBSort() // sorted indices for intersections of q by p
+	idxs := Zs.ArgBSort() // sorted indices for intersections of q by p
 
 	// cut path segments for path Q
 	seg = 0      // index into path segments
@@ -957,7 +957,7 @@ func collisions(ps, qs []*Path, keepTangents bool) intersections {
 		}
 		segOffsetA += lenA
 	}
-	zs.Sort()
+	zs.ASort()
 	return zs
 }
 
@@ -1144,10 +1144,6 @@ func (zs intersections) String() string {
 	return sb.String()
 }
 
-func (zs intersections) Sort() {
-	sort.Stable(intersectionSort{zs, 0, 0, 0, 0})
-}
-
 func (zs intersections) SortAndWrapEnd(segOffsetA, segOffsetB, lenA, lenB int) {
 	sort.Stable(intersectionSort{zs, segOffsetA, segOffsetB, lenA, lenB})
 }
@@ -1189,10 +1185,46 @@ func (a intersectionSort) Less(i, j int) bool {
 	// sort by P and secondary to Q. Consider a point at the very end of the curve (seg=len-1, t=1) as if it were at the beginning, since it is on the starting point of the path
 	posai, posbi := a.pos(a.zs[i])
 	posaj, posbj := a.pos(a.zs[j])
-	if posai == posaj {
+	if Equal(posai, posaj) {
 		return posbi < posbj
 	}
 	return posai < posaj
+}
+
+// sort indices of intersections for curve A
+type intersectionASort struct {
+	zs intersections
+}
+
+func (a intersectionASort) Len() int {
+	return len(a.zs)
+}
+
+func (a intersectionASort) Swap(i, j int) {
+	a.zs[i], a.zs[j] = a.zs[j], a.zs[i]
+}
+
+func (a intersectionASort) Less(i, j int) bool {
+	zi, zj := a.zs[i], a.zs[j]
+	if zi.SegA == zj.SegA {
+		if Equal(zi.TA, zj.TA) {
+			// A intersects B twice at the same point, sort in case of parallel parts
+			// TODO: is this valid?? make sure that sorting is consistent to match with order when intersections are slightly separated. That is, you have outer and inner intersection pairs related to the parallel parts in between, that should be sorted as such (outer incoming, inner incoming, inner outgoing, outer outgoing) over A
+			if zi.Kind&BintoA != 0 {
+				return true
+			}
+			return false
+		}
+		return zi.TA < zj.TA
+	}
+	return zi.SegA < zj.SegA
+}
+func (zs intersections) Sort() {
+	sort.Stable(intersectionSort{zs, 0, 0, 0, 0})
+}
+
+func (zs intersections) ASort() {
+	sort.Stable(intersectionASort{zs})
 }
 
 // sort indices of intersections for curve B
@@ -1210,14 +1242,23 @@ func (a intersectionArgBSort) Swap(i, j int) {
 }
 
 func (a intersectionArgBSort) Less(i, j int) bool {
-	if a.zs[a.idx[i]].SegB == a.zs[a.idx[j]].SegB {
-		return a.zs[a.idx[i]].TB < a.zs[a.idx[j]].TB
+	zi, zj := a.zs[a.idx[i]], a.zs[a.idx[j]]
+	if zi.SegB == zj.SegB {
+		if Equal(zi.TB, zj.TB) {
+			// A intersects B twice at the same point, sort in case of parallel parts
+			// TODO: is this valid?? make sure that sorting is consistent to match with order when intersections are slightly separated. That is, you have outer and inner intersection pairs related to the parallel parts in between, that should be sorted as such (outer incoming, inner incoming, inner outgoing, outer outgoing) over B
+			if zi.Kind&BintoA == 0 {
+				return true
+			}
+			return false
+		}
+		return zi.TB < zj.TB
 	}
-	return a.zs[a.idx[i]].SegB < a.zs[a.idx[j]].SegB
+	return zi.SegB < zj.SegB
 }
 
 // get indices of sorted intersections for curve B
-func (zs intersections) argBSort() []int {
+func (zs intersections) ArgBSort() []int {
 	idx := make([]int, len(zs))
 	for i := range idx {
 		idx[i] = i
