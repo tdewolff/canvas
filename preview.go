@@ -144,7 +144,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 		return err
 	}
 	ctx.SetFillColor(Whitesmoke)
-	ctx.DrawPath(110, 40, ellipse)
+	ctx.DrawPath(110, 60, ellipse)
 
 	ctx.SetFillColor(Transparent)
 	ctx.SetStrokeColor(Black)
@@ -152,8 +152,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	ctx.SetStrokeCapper(RoundCap)
 	ctx.SetStrokeJoiner(RoundJoin)
 	ctx.SetDashes(0.0, 2.0, 4.0, 2.0, 2.0, 4.0, 2.0)
-	//ellipse = ellipse.Dash(0.0, 2.0, 4.0, 2.0).Stroke(0.5, RoundCap, RoundJoin)
-	ctx.DrawPath(110, 40, ellipse)
+	ctx.DrawPath(110, 60, ellipse)
 	ctx.SetStrokeColor(Transparent)
 	ctx.SetDashes(0.0)
 
@@ -164,7 +163,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	}
 	ctx.Push()
 	ctx.Rotate(5)
-	ctx.DrawImage(50.0, 0.0, img, 15)
+	ctx.DrawImage(50.0, 10.0, img, 15)
 	ctx.Pop()
 
 	// Draw an closed set of points being smoothed
@@ -194,15 +193,40 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	// Draw a open set of points being smoothed
 	polyline = &Polyline{}
 	polyline.Add(0.0, 0.0)
-	polyline.Add(20.0, 10.0)
-	polyline.Add(40.0, 30.0)
-	polyline.Add(60.0, 40.0)
-	polyline.Add(80.0, 20.0)
+	polyline.Add(10.0, 5.0)
+	polyline.Add(20.0, 15.0)
+	polyline.Add(30.0, 20.0)
+	polyline.Add(40.0, 10.0)
 	ctx.SetStrokeColor(Dodgerblue)
-	ctx.DrawPath(10, 15, polyline.Smoothen())
+	ctx.DrawPath(95, 30, polyline.Smoothen())
 	ctx.SetStrokeColor(Black)
 	for _, coord := range polyline.Coords() {
-		ctx.DrawPath(10, 15, Circle(2.0).Translate(coord.X, coord.Y))
+		ctx.DrawPath(95, 30, Circle(2.0).Translate(coord.X, coord.Y))
 	}
+
+	// Draw path boolean operations
+	a := Circle(5.0)
+	b := Circle(5.0).Translate(5.0, 0.0)
+	a = a.Flatten()
+	b = b.Flatten()
+	ctx.SetFillColor(Transparent)
+	ctx.SetStrokeColor(Hex("#CCC"))
+	ctx.SetStrokeWidth(0.1)
+	face = fontLatin.Face(8.0, Black, FontRegular, FontNormal)
+	titles := []string{"A and B", "A or B", "A xor B", "A not B", "B not A"}
+	for i := 0; i < 5; i++ {
+		y := 56.0 - 12.0*float64(i)
+		ctx.DrawText(15.0, y, NewTextBox(face, titles[i], 0.0, 0.0, Right, Middle, 0.0, 0.0))
+		ctx.DrawPath(25.0, y, a)
+		ctx.DrawPath(25.0, y, b)
+	}
+	ctx.SetFillColor(Hex("#00C8"))
+	ctx.SetStrokeColor(Black)
+	ctx.SetStrokeWidth(0.1)
+	ctx.DrawPath(25.0, 56.0, a.And(b))
+	ctx.DrawPath(25.0, 44.0, a.Or(b))
+	ctx.DrawPath(25.0, 32.0, a.Xor(b))
+	ctx.DrawPath(25.0, 20.0, a.Not(b))
+	ctx.DrawPath(25.0, 8.0, b.Not(a))
 	return nil
 }
