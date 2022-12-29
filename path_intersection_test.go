@@ -672,6 +672,7 @@ func TestPathOr(t *testing.T) {
 		// containment
 		{"L10 0L5 10z", "M2 2L8 2L5 8z", "L10 0L5 10z"},
 		{"M2 2L8 2L5 8z", "L10 0L5 10z", "L10 0L5 10z"},
+		{"M10 0A5 5 0 0 1 0 0A5 5 0 0 1 10 0z", "M10 0L5 5L0 0L5 -5z", "M10 0A5 5 0 0 1 0 0A5 5 0 0 1 10 0z"},
 
 		// equal
 		{"L10 0L5 10z", "L10 0L5 10z", "L10 0L5 10z"},

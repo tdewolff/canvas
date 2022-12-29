@@ -482,14 +482,14 @@ func (p *Path) Interior(x, y float64, fillRule FillRule) (bool, bool) {
 			end = Point{p.d[i+1], p.d[i+2]}
 			ymin := math.Min(start.Y, end.Y)
 			ymax := math.Max(start.Y, end.Y)
-			if ymin <= y && y <= ymax {
-				if xmin := math.Min(start.X, end.X); x < xmin && ymin < y && y < ymax {
+			if Interval(y, ymin, ymax) {
+				if xmin := math.Min(start.X, end.X); x < xmin-Epsilon && ymin+Epsilon < y && y < ymax-Epsilon {
 					if y < end.Y {
 						n++
 					} else {
 						n--
 					}
-				} else if xmax := math.Max(start.X, end.X); x <= xmax {
+				} else if xmax := math.Max(start.X, end.X); x <= xmax+Epsilon {
 					zs = zs.LineLine(Point{x, y}, Point{xmax + 1.0, y}, start, end)
 				}
 			}
@@ -499,7 +499,7 @@ func (p *Path) Interior(x, y float64, fillRule FillRule) (bool, bool) {
 			ymin := math.Min(math.Min(start.Y, end.Y), cp.Y)
 			ymax := math.Max(math.Max(start.Y, end.Y), cp.Y)
 			xmax := math.Max(math.Max(start.X, end.X), cp.X)
-			if ymin <= y && y < ymax && x <= xmax {
+			if Interval(y, ymin, ymax) && x <= xmax+Epsilon {
 				zs = zs.LineQuad(Point{x, y}, Point{xmax + 1.0, y}, start, cp, end)
 			}
 		case CubeToCmd:
@@ -509,7 +509,7 @@ func (p *Path) Interior(x, y float64, fillRule FillRule) (bool, bool) {
 			ymin := math.Min(math.Min(start.Y, end.Y), math.Min(cp1.Y, cp2.Y))
 			ymax := math.Max(math.Max(start.Y, end.Y), math.Max(cp1.Y, cp2.Y))
 			xmax := math.Max(math.Max(start.X, end.X), math.Max(cp1.X, cp2.X))
-			if ymin <= y && y < ymax && x <= xmax {
+			if Interval(y, ymin, ymax) && x <= xmax+Epsilon {
 				zs = zs.LineCube(Point{x, y}, Point{xmax + 1.0, y}, start, cp1, cp2, end)
 			}
 		case ArcToCmd:

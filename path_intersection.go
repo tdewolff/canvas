@@ -337,6 +337,14 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 						}
 						pHandled[i] = true
 						qHandled[j] = true
+					} else if pi.inside(qi) && qi.inside(pi) {
+						// happens when each coordinates are on each other's boundaries
+						// TODO: check whichone has largest area
+						if op == pathOpAnd || op == pathOpOr || op == pathOpSettle {
+							R = R.Append(pi)
+						}
+						pHandled[i] = true
+						qHandled[j] = true
 					}
 				}
 			}
@@ -345,16 +353,13 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 
 	// contained (non-touching) polygons
 	for i, pi := range ps {
-		if !pHandled[i] {
-			pInQ := pi.inside(q)
-			if pInQ {
-				if op == pathOpAnd || op == pathOpDivide || op == pathOpSettle && ccwA != ccwB {
-					R = R.Append(pi)
-				} else if op == pathOpXor {
-					R = R.Append(pi.Reverse())
-				}
-				pHandled[i] = true
+		if !pHandled[i] && pi.inside(q) {
+			if op == pathOpAnd || op == pathOpDivide || op == pathOpSettle && ccwA != ccwB {
+				R = R.Append(pi)
+			} else if op == pathOpXor {
+				R = R.Append(pi.Reverse())
 			}
+			pHandled[i] = true
 		}
 	}
 	// polygons with no overlap
@@ -368,16 +373,13 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 
 	// contained (non-touching) polygons
 	for i, qi := range qs {
-		if !qHandled[i] {
-			qInP := qi.inside(p)
-			if qInP {
-				if op == pathOpAnd || op == pathOpDivide || op == pathOpSettle && ccwA != ccwB {
-					R = R.Append(qi)
-				} else if op == pathOpXor || op == pathOpNot {
-					R = R.Append(qi.Reverse())
-				}
-				qHandled[i] = true
+		if !qHandled[i] && qi.inside(p) {
+			if op == pathOpAnd || op == pathOpDivide || op == pathOpSettle && ccwA != ccwB {
+				R = R.Append(qi)
+			} else if op == pathOpXor || op == pathOpNot {
+				R = R.Append(qi.Reverse())
 			}
+			qHandled[i] = true
 		}
 	}
 	// polygons with no overlap
@@ -1166,14 +1168,14 @@ func (a intersectionSort) Swap(i, j int) {
 func (a intersectionSort) pos(z intersection) (float64, float64) {
 	posa := float64(z.SegA) + z.TA
 	if Equal(z.TA, 1.0) {
-		posa -= Epsilon
+		posa -= 2.0 * Epsilon
 		if z.SegA == a.segOffsetA+a.lenA-1 {
 			posa -= float64(a.lenA - 1) // put end into first segment (moveto)
 		}
 	}
 	posb := float64(z.SegB) + z.TB
 	if Equal(z.TB, 1.0) {
-		posb -= Epsilon
+		posb -= 2.0 * Epsilon
 		if z.SegB == a.segOffsetB+a.lenB-1 {
 			posb -= float64(a.lenB - 1) // put end into first segment (moveto)
 		}
