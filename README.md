@@ -6,26 +6,17 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster i
 
 ![Preview](https://raw.githubusercontent.com/tdewolff/canvas/master/resources/preview/preview.png)
 
-**Figure 1**: top-left you can see text being fitted into a box, justified using Donald Knuth's linea breaking algorithm to stretch the spaces between words to fill the whole width. You can observe a variety of styles and text decorations applied, as well as support for LTR/RTL mixing and complex scripts. In the bottom-right the word "stroke" is being stroked and drawn as a path. Top-right we see a LaTeX formula that has been converted to a path. Left of that we see an ellipse showcasing precise dashing, notably the length of e.g. the short dash is equal wherever it is on the curve. Note that the dashes themselves are elliptical arcs as well (thus exactly precise even if magnified greatly). To the right we see a closed polygon of four points being smoothed by cubic Béziers that are smooth along the whole path, and the blue line on the left shows a smoothed open path. On the bottom you can see a rotated rasterized image. The result is equivalent for all renderers (PNG, PDF, SVG, etc.).
+**Figure 1**: top-left you can see text being fitted into a box, justified using Donald Knuth's linea breaking algorithm to stretch the spaces between words to fill the whole width. You can observe a variety of styles and text decorations applied, as well as support for LTR/RTL mixing and complex scripts. In the bottom-right the word "stroke" is being stroked and drawn as a path. Top-right we see a LaTeX formula that has been converted to a path. Left of that we see an ellipse showcasing precise dashing, notably the length of e.g. the short dash is equal wherever it is on the curve. Note that the dashes themselves are elliptical arcs as well (thus exactly precise even if magnified greatly). To the right we see a closed polygon of four points being smoothed by cubic Béziers that are smooth along the whole path, and the blue line on the left shows a smoothed open path. On the bottom you can see a rotated rasterized image. The bottom-left shows path boolean operations. The result is equivalent for all renderers (PNG, PDF, SVG, etc.).
 
 ### Sponsors
 
 Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise please contact me directly!
 
-## Recent changes
-- Renderers have been moved from `github.com/tdewolff/canvas/.` to `github.com/tdewolff/canvas/renderers/.`
-- `FontFamily.Use()` is deprecated, use `FontFamily.SetFeatures()` (not yet used)
-- `DPMM` is now a function just like `DPI`: `rasterizer.PNGWriter(5.0 * canvas.DPMM)` => `rasterizer.PNGWriter(canvas.DPMM(5.0))`
-- `FontFace` is now passed around as a pointer
-- `NewRichText` now requires a default `*FontFace` to be passed
-- Use the `latex` build tag to use the original LaTeX expression parser
-- Renderer writers have been moved from `renderers/ABC/abc.Writer` to `renderers/ABC`
-- `rasterizer.New` is renamed to `rasterizer.FromImage`
-
 ## Features
 - Path segment types: MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close
 - Precise path flattening, stroking, and dashing for all segment type uing papers (see below)
 - Smooth spline generation through points for open and closed paths
+- Path boolean operations: AND, OR, XOR, NOT, Divide
 - LaTeX to path conversion (native Go and CGO implementations available)
 - Font formats support 
 - - SFNT (such as TTF, OTF, WOFF, WOFF2, EOT) supporting TrueType, CFF, and CFF2 tables
