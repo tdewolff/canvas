@@ -6,6 +6,8 @@
 
 **[User guide](https://github.com/tdewolff/canvas/wiki)**
 
+**[Live HTMLCanvas demo](https://tdewolff.github.io/canvas/examples/html-canvas/index.html)**
+
 Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster images (PNG, JPG, GIF, ...), HTML Canvas through WASM, OpenGL, and Gio. It has a wide range of path manipulation functionality such as flattening, stroking and dashing implemented. Additionally, it has a text formatter and embeds and subsets fonts (TTF, OTF, WOFF, WOFF2, or EOT) or converts them to outlines. It can be considered a Cairo or node-canvas alternative in Go. See the example below in Figure 1 for an overview of the functionality.
 
 ![Preview](https://raw.githubusercontent.com/tdewolff/canvas/master/resources/preview/preview.png)
@@ -37,7 +39,7 @@ Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise pl
 - - HTMLCanvas
 - - OpenGL
 - - [Gio](https://gioui.org/)
-- - [Fyne](https://fyne.io/) (WIP)
+- - [Fyne](https://fyne.io/)
 - Rendering sources
 - - Canvas itself
 - - [go-chart](https://github.com/wcharczuk/go-chart)
@@ -46,13 +48,15 @@ Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise pl
 ## Examples
 **[Street Map](https://github.com/tdewolff/canvas/tree/master/examples/map)**: the centre of Amsterdam is drawn from data loaded from the Open Street Map API.
 
-**[Mauna-Loa CO2 conentration](https://github.com/tdewolff/canvas/tree/master/examples/graph)**: using data from the Mauna-Loa observatory, carbon dioxide concentrations over time are drawn
+**[Mauna-Loa CO2 concentration](https://github.com/tdewolff/canvas/tree/master/examples/graph)**: using data from the Mauna-Loa observatory, carbon dioxide concentrations over time are drawn
 
-**[Document](https://github.com/tdewolff/canvas/tree/master/examples/document)**: an example of a text document.
+**[PDF document](https://github.com/tdewolff/canvas/tree/master/examples/document)**: an example of a text document using the PDF backend.
 
 **[OpenGL](https://github.com/tdewolff/canvas/tree/master/examples/opengl)**: an example using the OpenGL backend.
 
 **[Gio](https://github.com/tdewolff/canvas/tree/master/examples/gio)**: an example using the Gio backend.
+
+**[Fyne](https://github.com/tdewolff/canvas/tree/master/examples/fyne)**: an example using the Fyne backend.
 
 **[TeX/PGF](https://github.com/tdewolff/canvas/tree/master/examples/tex)**: an example showing the usage of the PGF (TikZ) LaTeX package as renderer in order to generated a PDF using LaTeX.
 
@@ -60,7 +64,7 @@ Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise pl
 
 **[gonum/plot](https://github.com/tdewolff/canvas/tree/master/examples/gonum-plot)**: an example using the [gonum/plot](https://github.com/gonum/plot) library.
 
-**[PDF](https://github.com/tdewolff/canvas/tree/master/examples/pdf)**: an example using the PDF backend.
+**[HTMLCanvas](https://github.com/tdewolff/canvas/tree/master/examples/html-canvas)**: an example using the HTMLCanvas backend, see a live result at https://tdewolff.github.io/canvas/examples/html-canvas/index.html.
 
 ## Articles
 * [Numerically stable quadratic formula](https://math.stackexchange.com/questions/866331/numerically-stable-algorithm-for-solving-the-quadratic-equation-when-a-is-very/2007723#2007723)
