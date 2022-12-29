@@ -2,6 +2,10 @@
 
 [![API reference](https://img.shields.io/badge/godoc-reference-5272B4)](https://pkg.go.dev/github.com/tdewolff/canvas?tab=doc) [![User guide](https://img.shields.io/badge/user-guide-5272B4)](https://github.com/tdewolff/canvas/wiki) [![Go Report Card](https://goreportcard.com/badge/github.com/tdewolff/canvas)](https://goreportcard.com/report/github.com/tdewolff/canvas) [![Coverage Status](https://coveralls.io/repos/github/tdewolff/canvas/badge.svg?branch=master)](https://coveralls.io/github/tdewolff/canvas?branch=master) [![Donate](https://img.shields.io/badge/patreon-donate-DFB317)](https://www.patreon.com/tdewolff)
 
+**[API documentation](https://pkg.go.dev/github.com/tdewolff/canvas?tab=doc)**
+
+**[User guide](https://github.com/tdewolff/canvas/wiki)**
+
 Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster images (PNG, JPG, GIF, ...), HTML Canvas through WASM, OpenGL, and Gio. It has a wide range of path manipulation functionality such as flattening, stroking and dashing implemented. Additionally, it has a text formatter and embeds and subsets fonts (TTF, OTF, WOFF, WOFF2, or EOT) or converts them to outlines. It can be considered a Cairo or node-canvas alternative in Go. See the example below in Figure 1 for an overview of the functionality.
 
 ![Preview](https://raw.githubusercontent.com/tdewolff/canvas/master/resources/preview/preview.png)
@@ -39,12 +43,7 @@ Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise pl
 - - [go-chart](https://github.com/wcharczuk/go-chart)
 - - [gonum/plot](https://github.com/gonum/plot)
 
-## Documentation
-**[API documentation](https://pkg.go.dev/github.com/tdewolff/canvas?tab=doc)**
-
-**[User guide](https://github.com/tdewolff/canvas/wiki)**
-
-### Examples
+## Examples
 **[Street Map](https://github.com/tdewolff/canvas/tree/master/examples/map)**: the centre of Amsterdam is drawn from data loaded from the Open Street Map API.
 
 **[Mauna-Loa CO2 conentration](https://github.com/tdewolff/canvas/tree/master/examples/graph)**: using data from the Mauna-Loa observatory, carbon dioxide concentrations over time are drawn
