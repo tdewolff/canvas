@@ -30,7 +30,7 @@ Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise pl
 - FriBidi for text bidirectionality (native Go and CGO implementations available)
 - Donald Knuth's line breaking algorithm for text layout
 - sRGB compliance (use `SRGBColorSpace`, only available for rasterizer)
-- Font rendering with gamma correction of 1.43 (WIP)
+- Font rendering with gamma correction of 1.43
 - Rendering targets
 - - Raster images (PNG, GIF, JPEG, TIFF, BMP, WEBP)
 - - PDF
@@ -64,10 +64,10 @@ Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise pl
 
 **[gonum/plot](https://github.com/tdewolff/canvas/tree/master/examples/gonum-plot)**: an example using the [gonum/plot](https://github.com/gonum/plot) library.
 
-**[HTMLCanvas](https://github.com/tdewolff/canvas/tree/master/examples/html-canvas)**: an example using the HTMLCanvas backend, see a live result at https://tdewolff.github.io/canvas/examples/html-canvas/index.html.
+**[HTMLCanvas](https://github.com/tdewolff/canvas/tree/master/examples/html-canvas)**: an example using the HTMLCanvas backend, see the [live demo](https://tdewolff.github.io/canvas/examples/html-canvas/index.html).
 
 ## Users
-This is a non-exhaustive list of library users I've come to know of. PR's are welcome to extend the list!
+This is a non-exhaustive list of library users I've come across. PRs are welcome to extend the list!
 
 * https://github.com/aldernero/sketchy
 * https://github.com/davidhampgonsalves/quickdraw
