@@ -66,6 +66,21 @@ Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise pl
 
 **[HTMLCanvas](https://github.com/tdewolff/canvas/tree/master/examples/html-canvas)**: an example using the HTMLCanvas backend, see a live result at https://tdewolff.github.io/canvas/examples/html-canvas/index.html.
 
+## Users
+This is a non-exhaustive list of library users I've come to know of. PR's are welcome to extend the list!
+
+* https://github.com/aldernero/sketchy
+* https://github.com/davidhampgonsalves/quickdraw
+* https://github.com/engelsjk/go-annular
+* https://github.com/fullstack-lang/gongdoc
+* https://github.com/jansorg/marketplace-stats
+* https://github.com/kpym/marianne
+* https://github.com/namsor/go-qrcode
+* https://github.com/peteraba/roadmapper
+* https://github.com/stv0g/vand
+* https://github.com/uncopied/chirograph
+* https://github.com/winkula/dragons
+
 ## Articles
 * [Numerically stable quadratic formula](https://math.stackexchange.com/questions/866331/numerically-stable-algorithm-for-solving-the-quadratic-equation-when-a-is-very/2007723#2007723)
 * [Quadratic Bézier length](https://malczak.linuxpl.com/blog/quadratic-bezier-curve-length/)
