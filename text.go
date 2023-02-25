@@ -474,7 +474,9 @@ func (rt *RichText) AddLaTeX(s string) error {
 func scriptDirection(mode WritingMode, orient TextOrientation, script canvasText.Script, direction canvasText.Direction) (canvasText.Direction, canvasText.Rotation) {
 	if direction == canvasText.TopToBottom || direction == canvasText.BottomToTop {
 		if mode == HorizontalTB {
-			direction = canvasText.LeftToRight
+			if direction != canvasText.RightToLeft {
+				direction = canvasText.LeftToRight
+			}
 		} else {
 			direction = canvasText.TopToBottom
 		}
@@ -485,10 +487,14 @@ func scriptDirection(mode WritingMode, orient TextOrientation, script canvasText
 	rotation := canvasText.NoRotation
 	if mode != HorizontalTB {
 		if !canvasText.IsVerticalScript(script) && orient == Natural {
-			direction = canvasText.LeftToRight
+			if direction != canvasText.RightToLeft {
+				direction = canvasText.LeftToRight
+			}
 			rotation = canvasText.CW
 		} else if rotation = canvasText.ScriptRotation(script); rotation != canvasText.NoRotation {
-			direction = canvasText.LeftToRight
+			if direction != canvasText.RightToLeft {
+				direction = canvasText.LeftToRight
+			}
 		}
 	}
 	return direction, rotation
