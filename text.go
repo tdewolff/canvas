@@ -474,9 +474,7 @@ func (rt *RichText) AddLaTeX(s string) error {
 func scriptDirection(mode WritingMode, orient TextOrientation, script canvasText.Script, direction canvasText.Direction) (canvasText.Direction, canvasText.Rotation) {
 	if direction == canvasText.TopToBottom || direction == canvasText.BottomToTop {
 		if mode == HorizontalTB {
-			if direction != canvasText.RightToLeft {
-				direction = canvasText.LeftToRight
-			}
+			direction = canvasText.LeftToRight
 		} else {
 			direction = canvasText.TopToBottom
 		}
@@ -487,14 +485,10 @@ func scriptDirection(mode WritingMode, orient TextOrientation, script canvasText
 	rotation := canvasText.NoRotation
 	if mode != HorizontalTB {
 		if !canvasText.IsVerticalScript(script) && orient == Natural {
-			if direction != canvasText.RightToLeft {
-				direction = canvasText.LeftToRight
-			}
+			direction = canvasText.LeftToRight
 			rotation = canvasText.CW
 		} else if rotation = canvasText.ScriptRotation(script); rotation != canvasText.NoRotation {
-			if direction != canvasText.RightToLeft {
-				direction = canvasText.LeftToRight
-			}
+			direction = canvasText.LeftToRight
 		}
 	}
 	return direction, rotation
@@ -890,6 +884,14 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	if rt.mode == VerticalRL {
 		for j := range t.lines {
 			t.lines[j].y = height - t.lines[j].y
+		}
+	}
+	if rt.mode == HorizontalTB && len(t.lines) > 1 && rt.faces != nil && len(rt.faces) > 0 && rt.faces[0].Direction == canvasText.RightToLeft {
+		for j := 0; j < len(t.lines)/2; j++ {
+			tmp := t.lines[j].y
+			t.lines[j].y = t.lines[len(t.lines)-1-j].y
+			t.lines[len(t.lines)-1-j].y = tmp
+
 		}
 	}
 	return t
