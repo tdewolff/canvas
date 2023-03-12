@@ -206,6 +206,29 @@ func TestQuadraticBezierDistance(t *testing.T) {
 	}
 }
 
+func TestQuadraticBezierFlatten(t *testing.T) {
+	defer setEpsilon(1e-6)()
+	defer setTolerance(0.1)()
+
+	tests := []struct {
+		path     string
+		expected string
+	}{
+		{"Q1 0 1 1", "L0.864911 0.4L1 1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			path := MustParseSVG(tt.path)
+			p0 := Point{path.d[1], path.d[2]}
+			p1 := Point{path.d[5], path.d[6]}
+			p2 := Point{path.d[7], path.d[8]}
+
+			p := flattenQuadraticBezier(p0, p1, p2)
+			test.T(t, p, MustParseSVG(tt.expected))
+		})
+	}
+}
+
 func TestCubicBezierPos(t *testing.T) {
 	defer setEpsilon(1e-5)()
 

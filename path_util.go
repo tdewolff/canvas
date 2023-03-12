@@ -602,6 +602,10 @@ func flattenQuadraticBezier(p0, p1, p2 Point) *Path {
 	p.MoveTo(p0.X, p0.Y)
 	for t < 1.0 {
 		D := p1.Sub(p0)
+		if p0.Equals(p1) {
+			// should be avoided by never allowing this command, see QuadTo
+			panic("p0 == p1")
+		}
 		denom := math.Hypot(D.X, D.Y) // equal to r1
 		s2nom := D.PerpDot(p2.Sub(p0))
 		//effFlatness := Tolerance / (1.0 - d*s2nom/(denom*denom*denom)/2.0)
@@ -629,6 +633,10 @@ func flattenSmoothCubicBezier(p *Path, p0, p1, p2, p3 Point, d, flatness float64
 		if p0.Equals(p1) {
 			// p0 == p1, base on p2
 			D = p2.Sub(p0)
+			if p0.Equals(p2) {
+				// should be avoided by never allowing this command, see CubeTo
+				panic("p0 == p2")
+			}
 		}
 		denom := D.Length() // equal to r1
 

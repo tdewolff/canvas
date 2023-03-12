@@ -94,160 +94,54 @@ func TestPathCoords(t *testing.T) {
 }
 
 func TestPathCommands(t *testing.T) {
+	var tts = []struct {
+		p        string
+		expected string
+	}{
+		{"M3 4", "M3 4"},
+		{"M3 4M5 3", "M5 3"},
+		{"M3 4z", ""},
+		{"z", ""},
+
+		{"L3 4", "L3 4"},
+		{"L3 4L0 0z", "L3 4z"},
+		{"L3 4L4 0L2 0z", "L3 4L4 0z"},
+		{"L3 4zz", "L3 4z"},
+		{"L5 0zL6 3", "L5 0zL6 3"},
+		{"M2 1L3 4L5 0zL6 3", "M2 1L3 4L5 0zM2 1L6 3"},
+		{"M2 1L3 4L5 0zM2 1L6 3", "M2 1L3 4L5 0zM2 1L6 3"},
+
+		{"M3 4Q3 4 3 4", "M3 4"},
+		{"Q0 0 0 0", ""},
+		{"Q3 4 3 4", "L3 4"},
+		{"Q1.5 2 3 4", "L3 4"},
+		{"Q0 0 -1 -1", "L-1 -1"},
+		{"Q1 2 3 4", "Q1 2 3 4"},
+		{"Q3 4 0 0", "Q3 4 0 0"},
+		{"L5 0zQ5 3 6 3", "L5 0zQ5 3 6 3"},
+
+		{"M3 4C3 4 3 4 3 4", "M3 4"},
+		{"C0 0 0 0 0 0", ""},
+		{"C0 0 3 4 3 4", "L3 4"},
+		{"C1 1 2 2 3 3", "L3 3"},
+		{"C1 1 2 2 3 4", "C1 1 2 2 3 4"},
+		{"C1 1 2 2 0 0", "C1 1 2 2 0 0"},
+		{"L5 0zC5 1 5 3 6 3", "L5 0zC5 1 5 3 6 3"},
+
+		{"M3 4A2 2 0 0 0 3 4", "M3 4"},
+		{"A0 0 0 0 0 4 0", "L4 0"},
+		{"A2 1 0 0 0 4 0", "A2 1 0 0 0 4 0"},
+		{"A1 2 0 1 1 4 0", "A4 2 90 1 1 4 0"},
+		{"A1 2 90 0 0 4 0", "A2 1 0 0 0 4 0"},
+		{"L5 0zA5 5 0 0 0 10 0", "L5 0zA5 5 0 0 0 10 0"},
+	}
+	for _, tt := range tts {
+		t.Run(fmt.Sprint(tt.p), func(t *testing.T) {
+			test.T(t, MustParseSVG(tt.p), MustParseSVG(tt.expected))
+		})
+	}
+
 	p := &Path{}
-	p.MoveTo(3, 4)
-	test.String(t, p.String(), "M3 4")
-
-	p = &Path{}
-	p.MoveTo(3, 4)
-	p.QuadTo(3, 4, 3, 4)
-	test.String(t, p.String(), "M3 4")
-
-	p = &Path{}
-	p.MoveTo(3, 4)
-	p.CubeTo(3, 4, 3, 4, 3, 4)
-	test.String(t, p.String(), "M3 4")
-
-	p = &Path{}
-	p.MoveTo(3, 4)
-	p.ArcTo(2, 2, 0, false, false, 3, 4)
-	test.String(t, p.String(), "M3 4")
-
-	p = &Path{}
-	p.LineTo(3, 4)
-	test.String(t, p.String(), "M0 0L3 4")
-
-	p = &Path{}
-	p.QuadTo(3, 4, 3, 4)
-	test.String(t, p.String(), "M0 0L3 4")
-
-	p = &Path{}
-	p.QuadTo(1, 2, 3, 4)
-	test.String(t, p.String(), "M0 0Q1 2 3 4")
-
-	p = &Path{}
-	p.QuadTo(0, 0, 0, 0)
-	test.String(t, p.String(), "")
-
-	p = &Path{}
-	p.QuadTo(3, 4, 0, 0)
-	test.String(t, p.String(), "M0 0Q3 4 0 0")
-
-	p = &Path{}
-	p.QuadTo(1.5, 2, 3, 4)
-	test.String(t, p.String(), "M0 0L3 4")
-
-	p = &Path{}
-	p.CubeTo(0, 0, 3, 4, 3, 4)
-	test.String(t, p.String(), "M0 0L3 4")
-
-	p = &Path{}
-	p.CubeTo(1, 1, 2, 2, 3, 4)
-	test.String(t, p.String(), "M0 0C1 1 2 2 3 4")
-
-	p = &Path{}
-	p.CubeTo(1, 1, 2, 2, 0, 0)
-	test.String(t, p.String(), "M0 0C1 1 2 2 0 0")
-
-	p = &Path{}
-	p.CubeTo(0, 0, 0, 0, 0, 0)
-	test.String(t, p.String(), "")
-
-	p = &Path{}
-	p.CubeTo(1, 1, 2, 2, 3, 3)
-	test.String(t, p.String(), "M0 0L3 3")
-
-	p = &Path{}
-	p.ArcTo(0, 0, 0, false, false, 4, 0)
-	test.String(t, p.String(), "M0 0L4 0")
-
-	p = &Path{}
-	p.ArcTo(2, 1, 0, false, false, 4, 0)
-	test.String(t, p.String(), "M0 0A2 1 0 0 0 4 0")
-
-	p = &Path{}
-	p.ArcTo(1, 2, 0, true, true, 4, 0)
-	test.String(t, p.String(), "M0 0A4 2 90 1 1 4 0")
-
-	p = &Path{}
-	p.ArcTo(1, 2, 90, false, false, 4, 0)
-	test.String(t, p.String(), "M0 0A2 1 0 0 0 4 0")
-
-	p = &Path{}
-	p.Close()
-	test.String(t, p.String(), "")
-
-	p = &Path{}
-	p.LineTo(5, 0)
-	p.Close()
-	p.LineTo(6, 3)
-	test.String(t, p.String(), "M0 0L5 0zM0 0L6 3")
-
-	p = &Path{}
-	p.LineTo(5, 0)
-	p.Close()
-	p.QuadTo(5, 3, 6, 3)
-	test.String(t, p.String(), "M0 0L5 0zM0 0Q5 3 6 3")
-
-	p = &Path{}
-	p.LineTo(5, 0)
-	p.Close()
-	p.CubeTo(5, 1, 5, 3, 6, 3)
-	test.String(t, p.String(), "M0 0L5 0zM0 0C5 1 5 3 6 3")
-
-	p = &Path{}
-	p.LineTo(5, 0)
-	p.Close()
-	p.ArcTo(5, 5, 0, false, false, 10, 0)
-	test.String(t, p.String(), "M0 0L5 0zM0 0A5 5 0 0 0 10 0")
-
-	p = &Path{}
-	p.MoveTo(3, 4)
-	p.MoveTo(5, 3)
-	test.String(t, p.String(), "M5 3")
-
-	p = &Path{}
-	p.MoveTo(3, 4)
-	p.Close()
-	test.String(t, p.String(), "")
-
-	p = &Path{}
-	p.LineTo(3, 4)
-	p.LineTo(0, 0)
-	p.Close()
-	test.String(t, p.String(), "M0 0L3 4z")
-
-	p = &Path{}
-	p.LineTo(3, 4)
-	p.LineTo(4, 0)
-	p.LineTo(2, 0)
-	p.Close()
-	test.String(t, p.String(), "M0 0L3 4L4 0z")
-
-	p = &Path{}
-	p.LineTo(3, 4)
-	p.Close()
-	p.Close()
-	test.String(t, p.String(), "M0 0L3 4z")
-
-	p = &Path{}
-	p.MoveTo(2, 1)
-	p.LineTo(3, 4)
-	p.LineTo(5, 0)
-	p.Close()
-	p.LineTo(6, 3)
-	test.String(t, p.String(), "M2 1L3 4L5 0zM2 1L6 3")
-
-	p = &Path{}
-	p.MoveTo(2, 1)
-	p.LineTo(3, 4)
-	p.LineTo(5, 0)
-	p.Close()
-	p.MoveTo(2, 1)
-	p.LineTo(6, 3)
-	test.String(t, p.String(), "M2 1L3 4L5 0zM2 1L6 3")
-
-	p = &Path{}
 	p.Arc(2, 1, 0, 180, 0)
 	test.T(t, p, MustParseSVG("A2 1 0 0 0 4 0"))
 

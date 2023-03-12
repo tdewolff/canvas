@@ -302,7 +302,7 @@ func (p *Path) QuadTo(cpx, cpy, x, y float64) {
 	end := Point{x, y}
 	if start.Equals(end) && start.Equals(cp) {
 		return
-	} else if !start.Equals(end) && Equal(end.Sub(start).AngleBetween(cp.Sub(start)), 0.0) && Equal(end.Sub(start).AngleBetween(end.Sub(cp)), 0.0) {
+	} else if !start.Equals(end) && (start.Equals(cp) || angleEqual(end.Sub(start).AngleBetween(cp.Sub(start)), 0.0)) && (end.Equals(cp) || angleEqual(end.Sub(start).AngleBetween(end.Sub(cp)), 0.0)) {
 		p.LineTo(end.X, end.Y)
 		return
 	}
@@ -323,7 +323,7 @@ func (p *Path) CubeTo(cpx1, cpy1, cpx2, cpy2, x, y float64) {
 	end := Point{x, y}
 	if start.Equals(end) && start.Equals(cp1) && start.Equals(cp2) {
 		return
-	} else if !start.Equals(end) && Equal(end.Sub(start).AngleBetween(cp1.Sub(start)), 0.0) && Equal(end.Sub(start).AngleBetween(end.Sub(cp1)), 0.0) && Equal(end.Sub(start).AngleBetween(cp2.Sub(start)), 0.0) && Equal(end.Sub(start).AngleBetween(end.Sub(cp2)), 0.0) {
+	} else if !start.Equals(end) && (start.Equals(cp1) || end.Equals(cp1) || angleEqual(end.Sub(start).AngleBetween(cp1.Sub(start)), 0.0) && angleEqual(end.Sub(start).AngleBetween(end.Sub(cp1)), 0.0)) && (start.Equals(cp2) || end.Equals(cp2) || angleEqual(end.Sub(start).AngleBetween(cp2.Sub(start)), 0.0) && angleEqual(end.Sub(start).AngleBetween(end.Sub(cp2)), 0.0)) {
 		p.LineTo(end.X, end.Y)
 		return
 	}
