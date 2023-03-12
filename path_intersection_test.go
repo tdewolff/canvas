@@ -260,6 +260,11 @@ func TestIntersectionLineEllipse(t *testing.T) {
 			{Point{4.0, 3.0}, 0, 0, 0.0, 1.0, math.Pi, 1.5 * math.Pi, Tangent, NoParallel},
 		}},
 
+		// see #200
+		{"M0 -0.7L1 -0.7", "M-0.7 0A0.7 0.7 0 0 1 0.7 0", intersections{
+			{Point{0.0, -0.7}, 0, 0, 0.0, 0.5, 0.0, 0.0, Tangent, NoParallel},
+		}},
+
 		// none
 		{"M6 0L6 10", "A5 5 0 0 1 0 10", intersections{}},
 		{"M10 5L15 5", "A5 5 0 0 1 0 10", intersections{}},

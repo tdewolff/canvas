@@ -581,9 +581,9 @@ func (m Matrix) ToSVG(h float64) string {
 
 // Numerically stable quadratic formula, lowest root is returned first, see https://math.stackexchange.com/a/2007723
 func solveQuadraticFormula(a, b, c float64) (float64, float64) {
-	if a == 0.0 {
-		if b == 0.0 {
-			if c == 0.0 {
+	if Equal(a, 0.0) {
+		if Equal(b, 0.0) {
+			if Equal(c, 0.0) {
 				// all terms disappear, all x satisfy the solution
 				return 0.0, math.NaN()
 			}
@@ -594,9 +594,9 @@ func solveQuadraticFormula(a, b, c float64) (float64, float64) {
 		return -c / b, math.NaN()
 	}
 
-	if c == 0.0 {
+	if Equal(c, 0.0) {
 		// no constant term, one solution at zero and one from solving linearly
-		if b == 0.0 {
+		if Equal(b, 0.0) {
 			return 0.0, math.NaN()
 		}
 		return 0.0, -b / a
@@ -605,7 +605,7 @@ func solveQuadraticFormula(a, b, c float64) (float64, float64) {
 	discriminant := b*b - 4.0*a*c
 	if discriminant < 0.0 {
 		return math.NaN(), math.NaN()
-	} else if discriminant == 0.0 {
+	} else if Equal(discriminant, 0.0) {
 		return -b / (2.0 * a), math.NaN()
 	}
 
