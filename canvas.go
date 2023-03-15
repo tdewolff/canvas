@@ -450,16 +450,16 @@ func (c *Context) FillStroke() {
 }
 
 func (c *Context) coord(x, y float64) Point {
-	coord := c.coordView.Dot(Point{x, y})
+	m := Identity
 	switch c.coordSystem {
 	case CartesianII:
-		coord = Identity.ReflectXAbout(c.Width() / 2.0).Dot(coord)
+		m = m.ReflectXAbout(c.Width() / 2.0)
 	case CartesianIII:
-		coord = Identity.ReflectXAbout(c.Width() / 2.0).ReflectYAbout(c.Height() / 2.0).Dot(coord)
+		m = m.ReflectXAbout(c.Width() / 2.0).ReflectYAbout(c.Height() / 2.0)
 	case CartesianIV:
-		coord = Identity.ReflectYAbout(c.Height() / 2.0).Dot(coord)
+		m = m.ReflectYAbout(c.Height() / 2.0)
 	}
-	return coord
+	return c.coordView.Mul(m).Dot(Point{x, y})
 }
 
 // FitImage fits an image to a rectangle using different fit strategies.
