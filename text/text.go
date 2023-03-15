@@ -37,12 +37,12 @@ func (g Glyph) Rotation() Rotation {
 	return rot
 }
 
-// TODO: implement Liang's (soft) hyphenation algorithm?
+// TODO: implement Liang's (soft) hyphenation algorithm? Add \u00AD at opportunities, unless \u2060 or \uFEFF is present
 
 // IsParagraphSeparator returns true for paragraph separator runes.
 func IsParagraphSeparator(r rune) bool {
 	// line feed, vertical tab, form feed, carriage return, next line, line separator, paragraph separator
-	return 0x0A <= r && r <= 0x0D || r == 0x85 || r == '\u2008' || r == '\u2009'
+	return 0x0A <= r && r <= 0x0D || r == 0x85 || r == '\u2028' || r == '\u2029'
 }
 
 func IsSpacelessScript(script Script) bool {

@@ -15,8 +15,45 @@ import (
 //   https://github.com/robertknight/tex-linebreak (JavaScript)
 //   https://github.com/akuchling/texlib (Python)
 
+// Special characters:
+//   \x09 TAB - breakpoint space
+//   \x0A LINE FEED - line separator
+//   \x0B VERTICAL TAB - line separator
+//   \x0C FORM FEED - line separator
+//   \x0D CARRIAGE RETURN - line separator
+//   \x20 SPACE - breakpoint space
+//   \u00A0 NO-BREAK SPACE - space but not breakpoint
+//   \u00AD SOFT HYPHEN - breakpoint with hyphen insertion
+//   \u180E MONGOLIAN VOWEL SEPARATOR - space but not breakpoint
+//   \u2000 EN QUAD - breakpoint space
+//   \u2001 EM QUAD - breakpoint space
+//   \u2002 EN SPACE - breakpoint space
+//   \u2003 EM SPACE - breakpoint space
+//   \u2004 THREE-PER-EM SPACE - breakpoint space
+//   \u2005 FOUR-PER-EM SPACE - breakpoint space
+//   \u2006 SIX-PER-EM SPACE - breakpoint space
+//   \u2007 FIGURE SPACE - breakpoint space
+//   \u2008 PUNCTUATION SPACE - breakpoint space
+//   \u2009 THIN SPACE - breakpoint space
+//   \u200A HAIR SPACE - breakpoint space
+//   \u200B ZERO WIDTH SPACE - breakpoint without hyphen insertion
+//   \u2028 LINE SEPARATOR - line separator
+//   \u2029 PARAGRAPH SEPARATOR - line separator
+//   \u202F NARROW NO-BREAK SPACE - space but not breakpoint
+//   \u2058 MEDIUM MATHEMATICAL SPACE - breakpoint space
+//   \u2060 WORD JOINER - no breakpoint
+//   \u3000 IDEOGRAPHIC SPACE - breakpoint space
+//   \uFEFF ZERO WIDTH NO-BREAK SPACE - no breakpoint
+//
+// When to use what?
+//   Start a new line: \n
+//   Space that doesn't break: \u00A0
+//   Word break opportunity with hyphenation: \u00AD
+//   Word break opportunity without hyphenation: \u200B
+//   Prevent word break: \u2060
+
 // FairyTales is an example text.
-const FairyTales = "In olden times when wish\u200Bing still helped one there\u2001lived a king\u2001whose daugh\u200Bters were all beau\u200Bti\u200Bful; and the young\u200Best was so beautiful that the sun it\u200Bself, which has seen so much, was aston\u200Bished when\u200Bever it shone in her face. Close by the king's castle lay a great dark for\u200Best, and un\u200Bder an old lime-tree in the for\u200Best was a well, and when the day was very warm, the king's child went out into the for\u200Best and sat down by the side of the cool foun\u200Btain; and when she was bored she took a golden ball, and threw it up on high and caught it; and this ball was her favor\u200Bite play\u200Bthing."
+const FairyTales = "In olden times when wish\u00ADing still helped one there\u2001lived a king\u2001whose daugh\u00ADters were all beau\u00ADti\u00ADful; and the young\u00ADest was so beautiful that the sun it\u00ADself, which has seen so much, was aston\u00ADished when\u00ADever it shone in her face. Close by the king's castle lay a great dark for\u00ADest, and un\u00ADder an old lime-tree in the for\u00ADest was a well, and when the day was very warm, the king's child went out into the for\u00ADest and sat down by the side of the cool foun\u00ADtain; and when she was bored she took a golden ball, and threw it up on high and caught it; and this ball was her favor\u00ADite play\u00ADthing."
 
 // SpaceStretch is the stretchability of spaces.
 var SpaceStretch = 1.0 / 2.0
@@ -506,7 +543,7 @@ func isUpper(s string) bool {
 
 func isSpace(s string) bool {
 	// no-break spaces such as U+00A0, U+180E, U+202F, and U+FEFF are used as boxes
-	spaces := []rune(" \u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u205F\u3000")
+	spaces := []rune(" \t\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u205F\u3000")
 	if r, size := utf8.DecodeRuneInString(s); size == len(s) {
 		for _, space := range spaces {
 			if r == space {
@@ -619,15 +656,17 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 				items = append(items, Penalty(0.0, -Infinity, false))
 			}
 			items[len(items)-1].Size++
-		} else if glyph.Text == "\u200B" {
+		} else if glyph.Text == "\u00AD" || glyph.Text == "\u200B" {
 			// optional hyphens
 			var hyphenWidth float64
-			if !glyph.Vertical {
-				hyphenWidth = float64(glyph.SFNT.GlyphAdvance(glyph.SFNT.GlyphIndex('-')))
-			} else {
-				hyphenWidth = float64(glyph.SFNT.GlyphVerticalAdvance(glyph.SFNT.GlyphIndex('-')))
+			if glyph.Text == "\u00AD" {
+				if !glyph.Vertical {
+					hyphenWidth = float64(glyph.SFNT.GlyphAdvance(glyph.SFNT.GlyphIndex('-')))
+				} else {
+					hyphenWidth = float64(glyph.SFNT.GlyphVerticalAdvance(glyph.SFNT.GlyphIndex('-')))
+				}
+				hyphenWidth *= glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
 			}
-			hyphenWidth *= glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
 			if align == Justified {
 				items = append(items, Penalty(hyphenWidth, HyphenPenalty, true))
 				items[len(items)-1].Size++
