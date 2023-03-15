@@ -153,6 +153,8 @@ type CoordSystem int
 // see CoordSystem
 const (
 	CartesianI CoordSystem = iota
+	CartesianII
+	CartesianIII
 	CartesianIV
 )
 
@@ -447,6 +449,19 @@ func (c *Context) FillStroke() {
 	c.path = &Path{}
 }
 
+func (c *Context) coord(x, y float64) Point {
+	coord := c.coordView.Dot(Point{x, y})
+	switch c.coordSystem {
+	case CartesianII:
+		coord = Identity.ReflectXAbout(c.Width() / 2.0).Dot(coord)
+	case CartesianIII:
+		coord = Identity.ReflectXAbout(c.Width() / 2.0).ReflectYAbout(c.Height() / 2.0).Dot(coord)
+	case CartesianIV:
+		coord = Identity.ReflectYAbout(c.Height() / 2.0).Dot(coord)
+	}
+	return coord
+}
+
 // FitImage fits an image to a rectangle using different fit strategies.
 func (c *Context) FitImage(img image.Image, rect Rect, fit ImageFit) {
 	if img.Bounds().Size().Eq(image.Point{}) || rect.W == 0 || rect.H == 0 {
@@ -495,15 +510,13 @@ func (c *Context) FitImage(img image.Image, rect Rect, fit ImageFit) {
 		// ImageFill
 	}
 
-	var coord Point
-	if c.coordSystem == CartesianI {
-		coord = c.coordView.Dot(Point{x, y})
-	} else if c.coordSystem == CartesianIV {
-		coord = Identity.ReflectYAbout(c.Height() / 2.0).Mul(c.coordView).Dot(Point{x, y})
-	}
-	m := c.view.Translate(coord.X, coord.Y).Scale(1.0/xres, 1.0/yres)
-	if c.coordSystem == CartesianIV {
+	coord := c.coord(x, y)
+	m := Identity.Translate(coord.X, coord.Y).Mul(c.view).Scale(1.0/xres, 1.0/yres)
+	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
 		m = m.Translate(0.0, -float64(img.Bounds().Size().Y))
+	}
+	if c.coordSystem == CartesianII || c.coordSystem == CartesianIII {
+		m = m.Translate(-float64(img.Bounds().Size().X), 0.0)
 	}
 	c.RenderImage(img, m)
 }
@@ -514,12 +527,8 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 		return
 	}
 
-	coord := c.coordView.Dot(Point{x, y})
-	m := Identity
-	if c.coordSystem == CartesianIV {
-		m = m.ReflectYAbout(c.Height() / 2.0)
-	}
-	m = m.Mul(c.view).Translate(coord.X, coord.Y)
+	coord := c.coord(x, y)
+	m := Identity.Translate(coord.X, coord.Y).Mul(c.view)
 	for _, path := range paths {
 		var ok bool
 		style := c.Style
@@ -533,12 +542,8 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 
 // DrawText draws text at position (x,y) using the current draw state.
 func (c *Context) DrawText(x, y float64, texts ...*Text) {
-	coordView := Identity
-	if c.coordSystem == CartesianIV {
-		coordView = coordView.ReflectYAbout(c.Height() / 2.0)
-	}
-	coord := coordView.Mul(c.coordView).Dot(Point{x, y})
-	m := c.view.Translate(coord.X, coord.Y)
+	coord := c.coord(x, y)
+	m := Identity.Translate(coord.X, coord.Y).Mul(c.view)
 	for _, text := range texts {
 		if text.Empty() {
 			continue
@@ -553,15 +558,13 @@ func (c *Context) DrawImage(x, y float64, img image.Image, resolution Resolution
 		return
 	}
 
-	var coord Point
-	if c.coordSystem == CartesianI {
-		coord = c.coordView.Dot(Point{x, y})
-	} else if c.coordSystem == CartesianIV {
-		coord = Identity.ReflectYAbout(c.Height() / 2.0).Mul(c.coordView).Dot(Point{x, y})
-	}
-	m := c.view.Translate(coord.X, coord.Y).Scale(1.0/resolution.DPMM(), 1.0/resolution.DPMM())
-	if c.coordSystem == CartesianIV {
+	coord := c.coord(x, y)
+	m := Identity.Translate(coord.X, coord.Y).Mul(c.view).Scale(1.0/resolution.DPMM(), 1.0/resolution.DPMM())
+	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
 		m = m.Translate(0.0, -float64(img.Bounds().Size().Y))
+	}
+	if c.coordSystem == CartesianII || c.coordSystem == CartesianIII {
+		m = m.Translate(-float64(img.Bounds().Size().X), 0.0)
 	}
 	c.RenderImage(img, m)
 }
