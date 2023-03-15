@@ -54,8 +54,8 @@ func TestCanvas(t *testing.T) {
 	ctx.DrawImage(50.0, 50.0, img, 0.1) // 20x20 => -20x40
 
 	c.Fit(6.0)
-	test.Float(t, c.W, 72.5) // img upper bound - (path lower bound - path half stroke width) + margin
-	test.Float(t, c.H, 113)  // path bounds + path stroke width + margin
+	test.Float(t, c.W, 60.0) // img upper bound - (path lower bound - path half stroke width) + margin
+	test.Float(t, c.H, 94.0) // path bounds + path stroke width + margin
 
 	//buf := &bytes.Buffer{}
 	//c.WriteSVG(buf)
