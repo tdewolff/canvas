@@ -685,12 +685,11 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			if 0 < len(t.lines[j].spans) { // not if there is an empty first line
 				// add spaces to previous span
 				for _, glyph := range glyphs[i : i+item.Size] {
-					if glyph.Text != "\u200B" {
-						t.lines[j].spans[len(t.lines[j].spans)-1].Text += glyph.Text
-					}
+					t.lines[j].spans[len(t.lines[j].spans)-1].Text += glyph.Text
 				}
 
-				if item.Type == canvasText.PenaltyType && item.Flagged && item.Width != 0.0 {
+				// hyphenate at breakpoint
+				if item.Type == canvasText.PenaltyType && item.Size == 1 && glyphs[i].Text == "\u00AD" {
 					span := &t.lines[j].spans[len(t.lines[j].spans)-1]
 					id := span.Face.Font.GlyphIndex('-')
 					glyph := canvasText.Glyph{

@@ -453,7 +453,7 @@ type FontFace struct {
 	// line height
 	// shadow
 
-	mmPerEm float64
+	mmPerEm float64 // millimeters per EM unit!
 }
 
 // Equals returns true when two font face are equal.
@@ -508,7 +508,7 @@ func (face *FontFace) Metrics() FontMetrics {
 // PPEM returns the pixels-per-EM for a given resolution of the font face.
 func (face *FontFace) PPEM(resolution Resolution) uint16 {
 	// ppem is for hinting purposes only, this does not influence glyph advances
-	return uint16(resolution.DPMM() * face.mmPerEm)
+	return uint16(resolution.DPMM() * face.mmPerEm * float64(face.Font.Head.UnitsPerEm))
 }
 
 // LineHeight returns the height (ascent+descent) of a line.
