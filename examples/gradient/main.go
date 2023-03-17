@@ -6,11 +6,12 @@ import (
 )
 
 func main() {
-	// Create new canvas of dimension 100x100 mm
 	c := canvas.New(1000, 1000)
-
-	// Create a canvas context used to keep drawing state
 	ctx := canvas.NewContext(c)
+
+	ctx.SetFillColor(canvas.White)
+	ctx.DrawPath(0, 0, canvas.Rectangle(ctx.Width(), ctx.Height()))
+	ctx.Fill()
 
 	// Create a triangle path from an SVG path and draw it to the canvas
 	triangle, err := canvas.ParseSVG("L600 00L300 600z")
@@ -31,15 +32,14 @@ func main() {
 		panic(err)
 	}
 
-	f := canvas.NewLinearGradient(0, 0, 100, 100)
-	f.AddColorStop(0, canvas.Antiquewhite)
-	f.AddColorStop(1, canvas.Greenyellow)
+	f := canvas.NewLinearGradient(0, 0, 300, 200)
+	f.AddColorStop(0, canvas.Red)
+	f.AddColorStop(1, canvas.Blue)
 
-	face := fontDejaVu.Face(100.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	face := fontDejaVu.Face(300.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	face.GradientInfo = &f
 
-	ctx.DrawText(10, 10, canvas.NewTextLine(face, "Lorem ipsum", canvas.Left))
+	ctx.DrawText(10, 30, canvas.NewTextLine(face, "Lorem ipsum", canvas.Left))
 
-	// Rasterize the canvas and write to a PNG file with 3.2 dots-per-mm (320x320 px)
 	renderers.Write("out.png", c)
 }
