@@ -144,7 +144,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 
 	// we can only handle line-line, line-quad, line-cube, and line-arc intersections
 	if !p.Flat() {
-		q = q.Flatten()
+		q = q.Flatten(Tolerance)
 	}
 	ccwA, ccwB := true, true // by default true after Settle, except when operation is Settle
 	ps, qs := p.Split(), q.Split()
@@ -753,7 +753,7 @@ func cutPathSegment(start Point, d []float64, t float64) (*Path, *Path) {
 // Intersects returns true if path p and path q intersect.
 func (p *Path) Intersects(q *Path) bool {
 	if !p.Flat() {
-		q = q.Flatten()
+		q = q.Flatten(Tolerance)
 	}
 	zs := collisions(p.Split(), q.Split(), false)
 	return 0 < len(zs)
@@ -762,7 +762,7 @@ func (p *Path) Intersects(q *Path) bool {
 // Intersections for path p by path q, sorted for path p.
 func (p *Path) Intersections(q *Path) intersections {
 	if !p.Flat() {
-		q = q.Flatten()
+		q = q.Flatten(Tolerance)
 	}
 	return collisions(p.Split(), q.Split(), false)
 }
@@ -770,7 +770,7 @@ func (p *Path) Intersections(q *Path) intersections {
 // Touches returns true if path p and path q touch or intersect.
 func (p *Path) Touches(q *Path) bool {
 	if !p.Flat() {
-		q = q.Flatten()
+		q = q.Flatten(Tolerance)
 	}
 	zs := collisions(p.Split(), q.Split(), true)
 	return 0 < len(zs)
@@ -779,7 +779,7 @@ func (p *Path) Touches(q *Path) bool {
 // Collisions (secants/intersections and tangents/touches) for path p by path q, sorted for path p.
 func (p *Path) Collisions(q *Path) intersections {
 	if !p.Flat() {
-		q = q.Flatten()
+		q = q.Flatten(Tolerance)
 	}
 	return collisions(p.Split(), q.Split(), true)
 }

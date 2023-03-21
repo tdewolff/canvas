@@ -14,8 +14,8 @@ import (
 // Tolerance is the maximum deviation from the original path in millimeters when e.g. flatting.
 var Tolerance = 0.01
 
-// RasterizerTolerance is the maximum deviation of the rasterized path from the original in pixels
-var RasterizerTolerance = 0.1
+// PixelTolerance is the maximum deviation of the rasterized path from the original in pixels
+var PixelTolerance = 0.1
 
 // FillRule is the algorithm to specify which area is to be filled and which not, in particular when multiple subpaths overlap. The NonZero rule is the default and will fill any point that is being enclosed by an unequal number of paths winding clockwise and counter clockwise, otherwise it will not be filled. The EvenOdd rule will fill any point that is being enclosed by an uneven number of paths, whichever their direction.
 type FillRule int
@@ -901,9 +901,18 @@ func (p *Path) Flat() bool {
 	return true
 }
 
-// Flatten flattens all Bézier and arc curves into linear segments and returns a new path. It uses Tolerance as the maximum deviation.
-func (p *Path) Flatten() *Path {
-	return p.replace(nil, flattenQuadraticBezier, flattenCubicBezier, flattenEllipticArc)
+// Flatten flattens all Bézier and arc curves into linear segments and returns a new path. It uses tolerance as the maximum deviation.
+func (p *Path) Flatten(tolerance float64) *Path {
+	quad := func(p0, p1, p2 Point) *Path {
+		return flattenQuadraticBezier(p0, p1, p2, tolerance)
+	}
+	cube := func(p0, p1, p2, p3 Point) *Path {
+		return flattenCubicBezier(p0, p1, p2, p3, tolerance)
+	}
+	arc := func(start Point, rx, ry, phi float64, large, sweep bool, end Point) *Path {
+		return flattenEllipticArc(start, rx, ry, phi, large, sweep, end, tolerance)
+	}
+	return p.replace(nil, quad, cube, arc)
 }
 
 // ReplaceArcs replaces ArcTo commands by CubeTo commands.
@@ -1926,11 +1935,7 @@ func (p *Path) ToPDF() string {
 // ToRasterizer rasterizes the path using the given rasterizer and resolution.
 func (p *Path) ToRasterizer(ras *vector.Rasterizer, resolution Resolution) {
 	dpmm := resolution.DPMM()
-
-	oldTolerance := Tolerance
-	Tolerance = RasterizerTolerance / dpmm // tolerance of 1/10 of a pixel
-	p = p.Flatten()
-	Tolerance = oldTolerance
+	p = p.Flatten(PixelTolerance / dpmm) // tolerance of 1/10 of a pixel
 
 	dy := float64(ras.Bounds().Size().Y)
 	for i := 0; i < len(p.d); {

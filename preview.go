@@ -207,8 +207,8 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	// Draw path boolean operations
 	a := Circle(5.0)
 	b := Circle(5.0).Translate(5.0, 0.0)
-	a = a.Flatten()
-	b = b.Flatten()
+	a = a.Flatten(Tolerance)
+	b = b.Flatten(Tolerance)
 	ctx.SetFillColor(Transparent)
 	ctx.SetStrokeColor(Hex("#CCC"))
 	ctx.SetStrokeWidth(0.1)

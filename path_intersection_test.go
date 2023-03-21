@@ -353,11 +353,11 @@ func TestIntersections(t *testing.T) {
 		{"M4 1L4 3L0 3", "M3 4L4 3L3 2", intersections{
 			{Point{4.0, 3.0}, 2, 2, 0.0, 0.0, math.Pi, 1.25 * math.Pi, BintoA, NoParallel},
 		}},
-		{"M0 1L4 1L4 3L0 3z", MustParseSVG("M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z").Flatten().ToSVG(), intersections{
+		{"M0 1L4 1L4 3L0 3z", MustParseSVG("M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z").Flatten(Tolerance).ToSVG(), intersections{
 			{Point{4.0, 3.0}, 3, 1, 0.0, 0.0, math.Pi, 262.01783160 * math.Pi / 180.0, BintoA, NoParallel},
 			{Point{2.0, 3.0}, 3, 13, 0.5, 0.0, math.Pi, 82.01783160 * math.Pi / 180.0, AintoB, NoParallel},
 		}},
-		{"M5 1L9 1L9 5L5 5z", MustParseSVG("M9 5A4 4 0 0 1 1 5A4 4 0 0 1 9 5z").Flatten().ToSVG(), intersections{
+		{"M5 1L9 1L9 5L5 5z", MustParseSVG("M9 5A4 4 0 0 1 1 5A4 4 0 0 1 9 5z").Flatten(Tolerance).ToSVG(), intersections{
 			{Point{5.0, 1.0}, 1, 37, 0.0, 0.0, 0.0, 4.02145240 * math.Pi / 180.0, BintoA, NoParallel},
 			{Point{9.0, 5.0}, 3, 1, 0.0, 0.0, math.Pi, 94.02145240 * math.Pi / 180.0, AintoB, NoParallel},
 		}},

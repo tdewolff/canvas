@@ -296,8 +296,6 @@ func TestPathCCW(t *testing.T) {
 }
 
 func TestPathBounds(t *testing.T) {
-	defer setEpsilon(1e-6)()
-
 	var tts = []struct {
 		p      string
 		bounds Rect
@@ -322,7 +320,9 @@ func TestPathBounds(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
+			reset := setEpsilon(1e-6)
 			test.T(t, MustParseSVG(tt.p).Bounds(), tt.bounds)
+			reset()
 		})
 	}
 }
@@ -359,8 +359,6 @@ func TestPathLength(t *testing.T) {
 }
 
 func TestPathTransform(t *testing.T) {
-	defer setEpsilon(1e-6)()
-
 	var tts = []struct {
 		p string
 		m Matrix
@@ -374,7 +372,9 @@ func TestPathTransform(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.r, func(t *testing.T) {
+			reset := setEpsilon(1e-6)
 			test.T(t, MustParseSVG(tt.p).Transform(tt.m), MustParseSVG(tt.r))
+			reset()
 		})
 	}
 }
@@ -461,8 +461,6 @@ func TestPathMarkers(t *testing.T) {
 }
 
 func TestPathMarkersAligned(t *testing.T) {
-	defer setEpsilon(1e-3)()
-
 	start := MustParseSVG("L1 0L0 1z")
 	mid := MustParseSVG("M-1 0A1 1 0 0 0 1 0z")
 	end := MustParseSVG("L-1 0L0 1z")
@@ -482,6 +480,7 @@ func TestPathMarkersAligned(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
+			reset := setEpsilon(1e-3)
 			p := MustParseSVG(tt.p)
 			ps := p.Markers(start, mid, end, true)
 			if len(ps) != len(tt.rs) {
@@ -495,6 +494,7 @@ func TestPathMarkersAligned(t *testing.T) {
 					test.T(t, p, MustParseSVG(tt.rs[i]))
 				}
 			}
+			reset()
 		})
 	}
 }
@@ -533,8 +533,6 @@ func TestPathSplit(t *testing.T) {
 }
 
 func TestPathSplitAt(t *testing.T) {
-	defer setEpsilon(1e-3)()
-
 	var tts = []struct {
 		p  string
 		d  []float64
@@ -553,6 +551,7 @@ func TestPathSplitAt(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
+			reset := setEpsilon(1e-3)
 			p := MustParseSVG(tt.p)
 			ps := p.SplitAt(tt.d...)
 			if len(ps) != len(tt.rs) {
@@ -566,6 +565,7 @@ func TestPathSplitAt(t *testing.T) {
 					test.T(t, p, MustParseSVG(tt.rs[i]))
 				}
 			}
+			reset()
 		})
 	}
 }

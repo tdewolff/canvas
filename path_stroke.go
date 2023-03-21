@@ -297,7 +297,7 @@ type pathStrokeState struct {
 }
 
 // offsetSegment returns the rhs and lhs paths from offsetting a path segment. It closes rhs and lhs when p is closed as well.
-func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Path) {
+func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner, tolerance float64) (*Path, *Path) {
 	// only non-empty paths are evaluated
 	closed := false
 	states := []pathStrokeState{}
@@ -406,8 +406,8 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner) (*Path, *Pa
 			rhs.LineTo(rEnd.X, rEnd.Y)
 			lhs.LineTo(lEnd.X, lEnd.Y)
 		case CubeToCmd:
-			rhs = rhs.Join(strokeCubicBezier(cur.p0, cur.cp1, cur.cp2, cur.p1, halfWidth, Tolerance))
-			lhs = lhs.Join(strokeCubicBezier(cur.p0, cur.cp1, cur.cp2, cur.p1, -halfWidth, Tolerance))
+			rhs = rhs.Join(strokeCubicBezier(cur.p0, cur.cp1, cur.cp2, cur.p1, halfWidth, tolerance))
+			lhs = lhs.Join(strokeCubicBezier(cur.p0, cur.cp1, cur.cp2, cur.p1, -halfWidth, tolerance))
 		case ArcToCmd:
 			rStart := cur.p0.Add(cur.n0)
 			lStart := cur.p0.Sub(cur.n0)
@@ -555,7 +555,7 @@ func (p *Path) Offset(w float64, fillRule FillRule) *Path {
 			useRHS = !useRHS
 		}
 
-		rhs, lhs := offsetSegment(ps, math.Abs(w), ButtCap, RoundJoin)
+		rhs, lhs := offsetSegment(ps, math.Abs(w), ButtCap, RoundJoin, Tolerance)
 		if useRHS {
 			q = q.Append(rhs)
 		} else {
@@ -571,7 +571,7 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
 	q := &Path{}
 	halfWidth := w / 2.0
 	for _, ps := range p.Split() {
-		rhs, lhs := offsetSegment(ps, halfWidth, cr, jr)
+		rhs, lhs := offsetSegment(ps, halfWidth, cr, jr, Tolerance)
 		if lhs != nil { // closed path
 			// inner path should go opposite direction to cancel the outer path
 			if ps.CCW() {

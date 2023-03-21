@@ -7,7 +7,7 @@ type Polyline struct {
 
 // PolylineFromPath returns a polyline from the given path by approximating it by linear line segments, i.e. by flattening.
 func PolylineFromPath(p *Path) *Polyline {
-	return &Polyline{p.Flatten().Coords()}
+	return &Polyline{p.Flatten(Tolerance).Coords()}
 }
 
 // PolylineFromPathCoords returns a polyline from the given path from each of the start/end coordinates of the segments, i.e. converting all non-linear segments to linear ones.

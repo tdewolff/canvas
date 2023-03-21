@@ -9,8 +9,6 @@ import (
 )
 
 func TestPathStroke(t *testing.T) {
-	defer setTolerance(1.0)()
-	defer setEpsilon(1e-3)()
 
 	var tts = []struct {
 		orig   string
@@ -71,8 +69,12 @@ func TestPathStroke(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
+			resetEps := setEpsilon(1e-3)
+			resetTol := setTolerance(1.0)
 			stroke := MustParseSVG(tt.orig).Stroke(tt.w, tt.cp, tt.jr)
 			test.T(t, stroke, MustParseSVG(tt.stroke))
+			resetEps()
+			resetTol()
 		})
 	}
 }
