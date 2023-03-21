@@ -119,13 +119,13 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	ctx.DrawPath(x, y+metrics.CapHeight-metrics.Ascent, Rectangle(width, -metrics.CapHeight-metrics.Descent))
 	ctx.DrawPath(x, y+metrics.XHeight-metrics.Ascent, Rectangle(width, -metrics.XHeight))
 	ctx.SetFillColor(Black)
-	ctx.DrawPath(x, y, Rectangle(width, -height).Stroke(0.2, RoundCap, RoundJoin))
+	ctx.DrawPath(x, y, Rectangle(width, -height).Stroke(0.2, RoundCap, RoundJoin, Tolerance))
 	ctx.DrawText(x, y, text)
 
 	// Draw the word Stroke being stroked
 	face = fontLatin.Face(80.0, Black, FontRegular, FontNormal)
 	p, _, _ := face.ToPath("Stroke")
-	ctx.DrawPath(100, 5, p.Stroke(0.75, RoundCap, RoundJoin))
+	ctx.DrawPath(100, 5, p.Stroke(0.75, RoundCap, RoundJoin, Tolerance))
 
 	// Draw a LaTeX formula
 	if runtime.GOOS != "js" {

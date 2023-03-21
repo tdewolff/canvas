@@ -531,8 +531,8 @@ func optimizeMoveTo(p *Path) {
 	}
 }
 
-// Offset offsets the path to expand by w and returns a new path. If w is negative it will contract. Path must be closed.
-func (p *Path) Offset(w float64, fillRule FillRule) *Path {
+// Offset offsets the path to expand by w and returns a new path. If w is negative it will contract. Path must be closed. The tolerance is the maximum deviation from the actual offset when flattening Béziers and optimizing the path.
+func (p *Path) Offset(w float64, fillRule FillRule, tolerance float64) *Path {
 	if Equal(w, 0.0) {
 		return p
 	}
@@ -555,7 +555,7 @@ func (p *Path) Offset(w float64, fillRule FillRule) *Path {
 			useRHS = !useRHS
 		}
 
-		rhs, lhs := offsetSegment(ps, math.Abs(w), ButtCap, RoundJoin, Tolerance)
+		rhs, lhs := offsetSegment(ps, math.Abs(w), ButtCap, RoundJoin, tolerance)
 		if useRHS {
 			q = q.Append(rhs)
 		} else {
@@ -566,12 +566,12 @@ func (p *Path) Offset(w float64, fillRule FillRule) *Path {
 }
 
 // Stroke converts a path into a stroke of width w and returns a new path. It uses cr to cap the start and end of the path, and jr to join all path elements. If the path closes itself, it will use a join between the start and end instead of capping them. The tolerance is the maximum deviation from the original path when flattening Béziers and optimizing the stroke.
-func (p *Path) Stroke(w float64, cr Capper, jr Joiner) *Path {
+func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path {
 	// TODO: start first point at intersection between last and first segment. This allows a rectangle to have a stroke with twice 1xM, 3xL and one z command, just like a rectangle itself.
 	q := &Path{}
 	halfWidth := w / 2.0
 	for _, ps := range p.Split() {
-		rhs, lhs := offsetSegment(ps, halfWidth, cr, jr, Tolerance)
+		rhs, lhs := offsetSegment(ps, halfWidth, cr, jr, tolerance)
 		if lhs != nil { // closed path
 			// inner path should go opposite direction to cancel the outer path
 			if ps.CCW() {

@@ -15,14 +15,6 @@ func setEpsilon(epsilon float64) func() {
 	}
 }
 
-func setTolerance(tolerance float64) func() {
-	origTolerance := Tolerance
-	Tolerance = tolerance
-	return func() {
-		Tolerance = origTolerance
-	}
-}
-
 func TestCanvas(t *testing.T) {
 	path := MustParseSVG("M10 0L20 0Q25 10 30 0C30 10 40 10 40 0A5 5 0 0 0 50 0z")
 

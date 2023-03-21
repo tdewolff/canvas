@@ -582,7 +582,7 @@ func (face *FontFace) toPath(glyphs []text.Glyph, ppem uint16) (*Path, float64, 
 	}
 
 	if face.FauxBold != 0.0 {
-		p = p.Offset(face.FauxBold*face.Size, NonZero)
+		p = p.Offset(face.FauxBold*face.Size, NonZero, Tolerance)
 	}
 	if face.FauxItalic != 0.0 {
 		p = p.Transform(Identity.Shear(face.FauxItalic, 0.0))
@@ -619,7 +619,7 @@ func (underline) Decorate(face *FontFace, w float64) *Path {
 	p := &Path{}
 	p.MoveTo(0.0, y)
 	p.LineTo(w, y)
-	return p.Stroke(r, ButtCap, BevelJoin)
+	return p.Stroke(r, ButtCap, BevelJoin, Tolerance)
 }
 
 func (underline) String() string {
@@ -645,7 +645,7 @@ func (overline) Decorate(face *FontFace, w float64) *Path {
 	p := &Path{}
 	p.MoveTo(dx, y)
 	p.LineTo(w, y)
-	return p.Stroke(r, ButtCap, BevelJoin)
+	return p.Stroke(r, ButtCap, BevelJoin, Tolerance)
 }
 
 func (overline) String() string {
@@ -674,7 +674,7 @@ func (strikethrough) Decorate(face *FontFace, w float64) *Path {
 	p := &Path{}
 	p.MoveTo(dx, y)
 	p.LineTo(w, y)
-	return p.Stroke(r, ButtCap, BevelJoin)
+	return p.Stroke(r, ButtCap, BevelJoin, Tolerance)
 }
 
 func (strikethrough) String() string {
@@ -702,7 +702,7 @@ func (doubleUnderline) Decorate(face *FontFace, w float64) *Path {
 	p.LineTo(w, y)
 	p.MoveTo(0.0, y-1.5*r)
 	p.LineTo(w, y-1.5*r)
-	return p.Stroke(r, ButtCap, BevelJoin)
+	return p.Stroke(r, ButtCap, BevelJoin, Tolerance)
 }
 
 func (doubleUnderline) String() string {
@@ -773,7 +773,7 @@ func (dashedUnderline) Decorate(face *FontFace, w float64) *Path {
 		d = w / float64(n)
 		p = p.Dash(0.0, d)
 	}
-	return p.Stroke(r, ButtCap, BevelJoin)
+	return p.Stroke(r, ButtCap, BevelJoin, Tolerance)
 }
 
 func (dashedUnderline) String() string {
@@ -818,7 +818,7 @@ func (wavyUnderline) Decorate(face *FontFace, w float64) *Path {
 		}
 		dx += d
 	}
-	return p.Stroke(r, ButtCap, MiterJoin)
+	return p.Stroke(r, ButtCap, MiterJoin, Tolerance)
 }
 
 func (wavyUnderline) String() string {
@@ -862,7 +862,7 @@ func (sineUnderline) Decorate(face *FontFace, w float64) *Path {
 		}
 		dx += d
 	}
-	return p.Stroke(r, RoundCap, RoundJoin)
+	return p.Stroke(r, RoundCap, RoundJoin, Tolerance)
 }
 
 func (sineUnderline) String() string {
@@ -905,7 +905,7 @@ func (sawtoothUnderline) Decorate(face *FontFace, w float64) *Path {
 		}
 		dx += d
 	}
-	return p.Stroke(r, ButtCap, MiterJoin)
+	return p.Stroke(r, ButtCap, MiterJoin, Tolerance)
 }
 
 func (sawtoothUnderline) String() string {

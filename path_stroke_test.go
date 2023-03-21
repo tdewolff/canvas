@@ -9,7 +9,7 @@ import (
 )
 
 func TestPathStroke(t *testing.T) {
-
+	tolerance := 1.0
 	var tts = []struct {
 		orig   string
 		w      float64
@@ -70,11 +70,9 @@ func TestPathStroke(t *testing.T) {
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
 			resetEps := setEpsilon(1e-3)
-			resetTol := setTolerance(1.0)
-			stroke := MustParseSVG(tt.orig).Stroke(tt.w, tt.cp, tt.jr)
+			stroke := MustParseSVG(tt.orig).Stroke(tt.w, tt.cp, tt.jr, tolerance)
 			test.T(t, stroke, MustParseSVG(tt.stroke))
 			resetEps()
-			resetTol()
 		})
 	}
 }
@@ -95,6 +93,7 @@ func TestPathStrokeEllipse(t *testing.T) {
 }
 
 func TestPathOffset(t *testing.T) {
+	tolerance := 0.01
 	var tts = []struct {
 		orig   string
 		w      float64
@@ -107,7 +106,7 @@ func TestPathOffset(t *testing.T) {
 	}
 	for j, tt := range tts {
 		t.Run(fmt.Sprintf("%v", j), func(t *testing.T) {
-			offset := MustParseSVG(tt.orig).Offset(tt.w, NonZero)
+			offset := MustParseSVG(tt.orig).Offset(tt.w, NonZero, tolerance)
 			test.T(t, offset, MustParseSVG(tt.offset))
 		})
 	}
