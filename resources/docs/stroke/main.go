@@ -31,13 +31,13 @@ func drawStrokedPath(c *canvas.Context, x, y float64, path string, cr canvas.Cap
 		panic(err)
 	}
 
-	outerStroke := p.Stroke(strokeWidth, cr, jr)
+	outerStroke := p.Stroke(strokeWidth, cr, jr, 0.01)
 	c.SetFillColor(canvas.Lightblue)
 	c.DrawPath(x, y, outerStroke)
 	c.SetFillColor(color.RGBA{155, 194, 207, 255})
-	c.DrawPath(x, y, outerStroke.Stroke(0.3, canvas.ButtCap, canvas.RoundJoin))
+	c.DrawPath(x, y, outerStroke.Stroke(0.3, canvas.ButtCap, canvas.RoundJoin, 0.01))
 	c.SetFillColor(canvas.Black)
-	c.DrawPath(x, y, p.Stroke(0.5, canvas.ButtCap, canvas.BevelJoin))
+	c.DrawPath(x, y, p.Stroke(0.5, canvas.ButtCap, canvas.BevelJoin, 0.01))
 }
 
 func drawText(c *canvas.Context, x, y float64, text string) {

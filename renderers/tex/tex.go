@@ -228,7 +228,7 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		if style.IsDashed() {
 			path = path.Dash(style.DashOffset, style.Dashes...)
 		}
-		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
+		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner, canvas.Tolerance)
 		r.writePath(path.Transform(m))
 		r.setFillColor(style.StrokeColor)
 		fmt.Fprintf(r.w, "\n\\pgfusepath{fill}")

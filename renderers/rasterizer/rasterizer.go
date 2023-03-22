@@ -73,7 +73,7 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		if 0 < len(style.Dashes) {
 			stroke = stroke.Dash(style.DashOffset, style.Dashes...)
 		}
-		stroke = stroke.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
+		stroke = stroke.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner, canvas.Tolerance)
 		stroke = stroke.Transform(m)
 		bounds = stroke.Bounds()
 	}

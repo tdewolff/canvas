@@ -120,7 +120,7 @@ func (r *Gio) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		if style.IsDashed() {
 			path = path.Dash(style.DashOffset, style.Dashes...)
 		}
-		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
+		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner, canvas.Tolerance)
 		r.renderPath(path.Transform(m), style.StrokeColor)
 	}
 }

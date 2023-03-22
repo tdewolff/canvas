@@ -257,7 +257,7 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		if style.IsDashed() {
 			stroke = stroke.Dash(style.DashOffset, style.Dashes...)
 		}
-		stroke = stroke.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
+		stroke = stroke.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner, canvas.Tolerance)
 		stroke = stroke.Transform(canvas.Identity.ReflectYAbout(r.height / 2.0).Mul(m))
 		fmt.Fprintf(r.w, `<path d="%s`, stroke.ToSVG())
 		if style.StrokeColor != canvas.Black {

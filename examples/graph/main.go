@@ -87,10 +87,10 @@ func draw(c *canvas.Context) {
 	}
 
 	c.SetFillColor(canvas.Seagreen)
-	c.DrawPath(0, 0, trendLine.ToPath().Transform(viewport).Stroke(0.4, canvas.RoundCap, canvas.RoundJoin))
+	c.DrawPath(0, 0, trendLine.ToPath().Transform(viewport).Stroke(0.4, canvas.RoundCap, canvas.RoundJoin, 0.01))
 
 	c.SetFillColor(color.RGBA{192, 0, 64, 255})
-	c.DrawPath(0, 0, co2Line.ToPath().Transform(viewport).Stroke(0.1, canvas.RoundCap, canvas.RoundJoin))
+	c.DrawPath(0, 0, co2Line.ToPath().Transform(viewport).Stroke(0.1, canvas.RoundCap, canvas.RoundJoin, 0.01))
 	marker := canvas.Ellipse(0.3, 0.3)
 	for _, m := range co2Line.ToPath().Transform(viewport).Markers(marker, marker, marker, false) {
 		c.DrawPath(0, 0, m)
