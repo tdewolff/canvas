@@ -101,11 +101,9 @@ func TestToFromFixed(t *testing.T) {
 }
 
 func TestPoint(t *testing.T) {
-	defer setEpsilon(1e-6)()
-
 	p := Point{3, 4}
 	test.T(t, p.Mul(2.0), Point{6, 8})
-	test.T(t, p.Div(3.0), Point{1, 1.333333})
+	test.T(t, p.Div(3.0), Point{1, 4.0 / 3.0})
 	test.T(t, p.Rot90CW(), Point{4, -3})
 	test.T(t, p.Rot90CCW(), Point{-4, 3})
 	test.T(t, p.Rot(90*math.Pi/180.0, Point{}), p.Rot90CCW())
@@ -113,7 +111,7 @@ func TestPoint(t *testing.T) {
 	test.Float(t, p.Dot(Point{3, 0}), 9.0)
 	test.Float(t, p.PerpDot(Point{3, 0}), p.Rot90CCW().Dot(Point{3, 0}))
 	test.Float(t, p.Length(), 5.0)
-	test.Float(t, p.Slope(), 1.333333)
+	test.Float(t, p.Slope(), 4.0/3.0)
 	test.Float(t, p.Angle(), 53.130095*math.Pi/180.0)
 	test.Float(t, p.AngleBetween(p.Rot90CCW()), 90.0*math.Pi/180.0)
 	test.Float(t, Point{0, 0}.AngleBetween(p), 0.0)
@@ -127,8 +125,6 @@ func TestPoint(t *testing.T) {
 }
 
 func TestRect(t *testing.T) {
-	defer setEpsilon(1e-6)()
-
 	r := Rect{0, 0, 5, 5}
 	test.T(t, r.Move(Point{3, 3}), Rect{3, 3, 5, 5})
 	test.T(t, r.Add(Rect{5, 5, 5, 5}), Rect{0, 0, 10, 10})
@@ -137,7 +133,8 @@ func TestRect(t *testing.T) {
 	test.T(t, r.AddPoint(Point{10, 10}), Rect{0, 0, 10, 10})
 	test.T(t, r.AddPoint(Point{-10, -10}), Rect{-10, -10, 15, 15})
 	test.T(t, r.Transform(Identity.Rotate(90)), Rect{-5, 0, 5, 5})
-	test.T(t, r.Transform(Identity.Rotate(45)), Rect{-3.535533, 0.0, 7.071068, 7.071068})
+	diag := math.Sqrt(25.0 / 2.0)
+	test.T(t, r.Transform(Identity.Rotate(45)), Rect{-diag, 0.0, 2.0 * diag, 2.0 * diag})
 	test.T(t, r.Contains(Point{1, 1}), true)
 	test.T(t, r.Contains(Point{6, 6}), false)
 	test.T(t, r.Contains(Point{-1, 1}), false)
@@ -154,8 +151,6 @@ func TestRect(t *testing.T) {
 }
 
 func TestMatrix(t *testing.T) {
-	defer setEpsilon(1e-6)()
-
 	p := Point{3, 4}
 	test.T(t, Identity.Translate(2.0, 2.0).Dot(p), Point{5.0, 6.0})
 	test.T(t, Identity.Scale(2.0, 2.0).Dot(p), Point{6.0, 8.0})
@@ -180,11 +175,12 @@ func TestMatrix(t *testing.T) {
 	test.T(t, v1, Point{1.0, 0.0})
 	test.T(t, v2, Point{0.0, 1.0})
 
+	halfSqrt2 := 1.0 / math.Sqrt(2.0)
 	lambda1, lambda2, v1, v2 = Identity.Shear(1.0, 1.0).Eigen()
 	test.Float(t, lambda1, 0.0)
 	test.Float(t, lambda2, 2.0)
-	test.T(t, v1, Point{-0.707107, 0.707107})
-	test.T(t, v2, Point{0.707107, 0.707107})
+	test.T(t, v1, Point{-halfSqrt2, halfSqrt2})
+	test.T(t, v2, Point{halfSqrt2, halfSqrt2})
 
 	lambda1, lambda2, v1, v2 = Identity.Shear(1.0, 0.0).Eigen()
 	test.Float(t, lambda1, 1.0)

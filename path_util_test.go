@@ -95,27 +95,24 @@ func TestArcToQuad(t *testing.T) {
 
 func TestArcToCube(t *testing.T) {
 	defer setEpsilon(1e-3)()
-
 	test.T(t, arcToCube(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}), MustParseSVG("M0 0C0 54.858 45.142 100 100 100C154.858 100 200 54.858 200 0"))
 }
 
 func TestFlattenEllipse(t *testing.T) {
-	defer setEpsilon(1e-3)()
 	tolerance := 1.0
 
+	defer setEpsilon(1e-3)()
 	test.T(t, flattenEllipticArc(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}, tolerance), MustParseSVG("M0 0L3.8202 27.243L15.092 52.545L33.225 74.179L56.889 90.115L84.082 98.716L100 100L127.243 96.18L152.545 84.908L174.179 66.775L190.115 43.111L198.716 15.918L200 0"))
 }
 
 func TestQuadraticBezier(t *testing.T) {
-	defer setEpsilon(1e-6)()
-
 	p1, p2 := quadraticToCubicBezier(Point{0.0, 0.0}, Point{1.5, 0.0}, Point{3.0, 0.0})
 	test.T(t, p1, Point{1.0, 0.0})
 	test.T(t, p2, Point{2.0, 0.0})
 
 	p1, p2 = quadraticToCubicBezier(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0})
-	test.T(t, p1, Point{0.666667, 0.0})
-	test.T(t, p2, Point{1.0, 0.333333})
+	test.T(t, p1, Point{2.0 / 3.0, 0.0})
+	test.T(t, p2, Point{1.0, 1.0 / 3.0})
 
 	p0, p1, p2, q0, q1, q2 := quadraticBezierSplit(Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 1.0}, 0.5)
 	test.T(t, p0, Point{0.0, 0.0})
@@ -212,7 +209,7 @@ func TestQuadraticBezierFlatten(t *testing.T) {
 		path     string
 		expected string
 	}{
-		{"Q1 0 1 1", "L0.864911 0.4L1 1"},
+		{"Q1 0 1 1", "L0.8649110641 0.4L1 1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
@@ -221,16 +218,14 @@ func TestQuadraticBezierFlatten(t *testing.T) {
 			p1 := Point{path.d[5], path.d[6]}
 			p2 := Point{path.d[7], path.d[8]}
 
-			reset := setEpsilon(1e-6)
 			p := flattenQuadraticBezier(p0, p1, p2, tolerance)
 			test.T(t, p, MustParseSVG(tt.expected))
-			reset()
 		})
 	}
 }
 
 func TestCubicBezierPos(t *testing.T) {
-	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}
+	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{2.0 / 3.0, 0.0}, Point{1.0, 1.0 / 3.0}, Point{1.0, 1.0}
 	var tests = []struct {
 		p0, p1, p2, p3 Point
 		t              float64
@@ -243,16 +238,14 @@ func TestCubicBezierPos(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%v%v%v%v--%v", tt.p0, tt.p1, tt.p2, tt.p3, tt.t), func(t *testing.T) {
-			reset := setEpsilon(1e-5)
 			q := cubicBezierPos(tt.p0, tt.p1, tt.p2, tt.p3, tt.t)
 			test.T(t, q, tt.q)
-			reset()
 		})
 	}
 }
 
 func TestCubicBezierDeriv(t *testing.T) {
-	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}
+	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{2.0 / 3.0, 0.0}, Point{1.0, 1.0 / 3.0}, Point{1.0, 1.0}
 	var tests = []struct {
 		p0, p1, p2, p3 Point
 		t              float64
@@ -265,16 +258,14 @@ func TestCubicBezierDeriv(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%v%v%v%v--%v", tt.p0, tt.p1, tt.p2, tt.p3, tt.t), func(t *testing.T) {
-			reset := setEpsilon(1e-5)
 			q := cubicBezierDeriv(tt.p0, tt.p1, tt.p2, tt.p3, tt.t)
 			test.T(t, q, tt.q)
-			reset()
 		})
 	}
 }
 
 func TestCubicBezierDeriv2(t *testing.T) {
-	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}
+	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{2.0 / 3.0, 0.0}, Point{1.0, 1.0 / 3.0}, Point{1.0, 1.0}
 	var tests = []struct {
 		p0, p1, p2, p3 Point
 		t              float64
@@ -287,24 +278,22 @@ func TestCubicBezierDeriv2(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%v%v%v%v--%v", tt.p0, tt.p1, tt.p2, tt.p3, tt.t), func(t *testing.T) {
-			reset := setEpsilon(1e-5)
 			q := cubicBezierDeriv2(tt.p0, tt.p1, tt.p2, tt.p3, tt.t)
 			test.T(t, q, tt.q)
-			reset()
 		})
 	}
 }
 
 func TestCubicBezierCurvatureRadius(t *testing.T) {
-	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}
+	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{2.0 / 3.0, 0.0}, Point{1.0, 1.0 / 3.0}, Point{1.0, 1.0}
 	var tests = []struct {
 		p0, p1, p2, p3 Point
 		t              float64
 		r              float64
 	}{
-		{p0, p1, p2, p3, 0.0, 2.000004},
+		{p0, p1, p2, p3, 0.0, 2.0},
 		{p0, p1, p2, p3, 0.5, 0.707107},
-		{p0, p1, p2, p3, 1.0, 2.000004},
+		{p0, p1, p2, p3, 1.0, 2.0},
 		{p0, Point{1.0, 0.0}, Point{2.0, 0.0}, Point{3.0, 0.0}, 0.0, math.NaN()},
 	}
 
@@ -317,7 +306,7 @@ func TestCubicBezierCurvatureRadius(t *testing.T) {
 }
 
 func TestCubicBezierNormal(t *testing.T) {
-	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}
+	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{2.0 / 3.0, 0.0}, Point{1.0, 1.0 / 3.0}, Point{1.0, 1.0}
 	var tests = []struct {
 		p0, p1, p2, p3 Point
 		t              float64
@@ -342,7 +331,7 @@ func TestCubicBezierNormal(t *testing.T) {
 }
 
 func TestCubicBezierLength(t *testing.T) {
-	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}
+	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{2.0 / 3.0, 0.0}, Point{1.0, 1.0 / 3.0}, Point{1.0, 1.0}
 	var tests = []struct {
 		p0, p1, p2, p3 Point
 		l              float64
@@ -360,23 +349,19 @@ func TestCubicBezierLength(t *testing.T) {
 }
 
 func TestCubicBezierSplit(t *testing.T) {
-	defer setEpsilon(1e-5)()
-
-	p0, p1, p2, p3, q0, q1, q2, q3 := cubicBezierSplit(Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}, 0.5)
+	p0, p1, p2, p3, q0, q1, q2, q3 := cubicBezierSplit(Point{0.0, 0.0}, Point{2.0 / 3.0, 0.0}, Point{1.0, 1.0 / 3.0}, Point{1.0, 1.0}, 0.5)
 	test.T(t, p0, Point{0.0, 0.0})
-	test.T(t, p1, Point{0.333333, 0.0})
-	test.T(t, p2, Point{0.583333, 0.083333})
+	test.T(t, p1, Point{1.0 / 3.0, 0.0})
+	test.T(t, p2, Point{7.0 / 12.0, 1.0 / 12.0})
 	test.T(t, p3, Point{0.75, 0.25})
 	test.T(t, q0, Point{0.75, 0.25})
-	test.T(t, q1, Point{0.916667, 0.416667})
-	test.T(t, q2, Point{1.0, 0.666667})
+	test.T(t, q1, Point{11.0 / 12.0, 5.0 / 12.0})
+	test.T(t, q2, Point{1.0, 2.0 / 3.0})
 	test.T(t, q3, Point{1.0, 1.0})
 }
 
 func TestCubicBezierStrokeHelpers(t *testing.T) {
-	defer setEpsilon(1e-6)()
-
-	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{0.666667, 0.0}, Point{1.0, 0.333333}, Point{1.0, 1.0}
+	p0, p1, p2, p3 := Point{0.0, 0.0}, Point{2.0 / 3.0, 0.0}, Point{1.0, 1.0 / 3.0}, Point{1.0, 1.0}
 
 	p := &Path{}
 	addCubicBezierLine(p, p0, p1, p0, p0, 0.0, 0.5)
@@ -412,9 +397,9 @@ func TestCubicBezierStrokeFlatten(t *testing.T) {
 			p2 := Point{path.d[7], path.d[8]}
 			p3 := Point{path.d[9], path.d[10]}
 
-			reset := setEpsilon(1e-6)
 			p := &Path{}
 			flattenSmoothCubicBezier(p, p0, p1, p2, p3, tt.d, tt.tolerance)
+			reset := setEpsilon(1e-6)
 			test.T(t, p, MustParseSVG(tt.expected))
 			reset()
 		})
@@ -509,7 +494,5 @@ func TestCubicBezierStroke(t *testing.T) {
 		})
 	}
 
-	defer setEpsilon(1e-6)()
-
-	test.T(t, strokeCubicBezier(Point{0, 0}, Point{30, 0}, Point{30, 10}, Point{25, 10}, 5.0, 0.01).Bounds(), Rect{0.0, -5.0, 32.478752, 20.0})
+	test.T(t, strokeCubicBezier(Point{0, 0}, Point{30, 0}, Point{30, 10}, Point{25, 10}, 5.0, 0.01).Bounds(), Rect{0.0, -5.0, 32.4787516156, 20.0})
 }

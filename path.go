@@ -11,7 +11,7 @@ import (
 	"golang.org/x/image/vector"
 )
 
-// Tolerance is the maximum deviation from the original path in millimeters when e.g. flatting.
+// Tolerance is the maximum deviation from the original path in millimeters when e.g. flatting. Used for flattening in font decorations and path intersections.
 var Tolerance = 0.01
 
 // PixelTolerance is the maximum deviation of the rasterized path from the original in pixels

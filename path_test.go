@@ -368,13 +368,11 @@ func TestPathTransform(t *testing.T) {
 		{"A10 10 0 0 0 20 0", Identity.Translate(0, 10), "M0 10A10 10 0 0 0 20 10"},
 		{"A10 10 0 0 0 20 0", Identity.Scale(1, -1), "M0 0A10 10 0 0 1 20 0"},
 		{"A10 5 0 0 0 20 0", Identity.Rotate(270), "M0 0A10 5 90 0 0 0 -20"},
-		{"A10 10 0 0 0 20 0", Identity.Rotate(120).Scale(1, -2), "M0 0A20 10 30 0 1 -10 17.320508"},
+		{"A10 10 0 0 0 20 0", Identity.Rotate(120).Scale(1, -2), "M0 0A20 10 30 0 1 -10 17.3205080757"},
 	}
 	for _, tt := range tts {
 		t.Run(tt.r, func(t *testing.T) {
-			reset := setEpsilon(1e-6)
 			test.T(t, MustParseSVG(tt.p).Transform(tt.m), MustParseSVG(tt.r))
-			reset()
 		})
 	}
 }
@@ -464,7 +462,6 @@ func TestPathMarkersAligned(t *testing.T) {
 	start := MustParseSVG("L1 0L0 1z")
 	mid := MustParseSVG("M-1 0A1 1 0 0 0 1 0z")
 	end := MustParseSVG("L-1 0L0 1z")
-
 	var tts = []struct {
 		p  string
 		rs []string

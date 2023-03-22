@@ -27,10 +27,8 @@ func TestPolyline(t *testing.T) {
 }
 
 func TestPolylineSmoothen(t *testing.T) {
-	defer setEpsilon(1e-5)()
-
 	test.T(t, (&Polyline{}).Smoothen(), MustParseSVG(""))
 	test.T(t, (&Polyline{}).Add(0, 0).Add(10, 0).Smoothen(), MustParseSVG("M0 0L10 0"))
-	test.T(t, (&Polyline{}).Add(0, 0).Add(5, 10).Add(10, 0).Add(5, -10).Smoothen(), MustParseSVG("M0 0C1.444444 5.111111 2.888889 10.22222 5 10C7.111111 9.777778 9.888889 4.222222 10 0C10.11111 -4.222222 7.555556 -7.111111 5 -10"))
+	test.T(t, (&Polyline{}).Add(0, 0).Add(5, 10).Add(10, 0).Add(5, -10).Smoothen(), MustParseSVG("M0 0C1.4444444444 5.1111111111 2.8888888889 10.2222222222 5 10C7.1111111111 9.7777777778 9.8888888889 4.2222222222 10 0C10.1111111111 -4.2222222222 7.5555555556 -7.1111111111 5 -10"))
 	test.T(t, (&Polyline{}).Add(0, 0).Add(5, 10).Add(10, 0).Add(5, -10).Add(0, 0).Smoothen(), MustParseSVG("M0 0C0 5 2.5 10 5 10C7.5 10 10 5 10 0C10 -5 7.5 -10 5 -10C2.5 -10 0 -5 0 0z"))
 }

@@ -69,10 +69,10 @@ func TestPathStroke(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			resetEps := setEpsilon(1e-3)
+			reset := setEpsilon(1e-3)
 			stroke := MustParseSVG(tt.orig).Stroke(tt.w, tt.cp, tt.jr, tolerance)
 			test.T(t, stroke, MustParseSVG(tt.stroke))
-			resetEps()
+			reset()
 		})
 	}
 }

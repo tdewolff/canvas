@@ -7,7 +7,7 @@ import (
 )
 
 func TestShapes(t *testing.T) {
-	defer setEpsilon(0.01)()
+	defer setEpsilon(1e-6)()
 
 	test.T(t, Rectangle(0.0, 10.0), &Path{})
 	test.T(t, Rectangle(5.0, 10.0), MustParseSVG("H5V10H0z"))
@@ -23,9 +23,9 @@ func TestShapes(t *testing.T) {
 	test.T(t, RegularPolygon(2, 2.0, true), &Path{})
 	test.T(t, RegularPolygon(4, 0.0, true), &Path{})
 	test.T(t, RegularPolygon(4, 2.0, true), MustParseSVG("M0 2L-2 0L0 -2L2 0z"))
-	test.T(t, RegularPolygon(3, 2.0, true), MustParseSVG("M0 2L-1.7321 -1L1.7321 -1z"))
-	test.T(t, RegularPolygon(3, 2.0, false), MustParseSVG("M-1.7321 1L0 -2L1.7321 1z"))
+	test.T(t, RegularPolygon(3, 2.0, true), MustParseSVG("M0 2L-1.732051 -1L1.732051 -1z"))
+	test.T(t, RegularPolygon(3, 2.0, false), MustParseSVG("M-1.732051 1L0 -2L1.732051 1z"))
 	test.T(t, StarPolygon(2, 4.0, 2.0, true), &Path{})
-	test.T(t, StarPolygon(4, 4.0, 2.0, true), MustParseSVG("M0 4L-1.41 1.41L-4 0L-1.41 -1.41L0 -4L1.41 -1.41L4 0L1.41 1.41z"))
-	test.T(t, StarPolygon(3, 4.0, 2.0, false), MustParseSVG("M-3.4641 2L-1.7321 -1L0 -4L1.7321 -1L3.4641 2L0 2z"))
+	test.T(t, StarPolygon(4, 4.0, 2.0, true), MustParseSVG("M0 4L-1.414214 1.414214L-4 0L-1.414214 -1.414214L0 -4L1.414214 -1.414214L4 0L1.414214 1.414214z"))
+	test.T(t, StarPolygon(3, 4.0, 2.0, false), MustParseSVG("M-3.464102 2L0 -4L3.464102 2z"))
 }
