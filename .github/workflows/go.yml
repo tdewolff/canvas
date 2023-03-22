@@ -10,13 +10,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Install OpenGL
       run: |
           sudo apt update
           sudo apt install -y xorg-dev libgl1-mesa-dev libxkbcommon-x11-dev libwayland-dev libx11-xcb-dev libvulkan-dev
     - name: Set up Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v4
       with:
         go-version: 1.19
     - name: Build
@@ -32,9 +32,9 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v2
+        uses: golangci/golangci-lint-action@v3
         continue-on-error: true
         with:
           version: latest
