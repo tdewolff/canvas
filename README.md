@@ -19,7 +19,8 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster i
 Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise please contact me directly!
 
 ## Recent changes
-`Context` view and coordinate view have been altered. `View` now doesn't affect the coordinate view/system. To achieve the same as before, replace `ctx.SetView(m)` by `ctx.SetView(m); ctx.SetCoordView(m)`. The change makes coordinate systems more intuitive when using in combination with views, the given coordinate reflects the coordinate where it is drawn irrespective of the view.
+- `Context` view and coordinate view have been altered. `View` now doesn't affect the coordinate view/system. To achieve the same as before, replace `ctx.SetView(m)` by `ctx.SetView(m); ctx.SetCoordView(m)`. The change makes coordinate systems more intuitive when using in combination with views, the given coordinate reflects the coordinate where it is drawn irrespective of the view.
+- `Flatten()`, `Stroke()`, and `Offset()` now require an additional `tolerance` variable, which used to be set by the `Tolerance` parameter with a default value of `0.01`. To get the original behaviour, use `Flatten(0.01)`, `Stroke(width, capper, joiner, 0.01)`, and `Offset(width, fillRule, 0.01)`.
 
 ## Features
 - Path segment types: MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close
