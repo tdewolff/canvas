@@ -6,6 +6,41 @@ import (
 	"github.com/tdewolff/canvas/font"
 )
 
+type ScriptItem struct {
+	Script
+	Text string
+}
+
+// ScriptItemizer divides the string in parts for each different script.
+func ScriptItemizer(runes []rune, embeddingLevels []int) []ScriptItem {
+	i := 0
+	var curLevel int
+	var curScript Script
+	items := []ScriptItem{}
+	for j, r := range runes {
+		script, level := LookupScript(r), embeddingLevels[j]
+		if j == 0 {
+			curLevel = level
+			curScript = script
+		} else if level != curLevel || script != curScript && script != ScriptInherited && script != ScriptCommon && curScript != ScriptInherited && curScript != ScriptCommon {
+			items = append(items, ScriptItem{
+				Script: curScript,
+				Text:   string(runes[i:j]),
+			})
+			curLevel = level
+			curScript = script
+			i = j
+		} else if curScript == ScriptInherited || curScript == ScriptCommon {
+			curScript = script
+		}
+	}
+	items = append(items, ScriptItem{
+		Script: curScript,
+		Text:   string(runes[i:]),
+	})
+	return items
+}
+
 // Glyph is a shaped glyph for the given font and font size. It specified the glyph ID, the cluster ID, its X and Y advance and offset in font units, and its representation as text.
 type Glyph struct {
 	SFNT *font.SFNT

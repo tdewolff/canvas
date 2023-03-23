@@ -2,18 +2,18 @@
 
 package text
 
-import "github.com/benoitkugler/textprocessing/fribidi"
+import (
+	"github.com/benoitkugler/textprocessing/fribidi"
+)
 
-// Bidi maps the string from its logical order to the visual order to correctly display mixed LTR/RTL text. It returns a mapping of rune positions.
-func Bidi(text string) (string, []int) {
-	str := []rune(text)
+// EmbeddingLevels returns the embedding levels for each rune of a mixed LTR/RTL string. A change in level means a change in direction.
+func EmbeddingLevels(str []rune) []int {
 	pbase := fribidi.CharType(fribidi.ON)
 	vis, _ := fribidi.LogicalToVisual(fribidi.DefaultFlags, str, &pbase)
-	text = string(vis.Str)
 
-	mapV2L := make([]int, len(vis.VisualToLogical))
-	for i, pos := range vis.VisualToLogical {
-		mapV2L[i] = int(pos)
+	levels := make([]int, len(str))
+	for i, level := range vis.EmbeddingLevels {
+		levels[i] = int(level)
 	}
-	return text, mapV2L
+	return levels
 }

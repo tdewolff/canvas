@@ -5,7 +5,6 @@ package text
 
 import (
 	"bytes"
-	"unicode/utf8"
 
 	"github.com/benoitkugler/textlayout/fonts/truetype"
 	"github.com/benoitkugler/textlayout/harfbuzz"
@@ -40,22 +39,15 @@ func (s Shaper) Destroy() {
 }
 
 // Shape shapes the string for a given direction, script, and language.
-func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Script, lang string, features string, variations string) []Glyph {
+func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Script, lang string, features string, variations string) ([]Glyph, Direction) {
 	buf := harfbuzz.NewBuffer()
+	rtext := []rune(text)
+	buf.AddRunes(rtext, 0, -1)
 	buf.ClusterLevel = harfbuzz.MonotoneCharacters
 	buf.Props.Language = language.NewLanguage(lang)
 	buf.Props.Script = language.Script(script)
 	buf.Props.Direction = harfbuzz.Direction(direction)
-	if direction == DirectionInvalid {
-		buf.Props.Direction = harfbuzz.LeftToRight
-	} else if buf.Props.Direction == harfbuzz.RightToLeft {
-		// FriBidi already reversed the direction
-		buf.Props.Direction = harfbuzz.LeftToRight
-	}
-	reverse := buf.Props.Direction == harfbuzz.RightToLeft || buf.Props.Direction == harfbuzz.BottomToTop
-
-	rtext := []rune(text)
-	buf.AddRunes(rtext, 0, -1)
+	buf.GuessSegmentProperties() // only sets direction, script, and language if unset
 	buf.Shape(s.font, nil)
 
 	runeMap := make([]int, len(rtext)+1)
@@ -76,45 +68,13 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 		glyphs[i].YAdvance = int32(position.YAdvance)
 		glyphs[i].XOffset = int32(position.XOffset)
 		glyphs[i].YOffset = int32(position.YOffset)
-
-		if reverse {
-			// TODO: what about reverse?
-		} else {
-			glyphs[i].Text = text[runeMap[info.Cluster]:runeMap[info.Cluster+1]]
-		}
+		glyphs[i].Text = text[runeMap[info.Cluster]:runeMap[info.Cluster+1]]
 	}
-	return glyphs
+	return glyphs, Direction(buf.Props.Direction)
 }
 
-type ScriptItem struct {
-	Script
-	Text string
-}
-
-// ScriptItemizer divides the string in parts for each different script.
-func ScriptItemizer(text string, curScript Script) []ScriptItem {
-	i := 0
-	items := []ScriptItem{}
-	for j := 0; j < len(text); {
-		r, n := utf8.DecodeRuneInString(text[j:])
-		script := Script(language.LookupScript(r))
-		if j == 0 || curScript == ScriptInherited || curScript == ScriptCommon {
-			curScript = script
-		} else if script != curScript && script != ScriptInherited && script != ScriptCommon {
-			items = append(items, ScriptItem{
-				Script: curScript,
-				Text:   text[i:j],
-			})
-			curScript = script
-			i = j
-		}
-		j += n
-	}
-	items = append(items, ScriptItem{
-		Script: curScript,
-		Text:   text[i:],
-	})
-	return items
+func LookupScript(r rune) Script {
+	return Script(language.LookupScript(r))
 }
 
 // Direction is the text direction.

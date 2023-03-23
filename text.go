@@ -225,23 +225,10 @@ func (obj TextSpanObject) View(x, y float64, face *FontFace) Matrix {
 
 ////////////////////////////////////////////////////////////////
 
-func itemizeString(log string, script canvasText.Script) ([]string, []string) {
-	offset := 0
-	vis, mapV2L := canvasText.Bidi(log)
-	items := canvasText.ScriptItemizer(vis, script)
-	itemsV := make([]string, 0, len(items))
-	itemsL := make([]string, 0, len(items))
-	for _, item := range items {
-		itemV := []rune(item.Text)
-		itemL := make([]rune, len(itemV))
-		for i := 0; i < len(itemV); i++ {
-			itemL[mapV2L[offset+i]-offset] = itemV[i]
-		}
-		itemsV = append(itemsV, item.Text)
-		itemsL = append(itemsL, string(itemL))
-		offset += len(itemV)
-	}
-	return itemsL, itemsV
+func itemizeString(log string) []canvasText.ScriptItem {
+	logRunes := []rune(log)
+	embeddingLevels := canvasText.EmbeddingLevels(logRunes)
+	return canvasText.ScriptItemizer(logRunes, embeddingLevels)
 }
 
 // NewTextLine is a simple text line using a single font face, a string (supporting new lines) and horizontal alignment (Left, Center, Right). The text's baseline will be drawn on the current coordinate.
@@ -266,26 +253,16 @@ func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 				ppem := face.PPEM(DefaultResolution)
 				lineWidth := 0.0
 				line := line{y: y, spans: []TextSpan{}}
-				itemsL, itemsV := itemizeString(s[i:j], face.Script)
-				for k := 0; k < len(itemsL); k++ {
-					glyphs := face.Font.shaper.Shape(itemsV[k], ppem, face.Direction, face.Script, face.Language, face.Font.features, face.Font.variations)
+				for _, item := range itemizeString(s[i:j]) {
+					glyphs, direction := face.Font.shaper.Shape(item.Text, ppem, face.Direction, face.Script, face.Language, face.Font.features, face.Font.variations)
 					width := face.textWidth(glyphs)
-					text := itemsL[k]
-					if face.Direction == canvasText.BottomToTop {
-						length := len([]rune(text))
-						reverseText := make([]rune, length)
-						for pos, r := range []rune(text) {
-							reverseText[length-pos-1] = r
-						}
-						text = string(reverseText)
-					}
 					line.spans = append(line.spans, TextSpan{
 						x:         lineWidth,
 						Width:     width,
 						Face:      face,
-						Text:      text,
+						Text:      item.Text,
 						Glyphs:    glyphs,
-						Direction: face.Direction,
+						Direction: direction,
 					})
 					lineWidth += width
 				}
@@ -497,52 +474,49 @@ func scriptDirection(mode WritingMode, orient TextOrientation, script canvasText
 // ToText takes the added text spans and fits them within a given box of certain width and height using Donald Knuth's line breaking algorithm.
 func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, indent, lineStretch float64) *Text {
 	log := rt.String()
-	vis, mapV2L := canvasText.Bidi(log)
 	logRunes := []rune(log)
+	embeddingLevels := canvasText.EmbeddingLevels(logRunes)
 
 	// itemize string by font face and script
 	texts := []string{}
 	scripts := []canvasText.Script{}
 	faces := []*FontFace{}
-	i, j := 0, 0 // index into vis
+	i := 0       // index into logRunes
 	curFace := 0 // index into rt.faces
-	for k, r := range []rune(vis) {
-		nextFace := rt.locs.index(mapV2L[k])
+	for j := range logRunes {
+		nextFace := rt.locs.index(j)
 		if nextFace != curFace {
 			if rt.faces[curFace] == nil {
 				// path/image objects
-				texts = append(texts, vis[i:j])
+				texts = append(texts, string(logRunes[i:j]))
 				scripts = append(scripts, canvasText.ScriptInvalid)
 				faces = append(faces, nil)
 			} else {
 				// text
-				items := canvasText.ScriptItemizer(vis[i:j], rt.faces[curFace].Script)
+				items := canvasText.ScriptItemizer(logRunes[i:j], embeddingLevels[i:j])
 				for _, item := range items {
 					texts = append(texts, item.Text)
 					scripts = append(scripts, item.Script)
 					faces = append(faces, rt.faces[curFace])
-					i += len(item.Text)
 				}
 			}
 			curFace = nextFace
 			i = j
 		}
-		j += utf8.RuneLen(r)
 	}
-	if i < j {
+	if i < len(logRunes) {
 		if rt.faces[curFace] == nil {
 			// path/image objects
-			texts = append(texts, vis[i:j])
+			texts = append(texts, string(logRunes[i:]))
 			scripts = append(scripts, canvasText.ScriptInvalid)
 			faces = append(faces, nil)
 		} else {
 			// text
-			items := canvasText.ScriptItemizer(vis[i:j], rt.faces[curFace].Script)
+			items := canvasText.ScriptItemizer(logRunes[i:], embeddingLevels[i:])
 			for _, item := range items {
 				texts = append(texts, item.Text)
 				scripts = append(scripts, item.Script)
 				faces = append(faces, rt.faces[curFace])
-				i += len(item.Text)
 			}
 		}
 	}
@@ -551,9 +525,13 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	clusterOffset := uint32(0)
 	glyphIndices := indexer{} // indexes glyphs into texts and faces
 	glyphs := []canvasText.Glyph{}
+	directions := make([]canvasText.Direction, len(texts))
+	rotations := make([]canvasText.Rotation, len(texts))
 	for k, text := range texts {
 		face := faces[k]
 		script := scripts[k]
+		direction := canvasText.DirectionInvalid
+		rotation := canvasText.NoRotation
 		var glyphsString []canvasText.Glyph
 		if face == nil {
 			// path/image objects
@@ -578,8 +556,8 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		} else {
 			// text
 			ppem := face.PPEM(DefaultResolution)
-			direction, rotation := scriptDirection(rt.mode, rt.orient, script, face.Direction)
-			glyphsString = face.Font.shaper.Shape(text, ppem, direction, script, face.Language, face.Font.features, face.Font.variations)
+			direction, rotation = scriptDirection(rt.mode, rt.orient, script, face.Direction)
+			glyphsString, direction = face.Font.shaper.Shape(text, ppem, direction, script, face.Language, face.Font.features, face.Font.variations)
 			for i := range glyphsString {
 				glyphsString[i].SFNT = face.Font.SFNT
 				glyphsString[i].Size = face.Size
@@ -599,9 +577,21 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 				}
 			}
 		}
+
+		if direction == canvasText.RightToLeft || direction == canvasText.BottomToTop {
+			// reverse right-to-left and bottom-to-top glyph order for line breaking purposes
+			// this is required when mixing e.g. LTR and RTL scripts where line breaking should
+			// treat the RTL words in the logical order. We undo this later on.
+			for i := 0; i < len(glyphsString)/2; i++ {
+				glyphsString[i], glyphsString[len(glyphsString)-1-i] = glyphsString[len(glyphsString)-1-i], glyphsString[i]
+			}
+		}
+
 		glyphIndices = append(glyphIndices, len(glyphs))
 		glyphs = append(glyphs, glyphsString...)
 		clusterOffset += uint32(len(text))
+		directions[k] = direction
+		rotations[k] = rotation
 	}
 
 	if rt.mode != HorizontalTB {
@@ -669,8 +659,9 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		WritingMode:     rt.mode,
 		TextOrientation: rt.orient,
 	}
-	glyphs = append(glyphs, canvasText.Glyph{Cluster: uint32(len(vis))}) // makes indexing easier
+	glyphs = append(glyphs, canvasText.Glyph{Cluster: uint32(len(log))}) // makes indexing easier
 
+	var j int
 	i, j = 0, 0        // index into: glyphs, breaks/lines
 	x, y := 0.0, 0.0   // both positive toward the bottom right
 	paddingLeft := 0.0 // padding added to spans due to spaces around words
@@ -742,28 +733,14 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			for b := i + 1; b <= i+item.Size; b++ {
 				nextK := glyphIndices.index(b)
 				if nextK != k || b == i+item.Size {
-					ac, bc := glyphs[a].Cluster, glyphs[b].Cluster
-					if glyphs[a+1].Cluster < ac {
-						// right-to-left
-						ac = glyphs[b-1].Cluster
-						bc = uint32(len(vis))
-						if 0 < a {
-							bc = glyphs[a-1].Cluster
-						}
-					}
-					ar := utf8.RuneCountInString(vis[:ac])
-					br := utf8.RuneCountInString(vis[:bc])
-
 					face := faces[k]
-					script := scripts[k]
+					ac, bc := glyphs[a].Cluster, glyphs[b].Cluster
+
 					var w float64
 					var objects []TextSpanObject
-					var direction canvasText.Direction
-					var rotation canvasText.Rotation
 					if face != nil {
 						// text
 						w = face.textWidth(glyphs[a:b])
-						direction, rotation = scriptDirection(rt.mode, rt.orient, script, face.Direction)
 						t.fonts[face.Font] = true
 					} else {
 						// path/image object, only one glyph is ever selected; b-a == 1
@@ -786,7 +763,15 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 						}
 					}
 
-					s := string(logRunes[ar:br])
+					if directions[k] == canvasText.RightToLeft || directions[k] == canvasText.BottomToTop {
+						// reverse right-to-left and bottom-to-top glyph order
+						// this undoes the previous reversal for line breaking purposed
+						for i := 0; i < (b-a)/2; i++ {
+							glyphs[a+i], glyphs[b-1-i] = glyphs[b-1-i], glyphs[a+i]
+						}
+					}
+
+					s := log[ac:bc]
 					t.lines[j].spans = append(t.lines[j].spans, TextSpan{
 						x:           x + dx,
 						Width:       w,
@@ -795,11 +780,30 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 						Text:        s,
 						Objects:     objects,
 						Glyphs:      glyphs[a:b],
-						Direction:   direction,
-						Rotation:    rotation,
+						Direction:   directions[k],
+						Rotation:    rotations[k],
 					})
-					k = nextK
 
+					if directions[k] == canvasText.RightToLeft || directions[k] == canvasText.BottomToTop {
+						// reverse right-to-left and bottom-to-top span order in line
+						// this undoes the previous reversal for line breaking purposed
+						last := len(t.lines[j].spans) - 1
+						first := last
+						for ; 0 < first; first-- {
+							if t.lines[j].spans[first-1].Direction != canvasText.RightToLeft && t.lines[j].spans[first-1].Direction != canvasText.BottomToTop {
+								break
+							}
+						}
+						if first < last {
+							space := x + dx - t.lines[j].spans[first].x - t.lines[j].spans[first].Width
+							t.lines[j].spans[last].x = t.lines[j].spans[last-1].x
+							for i := first; i < last; i++ {
+								t.lines[j].spans[i].x += w + space
+							}
+						}
+					}
+
+					k = nextK
 					a = b
 					dx += w
 					paddingLeft = 0.0

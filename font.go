@@ -520,7 +520,7 @@ func (face *FontFace) LineHeight() float64 {
 // TextWidth returns the width of a given string in millimeters.
 func (face *FontFace) TextWidth(s string) float64 {
 	ppem := face.PPEM(DefaultResolution)
-	glyphs := face.Font.shaper.Shape(s, ppem, face.Direction, face.Script, face.Language, face.Font.features, face.Font.variations)
+	glyphs, _ := face.Font.shaper.Shape(s, ppem, face.Direction, face.Script, face.Language, face.Font.features, face.Font.variations)
 	return face.textWidth(glyphs)
 }
 
@@ -564,7 +564,7 @@ func (face *FontFace) Decorate(width float64) *Path {
 // ToPath converts a string to its glyph paths.
 func (face *FontFace) ToPath(s string) (*Path, float64, error) {
 	ppem := face.PPEM(DefaultResolution)
-	glyphs := face.Font.shaper.Shape(s, ppem, face.Direction, face.Script, face.Language, face.Font.features, face.Font.variations)
+	glyphs, _ := face.Font.shaper.Shape(s, ppem, face.Direction, face.Script, face.Language, face.Font.features, face.Font.variations)
 	return face.toPath(glyphs, ppem)
 }
 

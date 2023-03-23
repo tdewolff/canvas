@@ -19,7 +19,6 @@ hb_glyph_position_t *get_glyph_position(hb_glyph_position_t *pos, unsigned int i
 import "C"
 import (
 	"strings"
-	"unicode/utf8"
 	"unsafe"
 
 	"github.com/tdewolff/canvas/font"
@@ -64,7 +63,7 @@ func (s Shaper) Destroy() {
 }
 
 // Shape shapes the string for a given direction, script, and language.
-func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Script, language string, features string, variations string) []Glyph {
+func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Script, language string, features string, variations string) ([]Glyph, Direction) {
 	font, ok := s.fonts[ppem]
 	if !ok {
 		font = C.hb_font_create(s.face)
@@ -98,13 +97,8 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 		clanguage = C.CString(language)
 		C.hb_buffer_set_language(buf, C.hb_language_from_string(clanguage, -1))
 	}
-	C.hb_buffer_guess_segment_properties(buf)
-
-	if Direction(C.hb_buffer_get_direction(buf)) == RightToLeft {
-		// FriBidi already reversed the direction
-		C.hb_buffer_set_direction(buf, C.hb_direction_t(LeftToRight))
-	}
-	reverse := Direction(C.hb_buffer_get_direction(buf)) == RightToLeft || Direction(C.hb_buffer_get_direction(buf)) == BottomToTop
+	C.hb_buffer_guess_segment_properties(buf) // only sets direction, script, and language if unset
+	direction = Direction(C.hb_buffer_get_direction(buf))
 
 	var cfeatures []C.hb_feature_t
 	for _, feature := range strings.Split(features, ",") {
@@ -127,6 +121,7 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	positions := C.hb_buffer_get_glyph_positions(buf, nil)
 
 	glyphs := make([]Glyph, length)
+	reverse := Direction(C.hb_buffer_get_direction(buf)) == RightToLeft || Direction(C.hb_buffer_get_direction(buf)) == BottomToTop
 	for i := uint(0); i < uint(length); i++ {
 		info := C.get_glyph_info(infos, C.uint(i))
 		position := C.get_glyph_position(positions, C.uint(i))
@@ -155,39 +150,12 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	}
 	C.hb_buffer_destroy(buf)
 	C.free(unsafe.Pointer(ctext))
-	return glyphs
+	return glyphs, direction
 }
 
-type ScriptItem struct {
-	Script
-	Text string
-}
-
-// ScriptItemizer divides the string in parts for each different script.
-func ScriptItemizer(text string, curScript Script) []ScriptItem {
-	i := 0
-	items := []ScriptItem{}
+func LookupScript(r rune) Script {
 	funcs := C.hb_unicode_funcs_get_default()
-	for j := 0; j < len(text); {
-		r, n := utf8.DecodeRuneInString(text[j:])
-		script := Script(C.hb_unicode_script(funcs, C.uint(r)))
-		if j == 0 || curScript == ScriptInherited || curScript == ScriptCommon {
-			curScript = script
-		} else if script != curScript && script != ScriptInherited && script != ScriptCommon {
-			items = append(items, ScriptItem{
-				Script: curScript,
-				Text:   text[i:j],
-			})
-			curScript = script
-			i = j
-		}
-		j += n
-	}
-	items = append(items, ScriptItem{
-		Script: curScript,
-		Text:   text[i:],
-	})
-	return items
+	return Script(C.hb_unicode_script(funcs, C.uint(r)))
 }
 
 // Direction is the text direction.
