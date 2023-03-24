@@ -78,8 +78,6 @@ func (r *PDF) Size() (float64, float64) {
 
 // RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
-	differentAlpha := style.HasFill() && style.HasStroke() && style.FillColor.A != style.StrokeColor.A
-
 	// PDFs don't support the arcs joiner, miter joiner (not clipped), or miter joiner (clipped) with non-bevel fallback
 	strokeUnsupported := false
 	if _, ok := style.StrokeJoiner.(canvas.ArcsJoiner); ok {
@@ -121,7 +119,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 
 	if !style.HasStroke() || !strokeUnsupported {
 		if style.HasFill() && !style.HasStroke() {
-			r.w.SetFillColor(style.FillColor)
+			r.w.SetFillColor(style.Fill.Color)
 			r.w.Write([]byte(" "))
 			r.w.Write([]byte(data))
 			r.w.Write([]byte(" f"))
@@ -145,8 +143,9 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 				r.w.Write([]byte("*"))
 			}
 		} else if style.HasFill() && style.HasStroke() {
+			differentAlpha := style.Fill.HasColor() && style.Fill.Color.A != style.StrokeColor.A
 			if !differentAlpha {
-				r.w.SetFillColor(style.FillColor)
+				r.w.SetFillColor(style.Fill.Color)
 				r.w.SetStrokeColor(style.StrokeColor)
 				r.w.SetLineWidth(style.StrokeWidth)
 				r.w.SetLineCap(style.StrokeCapper)
@@ -163,7 +162,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 					r.w.Write([]byte("*"))
 				}
 			} else {
-				r.w.SetFillColor(style.FillColor)
+				r.w.SetFillColor(style.Fill.Color)
 				r.w.Write([]byte(" "))
 				r.w.Write([]byte(data))
 				r.w.Write([]byte(" f"))
@@ -191,7 +190,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 	} else {
 		// style.HasStroke() && strokeUnsupported
 		if style.HasFill() {
-			r.w.SetFillColor(style.FillColor)
+			r.w.SetFillColor(style.Fill.Color)
 			r.w.Write([]byte(" "))
 			r.w.Write([]byte(data))
 			r.w.Write([]byte(" f"))
@@ -217,14 +216,14 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 func (r *PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 	text.WalkDecorations(func(col color.RGBA, p *canvas.Path) {
 		style := canvas.DefaultStyle
-		style.FillColor = col
+		style.Fill.Color = col
 		r.RenderPath(p, style, m)
 	})
 
 	text.WalkSpans(func(x, y float64, span canvas.TextSpan) {
 		if span.IsText() {
 			style := canvas.DefaultStyle
-			style.FillColor = span.Face.Color
+			style.Fill.Color = span.Face.Color
 
 			r.w.StartTextObject()
 			r.w.SetFillColor(span.Face.Color)

@@ -174,10 +174,12 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	polyline.Add(0.0, 30.0)
 	polyline.Add(0.0, 0.0)
 	ctx.SetFillColor(Seagreen)
-	ctx.FillColor.R = byte(float64(ctx.FillColor.R) * 0.25)
-	ctx.FillColor.G = byte(float64(ctx.FillColor.G) * 0.25)
-	ctx.FillColor.B = byte(float64(ctx.FillColor.B) * 0.25)
-	ctx.FillColor.A = byte(float64(ctx.FillColor.A) * 0.25)
+	col := Seagreen
+	col.R = byte(float64(col.R) * 0.25)
+	col.G = byte(float64(col.G) * 0.25)
+	col.B = byte(float64(col.B) * 0.25)
+	col.A = byte(float64(col.A) * 0.25)
+	ctx.SetFillColor(col)
 	ctx.SetStrokeColor(Seagreen)
 	ctx.DrawPath(155, 35, polyline.Smoothen())
 

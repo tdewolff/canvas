@@ -184,8 +184,8 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 
 	if !style.HasStroke() {
 		if style.HasFill() {
-			if style.FillColor != canvas.Black {
-				fmt.Fprintf(r.w, `" fill="%v`, canvas.CSSColor(style.FillColor))
+			if style.Fill.Color != canvas.Black {
+				fmt.Fprintf(r.w, `" fill="%v`, canvas.CSSColor(style.Fill.Color))
 			}
 			if style.FillRule == canvas.EvenOdd {
 				fmt.Fprintf(r.w, `" fill-rule="evenodd`)
@@ -196,8 +196,8 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 	} else {
 		b := &strings.Builder{}
 		if style.HasFill() {
-			if style.FillColor != canvas.Black {
-				fmt.Fprintf(b, ";fill:%v", canvas.CSSColor(style.FillColor))
+			if style.Fill.Color != canvas.Black {
+				fmt.Fprintf(b, ";fill:%v", canvas.CSSColor(style.Fill.Color))
 			}
 			if style.FillRule == canvas.EvenOdd {
 				fmt.Fprintf(b, ";fill-rule:evenodd")
@@ -343,7 +343,7 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 
 	text.WalkDecorations(func(col color.RGBA, p *canvas.Path) {
 		style := canvas.DefaultStyle
-		style.FillColor = col
+		style.Fill.Color = col
 		r.RenderPath(p, style, m)
 	})
 

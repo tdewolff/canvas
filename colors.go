@@ -1,9 +1,175 @@
 package canvas
 
 import (
+	"image"
 	"image/color"
 	"math"
 )
+
+type Pattern interface {
+	ToImage(int, int, int, Resolution, ColorSpace) image.Image
+}
+
+type Stop struct {
+	Offset float64
+	Color  color.RGBA
+}
+
+type Stops []Stop
+
+func (stops *Stops) Add(t float64, color color.RGBA) {
+	stop := Stop{math.Min(math.Max(t, 0.0), 1.0), color}
+	// insert or replace stop and keep sort order
+	for i := range *stops {
+		if Equal((*stops)[i].Offset, stop.Offset) {
+			(*stops)[i] = stop
+			return
+		} else if stop.Offset < (*stops)[i].Offset {
+			*stops = append((*stops)[:i], append(Stops{stop}, (*stops)[i:]...)...)
+			return
+		}
+	}
+	*stops = append(*stops, stop)
+}
+
+func (stops Stops) At(t float64) color.RGBA {
+	if len(stops) == 0 {
+		return Transparent
+	} else if t <= 0.0 || len(stops) == 1 {
+		return stops[0].Color
+	} else if 1.0 <= t {
+		return stops[len(stops)-1].Color
+	}
+	for i, stop := range stops[1:] {
+		if t < stop.Offset {
+			t = (t - stops[i].Offset) / (stop.Offset - stops[i].Offset)
+			return colorLerp(stops[i].Color, stop.Color, t)
+		}
+	}
+	return stops[len(stops)-1].Color
+}
+
+type LinearGradient struct {
+	Start, End Point
+	Stops
+}
+
+func NewLinearGradient(start, end Point) *LinearGradient {
+	return &LinearGradient{
+		Start: start,
+		End:   end,
+	}
+}
+
+type LinearGradientImage struct {
+	LinearGradient
+	dx, dy, h int
+	dpmm      float64
+}
+
+func (g *LinearGradient) ToImage(dx, dy, h int, res Resolution, colorSpace ColorSpace) image.Image {
+	img := &LinearGradientImage{
+		LinearGradient: *g,
+		dx:             dx,
+		dy:             dy,
+		h:              h,
+		dpmm:           res.DPMM(),
+	}
+	for i := range img.Stops {
+		img.Stops[i].Color = colorSpace.ToLinear(img.Stops[i].Color)
+	}
+	return img
+}
+
+func (g *LinearGradientImage) ColorModel() color.Model {
+	return color.RGBAModel
+}
+
+func (g *LinearGradientImage) Bounds() image.Rectangle {
+	return image.Rectangle{image.Point{-1e9, -1e9}, image.Point{1e9, 1e9}}
+}
+
+func (g *LinearGradientImage) At(x, y int) color.Color {
+	if len(g.Stops) == 0 {
+		return color.Transparent
+	}
+
+	d := g.End.Sub(g.Start)
+	p := Point{float64(g.dx+x) / g.dpmm, float64(g.h-g.dx-y) / g.dpmm}.Sub(g.Start)
+	if Equal(d.Y, 0.0) && !Equal(d.X, 0.0) {
+		return g.Stops.At(p.X / d.X) // horizontal
+	} else if !Equal(d.Y, 0.0) && Equal(d.X, 0.0) {
+		return g.Stops.At(p.Y / d.Y) // vertical
+	}
+	t := p.Dot(d) / d.Dot(d)
+	return g.Stops.At(t)
+}
+
+//type RadialGradient struct {
+//	Center0, Center1 Point
+//	Radius0, Radius1 float64
+//	GradientStops
+//}
+//
+//func NewRadialGradient(c0, c1 Point, r0, r1 float64) *RadialGradient {
+//	return &RadialGradient{
+//		Center: center,
+//		Radius: radius,
+//	}
+//}
+//
+//func dot3(x0, y0, z0, x1, y1, z1 float64) float64 {
+//	return x0*x1 + y0*y1 + z0*z1
+//}
+//
+//func (g *RadialGradient) At(x, y int) color.RGBA {
+//	if len(g.GradientStops) == 0 {
+//		return color.Transparent
+//	}
+//
+//	dx, dy := float64(x)+0.5-g.c0.x, float64(y)+0.5-g.c0.y
+//	b := dot3(dx, dy, g.c0.r, g.cd.x, g.cd.y, g.cd.r)
+//	c := dot3(dx, dy, -g.c0.r, dx, dy, g.c0.r)
+//	if g.a == 0 {
+//		if b == 0 {
+//			return color.Transparent
+//		}
+//		t := 0.5 * c / b
+//		if t*g.cd.r >= g.mindr {
+//			return getColor(t, g.GradientStops)
+//		}
+//		return color.Transparent
+//	}
+//
+//	discr := dot3(b, g.a, 0, b, -c, 0)
+//	if discr >= 0 {
+//		sqrtdiscr := math.Sqrt(discr)
+//		t0 := (b + sqrtdiscr) * g.inva
+//		t1 := (b - sqrtdiscr) * g.inva
+//
+//		if t0*g.cd.r >= g.mindr {
+//			return getColor(t0, g.GradientStops)
+//		} else if t1*g.cd.r >= g.mindr {
+//			return getColor(t1, g.GradientStops)
+//		}
+//	}
+//	return color.Transparent
+//}
+
+func colorLerp(c0, c1 color.RGBA, t float64) color.RGBA {
+	r0, g0, b0, a0 := c0.RGBA()
+	r1, g1, b1, a1 := c1.RGBA()
+	return color.RGBA{
+		lerp(r0, r1, t),
+		lerp(g0, g1, t),
+		lerp(b0, b1, t),
+		lerp(a0, a1, t),
+	}
+}
+
+func lerp(a, b uint32, t float64) uint8 {
+	return uint8(uint32((1.0-t)*float64(a)+t*float64(b)) >> 8)
+}
 
 // ColorSpace defines the color space within the RGB color model. All colors passed to this library are assumed to be in the sRGB color space, which is a ubiquitous assumption in most software. This works great for most applications, but fails when blending semi-transparent layers. See an elaborate explaination at https://blog.johnnovak.net/2016/09/21/what-every-coder-should-know-about-gamma/, which goes into depth of the problems of using sRGB for blending and the need for gamma correction. In short, we need to transform the colors, which are in the sRGB color space, to the linear color space, perform blending, and then transform them back to the sRGB color space.
 // Unfortunately, almost all software does blending the wrong way (all PDF renderers and browsers I've tested), so by default this library will do the same by using LinearColorSpace which does no conversion from sRGB to linear and back but blends directly in sRGB. Or in other words, it assumes that colors are given in the linear color space and that the output image is expected to be in the linear color space as well. For technical correctness we should really be using the SRGBColorSpace, which will convert from sRGB to linear space, do blending in linear space, and then go back to sRGB space.

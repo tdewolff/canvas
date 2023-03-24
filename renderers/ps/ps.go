@@ -201,7 +201,7 @@ func (r *PS) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) 
 	}
 
 	if style.HasFill() {
-		r.setColor(style.FillColor)
+		r.setColor(style.Fill.Color)
 		if style.HasStroke() && !strokeUnsupported {
 			r.w.Write([]byte(" gsave"))
 		}

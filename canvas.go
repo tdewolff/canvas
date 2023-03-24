@@ -98,9 +98,23 @@ const (
 
 ////////////////////////////////////////////////////////////////
 
-// Style is the path style that defines how to draw the path. When FillColor is transparent it will not fill the path. If StrokeColor is transparent or StrokeWidth is zero, it will not stroke the path. If Dashes is an empty array, it will not draw dashes but instead a solid stroke line. FillRule determines how to fill the path when paths overlap and have certain directions (clockwise, counter clockwise).
+type Fill struct {
+	Color   color.RGBA
+	Pattern Pattern
+	// TODO: add hatch image and hatch path
+}
+
+func (fill Fill) HasColor() bool {
+	return fill.Color.A != 0 && fill.Pattern == nil
+}
+
+func (fill Fill) HasPattern() bool {
+	return fill.Pattern != nil
+}
+
+// Style is the path style that defines how to draw the path. When Fill is not set it will not fill the path. If StrokeColor is transparent or StrokeWidth is zero, it will not stroke the path. If Dashes is an empty array, it will not draw dashes but instead a solid stroke line. FillRule determines how to fill the path when paths overlap and have certain directions (clockwise, counter clockwise).
 type Style struct {
-	FillColor    color.RGBA
+	Fill         Fill
 	StrokeColor  color.RGBA
 	StrokeWidth  float64
 	StrokeCapper Capper
@@ -112,7 +126,7 @@ type Style struct {
 
 // HasFill returns true if the style has a fill
 func (style Style) HasFill() bool {
-	return style.FillColor.A != 0
+	return style.Fill.Color.A != 0 || style.Fill.Pattern != nil
 }
 
 // HasStroke returns true if the style has a stroke
@@ -127,7 +141,7 @@ func (style Style) IsDashed() bool {
 
 // DefaultStyle is the default style for paths. It fills the path with a black color and has no stroke.
 var DefaultStyle = Style{
-	FillColor:    Black,
+	Fill:         Fill{Color: Black},
 	StrokeColor:  Transparent,
 	StrokeWidth:  1.0,
 	StrokeCapper: ButtCap,
@@ -315,6 +329,14 @@ func (c *Context) ShearAbout(sx, sy, x, y float64) {
 	c.view = c.view.Mul(Identity.ShearAbout(sx, sy, x, y))
 }
 
+// FillColor returns the color used for filling operations.
+func (c *Context) FillColor() color.Color {
+	if c.Style.Fill.HasColor() {
+		return c.Style.Fill.Color
+	}
+	return Transparent
+}
+
 // SetFillColor sets the color to be used for filling operations.
 func (c *Context) SetFillColor(col color.Color) {
 	r, g, b, a := col.RGBA()
@@ -328,7 +350,21 @@ func (c *Context) SetFillColor(col color.Color) {
 	if a < b {
 		b = a
 	}
-	c.Style.FillColor = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+	c.Style.Fill.Color = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+	c.Style.Fill.Pattern = nil
+}
+
+// FillPattern returns the pattern used for filling operations.
+func (c *Context) FillPattern() Pattern {
+	if c.Style.Fill.HasPattern() {
+		return c.Style.Fill.Pattern
+	}
+	return nil
+}
+
+// SetFillPattern sets the pattern (such as gradients) to be used for filling operations.
+func (c *Context) SetFillPattern(pattern Pattern) {
+	c.Style.Fill.Pattern = pattern
 }
 
 // SetStrokeColor sets the color to be used for stroking operations.
@@ -436,10 +472,10 @@ func (c *Context) Fill() {
 
 // Stroke strokes the current path and resets the path.
 func (c *Context) Stroke() {
-	fillColor := c.Style.FillColor
-	c.Style.FillColor = Transparent
+	fill := c.Style.Fill
+	c.Style.Fill = Fill{}
 	c.DrawPath(0.0, 0.0, c.path)
-	c.Style.FillColor = fillColor
+	c.Style.Fill = fill
 	c.path = &Path{}
 }
 

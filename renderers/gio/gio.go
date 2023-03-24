@@ -113,7 +113,7 @@ func (r *Gio) renderPath(path *canvas.Path, col color.RGBA) {
 // RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (r *Gio) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
 	if style.HasFill() {
-		r.renderPath(path.Transform(m), style.FillColor)
+		r.renderPath(path.Transform(m), style.Fill.Color)
 	}
 
 	if style.HasStroke() {

@@ -421,7 +421,7 @@ func (rt *RichText) AddCanvas(c *Canvas, valign VerticalAlign) *RichText {
 // AddPath adds a path.
 func (rt *RichText) AddPath(path *Path, col color.RGBA, valign VerticalAlign) *RichText {
 	style := DefaultStyle
-	style.FillColor = col
+	style.Fill.Color = col
 	bounds := path.Bounds()
 	c := New(bounds.X+bounds.W, bounds.Y+bounds.H)
 	c.RenderPath(path, style, Identity)
@@ -1125,7 +1125,7 @@ func (t *Text) WalkSpans(callback func(x, y float64, span TextSpan)) {
 func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
 	t.WalkDecorations(func(col color.RGBA, p *Path) {
 		style := DefaultStyle
-		style.FillColor = col
+		style.Fill.Color = col
 		r.RenderPath(p, style, m)
 	})
 
@@ -1138,7 +1138,7 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
 
 			if span.IsText() {
 				style := DefaultStyle
-				style.FillColor = span.Face.Color
+				style.Fill.Color = span.Face.Color
 				p, _, err := span.Face.toPath(span.Glyphs, span.Face.PPEM(resolution))
 				if err != nil {
 					panic(err)

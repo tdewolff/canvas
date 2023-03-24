@@ -94,15 +94,15 @@ func (r *TeX) writePath(path *canvas.Path) {
 }
 
 func (r *TeX) setFillColor(color color.RGBA) {
-	if color.R != r.style.FillColor.R || color.G != r.style.FillColor.G || color.B != r.style.FillColor.B {
+	if color.R != r.style.Fill.Color.R || color.G != r.style.Fill.Color.G || color.B != r.style.Fill.Color.B {
 		fmt.Fprintf(r.w, "\n\\pgfsetfillcolor{%v}", r.getColor(color))
-		r.style.FillColor.R = color.R
-		r.style.FillColor.G = color.G
-		r.style.FillColor.B = color.B
+		r.style.Fill.Color.R = color.R
+		r.style.Fill.Color.G = color.G
+		r.style.Fill.Color.B = color.B
 	}
-	if color.A != r.style.FillColor.A {
+	if color.A != r.style.Fill.Color.A {
 		fmt.Fprintf(r.w, "\n\\pgfsetfillopacity{%v}", dec(float64(color.A)/255.0))
-		r.style.FillColor.A = color.A
+		r.style.Fill.Color.A = color.A
 	}
 }
 
@@ -205,7 +205,7 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 	}
 
 	if style.HasFill() {
-		r.setFillColor(style.FillColor)
+		r.setFillColor(style.Fill.Color)
 	}
 
 	if style.HasStroke() && !strokeUnsupported {
