@@ -947,7 +947,7 @@ func (t *Text) OutlineBounds() Rect {
 			r = r.Add(spanBounds)
 		}
 	}
-	t.WalkDecorations(func(col color.RGBA, p *Path) {
+	t.WalkDecorations(func(_ Paint, p *Path) {
 		r = r.Add(p.Bounds())
 	})
 	return r
@@ -983,7 +983,9 @@ func (t *Text) MostCommonFontFace() *FontFace {
 			sizes[span.Face.Size]++
 			styles[span.Face.Style]++
 			variants[span.Face.Variant]++
-			colors[span.Face.Color]++
+			if span.Face.Fill.IsColor() {
+				colors[span.Face.Fill.Color]++ // TODO: also for patterns or other fill paints
+			}
 		}
 	}
 	if len(fonts) == 0 {
@@ -1025,17 +1027,17 @@ func (t *Text) MostCommonFontFace() *FontFace {
 
 type decorationSpan struct {
 	deco  FontDecorator
-	col   color.RGBA
+	fill  Paint
 	x     float64
 	width float64
 	face  *FontFace // biggest face
 }
 
 // WalkDecorations calls the callback for each color of decoration used per line.
-func (t *Text) WalkDecorations(callback func(col color.RGBA, deco *Path)) {
+func (t *Text) WalkDecorations(callback func(fill Paint, deco *Path)) {
 	// TODO: vertical text
 	// accumulate paths with colors for all lines
-	cs := []color.RGBA{}
+	fs := []Paint{}
 	ps := []*Path{}
 	for _, line := range t.lines {
 		// track active decorations, when finished draw and append to accumulated paths
@@ -1045,7 +1047,7 @@ func (t *Text) WalkDecorations(callback func(col color.RGBA, deco *Path)) {
 			for _, spanDeco := range span.Face.Deco {
 				found := false
 				for i, deco := range active {
-					if span.Face.Color == deco.col && reflect.DeepEqual(deco.deco, spanDeco) {
+					if reflect.DeepEqual(span.Face.Fill, deco.fill) && reflect.DeepEqual(deco.deco, spanDeco) {
 						// extend decoration
 						active[i].width = span.x + span.Width + span.PaddingRight - active[i].x
 						if active[i].face.Size < span.Face.Size {
@@ -1060,7 +1062,7 @@ func (t *Text) WalkDecorations(callback func(col color.RGBA, deco *Path)) {
 					// add new decoration
 					active = append(active, decorationSpan{
 						deco:  spanDeco,
-						col:   span.Face.Color,
+						fill:  span.Face.Fill,
 						x:     span.x - span.PaddingLeft,
 						width: span.Width + span.PaddingLeft + span.PaddingRight,
 						face:  span.Face,
@@ -1082,15 +1084,15 @@ func (t *Text) WalkDecorations(callback func(col color.RGBA, deco *Path)) {
 					p := decoSpan.deco.Decorate(decoSpan.face, decoSpan.width)
 					p = p.Translate(decoSpan.x+xOffset, -line.y+yOffset)
 
-					foundColor := false
-					for j, col := range cs {
-						if col == decoSpan.col {
+					foundFill := false
+					for j, fill := range fs {
+						if reflect.DeepEqual(fill, decoSpan.fill) {
 							ps[j] = ps[j].Append(p)
-							foundColor = true
+							foundFill = true
 						}
 					}
-					if !foundColor {
-						cs = append(cs, decoSpan.col)
+					if !foundFill {
+						fs = append(fs, decoSpan.fill)
 						ps = append(ps, p)
 					}
 
@@ -1102,7 +1104,7 @@ func (t *Text) WalkDecorations(callback func(col color.RGBA, deco *Path)) {
 	}
 
 	for i := 0; i < len(ps); i++ {
-		callback(cs[i], ps[i])
+		callback(fs[i], ps[i])
 	}
 }
 
@@ -1123,9 +1125,9 @@ func (t *Text) WalkSpans(callback func(x, y float64, span TextSpan)) {
 
 // RenderAsPath renders the text and its decorations converted to paths, calling r.RenderPath.
 func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
-	t.WalkDecorations(func(col color.RGBA, p *Path) {
+	t.WalkDecorations(func(paint Paint, p *Path) {
 		style := DefaultStyle
-		style.Fill.Color = col
+		style.Fill = paint
 		r.RenderPath(p, style, m)
 	})
 
@@ -1138,7 +1140,7 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
 
 			if span.IsText() {
 				style := DefaultStyle
-				style.Fill.Color = span.Face.Color
+				style.Fill = span.Face.Fill
 				p, _, err := span.Face.toPath(span.Glyphs, span.Face.PPEM(resolution))
 				if err != nil {
 					panic(err)

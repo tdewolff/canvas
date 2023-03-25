@@ -82,13 +82,14 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 	dx, dy := 0, 0
 	dpmm := r.resolution.DPMM()
 	x := int(bounds.X * dpmm)
-	y := int(bounds.Y * dpmm)
-	w := int(bounds.W*dpmm) + 1
-	h := int(bounds.H*dpmm) + 1
+	y := size.Y - int((bounds.Y+bounds.H)*dpmm)
+	w := int(bounds.W*dpmm + 0.5)
+	h := int(bounds.H*dpmm + 0.5)
 	if (x+w <= 0 || size.X <= x) && (y+h <= 0 || size.Y <= y) {
 		return // outside canvas
 	}
 
+	zp := image.Point{x, y}
 	if x < 0 {
 		dx = -x
 		x = 0
@@ -109,24 +110,27 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 
 	if style.HasFill() {
 		ras := vector.NewRasterizer(w, h)
-		fill = fill.Translate(-float64(x)/dpmm, -float64(y)/dpmm)
+		fill = fill.Translate(-float64(x)/dpmm, -float64(size.Y-y-h)/dpmm)
 		fill.ToRasterizer(ras, r.resolution)
 		var src image.Image
-		if style.Fill.HasColor() {
-			col := r.colorSpace.ToLinear(style.Fill.Color)
-			src = image.NewUniform(col)
-		} else if style.Fill.HasPattern() {
-			// TODO: color space
-			src = style.Fill.Pattern.ToImage(x-dx, y-dy, h, r.resolution, r.colorSpace)
+		if style.Fill.IsColor() {
+			src = image.NewUniform(r.colorSpace.ToLinear(style.Fill.Color))
+		} else if style.Fill.IsPattern() {
+			src = NewPatternImage(style.Fill.Pattern, zp, size, r.resolution, r.colorSpace)
 		}
-		ras.Draw(r.Image, image.Rect(x, size.Y-y, x+w, size.Y-y-h), src, image.Point{dx, dy})
+		ras.Draw(r.Image, image.Rect(x, y, x+w, y+h), src, image.Point{dx, dy})
 	}
 	if style.HasStroke() {
 		ras := vector.NewRasterizer(w, h)
-		stroke = stroke.Translate(-float64(x)/dpmm, -float64(y)/dpmm)
+		fill = fill.Translate(-float64(x)/dpmm, -float64(size.Y-y-h)/dpmm)
 		stroke.ToRasterizer(ras, r.resolution)
-		col := r.colorSpace.ToLinear(style.StrokeColor)
-		ras.Draw(r.Image, image.Rect(x, size.Y-y, x+w, size.Y-y-h), image.NewUniform(col), image.Point{dx, dy})
+		var src image.Image
+		if style.Stroke.IsColor() {
+			src = image.NewUniform(r.colorSpace.ToLinear(style.Stroke.Color))
+		} else if style.Stroke.IsPattern() {
+			src = NewPatternImage(style.Stroke.Pattern, zp, size, r.resolution, r.colorSpace)
+		}
+		ras.Draw(r.Image, image.Rect(x, y, x+w, y+h), src, image.Point{dx, dy})
 	}
 }
 

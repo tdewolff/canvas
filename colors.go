@@ -1,13 +1,13 @@
 package canvas
 
 import (
-	"image"
 	"image/color"
 	"math"
 )
 
 type Pattern interface {
-	ToImage(int, int, int, Resolution, ColorSpace) image.Image
+	SetColorSpace(ColorSpace) Pattern
+	At(float64, float64) color.RGBA
 }
 
 type Stop struct {
@@ -49,113 +49,6 @@ func (stops Stops) At(t float64) color.RGBA {
 	return stops[len(stops)-1].Color
 }
 
-type LinearGradient struct {
-	Start, End Point
-	Stops
-}
-
-func NewLinearGradient(start, end Point) *LinearGradient {
-	return &LinearGradient{
-		Start: start,
-		End:   end,
-	}
-}
-
-type LinearGradientImage struct {
-	LinearGradient
-	dx, dy, h int
-	dpmm      float64
-}
-
-func (g *LinearGradient) ToImage(dx, dy, h int, res Resolution, colorSpace ColorSpace) image.Image {
-	img := &LinearGradientImage{
-		LinearGradient: *g,
-		dx:             dx,
-		dy:             dy,
-		h:              h,
-		dpmm:           res.DPMM(),
-	}
-	for i := range img.Stops {
-		img.Stops[i].Color = colorSpace.ToLinear(img.Stops[i].Color)
-	}
-	return img
-}
-
-func (g *LinearGradientImage) ColorModel() color.Model {
-	return color.RGBAModel
-}
-
-func (g *LinearGradientImage) Bounds() image.Rectangle {
-	return image.Rectangle{image.Point{-1e9, -1e9}, image.Point{1e9, 1e9}}
-}
-
-func (g *LinearGradientImage) At(x, y int) color.Color {
-	if len(g.Stops) == 0 {
-		return color.Transparent
-	}
-
-	d := g.End.Sub(g.Start)
-	p := Point{float64(g.dx+x) / g.dpmm, float64(g.h-g.dx-y) / g.dpmm}.Sub(g.Start)
-	if Equal(d.Y, 0.0) && !Equal(d.X, 0.0) {
-		return g.Stops.At(p.X / d.X) // horizontal
-	} else if !Equal(d.Y, 0.0) && Equal(d.X, 0.0) {
-		return g.Stops.At(p.Y / d.Y) // vertical
-	}
-	t := p.Dot(d) / d.Dot(d)
-	return g.Stops.At(t)
-}
-
-//type RadialGradient struct {
-//	Center0, Center1 Point
-//	Radius0, Radius1 float64
-//	GradientStops
-//}
-//
-//func NewRadialGradient(c0, c1 Point, r0, r1 float64) *RadialGradient {
-//	return &RadialGradient{
-//		Center: center,
-//		Radius: radius,
-//	}
-//}
-//
-//func dot3(x0, y0, z0, x1, y1, z1 float64) float64 {
-//	return x0*x1 + y0*y1 + z0*z1
-//}
-//
-//func (g *RadialGradient) At(x, y int) color.RGBA {
-//	if len(g.GradientStops) == 0 {
-//		return color.Transparent
-//	}
-//
-//	dx, dy := float64(x)+0.5-g.c0.x, float64(y)+0.5-g.c0.y
-//	b := dot3(dx, dy, g.c0.r, g.cd.x, g.cd.y, g.cd.r)
-//	c := dot3(dx, dy, -g.c0.r, dx, dy, g.c0.r)
-//	if g.a == 0 {
-//		if b == 0 {
-//			return color.Transparent
-//		}
-//		t := 0.5 * c / b
-//		if t*g.cd.r >= g.mindr {
-//			return getColor(t, g.GradientStops)
-//		}
-//		return color.Transparent
-//	}
-//
-//	discr := dot3(b, g.a, 0, b, -c, 0)
-//	if discr >= 0 {
-//		sqrtdiscr := math.Sqrt(discr)
-//		t0 := (b + sqrtdiscr) * g.inva
-//		t1 := (b - sqrtdiscr) * g.inva
-//
-//		if t0*g.cd.r >= g.mindr {
-//			return getColor(t0, g.GradientStops)
-//		} else if t1*g.cd.r >= g.mindr {
-//			return getColor(t1, g.GradientStops)
-//		}
-//	}
-//	return color.Transparent
-//}
-
 func colorLerp(c0, c1 color.RGBA, t float64) color.RGBA {
 	r0, g0, b0, a0 := c0.RGBA()
 	r1, g1, b1, a1 := c1.RGBA()
@@ -169,6 +62,105 @@ func colorLerp(c0, c1 color.RGBA, t float64) color.RGBA {
 
 func lerp(a, b uint32, t float64) uint8 {
 	return uint8(uint32((1.0-t)*float64(a)+t*float64(b)) >> 8)
+}
+
+type LinearGradient struct {
+	Start, End Point
+	Stops
+
+	d  Point
+	d2 float64
+}
+
+func NewLinearGradient(start, end Point) *LinearGradient {
+	d := end.Sub(start)
+	return &LinearGradient{
+		Start: start,
+		End:   end,
+
+		d:  d,
+		d2: d.Dot(d),
+	}
+}
+
+func (g *LinearGradient) SetColorSpace(colorSpace ColorSpace) Pattern {
+	if _, ok := colorSpace.(LinearColorSpace); ok {
+		return g
+	}
+	pattern := *g
+	for i := range pattern.Stops {
+		pattern.Stops[i].Color = colorSpace.ToLinear(pattern.Stops[i].Color)
+	}
+	return &pattern
+}
+
+func (g *LinearGradient) At(x, y float64) color.RGBA {
+	if len(g.Stops) == 0 {
+		return Transparent
+	}
+
+	p := Point{x, y}.Sub(g.Start)
+	if Equal(g.d.Y, 0.0) && !Equal(g.d.X, 0.0) {
+		return g.Stops.At(p.X / g.d.X) // horizontal
+	} else if !Equal(g.d.Y, 0.0) && Equal(g.d.X, 0.0) {
+		return g.Stops.At(p.Y / g.d.Y) // vertical
+	}
+	t := p.Dot(g.d) / g.d2
+	return g.Stops.At(t)
+}
+
+type RadialGradient struct {
+	C0, C1 Point
+	R0, R1 float64
+	Stops
+
+	cd    Point
+	dr, a float64
+}
+
+func NewRadialGradient(c0 Point, r0 float64, c1 Point, r1 float64) *RadialGradient {
+	cd := c1.Sub(c0)
+	dr := r1 - r0
+	return &RadialGradient{
+		C0: c0,
+		R0: r0,
+		C1: c1,
+		R1: r1,
+
+		cd: cd,
+		dr: dr,
+		a:  cd.Dot(cd) - dr*dr,
+	}
+}
+
+func (g *RadialGradient) SetColorSpace(colorSpace ColorSpace) Pattern {
+	if _, ok := colorSpace.(LinearColorSpace); ok {
+		return g
+	}
+	pattern := *g
+	for i := range pattern.Stops {
+		pattern.Stops[i].Color = colorSpace.ToLinear(pattern.Stops[i].Color)
+	}
+	return &pattern
+}
+
+func (g *RadialGradient) At(x, y float64) color.RGBA {
+	if len(g.Stops) == 0 {
+		return Transparent
+	}
+
+	// see reference implementation of pixman-radial-gradient
+	// https://github.com/servo/pixman/blob/master/pixman/pixman-radial-gradient.c#L161
+	pd := Point{x, y}.Sub(g.C0)
+	b := pd.Dot(g.cd) + g.R0*g.dr
+	c := pd.Dot(pd) - g.R0*g.R0
+	t0, t1 := solveQuadraticFormula(g.a, -2.0*b, c)
+	if !math.IsNaN(t1) {
+		return g.Stops.At(t1)
+	} else if !math.IsNaN(t0) {
+		return g.Stops.At(t0)
+	}
+	return Transparent
 }
 
 // ColorSpace defines the color space within the RGB color model. All colors passed to this library are assumed to be in the sRGB color space, which is a ubiquitous assumption in most software. This works great for most applications, but fails when blending semi-transparent layers. See an elaborate explaination at https://blog.johnnovak.net/2016/09/21/what-every-coder-should-know-about-gamma/, which goes into depth of the problems of using sRGB for blending and the need for gamma correction. In short, we need to transform the colors, which are in the sRGB color space, to the linear color space, perform blending, and then transform them back to the sRGB color space.

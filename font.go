@@ -213,16 +213,23 @@ func (f *Font) SetFeatures(features string) {
 	f.features = features
 }
 
-// Face gets the font face given by the font size in points and its style.
-func (f *Font) Face(size float64, col color.Color, deco ...FontDecorator) *FontFace {
+// Face gets the font face given by the font size in points and its style. Fill can be any of Paint, color.Color, or canvas.Pattern.
+func (f *Font) Face(size float64, ipaint interface{}, deco ...FontDecorator) *FontFace {
 	face := &FontFace{}
 	face.Font = f
 	face.Size = size * mmPerPt
 	face.Style = f.style
 	face.Variant = FontNormal
 
-	r, g, b, a := col.RGBA()
-	face.Color = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+	if paint, ok := ipaint.(Paint); ok {
+		face.Fill = paint
+	} else if pattern, ok := ipaint.(Pattern); ok {
+		face.Fill = Paint{Pattern: pattern}
+	} else if col, ok := ipaint.(color.Color); ok {
+		r, g, b, a := col.RGBA()
+		col := color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+		face.Fill = Paint{Color: col}
+	}
 	face.Deco = deco
 	face.mmPerEm = face.Size / float64(face.Font.Head.UnitsPerEm)
 	return face
@@ -332,16 +339,23 @@ func (family *FontFamily) MustLoadFont(b []byte, index int, style FontStyle) {
 	}
 }
 
-// Face gets the font face given by the font size in points and its style.
-func (family *FontFamily) Face(size float64, col color.Color, style FontStyle, variant FontVariant, deco ...FontDecorator) *FontFace {
+// Face gets the font face given by the font size in points and its style. Fill can be any of Paint, color.Color, or canvas.Pattern.
+func (family *FontFamily) Face(size float64, ipaint interface{}, style FontStyle, variant FontVariant, deco ...FontDecorator) *FontFace {
 	face := &FontFace{}
 	face.Font = family.fonts[style]
 	face.Size = size * mmPerPt
 	face.Style = style
 	face.Variant = variant
 
-	r, g, b, a := col.RGBA()
-	face.Color = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+	if paint, ok := ipaint.(Paint); ok {
+		face.Fill = paint
+	} else if pattern, ok := ipaint.(Pattern); ok {
+		face.Fill = Paint{Pattern: pattern}
+	} else if col, ok := ipaint.(color.Color); ok {
+		r, g, b, a := col.RGBA()
+		col := color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+		face.Fill = Paint{Color: col}
+	}
 	face.Deco = deco
 
 	if variant == FontSubscript || variant == FontSuperscript {
@@ -437,8 +451,8 @@ type FontFace struct {
 	Style   FontStyle
 	Variant FontVariant
 
-	Color color.RGBA
-	Deco  []FontDecorator
+	Fill Paint
+	Deco []FontDecorator
 
 	// faux styles for bold, italic, and sub- and superscript
 	FauxBold, FauxItalic float64
