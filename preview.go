@@ -64,7 +64,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	rt := NewRichText(face)
 	rt.Add(face, "Lorem dolor ipsum ")
 	rt.Add(fontLatin.Face(pt, White, FontBold, FontNormal), "confiscator")
-	rt.Add(face, " cur\u200babitur ")
+	rt.Add(face, " cur\u00ADabitur ")
 	rt.Add(fontLatin.Face(pt, Black, FontItalic, FontNormal), "mattis")
 	rt.Add(face, " dui ")
 	rt.Add(fontLatin.Face(pt, Black, FontBold|FontItalic, FontNormal), "tellus")
@@ -72,7 +72,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	rt.Add(fontLatin.Face(pt, Black, FontRegular, FontNormal, FontUnderline), "sodales")
 	rt.Add(face, " eros vel ")
 	rt.Add(fontLatin.Face(pt, Black, FontRegular, FontNormal, FontSineUnderline), "nibh")
-	rt.Add(face, " fringilla pellen\u200btesque eu ")
+	rt.Add(face, " fringilla pellen\u00ADtesque eu ")
 
 	// Smiley face
 	c2 := New(6.144, 6.144)
@@ -123,6 +123,11 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	ctx.DrawText(x, y, text)
 
 	// Draw the word Stroke being stroked
+	gradient := NewRadialGradient(Point{120.0, 5.0}, 0.0, Point{140.0, 5.0}, 60.0)
+	gradient.Add(0.0, Turquoise)
+	gradient.Add(1.0, Red)
+	ctx.SetFillPattern(gradient)
+
 	face = fontLatin.Face(80.0, Black, FontRegular, FontNormal)
 	p, _, _ := face.ToPath("Stroke")
 	ctx.DrawPath(100, 5, p.Stroke(0.75, RoundCap, RoundJoin, Tolerance))
