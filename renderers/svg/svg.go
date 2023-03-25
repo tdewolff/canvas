@@ -184,8 +184,9 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 
 	if !style.HasStroke() {
 		if style.HasFill() {
-			if style.Fill.Color != canvas.Black {
-				fmt.Fprintf(r.w, `" fill="%v`, canvas.CSSColor(style.Fill.Color))
+			if !style.Fill.IsColor() || style.Fill.Color != canvas.Black {
+				fmt.Fprintf(r.w, `" fill="`)
+				r.writePaint(style.Fill)
 			}
 			if style.FillRule == canvas.EvenOdd {
 				fmt.Fprintf(r.w, `" fill-rule="evenodd`)
@@ -196,8 +197,9 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 	} else {
 		b := &strings.Builder{}
 		if style.HasFill() {
-			if style.Fill.Color != canvas.Black {
-				fmt.Fprintf(b, ";fill:%v", canvas.CSSColor(style.Fill.Color))
+			if !style.Fill.IsColor() || style.Fill.Color != canvas.Black {
+				fmt.Fprintf(b, ";fill:")
+				r.writePaint(style.Fill)
 			}
 			if style.FillRule == canvas.EvenOdd {
 				fmt.Fprintf(b, ";fill-rule:evenodd")
@@ -206,7 +208,8 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 			fmt.Fprintf(b, ";fill:none")
 		}
 		if style.HasStroke() && !strokeUnsupported {
-			fmt.Fprintf(b, `;stroke:%v`, canvas.CSSColor(style.StrokeColor))
+			fmt.Fprintf(b, `;stroke:`)
+			r.writePaint(style.Stroke)
 			if style.StrokeWidth != 1.0 {
 				fmt.Fprintf(b, ";stroke-width:%v", dec(style.StrokeWidth))
 			}
@@ -260,8 +263,9 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		stroke = stroke.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner, canvas.Tolerance)
 		stroke = stroke.Transform(canvas.Identity.ReflectYAbout(r.height / 2.0).Mul(m))
 		fmt.Fprintf(r.w, `<path d="%s`, stroke.ToSVG())
-		if style.StrokeColor != canvas.Black {
-			fmt.Fprintf(r.w, `" fill="%v`, canvas.CSSColor(style.StrokeColor))
+		if !style.Stroke.IsColor() || style.Stroke.Color != canvas.Black {
+			fmt.Fprintf(r.w, `" fill="`)
+			r.writePaint(style.Stroke)
 		}
 		if style.FillRule == canvas.EvenOdd {
 			fmt.Fprintf(r.w, `" fill-rule="evenodd`)
@@ -269,6 +273,10 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		r.writeClasses(r.w)
 		fmt.Fprintf(r.w, `"/>`)
 	}
+}
+
+func (r *SVG) writePaint(paint canvas.Paint) {
+	fmt.Fprintf(r.w, "%v", canvas.CSSColor(paint.Color))
 }
 
 func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace) {
@@ -283,7 +291,7 @@ func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace) {
 	if (face.Variant == canvas.FontSmallcaps) != (faceMain.Variant == canvas.FontSmallcaps) {
 		differences++
 	}
-	if face.Color != faceMain.Color {
+	if !face.Fill.Equal(faceMain.Fill) {
 		differences++
 	}
 	if face.Name() != faceMain.Name() || face.Size != faceMain.Size || differences == 3 {
@@ -308,11 +316,13 @@ func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace) {
 		buf.ReadByte()
 		buf.WriteTo(r.w)
 
-		if face.Color != faceMain.Color {
-			fmt.Fprintf(r.w, `;fill:%v`, canvas.CSSColor(face.Color))
+		if !face.Fill.Equal(faceMain.Fill) {
+			fmt.Fprintf(r.w, `;fill:`)
+			r.writePaint(face.Fill)
 		}
-	} else if differences == 1 && face.Color != faceMain.Color {
-		fmt.Fprintf(r.w, `" fill="%v`, canvas.CSSColor(face.Color))
+	} else if differences == 1 && !face.Fill.Equal(faceMain.Fill) {
+		fmt.Fprintf(r.w, `" fill="`)
+		r.writePaint(face.Fill)
 	} else if 0 < differences {
 		fmt.Fprintf(r.w, `" style="`)
 		buf := &bytes.Buffer{}
@@ -327,8 +337,9 @@ func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace) {
 		} else if face.Variant != canvas.FontSmallcaps && faceMain.Variant == canvas.FontSmallcaps {
 			fmt.Fprintf(buf, `;font-variant:normal`)
 		}
-		if face.Color != faceMain.Color {
-			fmt.Fprintf(buf, `;fill:%v`, canvas.CSSColor(face.Color))
+		if !face.Fill.Equal(faceMain.Fill) {
+			fmt.Fprintf(buf, `;fill:`)
+			r.writePaint(face.Fill)
 		}
 		buf.ReadByte()
 		buf.WriteTo(r.w)
@@ -341,9 +352,9 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 		return
 	}
 
-	text.WalkDecorations(func(col color.RGBA, p *canvas.Path) {
+	text.WalkDecorations(func(paint canvas.Paint, p *canvas.Path) {
 		style := canvas.DefaultStyle
-		style.Fill.Color = col
+		style.Fill = paint
 		r.RenderPath(p, style, m)
 	})
 
@@ -376,8 +387,9 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 		fmt.Fprintf(r.w, ` small-caps`)
 	}
 	fmt.Fprintf(r.w, ` %vpx %s`, num(faceMain.Size), faceMain.Name())
-	if faceMain.Color != canvas.Black {
-		fmt.Fprintf(r.w, `;fill:%v`, canvas.CSSColor(faceMain.Color))
+	if !faceMain.Fill.IsColor() || faceMain.Fill.Color != canvas.Black {
+		fmt.Fprintf(r.w, `;fill:`)
+		r.writePaint(faceMain.Fill)
 	}
 	if text.WritingMode != canvas.HorizontalTB {
 		if text.WritingMode == canvas.VerticalLR {

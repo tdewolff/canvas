@@ -173,7 +173,7 @@ func (r *GonumPlot) FillString(f gonumFont.Face, pt vg.Point, text string) {
 		r.fonts[f.Name()] = fontFamily
 	}
 
-	face := fontFamily.Face(float64(f.Font.Size), r.ctx.FillColor(), style, canvas.FontNormal)
+	face := fontFamily.Face(float64(f.Font.Size), r.ctx.Style.Fill.Color, style, canvas.FontNormal)
 	r.ctx.DrawText(float64(pt.X*mmPerPt), float64(pt.Y*mmPerPt), canvas.NewTextLine(face, text, canvas.Left))
 }
 

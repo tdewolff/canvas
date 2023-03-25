@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image"
-	"image/color"
 	"io"
 	"math"
 	"sort"
@@ -540,8 +539,8 @@ type pdfPageWriter struct {
 
 	graphicsStates map[float64]pdfName
 	alpha          float64
-	fillColor      color.RGBA
-	strokeColor    color.RGBA
+	fill           canvas.Paint
+	stroke         canvas.Paint
 	lineWidth      float64
 	lineCap        int
 	lineJoin       int
@@ -571,8 +570,8 @@ func (w *pdfWriter) NewPage(width, height float64) *pdfPageWriter {
 		resources:      pdfDict{},
 		graphicsStates: map[float64]pdfName{},
 		alpha:          1.0,
-		fillColor:      canvas.Black,
-		strokeColor:    canvas.Black,
+		fill:           canvas.Paint{Color: canvas.Black},
+		stroke:         canvas.Paint{Color: canvas.Black},
 		lineWidth:      1.0,
 		lineCap:        0,
 		lineJoin:       0,
@@ -629,32 +628,34 @@ func (w *pdfPageWriter) SetAlpha(alpha float64) {
 	}
 }
 
-// SetFillColor sets the filling color.
-func (w *pdfPageWriter) SetFillColor(fillColor color.RGBA) {
-	a := float64(fillColor.A) / 255.0
-	if fillColor != w.fillColor {
-		if fillColor.R == fillColor.G && fillColor.R == fillColor.B {
-			fmt.Fprintf(w, " %v g", dec(float64(fillColor.R)/255.0/a))
-		} else {
-			fmt.Fprintf(w, " %v %v %v rg", dec(float64(fillColor.R)/255.0/a), dec(float64(fillColor.G)/255.0/a), dec(float64(fillColor.B)/255.0/a))
-		}
-		w.fillColor = fillColor
+// SetFill sets the filling paint.
+func (w *pdfPageWriter) SetFill(fill canvas.Paint) {
+	if fill.Equal(w.fill) {
+		return
+	}
+	a := float64(fill.Color.A) / 255.0
+	if fill.Color.R == fill.Color.G && fill.Color.R == fill.Color.B {
+		fmt.Fprintf(w, " %v g", dec(float64(fill.Color.R)/255.0/a))
+	} else {
+		fmt.Fprintf(w, " %v %v %v rg", dec(float64(fill.Color.R)/255.0/a), dec(float64(fill.Color.G)/255.0/a), dec(float64(fill.Color.B)/255.0/a))
 	}
 	w.SetAlpha(a)
+	w.fill = fill
 }
 
-// SetStrokeColor sets the stroking color.
-func (w *pdfPageWriter) SetStrokeColor(strokeColor color.RGBA) {
-	a := float64(strokeColor.A) / 255.0
-	if strokeColor != w.strokeColor {
-		if strokeColor.R == strokeColor.G && strokeColor.R == strokeColor.B {
-			fmt.Fprintf(w, " %v G", dec(float64(strokeColor.R)/255.0/a))
-		} else {
-			fmt.Fprintf(w, " %v %v %v RG", dec(float64(strokeColor.R)/255.0/a), dec(float64(strokeColor.G)/255.0/a), dec(float64(strokeColor.B)/255.0/a))
-		}
-		w.strokeColor = strokeColor
+// SetStroke sets the stroking paint.
+func (w *pdfPageWriter) SetStroke(stroke canvas.Paint) {
+	if stroke.Equal(w.stroke) {
+		return
+	}
+	a := float64(stroke.Color.A) / 255.0
+	if stroke.Color.R == stroke.Color.G && stroke.Color.R == stroke.Color.B {
+		fmt.Fprintf(w, " %v G", dec(float64(stroke.Color.R)/255.0/a))
+	} else {
+		fmt.Fprintf(w, " %v %v %v RG", dec(float64(stroke.Color.R)/255.0/a), dec(float64(stroke.Color.G)/255.0/a), dec(float64(stroke.Color.B)/255.0/a))
 	}
 	w.SetAlpha(a)
+	w.stroke = stroke
 }
 
 // SetLineWidth sets the stroke width.

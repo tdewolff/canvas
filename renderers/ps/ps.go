@@ -5,7 +5,6 @@ import (
 	"encoding/ascii85"
 	"fmt"
 	"image"
-	"image/color"
 	"io"
 	"math"
 	"strings"
@@ -40,7 +39,7 @@ type PS struct {
 	width, height float64
 	opts          *Options
 
-	color      color.NRGBA
+	paint      canvas.Paint
 	lineWidth  float64
 	miterLimit float64
 	lineCap    canvas.Capper
@@ -88,16 +87,19 @@ func (r *PS) Close() error {
 	return nil
 }
 
-func (r *PS) setColor(col color.RGBA) {
-	color := toNRGBA(col)
-	if color.R != r.color.R || color.G != r.color.G || color.B != r.color.B {
+func (r *PS) setPaint(paint canvas.Paint) {
+	if paint.Equal(r.paint) {
+		return
+	}
+	color := toNRGBA(paint.Color)
+	if color.R != r.paint.Color.R || color.G != r.paint.Color.G || color.B != r.paint.Color.B {
 		if color.R == color.G && color.R == color.B {
 			fmt.Fprintf(r.w, " %v setgray", dec(float64(color.R)/255.0))
 		} else {
 			fmt.Fprintf(r.w, " %v %v %v setrgbcolor", dec(float64(color.R)/255.0), dec(float64(color.G)/255.0), dec(float64(color.B)/255.0))
 		}
-		r.color = color
 	}
+	r.paint = paint
 }
 
 func (r *PS) setLineWidth(width float64) {
@@ -201,7 +203,7 @@ func (r *PS) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) 
 	}
 
 	if style.HasFill() {
-		r.setColor(style.Fill.Color)
+		r.setPaint(style.Fill)
 		if style.HasStroke() && !strokeUnsupported {
 			r.w.Write([]byte(" gsave"))
 		}
@@ -216,7 +218,7 @@ func (r *PS) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) 
 	}
 	if style.HasStroke() {
 		if !strokeUnsupported {
-			r.setColor(style.StrokeColor)
+			r.setPaint(style.Stroke)
 			r.setLineWidth(style.StrokeWidth)
 			r.setLineCap(style.StrokeCapper)
 			r.setLineJoin(style.StrokeJoiner)
@@ -231,7 +233,7 @@ func (r *PS) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) 
 
 			r.w.Write([]byte("\n"))
 			r.w.Write([]byte(path.Transform(m).ToPS()))
-			r.setColor(style.StrokeColor)
+			r.setPaint(style.Stroke)
 			r.w.Write([]byte(" fill"))
 		}
 	}

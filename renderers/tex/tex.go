@@ -93,7 +93,8 @@ func (r *TeX) writePath(path *canvas.Path) {
 	}
 }
 
-func (r *TeX) setFillColor(color color.RGBA) {
+func (r *TeX) setFill(paint canvas.Paint) {
+	color := paint.Color
 	if color.R != r.style.Fill.Color.R || color.G != r.style.Fill.Color.G || color.B != r.style.Fill.Color.B {
 		fmt.Fprintf(r.w, "\n\\pgfsetfillcolor{%v}", r.getColor(color))
 		r.style.Fill.Color.R = color.R
@@ -106,16 +107,17 @@ func (r *TeX) setFillColor(color color.RGBA) {
 	}
 }
 
-func (r *TeX) setStrokeColor(color color.RGBA) {
-	if color.R != r.style.StrokeColor.R || color.G != r.style.StrokeColor.G || color.B != r.style.StrokeColor.B {
+func (r *TeX) setStroke(paint canvas.Paint) {
+	color := paint.Color
+	if color.R != r.style.Stroke.Color.R || color.G != r.style.Stroke.Color.G || color.B != r.style.Stroke.Color.B {
 		fmt.Fprintf(r.w, "\n\\pgfsetstrokecolor{%v}", r.getColor(color))
-		r.style.StrokeColor.R = color.R
-		r.style.StrokeColor.G = color.G
-		r.style.StrokeColor.B = color.B
+		r.style.Stroke.Color.R = color.R
+		r.style.Stroke.Color.G = color.G
+		r.style.Stroke.Color.B = color.B
 	}
-	if color.A != r.style.StrokeColor.A {
+	if color.A != r.style.Stroke.Color.A {
 		fmt.Fprintf(r.w, "\n\\pgfsetstrokeopacity{%v}", dec(float64(color.A)/255.0))
-		r.style.StrokeColor.A = color.A
+		r.style.Stroke.Color.A = color.A
 	}
 }
 
@@ -205,11 +207,11 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 	}
 
 	if style.HasFill() {
-		r.setFillColor(style.Fill.Color)
+		r.setFill(style.Fill)
 	}
 
 	if style.HasStroke() && !strokeUnsupported {
-		r.setStrokeColor(style.StrokeColor)
+		r.setStroke(style.Stroke)
 		r.setStrokeWidth(style.StrokeWidth)
 		r.setStrokeCap(style.StrokeCapper)
 		r.setStrokeJoin(style.StrokeJoiner)
@@ -230,7 +232,7 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		}
 		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner, canvas.Tolerance)
 		r.writePath(path.Transform(m))
-		r.setFillColor(style.StrokeColor)
+		r.setFill(style.Stroke)
 		fmt.Fprintf(r.w, "\n\\pgfusepath{fill}")
 	}
 }

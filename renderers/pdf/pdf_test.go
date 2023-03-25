@@ -52,8 +52,8 @@ func TestPDFPath(t *testing.T) {
 	buf := &bytes.Buffer{}
 	pdf := newPDFWriter(buf).NewPage(210.0, 297.0)
 	pdf.SetAlpha(0.5)
-	pdf.SetFillColor(canvas.Red)
-	pdf.SetStrokeColor(canvas.Blue)
+	pdf.SetFill(canvas.Paint{Color: canvas.Red})
+	pdf.SetStroke(canvas.Paint{Color: canvas.Blue})
 	pdf.SetLineWidth(5.0)
 	pdf.SetLineCap(canvas.RoundCap)
 	pdf.SetLineJoin(canvas.RoundJoin)

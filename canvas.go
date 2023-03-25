@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"io"
 	"os"
+	"reflect"
 	"sort"
 )
 
@@ -103,6 +104,15 @@ type Paint struct {
 	Color   color.RGBA
 	Pattern Pattern
 	// TODO: add hatch image and hatch path
+}
+
+func (a Paint) Equal(b Paint) bool {
+	if a.IsColor() && b.IsColor() && a.Color == b.Color {
+		return true
+	} else if a.IsPattern() && b.IsPattern() && reflect.DeepEqual(a, b) {
+		return true
+	}
+	return false
 }
 
 func (paint Paint) Has() bool {

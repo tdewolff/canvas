@@ -10,6 +10,6 @@ import (
 func TestPS(t *testing.T) {
 	w := &bytes.Buffer{}
 	ps := New(w, 100, 80, nil)
-	ps.setColor(canvas.Red)
+	ps.setPaint(canvas.Paint{Color: canvas.Red})
 	//test.String(t, string(w.Bytes()), "")
 }

@@ -3,7 +3,6 @@ package pdf
 import (
 	"fmt"
 	"image"
-	"image/color"
 	"io"
 	"math"
 
@@ -119,7 +118,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 
 	if !style.HasStroke() || !strokeUnsupported {
 		if style.HasFill() && !style.HasStroke() {
-			r.w.SetFillColor(style.Fill.Color)
+			r.w.SetFill(style.Fill)
 			r.w.Write([]byte(" "))
 			r.w.Write([]byte(data))
 			r.w.Write([]byte(" f"))
@@ -127,7 +126,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 				r.w.Write([]byte("*"))
 			}
 		} else if !style.HasFill() && style.HasStroke() {
-			r.w.SetStrokeColor(style.StrokeColor)
+			r.w.SetStroke(style.Stroke)
 			r.w.SetLineWidth(style.StrokeWidth)
 			r.w.SetLineCap(style.StrokeCapper)
 			r.w.SetLineJoin(style.StrokeJoiner)
@@ -143,10 +142,10 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 				r.w.Write([]byte("*"))
 			}
 		} else if style.HasFill() && style.HasStroke() {
-			differentAlpha := style.Fill.HasColor() && style.Fill.Color.A != style.StrokeColor.A
-			if !differentAlpha {
-				r.w.SetFillColor(style.Fill.Color)
-				r.w.SetStrokeColor(style.StrokeColor)
+			sameAlpha := style.Fill.IsColor() && style.Stroke.IsColor() && style.Fill.Color.A == style.Stroke.Color.A
+			if sameAlpha {
+				r.w.SetFill(style.Fill)
+				r.w.SetStroke(style.Stroke)
 				r.w.SetLineWidth(style.StrokeWidth)
 				r.w.SetLineCap(style.StrokeCapper)
 				r.w.SetLineJoin(style.StrokeJoiner)
@@ -162,7 +161,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 					r.w.Write([]byte("*"))
 				}
 			} else {
-				r.w.SetFillColor(style.Fill.Color)
+				r.w.SetFill(style.Fill)
 				r.w.Write([]byte(" "))
 				r.w.Write([]byte(data))
 				r.w.Write([]byte(" f"))
@@ -170,7 +169,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 					r.w.Write([]byte("*"))
 				}
 
-				r.w.SetStrokeColor(style.StrokeColor)
+				r.w.SetStroke(style.Stroke)
 				r.w.SetLineWidth(style.StrokeWidth)
 				r.w.SetLineCap(style.StrokeCapper)
 				r.w.SetLineJoin(style.StrokeJoiner)
@@ -190,7 +189,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 	} else {
 		// style.HasStroke() && strokeUnsupported
 		if style.HasFill() {
-			r.w.SetFillColor(style.Fill.Color)
+			r.w.SetFill(style.Fill)
 			r.w.Write([]byte(" "))
 			r.w.Write([]byte(data))
 			r.w.Write([]byte(" f"))
@@ -205,7 +204,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		}
 		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner, canvas.Tolerance)
 
-		r.w.SetFillColor(style.StrokeColor)
+		r.w.SetFill(style.Stroke)
 		r.w.Write([]byte(" "))
 		r.w.Write([]byte(path.Transform(m).ToPDF()))
 		r.w.Write([]byte(" f"))
@@ -214,25 +213,25 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 
 // RenderText renders a text object to the canvas using a transformation matrix.
 func (r *PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
-	text.WalkDecorations(func(col color.RGBA, p *canvas.Path) {
+	text.WalkDecorations(func(fill canvas.Paint, p *canvas.Path) {
 		style := canvas.DefaultStyle
-		style.Fill.Color = col
+		style.Fill = fill
 		r.RenderPath(p, style, m)
 	})
 
 	text.WalkSpans(func(x, y float64, span canvas.TextSpan) {
 		if span.IsText() {
 			style := canvas.DefaultStyle
-			style.Fill.Color = span.Face.Color
+			style.Fill = span.Face.Fill
 
 			r.w.StartTextObject()
-			r.w.SetFillColor(span.Face.Color)
+			r.w.SetFill(span.Face.Fill)
 			r.w.SetFont(span.Face.Font, span.Face.Size, span.Direction)
 			r.w.SetTextPosition(m.Translate(x, y).Shear(span.Face.FauxItalic, 0.0))
 
 			if 0.0 < span.Face.FauxBold {
 				r.w.SetTextRenderMode(2)
-				r.w.SetStrokeColor(span.Face.Color)
+				r.w.SetStroke(span.Face.Fill)
 				fmt.Fprintf(r.w, " %v w", dec(span.Face.FauxBold*2.0))
 			} else {
 				r.w.SetTextRenderMode(0)
