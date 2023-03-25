@@ -9,6 +9,7 @@ import (
 	"image"
 	"io"
 	"math"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -633,13 +634,18 @@ func (w *pdfPageWriter) SetFill(fill canvas.Paint) {
 	if fill.Equal(w.fill) {
 		return
 	}
-	a := float64(fill.Color.A) / 255.0
-	if fill.Color.R == fill.Color.G && fill.Color.R == fill.Color.B {
-		fmt.Fprintf(w, " %v g", dec(float64(fill.Color.R)/255.0/a))
+	if fill.IsPattern() {
+		// TODO: should we unset cs?
+		fmt.Fprintf(w, " /Pattern cs /%v scn", w.getPattern(fill.Pattern))
 	} else {
-		fmt.Fprintf(w, " %v %v %v rg", dec(float64(fill.Color.R)/255.0/a), dec(float64(fill.Color.G)/255.0/a), dec(float64(fill.Color.B)/255.0/a))
+		a := float64(fill.Color.A) / 255.0
+		if fill.Color.R == fill.Color.G && fill.Color.R == fill.Color.B {
+			fmt.Fprintf(w, " %v g", dec(float64(fill.Color.R)/255.0/a))
+		} else {
+			fmt.Fprintf(w, " %v %v %v rg", dec(float64(fill.Color.R)/255.0/a), dec(float64(fill.Color.G)/255.0/a), dec(float64(fill.Color.B)/255.0/a))
+		}
+		w.SetAlpha(a)
 	}
-	w.SetAlpha(a)
 	w.fill = fill
 }
 
@@ -648,13 +654,18 @@ func (w *pdfPageWriter) SetStroke(stroke canvas.Paint) {
 	if stroke.Equal(w.stroke) {
 		return
 	}
-	a := float64(stroke.Color.A) / 255.0
-	if stroke.Color.R == stroke.Color.G && stroke.Color.R == stroke.Color.B {
-		fmt.Fprintf(w, " %v G", dec(float64(stroke.Color.R)/255.0/a))
+	if stroke.IsPattern() {
+		// TODO: should we unset CS?
+		fmt.Fprintf(w, " /Pattern CS /%v SCN", w.getPattern(stroke.Pattern))
 	} else {
-		fmt.Fprintf(w, " %v %v %v RG", dec(float64(stroke.Color.R)/255.0/a), dec(float64(stroke.Color.G)/255.0/a), dec(float64(stroke.Color.B)/255.0/a))
+		a := float64(stroke.Color.A) / 255.0
+		if stroke.Color.R == stroke.Color.G && stroke.Color.R == stroke.Color.B {
+			fmt.Fprintf(w, " %v G", dec(float64(stroke.Color.R)/255.0/a))
+		} else {
+			fmt.Fprintf(w, " %v %v %v RG", dec(float64(stroke.Color.R)/255.0/a), dec(float64(stroke.Color.G)/255.0/a), dec(float64(stroke.Color.B)/255.0/a))
+		}
+		w.SetAlpha(a)
 	}
-	w.SetAlpha(a)
 	w.stroke = stroke
 }
 
@@ -1034,4 +1045,87 @@ func (w *pdfPageWriter) getOpacityGS(a float64) pdfName {
 		"ca": a,
 	}
 	return name
+}
+
+func (w *pdfPageWriter) getPattern(pat canvas.Pattern) pdfName {
+	// TODO: support patterns/gradients with alpha channel
+	shading := pdfDict{
+		"ColorSpace": pdfName("DeviceRGB"),
+	}
+	if g, ok := pat.(*canvas.LinearGradient); ok {
+		shading["ShadingType"] = 2
+		shading["Coords"] = pdfArray{g.Start.X * ptPerMm, g.Start.Y * ptPerMm, g.End.X * ptPerMm, g.End.Y * ptPerMm}
+		shading["Function"] = patternStopsFunction(g.Stops)
+		shading["Extend"] = pdfArray{true, true}
+	} else if g, ok := pat.(*canvas.RadialGradient); ok {
+		shading["ShadingType"] = 3
+		shading["Coords"] = pdfArray{g.C0.X * ptPerMm, g.C0.Y * ptPerMm, g.R0 * ptPerMm, g.C1.X * ptPerMm, g.C1.Y * ptPerMm, g.R1 * ptPerMm}
+		shading["Function"] = patternStopsFunction(g.Stops)
+		shading["Extend"] = pdfArray{true, true}
+	}
+	pattern := pdfDict{
+		"Type":        pdfName("Pattern"),
+		"PatternType": 2,
+		"Shading":     shading,
+	}
+
+	if _, ok := w.resources["Pattern"]; !ok {
+		w.resources["Pattern"] = pdfDict{}
+	}
+	for name, pat := range w.resources["Pattern"].(pdfDict) {
+		if reflect.DeepEqual(pat, pattern) {
+			return name
+		}
+	}
+	name := pdfName(fmt.Sprintf("P%d", len(w.resources["Pattern"].(pdfDict))))
+	w.resources["Pattern"].(pdfDict)[name] = pattern
+	return name
+}
+
+func patternStopsFunction(stops canvas.Stops) pdfDict {
+	if len(stops) < 2 {
+		return pdfDict{}
+	}
+
+	fs := []pdfDict{}
+	encode := pdfArray{}
+	bounds := pdfArray{}
+	if !canvas.Equal(stops[0].Offset, 0.0) {
+		fs = append(fs, patternStopFunction(stops[0], stops[0]))
+		encode = append(encode, 0, 1)
+		bounds = append(bounds, stops[0].Offset)
+	}
+	for i := 0; i < len(stops)-1; i++ {
+		fs = append(fs, patternStopFunction(stops[i], stops[i+1]))
+		encode = append(encode, 0, 1)
+		if i != 0 {
+			bounds = append(bounds, stops[1].Offset)
+		}
+	}
+	if !canvas.Equal(stops[len(stops)-1].Offset, 1.0) {
+		fs = append(fs, patternStopFunction(stops[len(stops)-1], stops[len(stops)-1]))
+		encode = append(encode, 0, 1)
+	}
+	if len(fs) == 1 {
+		return fs[0]
+	}
+	return pdfDict{
+		"FunctionType": 3,
+		"Domain":       pdfArray{0, 1},
+		"Encode":       encode,
+		"Bounds":       bounds,
+		"Functions":    fs,
+	}
+}
+
+func patternStopFunction(s0, s1 canvas.Stop) pdfDict {
+	a0 := float64(s0.Color.A) / 255.0
+	a1 := float64(s1.Color.A) / 255.0
+	return pdfDict{
+		"FunctionType": 2,
+		"Domain":       pdfArray{0, 1},
+		"N":            1,
+		"C0":           pdfArray{float64(s0.Color.R) / 255.0 / a0, float64(s0.Color.G) / 255.0 / a0, float64(s0.Color.B) / 255.0 / a0},
+		"C1":           pdfArray{float64(s1.Color.R) / 255.0 / a1, float64(s1.Color.G) / 255.0 / a1, float64(s1.Color.B) / 255.0 / a1},
+	}
 }

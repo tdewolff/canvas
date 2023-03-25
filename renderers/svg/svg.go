@@ -38,6 +38,7 @@ type SVG struct {
 	fonts         map[*canvas.Font]bool
 	fontSubset    map[*canvas.Font]*canvas.FontSubsetter
 	maskID        int
+	patterns      map[canvas.Pattern]string
 	classes       []string
 	opts          *Options
 }
@@ -63,8 +64,7 @@ func New(w io.Writer, width, height float64, opts *Options) *SVG {
 		height:     height,
 		fonts:      map[*canvas.Font]bool{},
 		fontSubset: map[*canvas.Font]*canvas.FontSubsetter{},
-		maskID:     0,
-		classes:    []string{},
+		patterns:   map[canvas.Pattern]string{},
 		opts:       opts,
 	}
 }
@@ -153,6 +153,13 @@ func (r *SVG) Size() (float64, float64) {
 
 // RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
+	if style.HasFill() && style.Fill.IsPattern() {
+		r.getPattern(style.Fill.Pattern)
+	}
+	if style.HasStroke() && style.Stroke.IsPattern() {
+		r.getPattern(style.Stroke.Pattern)
+	}
+
 	stroke := path
 	path = path.Transform(canvas.Identity.ReflectYAbout(r.height / 2.0).Mul(m))
 	fmt.Fprintf(r.w, `<path d="%s`, path.ToSVG())
@@ -276,7 +283,12 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 }
 
 func (r *SVG) writePaint(paint canvas.Paint) {
-	fmt.Fprintf(r.w, "%v", canvas.CSSColor(paint.Color))
+	if paint.IsPattern() {
+
+		fmt.Fprintf(r.w, "url(#%v)", r.getPattern(paint.Pattern))
+	} else {
+		fmt.Fprintf(r.w, "%v", canvas.CSSColor(paint.Color))
+	}
 }
 
 func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace) {
@@ -531,4 +543,30 @@ func splitImageAlphaChannel(img image.Image) (image.Image, image.Image) {
 	}
 
 	return opaque, mask
+}
+
+func (r *SVG) getPattern(pattern canvas.Pattern) string {
+	if ref, ok := r.patterns[pattern]; ok {
+		return ref
+	}
+
+	ref := fmt.Sprintf("p%v", len(r.patterns)+1)
+	r.patterns[pattern] = ref
+
+	fmt.Fprintf(r.w, `<defs>`)
+	if linearGradient, ok := pattern.(*canvas.LinearGradient); ok {
+		fmt.Fprintf(r.w, `<linearGradient id="%v" gradientUnits="userSpaceOnUse" x1="%v" y1="%v" x2="%v" y2="%v">`, ref, dec(linearGradient.Start.X), dec(r.height-linearGradient.Start.Y), dec(linearGradient.End.X), dec(r.height-linearGradient.End.Y))
+		for _, stop := range linearGradient.Stops {
+			fmt.Fprintf(r.w, `<stop offset="%v" stop-color="%v"/>`, dec(stop.Offset), canvas.CSSColor(stop.Color))
+		}
+		fmt.Fprintf(r.w, `</linearGradient>`)
+	} else if radialGradient, ok := pattern.(*canvas.RadialGradient); ok {
+		fmt.Fprintf(r.w, `<radialGradient id="%v" gradientUnits="userSpaceOnUse" fx="%v" fy="%v" fr="%v" cx="%v" cy="%v" r="%v">`, ref, dec(radialGradient.C0.X), dec(r.height-radialGradient.C0.Y), dec(radialGradient.R0), dec(radialGradient.C1.X), dec(r.height-radialGradient.C1.Y), dec(radialGradient.R1))
+		for _, stop := range radialGradient.Stops {
+			fmt.Fprintf(r.w, `<stop offset="%v" stop-color="%v"/>`, dec(stop.Offset), canvas.CSSColor(stop.Color))
+		}
+		fmt.Fprintf(r.w, `</radialGradient>`)
+	}
+	fmt.Fprintf(r.w, `</defs>`)
+	return ref
 }
