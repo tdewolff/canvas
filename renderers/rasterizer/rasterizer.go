@@ -78,18 +78,19 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		bounds = stroke.Bounds()
 	}
 
-	size := r.Bounds().Size()
+	padding := 2
 	dx, dy := 0, 0
+	size := r.Bounds().Size()
 	dpmm := r.resolution.DPMM()
-	x := int(bounds.X * dpmm)
-	y := size.Y - int((bounds.Y+bounds.H)*dpmm)
-	w := int(bounds.W*dpmm + 0.5)
-	h := int(bounds.H*dpmm + 0.5)
+	x := int(bounds.X*dpmm) - padding
+	y := size.Y - int((bounds.Y+bounds.H)*dpmm) - padding
+	w := int(bounds.W*dpmm) + 2*padding
+	h := int(bounds.H*dpmm) + 2*padding
 	if (x+w <= 0 || size.X <= x) && (y+h <= 0 || size.Y <= y) {
 		return // outside canvas
 	}
 
-	zp := image.Point{x, y}
+	zp := image.Point{x + padding, y + padding}
 	if x < 0 {
 		dx = -x
 		x = 0
