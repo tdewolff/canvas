@@ -122,7 +122,7 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 	}
 	if style.HasStroke() {
 		ras := vector.NewRasterizer(w, h)
-		fill = fill.Translate(-float64(x)/dpmm, -float64(size.Y-y-h)/dpmm)
+		stroke = stroke.Translate(-float64(x)/dpmm, -float64(size.Y-y-h)/dpmm)
 		stroke.ToRasterizer(ras, r.resolution)
 		var src image.Image
 		if style.Stroke.IsColor() {
