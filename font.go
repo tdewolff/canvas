@@ -231,6 +231,7 @@ func (f *Font) Face(size float64, ipaint interface{}, deco ...FontDecorator) *Fo
 		face.Fill = Paint{Color: col}
 	}
 	face.Deco = deco
+	face.Hinting = font.VerticalHinting
 	face.mmPerEm = face.Size / float64(face.Font.Head.UnitsPerEm)
 	return face
 }
@@ -357,6 +358,7 @@ func (family *FontFamily) Face(size float64, ipaint interface{}, style FontStyle
 		face.Fill = Paint{Color: col}
 	}
 	face.Deco = deco
+	face.Hinting = font.VerticalHinting
 
 	if variant == FontSubscript || variant == FontSuperscript {
 		scale := 0.583
@@ -451,8 +453,9 @@ type FontFace struct {
 	Style   FontStyle
 	Variant FontVariant
 
-	Fill Paint
-	Deco []FontDecorator
+	Fill    Paint
+	Deco    []FontDecorator
+	Hinting font.Hinting
 
 	// faux styles for bold, italic, and sub- and superscript
 	FauxBold, FauxItalic float64

@@ -31,6 +31,7 @@ type Hinting int
 // see Hinting
 const (
 	NoHinting Hinting = iota
+	VerticalHinting
 )
 
 // SFNT is a parsed OpenType font.

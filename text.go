@@ -10,6 +10,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/tdewolff/canvas/font"
+	"github.com/tdewolff/canvas/text"
 	canvasText "github.com/tdewolff/canvas/text"
 )
 
@@ -1146,6 +1148,12 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
 					panic(err)
 				}
 				p = p.Transform(Identity.Rotate(float64(span.Rotation)))
+				if span.Face.Hinting == font.VerticalHinting && span.Rotation == text.NoRotation {
+					// grid-align vertically on pixel raster, this improves font sharpness
+					_, dy := m.Pos()
+					dy += y
+					y += float64(int(dy*resolution.DPMM()+0.5)) - dy
+				}
 				p = p.Translate(x, y)
 				r.RenderPath(p, style, m)
 			} else {
