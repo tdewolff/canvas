@@ -60,18 +60,18 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 
 	// Draw a comprehensive text box
 	pt := 14.0
-	face := fontLatin.Face(pt, Black, FontRegular, FontNormal)
+	face := fontLatin.Face(pt)
 	rt := NewRichText(face)
 	rt.Add(face, "Lorem dolor ipsum ")
-	rt.Add(fontLatin.Face(pt, White, FontBold, FontNormal), "confiscator")
+	rt.Add(fontLatin.Face(pt, White, FontBold), "confiscator")
 	rt.Add(face, " cur\u00ADabitur ")
-	rt.Add(fontLatin.Face(pt, Black, FontItalic, FontNormal), "mattis")
+	rt.Add(fontLatin.Face(pt, FontItalic), "mattis")
 	rt.Add(face, " dui ")
-	rt.Add(fontLatin.Face(pt, Black, FontBold|FontItalic, FontNormal), "tellus")
+	rt.Add(fontLatin.Face(pt, FontBold|FontItalic), "tellus")
 	rt.Add(face, " vel. Proin ")
-	rt.Add(fontLatin.Face(pt, Black, FontRegular, FontNormal, FontUnderline), "sodales")
+	rt.Add(fontLatin.Face(pt, FontUnderline), "sodales")
 	rt.Add(face, " eros vel ")
-	rt.Add(fontLatin.Face(pt, Black, FontRegular, FontNormal, FontSineUnderline), "nibh")
+	rt.Add(fontLatin.Face(pt, FontSineUnderline), "nibh")
 	rt.Add(face, " fringilla pellen\u00ADtesque eu ")
 
 	// Smiley face
@@ -90,18 +90,18 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	rt.AddCanvas(c2, FontMiddle)
 	rt.Add(face, " cillum. ")
 
-	face = fontLatin.Face(pt, Black, FontRegular, FontNormal)
+	face = fontLatin.Face(pt)
 	face.Language = "ru"
 	face.Script = text.Cyrillic
 	rt.Add(face, "дёжжэнтиюнт холст ")
 
-	face = fontArabic.Face(pt, Black, FontRegular, FontNormal)
+	face = fontArabic.Face(pt)
 	face.Language = "ar"
 	face.Script = text.Arabic
 	face.Direction = text.RightToLeft
 	rt.Add(face, "تسجّل يتكلّم ")
 
-	face = fontDevanagari.Face(pt, Black, FontRegular, FontNormal)
+	face = fontDevanagari.Face(pt)
 	face.Language = "hi"
 	face.Script = text.Devanagari
 	rt.Add(face, "हालाँकि प्र ")
@@ -128,7 +128,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	gradient.Add(1.0, Red)
 	ctx.SetFillPattern(gradient)
 
-	face = fontLatin.Face(80.0, Black, FontRegular, FontNormal)
+	face = fontLatin.Face(80.0)
 	p, _, _ := face.ToPath("Stroke")
 	ctx.DrawPath(100, 5, p.Stroke(0.75, RoundCap, RoundJoin, Tolerance))
 
@@ -219,7 +219,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	ctx.SetFillColor(Transparent)
 	ctx.SetStrokeColor(Hex("#CCC"))
 	ctx.SetStrokeWidth(0.1)
-	face = fontLatin.Face(8.0, Black, FontRegular, FontNormal)
+	face = fontLatin.Face(8.0)
 	titles := []string{"A and B", "A or B", "A xor B", "A not B", "B not A"}
 	for i := 0; i < 5; i++ {
 		y := 56.0 - 12.0*float64(i)
