@@ -100,7 +100,7 @@ func main() {
 		panic(err)
 	}
 	rt.WriteString(".")
-	ctx.DrawText(40.0, 7.0, rt.ToText(00.0, 00.0, canvas.Center, canvas.Top, 0.0, 0.0))
+	ctx.DrawText(40.0, 7.0, rt.ToText(0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0))
 
 	renderers.Write("obj.png", c, canvas.DPMM(5.0))
 }

@@ -1937,6 +1937,10 @@ func (p *Path) ToRasterizer(ras *vector.Rasterizer, resolution Resolution) {
 	dpmm := resolution.DPMM()
 	p = p.Flatten(PixelTolerance / dpmm) // tolerance of 1/10 of a pixel
 
+	if float64(math.MaxInt32) < float64(ras.Bounds().Max.X)*float64(ras.Bounds().Max.Y) {
+		panic("rasterizer overflow, lower resolution")
+	}
+
 	dy := float64(ras.Bounds().Size().Y)
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]

@@ -329,6 +329,7 @@ func RGBA(r, g, b uint8, a float64) color.RGBA {
 var Transparent = color.RGBA{0x00, 0x00, 0x00, 0x00} // rgba(0, 0, 0, 0)
 
 // from https://golang.org/x/image/colornames
+// from https://www.w3.org/TR/css-color-4/#color-keywords
 var (
 	Aliceblue            = color.RGBA{0xf0, 0xf8, 0xff, 0xff} // rgb(240, 248, 255)
 	Antiquewhite         = color.RGBA{0xfa, 0xeb, 0xd7, 0xff} // rgb(250, 235, 215)

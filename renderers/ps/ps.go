@@ -242,7 +242,7 @@ func (r *PS) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) 
 // RenderText renders a text object to the canvas using a transformation matrix.
 func (r *PS) RenderText(text *canvas.Text, m canvas.Matrix) {
 	// TODO: (EPS) write text natively
-	text.RenderAsPath(r, m, canvas.DefaultResolution)
+	text.RenderAsPath(r, m, 0.0)
 }
 
 // RenderImage renders an image to the canvas using a transformation matrix.

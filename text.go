@@ -1148,7 +1148,7 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
 					panic(err)
 				}
 				p = p.Transform(Identity.Rotate(float64(span.Rotation)))
-				if span.Face.Hinting == font.VerticalHinting && span.Rotation == text.NoRotation {
+				if resolution != 0.0 && span.Face.Hinting != font.NoHinting && span.Rotation == text.NoRotation {
 					// grid-align vertically on pixel raster, this improves font sharpness
 					_, dy := m.Pos()
 					dy += y
