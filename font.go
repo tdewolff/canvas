@@ -340,31 +340,38 @@ func (family *FontFamily) MustLoadFont(b []byte, index int, style FontStyle) {
 	}
 }
 
-// Face gets the font face given by the font size in points and its style. Fill can be any of Paint, color.Color, or canvas.Pattern.
-func (family *FontFamily) Face(size float64, ipaint interface{}, style FontStyle, variant FontVariant, deco ...FontDecorator) *FontFace {
-	face := &FontFace{}
-	face.Font = family.fonts[style]
-	face.Size = size * mmPerPt
-	face.Style = style
-	face.Variant = variant
-
-	if paint, ok := ipaint.(Paint); ok {
-		face.Fill = paint
-	} else if pattern, ok := ipaint.(Pattern); ok {
-		face.Fill = Paint{Pattern: pattern}
-	} else if col, ok := ipaint.(color.Color); ok {
-		r, g, b, a := col.RGBA()
-		col := color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
-		face.Fill = Paint{Color: col}
+// Face gets the font face given by the font size in points. Other arguments that can be passed: Paint/Pattern/color.Color (=Black), FontStyle (=FontRegular), FontVariant (=FontNormal), and multiple FontDecorator.
+func (family *FontFamily) Face(size float64, args ...interface{}) *FontFace {
+	face := &FontFace{
+		Fill:    Paint{Color: Black},
+		Hinting: font.VerticalHinting,
 	}
-	face.Deco = deco
-	face.Hinting = font.VerticalHinting
+	for _, iarg := range args {
+		switch arg := iarg.(type) {
+		case Paint:
+			face.Fill = arg
+		case Pattern:
+			face.Fill = Paint{Pattern: arg}
+		case color.Color:
+			r, g, b, a := arg.RGBA()
+			col := color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+			face.Fill = Paint{Color: col}
+		case FontStyle:
+			face.Style = arg
+		case FontVariant:
+			face.Variant = arg
+		case FontDecorator:
+			face.Deco = append(face.Deco, arg)
+		}
+	}
+	face.Font = family.fonts[face.Style]
+	face.Size = size * mmPerPt
 
-	if variant == FontSubscript || variant == FontSuperscript {
+	if face.Variant == FontSubscript || face.Variant == FontSuperscript {
 		scale := 0.583
 		xOffset, yOffset := int16(0), int16(0)
 		units := float64(face.Font.Head.UnitsPerEm)
-		if variant == FontSubscript {
+		if face.Variant == FontSubscript {
 			if face.Font.OS2.YSubscriptXSize != 0 {
 				scale = float64(face.Font.OS2.YSubscriptXSize) / units
 			}
@@ -375,7 +382,7 @@ func (family *FontFamily) Face(size float64, ipaint interface{}, style FontStyle
 			if face.Font.OS2.YSubscriptYOffset != 0 {
 				yOffset = -face.Font.OS2.YSubscriptYOffset
 			}
-		} else if variant == FontSuperscript {
+		} else if face.Variant == FontSuperscript {
 			if face.Font.OS2.YSuperscriptXSize != 0 {
 				scale = float64(face.Font.OS2.YSuperscriptXSize) / units
 			}
@@ -390,23 +397,22 @@ func (family *FontFamily) Face(size float64, ipaint interface{}, style FontStyle
 		face.Size *= scale
 		face.XOffset = int32(float64(xOffset) / scale)
 		face.YOffset = int32(float64(yOffset) / scale)
-		if style&0xFF == FontExtraLight {
-			style = style&0x100 | FontLight
-		} else if style&0xFF == FontLight || style&0xFF == FontBook {
-			style = style & 0x100
-		} else if style&0xFF == FontRegular {
-			style = style&0x100 | FontSemibold
-		} else if style&0xFF == FontMedium || style&0xFF == FontSemibold {
-			style = style&0x100 | FontBold
-		} else if style&0xFF == FontBold {
-			style = style&0x100 | FontBlack
-		} else if style&0xFF == FontBlack {
-			style = style&0x100 | FontExtraBlack
+		if face.Style&0xFF == FontExtraLight {
+			face.Style = face.Style&0x100 | FontLight
+		} else if face.Style&0xFF == FontLight || face.Style&0xFF == FontBook {
+			face.Style = face.Style & 0x100
+		} else if face.Style&0xFF == FontRegular {
+			face.Style = face.Style&0x100 | FontSemibold
+		} else if face.Style&0xFF == FontMedium || face.Style&0xFF == FontSemibold {
+			face.Style = face.Style&0x100 | FontBold
+		} else if face.Style&0xFF == FontBold {
+			face.Style = face.Style&0x100 | FontBlack
+		} else if face.Style&0xFF == FontBlack {
+			face.Style = face.Style&0x100 | FontExtraBlack
 		} else {
 			face.FauxBold += 0.02
 		}
-		face.Font = family.fonts[style]
-		face.Style = style
+		face.Font = family.fonts[face.Style]
 	}
 
 	if face.Font == nil {
@@ -414,24 +420,24 @@ func (family *FontFamily) Face(size float64, ipaint interface{}, style FontStyle
 		if face.Font == nil {
 			panic("requested font style not found")
 		}
-		if style&0xFF == FontExtraLight {
+		if face.Style&0xFF == FontExtraLight {
 			face.FauxBold += -0.02
-		} else if style&0xFF == FontLight {
+		} else if face.Style&0xFF == FontLight {
 			face.FauxBold += -0.01
-		} else if style&0xFF == FontBook {
+		} else if face.Style&0xFF == FontBook {
 			face.FauxBold += -0.005
-		} else if style&0xFF == FontMedium {
+		} else if face.Style&0xFF == FontMedium {
 			face.FauxBold += 0.005
-		} else if style&0xFF == FontSemibold {
+		} else if face.Style&0xFF == FontSemibold {
 			face.FauxBold += 0.01
-		} else if style&0xFF == FontBold {
+		} else if face.Style&0xFF == FontBold {
 			face.FauxBold += 0.02
-		} else if style&0xFF == FontBlack {
+		} else if face.Style&0xFF == FontBlack {
 			face.FauxBold += 0.03
-		} else if style&0xFF == FontExtraBlack {
+		} else if face.Style&0xFF == FontExtraBlack {
 			face.FauxBold += 0.04
 		}
-		if style&FontItalic != 0 {
+		if face.Style&FontItalic != 0 {
 			if face.Font.Post.ItalicAngle != 0 {
 				face.FauxItalic = math.Tan(float64(-face.Font.Post.ItalicAngle))
 			} else {
