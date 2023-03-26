@@ -90,7 +90,7 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		return // outside canvas
 	}
 
-	zp := image.Point{x + padding, y + padding}
+	zp := image.Point{x, y}
 	if x < 0 {
 		dx = -x
 		x = 0
