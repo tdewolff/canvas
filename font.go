@@ -340,7 +340,7 @@ func (family *FontFamily) MustLoadFont(b []byte, index int, style FontStyle) {
 	}
 }
 
-// Face gets the font face given by the font size in points. Other arguments that can be passed: Paint/Pattern/color.Color (=Black), FontStyle (=FontRegular), FontVariant (=FontNormal), and multiple FontDecorator.
+// Face gets the font face given by the font size in points. Other arguments that can be passed: Paint/Pattern/color.Color (=Black), FontStyle (=FontRegular), FontVariant (=FontNormal), multiple FontDecorator, and Hinting (=VerticalHinting).
 func (family *FontFamily) Face(size float64, args ...interface{}) *FontFace {
 	face := &FontFace{
 		Fill:    Paint{Color: Black},
@@ -362,6 +362,8 @@ func (family *FontFamily) Face(size float64, args ...interface{}) *FontFace {
 			face.Variant = arg
 		case FontDecorator:
 			face.Deco = append(face.Deco, arg)
+		case font.Hinting:
+			face.Hinting = arg
 		}
 	}
 	face.Font = family.fonts[face.Style]
