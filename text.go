@@ -1152,7 +1152,7 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
 					// grid-align vertically on pixel raster, this improves font sharpness
 					_, dy := m.Pos()
 					dy += y
-					y += float64(int(dy*resolution.DPMM()+0.5)) - dy
+					y += float64(int(dy*resolution.DPMM()+0.5))/resolution.DPMM() - dy
 				}
 				p = p.Translate(x, y)
 				r.RenderPath(p, style, m)
