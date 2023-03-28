@@ -625,12 +625,14 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		breaks = canvasText.Linebreak(items, width, looseness)
 	} else {
 		lineWidth := 0.0
-		for _, item := range items {
+		for i, item := range items {
 			if item.Type != canvasText.PenaltyType {
 				lineWidth += item.Width
+			} else if item.Penalty <= -canvasText.Infinity {
+				breaks = append(breaks, &canvasText.Breakpoint{Position: i, Width: lineWidth})
+				lineWidth = 0.0
 			}
 		}
-		breaks = append(breaks, &canvasText.Breakpoint{Position: len(items) - 1, Width: lineWidth})
 	}
 
 	// clean up items, remove penalties/glues that were not chosen as breaks, this concatenates adjacent boxes and thus spans
