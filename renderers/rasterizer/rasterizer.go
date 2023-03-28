@@ -3,6 +3,7 @@ package rasterizer
 import (
 	"image"
 	"image/color"
+	"math"
 
 	"github.com/tdewolff/canvas"
 	"golang.org/x/image/draw"
@@ -34,6 +35,13 @@ func New(width, height float64, resolution canvas.Resolution, colorSpace canvas.
 
 // FromImage returns a renderer that draws to an existing image.
 func FromImage(img draw.Image, resolution canvas.Resolution, colorSpace canvas.ColorSpace) *Rasterizer {
+	bounds := img.Bounds()
+	if bounds.Dx() == 0 || bounds.Dy() == 0 {
+		panic("rasterizer size 0x0, increase resolution")
+	} else if float64(math.MaxInt32) < float64(bounds.Dx())*float64(bounds.Dy()) {
+		panic("rasterizer overflow, decrease resolution")
+	}
+
 	if colorSpace == nil {
 		colorSpace = canvas.DefaultColorSpace
 	}
