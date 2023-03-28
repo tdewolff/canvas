@@ -831,7 +831,7 @@ func collisions(ps, qs []*Path, keepTangents bool) intersections {
 			// note that collisions between segments of the same path are never generated
 			for i := 0; i < len(Zs); i++ {
 				z := Zs[i]
-				if z.Kind != Tangent {
+				if z.Kind&Tangent == 0 {
 					// regular intersection
 					zs = append(zs, z)
 				} else if !Equal(z.TA, 0.0) && !Equal(z.TB, 0.0) && !Equal(z.TA, 1.0) && !Equal(z.TB, 1.0) {
@@ -1032,10 +1032,10 @@ func (zs intersections) appendSegment(segA int, a0 Point, a []float64, segB int,
 			zs[i].SegA, zs[i].SegB = segA, segB
 			zs[i].TA, zs[i].TB = zs[i].TB, zs[i].TA
 			zs[i].DirA, zs[i].DirB = zs[i].DirB, zs[i].DirA
-			if zs[i].Kind == AintoB {
-				zs[i].Kind = BintoA
-			} else if zs[i].Kind == BintoA {
-				zs[i].Kind = AintoB
+			if zs[i].Kind&BintoA != 0 {
+				zs[i].Kind ^= BintoA
+			} else {
+				zs[i].Kind |= BintoA
 			}
 		}
 	} else {
@@ -1055,8 +1055,8 @@ func (zs intersections) appendSegment(segA int, a0 Point, a []float64, segB int,
 type intersectionKind int
 
 const (
-	AintoB intersectionKind = iota
-	BintoA
+	AintoB intersectionKind = iota // A goes to LHS of B == B goes to RHS of A
+	BintoA                         // B goes to LHS of A == A goes to RHS of B
 	Tangent
 )
 
@@ -1121,7 +1121,7 @@ func (zs intersections) Has() bool {
 // HasSecant returns true when there are secant intersections, i.e. the curves intersect and cross (they cut).
 func (zs intersections) HasSecant() bool {
 	for _, z := range zs {
-		if z.Kind != Tangent {
+		if z.Kind&Tangent == 0 {
 			return true
 		}
 	}
@@ -1131,7 +1131,7 @@ func (zs intersections) HasSecant() bool {
 // HasTangent returns true when there are tangent intersections, i.e. the curves intersect but don't cross (they touch).
 func (zs intersections) HasTangent() bool {
 	for _, z := range zs {
-		if z.Kind == Tangent {
+		if z.Kind&Tangent != 0 {
 			return true
 		}
 	}
@@ -1286,13 +1286,15 @@ func (zs intersections) add(pos Point, ta, tb float64, dira, dirb float64, tange
 	var parallel intersectionParallel
 	if angleEqual(dira, dirb) || angleEqual(dira, dirb+math.Pi) {
 		parallel = Parallel
+	} else {
+		if angleNorm(dirb-dira) < math.Pi {
+			kind = BintoA // B goes to LHS of A, A goes to RHS of B
+		} else {
+			kind = AintoB // A goes to LHS of B, B goes to RHS of A
+		}
 	}
 	if tangent || parallel == Parallel || Equal(ta, 0.0) || Equal(tb, 0.0) || Equal(ta, 1.0) || Equal(tb, 1.0) {
-		kind = Tangent
-	} else if angleNorm(dirb-dira) < math.Pi {
-		kind = BintoA
-	} else {
-		kind = AintoB
+		kind |= Tangent
 	}
 	return append(zs, intersection{
 		Point:    pos,

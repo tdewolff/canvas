@@ -135,8 +135,8 @@ func TestIntersectionLineQuad(t *testing.T) {
 
 		// tangent
 		{"L0 10", "Q10 5 0 10", intersections{
-			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, 0.5 * math.Pi, Point{2.0, 1.0}.Angle(), Tangent, NoParallel},
-			{Point{0.0, 10.0}, 0, 0, 1.0, 1.0, 0.5 * math.Pi, Point{-2.0, 1.0}.Angle(), Tangent, NoParallel},
+			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, 0.5 * math.Pi, Point{2.0, 1.0}.Angle(), AintoB | Tangent, NoParallel},
+			{Point{0.0, 10.0}, 0, 0, 1.0, 1.0, 0.5 * math.Pi, Point{-2.0, 1.0}.Angle(), BintoA | Tangent, NoParallel},
 		}},
 		{"M5 0L5 10", "Q10 5 0 10", intersections{
 			{Point{5.0, 5.0}, 0, 0, 0.5, 0.5, 0.5 * math.Pi, 0.5 * math.Pi, Tangent, Parallel},
@@ -184,8 +184,8 @@ func TestIntersectionLineCube(t *testing.T) {
 
 		// tangent
 		{"L0 10", "C8 0 8 10 0 10", intersections{
-			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, 0.5 * math.Pi, 0.0, Tangent, NoParallel},
-			{Point{0.0, 10.0}, 0, 0, 1.0, 1.0, 0.5 * math.Pi, math.Pi, Tangent, NoParallel},
+			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, 0.5 * math.Pi, 0.0, AintoB | Tangent, NoParallel},
+			{Point{0.0, 10.0}, 0, 0, 1.0, 1.0, 0.5 * math.Pi, math.Pi, BintoA | Tangent, NoParallel},
 		}},
 		{"M6 0L6 10", "C8 0 8 10 0 10", intersections{
 			{Point{6.0, 5.0}, 0, 0, 0.5, 0.5, 0.5 * math.Pi, 0.5 * math.Pi, Tangent, Parallel},
@@ -237,14 +237,14 @@ func TestIntersectionLineEllipse(t *testing.T) {
 
 		// tangent
 		{"M-5 0L-15 0", "A5 5 0 0 0 -10 0", intersections{
-			{Point{-10.0, 0.0}, 0, 0, 0.5, 1.0, math.Pi, 0.5 * math.Pi, Tangent, NoParallel},
+			{Point{-10.0, 0.0}, 0, 0, 0.5, 1.0, math.Pi, 0.5 * math.Pi, AintoB | Tangent, NoParallel},
 		}},
 		{"M-5 0L-15 0", "A5 5 0 0 1 -10 0", intersections{
-			{Point{-10.0, 0.0}, 0, 0, 0.5, 1.0, math.Pi, 1.5 * math.Pi, Tangent, NoParallel},
+			{Point{-10.0, 0.0}, 0, 0, 0.5, 1.0, math.Pi, 1.5 * math.Pi, BintoA | Tangent, NoParallel},
 		}},
 		{"L0 10", "A10 5 0 0 1 0 10", intersections{
-			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, 0.5 * math.Pi, 0.0, Tangent, NoParallel},
-			{Point{0.0, 10.0}, 0, 0, 1.0, 1.0, 0.5 * math.Pi, math.Pi, Tangent, NoParallel},
+			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, 0.5 * math.Pi, 0.0, AintoB | Tangent, NoParallel},
+			{Point{0.0, 10.0}, 0, 0, 1.0, 1.0, 0.5 * math.Pi, math.Pi, BintoA | Tangent, NoParallel},
 		}},
 		{"M5 0L5 10", "A5 5 0 0 1 0 10", intersections{
 			{Point{5.0, 5.0}, 0, 0, 0.5, 0.5, 0.5 * math.Pi, 0.5 * math.Pi, Tangent, Parallel},
@@ -256,13 +256,13 @@ func TestIntersectionLineEllipse(t *testing.T) {
 			{Point{5.0, 10.0}, 0, 0, 0.5, 0.5, 0.5 * math.Pi, 0.5 * math.Pi, Tangent, Parallel},
 		}},
 		{"M4 3L0 3", "M2 3A1 1 0 0 0 4 3", intersections{
-			{Point{2.0, 3.0}, 0, 0, 0.5, 0.0, math.Pi, 0.5 * math.Pi, Tangent, NoParallel},
-			{Point{4.0, 3.0}, 0, 0, 0.0, 1.0, math.Pi, 1.5 * math.Pi, Tangent, NoParallel},
+			{Point{2.0, 3.0}, 0, 0, 0.5, 0.0, math.Pi, 0.5 * math.Pi, AintoB | Tangent, NoParallel},
+			{Point{4.0, 3.0}, 0, 0, 0.0, 1.0, math.Pi, 1.5 * math.Pi, BintoA | Tangent, NoParallel},
 		}},
 
-		// see #200
+		// see #200, at intersection the arc angle is deviated towards positive angle
 		{"M0 -0.7L1 -0.7", "M-0.7 0A0.7 0.7 0 0 1 0.7 0", intersections{
-			{Point{0.0, -0.7}, 0, 0, 0.0, 0.5, 0.0, 0.0, Tangent, NoParallel},
+			{Point{0.0, -0.7}, 0, 0, 0.0, 0.5, 0.0, 0.0, BintoA | Tangent, NoParallel},
 		}},
 
 		// none
