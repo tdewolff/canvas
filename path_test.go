@@ -162,82 +162,87 @@ func TestPathCommands(t *testing.T) {
 	test.T(t, p, MustParseSVG("A2 1 0 0 0 4 0A2 1 0 0 0 0 0"))
 }
 
-func TestPathInterior(t *testing.T) {
+func TestPathWindings(t *testing.T) {
 	var tts = []struct {
-		p                  string
-		pos                Point
-		rule               FillRule
-		interior, boundary bool
+		p        string
+		pos      Point
+		n        int
+		boundary bool
 	}{
-		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", Point{1.0, 1.0}, NonZero, true, false},
-		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", Point{3.0, 3.0}, NonZero, true, false},
-		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", Point{1.0, 1.0}, NonZero, true, false},
-		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", Point{3.0, 3.0}, NonZero, false, false},
-		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", Point{1.0, 1.0}, EvenOdd, true, false},
-		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", Point{3.0, 3.0}, EvenOdd, false, false},
-		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", Point{1.0, 1.0}, EvenOdd, true, false},
-		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", Point{3.0, 3.0}, EvenOdd, false, false},
+		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", Point{1.0, 1.0}, 1, false},
+		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", Point{3.0, 3.0}, 2, false},
+		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", Point{3.0, 3.0}, 0, false},
 
 		// within bbox of segment
-		{"L10 10", Point{2.0, 5.0}, NonZero, true, false},
-		{"L-10 10", Point{-2.0, 5.0}, NonZero, false, false},
-		{"Q10 5 0 10", Point{2.0, 5.0}, NonZero, true, false},
-		{"Q-10 5 0 10", Point{-2.0, 5.0}, NonZero, false, false},
-		{"C10 0 10 10 0 10", Point{2.0, 5.0}, NonZero, true, false},
-		{"C-10 0 -10 10 0 10", Point{-2.0, 5.0}, NonZero, false, false},
-		{"A5 5 0 0 1 0 10", Point{2.0, 5.0}, NonZero, true, false},
-		{"A5 5 0 0 0 0 10", Point{-2.0, 5.0}, NonZero, false, false},
+		{"L10 10", Point{2.0, 5.0}, 1, false},
+		{"L-10 10", Point{-2.0, 5.0}, 0, false},
+		{"Q10 5 0 10", Point{2.0, 5.0}, 1, false},
+		{"Q-10 5 0 10", Point{-2.0, 5.0}, 0, false},
+		{"C10 0 10 10 0 10", Point{2.0, 5.0}, 1, false},
+		{"C-10 0 -10 10 0 10", Point{-2.0, 5.0}, 0, false},
+		{"A5 5 0 0 1 0 10", Point{2.0, 5.0}, 1, false},
+		{"A5 5 0 0 0 0 10", Point{-2.0, 5.0}, 0, false},
 
 		// on boundary
-		{"L10 0L10 10L0 10z", Point{0.0, 5.0}, NonZero, false, true},
-		{"L10 0L10 10L0 10z", Point{10.0, 5.0}, NonZero, false, true},
-		{"L10 0L10 10L0 10z", Point{0.0, 0.0}, NonZero, false, true},
-		{"L10 0L10 10L0 10z", Point{5.0, 0.0}, NonZero, false, true},
-		{"L10 0L10 10L0 10z", Point{10.0, 0.0}, NonZero, false, true},
-		{"L10 0L10 10L0 10z", Point{0.0, 10.0}, NonZero, false, true},
-		{"L10 0L10 10L0 10z", Point{5.0, 10.0}, NonZero, false, true},
-		{"L10 0L10 10L0 10z", Point{10.0, 10.0}, NonZero, false, true},
-		{"L0 10L10 10L10 0z", Point{0.0, 5.0}, NonZero, false, true},
-		{"L0 10L10 10L10 0z", Point{10.0, 5.0}, NonZero, false, true},
-		{"L0 10L10 10L10 0z", Point{0.0, 0.0}, NonZero, false, true},
-		{"L0 10L10 10L10 0z", Point{5.0, 0.0}, NonZero, false, true},
-		{"L0 10L10 10L10 0z", Point{10.0, 0.0}, NonZero, false, true},
-		{"L0 10L10 10L10 0z", Point{0.0, 10.0}, NonZero, false, true},
-		{"L0 10L10 10L10 0z", Point{5.0, 10.0}, NonZero, false, true},
-		{"L0 10L10 10L10 0z", Point{10.0, 10.0}, NonZero, false, true},
+		{"L10 0L10 10L0 10z", Point{0.0, 5.0}, 0, true},   // left
+		{"L10 0L10 10L0 10z", Point{10.0, 5.0}, 0, true},  // right
+		{"L10 0L10 10L0 10z", Point{0.0, 0.0}, 0, true},   // bottom-left
+		{"L10 0L10 10L0 10z", Point{5.0, 0.0}, 0, true},   // bottom
+		{"L10 0L10 10L0 10z", Point{10.0, 0.0}, 0, true},  // bottom-right
+		{"L10 0L10 10L0 10z", Point{0.0, 10.0}, 0, true},  // top-left
+		{"L10 0L10 10L0 10z", Point{5.0, 10.0}, 0, true},  // top
+		{"L10 0L10 10L0 10z", Point{10.0, 10.0}, 0, true}, // top-right
+		{"L0 10L10 10L10 0z", Point{0.0, 5.0}, 0, true},
+		{"L0 10L10 10L10 0z", Point{10.0, 5.0}, 0, true},
+		{"L0 10L10 10L10 0z", Point{0.0, 0.0}, 0, true},
+		{"L0 10L10 10L10 0z", Point{5.0, 0.0}, 0, true},
+		{"L0 10L10 10L10 0z", Point{10.0, 0.0}, 0, true},
+		{"L0 10L10 10L10 0z", Point{0.0, 10.0}, 0, true},
+		{"L0 10L10 10L10 0z", Point{5.0, 10.0}, 0, true},
+		{"L0 10L10 10L10 0z", Point{10.0, 10.0}, 0, true},
 
 		// outside
-		{"L10 0L10 10L0 10z", Point{-1.0, 0.0}, NonZero, false, false},
-		{"L10 0L10 10L0 10z", Point{-1.0, 5.0}, NonZero, false, false},
-		{"L10 0L10 10L0 10z", Point{-1.0, 10.0}, NonZero, false, false},
-		{"L10 0L10 10L0 10z", Point{11.0, 0.0}, NonZero, false, false},
-		{"L10 0L10 10L0 10z", Point{11.0, 5.0}, NonZero, false, false},
-		{"L10 0L10 10L0 10z", Point{11.0, 10.0}, NonZero, false, false},
-		{"L0 10L10 10L10 0z", Point{-1.0, 0.0}, NonZero, false, false},
-		{"L0 10L10 10L10 0z", Point{-1.0, 5.0}, NonZero, false, false},
-		{"L0 10L10 10L10 0z", Point{-1.0, 10.0}, NonZero, false, false},
-		{"L0 10L10 10L10 0z", Point{11.0, 0.0}, NonZero, false, false},
-		{"L0 10L10 10L10 0z", Point{11.0, 5.0}, NonZero, false, false},
-		{"L0 10L10 10L10 0z", Point{11.0, 10.0}, NonZero, false, false},
+		{"L10 0L10 10L0 10z", Point{-1.0, 0.0}, 0, false},
+		{"L10 0L10 10L0 10z", Point{-1.0, 5.0}, 0, false},
+		{"L10 0L10 10L0 10z", Point{-1.0, 10.0}, 0, false},
+		{"L10 0L10 10L0 10z", Point{11.0, 0.0}, 0, false},
+		{"L10 0L10 10L0 10z", Point{11.0, 5.0}, 0, false},
+		{"L10 0L10 10L0 10z", Point{11.0, 10.0}, 0, false},
+		{"L0 10L10 10L10 0z", Point{-1.0, 0.0}, 0, false},
+		{"L0 10L10 10L10 0z", Point{-1.0, 5.0}, 0, false},
+		{"L0 10L10 10L10 0z", Point{-1.0, 10.0}, 0, false},
+		{"L0 10L10 10L10 0z", Point{11.0, 0.0}, 0, false},
+		{"L0 10L10 10L10 0z", Point{11.0, 5.0}, 0, false},
+		{"L0 10L10 10L10 0z", Point{11.0, 10.0}, 0, false},
+
+		// subpath
+		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", Point{0.0, 0.0}, 0, true},
+		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", Point{2.0, 2.0}, 1, true},
+		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", Point{2.0, 2.0}, 1, true},
 
 		// on segment end
-		{"L5 -5L10 0L5 5z", Point{5.0, 0.0}, NonZero, true, false},
-		{"L5 -5L10 0L5 5z", Point{0.0, 0.0}, NonZero, false, true},
-		{"L5 -5L10 0L5 5z", Point{10.0, 0.0}, NonZero, false, true},
-		{"L5 5L10 0L5 -5z", Point{5.0, 0.0}, NonZero, true, false},
-		{"L5 5L10 0L5 -5z", Point{0.0, 0.0}, NonZero, false, true},
-		{"L5 5L10 0L5 -5z", Point{10.0, 0.0}, NonZero, false, true},
-		{"M10 0A5 5 0 0 0 0 0A5 5 0 0 0 10 0z", Point{5.0, 0.0}, NonZero, true, false},
-		{"M10 0A5 5 0 0 0 0 0A5 5 0 0 0 10 0z", Point{0.0, 0.0}, NonZero, false, true},
-		{"M10 0A5 5 0 0 0 0 0A5 5 0 0 0 10 0z", Point{10.0, 0.0}, NonZero, false, true},
-		{"M10 0A5 5 0 0 1 0 0A5 5 0 0 1 10 0z", Point{5.0, 0.0}, NonZero, true, false},
-		{"M10 0A5 5 0 0 1 0 0A5 5 0 0 1 10 0z", Point{0.0, 0.0}, NonZero, false, true},
-		{"M10 0A5 5 0 0 1 0 0A5 5 0 0 1 10 0z", Point{10.0, 0.0}, NonZero, false, true},
+		{"L5 -5L10 0L5 5z", Point{5.0, 0.0}, 1, false},
+		{"L5 -5L10 0L5 5z", Point{0.0, 0.0}, 0, true},
+		{"L5 -5L10 0L5 5z", Point{10.0, 0.0}, 0, true},
+		{"L5 -5L10 0L5 5z", Point{5.0, -5.0}, 0, true},
+		{"L5 -5L10 0L5 5z", Point{5.0, 5.0}, 0, true},
+		{"L5 5L10 0L5 -5z", Point{5.0, 0.0}, -1, false},
+		{"L5 5L10 0L5 -5z", Point{0.0, 0.0}, 0, true},
+		{"L5 5L10 0L5 -5z", Point{10.0, 0.0}, 0, true},
+		{"L5 5L10 0L5 -5z", Point{5.0, 5.0}, 0, true},
+		{"L5 5L10 0L5 -5z", Point{5.0, -5.0}, 0, true},
+		{"M10 0A5 5 0 0 0 0 0A5 5 0 0 0 10 0z", Point{5.0, 0.0}, -1, false},
+		{"M10 0A5 5 0 0 0 0 0A5 5 0 0 0 10 0z", Point{0.0, 0.0}, 0, true},
+		{"M10 0A5 5 0 0 0 0 0A5 5 0 0 0 10 0z", Point{10.0, 0.0}, 0, true},
+		{"M10 0A5 5 0 0 1 0 0A5 5 0 0 1 10 0z", Point{5.0, 0.0}, 1, false},
+		{"M10 0A5 5 0 0 1 0 0A5 5 0 0 1 10 0z", Point{0.0, 0.0}, 0, true},
+		{"M10 0A5 5 0 0 1 0 0A5 5 0 0 1 10 0z", Point{10.0, 0.0}, 0, true},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, " at ", tt.pos), func(t *testing.T) {
-			interior, boundary := MustParseSVG(tt.p).Interior(tt.pos.X, tt.pos.Y, tt.rule)
-			test.T(t, []bool{interior, boundary}, []bool{tt.interior, tt.boundary})
+			n, boundary := MustParseSVG(tt.p).Windings(tt.pos.X, tt.pos.Y)
+			test.T(t, n, tt.n)
+			test.T(t, boundary, tt.boundary)
 		})
 	}
 }
@@ -249,10 +254,6 @@ func TestPathFilling(t *testing.T) {
 		rule    FillRule
 	}{
 		{"M0 0", []bool{}, NonZero},
-		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", []bool{true, true}, NonZero},  // outer CCW, inner CCW
-		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", []bool{true, false}, NonZero}, // outer CCW, inner CW
-		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", []bool{true, false}, EvenOdd}, // outer CCW, inner CCW
-		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", []bool{true, false}, EvenOdd}, // outer CCW, inner CW
 		{"L10 10z", []bool{true}, NonZero},
 		{"C5 0 10 5 10 10z", []bool{true}, NonZero},
 		{"C0 5 5 10 10 10z", []bool{true}, NonZero},
@@ -260,14 +261,19 @@ func TestPathFilling(t *testing.T) {
 		{"Q0 10 10 10z", []bool{true}, NonZero},
 		{"A10 10 0 0 1 10 10z", []bool{true}, NonZero},
 		{"A10 10 0 0 0 10 10z", []bool{true}, NonZero},
+		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", []bool{true, true}, NonZero},  // outer CCW, inner CCW
+		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", []bool{true, false}, NonZero}, // outer CCW, inner CW
+		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", []bool{true, false}, EvenOdd}, // outer CCW, inner CCW
+		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", []bool{true, false}, EvenOdd}, // outer CCW, inner CW
+		{"L10 10L-10 10zL-8 8L8 8z", []bool{true, false}, NonZero},           // outer CCW, inner CW
+		{"L10 10L-10 10zL8 8L-8 8z", []bool{true, true}, NonZero},            // outer CCW, inner CCW
+		{"L10 10L-10 10zL-8 8L8 8z", []bool{true, false}, EvenOdd},           // outer CCW, inner CW
+		{"L10 10L-10 10zL8 8L-8 8z", []bool{true, false}, EvenOdd},           // outer CCW, inner CCW
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
 			filling := MustParseSVG(tt.p).Filling(tt.rule)
-			test.T(t, len(filling), len(tt.filling))
-			for i := range filling {
-				test.T(t, filling[i], tt.filling[i])
-			}
+			test.T(t, filling, tt.filling)
 		})
 	}
 }

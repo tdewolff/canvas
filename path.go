@@ -468,88 +468,55 @@ func (p *Path) simplifyToCoords() []Point {
 	return coords
 }
 
-// Interior is true when the point (x,y) is in the interior of the path, i.e. gets filled, and whether it's on the boundary. This depends on the FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with the path. When the point is on the boundary it is considered to be exterior.
-func (p *Path) Interior(x, y float64, fillRule FillRule) (bool, bool) {
-	n := 0
-	var start, end Point
-	zs := intersections{}
-	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
-		switch cmd {
-		case MoveToCmd:
-			end = Point{p.d[i+1], p.d[i+2]}
-		case LineToCmd, CloseCmd:
-			end = Point{p.d[i+1], p.d[i+2]}
-			ymin := math.Min(start.Y, end.Y)
-			ymax := math.Max(start.Y, end.Y)
-			if Interval(y, ymin, ymax) {
-				if xmin := math.Min(start.X, end.X); x < xmin-Epsilon && ymin+Epsilon < y && y < ymax-Epsilon {
-					if y < end.Y {
-						n++
-					} else {
-						n--
-					}
-				} else if xmax := math.Max(start.X, end.X); x <= xmax+Epsilon {
-					zs = zs.LineLine(Point{x, y}, Point{xmax + 1.0, y}, start, end)
-				}
-			}
-		case QuadToCmd:
-			cp := Point{p.d[i+1], p.d[i+2]}
-			end = Point{p.d[i+3], p.d[i+4]}
-			ymin := math.Min(math.Min(start.Y, end.Y), cp.Y)
-			ymax := math.Max(math.Max(start.Y, end.Y), cp.Y)
-			xmax := math.Max(math.Max(start.X, end.X), cp.X)
-			if Interval(y, ymin, ymax) && x <= xmax+Epsilon {
-				zs = zs.LineQuad(Point{x, y}, Point{xmax + 1.0, y}, start, cp, end)
-			}
-		case CubeToCmd:
-			cp1 := Point{p.d[i+1], p.d[i+2]}
-			cp2 := Point{p.d[i+3], p.d[i+4]}
-			end = Point{p.d[i+5], p.d[i+6]}
-			ymin := math.Min(math.Min(start.Y, end.Y), math.Min(cp1.Y, cp2.Y))
-			ymax := math.Max(math.Max(start.Y, end.Y), math.Max(cp1.Y, cp2.Y))
-			xmax := math.Max(math.Max(start.X, end.X), math.Max(cp1.X, cp2.X))
-			if Interval(y, ymin, ymax) && x <= xmax+Epsilon {
-				zs = zs.LineCube(Point{x, y}, Point{xmax + 1.0, y}, start, cp1, cp2, end)
-			}
-		case ArcToCmd:
-			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
-			large, sweep := toArcFlags(p.d[i+4])
-			end = Point{p.d[i+5], p.d[i+6]}
-			cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
-			zs = zs.LineEllipse(Point{x, y}, Point{cx + rx + 1.0, y}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
-		}
-		i += cmdLen(cmd)
-		start = end
-	}
-	ccw := p.CCW()
+// Windings returns the number of windings, i.e. the number of times a ray from (x,y) towards (∞,y) intersects the path. Counter clock-wise intersections count as positive, while clock-wise intersections count as negative. Additionally, it returns whether the point is on a path's boundary (which would not count towards the number of windings).
+func (p *Path) Windings(x, y float64) (int, bool) {
+	n := 0.0
 	boundary := false
-	for _, z := range zs {
-		if Equal(z.TA, 0.0) {
-			boundary = true
-		}
-		if z.Parallel == NoParallel && !Equal(z.TB, 0.0) {
-			if angleBetweenExclusive(z.DirB, 0.0, math.Pi) {
-				if !Equal(z.TA, 0.0) || !ccw {
-					n++
-				}
-			} else {
-				if !Equal(z.TA, 0.0) || ccw {
-					n--
-				}
+	for _, pi := range p.Split() {
+		// Count intersections of ray with path. Count half an intersection on boundaries, half an intersection when on the start of the ray, and a quarter when both. Paths that cross upwards are positive and downwards are negative. Parallel boundaries (top/bottom of a rectangle for example)
+		ni := 0.0
+		boundaryi := false
+		for _, z := range rayIntersections(pi, x, y) {
+			if Equal(z.TA, 0.0) {
+				boundaryi = true
 			}
-		} else if z.Parallel == Parallel && Equal(z.TB, 0.0) {
-			// horizontal boundary, parallels give two intersections, pick the one at t=0 which also works with only one intersection (i.e. parallel but touches on segment ends)
-			if !Equal(z.TA, 0.0) || angleEqual(z.DirB, 0.0) {
-				if ccw == angleEqual(z.DirB, 0.0) {
-					n++
+
+			d := 1.0
+			if Equal(z.TA, 0.0) {
+				d /= 2.0
+			}
+			if Equal(z.TB, 0.0) || Equal(z.TB, 1.0) {
+				d /= 2.0
+			}
+			if z.Parallel == NoParallel {
+				if angleBetweenExclusive(z.DirB, 0.0, math.Pi) {
+					ni += d
 				} else {
-					n--
+					ni -= d
+				}
+			} else if z.Parallel == Parallel && (Equal(z.TB, 0.0) || Equal(z.TB, 1.0) || !Equal(z.TA, 0.0)) {
+				// Horizontal boundary, parallels give two intersections. Bend downwards virtually to create intersections that cancel out.
+				if Equal(z.TB, 1.0) {
+					ni += d
+				} else {
+					ni -= d
 				}
 			}
+		}
+		// If on boundary, ni will be -0.5 or 0.5 (when on horizontal boundary), or 0.0
+		if boundaryi {
+			boundary = true
+		} else {
+			n += ni
 		}
 	}
-	return fillRule == NonZero && n != 0 || n%2 != 0, boundary
+	return int(n), boundary
+}
+
+// Interior returns whether the point (x,y) is in the interior of the path, i.e. gets filled. This depends on the FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with the path. When the point is on the boundary it is considered to be exterior.
+func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
+	n, _ := p.Windings(x, y)
+	return fillRule == NonZero && n != 0 || n%2 != 0
 }
 
 func segmentPos(start Point, d []float64, t float64) Point {
@@ -616,12 +583,12 @@ func (p *Path) interiorPoint() Point {
 	return p1.Add(n)
 }
 
-// Filling returns whether each subpath gets filled or not. A path may not be filling when it negates another path and depends on the FillRule. If a subpath is not closed, it is implicitly assumed to be closed.
+// Filling returns whether each subpath gets filled or not. A path may not be filling when it negates another path and depends on the FillRule. If a subpath is not closed, it is implicitly assumed to be closed. Subpaths may not (self-)intersect, use Settle to remove (self-)intersections.
 func (p *Path) Filling(fillRule FillRule) []bool {
 	var filling []bool
 	for _, pi := range p.Split() {
 		pos := pi.interiorPoint()
-		interior, _ := p.Interior(pos.X, pos.Y, fillRule)
+		interior := p.Interior(pos.X, pos.Y, fillRule)
 		filling = append(filling, interior)
 	}
 	return filling

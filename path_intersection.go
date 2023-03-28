@@ -16,8 +16,7 @@ func (p *Path) inside(q *Path) bool {
 		return false
 	}
 	offset := p.interiorPoint()
-	interior, _ := q.Interior(offset.X, offset.Y, NonZero)
-	return interior
+	return q.Interior(offset.X, offset.Y, NonZero)
 }
 
 // Contains returns true if path q is contained within path p, i.e. path q is inside path p and both paths have no intersections (but may touch).
@@ -61,7 +60,7 @@ func (p *Path) Settle() *Path {
 		}
 
 		pos := ps[i].interiorPoint()
-		interior, _ := p.Interior(pos.X, pos.Y, NonZero)
+		interior := p.Interior(pos.X, pos.Y, NonZero)
 		if ps[i].CCW() == interior {
 			r = r.Append(ps[i])
 		} else {
@@ -196,10 +195,12 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 			zs := Zs[j : j+n]
 			if len(zs) == 0 {
 				p0 := ps[i].StartPos()
-				in, boundary := q.Interior(p0.X, p0.Y, NonZero)
+				n, boundary := q.Windings(p0.X, p0.Y)
+				in := n != 0 // FillRule: NonZero
 				for k := 4; k < len(ps[i].d) && boundary; {
 					p0 = segmentPos(Point{ps[i].d[k-3], ps[i].d[k-2]}, ps[i].d[k:], 0.5)
-					in, boundary = q.Interior(p0.X, p0.Y, NonZero)
+					n, boundary = q.Windings(p0.X, p0.Y)
+					in = n != 0 // FillRule: NonZero
 					k += cmdLen(ps[i].d[k])
 				}
 				if op == pathOpOr || op == pathOpSettle || in && op == pathOpAnd || !in && !boundary && (op == pathOpXor || op == pathOpNot) {
@@ -1042,6 +1043,63 @@ func (zs intersections) appendSegment(segA int, a0 Point, a []float64, segB int,
 		for i := n; i < len(zs); i++ {
 			zs[i].SegA, zs[i].SegB = segA, segB
 		}
+	}
+	return zs
+}
+
+// intersections of path with ray starting at (x,y) to (∞,y)
+func rayIntersections(p *Path, x, y float64) intersections {
+	var start, end Point
+	zs := intersections{}
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		switch cmd {
+		case MoveToCmd:
+			end = Point{p.d[i+1], p.d[i+2]}
+		case LineToCmd, CloseCmd:
+			end = Point{p.d[i+1], p.d[i+2]}
+			ymin := math.Min(start.Y, end.Y)
+			ymax := math.Max(start.Y, end.Y)
+			xmax := math.Max(start.X, end.X)
+			if Interval(y, ymin, ymax) && x <= xmax+Epsilon {
+				//if xmin := math.Min(start.X, end.X); x < xmin-Epsilon && ymin+Epsilon < y && y < ymax-Epsilon {
+				//	if y < end.Y {
+				//		ni += 1.0
+				//	} else {
+				//		ni -= 1.0
+				//	}
+				//} else if xmax := math.Max(start.X, end.X);x <= xmax+Epsilon{
+				zs = zs.LineLine(Point{x, y}, Point{xmax + 1.0, y}, start, end)
+				//}
+			}
+		case QuadToCmd:
+			cp := Point{p.d[i+1], p.d[i+2]}
+			end = Point{p.d[i+3], p.d[i+4]}
+			ymin := math.Min(math.Min(start.Y, end.Y), cp.Y)
+			ymax := math.Max(math.Max(start.Y, end.Y), cp.Y)
+			xmax := math.Max(math.Max(start.X, end.X), cp.X)
+			if Interval(y, ymin, ymax) && x <= xmax+Epsilon {
+				zs = zs.LineQuad(Point{x, y}, Point{xmax + 1.0, y}, start, cp, end)
+			}
+		case CubeToCmd:
+			cp1 := Point{p.d[i+1], p.d[i+2]}
+			cp2 := Point{p.d[i+3], p.d[i+4]}
+			end = Point{p.d[i+5], p.d[i+6]}
+			ymin := math.Min(math.Min(start.Y, end.Y), math.Min(cp1.Y, cp2.Y))
+			ymax := math.Max(math.Max(start.Y, end.Y), math.Max(cp1.Y, cp2.Y))
+			xmax := math.Max(math.Max(start.X, end.X), math.Max(cp1.X, cp2.X))
+			if Interval(y, ymin, ymax) && x <= xmax+Epsilon {
+				zs = zs.LineCube(Point{x, y}, Point{xmax + 1.0, y}, start, cp1, cp2, end)
+			}
+		case ArcToCmd:
+			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
+			large, sweep := toArcFlags(p.d[i+4])
+			end = Point{p.d[i+5], p.d[i+6]}
+			cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
+			zs = zs.LineEllipse(Point{x, y}, Point{cx + rx + 1.0, y}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
+		}
+		i += cmdLen(cmd)
+		start = end
 	}
 	return zs
 }
