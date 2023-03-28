@@ -683,7 +683,18 @@ func (c *Canvas) SetZIndex(zindex int) {
 	c.zindex = zindex
 }
 
-// Fit shrinks the canvas' size so all elements fit with a given margin in millimeters.
+// Clip sets the canvas are to the given rectangle.
+func (c *Canvas) Clip(rect Rect) {
+	for _, layers := range c.layers {
+		for i := range layers {
+			layers[i].m = Identity.Translate(-rect.X, -rect.Y).Mul(layers[i].m)
+		}
+	}
+	c.W = rect.W
+	c.H = rect.H
+}
+
+// Fit shrinks the canvas' size that so all elements fit with a given margin in millimeters.
 func (c *Canvas) Fit(margin float64) {
 	rect := Rect{}
 	// TODO: slow when we have many paths (see Graph example)
@@ -712,13 +723,11 @@ func (c *Canvas) Fit(margin float64) {
 			}
 		}
 	}
-	for _, layers := range c.layers {
-		for i := range layers {
-			layers[i].m = Identity.Translate(-rect.X+margin, -rect.Y+margin).Mul(layers[i].m)
-		}
-	}
-	c.W = rect.W + 2*margin
-	c.H = rect.H + 2*margin
+	rect.X -= margin
+	rect.Y -= margin
+	rect.W += 2.0 * margin
+	rect.H += 2.0 * margin
+	c.Clip(rect)
 }
 
 type RendererViewer struct {
