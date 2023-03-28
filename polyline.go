@@ -87,6 +87,41 @@ func (p *Polyline) Interior(x, y float64, fillRule FillRule) bool {
 	return fillCount%2 != 0
 }
 
+// Area returns the polygon's signed area.
+func (p *Polyline) Area() float64 {
+	n := len(p.coords)
+	if p.Closed() {
+		n--
+	}
+	a := 0.0
+	for i := 0; i < n; i++ {
+		a += p.coords[i].PerpDot(p.coords[(i+1)%len(p.coords)])
+	}
+	return a / 2.0
+}
+
+// Centroid returns the center point of the polygon.
+func (p *Polyline) Centroid() Point {
+	n := len(p.coords)
+	if p.Closed() {
+		n--
+	}
+	if n == 0 {
+		return Point{}
+	} else if n == 1 {
+		return p.coords[0]
+	} else if n == 2 {
+		return p.coords[0].Interpolate(p.coords[1], 0.5)
+	}
+
+	c := Point{}
+	for i := 0; i < n; i++ {
+		f := p.coords[i].PerpDot(p.coords[(i+1)%len(p.coords)])
+		c = c.Add(p.coords[i].Add(p.coords[(i+1)%len(p.coords)]).Mul(f))
+	}
+	return c.Div(6.0 * p.Area())
+}
+
 // Smoothen returns a new path that smoothens out a path using cubic Béziers between all the path points. It makes sure that the curvature is smooth along the whole path. If the path is closed it will be smooth between start and end segments too.
 func (p *Polyline) Smoothen() *Path {
 	K := p.coords
