@@ -209,6 +209,14 @@ func (p Point) Rot(phi float64, p0 Point) Point {
 	}
 }
 
+// Hadamard returns the Hadamard product, or the element-wise product, of the point.
+func (p Point) Hadamard(q Point) Point {
+	return Point{
+		p.X * q.X,
+		p.Y * q.Y,
+	}
+}
+
 // Dot returns the dot product between OP and OQ, i.e. zero if perpendicular and |OP|*|OQ| if aligned.
 func (p Point) Dot(q Point) float64 {
 	return p.X*q.X + p.Y*q.Y
