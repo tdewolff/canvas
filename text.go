@@ -623,6 +623,8 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	var breaks []*canvasText.Breakpoint
 	if width != 0.0 {
 		breaks = canvasText.Linebreak(items, width, looseness)
+	} else if len(items) == 0 {
+		breaks = append(breaks, &canvasText.Breakpoint{Position: 0, Width: 0.0})
 	} else {
 		lineWidth := 0.0
 		for i, item := range items {
