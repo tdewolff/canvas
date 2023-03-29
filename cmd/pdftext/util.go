@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/minify"
+	"github.com/tdewolff/minify/v2"
 )
 
 func isWhiteSpace(b byte) bool {

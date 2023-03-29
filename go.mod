@@ -18,7 +18,6 @@ require (
 	github.com/paulmach/osm v0.7.1
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/tdewolff/argp v0.0.0-20221007181215-ebef9ed8a560
-	github.com/tdewolff/minify v2.3.6+incompatible
 	github.com/tdewolff/minify/v2 v2.12.4
 	github.com/tdewolff/parse/v2 v2.6.5
 	github.com/tdewolff/test v1.0.7
@@ -38,13 +37,11 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/fyne-io/glfw-js v0.0.0-20220517201726-bebc2019cd33 // indirect
 	github.com/fyne-io/image v0.0.0-20221020213044-f609c6a24345 // indirect
-	github.com/gioui/uax v0.2.1-0.20220325163150-e3d987515a12 // indirect
 	github.com/go-fonts/liberation v0.3.0 // indirect
 	github.com/go-latex/latex v0.0.0-20230307184459-12ec69307ad9 // indirect
 	github.com/go-pdf/fpdf v0.6.0 // indirect
 	github.com/go-text/typesetting v0.0.0-20230212093906-959574cbf271 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
-	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/jsummers/gobmp v0.0.0-20151104160322-e2ba15ffa76e // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
@@ -63,13 +60,11 @@ require (
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c // indirect
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/stretchr/testify v1.8.2 // indirect
-	github.com/tdewolff/parse v2.3.4+incompatible // indirect
 	github.com/yuin/goldmark v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20230315142452-642cacee5cc0 // indirect
 	golang.org/x/exp/shiny v0.0.0-20230315142452-642cacee5cc0 // indirect
 	golang.org/x/mobile v0.0.0-20230301163155-e0f57694e12c // indirect
 	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/sys v0.6.0 // indirect
-	google.golang.org/protobuf v1.28.0 // indirect
 	star-tex.org/x/tex v0.4.0
 )
