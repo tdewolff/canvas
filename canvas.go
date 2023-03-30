@@ -572,6 +572,12 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 
 	coord := c.coord(x, y)
 	m := Identity.Translate(coord.X, coord.Y).Mul(c.view)
+	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
+		m = m.ReflectY()
+	}
+	if c.coordSystem == CartesianII || c.coordSystem == CartesianIII {
+		m = m.ReflectX()
+	}
 	for _, path := range paths {
 		var ok bool
 		style := c.Style
