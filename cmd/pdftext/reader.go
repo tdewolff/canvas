@@ -58,7 +58,7 @@ func NewPDFReader(reader io.Reader, password string) (*pdfReader, error) {
 	num, _ := strconv.ParseUint(lrr.Next())
 	if num == 0 {
 		return nil, fmt.Errorf("invalid PDF file")
-	} else if line = lrr.Next(); !bytes.Equal(line, []byte("startxref")) {
+	} else if line = lrr.Next(); !bytes.Equal(bytes.TrimSpace(line), []byte("startxref")) {
 		return nil, fmt.Errorf("invalid PDF file")
 	}
 	startxref := int(num)

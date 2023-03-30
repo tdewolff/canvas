@@ -66,13 +66,13 @@ func (cmd *Extract) Run() error {
 	}
 
 	names, objects := getObjects(pdf, cmd.Page)
-	for i, object := range objects {
+	for i, obj := range objects {
 		if i == 0 {
 			fmt.Printf("Page %d:\n", cmd.Page)
 		} else {
 			fmt.Printf("\nXObject %s:\n", names[i])
 		}
-		err = walkStrings(pdf, object, func(_, _, index int, state textState, op string, vals []interface{}) (int, error) {
+		err = walkStrings(pdf, obj, func(_, _, index int, state textState, op string, vals []interface{}) (int, error) {
 			var s string
 			if op == "TJ" && len(vals) == 1 {
 				if array, ok := vals[0].(pdfArray); ok {
@@ -107,12 +107,11 @@ func (cmd *Extract) Run() error {
 func (cmd *Replace) Run() error {
 	if cmd.Input == "" {
 		return argp.ShowUsage
-	} else if cmd.Output == "" {
-		fmt.Println("ERROR: must specify output filename")
-		return argp.ShowUsage
 	} else if cmd.Index == -1 {
 		fmt.Println("ERROR: must specify string index to replace")
 		return argp.ShowUsage
+	} else if cmd.Output == "" {
+		cmd.Output = cmd.Input
 	}
 
 	fr, err := os.Open(cmd.Input)
@@ -120,40 +119,32 @@ func (cmd *Replace) Run() error {
 		return err
 	}
 
-	fw, err := os.Create(cmd.Output)
-	if err != nil {
-		return err
-	}
-
 	pdf, err := NewPDFReader(fr, cmd.Password)
 	if err != nil {
+		fr.Close()
 		return err
 	}
 
-	var object interface{}
+	var obj interface{}
 	names, objects := getObjects(pdf, cmd.Page)
 	for i, name := range names {
 		if name == cmd.XObj {
-			object = objects[i]
+			obj = objects[i]
 			break
 		}
 	}
-	if object == nil {
+	if obj == nil {
+		fr.Close()
 		return fmt.Errorf("ERROR: unknown object: %s", cmd.XObj)
 	}
 
-	var ref pdfRef
-	stream, err := pdf.GetStream(object)
-	if err == nil {
-		ref = object.(pdfRef)
-	} else {
-		page, _ := pdf.GetDict(object)
-		fmt.Println(page)
-		ref = page["Contents"].(pdfRef)
-		stream, _ = pdf.GetStream(page["Contents"])
+	ref, _, stream, err := getContents(pdf, obj)
+	if err != nil {
+		fr.Close()
+		return fmt.Errorf("ERROR: %s", err)
 	}
 
-	err = walkStrings(pdf, object, func(start, end, index int, state textState, op string, vals []interface{}) (int, error) {
+	err = walkStrings(pdf, obj, func(start, end, index int, state textState, op string, vals []interface{}) (int, error) {
 		if index == cmd.Index {
 			s := state.fonts[state.fontName].FromUnicode(cmd.String)
 
@@ -192,9 +183,15 @@ func (cmd *Replace) Run() error {
 		return 0, nil
 	})
 	if err != nil {
+		fr.Close()
 		return err
 	}
+	fr.Close()
 
+	fw, err := os.Create(cmd.Output)
+	if err != nil {
+		return err
+	}
 	pdfWriter := NewPDFWriter(fw, pdf)
 	pdfWriter.SetObject(ref, stream)
 	return pdfWriter.Close()
@@ -244,6 +241,30 @@ func getObjects(pdf *pdfReader, page int) ([]string, []interface{}) {
 	return names, objects
 }
 
+func getContents(pdf *pdfReader, obj interface{}) (pdfRef, pdfDict, pdfStream, error) {
+	if _, ok := obj.(pdfRef); !ok {
+		if page, err := pdf.GetDict(obj); err == nil {
+			if contents, ok := page["Contents"].(pdfArray); ok {
+				if len(contents) != 1 {
+					return pdfRef{}, pdfDict{}, pdfStream{}, fmt.Errorf("Contents must be a reference or an array of one element")
+				}
+				obj = contents[0]
+			} else {
+				obj = page["Contents"]
+			}
+			stream, err := pdf.GetStream(obj)
+			return obj.(pdfRef), page, stream, err
+		} else {
+			return pdfRef{}, pdfDict{}, pdfStream{}, fmt.Errorf("object is not a stream or page dictionary")
+		}
+		if _, ok := obj.(pdfRef); !ok {
+			return pdfRef{}, pdfDict{}, pdfStream{}, fmt.Errorf("object is not a stream or page dictionary with a reference")
+		}
+	}
+	stream, err := pdf.GetStream(obj)
+	return obj.(pdfRef), stream.dict, stream, err
+}
+
 func walkStrings(pdf *pdfReader, obj interface{}, cb func(int, int, int, textState, string, []interface{}) (int, error)) error {
 	state := textState{
 		fonts: map[pdfName]pdfFont{},
@@ -251,18 +272,11 @@ func walkStrings(pdf *pdfReader, obj interface{}, cb func(int, int, int, textSta
 
 	var dict pdfDict
 	var data []byte
-	if stream, err := pdf.GetStream(obj); err == nil {
-		dict = stream.dict
-		data = stream.data
-	} else if page, err := pdf.GetDict(obj); err == nil {
-		stream, err := pdf.GetStream(page["Contents"])
-		if err != nil {
-			return err
-		}
+	if _, page, stream, err := getContents(pdf, obj); err == nil {
 		dict = page
 		data = stream.data
 	} else {
-		return fmt.Errorf("object is not a stream or page dictionary")
+		return err
 	}
 
 	i := 0

@@ -122,8 +122,14 @@ type lineReaderReverse struct {
 
 func newLineReaderReverse(b []byte, offset int) *lineReaderReverse {
 	// skip final empty line
-	if offset-1 < len(b) && (b[offset-1] == '\r' || b[offset-1] == '\n') {
-		if offset-2 < len(b) && b[offset-1] == '\n' && b[offset-2] == '\r' {
+	if len(b) < offset {
+		offset = len(b)
+	}
+	if 0 <= offset-1 && b[offset-1] == 0 {
+		offset-- // some PDFs end in 0x00
+	}
+	if 0 <= offset-1 && (b[offset-1] == '\r' || b[offset-1] == '\n') {
+		if 0 <= offset-2 && b[offset-1] == '\n' && b[offset-2] == '\r' {
 			offset--
 		}
 		offset--
