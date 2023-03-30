@@ -208,13 +208,13 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 				}
 			} else {
 				pss := cut(zs, ps[i])
-				in := zs[0].Kind&BintoA != 0
+				in := zs[0].Kind == BintoA
 				if op == pathOpOr || op == pathOpSettle || in && op == pathOpAnd || !in && (op == pathOpXor || op == pathOpNot) {
 					Ropen = Ropen.Append(pss[0])
 				}
 				for k := 1; k < len(pss); k++ {
 					if zs[k-1].Parallel != Parallel && zs[k-1].Parallel != AParallel {
-						in := zs[k-1].Kind&BintoA == 0
+						in := zs[k-1].Kind == AintoB
 						if op == pathOpOr || op == pathOpSettle || in && op == pathOpAnd || !in && (op == pathOpXor || op == pathOpNot) {
 							Ropen = Ropen.Append(pss[k])
 						}
@@ -530,7 +530,7 @@ func intersectionNodes(Zs intersections, p, q *Path) []*intersectionNode {
 	for i, z := range Zs {
 		zs[i] = &intersectionNode{
 			i:    i,
-			kind: z.Kind & (^Tangent), // touching lines have e.g. Tangent|BintA, keep only BintoA
+			kind: z.Kind,
 			a:    &Path{},
 			b:    &Path{},
 			c:    &Path{},
@@ -682,7 +682,7 @@ func intersectionNodes(Zs intersections, p, q *Path) []*intersectionNode {
 
 	// collapse nodes for parallel lines, except when tangent
 	for j := len(Zs) - 1; 0 <= j; j-- {
-		if Zs[j].Kind&Tangent != 0 {
+		if Zs[j].Tangent {
 			zs[j].parallel = Zs[j].Parallel
 			zs[j].tangent = true
 		} else if Zs[j].Parallel == Parallel || Zs[j].Parallel == AParallel {
@@ -832,7 +832,7 @@ func collisions(ps, qs []*Path, keepTangents bool) intersections {
 			// note that collisions between segments of the same path are never generated
 			for i := 0; i < len(Zs); i++ {
 				z := Zs[i]
-				if z.Kind&Tangent == 0 {
+				if !z.Tangent {
 					// regular intersection
 					zs = append(zs, z)
 				} else if !Equal(z.TA, 0.0) && !Equal(z.TB, 0.0) && !Equal(z.TA, 1.0) && !Equal(z.TB, 1.0) {
@@ -922,6 +922,7 @@ func collisions(ps, qs []*Path, keepTangents bool) intersections {
 							z3.Kind = AintoB
 						}
 						z3.Parallel = NoParallel
+						z3.Tangent = false
 						zs = append(zs, z3)
 					} else if parallel {
 						// parallels in between, add an intersection at the start and end
@@ -934,14 +935,16 @@ func collisions(ps, qs []*Path, keepTangents bool) intersections {
 								z0.Kind = AintoB
 								z3.Kind = AintoB
 							}
+							z0.Tangent = false
+							z3.Tangent = false
 						} else {
 							// parallel touches, but we add them as if they intersect
 							if bo != reverse {
-								z0.Kind |= AintoB
-								z3.Kind |= BintoA
+								z0.Kind = AintoB
+								z3.Kind = BintoA
 							} else {
-								z0.Kind |= BintoA
-								z3.Kind |= AintoB
+								z0.Kind = BintoA
+								z3.Kind = AintoB
 							}
 						}
 						if !reverse {
@@ -1031,10 +1034,10 @@ func (zs intersections) appendSegment(segA int, a0 Point, a []float64, segB int,
 			zs[i].SegA, zs[i].SegB = segA, segB
 			zs[i].TA, zs[i].TB = zs[i].TB, zs[i].TA
 			zs[i].DirA, zs[i].DirB = zs[i].DirB, zs[i].DirA
-			if zs[i].Kind&BintoA != 0 {
-				zs[i].Kind ^= BintoA
+			if zs[i].Kind == BintoA {
+				zs[i].Kind = AintoB
 			} else {
-				zs[i].Kind |= BintoA
+				zs[i].Kind = BintoA
 			}
 		}
 	} else {
@@ -1060,15 +1063,7 @@ func rayIntersections(p *Path, x, y float64) intersections {
 			ymax := math.Max(start.Y, end.Y)
 			xmax := math.Max(start.X, end.X)
 			if Interval(y, ymin, ymax) && x <= xmax+Epsilon {
-				//if xmin := math.Min(start.X, end.X); x < xmin-Epsilon && ymin+Epsilon < y && y < ymax-Epsilon {
-				//	if y < end.Y {
-				//		ni += 1.0
-				//	} else {
-				//		ni -= 1.0
-				//	}
-				//} else if xmax := math.Max(start.X, end.X);x <= xmax+Epsilon{
 				zs = zs.LineLine(Point{x, y}, Point{xmax + 1.0, y}, start, end)
-				//}
 			}
 		case QuadToCmd:
 			cp := Point{p.d[i+1], p.d[i+2]}
@@ -1111,9 +1106,8 @@ func rayIntersections(p *Path, x, y float64) intersections {
 type intersectionKind int
 
 const (
-	AintoB intersectionKind = iota // A goes to LHS of B == B goes to RHS of A
-	BintoA                         // B goes to LHS of A == A goes to RHS of B
-	Tangent
+	AintoB intersectionKind = 1 // A goes to LHS of B == B goes to RHS of A
+	BintoA intersectionKind = 2 // B goes to LHS of A == A goes to RHS of B
 )
 
 func (v intersectionKind) String() string {
@@ -1153,7 +1147,8 @@ type intersection struct {
 	TA, TB     float64 // position along segment in [0,1]
 	DirA, DirB float64 // angle of direction along segment
 	Kind       intersectionKind
-	Parallel   intersectionParallel // 3 = parallel along A and B
+	Parallel   intersectionParallel // NoParallel or Parallel
+	Tangent    bool
 }
 
 func (z intersection) Equals(o intersection) bool {
@@ -1161,7 +1156,11 @@ func (z intersection) Equals(o intersection) bool {
 }
 
 func (z intersection) String() string {
-	return fmt.Sprintf("pos={%g,%g} seg={%d,%d} t={%g,%g} dir={%g°,%g°} %v %v", z.Point.X, z.Point.Y, z.SegA, z.SegB, z.TA, z.TB, angleNorm(z.DirA)*180.0/math.Pi, angleNorm(z.DirB)*180.0/math.Pi, z.Kind, z.Parallel)
+	tangent := ""
+	if z.Tangent {
+		tangent = " Tangent"
+	}
+	return fmt.Sprintf("pos={%g,%g} seg={%d,%d} t={%g,%g} dir={%g°,%g°} %v %v %v", z.Point.X, z.Point.Y, z.SegA, z.SegB, z.TA, z.TB, angleNorm(z.DirA)*180.0/math.Pi, angleNorm(z.DirB)*180.0/math.Pi, z.Kind, z.Parallel, tangent)
 }
 
 type intersections []intersection
@@ -1174,7 +1173,7 @@ func (zs intersections) Has() bool {
 // HasSecant returns true when there are secant intersections, i.e. the curves intersect and cross (they cut).
 func (zs intersections) HasSecant() bool {
 	for _, z := range zs {
-		if z.Kind&Tangent == 0 {
+		if !z.Tangent {
 			return true
 		}
 	}
@@ -1184,7 +1183,7 @@ func (zs intersections) HasSecant() bool {
 // HasTangent returns true when there are tangent intersections, i.e. the curves intersect but don't cross (they touch).
 func (zs intersections) HasTangent() bool {
 	for _, z := range zs {
-		if z.Kind&Tangent != 0 {
+		if z.Tangent {
 			return true
 		}
 	}
@@ -1340,8 +1339,8 @@ func (zs intersections) add(pos Point, ta, tb float64, dira, dirb float64, tange
 			kind = AintoB // A goes to LHS of B, B goes to RHS of A
 		}
 	}
-	if tangent || parallel == Parallel || Equal(ta, 0.0) || Equal(tb, 0.0) || Equal(ta, 1.0) || Equal(tb, 1.0) {
-		kind |= Tangent
+	if parallel == Parallel || Equal(ta, 0.0) || Equal(tb, 0.0) || Equal(ta, 1.0) || Equal(tb, 1.0) {
+		tangent = true
 	}
 	return append(zs, intersection{
 		Point:    pos,
@@ -1351,6 +1350,7 @@ func (zs intersections) add(pos Point, ta, tb float64, dira, dirb float64, tange
 		DirB:     dirb,
 		Kind:     kind,
 		Parallel: parallel,
+		Tangent:  tangent,
 	})
 }
 

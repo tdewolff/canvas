@@ -60,46 +60,46 @@ func TestIntersectionLineLine(t *testing.T) {
 	}{
 		// secant
 		{"M2 0L2 3", "M1 2L3 2", intersections{
-			{Point{2.0, 2.0}, 0, 0, 2.0 / 3.0, 0.5, 0.5 * math.Pi, 0.0, AintoB, NoParallel},
+			{Point{2.0, 2.0}, 0, 0, 2.0 / 3.0, 0.5, 0.5 * math.Pi, 0.0, AintoB, NoParallel, false},
 		}},
 
 		// tangent
 		{"M2 0L2 3", "M2 2L3 2", intersections{
-			{Point{2.0, 2.0}, 0, 0, 2.0 / 3.0, 0.0, 0.5 * math.Pi, 0.0, Tangent, NoParallel},
+			{Point{2.0, 2.0}, 0, 0, 2.0 / 3.0, 0.0, 0.5 * math.Pi, 0.0, AintoB, NoParallel, true},
 		}},
 		{"M2 0L2 2", "M2 2L3 2", intersections{
-			{Point{2.0, 2.0}, 0, 0, 1.0, 0.0, 0.5 * math.Pi, 0.0, Tangent, NoParallel},
+			{Point{2.0, 2.0}, 0, 0, 1.0, 0.0, 0.5 * math.Pi, 0.0, AintoB, NoParallel, true},
 		}},
 		{"L2 2", "M0 4L2 2", intersections{
-			{Point{2.0, 2.0}, 0, 0, 1.0, 1.0, 0.25 * math.Pi, 1.75 * math.Pi, Tangent, NoParallel},
+			{Point{2.0, 2.0}, 0, 0, 1.0, 1.0, 0.25 * math.Pi, 1.75 * math.Pi, AintoB, NoParallel, true},
 		}},
 		{"L10 5", "M0 10L10 5", intersections{
-			{Point{10.0, 5.0}, 0, 0, 1.0, 1.0, Point{2.0, 1.0}.Angle(), Point{2.0, -1.0}.Angle(), Tangent, NoParallel},
+			{Point{10.0, 5.0}, 0, 0, 1.0, 1.0, Point{2.0, 1.0}.Angle(), Point{2.0, -1.0}.Angle(), AintoB, NoParallel, true},
 		}},
 		{"M10 5L20 10", "M10 5L20 0", intersections{
-			{Point{10.0, 5.0}, 0, 0, 0.0, 0.0, Point{2.0, 1.0}.Angle(), Point{2.0, -1.0}.Angle(), Tangent, NoParallel},
+			{Point{10.0, 5.0}, 0, 0, 0.0, 0.0, Point{2.0, 1.0}.Angle(), Point{2.0, -1.0}.Angle(), AintoB, NoParallel, true},
 		}},
 
 		// parallel
 		{"L2 2", "M3 3L5 5", intersections{}},
 		{"L2 2", "M-1 1L1 3", intersections{}},
 		{"L2 2", "M2 2L4 4", intersections{
-			{Point{2.0, 2.0}, 0, 0, 1.0, 0.0, 0.25 * math.Pi, 0.25 * math.Pi, Tangent, Parallel},
+			{Point{2.0, 2.0}, 0, 0, 1.0, 0.0, 0.25 * math.Pi, 0.25 * math.Pi, 0, Parallel, true},
 		}},
 		{"L2 2", "M-2 -2L0 0", intersections{
-			{Point{0.0, 0.0}, 0, 0, 0.0, 1.0, 0.25 * math.Pi, 0.25 * math.Pi, Tangent, Parallel},
+			{Point{0.0, 0.0}, 0, 0, 0.0, 1.0, 0.25 * math.Pi, 0.25 * math.Pi, 0, Parallel, true},
 		}},
 		{"L2 2", "L2 2", intersections{
-			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, 0.25 * math.Pi, 0.25 * math.Pi, Tangent, Parallel},
-			{Point{2.0, 2.0}, 0, 0, 1.0, 1.0, 0.25 * math.Pi, 0.25 * math.Pi, Tangent, Parallel},
+			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, 0.25 * math.Pi, 0.25 * math.Pi, 0, Parallel, true},
+			{Point{2.0, 2.0}, 0, 0, 1.0, 1.0, 0.25 * math.Pi, 0.25 * math.Pi, 0, Parallel, true},
 		}},
 		{"L4 4", "M2 2L6 6", intersections{
-			{Point{2.0, 2.0}, 0, 0, 0.5, 0.0, 0.25 * math.Pi, 0.25 * math.Pi, Tangent, Parallel},
-			{Point{4.0, 4.0}, 0, 0, 1.0, 0.5, 0.25 * math.Pi, 0.25 * math.Pi, Tangent, Parallel},
+			{Point{2.0, 2.0}, 0, 0, 0.5, 0.0, 0.25 * math.Pi, 0.25 * math.Pi, 0, Parallel, true},
+			{Point{4.0, 4.0}, 0, 0, 1.0, 0.5, 0.25 * math.Pi, 0.25 * math.Pi, 0, Parallel, true},
 		}},
 		{"L4 4", "M-2 -2L2 2", intersections{
-			{Point{0.0, 0.0}, 0, 0, 0.0, 0.5, 0.25 * math.Pi, 0.25 * math.Pi, Tangent, Parallel},
-			{Point{2.0, 2.0}, 0, 0, 0.5, 1.0, 0.25 * math.Pi, 0.25 * math.Pi, Tangent, Parallel},
+			{Point{0.0, 0.0}, 0, 0, 0.0, 0.5, 0.25 * math.Pi, 0.25 * math.Pi, 0, Parallel, true},
+			{Point{2.0, 2.0}, 0, 0, 0.5, 1.0, 0.25 * math.Pi, 0.25 * math.Pi, 0, Parallel, true},
 		}},
 
 		// none
@@ -130,16 +130,16 @@ func TestIntersectionLineQuad(t *testing.T) {
 	}{
 		// secant
 		{"M0 5L10 5", "Q10 5 0 10", intersections{
-			{Point{5.0, 5.0}, 0, 0, 0.5, 0.5, 0.0, 0.5 * math.Pi, BintoA, NoParallel},
+			{Point{5.0, 5.0}, 0, 0, 0.5, 0.5, 0.0, 0.5 * math.Pi, BintoA, NoParallel, false},
 		}},
 
 		// tangent
 		{"L0 10", "Q10 5 0 10", intersections{
-			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, 0.5 * math.Pi, Point{2.0, 1.0}.Angle(), AintoB | Tangent, NoParallel},
-			{Point{0.0, 10.0}, 0, 0, 1.0, 1.0, 0.5 * math.Pi, Point{-2.0, 1.0}.Angle(), BintoA | Tangent, NoParallel},
+			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, 0.5 * math.Pi, Point{2.0, 1.0}.Angle(), AintoB, NoParallel, true},
+			{Point{0.0, 10.0}, 0, 0, 1.0, 1.0, 0.5 * math.Pi, Point{-2.0, 1.0}.Angle(), BintoA, NoParallel, true},
 		}},
 		{"M5 0L5 10", "Q10 5 0 10", intersections{
-			{Point{5.0, 5.0}, 0, 0, 0.5, 0.5, 0.5 * math.Pi, 0.5 * math.Pi, Tangent, Parallel},
+			{Point{5.0, 5.0}, 0, 0, 0.5, 0.5, 0.5 * math.Pi, 0.5 * math.Pi, 0, Parallel, true},
 		}},
 
 		// none
@@ -171,24 +171,24 @@ func TestIntersectionLineCube(t *testing.T) {
 	}{
 		// secant
 		{"M0 5L10 5", "C8 0 8 10 0 10", intersections{
-			{Point{6.0, 5.0}, 0, 0, 0.6, 0.5, 0.0, 0.5 * math.Pi, BintoA, NoParallel},
+			{Point{6.0, 5.0}, 0, 0, 0.6, 0.5, 0.0, 0.5 * math.Pi, BintoA, NoParallel, false},
 		}},
 		{"M0 1L1 1", "C0 2 1 0 1 2", intersections{ // parallel at intersection
-			{Point{0.5, 1.0}, 0, 0, 0.5, 0.5, 0.0, math.Atan(2.0), BintoA, NoParallel}, // direction is incorrect on purpose
+			{Point{0.5, 1.0}, 0, 0, 0.5, 0.5, 0.0, math.Atan(2.0), BintoA, NoParallel, false}, // direction is incorrect on purpose
 		}},
 		{"M0 1L1 1", "C0 3 1 -1 1 2", intersections{ // three intersections
-			{Point{0.0791512117, 1.0}, 0, 0, 0.0791512117, 0.1726731646, 0.0, 74.05460410 / 180.0 * math.Pi, BintoA, NoParallel},
-			{Point{0.5, 1.0}, 0, 0, 0.5, 0.5, 0.0, 315 / 180.0 * math.Pi, AintoB, NoParallel},
-			{Point{0.9208487883, 1.0}, 0, 0, 0.9208487883, 0.8273268354, 0.0, 74.05460410 / 180.0 * math.Pi, BintoA, NoParallel},
+			{Point{0.0791512117, 1.0}, 0, 0, 0.0791512117, 0.1726731646, 0.0, 74.05460410 / 180.0 * math.Pi, BintoA, NoParallel, false},
+			{Point{0.5, 1.0}, 0, 0, 0.5, 0.5, 0.0, 315 / 180.0 * math.Pi, AintoB, NoParallel, false},
+			{Point{0.9208487883, 1.0}, 0, 0, 0.9208487883, 0.8273268354, 0.0, 74.05460410 / 180.0 * math.Pi, BintoA, NoParallel, false},
 		}},
 
 		// tangent
 		{"L0 10", "C8 0 8 10 0 10", intersections{
-			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, 0.5 * math.Pi, 0.0, AintoB | Tangent, NoParallel},
-			{Point{0.0, 10.0}, 0, 0, 1.0, 1.0, 0.5 * math.Pi, math.Pi, BintoA | Tangent, NoParallel},
+			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, 0.5 * math.Pi, 0.0, AintoB, NoParallel, true},
+			{Point{0.0, 10.0}, 0, 0, 1.0, 1.0, 0.5 * math.Pi, math.Pi, BintoA, NoParallel, true},
 		}},
 		{"M6 0L6 10", "C8 0 8 10 0 10", intersections{
-			{Point{6.0, 5.0}, 0, 0, 0.5, 0.5, 0.5 * math.Pi, 0.5 * math.Pi, Tangent, Parallel},
+			{Point{6.0, 5.0}, 0, 0, 0.5, 0.5, 0.5 * math.Pi, 0.5 * math.Pi, 0, Parallel, true},
 		}},
 
 		// none
@@ -220,49 +220,49 @@ func TestIntersectionLineEllipse(t *testing.T) {
 	}{
 		// secant
 		{"M0 5L10 5", "A5 5 0 0 1 0 10", intersections{
-			{Point{5.0, 5.0}, 0, 0, 0.5, 0.5, 0.0, 0.5 * math.Pi, BintoA, NoParallel},
+			{Point{5.0, 5.0}, 0, 0, 0.5, 0.5, 0.0, 0.5 * math.Pi, BintoA, NoParallel, false},
 		}},
 		{"M0 5L10 5", "A5 5 0 1 1 0 10", intersections{
-			{Point{5.0, 5.0}, 0, 0, 0.5, 0.5, 0.0, 0.5 * math.Pi, BintoA, NoParallel},
+			{Point{5.0, 5.0}, 0, 0, 0.5, 0.5, 0.0, 0.5 * math.Pi, BintoA, NoParallel, false},
 		}},
 		{"M0 5L-10 5", "A5 5 0 0 0 0 10", intersections{
-			{Point{-5.0, 5.0}, 0, 0, 0.5, 0.5, math.Pi, 0.5 * math.Pi, AintoB, NoParallel},
+			{Point{-5.0, 5.0}, 0, 0, 0.5, 0.5, math.Pi, 0.5 * math.Pi, AintoB, NoParallel, false},
 		}},
 		{"M-5 0L-5 -10", "A5 5 0 0 0 -10 0", intersections{
-			{Point{-5.0, -5.0}, 0, 0, 0.5, 0.5, 1.5 * math.Pi, math.Pi, AintoB, NoParallel},
+			{Point{-5.0, -5.0}, 0, 0, 0.5, 0.5, 1.5 * math.Pi, math.Pi, AintoB, NoParallel, false},
 		}},
 		{"M0 10L10 10", "A10 5 90 0 1 0 20", intersections{
-			{Point{5.0, 10.0}, 0, 0, 0.5, 0.5, 0.0, 0.5 * math.Pi, BintoA, NoParallel},
+			{Point{5.0, 10.0}, 0, 0, 0.5, 0.5, 0.0, 0.5 * math.Pi, BintoA, NoParallel, false},
 		}},
 
 		// tangent
 		{"M-5 0L-15 0", "A5 5 0 0 0 -10 0", intersections{
-			{Point{-10.0, 0.0}, 0, 0, 0.5, 1.0, math.Pi, 0.5 * math.Pi, AintoB | Tangent, NoParallel},
+			{Point{-10.0, 0.0}, 0, 0, 0.5, 1.0, math.Pi, 0.5 * math.Pi, AintoB, NoParallel, true},
 		}},
 		{"M-5 0L-15 0", "A5 5 0 0 1 -10 0", intersections{
-			{Point{-10.0, 0.0}, 0, 0, 0.5, 1.0, math.Pi, 1.5 * math.Pi, BintoA | Tangent, NoParallel},
+			{Point{-10.0, 0.0}, 0, 0, 0.5, 1.0, math.Pi, 1.5 * math.Pi, BintoA, NoParallel, true},
 		}},
 		{"L0 10", "A10 5 0 0 1 0 10", intersections{
-			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, 0.5 * math.Pi, 0.0, AintoB | Tangent, NoParallel},
-			{Point{0.0, 10.0}, 0, 0, 1.0, 1.0, 0.5 * math.Pi, math.Pi, BintoA | Tangent, NoParallel},
+			{Point{0.0, 0.0}, 0, 0, 0.0, 0.0, 0.5 * math.Pi, 0.0, AintoB, NoParallel, true},
+			{Point{0.0, 10.0}, 0, 0, 1.0, 1.0, 0.5 * math.Pi, math.Pi, BintoA, NoParallel, true},
 		}},
 		{"M5 0L5 10", "A5 5 0 0 1 0 10", intersections{
-			{Point{5.0, 5.0}, 0, 0, 0.5, 0.5, 0.5 * math.Pi, 0.5 * math.Pi, Tangent, Parallel},
+			{Point{5.0, 5.0}, 0, 0, 0.5, 0.5, 0.5 * math.Pi, 0.5 * math.Pi, 0, Parallel, true},
 		}},
 		{"M-5 0L-5 10", "A5 5 0 0 0 0 10", intersections{
-			{Point{-5.0, 5.0}, 0, 0, 0.5, 0.5, 0.5 * math.Pi, 0.5 * math.Pi, Tangent, Parallel},
+			{Point{-5.0, 5.0}, 0, 0, 0.5, 0.5, 0.5 * math.Pi, 0.5 * math.Pi, 0, Parallel, true},
 		}},
 		{"M5 0L5 20", "A10 5 90 0 1 0 20", intersections{
-			{Point{5.0, 10.0}, 0, 0, 0.5, 0.5, 0.5 * math.Pi, 0.5 * math.Pi, Tangent, Parallel},
+			{Point{5.0, 10.0}, 0, 0, 0.5, 0.5, 0.5 * math.Pi, 0.5 * math.Pi, 0, Parallel, true},
 		}},
 		{"M4 3L0 3", "M2 3A1 1 0 0 0 4 3", intersections{
-			{Point{2.0, 3.0}, 0, 0, 0.5, 0.0, math.Pi, 0.5 * math.Pi, AintoB | Tangent, NoParallel},
-			{Point{4.0, 3.0}, 0, 0, 0.0, 1.0, math.Pi, 1.5 * math.Pi, BintoA | Tangent, NoParallel},
+			{Point{2.0, 3.0}, 0, 0, 0.5, 0.0, math.Pi, 0.5 * math.Pi, AintoB, NoParallel, true},
+			{Point{4.0, 3.0}, 0, 0, 0.0, 1.0, math.Pi, 1.5 * math.Pi, BintoA, NoParallel, true},
 		}},
 
 		// see #200, at intersection the arc angle is deviated towards positive angle
 		{"M0 -0.7L1 -0.7", "M-0.7 0A0.7 0.7 0 0 1 0.7 0", intersections{
-			{Point{0.0, -0.7}, 0, 0, 0.0, 0.5, 0.0, 0.0, BintoA | Tangent, NoParallel},
+			{Point{0.0, -0.7}, 0, 0, 0.0, 0.5, 0.0, 0.0, BintoA, NoParallel, true},
 		}},
 
 		// none
@@ -299,38 +299,38 @@ func TestIntersections(t *testing.T) {
 		zs   intersections
 	}{
 		{"L10 0L5 10z", "M0 5L10 5L5 15z", intersections{
-			{Point{7.5, 5.0}, 2, 1, 0.5, 0.75, Point{-1.0, 2.0}.Angle(), 0.0, AintoB, NoParallel},
-			{Point{2.5, 5.0}, 3, 1, 0.5, 0.25, Point{-1.0, -2.0}.Angle(), 0.0, BintoA, NoParallel},
+			{Point{7.5, 5.0}, 2, 1, 0.5, 0.75, Point{-1.0, 2.0}.Angle(), 0.0, AintoB, NoParallel, false},
+			{Point{2.5, 5.0}, 3, 1, 0.5, 0.25, Point{-1.0, -2.0}.Angle(), 0.0, BintoA, NoParallel, false},
 		}},
 		{"L10 0L5 10z", "M0 -5L10 -5A5 5 0 0 1 0 -5", intersections{}},
 		{"M5 5L0 0", "M-5 0A5 5 0 0 0 5 0", intersections{
-			{Point{5.0 / math.Sqrt(2.0), 5.0 / math.Sqrt(2.0)}, 1, 1, 0.292893219, 0.75, 1.25 * math.Pi, 1.75 * math.Pi, BintoA, NoParallel},
+			{Point{5.0 / math.Sqrt(2.0), 5.0 / math.Sqrt(2.0)}, 1, 1, 0.292893219, 0.75, 1.25 * math.Pi, 1.75 * math.Pi, BintoA, NoParallel, false},
 		}},
 
 		// intersection on one segment endpoint
 		{"L0 15", "M5 0L0 5L5 5", intersections{}},
 		{"L0 15", "M5 0L0 5L-5 5", intersections{
-			{Point{0.0, 5.0}, 1, 2, 1.0 / 3.0, 0.0, 0.5 * math.Pi, math.Pi, BintoA, NoParallel},
+			{Point{0.0, 5.0}, 1, 2, 1.0 / 3.0, 0.0, 0.5 * math.Pi, math.Pi, BintoA, NoParallel, false},
 		}},
 		{"L0 15", "M5 5L0 5L5 0", intersections{}},
 		{"L0 15", "M-5 5L0 5L5 0", intersections{
-			{Point{0.0, 5.0}, 1, 2, 1.0 / 3.0, 0.0, 0.5 * math.Pi, 1.75 * math.Pi, AintoB, NoParallel},
+			{Point{0.0, 5.0}, 1, 2, 1.0 / 3.0, 0.0, 0.5 * math.Pi, 1.75 * math.Pi, AintoB, NoParallel, false},
 		}},
 		{"M5 0L0 5L5 5", "L0 15", intersections{}},
 		{"M5 0L0 5L-5 5", "L0 15", intersections{
-			{Point{0.0, 5.0}, 2, 1, 0.0, 1.0 / 3.0, math.Pi, 0.5 * math.Pi, AintoB, NoParallel},
+			{Point{0.0, 5.0}, 2, 1, 0.0, 1.0 / 3.0, math.Pi, 0.5 * math.Pi, AintoB, NoParallel, false},
 		}},
 		{"M5 5L0 5L5 0", "L0 15", intersections{}},
 		{"M-5 5L0 5L5 0", "L0 15", intersections{
-			{Point{0.0, 5.0}, 2, 1, 0.0, 1.0 / 3.0, 1.75 * math.Pi, 0.5 * math.Pi, BintoA, NoParallel},
+			{Point{0.0, 5.0}, 2, 1, 0.0, 1.0 / 3.0, 1.75 * math.Pi, 0.5 * math.Pi, BintoA, NoParallel, false},
 		}},
 		{"L0 10", "M5 0A5 5 0 0 0 0 5A5 5 0 0 0 5 10", intersections{}},
 		{"L0 10", "M5 10A5 5 0 0 1 0 5A5 5 0 0 1 5 0", intersections{}},
 		{"L0 5L5 5", "M5 0A5 5 0 0 0 5 10", intersections{
-			{Point{0.0, 5.0}, 2, 1, 0.0, 0.5, 0.0, 0.5 * math.Pi, BintoA, NoParallel},
+			{Point{0.0, 5.0}, 2, 1, 0.0, 0.5, 0.0, 0.5 * math.Pi, BintoA, NoParallel, false},
 		}},
 		{"L0 5L5 5", "M5 10A5 5 0 0 1 5 0", intersections{
-			{Point{0.0, 5.0}, 2, 1, 0.0, 0.5, 0.0, 1.5 * math.Pi, AintoB, NoParallel},
+			{Point{0.0, 5.0}, 2, 1, 0.0, 0.5, 0.0, 1.5 * math.Pi, AintoB, NoParallel, false},
 		}},
 
 		// intersection on two segment endpoint
@@ -339,170 +339,170 @@ func TestIntersections(t *testing.T) {
 		{"M20 0L10 6L0 0", "M0 10L10 6L20 10", intersections{}},
 		{"M20 0L10 6L0 0", "M20 10L10 6L0 10", intersections{}},
 		{"L10 6L20 10", "M0 10L10 6L20 0", intersections{
-			{Point{10.0, 6.0}, 2, 2, 0.0, 0.0, Point{10.0, 4.0}.Angle(), Point{10.0, -6.0}.Angle(), AintoB, NoParallel},
+			{Point{10.0, 6.0}, 2, 2, 0.0, 0.0, Point{10.0, 4.0}.Angle(), Point{10.0, -6.0}.Angle(), AintoB, NoParallel, false},
 		}},
 		{"L10 6L20 10", "M20 0L10 6L0 10", intersections{
-			{Point{10.0, 6.0}, 2, 2, 0.0, 0.0, Point{10.0, 4.0}.Angle(), Point{-10.0, 4.0}.Angle(), BintoA, NoParallel},
+			{Point{10.0, 6.0}, 2, 2, 0.0, 0.0, Point{10.0, 4.0}.Angle(), Point{-10.0, 4.0}.Angle(), BintoA, NoParallel, false},
 		}},
 		{"M20 10L10 6L0 0", "M0 10L10 6L20 0", intersections{
-			{Point{10.0, 6.0}, 2, 2, 0.0, 0.0, Point{-10.0, -6.0}.Angle(), Point{10.0, -6.0}.Angle(), BintoA, NoParallel},
+			{Point{10.0, 6.0}, 2, 2, 0.0, 0.0, Point{-10.0, -6.0}.Angle(), Point{10.0, -6.0}.Angle(), BintoA, NoParallel, false},
 		}},
 		{"M20 10L10 6L0 0", "M20 0L10 6L0 10", intersections{
-			{Point{10.0, 6.0}, 2, 2, 0.0, 0.0, Point{-10.0, -6.0}.Angle(), Point{-10.0, 4.0}.Angle(), AintoB, NoParallel},
+			{Point{10.0, 6.0}, 2, 2, 0.0, 0.0, Point{-10.0, -6.0}.Angle(), Point{-10.0, 4.0}.Angle(), AintoB, NoParallel, false},
 		}},
 		{"M4 1L4 3L0 3", "M3 4L4 3L3 2", intersections{
-			{Point{4.0, 3.0}, 2, 2, 0.0, 0.0, math.Pi, 1.25 * math.Pi, BintoA, NoParallel},
+			{Point{4.0, 3.0}, 2, 2, 0.0, 0.0, math.Pi, 1.25 * math.Pi, BintoA, NoParallel, false},
 		}},
 		{"M0 1L4 1L4 3L0 3z", MustParseSVG("M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z").Flatten(Tolerance).ToSVG(), intersections{
-			{Point{4.0, 3.0}, 3, 1, 0.0, 0.0, math.Pi, 262.01783160 * math.Pi / 180.0, BintoA, NoParallel},
-			{Point{2.0, 3.0}, 3, 13, 0.5, 0.0, math.Pi, 82.01783160 * math.Pi / 180.0, AintoB, NoParallel},
+			{Point{4.0, 3.0}, 3, 1, 0.0, 0.0, math.Pi, 262.01783160 * math.Pi / 180.0, BintoA, NoParallel, false},
+			{Point{2.0, 3.0}, 3, 13, 0.5, 0.0, math.Pi, 82.01783160 * math.Pi / 180.0, AintoB, NoParallel, false},
 		}},
 		{"M5 1L9 1L9 5L5 5z", MustParseSVG("M9 5A4 4 0 0 1 1 5A4 4 0 0 1 9 5z").Flatten(Tolerance).ToSVG(), intersections{
-			{Point{5.0, 1.0}, 1, 37, 0.0, 0.0, 0.0, 4.02145240 * math.Pi / 180.0, BintoA, NoParallel},
-			{Point{9.0, 5.0}, 3, 1, 0.0, 0.0, math.Pi, 94.02145240 * math.Pi / 180.0, AintoB, NoParallel},
+			{Point{5.0, 1.0}, 1, 37, 0.0, 0.0, 0.0, 4.02145240 * math.Pi / 180.0, BintoA, NoParallel, false},
+			{Point{9.0, 5.0}, 3, 1, 0.0, 0.0, math.Pi, 94.02145240 * math.Pi / 180.0, AintoB, NoParallel, false},
 		}},
 
 		// touches / parallel
 		{"L2 0L2 2L0 2z", "M2 0L4 0L4 2L2 2z", intersections{
-			{Point{2.0, 0.0}, 2, 1, 0.0, 0.0, 0.5 * math.Pi, 0.0, Tangent | AintoB, AParallel},
-			{Point{2.0, 2.0}, 3, 4, 0.0, 0.0, math.Pi, 1.5 * math.Pi, Tangent | BintoA, BParallel},
+			{Point{2.0, 0.0}, 2, 1, 0.0, 0.0, 0.5 * math.Pi, 0.0, AintoB, AParallel, true},
+			{Point{2.0, 2.0}, 3, 4, 0.0, 0.0, math.Pi, 1.5 * math.Pi, BintoA, BParallel, true},
 		}},
 		{"L2 0L2 2L0 2z", "M2 0L2 2L4 2L4 0z", intersections{
-			{Point{2.0, 0.0}, 2, 1, 0.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, Tangent | BintoA, Parallel},
-			{Point{2.0, 2.0}, 3, 2, 0.0, 0.0, math.Pi, 0.0, Tangent | AintoB, NoParallel},
+			{Point{2.0, 0.0}, 2, 1, 0.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, BintoA, Parallel, true},
+			{Point{2.0, 2.0}, 3, 2, 0.0, 0.0, math.Pi, 0.0, AintoB, NoParallel, true},
 		}},
 		{"M2 0L4 0L4 2L2 2z", "L2 0L2 2L0 2z", intersections{
-			{Point{2.0, 0.0}, 1, 2, 0.0, 0.0, 0.0, 0.5 * math.Pi, Tangent | BintoA, BParallel},
-			{Point{2.0, 2.0}, 4, 3, 0.0, 0.0, 1.5 * math.Pi, math.Pi, Tangent | AintoB, AParallel},
+			{Point{2.0, 0.0}, 1, 2, 0.0, 0.0, 0.0, 0.5 * math.Pi, BintoA, BParallel, true},
+			{Point{2.0, 2.0}, 4, 3, 0.0, 0.0, 1.5 * math.Pi, math.Pi, AintoB, AParallel, true},
 		}},
 		{"L2 0L2 2L0 2z", "M2 1L4 1L4 3L2 3z", intersections{
-			{Point{2.0, 1.0}, 2, 1, 0.5, 0.0, 0.5 * math.Pi, 0.0, Tangent | AintoB, AParallel},
-			{Point{2.0, 2.0}, 3, 4, 0.0, 0.5, math.Pi, 1.5 * math.Pi, Tangent | BintoA, BParallel},
+			{Point{2.0, 1.0}, 2, 1, 0.5, 0.0, 0.5 * math.Pi, 0.0, AintoB, AParallel, true},
+			{Point{2.0, 2.0}, 3, 4, 0.0, 0.5, math.Pi, 1.5 * math.Pi, BintoA, BParallel, true},
 		}},
 		{"L2 0L2 2L0 2z", "M2 -1L4 -1L4 1L2 1z", intersections{
-			{Point{2.0, 0.0}, 2, 4, 0.0, 0.5, 0.5 * math.Pi, 1.5 * math.Pi, Tangent | AintoB, AParallel},
-			{Point{2.0, 1.0}, 2, 4, 0.5, 0.0, 0.5 * math.Pi, 1.5 * math.Pi, Tangent | BintoA, BParallel},
+			{Point{2.0, 0.0}, 2, 4, 0.0, 0.5, 0.5 * math.Pi, 1.5 * math.Pi, AintoB, AParallel, true},
+			{Point{2.0, 1.0}, 2, 4, 0.5, 0.0, 0.5 * math.Pi, 1.5 * math.Pi, BintoA, BParallel, true},
 		}},
 		{"L2 0L2 2L0 2z", "M2 -1L4 -1L4 3L2 3z", intersections{
-			{Point{2.0, 0.0}, 2, 4, 0.0, 0.75, 0.5 * math.Pi, 1.5 * math.Pi, Tangent | AintoB, AParallel},
-			{Point{2.0, 2.0}, 3, 4, 0.0, 0.25, math.Pi, 1.5 * math.Pi, Tangent | BintoA, BParallel},
+			{Point{2.0, 0.0}, 2, 4, 0.0, 0.75, 0.5 * math.Pi, 1.5 * math.Pi, AintoB, AParallel, true},
+			{Point{2.0, 2.0}, 3, 4, 0.0, 0.25, math.Pi, 1.5 * math.Pi, BintoA, BParallel, true},
 		}},
 		{"M0 -1L2 -1L2 3L0 3z", "M2 0L4 0L4 2L2 2z", intersections{
-			{Point{2.0, 0.0}, 2, 1, 0.25, 0.0, 0.5 * math.Pi, 0.0, Tangent | AintoB, AParallel},
-			{Point{2.0, 2.0}, 2, 4, 0.75, 0.0, 0.5 * math.Pi, 1.5 * math.Pi, Tangent | BintoA, BParallel},
+			{Point{2.0, 0.0}, 2, 1, 0.25, 0.0, 0.5 * math.Pi, 0.0, AintoB, AParallel, true},
+			{Point{2.0, 2.0}, 2, 4, 0.75, 0.0, 0.5 * math.Pi, 1.5 * math.Pi, BintoA, BParallel, true},
 		}},
 		{"L1 0L1 1zM2 0L1.9 1L1.9 -1z", "L1 0L1 -1zM2 0L1.9 1L1.9 -1z", intersections{
-			{Point{0.0, 0.0}, 1, 1, 0.0, 0.0, 0.0, 0.0, Tangent | BintoA, Parallel},
-			{Point{1.0, 0.0}, 2, 2, 0.0, 0.0, 0.5 * math.Pi, 1.5 * math.Pi, Tangent | AintoB, NoParallel},
+			{Point{0.0, 0.0}, 1, 1, 0.0, 0.0, 0.0, 0.0, BintoA, Parallel, true},
+			{Point{1.0, 0.0}, 2, 2, 0.0, 0.0, 0.5 * math.Pi, 1.5 * math.Pi, AintoB, NoParallel, true},
 		}},
 
 		// head-on collisions
 		{"M2 0L2 2L0 2", "M4 2L2 2L2 4", intersections{}},
 		{"M0 2Q2 4 2 2Q4 2 2 4", "M2 4L2 2L4 2", intersections{
-			{Point{2.0, 2.0}, 2, 2, 0.0, 0.0, 0.0, 0.0, AintoB, NoParallel},
+			{Point{2.0, 2.0}, 2, 2, 0.0, 0.0, 0.0, 0.0, AintoB, NoParallel, false},
 		}},
 		{"M0 2C0 4 2 4 2 2C4 2 4 4 2 4", "M2 4L2 2L4 2", intersections{
-			{Point{2.0, 2.0}, 2, 2, 0.0, 0.0, 0.0, 0.0, AintoB, NoParallel},
+			{Point{2.0, 2.0}, 2, 2, 0.0, 0.0, 0.0, 0.0, AintoB, NoParallel, false},
 		}},
 		{"M0 2A1 1 0 0 0 2 2A1 1 0 0 1 2 4", "M2 4L2 2L4 2", intersections{
-			{Point{2.0, 2.0}, 2, 2, 0.0, 0.0, 0.0, 0.0, AintoB, NoParallel},
+			{Point{2.0, 2.0}, 2, 2, 0.0, 0.0, 0.0, 0.0, AintoB, NoParallel, false},
 		}},
 		{"M0 2A1 1 0 0 1 2 2A1 1 0 0 1 2 4", "M2 4L2 2L4 2", intersections{
-			{Point{2.0, 2.0}, 2, 2, 0.0, 0.0, 0.0, 0.0, AintoB, NoParallel},
+			{Point{2.0, 2.0}, 2, 2, 0.0, 0.0, 0.0, 0.0, AintoB, NoParallel, false},
 		}},
 		{"M0 2A1 1 0 0 1 2 2A1 1 0 0 1 2 4", "M2 0L2 2L0 2", intersections{
-			{Point{2.0, 2.0}, 2, 2, 0.0, 0.0, 0.0, math.Pi, BintoA, NoParallel},
+			{Point{2.0, 2.0}, 2, 2, 0.0, 0.0, 0.0, math.Pi, BintoA, NoParallel, false},
 		}},
 		{"M0 1L4 1L4 3L0 3z", "M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", intersections{
-			{Point{4.0, 3.0}, 3, 1, 0.0, 0.0, math.Pi, 1.5 * math.Pi, BintoA, NoParallel},
-			{Point{2.0, 3.0}, 3, 2, 0.5, 0.0, math.Pi, 0.5 * math.Pi, AintoB, NoParallel},
+			{Point{4.0, 3.0}, 3, 1, 0.0, 0.0, math.Pi, 1.5 * math.Pi, BintoA, NoParallel, false},
+			{Point{2.0, 3.0}, 3, 2, 0.5, 0.0, math.Pi, 0.5 * math.Pi, AintoB, NoParallel, false},
 		}},
 		{"M1 0L3 0L3 4L1 4z", "M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", intersections{
-			{Point{3.0, 2.0}, 2, 1, 0.5, 0.5, 0.5 * math.Pi, math.Pi, BintoA, NoParallel},
-			{Point{3.0, 4.0}, 3, 2, 0.0, 0.5, math.Pi, 0.0, AintoB, NoParallel},
+			{Point{3.0, 2.0}, 2, 1, 0.5, 0.5, 0.5 * math.Pi, math.Pi, BintoA, NoParallel, false},
+			{Point{3.0, 4.0}, 3, 2, 0.0, 0.5, math.Pi, 0.0, AintoB, NoParallel, false},
 		}},
 		{"M1 0L3 0L3 4L1 4z", "M3 0A1 1 0 0 0 1 0A1 1 0 0 0 3 0z", intersections{
-			{Point{1.0, 0.0}, 1, 2, 0.0, 0.0, 0.0, 0.5 * math.Pi, BintoA, NoParallel},
-			{Point{3.0, 0.0}, 2, 1, 0.0, 0.0, 0.5 * math.Pi, 1.5 * math.Pi, AintoB, NoParallel},
+			{Point{1.0, 0.0}, 1, 2, 0.0, 0.0, 0.0, 0.5 * math.Pi, BintoA, NoParallel, false},
+			{Point{3.0, 0.0}, 2, 1, 0.0, 0.0, 0.5 * math.Pi, 1.5 * math.Pi, AintoB, NoParallel, false},
 		}},
 		{"M1 0L3 0L3 4L1 4z", "M1 0A1 1 0 0 0 -1 0A1 1 0 0 0 1 0z", intersections{}},
 		{"M1 0L3 0L3 4L1 4z", "M1 0L1 -1L0 0z", intersections{}},
 		{"M1 0L3 0L3 4L1 4z", "M1 0L0 0L1 -1z", intersections{}},
 		{"M1 0L3 0L3 4L1 4z", "M1 0L2 0L1 1z", intersections{
-			{Point{2.0, 0.0}, 1, 2, 0.5, 0.0, 0.0, 0.75 * math.Pi, Tangent | BintoA, NoParallel},
-			{Point{1.0, 1.0}, 4, 3, 0.75, 0.0, 1.5 * math.Pi, 1.5 * math.Pi, Tangent | AintoB, Parallel},
+			{Point{2.0, 0.0}, 1, 2, 0.5, 0.0, 0.0, 0.75 * math.Pi, BintoA, NoParallel, true},
+			{Point{1.0, 1.0}, 4, 3, 0.75, 0.0, 1.5 * math.Pi, 1.5 * math.Pi, AintoB, Parallel, true},
 		}},
 		{"M1 0L3 0L3 4L1 4z", "M1 0L1 1L2 0z", intersections{
-			{Point{2.0, 0.0}, 1, 3, 0.5, 0.0, 0.0, math.Pi, Tangent | AintoB, BParallel},
-			{Point{1.0, 1.0}, 4, 2, 0.75, 0.0, 1.5 * math.Pi, 1.75 * math.Pi, Tangent | BintoA, AParallel},
+			{Point{2.0, 0.0}, 1, 3, 0.5, 0.0, 0.0, math.Pi, AintoB, BParallel, true},
+			{Point{1.0, 1.0}, 4, 2, 0.75, 0.0, 1.5 * math.Pi, 1.75 * math.Pi, BintoA, AParallel, true},
 		}},
 		{"M1 0L3 0L3 4L1 4z", "M1 0L2 1L0 1z", intersections{
-			{Point{1.0, 0.0}, 1, 1, 0.0, 0.0, 0.0, 0.25 * math.Pi, BintoA, NoParallel},
-			{Point{1.0, 1.0}, 4, 2, 0.75, 0.5, 1.5 * math.Pi, math.Pi, AintoB, NoParallel},
+			{Point{1.0, 0.0}, 1, 1, 0.0, 0.0, 0.0, 0.25 * math.Pi, BintoA, NoParallel, false},
+			{Point{1.0, 1.0}, 4, 2, 0.75, 0.5, 1.5 * math.Pi, math.Pi, AintoB, NoParallel, false},
 		}},
 
 		// intersection with parallel lines
 		{"L0 15", "M5 0L0 5L0 10L5 15", intersections{
-			{Point{0.0, 5.0}, 1, 2, 1.0 / 3.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, Tangent | BintoA, Parallel},
-			{Point{0.0, 10.0}, 1, 3, 2.0 / 3.0, 0.0, 0.5 * math.Pi, 0.25 * math.Pi, Tangent | AintoB, NoParallel},
+			{Point{0.0, 5.0}, 1, 2, 1.0 / 3.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, BintoA, Parallel, true},
+			{Point{0.0, 10.0}, 1, 3, 2.0 / 3.0, 0.0, 0.5 * math.Pi, 0.25 * math.Pi, AintoB, NoParallel, true},
 		}},
 		{"L0 15", "M5 0L0 5L0 10L-5 15", intersections{
-			{Point{0.0, 5.0}, 1, 2, 1.0 / 3.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, BintoA, Parallel},
-			{Point{0.0, 10.0}, 1, 3, 2.0 / 3.0, 0.0, 0.5 * math.Pi, 0.75 * math.Pi, BintoA, NoParallel},
+			{Point{0.0, 5.0}, 1, 2, 1.0 / 3.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, BintoA, Parallel, false},
+			{Point{0.0, 10.0}, 1, 3, 2.0 / 3.0, 0.0, 0.5 * math.Pi, 0.75 * math.Pi, BintoA, NoParallel, false},
 		}},
 		{"L0 15", "M5 15L0 10L0 5L5 0", intersections{
-			{Point{0.0, 5.0}, 1, 3, 1.0 / 3.0, 0.0, 0.5 * math.Pi, 1.75 * math.Pi, Tangent | AintoB, AParallel},
-			{Point{0.0, 10.0}, 1, 2, 2.0 / 3.0, 0.0, 0.5 * math.Pi, 1.5 * math.Pi, Tangent | BintoA, BParallel},
+			{Point{0.0, 5.0}, 1, 3, 1.0 / 3.0, 0.0, 0.5 * math.Pi, 1.75 * math.Pi, AintoB, AParallel, true},
+			{Point{0.0, 10.0}, 1, 2, 2.0 / 3.0, 0.0, 0.5 * math.Pi, 1.5 * math.Pi, BintoA, BParallel, true},
 		}},
 		{"L0 15", "M5 15L0 10L0 5L-5 0", intersections{
-			{Point{0.0, 5.0}, 1, 3, 1.0 / 3.0, 0.0, 0.5 * math.Pi, 1.25 * math.Pi, BintoA, AParallel},
-			{Point{0.0, 10.0}, 1, 2, 2.0 / 3.0, 0.0, 0.5 * math.Pi, 1.5 * math.Pi, BintoA, BParallel},
+			{Point{0.0, 5.0}, 1, 3, 1.0 / 3.0, 0.0, 0.5 * math.Pi, 1.25 * math.Pi, BintoA, AParallel, false},
+			{Point{0.0, 10.0}, 1, 2, 2.0 / 3.0, 0.0, 0.5 * math.Pi, 1.5 * math.Pi, BintoA, BParallel, false},
 		}},
 		{"L0 10L-5 15", "M5 0L0 5L0 15", intersections{
-			{Point{0.0, 5.0}, 1, 2, 0.5, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, Tangent | BintoA, Parallel},
-			{Point{0.0, 10.0}, 2, 2, 0.0, 0.5, 0.75 * math.Pi, 0.5 * math.Pi, Tangent | AintoB, NoParallel},
+			{Point{0.0, 5.0}, 1, 2, 0.5, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, BintoA, Parallel, true},
+			{Point{0.0, 10.0}, 2, 2, 0.0, 0.5, 0.75 * math.Pi, 0.5 * math.Pi, AintoB, NoParallel, true},
 		}},
 		{"L0 10L5 15", "M5 0L0 5L0 15", intersections{
-			{Point{0.0, 5.0}, 1, 2, 0.5, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, BintoA, Parallel},
-			{Point{0.0, 10.0}, 2, 2, 0.0, 0.5, 0.25 * math.Pi, 0.5 * math.Pi, BintoA, NoParallel},
+			{Point{0.0, 5.0}, 1, 2, 0.5, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, BintoA, Parallel, false},
+			{Point{0.0, 10.0}, 2, 2, 0.0, 0.5, 0.25 * math.Pi, 0.5 * math.Pi, BintoA, NoParallel, false},
 		}},
 		{"L0 10L-5 15", "M0 15L0 5L5 0", intersections{
-			{Point{0.0, 5.0}, 1, 2, 0.5, 0.0, 0.5 * math.Pi, 1.75 * math.Pi, Tangent | AintoB, AParallel},
-			{Point{0.0, 10.0}, 2, 1, 0.0, 0.5, 0.75 * math.Pi, 1.5 * math.Pi, Tangent | BintoA, BParallel},
+			{Point{0.0, 5.0}, 1, 2, 0.5, 0.0, 0.5 * math.Pi, 1.75 * math.Pi, AintoB, AParallel, true},
+			{Point{0.0, 10.0}, 2, 1, 0.0, 0.5, 0.75 * math.Pi, 1.5 * math.Pi, BintoA, BParallel, true},
 		}},
 		{"L0 10L5 15", "M0 15L0 5L5 0", intersections{
-			{Point{0.0, 5.0}, 1, 2, 0.5, 0.0, 0.5 * math.Pi, 1.75 * math.Pi, AintoB, AParallel},
-			{Point{0.0, 10.0}, 2, 1, 0.0, 0.5, 0.25 * math.Pi, 1.5 * math.Pi, AintoB, BParallel},
+			{Point{0.0, 5.0}, 1, 2, 0.5, 0.0, 0.5 * math.Pi, 1.75 * math.Pi, AintoB, AParallel, false},
+			{Point{0.0, 10.0}, 2, 1, 0.0, 0.5, 0.25 * math.Pi, 1.5 * math.Pi, AintoB, BParallel, false},
 		}},
 		{"L5 5L5 10L0 15", "M10 0L5 5L5 15", intersections{
-			{Point{5.0, 5.0}, 2, 2, 0.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, Tangent | BintoA, Parallel},
-			{Point{5.0, 10.0}, 3, 2, 0.0, 0.5, 0.75 * math.Pi, 0.5 * math.Pi, Tangent | AintoB, NoParallel},
+			{Point{5.0, 5.0}, 2, 2, 0.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, BintoA, Parallel, true},
+			{Point{5.0, 10.0}, 3, 2, 0.0, 0.5, 0.75 * math.Pi, 0.5 * math.Pi, AintoB, NoParallel, true},
 		}},
 		{"L5 5L5 10L10 15", "M10 0L5 5L5 15", intersections{
-			{Point{5.0, 5.0}, 2, 2, 0.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, BintoA, Parallel},
-			{Point{5.0, 10.0}, 3, 2, 0.0, 0.5, 0.25 * math.Pi, 0.5 * math.Pi, BintoA, NoParallel},
+			{Point{5.0, 5.0}, 2, 2, 0.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, BintoA, Parallel, false},
+			{Point{5.0, 10.0}, 3, 2, 0.0, 0.5, 0.25 * math.Pi, 0.5 * math.Pi, BintoA, NoParallel, false},
 		}},
 		{"L5 5L5 10L0 15", "M10 0L5 5L5 10L10 15", intersections{
-			{Point{5.0, 5.0}, 2, 2, 0.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, Tangent | BintoA, Parallel},
-			{Point{5.0, 10.0}, 3, 3, 0.0, 0.0, 0.75 * math.Pi, 0.25 * math.Pi, Tangent | AintoB, NoParallel},
+			{Point{5.0, 5.0}, 2, 2, 0.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, BintoA, Parallel, true},
+			{Point{5.0, 10.0}, 3, 3, 0.0, 0.0, 0.75 * math.Pi, 0.25 * math.Pi, AintoB, NoParallel, true},
 		}},
 		{"L5 5L5 10L10 15", "M10 0L5 5L5 10L0 15", intersections{
-			{Point{5.0, 5.0}, 2, 2, 0.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, BintoA, Parallel},
-			{Point{5.0, 10.0}, 3, 3, 0.0, 0.0, 0.25 * math.Pi, 0.75 * math.Pi, BintoA, NoParallel},
+			{Point{5.0, 5.0}, 2, 2, 0.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, BintoA, Parallel, false},
+			{Point{5.0, 10.0}, 3, 3, 0.0, 0.0, 0.25 * math.Pi, 0.75 * math.Pi, BintoA, NoParallel, false},
 		}},
 		{"L5 5L5 10L10 15L5 20", "M10 0L5 5L5 10L10 15L10 20", intersections{
-			{Point{5.0, 5.0}, 2, 2, 0.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, Tangent | BintoA, Parallel},
-			{Point{10.0, 15.0}, 4, 4, 0.0, 0.0, 0.75 * math.Pi, 0.5 * math.Pi, Tangent | AintoB, NoParallel},
+			{Point{5.0, 5.0}, 2, 2, 0.0, 0.0, 0.5 * math.Pi, 0.5 * math.Pi, BintoA, Parallel, true},
+			{Point{10.0, 15.0}, 4, 4, 0.0, 0.0, 0.75 * math.Pi, 0.5 * math.Pi, AintoB, NoParallel, true},
 		}},
 		{"L5 5L5 10L10 15L5 20", "M10 20L10 15L5 10L5 5L10 0", intersections{
-			{Point{5.0, 5.0}, 2, 4, 0.0, 0.0, 0.5 * math.Pi, 1.75 * math.Pi, Tangent | AintoB, AParallel},
-			{Point{10.0, 15.0}, 4, 2, 0.0, 0.0, 0.75 * math.Pi, 1.25 * math.Pi, Tangent | BintoA, BParallel},
+			{Point{5.0, 5.0}, 2, 4, 0.0, 0.0, 0.5 * math.Pi, 1.75 * math.Pi, AintoB, AParallel, true},
+			{Point{10.0, 15.0}, 4, 2, 0.0, 0.0, 0.75 * math.Pi, 1.25 * math.Pi, BintoA, BParallel, true},
 		}},
 		{"L2 0L2 1L0 1z", "M1 0L3 0L3 1L1 1z", intersections{
-			{Point{1.0, 0.0}, 1, 1, 0.5, 0.0, 0.0, 0.0, AintoB, Parallel},
-			{Point{2.0, 0.0}, 2, 1, 0.0, 0.5, 0.5 * math.Pi, 0.0, AintoB, NoParallel},
-			{Point{2.0, 1.0}, 3, 3, 0.0, 0.5, math.Pi, math.Pi, BintoA, Parallel},
-			{Point{1.0, 1.0}, 3, 4, 0.5, 0.0, math.Pi, 1.5 * math.Pi, BintoA, NoParallel},
+			{Point{1.0, 0.0}, 1, 1, 0.5, 0.0, 0.0, 0.0, AintoB, Parallel, false},
+			{Point{2.0, 0.0}, 2, 1, 0.0, 0.5, 0.5 * math.Pi, 0.0, AintoB, NoParallel, false},
+			{Point{2.0, 1.0}, 3, 3, 0.0, 0.5, math.Pi, math.Pi, BintoA, Parallel, false},
+			{Point{1.0, 1.0}, 3, 4, 0.5, 0.0, math.Pi, 1.5 * math.Pi, BintoA, NoParallel, false},
 		}},
 	}
 	for _, tt := range tts {
