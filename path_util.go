@@ -309,40 +309,40 @@ func quadraticToCubicBezier(p0, p1, p2 Point) (Point, Point) {
 }
 
 // see http://www.caffeineowl.com/graphics/2d/vectorial/cubic2quad01.html
-func cubicToQuadraticBeziers(p0, p1, p2, p3 Point, tolerance float64) [][3]Point {
-	// TODO: misses theoretic background for optimal number of quads
-	quads := [][3]Point{}
-	endQuads := [][3]Point{}
-	for {
-		// dist = sqrt(3)/36 * ||p3 - 3*p2 + 3*p1 - p0||
-		dist := math.Sqrt(3.0) / 36.0 * p3.Sub(p2.Mul(3.0)).Add(p1.Mul(3.0)).Sub(p0).Length()
-		t := math.Cbrt(tolerance / dist)
-
-		// cp = (3*p2 - p3 + 3*p1 - p0) / 4
-		if t >= 1.0 {
-			// approximate by one quadratic bezier
-			pcp := p2.Mul(3.0).Sub(p3).Add(p1.Mul(3.0)).Sub(p0).Div(4.0)
-			quads = append(quads, [3]Point{p0, pcp, p3})
-			break
-		} else if t >= 0.5 {
-			// approximate by two quadratic beziers
-			r0, r1, r2, r3, q0, q1, q2, q3 := cubicBezierSplit(p0, p1, p2, p3, 0.5)
-			rcp := r2.Mul(3.0).Sub(r3).Add(r1.Mul(3.0)).Sub(r0).Div(4.0)
-			qcp := q2.Mul(3.0).Sub(q3).Add(q1.Mul(3.0)).Sub(q0).Div(4.0)
-			quads = append(quads, [3]Point{r0, rcp, r3}, [3]Point{q0, qcp, q3})
-			break
-		} else {
-			// approximate start and end by two quadratic beziers, and reevaluate the middle part
-			r0, r1, r2, r3, q0, q1, q2, q3 := cubicBezierSplit(p0, p1, p2, p3, 1-t)
-			r0, r1, r2, r3, p0, p1, p2, p3 = cubicBezierSplit(r0, r1, r2, r3, t/(1-t))
-			rcp := r2.Mul(3.0).Sub(r3).Add(r1.Mul(3.0)).Sub(r0).Div(4.0)
-			qcp := q2.Mul(3.0).Sub(q3).Add(q1.Mul(3.0)).Sub(q0).Div(4.0)
-			quads = append(quads, [3]Point{r0, rcp, r3})
-			endQuads = append([][3]Point{{q0, qcp, q3}}, endQuads...)
-		}
-	}
-	return append(quads, endQuads...)
-}
+//func cubicToQuadraticBeziers(p0, p1, p2, p3 Point, tolerance float64) [][3]Point {
+//	// TODO: misses theoretic background for optimal number of quads
+//	quads := [][3]Point{}
+//	endQuads := [][3]Point{}
+//	for {
+//		// dist = sqrt(3)/36 * ||p3 - 3*p2 + 3*p1 - p0||
+//		dist := math.Sqrt(3.0) / 36.0 * p3.Sub(p2.Mul(3.0)).Add(p1.Mul(3.0)).Sub(p0).Length()
+//		t := math.Cbrt(tolerance / dist)
+//
+//		// cp = (3*p2 - p3 + 3*p1 - p0) / 4
+//		if t >= 1.0 {
+//			// approximate by one quadratic bezier
+//			pcp := p2.Mul(3.0).Sub(p3).Add(p1.Mul(3.0)).Sub(p0).Div(4.0)
+//			quads = append(quads, [3]Point{p0, pcp, p3})
+//			break
+//		} else if t >= 0.5 {
+//			// approximate by two quadratic beziers
+//			r0, r1, r2, r3, q0, q1, q2, q3 := cubicBezierSplit(p0, p1, p2, p3, 0.5)
+//			rcp := r2.Mul(3.0).Sub(r3).Add(r1.Mul(3.0)).Sub(r0).Div(4.0)
+//			qcp := q2.Mul(3.0).Sub(q3).Add(q1.Mul(3.0)).Sub(q0).Div(4.0)
+//			quads = append(quads, [3]Point{r0, rcp, r3}, [3]Point{q0, qcp, q3})
+//			break
+//		} else {
+//			// approximate start and end by two quadratic beziers, and reevaluate the middle part
+//			r0, r1, r2, r3, q0, q1, q2, q3 := cubicBezierSplit(p0, p1, p2, p3, 1-t)
+//			r0, r1, r2, r3, p0, p1, p2, p3 = cubicBezierSplit(r0, r1, r2, r3, t/(1-t))
+//			rcp := r2.Mul(3.0).Sub(r3).Add(r1.Mul(3.0)).Sub(r0).Div(4.0)
+//			qcp := q2.Mul(3.0).Sub(q3).Add(q1.Mul(3.0)).Sub(q0).Div(4.0)
+//			quads = append(quads, [3]Point{r0, rcp, r3})
+//			endQuads = append([][3]Point{{q0, qcp, q3}}, endQuads...)
+//		}
+//	}
+//	return append(quads, endQuads...)
+//}
 
 func quadraticBezierPos(p0, p1, p2 Point, t float64) Point {
 	p0 = p0.Mul(1.0 - 2.0*t + t*t)
@@ -366,28 +366,28 @@ func quadraticBezierDeriv2(p0, p1, p2 Point) Point {
 }
 
 // return the normal at the right-side of the curve (when increasing t)
-func quadraticBezierNormal(p0, p1, p2 Point, t, d float64) Point {
-	if t == 0.0 {
-		n := p1.Sub(p0)
-		if n.X == 0 && n.Y == 0 {
-			n = p2.Sub(p0)
-		}
-		if n.X == 0 && n.Y == 0 {
-			return Point{}
-		}
-		return n.Rot90CW().Norm(d)
-	} else if t == 1.0 {
-		n := p2.Sub(p1)
-		if n.X == 0 && n.Y == 0 {
-			n = p2.Sub(p0)
-		}
-		if n.X == 0 && n.Y == 0 {
-			return Point{}
-		}
-		return n.Rot90CW().Norm(d)
-	}
-	panic("not implemented") // not needed
-}
+//func quadraticBezierNormal(p0, p1, p2 Point, t, d float64) Point {
+//	if t == 0.0 {
+//		n := p1.Sub(p0)
+//		if n.X == 0 && n.Y == 0 {
+//			n = p2.Sub(p0)
+//		}
+//		if n.X == 0 && n.Y == 0 {
+//			return Point{}
+//		}
+//		return n.Rot90CW().Norm(d)
+//	} else if t == 1.0 {
+//		n := p2.Sub(p1)
+//		if n.X == 0 && n.Y == 0 {
+//			n = p2.Sub(p0)
+//		}
+//		if n.X == 0 && n.Y == 0 {
+//			return Point{}
+//		}
+//		return n.Rot90CW().Norm(d)
+//	}
+//	panic("not implemented") // not needed
+//}
 
 // see https://malczak.linuxpl.com/blog/quadratic-bezier-curve-length/
 func quadraticBezierLength(p0, p1, p2 Point) float64 {

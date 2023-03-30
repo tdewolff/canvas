@@ -421,7 +421,7 @@ func cut(Zs intersections, p *Path) []*Path {
 					ps = append(ps, &Path{cur})
 					cur = nil
 				} else {
-					ps = append(ps[:k], append([]*Path{&Path{first}}, ps[k:]...)...)
+					ps = append(ps[:k], append([]*Path{{first}}, ps[k:]...)...)
 				}
 			} else if closed {
 				cur[len(cur)-1] = CloseCmd
@@ -480,7 +480,7 @@ func cut(Zs intersections, p *Path) []*Path {
 		if closed {
 			cur = append(cur, first[4:]...) // last subpath was closed
 		} else {
-			ps = append(ps[:k], append([]*Path{&Path{first}}, ps[k:]...)...)
+			ps = append(ps[:k], append([]*Path{{first}}, ps[k:]...)...)
 		}
 	} else if closed {
 		cur[len(cur)-1] = CloseCmd

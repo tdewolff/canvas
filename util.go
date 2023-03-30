@@ -807,64 +807,64 @@ func bisectionMethod(f func(float64) float64, y, xmin, xmax float64) float64 {
 }
 
 // polynomialApprox returns a function y(x) that maps the parameter x [xmin,xmax] to the integral of fp. For a circle tmin and tmax would be 0 and 2PI respectively for example. It also returns the total length of the curve. Implemented using M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI, p. 143--150, 1996, see https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf
-func polynomialApprox3(gaussLegendre gaussLegendreFunc, fp func(float64) float64, xmin, xmax float64) (func(float64) float64, float64) {
-	y1 := gaussLegendre(fp, xmin, xmin+(xmax-xmin)*1.0/3.0)
-	y2 := gaussLegendre(fp, xmin, xmin+(xmax-xmin)*2.0/3.0)
-	y3 := gaussLegendre(fp, xmin, xmax)
-
-	// We have four points on the y(x) curve at x0=0, x1=1/3, x2=2/3 and x3=1
-	// now obtain a polynomial that goes through these four points by solving the system of linear equations
-	// y(x) = a*x^3 + b*x^2 + c*x + d  (NB: y0 = d = 0)
-	// [y1; y2; y3] = [1/27, 1/9, 1/3;
-	//                 8/27, 4/9, 2/3;
-	//                    1,   1,   1] * [a; b; c]
-	//
-	// After inverting:
-	// [a; b; c] = 0.5 * [ 27, -27,  9;
-	//                    -45,  36, -9;
-	//                     18,  -9,  2] * [y1; y2; y3]
-	// NB: y0 = d = 0
-
-	a := 13.5*y1 - 13.5*y2 + 4.5*y3
-	b := -22.5*y1 + 18.0*y2 - 4.5*y3
-	c := 9.0*y1 - 4.5*y2 + y3
-	return func(x float64) float64 {
-		x = (x - xmin) / (xmax - xmin)
-		return a*x*x*x + b*x*x + c*x
-	}, math.Abs(y3)
-}
-
-// invPolynomialApprox does the opposite of polynomialApprox, it returns a function x(y) that maps the parameter y [f(xmin),f(xmax)] to x [xmin,xmax]
-func invPolynomialApprox3(gaussLegendre gaussLegendreFunc, fp func(float64) float64, xmin, xmax float64) (func(float64) float64, float64) {
-	f := func(t float64) float64 {
-		return math.Abs(gaussLegendre(fp, xmin, xmin+(xmax-xmin)*t))
-	}
-	f3 := f(1.0)
-	t1 := bisectionMethod(f, (1.0/3.0)*f3, 0.0, 1.0)
-	t2 := bisectionMethod(f, (2.0/3.0)*f3, 0.0, 1.0)
-	t3 := 1.0
-
-	// We have four points on the x(y) curve at y0=0, y1=1/3, y2=2/3 and y3=1
-	// now obtain a polynomial that goes through these four points by solving the system of linear equations
-	// x(y) = a*y^3 + b*y^2 + c*y + d  (NB: x0 = d = 0)
-	// [x1; x2; x3] = [1/27, 1/9, 1/3;
-	//                 8/27, 4/9, 2/3;
-	//                    1,   1,   1] * [a*y3^3; b*y3^2; c*y3]
-	//
-	// After inverting:
-	// [a*y3^3; b*y3^2; c*y3] = 0.5 * [ 27, -27,  9;
-	//                                 -45,  36, -9;
-	//                                  18,  -9,  2] * [x1; x2; x3]
-	// NB: x0 = d = 0
-
-	a := (27.0*t1 - 27.0*t2 + 9.0*t3) / (2.0 * f3 * f3 * f3)
-	b := (-45.0*t1 + 36.0*t2 - 9.0*t3) / (2.0 * f3 * f3)
-	c := (18.0*t1 - 9.0*t2 + 2.0*t3) / (2.0 * f3)
-	return func(f float64) float64 {
-		t := a*f*f*f + b*f*f + c*f
-		return xmin + (xmax-xmin)*t
-	}, f3
-}
+//func polynomialApprox3(gaussLegendre gaussLegendreFunc, fp func(float64) float64, xmin, xmax float64) (func(float64) float64, float64) {
+//	y1 := gaussLegendre(fp, xmin, xmin+(xmax-xmin)*1.0/3.0)
+//	y2 := gaussLegendre(fp, xmin, xmin+(xmax-xmin)*2.0/3.0)
+//	y3 := gaussLegendre(fp, xmin, xmax)
+//
+//	// We have four points on the y(x) curve at x0=0, x1=1/3, x2=2/3 and x3=1
+//	// now obtain a polynomial that goes through these four points by solving the system of linear equations
+//	// y(x) = a*x^3 + b*x^2 + c*x + d  (NB: y0 = d = 0)
+//	// [y1; y2; y3] = [1/27, 1/9, 1/3;
+//	//                 8/27, 4/9, 2/3;
+//	//                    1,   1,   1] * [a; b; c]
+//	//
+//	// After inverting:
+//	// [a; b; c] = 0.5 * [ 27, -27,  9;
+//	//                    -45,  36, -9;
+//	//                     18,  -9,  2] * [y1; y2; y3]
+//	// NB: y0 = d = 0
+//
+//	a := 13.5*y1 - 13.5*y2 + 4.5*y3
+//	b := -22.5*y1 + 18.0*y2 - 4.5*y3
+//	c := 9.0*y1 - 4.5*y2 + y3
+//	return func(x float64) float64 {
+//		x = (x - xmin) / (xmax - xmin)
+//		return a*x*x*x + b*x*x + c*x
+//	}, math.Abs(y3)
+//}
+//
+//// invPolynomialApprox does the opposite of polynomialApprox, it returns a function x(y) that maps the parameter y [f(xmin),f(xmax)] to x [xmin,xmax]
+//func invPolynomialApprox3(gaussLegendre gaussLegendreFunc, fp func(float64) float64, xmin, xmax float64) (func(float64) float64, float64) {
+//	f := func(t float64) float64 {
+//		return math.Abs(gaussLegendre(fp, xmin, xmin+(xmax-xmin)*t))
+//	}
+//	f3 := f(1.0)
+//	t1 := bisectionMethod(f, (1.0/3.0)*f3, 0.0, 1.0)
+//	t2 := bisectionMethod(f, (2.0/3.0)*f3, 0.0, 1.0)
+//	t3 := 1.0
+//
+//	// We have four points on the x(y) curve at y0=0, y1=1/3, y2=2/3 and y3=1
+//	// now obtain a polynomial that goes through these four points by solving the system of linear equations
+//	// x(y) = a*y^3 + b*y^2 + c*y + d  (NB: x0 = d = 0)
+//	// [x1; x2; x3] = [1/27, 1/9, 1/3;
+//	//                 8/27, 4/9, 2/3;
+//	//                    1,   1,   1] * [a*y3^3; b*y3^2; c*y3]
+//	//
+//	// After inverting:
+//	// [a*y3^3; b*y3^2; c*y3] = 0.5 * [ 27, -27,  9;
+//	//                                 -45,  36, -9;
+//	//                                  18,  -9,  2] * [x1; x2; x3]
+//	// NB: x0 = d = 0
+//
+//	a := (27.0*t1 - 27.0*t2 + 9.0*t3) / (2.0 * f3 * f3 * f3)
+//	b := (-45.0*t1 + 36.0*t2 - 9.0*t3) / (2.0 * f3 * f3)
+//	c := (18.0*t1 - 9.0*t2 + 2.0*t3) / (2.0 * f3)
+//	return func(f float64) float64 {
+//		t := a*f*f*f + b*f*f + c*f
+//		return xmin + (xmax-xmin)*t
+//	}, f3
+//}
 
 func invSpeedPolynomialChebyshevApprox(N int, gaussLegendre gaussLegendreFunc, fp func(float64) float64, tmin, tmax float64) (func(float64) float64, float64) {
 	// TODO: find better way to determine N. For Arc 10 seems fine, for some Quads 10 is too low, for Cube depending on inflection points is maybe not the best indicator
