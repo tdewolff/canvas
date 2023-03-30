@@ -163,7 +163,7 @@ func (g *RadialGradient) At(x, y float64) color.RGBA {
 	return Transparent
 }
 
-// ColorSpace defines the color space within the RGB color model. All colors passed to this library are assumed to be in the sRGB color space, which is a ubiquitous assumption in most software. This works great for most applications, but fails when blending semi-transparent layers. See an elaborate explaination at https://blog.johnnovak.net/2016/09/21/what-every-coder-should-know-about-gamma/, which goes into depth of the problems of using sRGB for blending and the need for gamma correction. In short, we need to transform the colors, which are in the sRGB color space, to the linear color space, perform blending, and then transform them back to the sRGB color space.
+// ColorSpace defines the color space within the RGB color model. All colors passed to this library are assumed to be in the sRGB color space, which is a ubiquitous assumption in most software. This works great for most applications, but fails when blending semi-transparent layers. See an elaborate explanation at https://blog.johnnovak.net/2016/09/21/what-every-coder-should-know-about-gamma/, which goes into depth of the problems of using sRGB for blending and the need for gamma correction. In short, we need to transform the colors, which are in the sRGB color space, to the linear color space, perform blending, and then transform them back to the sRGB color space.
 // Unfortunately, almost all software does blending the wrong way (all PDF renderers and browsers I've tested), so by default this library will do the same by using LinearColorSpace which does no conversion from sRGB to linear and back but blends directly in sRGB. Or in other words, it assumes that colors are given in the linear color space and that the output image is expected to be in the linear color space as well. For technical correctness we should really be using the SRGBColorSpace, which will convert from sRGB to linear space, do blending in linear space, and then go back to sRGB space.
 type ColorSpace interface {
 	ToLinear(color.Color) color.RGBA
@@ -233,9 +233,8 @@ func (SRGBColorSpace) ToLinear(col color.Color) color.RGBA {
 		// Formula from EXT_sRGB.
 		if c <= 0.04045 {
 			return c / 12.92
-		} else {
-			return math.Pow((c+0.055)/1.055, 2.4)
 		}
+		return math.Pow((c+0.055)/1.055, 2.4)
 	}
 
 	R, G, B, A := col.RGBA()

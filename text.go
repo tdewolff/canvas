@@ -96,7 +96,7 @@ func (wm WritingMode) String() string {
 	return "Invalid(" + strconv.Itoa(int(wm)) + ")"
 }
 
-// TextOrientation specifies how horizontal text should be oriented within vertical text, or how vertical-only text should be layed out in horizontal text.
+// TextOrientation specifies how horizontal text should be oriented within vertical text, or how vertical-only text should be laid out in horizontal text.
 type TextOrientation int
 
 // see TextOrientation

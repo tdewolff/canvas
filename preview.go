@@ -2,7 +2,6 @@ package canvas
 
 import (
 	"bytes"
-	"fmt"
 	"image/color"
 	"io/ioutil"
 	"os"
@@ -144,7 +143,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	}
 
 	// Draw an elliptic arc being dashed
-	ellipse, err := ParseSVG(fmt.Sprintf("A10 30 30 1 0 30 0z"))
+	ellipse, err := ParseSVG("A10 30 30 1 0 30 0z")
 	if err != nil {
 		return err
 	}

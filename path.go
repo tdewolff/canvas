@@ -585,11 +585,11 @@ func (p *Path) interiorPoint() Point {
 
 // Filling returns whether each subpath gets filled or not. A path may not be filling when it negates another path and depends on the FillRule. If a subpath is not closed, it is implicitly assumed to be closed. Subpaths may not (self-)intersect, use Settle to remove (self-)intersections.
 func (p *Path) Filling(fillRule FillRule) []bool {
-	var filling []bool
-	for _, pi := range p.Split() {
+	ps := p.Split()
+	filling := make([]bool, len(ps))
+	for i, pi := range ps {
 		pos := pi.interiorPoint()
-		interior := p.Interior(pos.X, pos.Y, fillRule)
-		filling = append(filling, interior)
+		filling[i] = p.Interior(pos.X, pos.Y, fillRule)
 	}
 	return filling
 }

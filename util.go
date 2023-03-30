@@ -52,10 +52,7 @@ func angleBetween(theta, lower, upper float64) bool {
 	}
 	theta = angleNorm(theta - lower + Epsilon)
 	upper = angleNorm(upper - lower + 2.0*Epsilon)
-	if theta <= upper {
-		return true
-	}
-	return false
+	return theta <= upper
 }
 
 // angleBetweenExclusive is true when theta is in range (lower,upper) excluding the end points. Angles can be outside the [0,2PI) range.
@@ -123,7 +120,7 @@ func (color CSSColor) String() string {
 ////////////////////////////////////////////////////////////////
 
 func toP26_6(p Point) fixed.Point26_6 {
-	return fixed.Point26_6{toI26_6(p.X), toI26_6(p.Y)}
+	return fixed.Point26_6{X: toI26_6(p.X), Y: toI26_6(p.Y)}
 }
 
 func fromP26_6(f fixed.Point26_6) Point {
@@ -634,7 +631,8 @@ func solveQuadraticFormula(a, b, c float64) (float64, float64) {
 // see https://www.geometrictools.com/Documentation/LowDegreePolynomialRoots.pdf
 // see https://github.com/thelonious/kld-polynomial/blob/development/lib/Polynomial.js
 func solveCubicFormula(a, b, c, d float64) (float64, float64, float64) {
-	x1, x2, x3 := math.NaN(), math.NaN(), math.NaN()
+	var x1, x2, x3 float64
+	x2, x3 = math.NaN(), math.NaN() // x1 is always set to a number below
 	if Equal(a, 0.0) {
 		x1, x2 = solveQuadraticFormula(b, c, d)
 	} else {

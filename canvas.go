@@ -9,8 +9,8 @@ import (
 	"sort"
 )
 
-//const mmPerPx = 25.4 / 96.0
-//const pxPerMm = 96.0 / 25.4
+// const mmPerPx = 25.4 / 96.0
+// const pxPerMm = 96.0 / 25.4
 const mmPerPt = 25.4 / 72.0
 const ptPerMm = 72.0 / 25.4
 const mmPerInch = 25.4
@@ -106,10 +106,10 @@ type Paint struct {
 	// TODO: add hatch image and hatch path
 }
 
-func (a Paint) Equal(b Paint) bool {
-	if a.IsColor() && b.IsColor() && a.Color == b.Color {
+func (paint Paint) Equal(other Paint) bool {
+	if paint.IsColor() && other.IsColor() && paint.Color == other.Color {
 		return true
-	} else if a.IsPattern() && b.IsPattern() && reflect.DeepEqual(a, b) {
+	} else if paint.IsPattern() && other.IsPattern() && reflect.DeepEqual(paint, other) {
 		return true
 	}
 	return false

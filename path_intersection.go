@@ -1023,8 +1023,6 @@ func (zs intersections) appendSegment(segA int, a0 Point, a []float64, segB int,
 		} else if b[0] == ArcToCmd {
 			panic("unsupported intersection for arc-arc")
 		}
-	} else {
-		// MoveCmd
 	}
 
 	// swap A and B in the intersection found to match segments A and B of this function
@@ -1125,19 +1123,16 @@ func (v intersectionKind) String() string {
 	} else {
 		s = "AintoB"
 	}
-	if v&Tangent != 0 {
-		s += " Tangent"
-	}
 	return s
 }
 
 type intersectionParallel int
 
 const (
-	NoParallel intersectionParallel = iota
-	AParallel                       // parallel along A
-	BParallel                       // parallel along B
-	Parallel                        // parallel along both
+	NoParallel intersectionParallel = 0
+	AParallel  intersectionParallel = 1 // parallel along A
+	BParallel  intersectionParallel = 2 // parallel along B
+	Parallel   intersectionParallel = 3 // parallel along both
 )
 
 func (v intersectionParallel) String() string {
@@ -1270,10 +1265,7 @@ func (a intersectionASort) Less(i, j int) bool {
 		if Equal(zi.TA, zj.TA) {
 			// A intersects B twice at the same point, sort in case of parallel parts
 			// TODO: is this valid?? make sure that sorting is consistent to match with order when intersections are slightly separated. That is, you have outer and inner intersection pairs related to the parallel parts in between, that should be sorted as such (outer incoming, inner incoming, inner outgoing, outer outgoing) over A
-			if zi.Kind&BintoA != 0 {
-				return true
-			}
-			return false
+			return zi.Kind&BintoA != 0
 		}
 		return zi.TA < zj.TA
 	}
@@ -1307,10 +1299,7 @@ func (a intersectionArgBSort) Less(i, j int) bool {
 		if Equal(zi.TB, zj.TB) {
 			// A intersects B twice at the same point, sort in case of parallel parts
 			// TODO: is this valid?? make sure that sorting is consistent to match with order when intersections are slightly separated. That is, you have outer and inner intersection pairs related to the parallel parts in between, that should be sorted as such (outer incoming, inner incoming, inner outgoing, outer outgoing) over B
-			if zi.Kind&BintoA == 0 {
-				return true
-			}
-			return false
+			return zi.Kind&BintoA == 0
 		}
 		return zi.TB < zj.TB
 	}

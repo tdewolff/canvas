@@ -441,7 +441,7 @@ func (family *FontFamily) Face(size float64, args ...interface{}) *FontFace {
 		}
 		if face.Style&FontItalic != 0 {
 			if face.Font.Post.ItalicAngle != 0 {
-				face.FauxItalic = math.Tan(float64(-face.Font.Post.ItalicAngle))
+				face.FauxItalic = math.Tan(-face.Font.Post.ItalicAngle)
 			} else {
 				face.FauxItalic = 0.3
 			}

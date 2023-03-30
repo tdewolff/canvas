@@ -1,3 +1,4 @@
+//go:build !latex
 // +build !latex
 
 package canvas
@@ -288,9 +289,9 @@ func (fs *dviFonts) Get(name string, scale float64) DVIFont {
 
 		// calculate size correction if the found font has a different font size than requested
 		fsize := scale * fontsize * mmPerPt / float64(sfnt.Head.UnitsPerEm)
-		fsizeCorr := fontsize / size
+		//fsizeCorr := fontsize / size
 		isItalic := 0 < len(fontname) && fontname[len(fontname)-1] == 'i'
-		fsizeCorr = 1.0
+		fsizeCorr := 1.0
 
 		f = &dviFont{sfnt, cmap, fsizeCorr * fsize, isItalic}
 		fs.font[name] = f
@@ -302,7 +303,7 @@ func (f *dviFont) Draw(p canvasFont.Pather, x, y float64, cid uint32) float64 {
 	r := f.cmap[cid]
 	gid := f.sfnt.GlyphIndex(r)
 	if f.italic {
-		x -= f.size * float64(f.sfnt.OS2.SxHeight) / 2.0 * math.Tan(-float64(f.sfnt.Post.ItalicAngle)*math.Pi/180.0)
+		x -= f.size * float64(f.sfnt.OS2.SxHeight) / 2.0 * math.Tan(-f.sfnt.Post.ItalicAngle*math.Pi/180.0)
 	}
 	_ = f.sfnt.GlyphPath(p, gid, 0, x, y, f.size, canvasFont.NoHinting)
 	return f.size * float64(f.sfnt.GlyphAdvance(gid)) // in mm

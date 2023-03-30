@@ -501,9 +501,9 @@ func closeInnerBends(p *Path, indices []int, closed bool) {
 					p.d = append(p.d[:i:i], p.d[i+cmdLen(cmd):]...)
 					di += cmdLen(cmd)
 				}
-			} else if p.d[iPrev] == LineToCmd && p.d[iNext] == ArcToCmd {
-			} else if p.d[iPrev] == ArcToCmd && p.d[iNext] == LineToCmd {
-			} else if p.d[iPrev] == ArcToCmd && p.d[iNext] == ArcToCmd {
+				//} else if p.d[iPrev] == LineToCmd && p.d[iNext] == ArcToCmd {
+				//} else if p.d[iPrev] == ArcToCmd && p.d[iNext] == LineToCmd {
+				//} else if p.d[iPrev] == ArcToCmd && p.d[iNext] == ArcToCmd {
 			}
 		}
 	}
@@ -531,7 +531,7 @@ func optimizeMoveTo(p *Path) {
 	}
 }
 
-// Offset offsets the path to expand by w and returns a new path. If w is negative it will contract. Path must be closed. The tolerance is the maximum deviation from the actual offset when flattening Béziers and optimizing the path.
+// Offset offsets the path to expand by w and returns a new path. If w is negative it will contract. Path must be closed. The tolerance is the maximum deviation from the actual offset when flattening Béziers and optimizing the path. Subpaths may not (self-)intersect, use Settle to remove (self-)intersections.
 func (p *Path) Offset(w float64, fillRule FillRule, tolerance float64) *Path {
 	if Equal(w, 0.0) {
 		return p
@@ -548,7 +548,7 @@ func (p *Path) Offset(w float64, fillRule FillRule, tolerance float64) *Path {
 		if ps.CCW() {
 			useRHS = !useRHS
 		}
-		if w > 0.0 {
+		if 0.0 < w {
 			useRHS = !useRHS
 		}
 		if filling[i] {
