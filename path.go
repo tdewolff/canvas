@@ -473,10 +473,10 @@ func (p *Path) Windings(x, y float64) (int, bool) {
 	n := 0.0
 	boundary := false
 	for _, pi := range p.Split() {
-		// Count intersections of ray with path. Count half an intersection on boundaries, half an intersection when on the start of the ray, and a quarter when both. Paths that cross upwards are positive and downwards are negative. Parallel boundaries (top/bottom of a rectangle for example)
+		// Count intersections of ray with path. Count half an intersection on boundaries, half an intersection when on the start of the ray, and a quarter when both. Paths that cross upwards are positive and downwards are negative. Parallel boundaries (top/bottom of a rectangle for example).
 		ni := 0.0
 		boundaryi := false
-		for _, z := range rayIntersections(pi, x, y) {
+		for _, z := range pi.rayIntersections(x, y) {
 			if Equal(z.TA, 0.0) {
 				boundaryi = true
 			}
@@ -513,8 +513,8 @@ func (p *Path) Windings(x, y float64) (int, bool) {
 	return int(n), boundary
 }
 
-// Interior returns whether the point (x,y) is in the interior of the path, i.e. gets filled. This depends on the FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with the path. When the point is on the boundary it is considered to be exterior.
-func (p *Path) Interior(x, y float64, fillRule FillRule) bool {
+// Fills returns whether the point (x,y) is filled by the path. This depends on the FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with the path. When the point is on the boundary it is considered to be exterior.
+func (p *Path) Fills(x, y float64, fillRule FillRule) bool {
 	n, _ := p.Windings(x, y)
 	return fillRule == NonZero && n != 0 || n%2 != 0
 }
@@ -588,8 +588,8 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 	ps := p.Split()
 	filling := make([]bool, len(ps))
 	for i, pi := range ps {
-		pos := pi.interiorPoint()
-		filling[i] = p.Interior(pos.X, pos.Y, fillRule)
+		pos := pi.InteriorPoint()
+		filling[i] = p.Fills(pos.X, pos.Y, fillRule)
 	}
 	return filling
 }
