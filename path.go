@@ -93,8 +93,8 @@ func (p *Path) Equals(q *Path) bool {
 	return true
 }
 
-// EqualShape returns true if p and q are equal shapes within tolerance Epsilon. Path q may start at an offset into path p or may be in the reverse direction.
-func (p *Path) EqualShape(q *Path) bool {
+// Same returns true if p and q are equal shapes within tolerance Epsilon. Path q may start at an offset into path p or may be in the reverse direction.
+func (p *Path) Same(q *Path) bool {
 	// TODO: improve, does not handle subpaths or Close vs LineTo
 	if len(p.d) != len(q.d) {
 		return false
@@ -494,7 +494,7 @@ func (p *Path) Windings(x, y float64) (int, bool) {
 				} else {
 					ni -= d
 				}
-			} else if z.Parallel == Parallel && (Equal(z.TB, 0.0) || Equal(z.TB, 1.0) || !Equal(z.TA, 0.0)) {
+			} else if z.Parallel == Parallel && (Equal(z.TB, 0.0) || Equal(z.TB, 1.0)) {
 				// Horizontal boundary, parallels give two intersections. Bend downwards virtually to create intersections that cancel out.
 				if Equal(z.TB, 1.0) {
 					ni += d
@@ -503,14 +503,51 @@ func (p *Path) Windings(x, y float64) (int, bool) {
 				}
 			}
 		}
-		// If on boundary, ni will be -0.5 or 0.5 (when on horizontal boundary), or 0.0
+
+		// If on boundary, pi-ni will be -0.5 (for CW paths) or 0.5 (for CCW paths) or 0.0
 		if boundaryi {
 			boundary = true
 		} else {
-			n += ni
+			n += ni // integer
 		}
 	}
 	return int(n), boundary
+}
+
+// Crossings returns the number of crossings, i.e. the number of times a ray from (x,y) towards (∞,y) intersects the path. Additionally, it returns whether the point is on a path's boundary (which would not count towards the number of crossings).
+func (p *Path) Crossings(x, y float64) (int, bool) {
+	n := 0
+	boundary := false
+	for _, pi := range p.Split() {
+		// Count intersections of ray with path. Count half an intersection on boundaries, half an intersection when on the start of the ray, and a quarter when both. Paths that cross upwards are positive and downwards are negative. Parallel boundaries (top/bottom of a rectangle for example).
+		ni := 0.0
+		for _, z := range pi.rayIntersections(x, y) {
+			if Equal(z.TA, 0.0) {
+				boundary = true
+			} else if z.Parallel == NoParallel {
+				if Equal(z.TB, 0.0) || Equal(z.TB, 1.0) {
+					ni += 0.5
+				} else {
+					ni += 1.0
+				}
+			} else if z.Parallel == Parallel && (Equal(z.TB, 0.0) || Equal(z.TB, 1.0)) {
+				ni -= 0.5
+			}
+		}
+		n += int(ni)
+	}
+	return n, boundary
+}
+
+// Contains returns whether the path contains the point (x,y) in any of its subpaths.
+func (p *Path) Contains(x, y float64) bool {
+	for _, pi := range p.Split() {
+		n, _ := pi.Windings(x, y)
+		if n%2 == 1 {
+			return true
+		}
+	}
+	return false
 }
 
 // Fills returns whether the point (x,y) is filled by the path. This depends on the FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with the path. When the point is on the boundary it is considered to be exterior.
@@ -519,68 +556,37 @@ func (p *Path) Fills(x, y float64, fillRule FillRule) bool {
 	return fillRule == NonZero && n != 0 || n%2 != 0
 }
 
-func segmentPos(start Point, d []float64, t float64) Point {
-	if d[0] == LineToCmd || d[0] == CloseCmd {
-		return start.Interpolate(Point{d[1], d[2]}, t)
-	} else if d[0] == QuadToCmd {
-		cp := Point{d[1], d[2]}
-		end := Point{d[3], d[4]}
-		return quadraticBezierPos(start, cp, end, t)
-	} else if d[0] == CubeToCmd {
-		cp1 := Point{d[1], d[2]}
-		cp2 := Point{d[3], d[4]}
-		end := Point{d[5], d[6]}
-		return cubicBezierPos(start, cp1, cp2, end, t)
-	} else if d[0] == ArcToCmd {
-		rx, ry, phi := d[1], d[2], d[3]
-		large, sweep := toArcFlags(d[4])
-		cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, d[5], d[6])
-		return EllipsePos(rx, ry, phi, cx, cy, theta0+t*(theta1-theta0))
-	}
-	return Point{}
-}
-
-// get points in the interior of p close to the first MoveTo
-// p and q should not have subpaths
-func (p *Path) interiorPoint() Point {
-	if len(p.d) <= 4 {
-		return Point{}
+// InteriorPoint returns a point on the interior of the path. The path should be a non-complex non-self-intersecting path (i.e. settled with no subpaths).
+func (p *Path) InteriorPoint() Point {
+	if !p.Closed() {
+		// assume implicitly closed
+		p = p.Copy()
+		p.Close()
 	}
 
-	p1 := Point{p.d[1], p.d[2]}
-	if len(p.d) == 4 {
-		return p1
-	}
-	p2 := segmentPos(p1, p.d[4:], 0.0+1e6*Epsilon)
+	// get a point on the left of the path and trace a ray to the right
+	// select the middle between an intersection into p and out of p
+	bounds := p.Bounds()
+	pos := Point{bounds.X, bounds.Y + bounds.H/2.0}
+	zs := p.rayIntersections(pos.X, pos.Y)
 
-	i := len(p.d) - 4
-	q0 := Point{p.d[i-3], p.d[i-2]}
-	if p1.Equals(q0) {
-		// CloseCmd is an empty segment
-		i -= cmdLen(p.d[i-1])
-		if i < 0 {
-			return p1
+	i := 0
+	if Equal(zs[i].TB, 0.0) || Equal(zs[i].TB, 1.0) {
+		if zs[i].Parallel == Parallel || zs[i+1].Parallel == Parallel {
+			i += 3
+			for i+1 < len(zs) && zs[i-1].Parallel == Parallel && zs[i].Parallel == Parallel {
+				i += 2
+			}
+		} else {
+			i++
 		}
-		q0 = Point{p.d[i-3], p.d[i-2]}
+		if len(zs) <= i+1 {
+			// all parallel
+			pos.X += bounds.W / 2.0
+			return pos
+		}
 	}
-	p0 := segmentPos(q0, p.d[i:], 1.0-1e6*Epsilon)
-	di := p1.Sub(p0)
-	do := p2.Sub(p1)
-
-	var n Point // LHS point
-	diro := angleNorm(do.Angle())
-	diri := diro + angleNorm(di.Angle()+math.Pi-diro)
-	if angleEqual(diri-diro, math.Pi) {
-		n = do.Rot90CCW() // segments are colinear
-	} else if diri-diro < math.Pi {
-		n = di.Neg().Add(do).Div(2.0) // segments turn CCW
-	} else {
-		n = di.Neg().Add(do).Div(-2.0) // segments turn CW
-	}
-	if !p.CCW() {
-		n = n.Neg() // RHS point
-	}
-	return p1.Add(n)
+	return zs[i].Point.Interpolate(zs[i+1].Point, 0.5)
 }
 
 // Filling returns whether each subpath gets filled or not. A path may not be filling when it negates another path and depends on the FillRule. If a subpath is not closed, it is implicitly assumed to be closed. Subpaths may not (self-)intersect, use Settle to remove (self-)intersections.

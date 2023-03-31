@@ -22,13 +22,12 @@ const (
 )
 
 func (v intersectionKind) String() string {
-	var s string
-	if v&BintoA != 0 {
-		s = "BintoA"
-	} else {
-		s = "AintoB"
+	if v == AintoB {
+		return " AintoB"
+	} else if v == BintoA {
+		return " BintoA"
 	}
-	return s
+	return ""
 }
 
 type intersectionParallel int
@@ -43,13 +42,13 @@ const (
 
 func (v intersectionParallel) String() string {
 	if v == Parallel {
-		return "Parallel"
+		return " Parallel"
 	} else if v == AParallel {
-		return "AParallel"
+		return " AParallel"
 	} else if v == BParallel {
-		return "BParallel"
+		return " BParallel"
 	}
-	return "NoParallel"
+	return ""
 }
 
 type Intersection struct {
@@ -69,10 +68,10 @@ func (z Intersection) Equals(o Intersection) bool {
 
 func (z Intersection) String() string {
 	tangent := ""
-	if z.Tangent {
+	if z.Parallel == NoParallel && z.Tangent {
 		tangent = " Tangent"
 	}
-	return fmt.Sprintf("pos={%g,%g} seg={%d,%d} t={%g,%g} dir={%g°,%g°} %v %v%v", z.Point.X, z.Point.Y, z.SegA, z.SegB, z.TA, z.TB, angleNorm(z.DirA)*180.0/math.Pi, angleNorm(z.DirB)*180.0/math.Pi, z.Kind, z.Parallel, tangent)
+	return fmt.Sprintf("pos={%g,%g} seg={%d,%d} t={%g,%g} dir={%g°,%g°}%v%v%v", z.Point.X, z.Point.Y, z.SegA, z.SegB, z.TA, z.TB, angleNorm(z.DirA)*180.0/math.Pi, angleNorm(z.DirB)*180.0/math.Pi, z.Kind, z.Parallel, tangent)
 }
 
 type Intersections []Intersection
@@ -110,8 +109,8 @@ func (zs Intersections) String() string {
 	return sb.String()
 }
 
-// SortAndWrapEnd sorts intersections for curve A and then curve B, but wraps intersections at the end point of the path (which equals the position ofa the start of the path) to the front of the list
-func (zs Intersections) SortAndWrapEnd(segOffsetA, segOffsetB, lenA, lenB int) {
+// sortAndWrapEnd sorts intersections for curve A and then curve B, but wraps intersections at the end point of the path (which equals the position of the start of the path) to the front of the list. Length parameters should be the number of segments in A and B respectively.
+func (zs Intersections) sortAndWrapEnd(segOffsetA, segOffsetB, lenA, lenB int) {
 	pos := func(z Intersection) (float64, float64) {
 		posa := float64(z.SegA) + z.TA
 		if Equal(z.TA, 1.0) {

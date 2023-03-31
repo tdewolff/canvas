@@ -3,22 +3,44 @@ package canvas
 import (
 	"fmt"
 	"math"
+	"sort"
 )
 
 // Paths are cut at the intersections between P and Q. The intersections are put into a doubly linked list with paths going forward and backward over P and Q. Depending on the boolean operation we should choose the right cut. Note that there can be circular loops when choosing cuts based on a condition, so we should take care to visit all intersections. Additionally, if path P or path Q contain subpaths with a different winding, we will first combine the subpaths so to remove all subpath intersections.
+
+func segmentPos(start Point, d []float64, t float64) Point {
+	if d[0] == LineToCmd || d[0] == CloseCmd {
+		return start.Interpolate(Point{d[1], d[2]}, t)
+	} else if d[0] == QuadToCmd {
+		cp := Point{d[1], d[2]}
+		end := Point{d[3], d[4]}
+		return quadraticBezierPos(start, cp, end, t)
+	} else if d[0] == CubeToCmd {
+		cp1 := Point{d[1], d[2]}
+		cp2 := Point{d[3], d[4]}
+		end := Point{d[5], d[6]}
+		return cubicBezierPos(start, cp1, cp2, end, t)
+	} else if d[0] == ArcToCmd {
+		rx, ry, phi := d[1], d[2], d[3]
+		large, sweep := toArcFlags(d[4])
+		cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, d[5], d[6])
+		return EllipsePos(rx, ry, phi, cx, cy, theta0+t*(theta1-theta0))
+	}
+	return Point{}
+}
 
 // returns true if p is inside q or equivalent to q, paths may not intersect
 // p should not have subpaths
 func (p *Path) inside(q *Path) bool {
 	if len(p.d) <= 4 || len(p.d) <= 4+cmdLen(p.d[4]) {
-		return false
+		return false // TODO: remove?
 	}
 	offset := p.InteriorPoint()
 	return q.Fills(offset.X, offset.Y, NonZero)
 }
 
-// Contains returns true if path q is contained within path p, i.e. path q is inside path p and both paths have no intersections (but may touch).
-func (p *Path) Contains(q *Path) bool {
+// Contains returns true if path q is contained within path p, i.e. path q is inside path p and both paths have no intersections (but may touch). Paths must have been settled to remove self-intersections.
+func (p *Path) ContainsPath(q *Path) bool {
 	ps, qs := p.Split(), q.Split()
 	for _, qi := range qs {
 		inside := false
@@ -328,7 +350,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		if !pHandled[i] {
 			for j, qi := range qs {
 				if !qHandled[j] {
-					if pi.EqualShape(qi) {
+					if pi.Same(qi) {
 						if op == pathOpAnd || op == pathOpOr || op == pathOpSettle {
 							R = R.Append(pi)
 						}
@@ -820,7 +842,7 @@ func collisions(ps, qs []*Path, keepTangents bool) Intersections {
 			if closedB && 6 < len(q.d) && Equal(q.d[len(q.d)-7], q.d[len(q.d)-3]) && Equal(q.d[len(q.d)-6], q.d[len(q.d)-2]) {
 				pointCloseB = 1
 			}
-			Zs.SortAndWrapEnd(segOffsetA, segOffsetB, lenA-pointCloseA, lenB-pointCloseB)
+			Zs.sortAndWrapEnd(segOffsetA, segOffsetB, lenA-pointCloseA, lenB-pointCloseB)
 
 			// remove duplicate tangent collisions at segment endpoints: either 4 degenerate collisions
 			// when for both path p and path q the endpoints coincide, or 2 degenerate collisions when
