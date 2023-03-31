@@ -6,11 +6,13 @@ import (
 	"github.com/ByteArena/poly2tri-go"
 )
 
+// Tiler is how a tile is tiled.
 type Tiler struct {
 	A, B Point
 	Ms   []Matrix
 }
 
+// P1 wallpaper group
 func P1(x, y, rot float64) Tiler {
 	return Tiler{
 		Point{x, 0.0},
@@ -21,6 +23,7 @@ func P1(x, y, rot float64) Tiler {
 	}
 }
 
+// Pm wallpaper group
 func Pm(x, y float64) Tiler {
 	return Tiler{
 		Point{x, 0.0},
@@ -32,6 +35,7 @@ func Pm(x, y float64) Tiler {
 	}
 }
 
+// Pg wallpaper group
 func Pg(x, y float64) Tiler {
 	return Tiler{
 		Point{x, 0.0},
@@ -227,6 +231,7 @@ func Pg(x, y float64) Tiler {
 //	}
 //}
 
+// Tile tiles a path. WIP
 func (p *Path) Tile(n, m int, tiler Tiler) *Path {
 	a, b, ms := tiler.A, tiler.B, tiler.Ms
 	pm := &Path{}

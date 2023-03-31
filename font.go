@@ -100,7 +100,7 @@ func (subsetter *FontSubsetter) Get(glyphID uint16) uint16 {
 	return subsetGlyphID
 }
 
-// IDs returns all subsetted IDs in the order of appearance.
+// List returns all subsetted IDs in the order of appearance.
 func (subsetter *FontSubsetter) List() []uint16 {
 	return subsetter.IDs
 }
@@ -315,7 +315,7 @@ func (family *FontFamily) LoadFontCollection(filename string, index int, style F
 	return family.LoadFont(b, index, style)
 }
 
-// MustLoadFontFile loads a font from a filea and panics on error.
+// MustLoadFontCollection loads a font from a collection file and uses the font at the specified index. It panics on error.
 func (family *FontFamily) MustLoadFontCollection(filename string, index int, style FontStyle) {
 	if err := family.LoadFontCollection(filename, index, style); err != nil {
 		panic(err)
@@ -333,7 +333,7 @@ func (family *FontFamily) LoadFont(b []byte, index int, style FontStyle) error {
 	return nil
 }
 
-// MustLoadFont loads a font from memory and panics on error.
+// MustLoadFont loads a font from memory. It panics on error.
 func (family *FontFamily) MustLoadFont(b []byte, index int, style FontStyle) {
 	if err := family.LoadFont(b, index, style); err != nil {
 		panic(err)

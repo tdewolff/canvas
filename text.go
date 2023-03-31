@@ -194,10 +194,12 @@ type TextSpan struct {
 	Objects []TextSpanObject
 }
 
+// IsText returns true if the text span is text and not objects (such as images or paths).
 func (span *TextSpan) IsText() bool {
 	return len(span.Objects) == 0
 }
 
+// TextSpanObject is an object that can be used within a text span. It is a wrapper around Canvas and can thus draw anything to be mixed with text, such as images (emoticons) or paths (symbols).
 type TextSpanObject struct {
 	*Canvas
 	X, Y          float64
@@ -205,6 +207,7 @@ type TextSpanObject struct {
 	VAlign        VerticalAlign
 }
 
+// Heights returns the ascender and descender values of the span object.
 func (obj TextSpanObject) Heights(face *FontFace) (float64, float64) {
 	switch obj.VAlign {
 	case FontTop:
@@ -220,6 +223,7 @@ func (obj TextSpanObject) Heights(face *FontFace) (float64, float64) {
 	return obj.Height, 0.0 // Baseline
 }
 
+// View returns the object's view to be placed within the text line.:
 func (obj TextSpanObject) View(x, y float64, face *FontFace) Matrix {
 	_, bottom := obj.Heights(face)
 	return Identity.Translate(x+obj.X, y+obj.Y-bottom)

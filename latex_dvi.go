@@ -40,6 +40,7 @@ type state struct {
 	h, v, w, x, y, z int32
 }
 
+// DVI2Path parses a DVI file (output from TeX) and returns a path.
 func DVI2Path(b []byte, fonts DVIFonts) (*Path, error) {
 	// state
 	var fnt uint32 // font index

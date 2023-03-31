@@ -11,6 +11,7 @@ import (
 	"github.com/tdewolff/canvas/text"
 )
 
+// DrawPreview draws the canvas's preview to a Context.
 func DrawPreview(ctx *Context) error {
 	root := os.Getenv("GOPATH")
 	if root == "" {
@@ -37,6 +38,7 @@ func DrawPreview(ctx *Context) error {
 	return DrawPreviewWithAssets(ctx, latin, arabic, devanagari, lenna)
 }
 
+// DrawPreviewWithAssets draws the canvas's preview to a Context with assets preloaded.
 func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte) error {
 	fontLatin := NewFontFamily("latin")
 	if err := fontLatin.LoadFont(latin, 0, FontRegular); err != nil {

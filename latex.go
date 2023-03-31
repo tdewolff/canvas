@@ -71,6 +71,7 @@ var preamble = `\nopagenumbers
 \def\frac#1#2{{{#1}\over{#2}}}
 `
 
+// ParseLaTeX parse a LaTeX formula (that what is between $...$) and returns a path.
 func ParseLaTeX(formula string) (*Path, error) {
 	r := strings.NewReader(fmt.Sprintf(`%s $%s$`, preamble, formula))
 	w := &bytes.Buffer{}

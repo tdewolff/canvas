@@ -5,18 +5,22 @@ import (
 	"math"
 )
 
+// Pattern is a filling pattern.
 type Pattern interface {
 	SetColorSpace(ColorSpace) Pattern
 	At(float64, float64) color.RGBA
 }
 
+// Stop is a color and offset for gradient patterns.
 type Stop struct {
 	Offset float64
 	Color  color.RGBA
 }
 
+// Stops are the colors and offsets for gradient patterns, sorted by offset.
 type Stops []Stop
 
+// Add adds a new color stop to a gradient.
 func (stops *Stops) Add(t float64, color color.RGBA) {
 	stop := Stop{math.Min(math.Max(t, 0.0), 1.0), color}
 	// insert or replace stop and keep sort order
@@ -32,6 +36,7 @@ func (stops *Stops) Add(t float64, color color.RGBA) {
 	*stops = append(*stops, stop)
 }
 
+// At returns the color at position t ∈ [0,1].
 func (stops Stops) At(t float64) color.RGBA {
 	if len(stops) == 0 {
 		return Transparent
@@ -64,6 +69,7 @@ func lerp(a, b uint32, t float64) uint8 {
 	return uint8(uint32((1.0-t)*float64(a)+t*float64(b)) >> 8)
 }
 
+// LinearGradient is a linear gradient pattern between the given start and end points. The color at offset 0 corresponds to the start position, and offset 1 to the end position. Start and end points are in the canvas's coordinate system.
 type LinearGradient struct {
 	Start, End Point
 	Stops
@@ -72,6 +78,7 @@ type LinearGradient struct {
 	d2 float64
 }
 
+// NewLinearGradient returns a new linear gradient pattern.
 func NewLinearGradient(start, end Point) *LinearGradient {
 	d := end.Sub(start)
 	return &LinearGradient{
@@ -83,6 +90,7 @@ func NewLinearGradient(start, end Point) *LinearGradient {
 	}
 }
 
+// SetColorSpace returns the linear gradient with the given color space. Automatically called by the rasterizer.
 func (g *LinearGradient) SetColorSpace(colorSpace ColorSpace) Pattern {
 	if _, ok := colorSpace.(LinearColorSpace); ok {
 		return g
@@ -94,6 +102,7 @@ func (g *LinearGradient) SetColorSpace(colorSpace ColorSpace) Pattern {
 	return &pattern
 }
 
+// At returns the color at position (x,y).
 func (g *LinearGradient) At(x, y float64) color.RGBA {
 	if len(g.Stops) == 0 {
 		return Transparent
@@ -109,6 +118,7 @@ func (g *LinearGradient) At(x, y float64) color.RGBA {
 	return g.Stops.At(t)
 }
 
+// RadialGradient is a radial gradient pattern between two circles defined by their center points and radii. Color stop at offset 0 corresponds to the first circle and offset 1 to the second circle.
 type RadialGradient struct {
 	C0, C1 Point
 	R0, R1 float64
@@ -118,6 +128,7 @@ type RadialGradient struct {
 	dr, a float64
 }
 
+// NewRadialGradient returns a new radial gradient pattern.
 func NewRadialGradient(c0 Point, r0 float64, c1 Point, r1 float64) *RadialGradient {
 	cd := c1.Sub(c0)
 	dr := r1 - r0
@@ -133,6 +144,7 @@ func NewRadialGradient(c0 Point, r0 float64, c1 Point, r1 float64) *RadialGradie
 	}
 }
 
+// SetColorSpace returns the linear gradient with the given color space. Automatically called by the rasterizer.
 func (g *RadialGradient) SetColorSpace(colorSpace ColorSpace) Pattern {
 	if _, ok := colorSpace.(LinearColorSpace); ok {
 		return g
@@ -144,6 +156,7 @@ func (g *RadialGradient) SetColorSpace(colorSpace ColorSpace) Pattern {
 	return &pattern
 }
 
+// At returns the color at position (x,y).
 func (g *RadialGradient) At(x, y float64) color.RGBA {
 	if len(g.Stops) == 0 {
 		return Transparent
@@ -176,6 +189,7 @@ var DefaultColorSpace ColorSpace = LinearColorSpace{}
 // LinearColorSpace is the default color space that does not do color space conversion for blending purposes. This is only correct if the input colors and output images are assumed to be in the linear color space so that blending is in linear space as well. In general though, we assume that input colors and output images are using the sRGB color space almost ubiquitously, resulting in blending in sRGB space which is wrong! Even though it is technically incorrect, many PDF viewers and browsers do this anyway.
 type LinearColorSpace struct{}
 
+// ToLinear encodes color to color space.
 func (LinearColorSpace) ToLinear(col color.Color) color.RGBA {
 	if rgba, ok := col.(color.RGBA); ok {
 		return rgba
@@ -184,6 +198,7 @@ func (LinearColorSpace) ToLinear(col color.Color) color.RGBA {
 	return color.RGBA{uint8(R >> 8), uint8(G >> 8), uint8(B >> 8), uint8(A >> 8)}
 }
 
+// FromLinear decodes color from color space.
 func (LinearColorSpace) FromLinear(col color.Color) color.RGBA {
 	if rgba, ok := col.(color.RGBA); ok {
 		return rgba
@@ -197,6 +212,7 @@ type GammaColorSpace struct {
 	Gamma float64
 }
 
+// ToLinear encodes color to color space.
 func (cs GammaColorSpace) ToLinear(col color.Color) color.RGBA {
 	R, G, B, A := col.RGBA()
 	r := math.Pow(float64(R)/float64(A), cs.Gamma)
@@ -211,6 +227,7 @@ func (cs GammaColorSpace) ToLinear(col color.Color) color.RGBA {
 	}
 }
 
+// FromLinear decodes color from color space.
 func (cs GammaColorSpace) FromLinear(col color.Color) color.RGBA {
 	R, G, B, A := col.RGBA()
 	r := math.Pow(float64(R)/float64(A), 1.0/cs.Gamma)
@@ -228,6 +245,7 @@ func (cs GammaColorSpace) FromLinear(col color.Color) color.RGBA {
 // SRGBColorSpace assumes that input colors and output images are in the sRGB color space (ubiquitous in almost all applications), which implies that for blending we need to convert to the linear color space, do blending, and then convert back to the sRGB color space. This will give technically correct blending, but may differ from common PDF viewer and browsers (which are wrong).
 type SRGBColorSpace struct{}
 
+// ToLinear encodes color to color space.
 func (SRGBColorSpace) ToLinear(col color.Color) color.RGBA {
 	sRGBToLinear := func(c float64) float64 {
 		// Formula from EXT_sRGB.
@@ -250,6 +268,7 @@ func (SRGBColorSpace) ToLinear(col color.Color) color.RGBA {
 	}
 }
 
+// FromLinear decodes color from color space.
 func (SRGBColorSpace) FromLinear(col color.Color) color.RGBA {
 	linearTosRGB := func(c float64) float64 {
 		// Formula from EXT_sRGB.
@@ -277,6 +296,7 @@ func (SRGBColorSpace) FromLinear(col color.Color) color.RGBA {
 	}
 }
 
+// Hex parses a CSS hexadecimal color such as e.g. #ff0000 or F00.
 func Hex(s string) color.RGBA {
 	if 0 < len(s) && s[0] == '#' {
 		s = s[1:]
@@ -315,6 +335,7 @@ func Hex(s string) color.RGBA {
 	return Black
 }
 
+// RGBA returns a color given by red, green, and blue ∈ [0,255] (non alpha premultiplied) and alpha ∈ [0,1].
 func RGBA(r, g, b uint8, a float64) color.RGBA {
 	return color.RGBA{
 		uint8(a * float64(r)),
@@ -327,8 +348,7 @@ func RGBA(r, g, b uint8, a float64) color.RGBA {
 // Transparent when used as a fill or stroke color will indicate that the fill or stroke will not be drawn.
 var Transparent = color.RGBA{0x00, 0x00, 0x00, 0x00} // rgba(0, 0, 0, 0)
 
-// from https://golang.org/x/image/colornames
-// from https://www.w3.org/TR/css-color-4/#color-keywords
+// From https://golang.org/x/image/colornames and https://www.w3.org/TR/css-color-4/#color-keywords
 var (
 	Aliceblue            = color.RGBA{0xf0, 0xf8, 0xff, 0xff} // rgb(240, 248, 255)
 	Antiquewhite         = color.RGBA{0xfa, 0xeb, 0xd7, 0xff} // rgb(250, 235, 215)

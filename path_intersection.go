@@ -1105,9 +1105,10 @@ func rayIntersections(p *Path, x, y float64) intersections {
 
 type intersectionKind int
 
+// AintoB is when A intersects and goes into the LHS of B, BintoA is the reversed
 const (
-	AintoB intersectionKind = 1 // A goes to LHS of B == B goes to RHS of A
-	BintoA intersectionKind = 2 // B goes to LHS of A == A goes to RHS of B
+	AintoB intersectionKind = 1
+	BintoA intersectionKind = 2
 )
 
 func (v intersectionKind) String() string {
@@ -1122,11 +1123,12 @@ func (v intersectionKind) String() string {
 
 type intersectionParallel int
 
+// Parallel is set when the intersection point is the start of a piece of parallel paths. After the collisions() function the AParallel and BParallel values are used to indicate if following along A is parallel, following along B is parallel, or both.
 const (
 	NoParallel intersectionParallel = 0
-	AParallel  intersectionParallel = 1 // parallel along A
-	BParallel  intersectionParallel = 2 // parallel along B
-	Parallel   intersectionParallel = 3 // parallel along both
+	AParallel  intersectionParallel = 1
+	BParallel  intersectionParallel = 2
+	Parallel   intersectionParallel = 3
 )
 
 func (v intersectionParallel) String() string {

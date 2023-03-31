@@ -137,6 +137,7 @@ func fromI26_6(f fixed.Int26_6) float64 {
 
 ////////////////////////////////////////////////////////////////
 
+// Origin is the coordinate system's origin.
 var Origin = Point{0.0, 0.0}
 
 // Point is a coordinate in 2D space. OP refers to the line that goes through the origin (0,0) and this point (x,y).

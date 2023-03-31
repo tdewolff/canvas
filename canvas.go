@@ -47,6 +47,7 @@ type Size struct {
 	W, H float64
 }
 
+// Predefined paper sizes.
 var (
 	A0        = Size{841.0, 1189.0}
 	A1        = Size{594.0, 841.0}
@@ -89,8 +90,10 @@ var (
 	Executive = Size{184.1, 266.7}
 )
 
+// ImageFit specifies how an image should fit a rectangle. ImageFill completely fills a rectangle by stretching the image. ImageContain and ImageCover both keep the aspect ratio of an image, where ImageContain scales the image such that it is complete contained in the rectangle (but possibly not completely covered), while ImageCover scales the image such that is completely covers the rectangle (but possibly extends beyond the boundaries of the rectangle).
 type ImageFit int
 
+// See ImageFit.
 const (
 	ImageFill ImageFit = iota
 	ImageContain
@@ -106,6 +109,7 @@ type Paint struct {
 	// TODO: add hatch image and hatch path
 }
 
+// Equal returns true if Paints are equal.
 func (paint Paint) Equal(other Paint) bool {
 	if paint.IsColor() && other.IsColor() && paint.Color == other.Color {
 		return true
@@ -115,14 +119,17 @@ func (paint Paint) Equal(other Paint) bool {
 	return false
 }
 
+// Has returns true if paint has a color or pattern.
 func (paint Paint) Has() bool {
 	return paint.Color.A != 0 || paint.Pattern != nil
 }
 
+// IsColor returns true when paint is a uniform color.
 func (paint Paint) IsColor() bool {
 	return paint.Color.A != 0 && paint.Pattern == nil
 }
 
+// IsPattern returns true when paint is a pattern.
 func (paint Paint) IsPattern() bool {
 	return paint.Pattern != nil
 }
@@ -179,7 +186,7 @@ type Renderer interface {
 // CoordSystem is the coordinate system, which can be either of the four cartesian quadrants. Most useful are the I'th and IV'th quadrants. CartesianI is the default quadrant with the zero-point in the bottom-left (the default for mathematics). The CartesianII has its zero-point in the bottom-right, CartesianIII in the top-right, and CartesianIV in the top-left (often used as default for printing devices). See https://en.wikipedia.org/wiki/Cartesian_coordinate_system#Quadrants_and_octants for an explanation.
 type CoordSystem int
 
-// see CoordSystem
+// See CoordSystem.
 const (
 	CartesianI CoordSystem = iota
 	CartesianII
@@ -187,6 +194,7 @@ const (
 	CartesianIV
 )
 
+// ContextState defines the state of the context, including fill or stroke style, view and coordinate view.
 type ContextState struct {
 	Style
 	view        Matrix
@@ -736,16 +744,18 @@ func (c *Canvas) Fit(margin float64) {
 	c.Clip(rect)
 }
 
+// RendererViewer overloads the View function of a renderer and sets it to the given Matrix. Used in combination with Canvas.RenderTo.
 type RendererViewer struct {
 	Renderer
 	Matrix
 }
 
+// View overloads the view of a renderer.
 func (r RendererViewer) View() Matrix {
 	return r.Matrix
 }
 
-// Render renders the accumulated canvas drawing operations to another renderer.
+// RenderTo renders the accumulated canvas drawing operations to another renderer.
 func (c *Canvas) RenderTo(r Renderer) {
 	view := Identity
 	if viewer, ok := r.(interface{ View() Matrix }); ok {
