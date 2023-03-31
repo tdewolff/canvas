@@ -58,10 +58,7 @@ func (p *Path) Settle() *Path {
 			r = r.Append(ps[i])
 			continue
 		}
-
-		pos := ps[i].interiorPoint()
-		interior := p.Interior(pos.X, pos.Y, NonZero)
-		if ps[i].CCW() == interior {
+		if ps[i].CCW() == ps[i].inside(p) {
 			r = r.Append(ps[i])
 		} else {
 			r = r.Append(ps[i].Reverse())
@@ -195,27 +192,28 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 			zs := Zs[j : j+n]
 			if len(zs) == 0 {
 				p0 := ps[i].StartPos()
+				// determine if path is filling by checking the number of windings at the starting point of the subpath (considered to be on the exterior of the subpath)
 				n, boundary := q.Windings(p0.X, p0.Y)
-				in := n != 0 // FillRule: NonZero
+				inside := n != 0 // FillRule: NonZero
 				for k := 4; k < len(ps[i].d) && boundary; {
 					p0 = segmentPos(Point{ps[i].d[k-3], ps[i].d[k-2]}, ps[i].d[k:], 0.5)
 					n, boundary = q.Windings(p0.X, p0.Y)
-					in = n != 0 // FillRule: NonZero
+					inside = n != 0 // FillRule: NonZero
 					k += cmdLen(ps[i].d[k])
 				}
-				if op == pathOpOr || op == pathOpSettle || in && op == pathOpAnd || !in && !boundary && (op == pathOpXor || op == pathOpNot) {
+				if op == pathOpOr || op == pathOpSettle || inside && op == pathOpAnd || !inside && !boundary && (op == pathOpXor || op == pathOpNot) {
 					Ropen = Ropen.Append(ps[i])
 				}
 			} else {
 				pss := cut(zs, ps[i])
-				in := zs[0].Kind == BintoA
-				if op == pathOpOr || op == pathOpSettle || in && op == pathOpAnd || !in && (op == pathOpXor || op == pathOpNot) {
+				inside := zs[0].Kind == BintoA
+				if op == pathOpOr || op == pathOpSettle || inside && op == pathOpAnd || !inside && (op == pathOpXor || op == pathOpNot) {
 					Ropen = Ropen.Append(pss[0])
 				}
 				for k := 1; k < len(pss); k++ {
 					if zs[k-1].Parallel != Parallel && zs[k-1].Parallel != AParallel {
-						in := zs[k-1].Kind == AintoB
-						if op == pathOpOr || op == pathOpSettle || in && op == pathOpAnd || !in && (op == pathOpXor || op == pathOpNot) {
+						inside := zs[k-1].Kind == AintoB
+						if op == pathOpOr || op == pathOpSettle || inside && op == pathOpAnd || !inside && (op == pathOpXor || op == pathOpNot) {
 							Ropen = Ropen.Append(pss[k])
 						}
 					}
