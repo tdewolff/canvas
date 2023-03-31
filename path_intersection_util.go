@@ -110,121 +110,71 @@ func (zs Intersections) String() string {
 	return sb.String()
 }
 
+// SortAndWrapEnd sorts intersections for curve A and then curve B, but wraps intersections at the end point of the path (which equals the position ofa the start of the path) to the front of the list
 func (zs Intersections) SortAndWrapEnd(segOffsetA, segOffsetB, lenA, lenB int) {
-	sort.Stable(intersectionSort{zs, segOffsetA, segOffsetB, lenA, lenB})
-}
-
-// sort indices of intersections for curve A
-type intersectionSort struct {
-	zs                     Intersections
-	segOffsetA, segOffsetB int
-	lenA, lenB             int
-}
-
-func (a intersectionSort) Len() int {
-	return len(a.zs)
-}
-
-func (a intersectionSort) Swap(i, j int) {
-	a.zs[i], a.zs[j] = a.zs[j], a.zs[i]
-}
-
-func (a intersectionSort) pos(z Intersection) (float64, float64) {
-	posa := float64(z.SegA) + z.TA
-	if Equal(z.TA, 1.0) {
-		posa -= 2.0 * Epsilon
-		if z.SegA == a.segOffsetA+a.lenA-1 {
-			posa -= float64(a.lenA - 1) // put end into first segment (moveto)
+	pos := func(z Intersection) (float64, float64) {
+		posa := float64(z.SegA) + z.TA
+		if Equal(z.TA, 1.0) {
+			posa -= 2.0 * Epsilon
+			if z.SegA == segOffsetA+lenA-1 {
+				posa -= float64(lenA - 1) // put end into first segment (moveto)
+			}
 		}
-	}
-	posb := float64(z.SegB) + z.TB
-	if Equal(z.TB, 1.0) {
-		posb -= 2.0 * Epsilon
-		if z.SegB == a.segOffsetB+a.lenB-1 {
-			posb -= float64(a.lenB - 1) // put end into first segment (moveto)
+		posb := float64(z.SegB) + z.TB
+		if Equal(z.TB, 1.0) {
+			posb -= 2.0 * Epsilon
+			if z.SegB == segOffsetB+lenB-1 {
+				posb -= float64(lenB - 1) // put end into first segment (moveto)
+			}
 		}
+		return posa, posb
 	}
-	return posa, posb
-}
 
-func (a intersectionSort) Less(i, j int) bool {
-	// sort by P and secondary to Q. Consider a point at the very end of the curve (seg=len-1, t=1) as if it were at the beginning, since it is on the starting point of the path
-	posai, posbi := a.pos(a.zs[i])
-	posaj, posbj := a.pos(a.zs[j])
-	if Equal(posai, posaj) {
-		return posbi < posbj
-	}
-	return posai < posaj
-}
-
-// sort indices of intersections for curve A
-type intersectionASort struct {
-	zs Intersections
-}
-
-func (a intersectionASort) Len() int {
-	return len(a.zs)
-}
-
-func (a intersectionASort) Swap(i, j int) {
-	a.zs[i], a.zs[j] = a.zs[j], a.zs[i]
-}
-
-func (a intersectionASort) Less(i, j int) bool {
-	zi, zj := a.zs[i], a.zs[j]
-	if zi.SegA == zj.SegA {
-		if Equal(zi.TA, zj.TA) {
-			// A intersects B twice at the same point, sort in case of parallel parts
-			// TODO: is this valid?? make sure that sorting is consistent to match with order when intersections are slightly separated. That is, you have outer and inner intersection pairs related to the parallel parts in between, that should be sorted as such (outer incoming, inner incoming, inner outgoing, outer outgoing) over A
-			return zi.Kind&BintoA != 0
+	sort.SliceStable(zs, func(i, j int) bool {
+		// sort by P and secondary to Q. Consider a point at the very end of the curve (seg=len-1, t=1) as if it were at the beginning, since it is on the starting point of the path
+		posai, posbi := pos(zs[i])
+		posaj, posbj := pos(zs[j])
+		if Equal(posai, posaj) {
+			return posbi < posbj
 		}
-		return zi.TA < zj.TA
-	}
-	return zi.SegA < zj.SegA
+		return posai < posaj
+	})
 }
 
-func (zs Intersections) Sort() {
-	sort.Stable(intersectionSort{zs, 0, 0, 0, 0})
-}
-
+// ASort sorts intersections for curve A
 func (zs Intersections) ASort() {
-	sort.Stable(intersectionASort{zs})
-}
-
-// sort indices of intersections for curve B
-type intersectionArgBSort struct {
-	zs  Intersections
-	idx []int
-}
-
-func (a intersectionArgBSort) Len() int {
-	return len(a.zs)
-}
-
-func (a intersectionArgBSort) Swap(i, j int) {
-	a.idx[i], a.idx[j] = a.idx[j], a.idx[i]
-}
-
-func (a intersectionArgBSort) Less(i, j int) bool {
-	zi, zj := a.zs[a.idx[i]], a.zs[a.idx[j]]
-	if zi.SegB == zj.SegB {
-		if Equal(zi.TB, zj.TB) {
-			// A intersects B twice at the same point, sort in case of parallel parts
-			// TODO: is this valid?? make sure that sorting is consistent to match with order when intersections are slightly separated. That is, you have outer and inner intersection pairs related to the parallel parts in between, that should be sorted as such (outer incoming, inner incoming, inner outgoing, outer outgoing) over B
-			return zi.Kind&BintoA == 0
+	sort.SliceStable(zs, func(i, j int) bool {
+		zi, zj := zs[i], zs[j]
+		if zi.SegA == zj.SegA {
+			if Equal(zi.TA, zj.TA) {
+				// A intersects B twice at the same point, sort in case of parallel parts
+				// TODO: is this valid?? make sure that sorting is consistent to match with order when intersections are slightly separated. That is, you have outer and inner intersection pairs related to the parallel parts in between, that should be sorted as such (outer incoming, inner incoming, inner outgoing, outer outgoing) over A
+				return zi.Kind == BintoA
+			}
+			return zi.TA < zj.TA
 		}
-		return zi.TB < zj.TB
-	}
-	return zi.SegB < zj.SegB
+		return zi.SegA < zj.SegA
+	})
 }
 
-// get indices of sorted intersections for curve B
+// ArgBSort sorts indices of intersections for curve B
 func (zs Intersections) ArgBSort() []int {
 	idx := make([]int, len(zs))
 	for i := range idx {
 		idx[i] = i
 	}
-	sort.Stable(intersectionArgBSort{zs, idx})
+	sort.SliceStable(idx, func(i, j int) bool {
+		zi, zj := zs[idx[i]], zs[idx[j]]
+		if zi.SegB == zj.SegB {
+			if Equal(zi.TB, zj.TB) {
+				// A intersects B twice at the same point, sort in case of parallel parts
+				// TODO: is this valid?? make sure that sorting is consistent to match with order when intersections are slightly separated. That is, you have outer and inner intersection pairs related to the parallel parts in between, that should be sorted as such (outer incoming, inner incoming, inner outgoing, outer outgoing) over B
+				return zi.Kind == AintoB
+			}
+			return zi.TB < zj.TB
+		}
+		return zi.SegB < zj.SegB
+	})
 	return idx
 }
 

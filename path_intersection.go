@@ -194,7 +194,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 				n, boundary := q.Windings(p0.X, p0.Y)
 				inside := n != 0 // FillRule: NonZero
 				for k := 4; k < len(ps[i].d) && boundary; {
-					p0 = segmentPos(Point{ps[i].d[k-3], ps[i].d[k-2]}, ps[i].d[k:], 0.5)
+					p0 = segmentPos(Point{ps[i].d[k-3], ps[i].d[k-2]}, ps[i].d[k:], 0.5) // TODO: is this correct?
 					n, boundary = q.Windings(p0.X, p0.Y)
 					inside = n != 0 // FillRule: NonZero
 					k += cmdLen(ps[i].d[k])
