@@ -288,14 +288,34 @@ func TestPathFilling(t *testing.T) {
 		{"Q0 10 10 10z", []bool{true}, NonZero},
 		{"A10 10 0 0 1 10 10z", []bool{true}, NonZero},
 		{"A10 10 0 0 0 10 10z", []bool{true}, NonZero},
-		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", []bool{true, true}, NonZero},  // outer CCW, inner CCW
-		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", []bool{true, false}, NonZero}, // outer CCW, inner CW
-		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", []bool{true, false}, EvenOdd}, // outer CCW, inner CCW
-		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", []bool{true, false}, EvenOdd}, // outer CCW, inner CW
-		{"L10 10L-10 10zL-8 8L8 8z", []bool{true, false}, NonZero},           // outer CCW, inner CW
-		{"L10 10L-10 10zL8 8L-8 8z", []bool{true, true}, NonZero},            // outer CCW, inner CCW
-		{"L10 10L-10 10zL-8 8L8 8z", []bool{true, false}, EvenOdd},           // outer CCW, inner CW
-		{"L10 10L-10 10zL8 8L-8 8z", []bool{true, false}, EvenOdd},           // outer CCW, inner CCW
+
+		// subpaths
+		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", []bool{true, true}, NonZero},  // outer CCW,inner CCW
+		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", []bool{true, false}, EvenOdd}, // outer CCW,inner CCW
+		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", []bool{true, false}, NonZero}, // outer CCW,inner CW
+		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", []bool{true, false}, EvenOdd}, // outer CCW,inner CW
+		{"L10 10L0 20zM2 4L8 10L2 16z", []bool{true, true}, NonZero},         // outer CCW,inner CW
+		{"L10 10L0 20zM2 4L8 10L2 16z", []bool{true, false}, EvenOdd},        // outer CCW,inner CW
+		{"L10 10L0 20zM2 4L2 16L8 10z", []bool{true, false}, NonZero},        // outer CCW,inner CCW
+		{"L10 10L0 20zM2 4L2 16L8 10z", []bool{true, false}, EvenOdd},        // outer CCW,inner CCW
+
+		// paths touch at ray
+		{"L10 10L0 20zM2 4L10 10L2 16z", []bool{true, true}, NonZero},     // inside
+		{"L10 10L0 20zM2 4L10 10L2 16z", []bool{true, false}, EvenOdd},    // inside
+		{"L10 10L0 20zM2 4L2 16L10 10z", []bool{true, false}, NonZero},    // inside
+		{"L10 10L0 20zM2 4L2 16L10 10z", []bool{true, false}, EvenOdd},    // inside
+		{"L10 10L0 20zM2 2L2 18L10 10z", []bool{true, false}, NonZero},    // inside
+		{"L10 10L0 20zM-1 -2L-1 22L10 10z", []bool{false, true}, NonZero}, // encapsulates
+		{"L10 10L0 20zM-2 -2L-2 22L10 10z", []bool{false, true}, NonZero}, // encapsulates
+		{"L10 10L0 20zM20 0L10 10L20 20z", []bool{true, true}, NonZero},   // outside
+		{"L10 10zM2 2L8 8z", []bool{true, true}, NonZero},                 // zero-area overlap
+		{"L10 10zM10 0L5 5L20 10z", []bool{true, true}, NonZero},          // outside
+
+		// equal
+		{"L10 -10L20 0L10 10zL10 -10L20 0L10 10z", []bool{true, true}, NonZero},
+		{"L10 -10L20 0L10 10zA10 10 0 0 1 20 0A10 10 0 0 1 0 0z", []bool{true, true}, NonZero},
+		{"L10 -10L20 0L10 10zA10 10 0 0 0 20 0A10 10 0 0 0 0 0z", []bool{false, true}, NonZero},
+		{"L10 -10L20 0L10 10zQ10 0 10 10Q10 0 20 0Q10 0 10 -10Q10 0 0 0z", []bool{true, false}, NonZero},
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {

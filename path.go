@@ -468,50 +468,58 @@ func (p *Path) simplifyToCoords() []Point {
 	return coords
 }
 
-// Windings returns the number of windings, i.e. the number of times a ray from (x,y) towards (∞,y) intersects the path. Counter clock-wise intersections count as positive, while clock-wise intersections count as negative. Additionally, it returns whether the point is on a path's boundary (which would not count towards the number of windings).
-func (p *Path) Windings(x, y float64) (int, bool) {
+func windings(zs Intersections) (int, bool) {
+	// Count intersections of ray with path. Count half an intersection on boundaries, half an intersection when on the start of the ray, and a quarter when both. Paths that cross upwards are positive and downwards are negative. Parallel boundaries (top/bottom of a rectangle for example).
 	n := 0.0
 	boundary := false
-	for _, pi := range p.Split() {
-		// Count intersections of ray with path. Count half an intersection on boundaries, half an intersection when on the start of the ray, and a quarter when both. Paths that cross upwards are positive and downwards are negative. Parallel boundaries (top/bottom of a rectangle for example).
-		ni := 0.0
-		boundaryi := false
-		for _, z := range pi.rayIntersections(x, y) {
-			if Equal(z.TA, 0.0) {
-				boundaryi = true
-			}
-
-			d := 1.0
-			if Equal(z.TA, 0.0) {
-				d /= 2.0
-			}
-			if Equal(z.TB, 0.0) || Equal(z.TB, 1.0) {
-				d /= 2.0
-			}
-			if z.Parallel == NoParallel {
-				if angleBetweenExclusive(z.DirB, 0.0, math.Pi) {
-					ni += d
-				} else {
-					ni -= d
-				}
-			} else if z.Parallel == Parallel && (Equal(z.TB, 0.0) || Equal(z.TB, 1.0)) {
-				// Horizontal boundary, parallels give two intersections. Bend downwards virtually to create intersections that cancel out.
-				if Equal(z.TB, 1.0) {
-					ni += d
-				} else {
-					ni -= d
-				}
-			}
+	for _, z := range zs {
+		if Equal(z.TA, 0.0) {
+			boundary = true
 		}
 
-		// If on boundary, pi-ni will be -0.5 (for CW paths) or 0.5 (for CCW paths) or 0.0
-		if boundaryi {
-			boundary = true
-		} else {
-			n += ni // integer
+		d := 1.0
+		if Equal(z.TA, 0.0) {
+			d /= 2.0
+		}
+		if Equal(z.TB, 0.0) || Equal(z.TB, 1.0) {
+			d /= 2.0
+		}
+		if z.Parallel == NoParallel {
+			if angleBetweenExclusive(z.DirB, 0.0, math.Pi) {
+				n += d
+			} else {
+				n -= d
+			}
+		} else if z.Parallel == Parallel && (Equal(z.TB, 0.0) || Equal(z.TB, 1.0)) {
+			// Horizontal boundary, parallels give two intersections. Bend downwards virtually to create intersections that cancel out.
+			if Equal(z.TB, 1.0) {
+				n += d
+			} else {
+				n -= d
+			}
 		}
 	}
-	return int(n), boundary
+
+	// If on boundary, n will be -0.5 (for CW paths) or 0.5 (for CCW paths) or 0.0
+	if boundary {
+		return 0, true
+	}
+	return int(n), false // n is integer
+}
+
+// Windings returns the number of windings, i.e. the number of times a ray from (x,y) towards (∞,y) intersects the path. Counter clock-wise intersections count as positive, while clock-wise intersections count as negative. Additionally, it returns whether the point is on a path's boundary (which would count as being on the exterior).
+func (p *Path) Windings(x, y float64) (int, bool) {
+	n := 0
+	boundary := false
+	for _, pi := range p.Split() {
+		zs := pi.rayIntersections(x, y)
+		ni, boundaryi := windings(zs)
+		if boundaryi {
+			boundary = true
+		}
+		n += ni
+	}
+	return n, boundary
 }
 
 // Crossings returns the number of crossings, i.e. the number of times a ray from (x,y) towards (∞,y) intersects the path. Additionally, it returns whether the point is on a path's boundary (which would not count towards the number of crossings).
@@ -592,10 +600,110 @@ func (p *Path) InteriorPoint() Point {
 // Filling returns whether each subpath gets filled or not. A path may not be filling when it negates another path and depends on the FillRule. If a subpath is not closed, it is implicitly assumed to be closed. Subpaths may not (self-)intersect, use Settle to remove (self-)intersections.
 func (p *Path) Filling(fillRule FillRule) []bool {
 	ps := p.Split()
+	segs := make([]int, len(ps)+1)
+	for i, pi := range ps {
+		segs[i+1] = segs[i] + pi.Len()
+	}
+	getSubpath := func(seg int) int {
+		for i := 0; i < len(segs)-1; i++ {
+			if segs[i] <= seg && seg < segs[i+1] {
+				return i
+			}
+		}
+		return -1
+	}
+
 	filling := make([]bool, len(ps))
 	for i, pi := range ps {
-		pos := pi.InteriorPoint()
-		filling[i] = p.Fills(pos.X, pos.Y, fillRule)
+		pos := pi.InteriorPoint()              // get point inside subpath
+		zs := p.rayIntersections(pos.X, pos.Y) // get all intersections outwards
+
+		// interior point may be inside another subpath
+		// remove intersections until we find the one that leaves the current subpath
+		coincides := false
+		for {
+			j := 1
+			isSelf := segs[i] <= zs[0].SegB && zs[0].SegB < segs[i+1]
+			coincides = !isSelf
+			for j < len(zs) && Equal(zs[j].X, zs[0].X) {
+				if segs[i] <= zs[j].SegB && zs[j].SegB < segs[i+1] {
+					isSelf = true
+				} else {
+					coincides = true
+				}
+				j++
+			}
+			if isSelf {
+				break
+			}
+			zs = zs[j:]
+		}
+
+		// when another subpath happens to intersect at the same position with the ray,
+		// we assume that subpaths don't intersect (only touch) so that it either:
+		// is inside the current subpath, encapsulates it, or is on the outside towards the right
+		if coincides {
+			// find the touching subpaths
+			subpaths := []int{i}
+			for _, z := range zs {
+				if !Equal(z.X, zs[0].X) {
+					break
+				}
+				found := false
+				subpath := getSubpath(z.SegB)
+				for k := 0; k < len(subpaths); k++ {
+					if subpaths[k] == subpath {
+						found = true
+						break
+					}
+				}
+				if !found {
+					subpaths = append(subpaths, subpath)
+				}
+			}
+
+			// check if the path bends to the left (inside or encapsulates or right (outside)
+			area, areaExact := PolylineFromPathCoords(pi).Area(), math.NaN()
+			for _, subpath := range subpaths[1:] {
+				zs2 := Intersections{}
+				for _, z := range zs {
+					if getSubpath(z.SegB) == subpath {
+						zs2 = append(zs2, z)
+					}
+				}
+
+				// windings start outside (or on boundary, same result) of the subpath
+				// windings==0 it is outside, otherwise it is inside/encapsulates the current path
+				if n2, _ := windings(zs2); n2 != 0 {
+					// if subpath has smaller area it inside, remove its intersections
+					area2, area2Exact := PolylineFromPathCoords(ps[subpath]).Area(), math.NaN()
+					if area == area2 || area == 0 || area2 == 0 {
+						// calculate exact area when coordinate area is equal
+						area2Exact = PolylineFromPath(ps[subpath]).Area()
+						if math.IsNaN(areaExact) {
+							areaExact = PolylineFromPath(pi).Area()
+						}
+						area2 = area // when area/area2==0
+					}
+					if area2 < area || area2Exact < areaExact {
+						for j := 0; j < len(zs) && Equal(zs[j].X, zs[0].X); j++ {
+							if getSubpath(zs[j].SegB) == subpath {
+								zs = append(zs[:j], zs[j+1:]...)
+								j--
+							}
+						}
+					}
+				}
+			}
+		}
+
+		n, boundary := windings(zs)
+		if boundary {
+			// happens only when the current subpath goes up and down at the InteriorPoint
+			// count as if we we're inside the two edges
+			n++
+		}
+		filling[i] = fillRule == NonZero && n != 0 || n%2 != 0
 	}
 	return filling
 }
