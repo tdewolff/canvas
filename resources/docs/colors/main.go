@@ -9,6 +9,87 @@ import (
 	"github.com/tdewolff/canvas/renderers"
 )
 
+func hue(col color.RGBA) float64 {
+	var hue float64
+	a := float64(col.A) / 255.0
+	r := float64(col.R) / 255.0 / a
+	g := float64(col.G) / 255.0 / a
+	b := float64(col.B) / 255.0 / a
+
+	min := math.Min(r, math.Min(g, b))
+	max := math.Max(r, math.Max(g, b))
+	if min == max {
+		return -1.0
+	} else if r == max {
+		hue = (g - b) / (max - min)
+	} else if g == max {
+		hue = 2.0 + (b-r)/(max-min)
+	} else if b == max {
+		hue = 4.0 + (r-g)/(max-min)
+	}
+	hue *= 60.0
+	if hue < 0.0 {
+		hue += 360.0
+	}
+	return hue
+}
+
+func lum(col color.RGBA) float64 {
+	a := float64(col.A) / 255.0
+	r := float64(col.R) / 255.0 / a
+	g := float64(col.G) / 255.0 / a
+	b := float64(col.B) / 255.0 / a
+	return 0.2126*r + 0.7152*g + 0.0722*b
+}
+
+func main() {
+	font := canvas.NewFontFamily("latin")
+	if err := font.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
+		panic(err)
+	}
+
+	// sort by hue
+	indices := make([]int, len(colors))
+	for i := range colors {
+		indices[i] = i
+	}
+	sort.Slice(indices, func(i, j int) bool {
+		if hue(colors[indices[i]]) == hue(colors[indices[j]]) {
+			return lum(colors[indices[i]]) < lum(colors[indices[j]])
+		}
+		return hue(colors[indices[i]]) < hue(colors[indices[j]])
+	})
+
+	c := canvas.New(0.0, 0.0)
+	ctx := canvas.NewContext(c)
+	face := font.Face(2.0)
+
+	for j, idx := range indices {
+		i := j / 25
+		j -= 25 * i
+
+		ctx.SetFillColor(colors[idx])
+		ctx.DrawPath(0.5+10.0*float64(i), -9.5-10.0*float64(j), canvas.Rectangle(9.0, 9.0))
+
+		p, w, _ := face.ToPath(names[idx])
+		p = p.Offset(0.05, canvas.EvenOdd, 0.01)
+		p = p.Translate(-w/2.0, 0.0)
+		ctx.SetFillColor(canvas.Hex("#ffffff88"))
+		ctx.DrawPath(5.0+10.0*float64(i), -9.0-10.0*float64(j), p)
+
+		text := canvas.NewTextLine(face, names[idx], canvas.Center)
+		ctx.DrawText(5.0+10.0*float64(i), -9.0-10.0*float64(j), text)
+	}
+
+	c.Fit(1.0)
+	c.SetZIndex(-1)
+	ctx.SetFillColor(canvas.White)
+	ctx.SetStrokeColor(canvas.Transparent)
+	ctx.DrawPath(0, 0, canvas.Rectangle(c.W, c.H))
+
+	renderers.Write("colors.png", c, canvas.DPMM(20.0))
+}
+
 var names = []string{
 	"Aliceblue",
 	"Antiquewhite",
@@ -307,85 +388,4 @@ var colors = []color.RGBA{
 	canvas.Whitesmoke,
 	canvas.Yellow,
 	canvas.Yellowgreen,
-}
-
-func hue(col color.RGBA) float64 {
-	var hue float64
-	a := float64(col.A) / 255.0
-	r := float64(col.R) / 255.0 / a
-	g := float64(col.G) / 255.0 / a
-	b := float64(col.B) / 255.0 / a
-
-	min := math.Min(r, math.Min(g, b))
-	max := math.Max(r, math.Max(g, b))
-	if min == max {
-		return -1.0
-	} else if r == max {
-		hue = (g - b) / (max - min)
-	} else if g == max {
-		hue = 2.0 + (b-r)/(max-min)
-	} else if b == max {
-		hue = 4.0 + (r-g)/(max-min)
-	}
-	hue *= 60.0
-	if hue < 0.0 {
-		hue += 360.0
-	}
-	return hue
-}
-
-func lum(col color.RGBA) float64 {
-	a := float64(col.A) / 255.0
-	r := float64(col.R) / 255.0 / a
-	g := float64(col.G) / 255.0 / a
-	b := float64(col.B) / 255.0 / a
-	return 0.2126*r + 0.7152*g + 0.0722*b
-}
-
-func main() {
-	font := canvas.NewFontFamily("latin")
-	if err := font.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
-		panic(err)
-	}
-
-	// sort by hue
-	indices := make([]int, len(colors))
-	for i := range colors {
-		indices[i] = i
-	}
-	sort.Slice(indices, func(i, j int) bool {
-		if hue(colors[indices[i]]) == hue(colors[indices[j]]) {
-			return lum(colors[indices[i]]) < lum(colors[indices[j]])
-		}
-		return hue(colors[indices[i]]) < hue(colors[indices[j]])
-	})
-
-	c := canvas.New(0.0, 0.0)
-	ctx := canvas.NewContext(c)
-	face := font.Face(2.0)
-
-	for j, idx := range indices {
-		i := j / 25
-		j -= 25 * i
-
-		ctx.SetFillColor(colors[idx])
-		ctx.DrawPath(0.5+10.0*float64(i), -9.5-10.0*float64(j), canvas.Rectangle(9.0, 9.0))
-
-		p, w, _ := face.ToPath(names[idx])
-		p = p.Offset(0.04, canvas.EvenOdd, 0.01)
-		p = p.Translate(-w/2.0, 0.0)
-		ctx.SetFillColor(canvas.White)
-		ctx.DrawPath(5.0+10.0*float64(i), -9.0-10.0*float64(j), p)
-
-		text := canvas.NewTextLine(face, names[idx], canvas.Center)
-		ctx.DrawText(5.0+10.0*float64(i), -9.0-10.0*float64(j), text)
-	}
-
-	c.Fit(1.0)
-	c.SetZIndex(-1)
-	ctx.SetFillColor(canvas.White)
-	ctx.SetStrokeColor(canvas.Transparent)
-	ctx.DrawPath(0, 0, canvas.Rectangle(c.W, c.H))
-
-	renderers.Write("colors.png", c, canvas.DPMM(20.0))
 }
