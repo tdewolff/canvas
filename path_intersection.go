@@ -9,6 +9,7 @@ import (
 // Paths are cut at the intersections between P and Q. The intersections are put into a doubly linked list with paths going forward and backward over P and Q. Depending on the boolean operation we should choose the right cut. Note that there can be circular loops when choosing cuts based on a condition, so we should take care to visit all intersections. Additionally, if path P or path Q contain subpaths with a different winding, we will first combine the subpaths so to remove all subpath intersections.
 
 func segmentPos(start Point, d []float64, t float64) Point {
+	// used for open paths in boolean
 	if d[0] == LineToCmd || d[0] == CloseCmd {
 		return start.Interpolate(Point{d[1], d[2]}, t)
 	} else if d[0] == QuadToCmd {
@@ -71,12 +72,13 @@ func (p *Path) Settle() *Path {
 	// make all filling paths go CCW
 	r := &Path{}
 	ps = p.Split()
+	filling := p.Filling(NonZero)
 	for i := range ps {
 		if ps[i].Empty() || !ps[i].Closed() {
 			r = r.Append(ps[i])
 			continue
 		}
-		if ps[i].CCW() == ps[i].inside(p) {
+		if ps[i].CCW() == filling[i] {
 			r = r.Append(ps[i])
 		} else {
 			r = r.Append(ps[i].Reverse())
@@ -215,13 +217,13 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 			zs := Zs[j : j+n]
 			if len(zs) == 0 {
 				p0 := ps[i].StartPos()
-				// determine if path is filling by checking the number of windings at the starting point of the subpath (considered to be on the exterior of the subpath)
+				// determine if path is inside by checking the number of windings at the starting point of the subpath (considered to be on the exterior of the subpath)
 				n, boundary := q.Windings(p0.X, p0.Y)
-				inside := n != 0 // FillRule: NonZero
+				inside := n != 0 // NonZero
 				for k := 4; k < len(ps[i].d) && boundary; {
-					p0 = segmentPos(Point{ps[i].d[k-3], ps[i].d[k-2]}, ps[i].d[k:], 0.5) // TODO: is this correct?
+					p0 = segmentPos(Point{ps[i].d[k-3], ps[i].d[k-2]}, ps[i].d[k:], 0.5)
 					n, boundary = q.Windings(p0.X, p0.Y)
-					inside = n != 0 // FillRule: NonZero
+					inside = n != 0 // NonZero
 					k += cmdLen(ps[i].d[k])
 				}
 				if op == pathOpOr || op == pathOpSettle || inside && op == pathOpAnd || !inside && !boundary && (op == pathOpXor || op == pathOpNot) {
@@ -354,14 +356,6 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 			for j, qi := range qs {
 				if !qHandled[j] {
 					if pi.Same(qi) {
-						if op == pathOpAnd || op == pathOpOr || op == pathOpSettle {
-							R = R.Append(pi)
-						}
-						pHandled[i] = true
-						qHandled[j] = true
-					} else if pi.inside(qi) && qi.inside(pi) {
-						// happens when each coordinates are on each other's boundaries
-						// TODO: check whichone has largest area
 						if op == pathOpAnd || op == pathOpOr || op == pathOpSettle {
 							R = R.Append(pi)
 						}

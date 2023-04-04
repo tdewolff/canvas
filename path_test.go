@@ -316,6 +316,11 @@ func TestPathFilling(t *testing.T) {
 		{"L10 -10L20 0L10 10zA10 10 0 0 1 20 0A10 10 0 0 1 0 0z", []bool{true, true}, NonZero},
 		{"L10 -10L20 0L10 10zA10 10 0 0 0 20 0A10 10 0 0 0 0 0z", []bool{false, true}, NonZero},
 		{"L10 -10L20 0L10 10zQ10 0 10 10Q10 0 20 0Q10 0 10 -10Q10 0 0 0z", []bool{true, false}, NonZero},
+
+		// open
+		{"L10 10L0 20", []bool{true}, NonZero},
+		{"L10 10L0 20M0 -5L0 5L-5 0z", []bool{true, true}, NonZero},
+		{"L10 10L0 20M0 -5L0 5L5 0z", []bool{true, true}, NonZero},
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {

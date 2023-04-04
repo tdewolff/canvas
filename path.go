@@ -575,15 +575,13 @@ func (p *Path) Fills(x, y float64, fillRule FillRule) bool {
 	return fillRule == NonZero && n != 0 || n%2 != 0
 }
 
-// InteriorPoint returns a point on the interior of the path. The path should be a non-complex non-self-intersecting path (i.e. settled with no subpaths).
+// InteriorPoint returns a point on the interior of the path. The path should be a non-complex non-self-intersecting path (i.e. settled with no subpaths). Uses the first subpath on complex paths. Returns the start position on open paths.
 func (p *Path) InteriorPoint() Point {
 	if p.Complex() {
 		p = p.Split()[0]
 	}
 	if !p.Closed() {
-		// assume implicitly closed
-		p = p.Copy()
-		p.Close()
+		return p.StartPos()
 	}
 
 	// get a point on the left of the path and trace a ray to the right
@@ -702,7 +700,7 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 		n, boundary := windings(zs)
 		if boundary {
 			// happens only when the current subpath goes up and down at the InteriorPoint
-			// count as if we we're inside the two edges
+			// or for open subpaths, count as if we we're inside the two edges
 			n++
 		}
 		filling[i] = fillRule == NonZero && n != 0 || n%2 != 0
