@@ -123,15 +123,22 @@ const (
 	pathOpSettle
 )
 
-type indexPath []int // index from segment to subpath
+type subpathIndexer []int // index from segment to subpath
 
-func (indices indexPath) get(seg int) int {
-	i := 0
-	for j, n := range indices {
-		if seg < i+n {
-			return j
+func newSubpathIndexer(ps []*Path) subpathIndexer {
+	idx := make(subpathIndexer, len(ps)+1)
+	idx[0] = 0
+	for i, pi := range ps {
+		idx[i+1] = idx[i] + pi.Len()
+	}
+	return idx
+}
+
+func (idx subpathIndexer) get(seg int) int {
+	for i, n := range idx[1:] {
+		if seg < n {
+			return i
 		}
-		i += n
 	}
 	panic("bug: segment doesn't exist on path")
 }
@@ -189,10 +196,8 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 	// handle open subpaths on path p and remove from Zs
 	Ropen := &Path{}
 	p, q = &Path{}, &Path{}
-	pIndex, qIndex := make(indexPath, 0, len(ps)), make(indexPath, 0, len(qs))
 	for i := range qs {
 		q = q.Append(qs[i])
-		qIndex = append(qIndex, qs[i].Len())
 	}
 	j, segOffsetA, d := 0, 0, 0 // j is index into Zs, d is number of removed segments
 	for i := 0; i < len(ps); i++ {
@@ -245,7 +250,6 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 			i--
 		} else {
 			p = p.Append(ps[i])
-			pIndex = append(pIndex, lenA)
 		}
 		j += n
 	}
@@ -339,6 +343,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 	}
 
 	// handle the remaining subpaths that are non-intersecting but possibly overlapping, either one containing the other or by being equal
+	pIndex, qIndex := newSubpathIndexer(ps), newSubpathIndexer(qs)
 	pHandled, qHandled := make([]bool, len(ps)), make([]bool, len(qs))
 	for _, z := range Zs {
 		pHandled[pIndex.get(z.SegA)] = true

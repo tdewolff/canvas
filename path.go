@@ -600,19 +600,7 @@ func (p *Path) InteriorPoint() Point {
 // Filling returns whether each subpath gets filled or not. A path may not be filling when it negates another path and depends on the FillRule. If a subpath is not closed, it is implicitly assumed to be closed. Subpaths may not (self-)intersect, use Settle to remove (self-)intersections.
 func (p *Path) Filling(fillRule FillRule) []bool {
 	ps := p.Split()
-	segs := make([]int, len(ps)+1)
-	for i, pi := range ps {
-		segs[i+1] = segs[i] + pi.Len()
-	}
-	getSubpath := func(seg int) int {
-		for i := 0; i < len(segs)-1; i++ {
-			if segs[i] <= seg && seg < segs[i+1] {
-				return i
-			}
-		}
-		return -1
-	}
-
+	index := newSubpathIndexer(ps)
 	filling := make([]bool, len(ps))
 	for i, pi := range ps {
 		pos := pi.InteriorPoint()              // get point inside subpath
@@ -623,10 +611,10 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 		coincides := false
 		for {
 			j := 1
-			isSelf := segs[i] <= zs[0].SegB && zs[0].SegB < segs[i+1]
+			isSelf := index[i] <= zs[0].SegB && zs[0].SegB < index[i+1]
 			coincides = !isSelf
 			for j < len(zs) && Equal(zs[j].X, zs[0].X) {
-				if segs[i] <= zs[j].SegB && zs[j].SegB < segs[i+1] {
+				if index[i] <= zs[j].SegB && zs[j].SegB < index[i+1] {
 					isSelf = true
 				} else {
 					coincides = true
@@ -650,7 +638,7 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 					break
 				}
 				found := false
-				subpath := getSubpath(z.SegB)
+				subpath := index.get(z.SegB)
 				for k := 0; k < len(subpaths); k++ {
 					if subpaths[k] == subpath {
 						found = true
@@ -667,7 +655,7 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 			for _, subpath := range subpaths[1:] {
 				zs2 := Intersections{}
 				for _, z := range zs {
-					if getSubpath(z.SegB) == subpath {
+					if index.get(z.SegB) == subpath {
 						zs2 = append(zs2, z)
 					}
 				}
@@ -687,7 +675,7 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 					}
 					if area2 < area || area2Exact < areaExact {
 						for j := 0; j < len(zs) && Equal(zs[j].X, zs[0].X); j++ {
-							if getSubpath(zs[j].SegB) == subpath {
+							if index.get(zs[j].SegB) == subpath {
 								zs = append(zs[:j], zs[j+1:]...)
 								j--
 							}
