@@ -133,6 +133,17 @@ func (p *Path) Closed() bool {
 	return 0 < len(p.d) && p.d[len(p.d)-1] == CloseCmd
 }
 
+// Complex returns true when path p has subpaths.
+func (p *Path) Complex() bool {
+	for i := 0; i < len(p.d); {
+		if p.d[i] == MoveToCmd && i != 0 {
+			return true
+		}
+		i += cmdLen(p.d[i])
+	}
+	return false
+}
+
 // Copy returns a copy of p.
 func (p *Path) Copy() *Path {
 	q := &Path{}
@@ -566,6 +577,9 @@ func (p *Path) Fills(x, y float64, fillRule FillRule) bool {
 
 // InteriorPoint returns a point on the interior of the path. The path should be a non-complex non-self-intersecting path (i.e. settled with no subpaths).
 func (p *Path) InteriorPoint() Point {
+	if p.Complex() {
+		p = p.Split()[0]
+	}
 	if !p.Closed() {
 		// assume implicitly closed
 		p = p.Copy()

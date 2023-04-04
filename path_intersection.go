@@ -32,14 +32,12 @@ func segmentPos(start Point, d []float64, t float64) Point {
 // returns true if p is inside q or equivalent to q, paths may not intersect
 // p should not have subpaths
 func (p *Path) inside(q *Path) bool {
-	if len(p.d) <= 4 || len(p.d) <= 4+cmdLen(p.d[4]) {
-		return false // TODO: remove?
-	}
-	offset := p.InteriorPoint()
-	return q.Fills(offset.X, offset.Y, NonZero)
+	// if p does not fill with the EvenOdd rule, it is inside q
+	p = p.Append(q)
+	return !p.Filling(EvenOdd)[0]
 }
 
-// Contains returns true if path q is contained within path p, i.e. path q is inside path p and both paths have no intersections (but may touch). Paths must have been settled to remove self-intersections.
+// ContainsPath returns true if path q is contained within path p, i.e. path q is inside path p and both paths have no intersections (but may touch). Paths must have been settled to remove self-intersections.
 func (p *Path) ContainsPath(q *Path) bool {
 	ps, qs := p.Split(), q.Split()
 	for _, qi := range qs {
