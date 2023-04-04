@@ -1,5 +1,7 @@
 package canvas
 
+import "math"
+
 // Polyline defines a list of points in 2D space that form a polyline. If the last coordinate equals the first coordinate, we assume the polyline to close itself.
 type Polyline struct {
 	coords []Point
@@ -97,7 +99,7 @@ func (p *Polyline) Area() float64 {
 	for i := 0; i < n; i++ {
 		a += p.coords[i].PerpDot(p.coords[(i+1)%len(p.coords)])
 	}
-	return a / 2.0
+	return math.Abs(a / 2.0)
 }
 
 // Centroid returns the center point of the polygon.

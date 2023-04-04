@@ -987,6 +987,7 @@ func collisions(ps, qs []*Path, keepTangents bool) Intersections {
 
 // intersections of path with ray starting at (x,y) to (∞,y)
 func (p *Path) rayIntersections(x, y float64) Intersections {
+	j, seg := 0, 0
 	var start, end Point
 	zs := Intersections{}
 	for i := 0; i < len(p.d); {
@@ -1026,10 +1027,23 @@ func (p *Path) rayIntersections(x, y float64) Intersections {
 			large, sweep := toArcFlags(p.d[i+4])
 			end = Point{p.d[i+5], p.d[i+6]}
 			cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
-			zs = zs.LineEllipse(Point{x, y}, Point{cx + rx + 1.0, y}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
+			if Interval(y, cy-math.Max(rx, ry), cy+math.Max(rx, ry)) && x <= cx+math.Max(rx, ry)+Epsilon {
+				zs = zs.LineEllipse(Point{x, y}, Point{cx + rx + 1.0, y}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
+			}
+		}
+		for j < len(zs) {
+			if !Equal(zs[j].TA, 0.0) {
+				zs[j].TA = math.NaN()
+			}
+			zs[j].SegB = seg
+			j++
 		}
 		i += cmdLen(cmd)
 		start = end
+		seg++
 	}
+	sort.SliceStable(zs, func(i, j int) bool {
+		return zs[i].X < zs[j].X
+	})
 	return zs
 }

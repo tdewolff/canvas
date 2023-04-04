@@ -104,7 +104,10 @@ func (zs Intersections) HasTangent() bool {
 func (zs Intersections) String() string {
 	sb := strings.Builder{}
 	for i, z := range zs {
-		fmt.Fprintf(&sb, "%v %v\n", i, z)
+		if i != 0 {
+			fmt.Fprintf(&sb, "\n")
+		}
+		fmt.Fprintf(&sb, "%v %v", i, z)
 	}
 	return sb.String()
 }
