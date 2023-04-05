@@ -781,7 +781,22 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 						}
 					}
 
-					s := log[ac:bc]
+					var s string
+					if len(t.lines[j].spans) == 0 {
+						// add spaces at the beginning of the line to this span's text
+						pos := 0
+						if j != 0 {
+							pos = breaks[j-1].Position + 1 // not first line, don't count break
+						}
+						n := 0
+						for ; pos < position; pos++ {
+							n += items[pos].Size
+						}
+						for _, glyph := range glyphs[a-n : a] {
+							s += glyph.Text
+						}
+					}
+					s += log[ac:bc]
 					t.lines[j].spans = append(t.lines[j].spans, TextSpan{
 						x:           x + dx,
 						Width:       w,
@@ -821,25 +836,26 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			}
 			x += item.Width
 		} else if item.Type == canvasText.GlueType {
+			width := 0.0
 			if j == 0 || position-1 != breaks[j-1].Position { // glue that is not at the start of the line
-				width := item.Width
-				if 0.0 <= breaks[j].Ratio {
-					if !math.IsInf(item.Stretch, 0.0) {
-						width += breaks[j].Ratio * item.Stretch
-					}
-				} else if !math.IsInf(item.Shrink, 0.0) {
-					width += breaks[j].Ratio * item.Shrink
+				width = item.Width
+			}
+			if 0.0 <= breaks[j].Ratio {
+				if !math.IsInf(item.Stretch, 0.0) {
+					width += breaks[j].Ratio * item.Stretch
 				}
-				x += width
+			} else if !math.IsInf(item.Shrink, 0.0) {
+				width += breaks[j].Ratio * item.Shrink
+			}
+			x += width
 
-				// set padding on previous/next span
-				if position+1 != breaks[j].Position { // not if space is at the beginning/end of line
-					k := glyphIndices.index(i)
-					if len(t.lines[j].spans) == 0 || k != glyphIndices.index(i-1) { // glue is at start of face span
-						paddingLeft += width
-					} else { // glue is in the middle or end of face span
-						t.lines[j].spans[len(t.lines[j].spans)-1].PaddingRight += width
-					}
+			// set padding on previous/next span
+			if position+1 != breaks[j].Position { // not if space is at the beginning/end of line
+				k := glyphIndices.index(i)
+				if len(t.lines[j].spans) == 0 || k != glyphIndices.index(i-1) { // glue is at start of face span
+					paddingLeft += width
+				} else { // glue is in the middle or end of face span
+					t.lines[j].spans[len(t.lines[j].spans)-1].PaddingRight += width
 				}
 			}
 
