@@ -56,16 +56,17 @@ func (p *Path) ContainsPath(q *Path) bool {
 	return true
 }
 
-// Settle combines the path p with itself, including all subpaths, removing all self-intersections and overlapping parts. It returns subpaths with counter clockwise directions.
+// Settle combines the path p with itself, including all subpaths, removing all self-intersections and overlapping parts. It returns subpaths with counter clockwise directions when filling, and clockwise directions for holes.
 func (p *Path) Settle() *Path {
-	// TODO: remove self-intersections too
+	// TODO: settle and self-settle for fillrule == EvenOdd
 	if p.Empty() {
 		return p
 	}
 
 	ps := p.Split()
-	p = ps[0]
+	p = ps[0].selfSettle()
 	for _, q := range ps[1:] {
+		q = q.selfSettle()
 		p = boolean(p, pathOpSettle, q)
 	}
 
@@ -85,6 +86,40 @@ func (p *Path) Settle() *Path {
 		}
 	}
 	return r
+}
+
+func (p *Path) selfSettle() *Path {
+	// p is non-complex
+	if p.Empty() || !p.Closed() {
+		return p
+	}
+	q := p.Flatten(Tolerance)
+	Zs := collisions([]*Path{q}, []*Path{q}, false)
+	if len(Zs) == 0 {
+		return p
+	}
+
+	// TODO: implement parallel lines in selfCollisions, which is more efficient than collisions
+	//Zs := selfCollisions(q)
+
+	// duplicate intersections
+	//Zs2 := make(Intersections, len(Zs)*2)
+	//for i, z := range Zs {
+	//	Zs2[2*i+0] = z
+	//	z.SegA, z.SegB = z.SegB, z.SegA
+	//	z.TA, z.TB = z.TB, z.TA
+	//	z.DirA, z.DirB = z.DirB, z.DirA
+	//	if z.Kind == AintoB {
+	//		z.Kind = BintoA
+	//	} else if z.Kind == BintoA {
+	//		z.Kind = AintoB
+	//	}
+	//	Zs2[2*i+1] = z
+	//}
+	//Zs2.ASort()
+
+	ccw := q.CCW()
+	return booleanIntersections(pathOpNot, Zs, q, q, ccw, ccw)
 }
 
 // And returns the boolean path operation of path p and q. Path q is implicitly closed.
@@ -254,6 +289,77 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		j += n
 	}
 
+	// handle intersecting subpaths
+	R := booleanIntersections(op, Zs, p, q, ccwA, ccwB)
+
+	// handle the remaining subpaths that are non-intersecting but possibly overlapping, either one containing the other or by being equal
+	pIndex, qIndex := newSubpathIndexer(ps), newSubpathIndexer(qs)
+	pHandled, qHandled := make([]bool, len(ps)), make([]bool, len(qs))
+	for _, z := range Zs {
+		pHandled[pIndex.get(z.SegA)] = true
+		qHandled[qIndex.get(z.SegB)] = true
+	}
+
+	// equal polygons
+	for i, pi := range ps {
+		if !pHandled[i] {
+			for j, qi := range qs {
+				if !qHandled[j] {
+					if pi.Same(qi) {
+						if op == pathOpAnd || op == pathOpOr || op == pathOpSettle {
+							R = R.Append(pi)
+						}
+						pHandled[i] = true
+						qHandled[j] = true
+					}
+				}
+			}
+		}
+	}
+
+	// contained (non-touching) polygons
+	for i, pi := range ps {
+		if !pHandled[i] && pi.inside(q) {
+			if op == pathOpAnd || op == pathOpDivide || op == pathOpSettle && ccwA != ccwB {
+				R = R.Append(pi)
+			} else if op == pathOpXor {
+				R = R.Append(pi.Reverse())
+			}
+			pHandled[i] = true
+		}
+	}
+	// polygons with no overlap
+	if op != pathOpAnd {
+		for i, pi := range ps {
+			if !pHandled[i] {
+				R = R.Append(pi)
+			}
+		}
+	}
+
+	// contained (non-touching) polygons
+	for i, qi := range qs {
+		if !qHandled[i] && qi.inside(p) {
+			if op == pathOpAnd || op == pathOpDivide || op == pathOpSettle && ccwA != ccwB {
+				R = R.Append(qi)
+			} else if op == pathOpXor || op == pathOpNot {
+				R = R.Append(qi.Reverse())
+			}
+			qHandled[i] = true
+		}
+	}
+	// polygons with no overlap
+	if op == pathOpOr || op == pathOpXor || op == pathOpSettle {
+		for i, qi := range qs {
+			if !qHandled[i] {
+				R = R.Append(qi)
+			}
+		}
+	}
+	return R.Append(Ropen) // add the open paths
+}
+
+func booleanIntersections(op pathOp, Zs Intersections, p, q *Path, ccwA, ccwB bool) *Path {
 	K := 1 // number of time to run from each intersection
 	startInwards := []bool{false, false}
 	invertA := []bool{false, false}
@@ -341,72 +447,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 			R = R.Append(r)
 		}
 	}
-
-	// handle the remaining subpaths that are non-intersecting but possibly overlapping, either one containing the other or by being equal
-	pIndex, qIndex := newSubpathIndexer(ps), newSubpathIndexer(qs)
-	pHandled, qHandled := make([]bool, len(ps)), make([]bool, len(qs))
-	for _, z := range Zs {
-		pHandled[pIndex.get(z.SegA)] = true
-		qHandled[qIndex.get(z.SegB)] = true
-	}
-
-	// equal polygons
-	for i, pi := range ps {
-		if !pHandled[i] {
-			for j, qi := range qs {
-				if !qHandled[j] {
-					if pi.Same(qi) {
-						if op == pathOpAnd || op == pathOpOr || op == pathOpSettle {
-							R = R.Append(pi)
-						}
-						pHandled[i] = true
-						qHandled[j] = true
-					}
-				}
-			}
-		}
-	}
-
-	// contained (non-touching) polygons
-	for i, pi := range ps {
-		if !pHandled[i] && pi.inside(q) {
-			if op == pathOpAnd || op == pathOpDivide || op == pathOpSettle && ccwA != ccwB {
-				R = R.Append(pi)
-			} else if op == pathOpXor {
-				R = R.Append(pi.Reverse())
-			}
-			pHandled[i] = true
-		}
-	}
-	// polygons with no overlap
-	if op != pathOpAnd {
-		for i, pi := range ps {
-			if !pHandled[i] {
-				R = R.Append(pi)
-			}
-		}
-	}
-
-	// contained (non-touching) polygons
-	for i, qi := range qs {
-		if !qHandled[i] && qi.inside(p) {
-			if op == pathOpAnd || op == pathOpDivide || op == pathOpSettle && ccwA != ccwB {
-				R = R.Append(qi)
-			} else if op == pathOpXor || op == pathOpNot {
-				R = R.Append(qi.Reverse())
-			}
-			qHandled[i] = true
-		}
-	}
-	// polygons with no overlap
-	if op == pathOpOr || op == pathOpXor || op == pathOpSettle {
-		for i, qi := range qs {
-			if !qHandled[i] {
-				R = R.Append(qi)
-			}
-		}
-	}
-	return R.Append(Ropen) // add the open paths
+	return R
 }
 
 // Cut cuts path p by path q and returns the parts.
@@ -519,10 +560,10 @@ type intersectionNode struct {
 
 func (z *intersectionNode) String() string {
 	tangent := ""
-	if z.tangent {
+	if z.parallel == NoParallel && z.tangent {
 		tangent = " Tangent"
 	}
-	return fmt.Sprintf("(%v A=[%v→,→%v] B=[%v→,→%v] %v %v%v)", z.i, z.prevA.i, z.nextA.i, z.prevB.i, z.nextB.i, z.kind, z.parallel, tangent)
+	return fmt.Sprintf("(%v A=[%v→,→%v] B=[%v→,→%v]%v%v%v)", z.i, z.prevA.i, z.nextA.i, z.prevB.i, z.nextB.i, z.kind, z.parallel, tangent)
 }
 
 func (z *intersectionNode) tangentStart(gotoB, forwardA, forwardB bool) bool {
@@ -537,8 +578,6 @@ func (z *intersectionNode) tangentStart(gotoB, forwardA, forwardB bool) bool {
 func intersectionNodes(Zs Intersections, p, q *Path) []*intersectionNode {
 	if len(Zs) == 0 {
 		return nil
-	} else if len(Zs)%2 != 0 {
-		panic("bug: number of intersections must be even")
 	}
 
 	zs := make([]*intersectionNode, len(Zs))
@@ -715,6 +754,9 @@ func intersectionNodes(Zs Intersections, p, q *Path) []*intersectionNode {
 			zs = append(zs[:j], zs[j+1:]...)
 		}
 	}
+	if len(zs)%2 != 0 {
+		panic("bug: number of nodes must be even")
+	}
 	return zs
 }
 
@@ -768,11 +810,7 @@ func cutPathSegment(start Point, d []float64, t float64) (*Path, *Path) {
 
 // Intersects returns true if path p and path q intersect.
 func (p *Path) Intersects(q *Path) bool {
-	if !p.Flat() {
-		q = q.Flatten(Tolerance)
-	}
-	zs := collisions(p.Split(), q.Split(), false)
-	return 0 < len(zs)
+	return 0 < len(p.Intersections(q))
 }
 
 // Intersections for path p by path q, sorted for path p.
@@ -785,11 +823,7 @@ func (p *Path) Intersections(q *Path) Intersections {
 
 // Touches returns true if path p and path q touch or intersect.
 func (p *Path) Touches(q *Path) bool {
-	if !p.Flat() {
-		q = q.Flatten(Tolerance)
-	}
-	zs := collisions(p.Split(), q.Split(), true)
-	return 0 < len(zs)
+	return 0 < len(p.Collisions(q))
 }
 
 // Collisions (secants/intersections and tangents/touches) for path p by path q, sorted for path p.
@@ -841,9 +875,44 @@ func collisions(ps, qs []*Path, keepTangents bool) Intersections {
 			}
 			Zs.sortAndWrapEnd(segOffsetA, segOffsetB, lenA-pointCloseA, lenB-pointCloseB)
 
-			// remove duplicate tangent collisions at segment endpoints: either 4 degenerate collisions
-			// when for both path p and path q the endpoints coincide, or 2 degenerate collisions when
-			// an endpoint collides within a segment, for each parallel segment in between an additional 2 degenerate collisions are created
+			// remove consecutive parallel sections with 4 degenerate collisions
+			// keep outer most, may remove all parallel sections if paths are equal
+			for i := 0; i < len(Zs); i++ {
+				if zi := Zs[i]; Equal(zi.TA, 1.0) && Equal(zi.TB, 1.0) && angleEqual(zi.DirA, zi.DirB) {
+					// forward parallel section
+					segA := zi.SegA + 1
+					if segA == segOffsetA+lenA-pointCloseA {
+						segA = segOffsetA + 1
+					}
+					segB := zi.SegB + 1
+					if segB == segOffsetB+lenB-pointCloseB {
+						segB = segOffsetB + 1
+					}
+					if zo := Zs[(i+3)%len(Zs)]; zo.SegB == segB && Equal(zo.TA, 0.0) && Equal(zo.TB, 0.0) && angleEqual(zo.DirA, zo.DirB) {
+						Zs = append(Zs[:i], Zs[i+4:]...)
+						i--
+					}
+				} else if Equal(zi.TA, 1.0) && Equal(zi.TB, 0.0) && angleEqual(zi.DirA, zi.DirB+math.Pi) {
+					// reverse parallel section
+					segA := zi.SegA + 1
+					if segA == segOffsetA+lenA-pointCloseA {
+						segA = segOffsetA + 1
+					}
+					segB := zi.SegB - 1
+					if segB == segOffsetB {
+						segB = segOffsetB + lenB - pointCloseB - 1
+					}
+					if zo := Zs[(i+1)%len(Zs)]; zo.SegB == segB && Equal(zo.TA, 0.0) && Equal(zo.TB, 1.0) && angleEqual(zo.DirA, zo.DirB+math.Pi) {
+						Zs = append(Zs[:i-1], Zs[i+3:]...)
+						i -= 2
+					}
+				}
+			}
+
+			// remove duplicate tangent collisions at segment endpoints: either 4 degenerate
+			// collisions when for both path p and path q the endpoints coincide, or 2 degenerate
+			// collisions when an endpoint collides within a segment, for each parallel segment in
+			// between an additional 2 degenerate collisions are created
 			// note that collisions between segments of the same path are never generated
 			for i := 0; i < len(Zs); i++ {
 				z := Zs[i]
@@ -878,7 +947,6 @@ func collisions(ps, qs []*Path, keepTangents bool) Intersections {
 
 					// skip if incoming is parallel since we're in the middle of a series of parallel segmentes, and we need to be at the start
 					if !parallel && (angleEqual(zi.DirA, zi.DirB) || angleEqual(zi.DirA, zo.DirB+math.Pi)) {
-						// when the whole path is equal (i.e. all parallels), this will skip all
 						i += m - 1
 						continue
 					}
@@ -901,9 +969,9 @@ func collisions(ps, qs []*Path, keepTangents bool) Intersections {
 					if Equal(Zs[i1].TA, 1.0) {
 						i1 += 2 // first intersection at endpoint of A, select the outgoing angle
 					}
-					if Equal(Zs[i1].TB, 1.0) {
-						i1-- // prefer TA=TB=0 to append to intersections
-					}
+					//if Equal(Zs[i1].TB, 1.0) {
+					//	i1-- // prefer TA=TB=0 to append to intersections
+					//}
 					if Equal(Zs[i2].TA, 0.0) {
 						i2 -= 2 // second, intersection at endpoint of A, select incoming angle
 					}
@@ -980,6 +1048,51 @@ func collisions(ps, qs []*Path, keepTangents bool) Intersections {
 	}
 	zs.ASort()
 	return zs
+}
+
+// SelfIntersects returns true if path p self-intersect.
+func (p *Path) SelfIntersects() bool {
+	return 0 < len(p.SelfIntersections())
+}
+
+// SelfIntersections for path p.
+func (p *Path) SelfIntersections() Intersections {
+	if !p.Flat() {
+		p = p.Flatten(Tolerance)
+	}
+	return selfCollisions(p)
+}
+
+// selfCollisions returns collisions with self, p must have no subpaths
+func selfCollisions(p *Path) Intersections {
+	Zs := Intersections{}
+
+	// TODO: uses O(N^2), try sweep line or bently-ottman to reduce to O((N+K) log N), or is there something more efficient for self-intersection finding?
+	segA := 1
+	for i := 4; i < len(p.d); {
+		if p.d[i] == CubeToCmd {
+			// TODO: find intersections in Cube
+		}
+		pn := cmdLen(p.d[i])
+		segB := segA + 1
+		for j := i + pn; j < len(p.d); {
+			qn := cmdLen(p.d[j])
+			p0, q0 := Point{p.d[i-3], p.d[i-2]}, Point{p.d[j-3], p.d[j-2]}
+			Zs = Zs.appendSegment(segA, p0, p.d[i:i+pn], segB, q0, p.d[j:j+qn])
+			j += qn
+			segB++
+		}
+		i += pn
+		segA++
+	}
+
+	// remove tangent collisions
+	for i := len(Zs) - 1; 0 <= i; i-- {
+		if Zs[i].Tangent {
+			Zs = append(Zs[:i], Zs[i+1:]...)
+		}
+	}
+	return Zs
 }
 
 // intersections of path with ray starting at (x,y) to (∞,y)

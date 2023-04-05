@@ -117,14 +117,14 @@ func (zs Intersections) sortAndWrapEnd(segOffsetA, segOffsetB, lenA, lenB int) {
 	pos := func(z Intersection) (float64, float64) {
 		posa := float64(z.SegA) + z.TA
 		if Equal(z.TA, 1.0) {
-			posa -= 2.0 * Epsilon
+			posa -= Epsilon
 			if z.SegA == segOffsetA+lenA-1 {
 				posa -= float64(lenA - 1) // put end into first segment (moveto)
 			}
 		}
 		posb := float64(z.SegB) + z.TB
 		if Equal(z.TB, 1.0) {
-			posb -= 2.0 * Epsilon
+			posb -= Epsilon
 			if z.SegB == segOffsetB+lenB-1 {
 				posb -= float64(lenB - 1) // put end into first segment (moveto)
 			}
@@ -136,10 +136,9 @@ func (zs Intersections) sortAndWrapEnd(segOffsetA, segOffsetB, lenA, lenB int) {
 		// sort by P and secondary to Q. Consider a point at the very end of the curve (seg=len-1, t=1) as if it were at the beginning, since it is on the starting point of the path
 		posai, posbi := pos(zs[i])
 		posaj, posbj := pos(zs[j])
-		if Equal(posai, posaj) {
-			return posbi < posbj
-		}
-		return posai < posaj
+		posi := 1000.0*posai/float64(lenA) + posbi/float64(lenB)
+		posj := 1000.0*posaj/float64(lenA) + posbj/float64(lenB)
+		return posi < posj
 	})
 }
 
