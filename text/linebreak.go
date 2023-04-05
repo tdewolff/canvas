@@ -314,7 +314,7 @@ func (lb *linebreaker) computeSum(b int) (float64, float64, float64) {
 	// compute tw=(sum w)after(b), ty=(sum y)after(b), and tz=(sum z)after(b)
 	W, Y, Z := lb.W, lb.Y, lb.Z
 	for i, item := range lb.items[b:] {
-		if item.Type == BoxType || (item.Type == PenaltyType && item.Penalty <= -Infinity && 0 < i) {
+		if item.Type == BoxType || (item.Type == PenaltyType && item.Penalty <= -Infinity && 0 < i) || item.Type == GlueType && item.Width == 0.0 {
 			break
 		} else if item.Type == GlueType {
 			W += item.Width
