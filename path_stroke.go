@@ -568,6 +568,12 @@ func (p *Path) Offset(w float64, fillRule FillRule, tolerance float64) *Path {
 // Stroke converts a path into a stroke of width w and returns a new path. It uses cr to cap the start and end of the path, and jr to join all path elements. If the path closes itself, it will use a join between the start and end instead of capping them. The tolerance is the maximum deviation from the original path when flattening Béziers and optimizing the stroke.
 func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path {
 	// TODO: start first point at intersection between last and first segment. This allows a rectangle to have a stroke with twice 1xM, 3xL and one z command, just like a rectangle itself.
+	if cr == nil {
+		cr = ButtCap
+	}
+	if jr == nil {
+		jr = MiterJoin
+	}
 	q := &Path{}
 	halfWidth := w / 2.0
 	for _, ps := range p.Split() {
