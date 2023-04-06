@@ -781,22 +781,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 						}
 					}
 
-					var s string
-					if len(t.lines[j].spans) == 0 {
-						// add spaces at the beginning of the line to this span's text
-						pos := 0
-						if j != 0 {
-							pos = breaks[j-1].Position + 1 // not first line, don't count break
-						}
-						n := 0
-						for ; pos < position; pos++ {
-							n += items[pos].Size
-						}
-						for _, glyph := range glyphs[a-n : a] {
-							s += glyph.Text
-						}
-					}
-					s += log[ac:bc]
+					s := log[ac:bc]
 					t.lines[j].spans = append(t.lines[j].spans, TextSpan{
 						x:           x + dx,
 						Width:       w,
