@@ -1127,7 +1127,7 @@ func (t *Text) WalkLines(callback func(float64, []TextSpan)) {
 }
 
 // WalkSpans calls the callback for each text span per line.
-func (t *Text) WalkSpans(callback func(x, y float64, span TextSpan)) {
+func (t *Text) WalkSpans(callback func(float64, float64, TextSpan)) {
 	for _, line := range t.lines {
 		for _, span := range line.spans {
 			xOffset := span.Face.mmPerEm * float64(span.Face.XOffset)
@@ -1188,5 +1188,5 @@ func (t *Text) String() string {
 	t.WalkSpans(func(_, _ float64, span TextSpan) {
 		sb.WriteString(span.Text)
 	})
-	return sb.Text()
+	return sb.String()
 }
