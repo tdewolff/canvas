@@ -75,6 +75,10 @@ type Path struct {
 	// TODO: optimization: cache bounds and path len until changes (clearCache()), set bounds directly for predefined shapes
 }
 
+func (p *Path) Data() []float64 {
+	return p.d
+}
+
 // Empty returns true if p is an empty path or consists of only MoveTos and Closes.
 func (p *Path) Empty() bool {
 	return len(p.d) <= cmdLen(MoveToCmd)
@@ -256,16 +260,6 @@ func (p *Path) Coords() []Point {
 		}
 	}
 	return coords
-}
-
-// Scanner returns a path scanner.
-func (p *Path) Scanner() *PathScanner {
-	return &PathScanner{p, -1}
-}
-
-// ReverseScanner returns a path scanner in reverse order.
-func (p *Path) ReverseScanner() *PathReverseScanner {
-	return &PathReverseScanner{p, len(p.d)}
 }
 
 ////////////////////////////////////////////////////////////////
