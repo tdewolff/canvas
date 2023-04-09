@@ -1181,3 +1181,12 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
 		}
 	}
 }
+
+// String returns the content of the text box.
+func (t *Text) String() string {
+	sb := &strings.Builder{}
+	t.WalkSpans(func(_, _ float64, span TextSpan) {
+		sb.WriteString(span.Text)
+	})
+	return sb.Text()
+}
