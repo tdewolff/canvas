@@ -1119,6 +1119,13 @@ func (t *Text) WalkDecorations(callback func(fill Paint, deco *Path)) {
 	}
 }
 
+// WalkLines calls the callback for each text line.
+func (t *Text) WalkLines(callback func(float64, []TextSpan)) {
+	for _, line := range t.lines {
+		callback(-line.y, line.spans)
+	}
+}
+
 // WalkSpans calls the callback for each text span per line.
 func (t *Text) WalkSpans(callback func(x, y float64, span TextSpan)) {
 	for _, line := range t.lines {
