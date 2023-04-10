@@ -6,46 +6,86 @@ import (
 	"github.com/ByteArena/poly2tri-go"
 )
 
-// Tiler is how a tile is tiled.
-type Tiler struct {
-	A, B Point
-	Ms   []Matrix
+// PrimitiveCell is a (primitive) cell used for tiling.
+func PrimitiveCell(a, b Point) Matrix {
+	A := a.Length()
+	B := a.PerpDot(b) / A
+	s := a.Dot(b) / b.Length()
+	return Identity.Rotate(a.Angle()*180.0/math.Pi).Shear(s, 0.0).Scale(A, B)
 }
 
-// P1 wallpaper group
-func P1(x, y, rot float64) Tiler {
-	return Tiler{
-		Point{x, 0.0},
-		Point{y, 0.0}.Rot(rot*math.Pi/180.0, Point{0.0, 0.0}),
-		[]Matrix{
-			Identity,
-		},
-	}
+// SquareCell is a square cell with sides of length a used for tiling.
+func SquareCell(a float64) Matrix {
+	return Identity.Scale(a, a)
 }
 
-// Pm wallpaper group
-func Pm(x, y float64) Tiler {
-	return Tiler{
-		Point{x, 0.0},
-		Point{0.0, y},
-		[]Matrix{
-			Identity,
-			Identity.ReflectXAbout(x / 2.0),
-		},
-	}
+// RectangleCell is a rectangular cell with width a and height b used for tiling.
+func RectangleCell(a, b float64) Matrix {
+	return Identity.Scale(a, b)
 }
 
-// Pg wallpaper group
-func Pg(x, y float64) Tiler {
-	return Tiler{
-		Point{x, 0.0},
-		Point{0.0, y},
-		[]Matrix{
-			Identity,
-			Identity.Translate(x/2.0, 0.0).ReflectYAbout(y / 2.0),
-		},
-	}
+// RhombusCell is a rhombus cell with sides of length a at an angle of 120 degrees used for tiling.
+func RhombusCell(a float64) Matrix {
+	return PrimitiveCell(Point{a, 0.0}, Point{a, 0.0}.Rot(120.0, Origin))
 }
+
+// ParallelogramCell is a paralellogram cell with sides of length a and b at an angle of rot degrees used for tiling.
+func ParallelogramCell(a, b, rot float64) Matrix {
+	return PrimitiveCell(Point{a, 0.0}, Point{b, 0.0}.Rot(rot, Origin))
+}
+
+// TileRectangle tiles the given cell (determines the axes along which cells are repeated) onto the rectangle dst (bounds of clipping path), where cells are filled by rectangle src (bounds of object to be tiled).
+func TileRectangle(cell Matrix, dst, src Rect) []Matrix {
+	// find extremes along cell axes
+	invCell := cell.Inv()
+	points := []Point{
+		invCell.Dot(Point{dst.X, dst.Y}),
+		invCell.Dot(Point{dst.X + dst.W, dst.Y}),
+		invCell.Dot(Point{dst.X + dst.W, dst.Y + dst.H}),
+		invCell.Dot(Point{dst.X, dst.Y + dst.H}),
+	}
+	x0, x1 := points[0].X, points[0].X
+	y0, y1 := points[0].Y, points[0].Y
+	for _, point := range points[1:] {
+		x0 = math.Min(x0, point.X)
+		x1 = math.Max(x1, point.X)
+		y0 = math.Min(y0, point.Y)
+		y1 = math.Max(y1, point.Y)
+	}
+
+	// add/subtract when overflowing/underflowing cell
+	cellBounds := src.Transform(invCell)
+	x0 -= cellBounds.X + cellBounds.W - 1.0
+	y0 -= cellBounds.Y + cellBounds.H - 1.0
+	x1 -= cellBounds.X
+	y1 -= cellBounds.Y
+
+	// collect all positions
+	cells := []Matrix{}
+	for y := math.Floor(y0); y < y1; y += 1.0 {
+		for x := math.Floor(x0); x < x1; x += 1.0 {
+			if src.Move(cell.Dot(Point{x, y})).Overlaps(dst) {
+				cells = append(cells, cell.Translate(x, y))
+			}
+		}
+	}
+	return cells
+}
+
+//// P1 wallpaper group
+//var P1 = []Matrix{Identity}
+//
+//// Pm wallpaper group
+//var Pm = []Matrix{
+//	Identity,
+//	Identity.ReflectYAbout(0.5),
+//}
+//
+//// Pg wallpaper group
+//var Pg = []Matrix{
+//	Identity,
+//	Identity.Translate(0.5, 0.0).ReflectYAbout(0.5),
+//}
 
 //func Cm(x, y float64) Tiler {
 //	return Tiler{
@@ -231,25 +271,40 @@ func Pg(x, y float64) Tiler {
 //	}
 //}
 
-// Tile tiles a path. WIP
-func (p *Path) Tile(n, m int, tiler Tiler) *Path {
-	a, b, ms := tiler.A, tiler.B, tiler.Ms
-	pm := &Path{}
-	for _, m := range ms {
-		pm = pm.Append(p.Transform(m))
-	}
+// WallpaperGroup applies the symmetry transformations for the given plane symmetry (or wallpaper) group within the given primitive cell.
+//func (p *Path) WallpaperGroup(group []Matrix, cell Matrix) *Path {
+//	// apply isometries
+//	r := &Path{}
+//	invCell := cell.Inv()
+//	for _, isometry := range group {
+//		rev := (isometry[0][0] < 0.0) != (isometry[1][1] < 0.0)
+//		isometry = Identity.Mul(cell).Mul(isometry).Mul(invCell)
+//		if p.Closed() && rev {
+//			r = r.Append(p.Transform(isometry).Reverse())
+//		} else {
+//			r = r.Append(p.Transform(isometry))
+//		}
+//	}
+//	return r
+//}
 
-	pt := &Path{}
-	for j := 0; j < m; j++ {
-		for i := 0; i < n; i++ {
-			pos := a.Mul(float64(i)).Add(b.Mul(float64(j)))
-			pt = pt.Append(pm.Translate(pos.X, pos.Y))
-		}
+// Tile tiles a path within a clipping path using the given primitive cell.
+func (p *Path) Tile(clip *Path, cell Matrix) *Path {
+	// get path overflow out of cell
+	bounds := p.FastBounds()
+	clipBounds := clip.FastBounds()
+	cells := TileRectangle(cell, clipBounds, bounds)
+
+	// append all tiles
+	r := &Path{}
+	for _, cell := range cells {
+		pos := cell.Dot(Origin)
+		r = r.Append(p.Translate(pos.X, pos.Y))
 	}
-	return pt
+	return r.And(clip)
 }
 
-// Triangulate tessellates the path and returns the triangles that fill the path. WIP
+// Triangulate tessellates the path with triangles that fill the path. WIP
 func (p *Path) Triangulate() ([][3]Point, [][5]Point) {
 	p = p.ReplaceArcs()
 
