@@ -75,6 +75,7 @@ type Path struct {
 	// TODO: optimization: cache bounds and path len until changes (clearCache()), set bounds directly for predefined shapes
 }
 
+// Data returns the raw path data.
 func (p *Path) Data() []float64 {
 	return p.d
 }
@@ -715,26 +716,72 @@ func (p *Path) CCW() bool {
 	return area <= 0.0
 }
 
-// Bounds returns the bounding box rectangle of the path.
-func (p *Path) Bounds() Rect {
-	if len(p.d) == 0 {
+// FastBounds returns the maximum bounding box rectangle of the path. It is quicker than Bounds.
+func (p *Path) FastBounds() Rect {
+	if len(p.d) < 4 {
 		return Rect{}
 	}
 
-	xmin, xmax := math.Inf(1), math.Inf(-1)
-	ymin, ymax := math.Inf(1), math.Inf(-1)
-
-	var start, end Point
-	for i := 0; i < len(p.d); {
+	// first command is MoveTo
+	start, end := Point{p.d[1], p.d[2]}, Point{}
+	xmin, xmax := start.X, start.X
+	ymin, ymax := start.Y, start.Y
+	for i := 4; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
-		case MoveToCmd:
+		case MoveToCmd, LineToCmd, CloseCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
 			xmin = math.Min(xmin, end.X)
 			xmax = math.Max(xmax, end.X)
 			ymin = math.Min(ymin, end.Y)
 			ymax = math.Max(ymax, end.Y)
-		case LineToCmd, CloseCmd:
+		case QuadToCmd:
+			cp := Point{p.d[i+1], p.d[i+2]}
+			end = Point{p.d[i+3], p.d[i+4]}
+			xmin = math.Min(xmin, math.Min(cp.X, end.X))
+			xmax = math.Max(xmax, math.Max(cp.X, end.X))
+			ymin = math.Min(ymin, math.Min(cp.Y, end.Y))
+			ymax = math.Max(ymax, math.Max(cp.Y, end.Y))
+		case CubeToCmd:
+			cp1 := Point{p.d[i+1], p.d[i+2]}
+			cp2 := Point{p.d[i+3], p.d[i+4]}
+			end = Point{p.d[i+5], p.d[i+6]}
+			xmin = math.Min(xmin, math.Min(cp1.X, math.Min(cp2.X, end.X)))
+			xmax = math.Max(xmax, math.Max(cp1.X, math.Min(cp2.X, end.X)))
+			ymin = math.Min(ymin, math.Min(cp1.Y, math.Min(cp2.Y, end.Y)))
+			ymax = math.Max(ymax, math.Max(cp1.Y, math.Min(cp2.Y, end.Y)))
+		case ArcToCmd:
+			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
+			large, sweep := toArcFlags(p.d[i+4])
+			end = Point{p.d[i+5], p.d[i+6]}
+			cx, cy, _, _ := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
+			r := math.Max(rx, ry)
+			xmin = math.Min(xmin, cx-r)
+			xmax = math.Max(xmax, cx+r)
+			ymin = math.Min(ymin, cy-r)
+			ymax = math.Max(ymax, cy+r)
+
+		}
+		i += cmdLen(cmd)
+		start = end
+	}
+	return Rect{xmin, ymin, xmax - xmin, ymax - ymin}
+}
+
+// Bounds returns the exact bounding box rectangle of the path.
+func (p *Path) Bounds() Rect {
+	if len(p.d) < 4 {
+		return Rect{}
+	}
+
+	// first command is MoveTo
+	start, end := Point{p.d[1], p.d[2]}, Point{}
+	xmin, xmax := start.X, start.X
+	ymin, ymax := start.Y, start.Y
+	for i := 4; i < len(p.d); {
+		cmd := p.d[i]
+		switch cmd {
+		case MoveToCmd, LineToCmd, CloseCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
 			xmin = math.Min(xmin, end.X)
 			xmax = math.Max(xmax, end.X)
@@ -746,7 +793,7 @@ func (p *Path) Bounds() Rect {
 
 			xmin = math.Min(xmin, end.X)
 			xmax = math.Max(xmax, end.X)
-			if tdenom := (start.X - 2*cp.X + end.X); tdenom != 0.0 {
+			if tdenom := (start.X - 2*cp.X + end.X); !Equal(tdenom, 0.0) {
 				if t := (start.X - cp.X) / tdenom; 0.0 < t && t < 1.0 {
 					x := quadraticBezierPos(start, cp, end, t)
 					xmin = math.Min(xmin, x.X)
@@ -756,7 +803,7 @@ func (p *Path) Bounds() Rect {
 
 			ymin = math.Min(ymin, end.Y)
 			ymax = math.Max(ymax, end.Y)
-			if tdenom := (start.Y - 2*cp.Y + end.Y); tdenom != 0.0 {
+			if tdenom := (start.Y - 2*cp.Y + end.Y); !Equal(tdenom, 0.0) {
 				if t := (start.Y - cp.Y) / tdenom; 0.0 < t && t < 1.0 {
 					y := quadraticBezierPos(start, cp, end, t)
 					ymin = math.Min(ymin, y.Y)
