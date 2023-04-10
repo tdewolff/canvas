@@ -2,7 +2,6 @@ package rasterizer
 
 import (
 	"image"
-	"image/color"
 	"math"
 
 	"github.com/tdewolff/canvas"
@@ -118,28 +117,50 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 	}
 
 	if style.HasFill() {
+		if style.Fill.IsPattern() {
+			if hatch, ok := style.Fill.Pattern.(*canvas.HatchPattern); ok {
+				style.Fill = hatch.Fill
+				fill = hatch.Tile(fill)
+			}
+		}
+
 		ras := vector.NewRasterizer(w, h)
 		fill = fill.Translate(-float64(x)/dpmm, -float64(size.Y-y-h)/dpmm)
 		fill.ToRasterizer(ras, r.resolution)
 		var src image.Image
 		if style.Fill.IsColor() {
 			src = image.NewUniform(r.colorSpace.ToLinear(style.Fill.Color))
+		} else if style.Fill.IsGradient() {
+			src = NewGradientImage(style.Fill.Gradient, zp, size, r.resolution, r.colorSpace)
 		} else if style.Fill.IsPattern() {
-			src = NewPatternImage(style.Fill.Pattern, zp, size, r.resolution, r.colorSpace)
+			style.Fill.Pattern.ClipTo(r, fill)
 		}
-		ras.Draw(r.Image, image.Rect(x, y, x+w, y+h), src, image.Point{dx, dy})
+		if src != nil {
+			ras.Draw(r.Image, image.Rect(x, y, x+w, y+h), src, image.Point{dx, dy})
+		}
 	}
 	if style.HasStroke() {
+		if style.Stroke.IsPattern() {
+			if hatch, ok := style.Stroke.Pattern.(*canvas.HatchPattern); ok {
+				style.Stroke = hatch.Fill
+				stroke = hatch.Tile(stroke)
+			}
+		}
+
 		ras := vector.NewRasterizer(w, h)
 		stroke = stroke.Translate(-float64(x)/dpmm, -float64(size.Y-y-h)/dpmm)
 		stroke.ToRasterizer(ras, r.resolution)
 		var src image.Image
 		if style.Stroke.IsColor() {
 			src = image.NewUniform(r.colorSpace.ToLinear(style.Stroke.Color))
-		} else if style.Stroke.IsPattern() {
-			src = NewPatternImage(style.Stroke.Pattern, zp, size, r.resolution, r.colorSpace)
+		} else if style.Stroke.IsGradient() {
+			src = NewGradientImage(style.Stroke.Gradient, zp, size, r.resolution, r.colorSpace)
+		} else if style.Fill.IsPattern() {
+			style.Stroke.Pattern.ClipTo(r, fill)
 		}
-		ras.Draw(r.Image, image.Rect(x, y, x+w, y+h), src, image.Point{dx, dy})
+		if src != nil {
+			ras.Draw(r.Image, image.Rect(x, y, x+w, y+h), src, image.Point{dx, dy})
+		}
 	}
 }
 
@@ -172,24 +193,4 @@ func (r *Rasterizer) RenderImage(img image.Image, m canvas.Matrix) {
 	h := float64(r.Bounds().Size().Y)
 	aff3 := f64.Aff3{m[0][0], -m[0][1], origin.X, -m[1][0], m[1][1], h - origin.Y}
 	draw.CatmullRom.Transform(r, aff3, img2, img2.Bounds(), draw.Over, nil)
-}
-
-type colorFunc func(color.Color) color.RGBA
-
-func changeColorSpace(dst draw.Image, src image.Image, f colorFunc) {
-	if dstRGBA, ok := dst.(*image.RGBA); ok {
-		for j := 0; j < dst.Bounds().Max.Y; j++ {
-			for i := 0; i < dst.Bounds().Max.X; i++ {
-				// TODO: parallelize
-				dstRGBA.SetRGBA(i, j, f(src.At(i, j)))
-			}
-		}
-	} else {
-		for j := 0; j < dst.Bounds().Max.Y; j++ {
-			for i := 0; i < dst.Bounds().Max.X; i++ {
-				// TODO: parallelize
-				dst.Set(i, j, f(src.At(i, j)))
-			}
-		}
-	}
 }

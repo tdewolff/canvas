@@ -117,6 +117,21 @@ func (color CSSColor) String() string {
 	return fmt.Sprintf("rgba(%d,%d,%d,%v)", int(float64(color.R)/a), int(float64(color.G)/a), int(float64(color.B)/a), dec(a))
 }
 
+func rgbaColor(col color.Color) color.RGBA {
+	r, g, b, a := col.RGBA()
+	// RGBA returns an alpha-premultiplied color so that c <= a. We silently correct the color by clipping r,g,b to a
+	if a < r {
+		r = a
+	}
+	if a < g {
+		g = a
+	}
+	if a < b {
+		b = a
+	}
+	return color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+}
+
 ////////////////////////////////////////////////////////////////
 
 func toP26_6(p Point) fixed.Point26_6 {
@@ -268,6 +283,7 @@ func (p Point) String() string {
 
 // Rect is a rectangle in 2D defined by a position and its width and height.
 type Rect struct {
+	// TODO: better with X0,Y0,X1,Y1
 	X, Y, W, H float64
 }
 
@@ -390,6 +406,7 @@ func (m Matrix) Translate(x, y float64) Matrix {
 
 // Rotate adds a rotation transformation with rot in degree counter clockwise.
 func (m Matrix) Rotate(rot float64) Matrix {
+	// TODO: this accepts degrees but Point.Angle returns radians
 	sintheta, costheta := math.Sincos(rot * math.Pi / 180.0)
 	return m.Mul(Matrix{
 		{costheta, -sintheta, 0.0},
@@ -399,6 +416,7 @@ func (m Matrix) Rotate(rot float64) Matrix {
 
 // RotateAbout adds a rotation transformation about (x,y) with rot in degrees counter clockwise.
 func (m Matrix) RotateAbout(rot, x, y float64) Matrix {
+	// TODO: accept Point
 	return m.Translate(x, y).Rotate(rot).Translate(-x, -y)
 }
 
@@ -412,6 +430,7 @@ func (m Matrix) Scale(sx, sy float64) Matrix {
 
 // ScaleAbout adds a scaling transformation about (x,y) in sx and sy. When scale is negative it will flip those axes.
 func (m Matrix) ScaleAbout(sx, sy, x, y float64) Matrix {
+	// TODO: accept Point
 	return m.Translate(x, y).Scale(sx, sy).Translate(-x, -y)
 }
 

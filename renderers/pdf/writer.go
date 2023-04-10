@@ -634,9 +634,9 @@ func (w *pdfPageWriter) SetFill(fill canvas.Paint) {
 	if fill.Equal(w.fill) {
 		return
 	}
-	if fill.IsPattern() {
+	if fill.IsGradient() {
 		// TODO: should we unset cs?
-		fmt.Fprintf(w, " /Pattern cs /%v scn", w.getPattern(fill.Pattern))
+		fmt.Fprintf(w, " /Pattern cs /%v scn", w.getPattern(fill.Gradient))
 	} else {
 		a := float64(fill.Color.A) / 255.0
 		if fill.Color.R == fill.Color.G && fill.Color.R == fill.Color.B {
@@ -654,9 +654,9 @@ func (w *pdfPageWriter) SetStroke(stroke canvas.Paint) {
 	if stroke.Equal(w.stroke) {
 		return
 	}
-	if stroke.IsPattern() {
+	if stroke.IsGradient() {
 		// TODO: should we unset CS?
-		fmt.Fprintf(w, " /Pattern CS /%v SCN", w.getPattern(stroke.Pattern))
+		fmt.Fprintf(w, " /Pattern CS /%v SCN", w.getPattern(stroke.Gradient))
 	} else {
 		a := float64(stroke.Color.A) / 255.0
 		if stroke.Color.R == stroke.Color.G && stroke.Color.R == stroke.Color.B {
@@ -1047,17 +1047,17 @@ func (w *pdfPageWriter) getOpacityGS(a float64) pdfName {
 	return name
 }
 
-func (w *pdfPageWriter) getPattern(pat canvas.Pattern) pdfName {
+func (w *pdfPageWriter) getPattern(gradient canvas.Gradient) pdfName {
 	// TODO: support patterns/gradients with alpha channel
 	shading := pdfDict{
 		"ColorSpace": pdfName("DeviceRGB"),
 	}
-	if g, ok := pat.(*canvas.LinearGradient); ok {
+	if g, ok := gradient.(*canvas.LinearGradient); ok {
 		shading["ShadingType"] = 2
 		shading["Coords"] = pdfArray{g.Start.X * ptPerMm, g.Start.Y * ptPerMm, g.End.X * ptPerMm, g.End.Y * ptPerMm}
 		shading["Function"] = patternStopsFunction(g.Stops)
 		shading["Extend"] = pdfArray{true, true}
-	} else if g, ok := pat.(*canvas.RadialGradient); ok {
+	} else if g, ok := gradient.(*canvas.RadialGradient); ok {
 		shading["ShadingType"] = 3
 		shading["Coords"] = pdfArray{g.C0.X * ptPerMm, g.C0.Y * ptPerMm, g.R0 * ptPerMm, g.C1.X * ptPerMm, g.C1.Y * ptPerMm, g.R1 * ptPerMm}
 		shading["Function"] = patternStopsFunction(g.Stops)

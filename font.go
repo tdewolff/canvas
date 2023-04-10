@@ -214,21 +214,21 @@ func (f *Font) SetFeatures(features string) {
 }
 
 // Face gets the font face given by the font size in points and its style. Fill can be any of Paint, color.Color, or canvas.Pattern.
-func (f *Font) Face(size float64, ipaint interface{}, deco ...FontDecorator) *FontFace {
+func (f *Font) Face(size float64, ifill interface{}, deco ...FontDecorator) *FontFace {
 	face := &FontFace{}
 	face.Font = f
 	face.Size = size * mmPerPt
 	face.Style = f.style
 	face.Variant = FontNormal
 
-	if paint, ok := ipaint.(Paint); ok {
+	if paint, ok := ifill.(Paint); ok {
 		face.Fill = paint
-	} else if pattern, ok := ipaint.(Pattern); ok {
+	} else if pattern, ok := ifill.(Pattern); ok {
 		face.Fill = Paint{Pattern: pattern}
-	} else if col, ok := ipaint.(color.Color); ok {
-		r, g, b, a := col.RGBA()
-		col := color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
-		face.Fill = Paint{Color: col}
+	} else if gradient, ok := ifill.(Gradient); ok {
+		face.Fill = Paint{Gradient: gradient}
+	} else if col, ok := ifill.(color.Color); ok {
+		face.Fill = Paint{Color: rgbaColor(col)}
 	}
 	face.Deco = deco
 	face.Hinting = font.VerticalHinting
@@ -352,10 +352,10 @@ func (family *FontFamily) Face(size float64, args ...interface{}) *FontFace {
 			face.Fill = arg
 		case Pattern:
 			face.Fill = Paint{Pattern: arg}
+		case Gradient:
+			face.Fill = Paint{Gradient: arg}
 		case color.Color:
-			r, g, b, a := arg.RGBA()
-			col := color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
-			face.Fill = Paint{Color: col}
+			face.Fill = Paint{Color: rgbaColor(arg)}
 		case FontStyle:
 			face.Style = arg
 		case FontVariant:

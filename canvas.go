@@ -104,14 +104,16 @@ const (
 
 // Paint is the type of paint used to fill or stroke a path. It can be either a color or a pattern. Default is transparent (no paint).
 type Paint struct {
-	Color   color.RGBA
-	Pattern Pattern
-	// TODO: add hatch image and hatch path
+	Color color.RGBA
+	Gradient
+	Pattern
 }
 
 // Equal returns true if Paints are equal.
 func (paint Paint) Equal(other Paint) bool {
 	if paint.IsColor() && other.IsColor() && paint.Color == other.Color {
+		return true
+	} else if paint.IsGradient() && other.IsGradient() && reflect.DeepEqual(paint, other) {
 		return true
 	} else if paint.IsPattern() && other.IsPattern() && reflect.DeepEqual(paint, other) {
 		return true
@@ -121,12 +123,17 @@ func (paint Paint) Equal(other Paint) bool {
 
 // Has returns true if paint has a color or pattern.
 func (paint Paint) Has() bool {
-	return paint.Color.A != 0 || paint.Pattern != nil
+	return paint.Color.A != 0 || paint.Gradient != nil || paint.Pattern != nil
 }
 
 // IsColor returns true when paint is a uniform color.
 func (paint Paint) IsColor() bool {
-	return paint.Color.A != 0 && paint.Pattern == nil
+	return paint.Color.A != 0 && paint.Gradient == nil && paint.Pattern == nil
+}
+
+// IsGradient returns true when paint is a gradient.
+func (paint Paint) IsGradient() bool {
+	return paint.Gradient != nil && paint.Pattern == nil
 }
 
 // IsPattern returns true when paint is a pattern.
@@ -352,49 +359,75 @@ func (c *Context) ShearAbout(sx, sy, x, y float64) {
 	c.view = c.view.Mul(Identity.ShearAbout(sx, sy, x, y))
 }
 
+// SetFill sets the color, gradient, or pattern to be used for filling operations.
+func (c *Context) SetFill(ifill interface{}) {
+	if paint, ok := ifill.(Paint); ok {
+		c.Style.Fill = paint
+	} else if pattern, ok := ifill.(Pattern); ok {
+		c.Style.Fill = Paint{Pattern: pattern}
+	} else if gradient, ok := ifill.(Gradient); ok {
+		c.Style.Fill = Paint{Gradient: gradient}
+	} else if col, ok := ifill.(color.Color); ok {
+		c.Style.Fill = Paint{Color: rgbaColor(col)}
+	} else {
+		c.Style.Fill = Paint{}
+	}
+}
+
 // SetFillColor sets the color to be used for filling operations.
 func (c *Context) SetFillColor(col color.Color) {
-	r, g, b, a := col.RGBA()
-	// RGBA returns an alpha-premultiplied color so that c <= a. We silently correct the color by clipping r,g,b to a
-	if a < r {
-		r = a
-	}
-	if a < g {
-		g = a
-	}
-	if a < b {
-		b = a
-	}
-	c.Style.Fill.Color = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+	c.Style.Fill.Color = rgbaColor(col)
+	c.Style.Fill.Gradient = nil
 	c.Style.Fill.Pattern = nil
 }
 
-// SetFillPattern sets the pattern (such as gradients) to be used for filling operations.
+// SetFillGradient sets the gradient to be used for filling operations.
+func (c *Context) SetFillGradient(gradient Gradient) {
+	c.Style.Fill.Color = Transparent
+	c.Style.Fill.Gradient = gradient
+	c.Style.Fill.Pattern = nil
+}
+
+// SetFillPattern sets the pattern to be used for filling operations.
 func (c *Context) SetFillPattern(pattern Pattern) {
 	c.Style.Fill.Color = Transparent
+	c.Style.Fill.Gradient = nil
 	c.Style.Fill.Pattern = pattern
+}
+
+// SetStroke sets the color, gradient, or pattern to be used for stroke operations.
+func (c *Context) SetStroke(istroke interface{}) {
+	if paint, ok := istroke.(Paint); ok {
+		c.Style.Stroke = paint
+	} else if pattern, ok := istroke.(Pattern); ok {
+		c.Style.Stroke = Paint{Pattern: pattern}
+	} else if gradient, ok := istroke.(Gradient); ok {
+		c.Style.Stroke = Paint{Gradient: gradient}
+	} else if col, ok := istroke.(color.Color); ok {
+		c.Style.Stroke = Paint{Color: rgbaColor(col)}
+	} else {
+		c.Style.Stroke = Paint{}
+	}
 }
 
 // SetStrokeColor sets the color to be used for stroking operations.
 func (c *Context) SetStrokeColor(col color.Color) {
-	r, g, b, a := col.RGBA()
-	// RGBA returns an alpha-premultiplied color so that c <= a. We silently correct the color by clipping r,g,b to a
-	if a < r {
-		r = a
-	}
-	if a < g {
-		g = a
-	}
-	if a < b {
-		b = a
-	}
-	c.Style.Stroke.Color = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+	c.Style.Stroke.Color = rgbaColor(col)
+	c.Style.Stroke.Gradient = nil
 	c.Style.Stroke.Pattern = nil
 }
 
-// SetStrokePattern sets the pattern (such as gradients) to be used for stroking operations.
+// SetStrokeGradient sets the gradients to be used for stroking operations.
+func (c *Context) SetStrokeGradient(gradient Gradient) {
+	c.Style.Stroke.Color = Transparent
+	c.Style.Stroke.Gradient = gradient
+	c.Style.Stroke.Pattern = nil
+}
+
+// SetStrokePattern sets the pattern to be used for stroking operations.
 func (c *Context) SetStrokePattern(pattern Pattern) {
 	c.Style.Stroke.Color = Transparent
+	c.Style.Stroke.Gradient = nil
 	c.Style.Stroke.Pattern = pattern
 }
 

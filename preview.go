@@ -127,7 +127,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	gradient := NewRadialGradient(Point{120.0, 5.0}, 0.0, Point{140.0, 5.0}, 60.0)
 	gradient.Add(0.0, Turquoise)
 	gradient.Add(1.0, Red)
-	ctx.SetFillPattern(gradient)
+	ctx.SetFillGradient(gradient)
 
 	face = fontLatin.Face(80.0)
 	p, _, _ := face.ToPath("Stroke")
