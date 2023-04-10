@@ -59,6 +59,7 @@ func (p *Path) ContainsPath(q *Path) bool {
 // Settle combines the path p with itself, including all subpaths, removing all self-intersections and overlapping parts. It returns subpaths with counter clockwise directions when filling, and clockwise directions for holes.
 func (p *Path) Settle() *Path {
 	// TODO: settle and self-settle for fillrule == EvenOdd
+	// TODO: optimize, is very slow for many paths, maybe not use boolean for each subpath, but process in one go?
 	if p.Empty() {
 		return p
 	}
@@ -119,7 +120,7 @@ func (p *Path) selfSettle() *Path {
 	//Zs2.ASort()
 
 	ccw := q.CCW()
-	return booleanIntersections(pathOpNot, Zs, q, q, ccw, ccw)
+	return booleanIntersections(pathOpNot, Zs, q, q, ccw, ccw) // TODO: not sure why NOT works
 }
 
 // And returns the boolean path operation of path p and q. Path q is implicitly closed.
@@ -180,6 +181,7 @@ func (idx subpathIndexer) get(seg int) int {
 
 // path p can be open or closed paths (we handle them separately), path q is closed implicitly
 func boolean(p *Path, op pathOp, q *Path) *Path {
+	// TODO: settle very slow
 	if op != pathOpSettle {
 		// remove self-intersections within each path and direct them all CCW
 		p = p.Settle()

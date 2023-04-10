@@ -105,6 +105,11 @@ func TestIntersectionLineLine(t *testing.T) {
 		// none
 		{"M2 0L2 1", "M3 0L3 1", Intersections{}},
 		{"M2 0L2 1", "M0 2L1 2", Intersections{}},
+
+		// bugs
+		{"M21.590990257669734 18.40900974233027L22.651650429449557 17.348349570550447", "M21.23743686707646 18.762563132923542L21.590990257669738 18.409009742330266", Intersections{
+			{Point{21.590990257669734, 18.40900974233027}, 0, 0, 0.0, 1.0, 1.75 * math.Pi, 1.75 * math.Pi, 0, Parallel, true},
+		}},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.line1, "x", tt.line2), func(t *testing.T) {
@@ -673,6 +678,11 @@ func TestPathAnd(t *testing.T) {
 		{"L10 0", "L10 0L10 10L0 10z", ""},                            // touch with parallel
 		{"L5 0L5 1L7 -1", "L10 0L10 10L0 10z", "L5 0L5 1L6 0"},        // touch with parallel
 		{"L5 0L5 -1L7 1", "L10 0L10 10L0 10z", "M6 0L7 1"},            // touch with parallel
+
+		// bugs
+		{"M23 15L24 15L24 16L23 16zM23.4 14L24.4 14L24.4 15L23.4 15z", "M15 16A1 1 0 0 1 16 15L24 15A1 1 0 0 1 25 16L25 24A1 1 0 0 1 24 25L16 25A1 1 0 0 1 15 24z", "M23 15L24 15L24 16L23 16z"},
+
+		{"M23 15L24 15L24 16L23 16zM24 15.4L25 15.4L25 16.4L24 16.4z", "M14 14L24 14L24 24L14 24z", "M23 15L24 15L24 16L23 16z"},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {

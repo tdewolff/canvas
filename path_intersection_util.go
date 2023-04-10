@@ -318,27 +318,27 @@ func (zs Intersections) LineLine(a0, a1, b0, b1 Point) Intersections {
 			b := a1.Rot(-angle0, Point{}).X
 			c := b0.Rot(-angle0, Point{}).X
 			d := b1.Rot(-angle0, Point{}).X
-			if (c <= a && a <= d && c <= b && b <= d) || (d <= a && a <= c && d <= b && b <= c) {
+			if Interval(a, c, d) && Interval(b, c, d) || Interval(a, d, c) && Interval(b, d, c) {
 				// a-b in c-d or a-b == c-d
 				zs = zs.add(a0, 0.0, (a-c)/(d-c), angle0, angle1, true)
 				zs = zs.add(a1, 1.0, (b-c)/(d-c), angle0, angle1, true)
-			} else if a < c && c < b && a < d && d < b {
+			} else if Interval(c, a, b) && Interval(d, a, b) {
 				// c-d in a-b
 				zs = zs.add(b0, (c-a)/(b-a), 0.0, angle0, angle1, true)
 				zs = zs.add(b1, (d-a)/(b-a), 1.0, angle0, angle1, true)
-			} else if c <= a && a <= d || d <= a && a <= c {
+			} else if Interval(a, c, d) || Interval(a, d, c) {
 				// a in c-d
 				zs = zs.add(a0, 0.0, (a-c)/(d-c), angle0, angle1, true)
-				if a < d {
+				if a < d-Epsilon {
 					zs = zs.add(b1, (d-a)/(b-a), 1.0, angle0, angle1, true)
-				} else if a < c {
+				} else if a < c-Epsilon {
 					zs = zs.add(b0, (c-a)/(b-a), 0.0, angle0, angle1, true)
 				}
-			} else if c <= b && b <= d || d <= b && b <= c {
+			} else if Interval(b, c, d) || Interval(b, d, c) {
 				// b in c-d
-				if c < b {
+				if c < b-Epsilon {
 					zs = zs.add(b0, (c-a)/(b-a), 0.0, angle0, angle1, true)
-				} else if d < b {
+				} else if d < b-Epsilon {
 					zs = zs.add(b1, (d-a)/(b-a), 1.0, angle0, angle1, true)
 				}
 				zs = zs.add(a1, 1.0, (b-c)/(d-c), angle0, angle1, true)
