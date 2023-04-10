@@ -240,8 +240,7 @@ func (r *PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 			r.w.EndTextObject()
 		} else {
 			for _, obj := range span.Objects {
-				rv := canvas.RendererViewer{r, m.Mul(obj.View(x, y, span.Face))}
-				obj.Canvas.RenderTo(rv)
+				obj.Canvas.RenderViewTo(r, m.Mul(obj.View(x, y, span.Face)))
 			}
 		}
 	})

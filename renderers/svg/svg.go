@@ -373,8 +373,7 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 	text.WalkSpans(func(x, y float64, span canvas.TextSpan) {
 		if !span.IsText() {
 			for _, obj := range span.Objects {
-				rv := canvas.RendererViewer{r, m.Mul(obj.View(x, y, span.Face))}
-				obj.Canvas.RenderTo(rv)
+				obj.Canvas.RenderViewTo(r, m.Mul(obj.View(x, y, span.Face)))
 			}
 		}
 	})

@@ -744,24 +744,13 @@ func (c *Canvas) Fit(margin float64) {
 	c.Clip(rect)
 }
 
-// RendererViewer overloads the View function of a renderer and sets it to the given Matrix. Used in combination with Canvas.RenderTo.
-type RendererViewer struct {
-	Renderer
-	Matrix
-}
-
-// View overloads the view of a renderer.
-func (r RendererViewer) View() Matrix {
-	return r.Matrix
-}
-
 // RenderTo renders the accumulated canvas drawing operations to another renderer.
 func (c *Canvas) RenderTo(r Renderer) {
-	view := Identity
-	if viewer, ok := r.(interface{ View() Matrix }); ok {
-		view = viewer.View()
-	}
+	c.RenderViewTo(r, Identity)
+}
 
+// RenderViewTo transforms and renders the accumulated canvas drawing operations to another renderer.
+func (c *Canvas) RenderViewTo(r Renderer, view Matrix) {
 	zindices := []int{}
 	for zindex := range c.layers {
 		zindices = append(zindices, zindex)

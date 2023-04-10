@@ -1174,8 +1174,7 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
 				r.RenderPath(p, style, m)
 			} else {
 				for _, obj := range span.Objects {
-					rv := RendererViewer{r, m.Mul(obj.View(x, y, span.Face))}
-					obj.RenderTo(rv)
+					obj.RenderViewTo(r, m.Mul(obj.View(x, y, span.Face)))
 				}
 			}
 		}
