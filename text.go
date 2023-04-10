@@ -181,7 +181,7 @@ func (l line) Heights(mode WritingMode) (float64, float64, float64, float64) {
 
 // TextSpan is a span of text.
 type TextSpan struct {
-	x            float64
+	X            float64
 	Width        float64
 	PaddingLeft  float64 // padding for decoration
 	PaddingRight float64
@@ -263,7 +263,7 @@ func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 					glyphs, direction := face.Font.shaper.Shape(item.Text, ppem, face.Direction, face.Script, face.Language, face.Font.features, face.Font.variations)
 					width := face.textWidth(glyphs)
 					line.spans = append(line.spans, TextSpan{
-						x:         lineWidth,
+						X:         lineWidth,
 						Width:     width,
 						Face:      face,
 						Text:      item.Text,
@@ -274,11 +274,11 @@ func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 				}
 				if halign == Center || halign == Middle {
 					for k := range line.spans {
-						line.spans[k].x = -lineWidth / 2.0
+						line.spans[k].X = -lineWidth / 2.0
 					}
 				} else if halign == Right {
 					for k := range line.spans {
-						line.spans[k].x = -lineWidth
+						line.spans[k].X = -lineWidth
 					}
 				}
 				t.lines = append(t.lines, line)
@@ -783,7 +783,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 					s := log[ac:bc]
 					t.lines[j].spans = append(t.lines[j].spans, TextSpan{
-						x:           x + dx,
+						X:           x + dx,
 						Width:       w,
 						PaddingLeft: paddingLeft, // paddingRight is added when at glue
 						Face:        face,
@@ -805,10 +805,10 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 							}
 						}
 						if first < last {
-							space := x + dx - t.lines[j].spans[first].x - t.lines[j].spans[first].Width
-							t.lines[j].spans[last].x = t.lines[j].spans[last-1].x
+							space := x + dx - t.lines[j].spans[first].X - t.lines[j].spans[first].Width
+							t.lines[j].spans[last].X = t.lines[j].spans[last-1].X
 							for i := first; i < last; i++ {
-								t.lines[j].spans[i].x += w + space
+								t.lines[j].spans[i].X += w + space
 							}
 						}
 					}
@@ -934,7 +934,7 @@ func (t *Text) Bounds() Rect {
 	for _, line := range t.lines {
 		for _, span := range line.spans {
 			// TODO: vertical text
-			rect = rect.Add(Rect{span.x, -line.y - span.Face.Metrics().Descent, span.Width, span.Face.Metrics().Ascent + span.Face.Metrics().Descent})
+			rect = rect.Add(Rect{span.X, -line.y - span.Face.Metrics().Descent, span.Width, span.Face.Metrics().Ascent + span.Face.Metrics().Descent})
 		}
 	}
 	return rect
@@ -954,7 +954,7 @@ func (t *Text) OutlineBounds() Rect {
 				panic(err)
 			}
 			spanBounds := p.Bounds()
-			spanBounds = spanBounds.Move(Point{span.x, -line.y})
+			spanBounds = spanBounds.Move(Point{span.X, -line.y})
 			r = r.Add(spanBounds)
 		}
 	}
@@ -1060,7 +1060,7 @@ func (t *Text) WalkDecorations(callback func(fill Paint, deco *Path)) {
 				for i, deco := range active {
 					if reflect.DeepEqual(span.Face.Fill, deco.fill) && reflect.DeepEqual(deco.deco, spanDeco) {
 						// extend decoration
-						active[i].width = span.x + span.Width + span.PaddingRight - active[i].x
+						active[i].width = span.X + span.Width + span.PaddingRight - active[i].x
 						if active[i].face.Size < span.Face.Size {
 							active[i].face = span.Face
 						}
@@ -1074,7 +1074,7 @@ func (t *Text) WalkDecorations(callback func(fill Paint, deco *Path)) {
 					active = append(active, decorationSpan{
 						deco:  spanDeco,
 						fill:  span.Face.Fill,
-						x:     span.x - span.PaddingLeft,
+						x:     span.X - span.PaddingLeft,
 						width: span.Width + span.PaddingLeft + span.PaddingRight,
 						face:  span.Face,
 					})
@@ -1133,9 +1133,9 @@ func (t *Text) WalkSpans(callback func(float64, float64, TextSpan)) {
 			xOffset := span.Face.mmPerEm * float64(span.Face.XOffset)
 			yOffset := span.Face.mmPerEm * float64(span.Face.YOffset)
 			if t.WritingMode == HorizontalTB {
-				callback(span.x+xOffset, -line.y+yOffset, span)
+				callback(span.X+xOffset, -line.y+yOffset, span)
 			} else {
-				callback(line.y+xOffset, -span.x+yOffset, span)
+				callback(line.y+xOffset, -span.X+yOffset, span)
 			}
 		}
 	}
@@ -1151,9 +1151,9 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
 
 	for _, line := range t.lines {
 		for _, span := range line.spans {
-			x, y := span.x, -line.y
+			x, y := span.X, -line.y
 			if t.WritingMode != HorizontalTB {
-				x, y = line.y, -span.x
+				x, y = line.y, -span.X
 			}
 
 			if span.IsText() {

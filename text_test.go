@@ -17,19 +17,19 @@ func TestTextLine(t *testing.T) {
 	test.T(t, len(text.fonts), 1)
 	test.T(t, len(text.lines), 2)
 	test.T(t, len(text.lines[0].spans), 1)
-	test.Float(t, text.lines[0].spans[0].x, 0.0)
+	test.Float(t, text.lines[0].spans[0].X, 0.0)
 	test.Float(t, text.lines[0].y, 0.0)
 	test.T(t, len(text.lines[1].spans), 1)
-	test.Float(t, text.lines[1].spans[0].x, 0.0)
+	test.Float(t, text.lines[1].spans[0].X, 0.0)
 	test.Float(t, text.lines[1].y, face.Metrics().LineHeight)
 
 	text = NewTextLine(face, "test\nline", Center)
-	test.Float(t, text.lines[0].spans[0].x, -0.5*text.lines[0].spans[0].Width)
-	test.Float(t, text.lines[1].spans[0].x, -0.5*text.lines[1].spans[0].Width)
+	test.Float(t, text.lines[0].spans[0].X, -0.5*text.lines[0].spans[0].Width)
+	test.Float(t, text.lines[1].spans[0].X, -0.5*text.lines[1].spans[0].Width)
 
 	text = NewTextLine(face, "test\nline", Right)
-	test.Float(t, text.lines[0].spans[0].x, -text.lines[0].spans[0].Width)
-	test.Float(t, text.lines[1].spans[0].x, -text.lines[1].spans[0].Width)
+	test.Float(t, text.lines[0].spans[0].X, -text.lines[0].spans[0].Width)
+	test.Float(t, text.lines[1].spans[0].X, -text.lines[1].spans[0].Width)
 }
 
 func TestRichText(t *testing.T) {
@@ -48,27 +48,27 @@ func TestRichText(t *testing.T) {
 	test.T(t, len(text.lines), 2)
 	test.Float(t, text.lines[0].y, 1901)
 	test.Float(t, text.lines[1].y, 4285)
-	test.Float(t, text.lines[0].spans[0].x, 0.0)
+	test.Float(t, text.lines[0].spans[0].X, 0.0)
 	test.Float(t, text.lines[0].spans[0].Width, 3075)
-	test.Float(t, text.lines[0].spans[1].x, 3726)
+	test.Float(t, text.lines[0].spans[1].X, 3726)
 	test.Float(t, text.lines[0].spans[1].Width, 2424)
-	test.Float(t, text.lines[1].spans[0].x, 0.0)
+	test.Float(t, text.lines[1].spans[0].X, 0.0)
 	test.Float(t, text.lines[1].spans[0].Width, 4848)
 
 	text = rt.ToText(6500.0, 5000.0, Right, Top, 0.0, 0.0)
-	test.Float(t, text.lines[0].spans[0].x, 6500-6150)
-	test.Float(t, text.lines[0].spans[1].x, 6500-2424)
-	test.Float(t, text.lines[1].spans[0].x, 6500-4848)
+	test.Float(t, text.lines[0].spans[0].X, 6500-6150)
+	test.Float(t, text.lines[0].spans[1].X, 6500-2424)
+	test.Float(t, text.lines[1].spans[0].X, 6500-4848)
 
 	text = rt.ToText(6500.0, 5000.0, Center, Top, 0.0, 0.0)
-	test.Float(t, text.lines[0].spans[0].x, (6500-6150)/2)
-	test.Float(t, text.lines[0].spans[1].x, (6500-6150)/2+3726)
-	test.Float(t, text.lines[1].spans[0].x, (6500-4848)/2)
+	test.Float(t, text.lines[0].spans[0].X, (6500-6150)/2)
+	test.Float(t, text.lines[0].spans[1].X, (6500-6150)/2+3726)
+	test.Float(t, text.lines[1].spans[0].X, (6500-4848)/2)
 
 	text = rt.ToText(6500.0, 5000.0, Justify, Top, 0.0, 0.0)
-	test.Float(t, text.lines[0].spans[0].x, 0.0)
-	test.Float(t, text.lines[0].spans[1].x, 6500-2424)
-	test.Float(t, text.lines[1].spans[0].x, 0.0)
+	test.Float(t, text.lines[0].spans[0].X, 0.0)
+	test.Float(t, text.lines[0].spans[1].X, 6500-2424)
+	test.Float(t, text.lines[1].spans[0].X, 0.0)
 
 	// test valign
 	text = rt.ToText(6500.0, 5000.0, Left, Bottom, 0.0, 0.0)
@@ -86,9 +86,9 @@ func TestRichText(t *testing.T) {
 	// test wrapping
 	text = rt.ToText(6000.0, 7500.0, Left, Top, 0.0, 0.0)
 	test.T(t, len(text.lines), 3)
-	test.Float(t, text.lines[0].spans[0].x, 0.0)
-	test.Float(t, text.lines[1].spans[0].x, 0.0)
-	test.Float(t, text.lines[2].spans[0].x, 0.0)
+	test.Float(t, text.lines[0].spans[0].X, 0.0)
+	test.Float(t, text.lines[1].spans[0].X, 0.0)
+	test.Float(t, text.lines[2].spans[0].X, 0.0)
 
 	// test special cases
 	text = rt.ToText(6500.0, 2000.0, Left, Top, 0.0, 0.0)
@@ -97,9 +97,9 @@ func TestRichText(t *testing.T) {
 	text = rt.ToText(0.0, 5000.0, Left, Top, 0.0, 0.0)
 	test.T(t, len(text.lines), 1)
 	test.T(t, len(text.lines[0].spans), 3)
-	test.Float(t, text.lines[0].spans[0].x, 0.0)
-	test.Float(t, text.lines[0].spans[1].x, 3726)
-	test.Float(t, text.lines[0].spans[2].x, 6801)
+	test.Float(t, text.lines[0].spans[0].X, 0.0)
+	test.Float(t, text.lines[0].spans[1].X, 3726)
+	test.Float(t, text.lines[0].spans[2].X, 6801)
 
 	//rt = NewRichText()
 	//text = rt.ToText(55.0, 50.0, Left, Top, 0.0, 0.0)
