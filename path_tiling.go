@@ -10,7 +10,7 @@ import (
 func PrimitiveCell(a, b Point) Matrix {
 	A := a.Length()
 	B := a.PerpDot(b) / A
-	s := a.Dot(b) / b.Length()
+	s := a.Dot(b) / A / B
 	return Identity.Rotate(a.Angle()*180.0/math.Pi).Shear(s, 0.0).Scale(A, B)
 }
 
