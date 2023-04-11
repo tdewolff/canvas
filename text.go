@@ -121,6 +121,7 @@ type Text struct {
 	fonts map[*Font]bool
 	WritingMode
 	TextOrientation
+	text string
 }
 
 type line struct {
@@ -241,6 +242,7 @@ func itemizeString(log string) []canvasText.ScriptItem {
 func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 	t := &Text{
 		fonts: map[*Font]bool{face.Font: true},
+		text:  s,
 	}
 
 	ascent, descent, spacing := face.Metrics().Ascent, face.Metrics().Descent, face.Metrics().LineGap
@@ -668,6 +670,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		fonts:           map[*Font]bool{},
 		WritingMode:     rt.mode,
 		TextOrientation: rt.orient,
+		text:            log,
 	}
 	glyphs = append(glyphs, canvasText.Glyph{Cluster: uint32(len(log))}) // makes indexing easier
 
@@ -721,6 +724,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			y += ascent + bottom
 			if height != 0.0 && (height < y || position == len(items)-1) {
 				// doesn't fit or at the end of items
+				t.text = log[:glyphs[i].Cluster]
 				break
 			}
 
@@ -863,9 +867,15 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		if 0 < j {
 			_, _, descent2, bottom2 := t.lines[j-1].Heights(rt.mode)
 			y += descent2 - (bottom2+ascent)*lineSpacing
+
+			lastSpan := t.lines[j-1].spans[len(t.lines[j-1].spans)-1]
+			lastByte := lastSpan.Glyphs[len(lastSpan.Glyphs)-1].Cluster
+			_, size := utf8.DecodeRuneInString(log[lastByte:])
+			t.text = log[:int(lastByte)+size]
 		} else {
 			// no lines at all
 			y = 0.0
+			t.text = ""
 		}
 	} else {
 		y += descent
@@ -1183,9 +1193,5 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
 
 // String returns the content of the text box.
 func (t *Text) String() string {
-	sb := &strings.Builder{}
-	t.WalkSpans(func(_, _ float64, span TextSpan) {
-		sb.WriteString(span.Text)
-	})
-	return sb.String()
+	return t.text
 }
