@@ -575,8 +575,6 @@ func (c *Context) FitImage(img image.Image, rect Rect, fit ImageFit) {
 		} else {
 			dx = int((width-rect.W*yres)/2.0 + 0.5)
 			xres = (width - float64(2*dx)) / rect.W
-			//dx = int((width/yres-rect.W)/2.0 + 0.5)
-			//xres = width / (rect.W + float64(2*dx))
 		}
 		if subimg, ok := img.(interface {
 			SubImage(image.Rectangle) image.Image
@@ -595,12 +593,19 @@ func (c *Context) FitImage(img image.Image, rect Rect, fit ImageFit) {
 	}
 
 	coord := c.coord(x, y)
-	m := Identity.Translate(coord.X, coord.Y).Mul(c.view).Scale(1.0/xres, 1.0/yres)
+	m := Identity.Translate(coord.X, coord.Y)
 	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
-		m = m.Translate(0.0, -float64(img.Bounds().Size().Y))
+		m = m.ReflectY()
 	}
 	if c.coordSystem == CartesianII || c.coordSystem == CartesianIII {
-		m = m.Translate(-float64(img.Bounds().Size().X), 0.0)
+		m = m.ReflectX()
+	}
+	m = m.Mul(c.view).Scale(1.0/xres, 1.0/yres)
+	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
+		m = m.ReflectYAbout(-float64(img.Bounds().Size().Y) / 2.0)
+	}
+	if c.coordSystem == CartesianII || c.coordSystem == CartesianIII {
+		m = m.ReflectXAbout(-float64(img.Bounds().Size().X) / 2.0)
 	}
 	c.RenderImage(img, m)
 }
@@ -612,13 +617,14 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 	}
 
 	coord := c.coord(x, y)
-	m := Identity.Translate(coord.X, coord.Y).Mul(c.view)
+	m := Identity.Translate(coord.X, coord.Y)
 	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
 		m = m.ReflectY()
 	}
 	if c.coordSystem == CartesianII || c.coordSystem == CartesianIII {
 		m = m.ReflectX()
 	}
+	m = m.Mul(c.view)
 	for _, path := range paths {
 		var ok bool
 		style := c.Style
@@ -649,12 +655,19 @@ func (c *Context) DrawImage(x, y float64, img image.Image, resolution Resolution
 	}
 
 	coord := c.coord(x, y)
-	m := Identity.Translate(coord.X, coord.Y).Mul(c.view).Scale(1.0/resolution.DPMM(), 1.0/resolution.DPMM())
+	m := Identity.Translate(coord.X, coord.Y)
 	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
-		m = m.Translate(0.0, -float64(img.Bounds().Size().Y))
+		m = m.ReflectY()
 	}
 	if c.coordSystem == CartesianII || c.coordSystem == CartesianIII {
-		m = m.Translate(-float64(img.Bounds().Size().X), 0.0)
+		m = m.ReflectX()
+	}
+	m = m.Mul(c.view).Scale(1.0/resolution.DPMM(), 1.0/resolution.DPMM())
+	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
+		m = m.ReflectYAbout(float64(img.Bounds().Size().Y) / 2.0)
+	}
+	if c.coordSystem == CartesianII || c.coordSystem == CartesianIII {
+		m = m.ReflectXAbout(float64(img.Bounds().Size().X) / 2.0)
 	}
 	c.RenderImage(img, m)
 }
