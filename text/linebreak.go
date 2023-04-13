@@ -312,9 +312,11 @@ func (lb *linebreaker) computeAdjustmentRatio(b int, active *Breakpoint) float64
 
 func (lb *linebreaker) computeSum(b int) (float64, float64, float64) {
 	// compute tw=(sum w)after(b), ty=(sum y)after(b), and tz=(sum z)after(b)
+	// count all glues after the proposed break at b until a box, compulsory break, or explicit space
+	// these glues are eaten up by the proposed break and should be taken into account
 	W, Y, Z := lb.W, lb.Y, lb.Z
 	for i, item := range lb.items[b:] {
-		if item.Type == BoxType || (item.Type == PenaltyType && item.Penalty <= -Infinity && 0 < i) || item.Type == GlueType && item.Width == 0.0 {
+		if item.Type == BoxType || (item.Type == PenaltyType && item.Penalty <= -Infinity && 0 < i) {
 			break
 		} else if item.Type == GlueType {
 			W += item.Width
@@ -652,6 +654,7 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 				items = append(items, Glue(0.0, stretchWidth, 0.0))
 			}
 		} else if isNewline(glyph.Text) {
+			// only add one penalty for \r\n
 			if glyph.Text != "\n" || i == 0 || glyphs[i-1].Text != "\r" {
 				items = append(items, Penalty(0.0, -Infinity, false))
 			}
