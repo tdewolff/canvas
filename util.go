@@ -531,8 +531,8 @@ func (m Matrix) Decompose() (float64, float64, float64, float64, float64, float6
 	// see https://math.stackexchange.com/questions/861674/decompose-a-2d-arbitrary-transform-into-only-scaling-and-rotation
 	E := (m[0][0] + m[1][1]) / 2.0
 	F := (m[0][0] - m[1][1]) / 2.0
-	G := (m[0][1] + m[1][0]) / 2.0
-	H := (m[0][1] - m[1][0]) / 2.0
+	G := (m[1][0] + m[0][1]) / 2.0
+	H := (m[1][0] - m[0][1]) / 2.0
 
 	Q, R := math.Sqrt(E*E+H*H), math.Sqrt(F*F+G*G)
 	sx, sy := Q+R, Q-R
@@ -580,24 +580,26 @@ func (m Matrix) String() string {
 
 // ToSVG writes out the matrix in SVG notation, taking care of the proper order of transformations.
 func (m Matrix) ToSVG(h float64) string {
-	tx, ty, theta, sx, sy, phi := m.Decompose()
-
 	s := &strings.Builder{}
+	tx, ty, theta, sx, sy, phi := m.Decompose()
 	if !Equal(m[0][2], 0.0) || !Equal(m[1][2], 0.0) {
 		fmt.Fprintf(s, " translate(%v,%v)", dec(tx), dec(h-ty))
 	}
 	if !Equal(theta, 0.0) {
-		fmt.Fprintf(s, " rotate(%v)", dec(theta))
+		fmt.Fprintf(s, " rotate(%v)", dec(-theta))
 	}
 	if !Equal(sx, 1.0) || !Equal(sy, 1.0) {
 		fmt.Fprintf(s, " scale(%v,%v)", dec(sx), dec(sy))
 	}
 	if !Equal(phi, 0.0) {
-		fmt.Fprintf(s, " rotate(%v)", dec(phi))
+		fmt.Fprintf(s, " rotate(%v)", dec(-phi))
 	}
 
+	matrix := fmt.Sprintf("matrix(%v,%v,%v,%v,%v,%v)", dec(m[0][0]), -dec(m[1][0]), -dec(m[0][1]), dec(m[1][1]), dec(m[0][2]), dec(h-m[1][2]))
 	if s.Len() == 0 {
 		return ""
+	} else if len(matrix) < s.Len()-1 {
+		return matrix
 	}
 	return s.String()[1:]
 }
