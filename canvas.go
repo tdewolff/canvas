@@ -637,7 +637,11 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 }
 
 // DrawText draws text at position (x,y) using the current draw state.
-func (c *Context) DrawText(x, y float64, texts ...*Text) {
+func (c *Context) DrawText(x, y float64, text *Text) {
+	if text.Empty() {
+		return
+	}
+
 	coord := c.coord(x, y)
 	m := Identity.Translate(coord.X, coord.Y)
 	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
@@ -648,17 +652,12 @@ func (c *Context) DrawText(x, y float64, texts ...*Text) {
 	}
 	m = m.Mul(c.view)
 	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
-		m = m.ReflectY()
+		m = m.ReflectYAbout(text.height / 2.0)
 	}
 	if c.coordSystem == CartesianII || c.coordSystem == CartesianIII {
-		m = m.ReflectX()
+		m = m.ReflectXAbout(text.width / 2.0)
 	}
-	for _, text := range texts {
-		if text.Empty() {
-			continue
-		}
-		c.RenderText(text, m)
-	}
+	c.RenderText(text, m)
 }
 
 // DrawImage draws an image at position (x,y) using the current draw state and the given resolution in pixels-per-millimeter. A higher resolution will draw a smaller image (ie. more image pixels per millimeter of document).
