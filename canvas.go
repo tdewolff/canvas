@@ -639,7 +639,20 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 // DrawText draws text at position (x,y) using the current draw state.
 func (c *Context) DrawText(x, y float64, texts ...*Text) {
 	coord := c.coord(x, y)
-	m := Identity.Translate(coord.X, coord.Y).Mul(c.view)
+	m := Identity.Translate(coord.X, coord.Y)
+	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
+		m = m.ReflectY()
+	}
+	if c.coordSystem == CartesianII || c.coordSystem == CartesianIII {
+		m = m.ReflectX()
+	}
+	m = m.Mul(c.view)
+	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
+		m = m.ReflectY()
+	}
+	if c.coordSystem == CartesianII || c.coordSystem == CartesianIII {
+		m = m.ReflectX()
+	}
 	for _, text := range texts {
 		if text.Empty() {
 			continue
