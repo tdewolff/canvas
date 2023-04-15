@@ -16,6 +16,7 @@ import (
 
 	"github.com/tdewolff/canvas"
 	canvasFont "github.com/tdewolff/canvas/font"
+	canvasText "github.com/tdewolff/canvas/text"
 )
 
 type Options struct {
@@ -291,7 +292,7 @@ func (r *SVG) writePaint(paint canvas.Paint) {
 	}
 }
 
-func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace) {
+func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace, rtl bool) {
 	differences := 0
 	boldness := face.Style.CSS()
 	if face.Style&canvas.FontItalic != faceMain.Style&canvas.FontItalic {
@@ -304,6 +305,9 @@ func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace) {
 		differences++
 	}
 	if !face.Fill.Equal(faceMain.Fill) {
+		differences++
+	}
+	if rtl {
 		differences++
 	}
 	if face.Name() != faceMain.Name() || face.Size != faceMain.Size || differences == 3 {
@@ -332,6 +336,9 @@ func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace) {
 			fmt.Fprintf(r.w, `;fill:`)
 			r.writePaint(face.Fill)
 		}
+		if rtl {
+			fmt.Fprintf(r.w, `;direction:rtl`)
+		}
 	} else if differences == 1 && !face.Fill.Equal(faceMain.Fill) {
 		fmt.Fprintf(r.w, `" fill="`)
 		r.writePaint(face.Fill)
@@ -353,6 +360,9 @@ func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace) {
 			fmt.Fprintf(buf, `;fill:`)
 			r.writePaint(face.Fill)
 		}
+		if rtl {
+			fmt.Fprintf(r.w, `;direction:rtl`)
+		}
 		buf.ReadByte()
 		buf.WriteTo(r.w)
 	}
@@ -370,11 +380,14 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 		r.RenderPath(p, style, m)
 	})
 
+	n, rtls := 0, 0
 	text.WalkSpans(func(x, y float64, span canvas.TextSpan) {
 		if !span.IsText() {
 			for _, obj := range span.Objects {
 				obj.Canvas.RenderViewTo(r, m.Mul(obj.View(x, y, span.Face)))
 			}
+		} else if span.Direction == canvasText.RightToLeft {
+			rtls++
 		}
 	})
 
@@ -401,6 +414,9 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 	if !faceMain.Fill.IsColor() || faceMain.Fill.Color != canvas.Black {
 		fmt.Fprintf(r.w, `;fill:`)
 		r.writePaint(faceMain.Fill)
+	}
+	if n < rtls*2 {
+		fmt.Fprintf(r.w, `;direction:rtl`)
 	}
 	if text.WritingMode != canvas.HorizontalTB {
 		if text.WritingMode == canvas.VerticalLR {
@@ -430,8 +446,11 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 
 			x += x0
 			y = y0 - y
+			if span.Direction == canvasText.RightToLeft {
+				x += span.Width
+			}
 			fmt.Fprintf(r.w, `<tspan x="%v" y="%v`, num(x), num(y))
-			r.writeFontStyle(span.Face, faceMain)
+			r.writeFontStyle(span.Face, faceMain, span.Direction == canvasText.RightToLeft && rtls*2 <= n)
 			r.writeClasses(r.w)
 			fmt.Fprintf(r.w, `">`)
 			xml.EscapeText(r.w, []byte(span.Text))
