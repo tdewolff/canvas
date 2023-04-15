@@ -54,11 +54,11 @@ type Glyph struct {
 	YAdvance int32
 	XOffset  int32
 	YOffset  int32
-	Text     string
+	Text     rune
 }
 
 func (g Glyph) String() string {
-	return fmt.Sprintf("%s GID=%v Cluster=%v Adv=(%v,%v) Off=(%v,%v)", g.Text, g.ID, g.Cluster, g.XAdvance, g.YAdvance, g.XOffset, g.YOffset)
+	return fmt.Sprintf("%s GID=%v Cluster=%v Adv=(%v,%v) Off=(%v,%v)", string(g.Text), g.ID, g.Cluster, g.XAdvance, g.YAdvance, g.XOffset, g.YOffset)
 }
 
 func (g Glyph) Rotation() Rotation {

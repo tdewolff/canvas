@@ -732,11 +732,11 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			if 0 < len(t.lines[j].spans) { // not if there is an empty first line
 				// add spaces to previous span
 				for _, glyph := range glyphs[i : i+item.Size] {
-					t.lines[j].spans[len(t.lines[j].spans)-1].Text += glyph.Text
+					t.lines[j].spans[len(t.lines[j].spans)-1].Text += string(glyph.Text)
 				}
 
 				// hyphenate at breakpoint
-				if item.Type == canvasText.PenaltyType && item.Size == 1 && glyphs[i].Text == "\u00AD" {
+				if item.Type == canvasText.PenaltyType && item.Size == 1 && glyphs[i].Text == '\u00AD' {
 					span := &t.lines[j].spans[len(t.lines[j].spans)-1]
 					id := span.Face.Font.GlyphIndex('-')
 					glyph := canvasText.Glyph{
@@ -744,7 +744,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 						Size:     span.Face.Size,
 						ID:       id,
 						XAdvance: int32(span.Face.Font.GlyphAdvance(id)),
-						Text:     "-",
+						Text:     '-',
 					}
 					span.Glyphs = append(span.Glyphs, glyph)
 					span.Width += span.Face.textWidth([]canvasText.Glyph{glyph})
@@ -879,7 +879,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			// add spaces to previous span
 			if 0 < len(t.lines[j].spans) { // don't add if there is an empty first line
 				for _, glyph := range glyphs[i : i+item.Size] {
-					t.lines[j].spans[len(t.lines[j].spans)-1].Text += glyph.Text
+					t.lines[j].spans[len(t.lines[j].spans)-1].Text += string(glyph.Text)
 				}
 			}
 		}

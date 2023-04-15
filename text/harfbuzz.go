@@ -68,7 +68,7 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 		glyphs[i].YAdvance = int32(position.YAdvance)
 		glyphs[i].XOffset = int32(position.XOffset)
 		glyphs[i].YOffset = int32(position.YOffset)
-		glyphs[i].Text = text[runeMap[info.Cluster]:runeMap[info.Cluster+1]]
+		glyphs[i].Text = rtext[info.Cluster]
 	}
 	return glyphs, Direction(buf.Props.Direction)
 }

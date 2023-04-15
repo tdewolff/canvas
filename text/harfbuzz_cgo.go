@@ -19,6 +19,7 @@ hb_glyph_position_t *get_glyph_position(hb_glyph_position_t *pos, unsigned int i
 import "C"
 import (
 	"strings"
+	"unicode/utf8"
 	"unsafe"
 
 	"github.com/tdewolff/canvas/font"
@@ -121,7 +122,6 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	positions := C.hb_buffer_get_glyph_positions(buf, nil)
 
 	glyphs := make([]Glyph, length)
-	reverse := Direction(C.hb_buffer_get_direction(buf)) == RightToLeft || Direction(C.hb_buffer_get_direction(buf)) == BottomToTop
 	for i := uint(0); i < uint(length); i++ {
 		info := C.get_glyph_info(infos, C.uint(i))
 		position := C.get_glyph_position(positions, C.uint(i))
@@ -131,18 +131,7 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 		glyphs[i].YAdvance = int32(position.y_advance)
 		glyphs[i].XOffset = int32(position.x_offset)
 		glyphs[i].YOffset = int32(position.y_offset)
-		if reverse {
-			if i != 0 {
-				glyphs[i].Text = text[glyphs[i].Cluster:glyphs[i-1].Cluster]
-			} else {
-				glyphs[i].Text = text[glyphs[i].Cluster:]
-			}
-		} else if i != 0 {
-			glyphs[i-1].Text = text[glyphs[i-1].Cluster:glyphs[i].Cluster]
-		}
-	}
-	if !reverse && 0 < len(glyphs) {
-		glyphs[len(glyphs)-1].Text = text[glyphs[len(glyphs)-1].Cluster:]
+		glyphs[i].Text, _ = utf8.DecodeRuneInString(text[glyphs[i].Cluster:])
 	}
 
 	if language != "" {

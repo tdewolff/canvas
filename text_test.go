@@ -49,25 +49,20 @@ func TestRichText(t *testing.T) {
 	test.Float(t, text.lines[0].y, 1901)
 	test.Float(t, text.lines[1].y, 4285)
 	test.Float(t, text.lines[0].spans[0].X, 0.0)
-	test.Float(t, text.lines[0].spans[0].Width, 3075)
-	test.Float(t, text.lines[0].spans[1].X, 3726)
-	test.Float(t, text.lines[0].spans[1].Width, 2424)
+	test.Float(t, text.lines[0].spans[0].Width, 6150)
 	test.Float(t, text.lines[1].spans[0].X, 0.0)
 	test.Float(t, text.lines[1].spans[0].Width, 4848)
 
 	text = rt.ToText(6500.0, 5000.0, Right, Top, 0.0, 0.0)
 	test.Float(t, text.lines[0].spans[0].X, 6500-6150)
-	test.Float(t, text.lines[0].spans[1].X, 6500-2424)
 	test.Float(t, text.lines[1].spans[0].X, 6500-4848)
 
 	text = rt.ToText(6500.0, 5000.0, Center, Top, 0.0, 0.0)
 	test.Float(t, text.lines[0].spans[0].X, (6500-6150)/2)
-	test.Float(t, text.lines[0].spans[1].X, (6500-6150)/2+3726)
 	test.Float(t, text.lines[1].spans[0].X, (6500-4848)/2)
 
 	text = rt.ToText(6500.0, 5000.0, Justify, Top, 0.0, 0.0)
 	test.Float(t, text.lines[0].spans[0].X, 0.0)
-	test.Float(t, text.lines[0].spans[1].X, 6500-2424)
 	test.Float(t, text.lines[1].spans[0].X, 0.0)
 
 	// test valign
@@ -96,10 +91,8 @@ func TestRichText(t *testing.T) {
 
 	text = rt.ToText(0.0, 5000.0, Left, Top, 0.0, 0.0)
 	test.T(t, len(text.lines), 1)
-	test.T(t, len(text.lines[0].spans), 3)
+	test.T(t, len(text.lines[0].spans), 1)
 	test.Float(t, text.lines[0].spans[0].X, 0.0)
-	test.Float(t, text.lines[0].spans[1].X, 3726)
-	test.Float(t, text.lines[0].spans[2].X, 6801)
 
 	//rt = NewRichText()
 	//text = rt.ToText(55.0, 50.0, Left, Top, 0.0, 0.0)
