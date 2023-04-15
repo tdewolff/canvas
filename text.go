@@ -121,7 +121,8 @@ type Text struct {
 	fonts map[*Font]bool
 	WritingMode
 	TextOrientation
-	text string
+	width, height float64
+	text          string
 }
 
 type line struct {
@@ -712,6 +713,8 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		fonts:           map[*Font]bool{},
 		WritingMode:     rt.mode,
 		TextOrientation: rt.orient,
+		width:           width,
+		height:          height,
 		text:            log,
 	}
 	glyphs = append(glyphs, canvasText.Glyph{Cluster: uint32(len(log))}) // makes indexing easier
@@ -947,6 +950,11 @@ func (t *Text) Empty() bool {
 		}
 	}
 	return true
+}
+
+// Size returns the width and height of a text box. Either can be zero when unspecified.
+func (t *Text) Size() (float64, float64) {
+	return t.width, t.height
 }
 
 // Heights returns the top and bottom position of the first and last line respectively.
