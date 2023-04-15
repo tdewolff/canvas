@@ -194,13 +194,13 @@ func TestMatrix(t *testing.T) {
 	test.T(t, v1, Point{0.0, 0.0})
 	test.T(t, v2, Point{0.0, 0.0})
 
-	tx, ty, theta, sx, sy, phi := Identity.Rotate(-90.0).Scale(2.0, 1.0).Rotate(90.0).Translate(0.0, 10.0).Decompose()
+	tx, ty, phi, sx, sy, theta := Identity.Rotate(-90.0).Scale(2.0, 1.0).Rotate(90.0).Translate(0.0, 10.0).Decompose()
 	test.Float(t, tx, 0.0)
 	test.Float(t, ty, 20.0)
-	test.Float(t, theta, 90.0)
+	test.Float(t, phi, -90.0)
 	test.Float(t, sx, 2.0)
 	test.Float(t, sy, 1.0)
-	test.Float(t, phi, -90.0)
+	test.Float(t, theta, 90.0)
 
 	test.T(t, Identity.Translate(1.0, 1.0).IsTranslation(), true)
 	test.T(t, Identity.Rotate(90.0).IsTranslation(), false)
@@ -232,8 +232,9 @@ func TestMatrix(t *testing.T) {
 	test.T(t, Identity.Shear(1.0, 1.0), Identity.Rotate(45).Scale(2.0, 0.0).Rotate(-45))
 	test.String(t, Identity.ToSVG(10.0), "")
 	test.String(t, Identity.Translate(3.0, 4.0).ToSVG(10.0), "translate(3,6)")
-	test.String(t, Identity.Shear(1.0, 1.0).ToSVG(10.0), "rotate(-45) scale(2,0) rotate(45)")
-	test.String(t, Identity.Rotate(45).Scale(2.0, 0.0).Rotate(-45).ToSVG(10.0), "rotate(-45) scale(2,0) rotate(45)")
+	test.String(t, Identity.Rotate(45).ToSVG(10.0), "rotate(-45)")
+	test.String(t, Identity.Shear(1.0, 1.0).ToSVG(10.0), "matrix(1,-1,-1,1,0,10)")
+	test.String(t, Identity.Rotate(45).Scale(2.0, 0.0).Rotate(-45).ToSVG(10.0), "matrix(1,-1,-1,1,0,10)")
 }
 
 func TestSolveQuadraticFormula(t *testing.T) {

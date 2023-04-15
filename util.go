@@ -526,7 +526,7 @@ func (m Matrix) Pos() (float64, float64) {
 	return m[0][2], m[1][2]
 }
 
-// Decompose extracts the translation, rotation, scaling and rotation components (applied in the reverse order) as (tx, ty, theta, sx, sy, phi) with rotation counter clockwise. This corresponds to Identity.Translate(tx, ty).Rotate(theta).Scale(sx, sy).Rotate(phi).
+// Decompose extracts the translation, rotation, scaling and rotation components (applied in the reverse order) as (tx, ty, theta, sx, sy, phi) with rotation counter clockwise. This corresponds to Identity.Translate(tx, ty).Rotate(phi).Scale(sx, sy).Rotate(theta).
 func (m Matrix) Decompose() (float64, float64, float64, float64, float64, float64) {
 	// see https://math.stackexchange.com/questions/861674/decompose-a-2d-arbitrary-transform-into-only-scaling-and-rotation
 	E := (m[0][0] + m[1][1]) / 2.0
@@ -544,7 +544,7 @@ func (m Matrix) Decompose() (float64, float64, float64, float64, float64, float6
 		theta += phi
 		phi = 0.0
 	}
-	return m[0][2], m[1][2], theta, sx, sy, phi
+	return m[0][2], m[1][2], phi, sx, sy, theta
 }
 
 // IsTranslation is true if the matrix consists of only translational components, i.e. no rotation, scaling, or skew transformations.
@@ -581,18 +581,18 @@ func (m Matrix) String() string {
 // ToSVG writes out the matrix in SVG notation, taking care of the proper order of transformations.
 func (m Matrix) ToSVG(h float64) string {
 	s := &strings.Builder{}
-	tx, ty, theta, sx, sy, phi := m.Decompose()
+	tx, ty, phi, sx, sy, theta := m.Decompose()
 	if !Equal(m[0][2], 0.0) || !Equal(m[1][2], 0.0) {
 		fmt.Fprintf(s, " translate(%v,%v)", dec(tx), dec(h-ty))
 	}
-	if !Equal(theta, 0.0) {
-		fmt.Fprintf(s, " rotate(%v)", dec(-theta))
+	if !Equal(phi, 0.0) {
+		fmt.Fprintf(s, " rotate(%v)", dec(-phi))
 	}
 	if !Equal(sx, 1.0) || !Equal(sy, 1.0) {
 		fmt.Fprintf(s, " scale(%v,%v)", dec(sx), dec(sy))
 	}
-	if !Equal(phi, 0.0) {
-		fmt.Fprintf(s, " rotate(%v)", dec(-phi))
+	if !Equal(theta, 0.0) {
+		fmt.Fprintf(s, " rotate(%v)", dec(-theta))
 	}
 
 	matrix := fmt.Sprintf("matrix(%v,%v,%v,%v,%v,%v)", dec(m[0][0]), -dec(m[1][0]), -dec(m[0][1]), dec(m[1][1]), dec(m[0][2]), dec(h-m[1][2]))
