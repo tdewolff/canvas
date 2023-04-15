@@ -181,7 +181,6 @@ func (idx subpathIndexer) get(seg int) int {
 
 // path p can be open or closed paths (we handle them separately), path q is closed implicitly
 func boolean(p *Path, op pathOp, q *Path) *Path {
-	// TODO: settle very slow
 	if op != pathOpSettle {
 		// remove self-intersections within each path and direct them all CCW
 		p = p.Settle()
@@ -250,23 +249,28 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		}
 		segOffsetA += lenA
 
-		if !closed {
+		if closed {
+			p = p.Append(ps[i])
+			j += n
+		} else {
 			zs := Zs[j : j+n]
 			if len(zs) == 0 {
+				// either the path is outside, inside, or on the boundary (remove path)
 				p0 := ps[i].StartPos()
-				// determine if path is inside by checking the number of windings at the starting point of the subpath (considered to be on the exterior of the subpath)
 				n, boundary := q.Windings(p0.X, p0.Y)
-				inside := n != 0 // NonZero
 				for k := 4; k < len(ps[i].d) && boundary; {
+					// check along path in case parts are parallel/on the boundary
 					p0 = segmentPos(Point{ps[i].d[k-3], ps[i].d[k-2]}, ps[i].d[k:], 0.5)
 					n, boundary = q.Windings(p0.X, p0.Y)
-					inside = n != 0 // NonZero
 					k += cmdLen(ps[i].d[k])
 				}
-				if op == pathOpOr || op == pathOpSettle || inside && op == pathOpAnd || !inside && !boundary && (op == pathOpXor || op == pathOpNot) {
+				inside := n != 0 // NonZero
+				if op == pathOpOr || op == pathOpSettle && !boundary || inside && op == pathOpAnd || !inside && !boundary && (op == pathOpXor || op == pathOpNot) {
 					Ropen = Ropen.Append(ps[i])
 				}
 			} else {
+				// paths cross, select the parts outside/inside depending on the operation
+				// parts on the boundary are removed
 				pss := cut(zs, ps[i])
 				inside := zs[0].Kind == BintoA
 				if op == pathOpOr || op == pathOpSettle || inside && op == pathOpAnd || !inside && (op == pathOpXor || op == pathOpNot) {
@@ -285,10 +289,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 			ps = append(ps[:i], ps[i+1:]...)
 			d += lenA
 			i--
-		} else {
-			p = p.Append(ps[i])
 		}
-		j += n
 	}
 
 	// handle intersecting subpaths

@@ -584,19 +584,23 @@ func TestPathSettle(t *testing.T) {
 		{"L10 0L10 10L0 10zM5 5L15 5L15 15L5 15z", "M10 5L15 5L15 15L5 15L5 10L0 10L0 0L10 0z"},
 		{"L10 0L10 10L0 10zM5 5L5 15L15 15L15 5z", "M10 5L5 5L5 10L0 10L0 0L10 0zM10 5L15 5L15 15L5 15L5 10L10 10z"},
 		{"M0 1L4 1L4 3L0 3zM4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", "M4 3A1 1 0 0 0 2 3L0 3L0 1L4 1zM4 3A1 1 0 0 1 2 3z"},
-		{"L0 1L1 1L1 0z", "L1 0L1 1L0 1z"}, // to CCW
-		{"L2 0L2 2L0 2zM1 1L1 3L3 3L3 1z", "M2 1L1 1L1 2L0 2L0 0L2 0zM2 1L3 1L3 3L1 3L1 2L2 2z"}, // to CCW
-		{"L0 2L2 2L2 0zM1 1L1 3L3 3L3 1z", "M1 2L0 2L0 0L2 0L2 1L3 1L3 3L1 3z"},                  // to CCW
-		{"L0 2L2 2L2 0zM1 1L3 1L3 3L1 3z", "M1 2L0 2L0 0L2 0L2 1L1 1zM1 2L2 2L2 1L3 1L3 3L1 3z"}, // to CCW
+
+		// to CCW
+		{"L0 1L1 1L1 0z", "L1 0L1 1L0 1z"},
+		{"L2 0L2 2L0 2zM1 1L1 3L3 3L3 1z", "M2 1L1 1L1 2L0 2L0 0L2 0zM2 1L3 1L3 3L1 3L1 2L2 2z"},
+		{"L0 2L2 2L2 0zM1 1L1 3L3 3L3 1z", "M1 2L0 2L0 0L2 0L2 1L3 1L3 3L1 3z"},
+		{"L0 2L2 2L2 0zM1 1L3 1L3 3L1 3z", "M1 2L0 2L0 0L2 0L2 1L1 1zM1 2L2 2L2 1L3 1L3 3L1 3z"},
 
 		{"L3 0L3 1L0 1zM1 -0.1L1 1.1L2 1.1L2 -0.1z", "M1 0L1 1L0 1L0 0zM1 0L1 -0.1L2 -0.1L2 0zM2 0L3 0L3 1L2 1zM2 1L2 1.1L1 1.1L1 1z"},
 		{"L3 0L3 1L0 1zM1 0L1 1L2 1L2 0z", "M1 0L1 1L0 1L0 0zM2 0L3 0L3 1L2 1z"}, // containing with parallel touches
 
-		{"L10 10L10 0L0 10z", "M5 5L0 10L0 0L5 5L10 0L10 10z"},                                                                                          // self-intersections
-		{"L10 10L20 0L20 10L10 0L0 10z", "M5 5L0 10L0 0L5 5L10 0L15 5L20 0L20 10L15 5L10 10z"},                                                          // self-intersections
-		{"L10 0L10 5L0 10L0 5L10 10L10 15L0 15z", "M5 7.5L0 5L0 0L10 0L10 5zM5 7.5L10 10L10 15L0 15L0 10z"},                                             // self-intersections
-		{"L10 0L10 5L5 10L0 5L0 15L10 15L10 10L5 5L0 10z", "M7.5 7.5L5 5L2.5 7.5L5 10zM0 10L0 0L10 0L10 5L7.5 7.5L10 10L10 15L0 15zM2.5 7.5L0 5L0 10z"}, // self-intersections
-		{"L10 0L5 2L5 8L0 10L10 10L5 8L5 2z", "M5 8L5 2L0 0L10 0L5 2L5 8L10 10L0 10z"},                                                                  // self-intersections
+		// self-intersections
+		{"L10 10L10 0L0 10z", "M5 5L0 10L0 0L5 5L10 0L10 10z"},
+		{"L10 10L20 0L20 10L10 0L0 10z", "M5 5L0 10L0 0L5 5L10 0L15 5L20 0L20 10L15 5L10 10z"},
+		{"L10 0L10 5L0 10L0 5L10 10L10 15L0 15z", "M5 7.5L0 5L0 0L10 0L10 5zM5 7.5L10 10L10 15L0 15L0 10z"},
+		{"L10 0L10 5L5 10L0 5L0 15L10 15L10 10L5 5L0 10z", "M7.5 7.5L5 5L2.5 7.5L5 10zM0 10L0 0L10 0L10 5L7.5 7.5L10 10L10 15L0 15zM2.5 7.5L0 5L0 10z"},
+		{"L10 0L5 2L5 8L0 10L10 10L5 8L5 2z", "M5 8L5 2L0 0L10 0L5 2L5 8L10 10L0 10z"},
+		{"L10 0L10 10L5 10L5 -5", "L5 0M5 0L10 0L10 10L5 10zM5 0L5 -5"}, // open path
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p), func(t *testing.T) {
@@ -672,6 +676,7 @@ func TestPathAnd(t *testing.T) {
 		{"M15 1L15 9", "L10 0L10 10L0 10z", ""},                       // out
 		{"M5 5L5 15", "L10 0L10 10L0 10z", "M5 5L5 10"},               // cross
 		{"L10 10", "L10 0L10 10L0 10z", "L10 10"},                     // touch
+		{"M5 0L10 0L10 5", "L10 0L10 10L0 10z", ""},                   // boundary
 		{"L5 0L5 5", "L10 0L10 10L0 10z", "L5 0L5 5"},                 // touch with parallel
 		{"M1 1L2 0L8 0L9 1", "L10 0L10 10L0 10z", "M1 1L2 0M8 0L9 1"}, // touch with parallel
 		{"M1 -1L2 0L8 0L9 -1", "L10 0L10 10L0 10z", ""},               // touch with parallel
