@@ -43,18 +43,17 @@ type Pattern interface {
 
 // Hatch pattern is a filling hatch pattern.
 type HatchPattern struct {
-	Fill Paint
-	Hatcher
+	Fill      Paint
+	Thickness float64
+	cell      Matrix
+	hatch     Hatcher
 }
 
-// Hatcher is a hatch pattern along the cell's axes.
-type Hatcher interface {
-	Cell() Matrix
-	Hatch(float64, float64, float64, float64) *Path
-}
+// Hatcher is a hatch pattern along the cell's axes. The rectangle (x0,y0)-(x1,y1) is expressed in the unit cell's coordinate system, and the returned path should be transformed by the cell to obtain the final hatch pattern.
+type Hatcher func(float64, float64, float64, float64) *Path
 
 // NewHatchPattern returns a new hatch pattern.
-func NewHatchPattern(ifill interface{}, hatcher Hatcher) *HatchPattern {
+func NewHatchPattern(ifill interface{}, thickness float64, cell Matrix, hatch Hatcher) *HatchPattern {
 	var fill Paint
 	if paint, ok := ifill.(Paint); ok {
 		fill = paint
@@ -69,23 +68,24 @@ func NewHatchPattern(ifill interface{}, hatcher Hatcher) *HatchPattern {
 		panic("hatch paint cannot be pattern")
 	}
 	return &HatchPattern{
-		Fill:    fill,
-		Hatcher: hatcher,
+		Fill:      fill,
+		Thickness: thickness,
+		cell:      cell,
+		hatch:     hatch,
 	}
 }
 
 // Tile tiles the hatch pattern within the clipping path.
 func (p *HatchPattern) Tile(clip *Path) *Path {
-	cell := p.Cell()
 	dst := clip.FastBounds()
 
 	// find extremes along cell axes
-	invCell := cell.Inv()
+	invCell := p.cell.Inv()
 	points := []Point{
-		invCell.Dot(Point{dst.X, dst.Y}),
-		invCell.Dot(Point{dst.X + dst.W, dst.Y}),
-		invCell.Dot(Point{dst.X + dst.W, dst.Y + dst.H}),
-		invCell.Dot(Point{dst.X, dst.Y + dst.H}),
+		invCell.Dot(Point{dst.X - p.Thickness, dst.Y - p.Thickness}),
+		invCell.Dot(Point{dst.X + dst.W + p.Thickness, dst.Y - p.Thickness}),
+		invCell.Dot(Point{dst.X + dst.W + p.Thickness, dst.Y + dst.H + p.Thickness}),
+		invCell.Dot(Point{dst.X - p.Thickness, dst.Y + dst.H + p.Thickness}),
 	}
 	x0, x1 := points[0].X, points[0].X
 	y0, y1 := points[0].Y, points[0].Y
@@ -96,9 +96,13 @@ func (p *HatchPattern) Tile(clip *Path) *Path {
 		y1 = math.Max(y1, point.Y)
 	}
 
-	hatch := p.Hatch(x0, y0, x1, y1)
-	hatch = hatch.Transform(cell)
-	return hatch.And(clip)
+	hatch := p.hatch(x0, y0, x1, y1)
+	hatch = hatch.Transform(p.cell)
+	hatch = hatch.And(clip)
+	if p.Thickness != 0.0 {
+		hatch = hatch.Stroke(p.Thickness, ButtCap, MiterJoin, 0.01)
+	}
+	return hatch
 }
 
 // ClipTo tiles the hatch pattern to the clipping path and renders it to the renderer.
@@ -107,36 +111,54 @@ func (p *HatchPattern) ClipTo(r Renderer, clip *Path) {
 	r.RenderPath(hatch, Style{Fill: p.Fill}, Identity)
 }
 
-// LineHatch is a hatch pattern of lines at an angle, spacing distance, and thickness.
-type LineHatch struct {
-	Angle     float64
-	Distance  float64
-	Thickness float64
-}
-
-// NewLineHatch returns a new line hatch pattern.
+// NewLineHatch returns a new line hatch pattern with lines at an angle with a spacing of distance. Thickness is the stroke thickness applied to the shape; stroking is ignored with thickness is zero.
 func NewLineHatch(ifill interface{}, angle, distance, thickness float64) *HatchPattern {
-	return NewHatchPattern(ifill, &LineHatch{
-		Angle:     angle,
-		Distance:  distance,
-		Thickness: thickness,
+	cell := Identity.Rotate(angle).Scale(distance, distance)
+	return NewHatchPattern(ifill, thickness, cell, func(x0, y0, x1, y1 float64) *Path {
+		p := &Path{}
+		for y := math.Floor(y0); y <= y1; y += 1.0 {
+			p.MoveTo(x0, y)
+			p.LineTo(x1, y)
+		}
+		return p
 	})
 }
 
-// Cell is the primitive cell along which the pattern repeats.
-func (h *LineHatch) Cell() Matrix {
-	return Identity.Rotate(h.Angle).Scale(h.Distance, h.Distance)
+// NewCrossHatch returns a new cross hatch pattern of two regular line hatches at different angles and with different distance intervals. Thickness is the stroke thickness applied to the shape; stroking is ignored with thickness is zero.
+func NewCrossHatch(ifill interface{}, angle0, angle1, distance0, distance1, thickness float64) *HatchPattern {
+	cell := PrimitiveCell(
+		Point{distance0, 0.0}.Rot(angle0*math.Pi/180.0, Origin),
+		Point{distance1, 0.0}.Rot(angle1*math.Pi/180.0, Origin),
+	)
+	return NewHatchPattern(ifill, thickness, cell, func(x0, y0, x1, y1 float64) *Path {
+		p := &Path{}
+		for y := math.Floor(y0); y <= y1; y += 1.0 {
+			p.MoveTo(x0, y)
+			p.LineTo(x1, y)
+		}
+		for x := math.Floor(x0); x <= x1; x += 1.0 {
+			p.MoveTo(x, y0)
+			p.LineTo(x, y1)
+		}
+		return p
+	})
 }
 
-// Hatch tiles the hatch pattern in unit cells. That is, the rectangle (x0,y0)-(x1,y1) is expressed in the unit cell's coordinate system, and the returned path should be transformed by the cell.
-func (h *LineHatch) Hatch(x0, y0, x1, y1 float64) *Path {
-	y0 -= h.Thickness / 2.0
-	y1 += h.Thickness / 2.0
+// NewShapeHatch returns a new shape hatch that repeats the given shape over a rhombus primitive cell with sides of length distance. Thickness is the stroke thickness applied to the shape; stroking is ignored with thickness is zero.
+func NewShapeHatch(ifill interface{}, shape *Path, distance, thickness float64) *HatchPattern {
+	d := distance * math.Sin(60.0*math.Pi/180.0)
+	cell := SquareCell(1.0)
+	return NewHatchPattern(ifill, thickness, cell, func(x0, y0, x1, y1 float64) *Path {
+		p := &Path{}
+		for y := math.Floor(y0/distance) * distance; y <= y1; y += 2.0 * d {
+			for x := math.Floor(x0/distance) * distance; x <= x1; x += distance {
+				p = p.Append(shape.Translate(x, y))
+			}
+			for x := (math.Floor(x0/distance) + 0.5) * distance; x <= x1; x += distance {
+				p = p.Append(shape.Translate(x, y+d))
+			}
+		}
+		return p
+	})
 
-	p := &Path{}
-	for y := math.Floor(y0); y < y1; y += 1.0 {
-		p.MoveTo(x0, y)
-		p.LineTo(x1, y)
-	}
-	return p.Stroke(h.Thickness, ButtCap, MiterJoin, 0.01)
 }
