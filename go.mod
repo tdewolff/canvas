@@ -20,7 +20,7 @@ require (
 	github.com/tdewolff/argp v0.0.0-20221007181215-ebef9ed8a560
 	github.com/tdewolff/minify/v2 v2.12.4
 	github.com/tdewolff/parse/v2 v2.6.5
-	github.com/tdewolff/test v1.0.7
+	github.com/tdewolff/test v1.0.8
 	github.com/wcharczuk/go-chart/v2 v2.1.0
 	golang.org/x/image v0.6.0
 	golang.org/x/text v0.8.0

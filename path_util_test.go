@@ -23,47 +23,77 @@ func TestEllipse(t *testing.T) {
 	test.T(t, ellipseNormal(2.0, 1.0, math.Pi/2.0, false, 0.0, 1.0), Point{0.0, -1.0})
 
 	// https://www.wolframalpha.com/input/?i=arclength+x%28t%29%3D2*cos+t%2C+y%28t%29%3Dsin+t+for+t%3D0+to+0.5pi
-	test.Float(t, ellipseLength(2.0, 1.0, 0.0, math.Pi/2.0), 2.422110)
+	test.Float(t, ellipseLength(2.0, 1.0, 0.0, math.Pi/2.0), 2.4221102220)
 
 	test.Float(t, ellipseRadiiCorrection(Point{0.0, 0.0}, 0.1, 0.1, 0.0, Point{1.0, 0.0}), 5.0)
 }
 
 func TestEllipseToCenter(t *testing.T) {
-	cx, cy, theta0, theta1 := ellipseToCenter(0.0, 0.0, 2.0, 2.0, 0.0, false, false, 2.0, 2.0)
-	test.Float(t, cx, 2.0)
-	test.Float(t, cy, 0.0)
-	test.Float(t, theta0, math.Pi)
-	test.Float(t, theta1, math.Pi/2.0)
+	var tests = []struct {
+		x1, y1       float64
+		rx, ry, phi  float64
+		large, sweep bool
+		x2, y2       float64
 
-	cx, cy, theta0, theta1 = ellipseToCenter(0.0, 0.0, 2.0, 2.0, 0.0, true, false, 2.0, 2.0)
-	test.Float(t, cx, 0.0)
-	test.Float(t, cy, 2.0)
-	test.Float(t, theta0, math.Pi*3.0/2.0)
-	test.Float(t, theta1, 0.0)
+		cx, cy, theta0, theta1 float64
+	}{
+		{0.0, 0.0, 2.0, 2.0, 0.0, false, false, 2.0, 2.0, 2.0, 0.0, math.Pi, math.Pi / 2.0},
+		{0.0, 0.0, 2.0, 2.0, 0.0, true, false, 2.0, 2.0, 0.0, 2.0, math.Pi * 3.0 / 2.0, 0.0},
+		{0.0, 0.0, 2.0, 2.0, 0.0, true, true, 2.0, 2.0, 2.0, 0.0, math.Pi, math.Pi * 5.0 / 2.0},
+		{0.0, 0.0, 2.0, 1.0, math.Pi / 2.0, false, false, 1.0, 2.0, 1.0, 0.0, math.Pi / 2.0, 0.0},
 
-	cx, cy, theta0, theta1 = ellipseToCenter(0.0, 0.0, 2.0, 2.0, 0.0, true, true, 2.0, 2.0)
-	test.Float(t, cx, 2.0)
-	test.Float(t, cy, 0.0)
-	test.Float(t, theta0, math.Pi)
-	test.Float(t, theta1, math.Pi*5.0/2.0)
+		// radius correction
+		{0.0, 0.0, 0.1, 0.1, 0.0, false, false, 1.0, 0.0, 0.5, 0.0, math.Pi, 0.0},
 
-	cx, cy, theta0, theta1 = ellipseToCenter(0.0, 0.0, 2.0, 1.0, math.Pi/2.0, false, false, 1.0, 2.0)
-	test.Float(t, cx, 1.0)
-	test.Float(t, cy, 0.0)
-	test.Float(t, theta0, math.Pi/2.0)
-	test.Float(t, theta1, 0.0)
+		// start == end
+		{0.0, 0.0, 1.0, 1.0, 0.0, false, false, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
 
-	cx, cy, theta0, theta1 = ellipseToCenter(0.0, 0.0, 0.1, 0.1, 0.0, false, false, 1.0, 0.0)
-	test.Float(t, cx, 0.5)
-	test.Float(t, cy, 0.0)
-	test.Float(t, theta0, math.Pi)
-	test.Float(t, theta1, 0.0)
+		// precision issues
+		{8.2, 18.0, 0.2, 0.2, 0.0, false, true, 7.8, 18.0, 8.0, 18.0, 0.0, math.Pi},
+		{7.8, 18.0, 0.2, 0.2, 0.0, false, true, 8.2, 18.0, 8.0, 18.0, math.Pi, 2.0 * math.Pi},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("(%g,%g) %g %g %g %v %v (%g,%g)", tt.x1, tt.y1, tt.rx, tt.ry, tt.phi, tt.large, tt.sweep, tt.x2, tt.y2), func(t *testing.T) {
+			cx, cy, theta0, theta1 := ellipseToCenter(tt.x1, tt.y1, tt.rx, tt.ry, tt.phi, tt.large, tt.sweep, tt.x2, tt.y2)
+			test.Floats(t, []float64{cx, cy, theta0, theta1}, []float64{tt.cx, tt.cy, tt.theta0, tt.theta1})
+		})
+	}
 
-	cx, cy, theta0, theta1 = ellipseToCenter(0.0, 0.0, 1.0, 1.0, 0.0, false, false, 0.0, 0.0)
-	test.Float(t, cx, 0.0)
-	test.Float(t, cy, 0.0)
-	test.Float(t, theta0, 0.0)
-	test.Float(t, theta1, 0.0)
+	//cx, cy, theta0, theta1 := ellipseToCenter(0.0, 0.0, 2.0, 2.0, 0.0, false, false, 2.0, 2.0)
+	//test.Float(t, cx, 2.0)
+	//test.Float(t, cy, 0.0)
+	//test.Float(t, theta0, math.Pi)
+	//test.Float(t, theta1, math.Pi/2.0)
+
+	//cx, cy, theta0, theta1 = ellipseToCenter(0.0, 0.0, 2.0, 2.0, 0.0, true, false, 2.0, 2.0)
+	//test.Float(t, cx, 0.0)
+	//test.Float(t, cy, 2.0)
+	//test.Float(t, theta0, math.Pi*3.0/2.0)
+	//test.Float(t, theta1, 0.0)
+
+	//cx, cy, theta0, theta1 = ellipseToCenter(0.0, 0.0, 2.0, 2.0, 0.0, true, true, 2.0, 2.0)
+	//test.Float(t, cx, 2.0)
+	//test.Float(t, cy, 0.0)
+	//test.Float(t, theta0, math.Pi)
+	//test.Float(t, theta1, math.Pi*5.0/2.0)
+
+	//cx, cy, theta0, theta1 = ellipseToCenter(0.0, 0.0, 2.0, 1.0, math.Pi/2.0, false, false, 1.0, 2.0)
+	//test.Float(t, cx, 1.0)
+	//test.Float(t, cy, 0.0)
+	//test.Float(t, theta0, math.Pi/2.0)
+	//test.Float(t, theta1, 0.0)
+
+	//cx, cy, theta0, theta1 = ellipseToCenter(0.0, 0.0, 0.1, 0.1, 0.0, false, false, 1.0, 0.0)
+	//test.Float(t, cx, 0.5)
+	//test.Float(t, cy, 0.0)
+	//test.Float(t, theta0, math.Pi)
+	//test.Float(t, theta1, 0.0)
+
+	//cx, cy, theta0, theta1 = ellipseToCenter(0.0, 0.0, 1.0, 1.0, 0.0, false, false, 0.0, 0.0)
+	//test.Float(t, cx, 0.0)
+	//test.Float(t, cy, 0.0)
+	//test.Float(t, theta0, 0.0)
+	//test.Float(t, theta1, 0.0)
 }
 
 func TestEllipseSplit(t *testing.T) {
@@ -176,7 +206,7 @@ func TestQuadraticBezierLength(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%v%v%v", tt.p0, tt.p1, tt.p2), func(t *testing.T) {
 			l := quadraticBezierLength(tt.p0, tt.p1, tt.p2)
-			test.Float(t, l, tt.l)
+			test.FloatDiff(t, l, tt.l, 1e-6)
 		})
 	}
 }
@@ -292,7 +322,7 @@ func TestCubicBezierCurvatureRadius(t *testing.T) {
 		r              float64
 	}{
 		{p0, p1, p2, p3, 0.0, 2.0},
-		{p0, p1, p2, p3, 0.5, 0.707107},
+		{p0, p1, p2, p3, 0.5, 1.0 / math.Sqrt(2)},
 		{p0, p1, p2, p3, 1.0, 2.0},
 		{p0, Point{1.0, 0.0}, Point{2.0, 0.0}, Point{3.0, 0.0}, 0.0, math.NaN()},
 	}
@@ -343,7 +373,7 @@ func TestCubicBezierLength(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%v%v%v%v", tt.p0, tt.p1, tt.p2, tt.p3), func(t *testing.T) {
 			l := cubicBezierLength(tt.p0, tt.p1, tt.p2, tt.p3)
-			test.Float(t, l, tt.l)
+			test.FloatDiff(t, l, tt.l, 1e-6)
 		})
 	}
 }
@@ -407,60 +437,53 @@ func TestCubicBezierStrokeFlatten(t *testing.T) {
 }
 
 func TestCubicBezierInflectionPoints(t *testing.T) {
-	x1, x2 := findInflectionPointsCubicBezier(Point{0.0, 0.0}, Point{0.0, 1.0}, Point{1.0, 1.0}, Point{1.0, 0.0})
-	test.Float(t, x1, math.NaN())
-	test.Float(t, x2, math.NaN())
+	tests := []struct {
+		p0, p1, p2, p3 Point
+		x1, x2         float64
+	}{
+		{Point{0.0, 0.0}, Point{0.0, 1.0}, Point{1.0, 1.0}, Point{1.0, 0.0}, math.NaN(), math.NaN()},
+		{Point{0.0, 0.0}, Point{1.0, 1.0}, Point{0.0, 1.0}, Point{1.0, 0.0}, 0.5, math.NaN()},
 
-	x1, x2 = findInflectionPointsCubicBezier(Point{0.0, 0.0}, Point{1.0, 1.0}, Point{0.0, 1.0}, Point{1.0, 0.0})
-	test.Float(t, x1, 0.5)
-	test.Float(t, x2, math.NaN())
-
-	// see "Analysis of Inflection Points for Planar Cubic Bezier Curve" by Z.Zhang et al. from 2009
-	// https://cie.nwsuaf.edu.cn/docs/20170614173651207557.pdf
-	x1, x2 = findInflectionPointsCubicBezier(Point{16, 467}, Point{185, 95}, Point{673, 545}, Point{810, 17})
-	test.Float(t, x1, 0.456590)
-	test.Float(t, x2, math.NaN())
-
-	x1, x2 = findInflectionPointsCubicBezier(Point{859, 676}, Point{13, 422}, Point{781, 12}, Point{266, 425})
-	test.Float(t, x1, 0.681076)
-	test.Float(t, x2, 0.705299)
-
-	x1, x2 = findInflectionPointsCubicBezier(Point{872, 686}, Point{11, 423}, Point{779, 13}, Point{220, 376})
-	test.Float(t, x1, 0.588071)
-	test.Float(t, x2, 0.886863)
-
-	x1, x2 = findInflectionPointsCubicBezier(Point{819, 566}, Point{43, 18}, Point{826, 18}, Point{25, 533})
-	test.Float(t, x1, 0.476169)
-	test.Float(t, x2, 0.539295)
-
-	x1, x2 = findInflectionPointsCubicBezier(Point{884, 574}, Point{135, 14}, Point{678, 14}, Point{14, 566})
-	test.Float(t, x1, 0.320836)
-	test.Float(t, x2, 0.682291)
+		// see "Analysis of Inflection Points for Planar Cubic Bezier Curve" by Z.Zhang et al. from 2009
+		// https://cie.nwsuaf.edu.cn/docs/20170614173651207557.pdf
+		{Point{16, 467}, Point{185, 95}, Point{673, 545}, Point{810, 17}, 0.4565900353, math.NaN()},
+		{Point{859, 676}, Point{13, 422}, Point{781, 12}, Point{266, 425}, 0.6810755245, 0.7052992723},
+		{Point{872, 686}, Point{11, 423}, Point{779, 13}, Point{220, 376}, 0.5880709424, 0.8868629954},
+		{Point{819, 566}, Point{43, 18}, Point{826, 18}, Point{25, 533}, 0.4761686269, 0.5392953369},
+		{Point{884, 574}, Point{135, 14}, Point{678, 14}, Point{14, 566}, 0.3208363269, 0.6822908688},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v %v %v %v", tt.p0, tt.p1, tt.p2, tt.p3), func(t *testing.T) {
+			x1, x2 := findInflectionPointsCubicBezier(tt.p0, tt.p1, tt.p2, tt.p3)
+			test.Floats(t, []float64{x1, x2}, []float64{tt.x1, tt.x2})
+		})
+	}
 }
 
 func TestCubicBezierInflectionPointRange(t *testing.T) {
-	x1, x2 := findInflectionPointRangeCubicBezier(Point{0.0, 0.0}, Point{1.0, 1.0}, Point{0.0, 1.0}, Point{1.0, 0.0}, math.NaN(), 0.25)
-	test.That(t, math.IsInf(x1, 1.0))
-	test.That(t, math.IsInf(x2, 1.0))
+	tests := []struct {
+		p0, p1, p2, p3 Point
+		t, tolerance   float64
+		x1, x2         float64
+	}{
+		{Point{0.0, 0.0}, Point{1.0, 1.0}, Point{0.0, 1.0}, Point{1.0, 0.0}, math.NaN(), 0.25, math.Inf(1.0), math.Inf(1.0)},
 
-	// p0==p1==p2
-	x1, x2 = findInflectionPointRangeCubicBezier(Point{0.0, 0.0}, Point{0.0, 0.0}, Point{0.0, 0.0}, Point{1.0, 0.0}, 0.0, 0.25)
-	test.Float(t, x1, 0.0)
-	test.Float(t, x2, 1.0)
+		// p0==p1==p2
+		{Point{0.0, 0.0}, Point{0.0, 0.0}, Point{0.0, 0.0}, Point{1.0, 0.0}, 0.0, 0.25, 0.0, 1.0},
 
-	// p0==p1, s3==0
-	x1, x2 = findInflectionPointRangeCubicBezier(Point{0.0, 0.0}, Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 0.0}, 0.0, 0.25)
-	test.Float(t, x1, 0.0)
-	test.Float(t, x2, 1.0)
+		// p0==p1, s3==0
+		{Point{0.0, 0.0}, Point{0.0, 0.0}, Point{1.0, 0.0}, Point{1.0, 0.0}, 0.0, 0.25, 0.0, 1.0},
 
-	// all within tolerance
-	x1, x2 = findInflectionPointRangeCubicBezier(Point{0.0, 0.0}, Point{0.0, 1.0}, Point{1.0, 1.0}, Point{1.0, 0.0}, 0.5, 1.0)
-	test.That(t, x1 <= 0.0)
-	test.That(t, x2 >= 1.0)
-
-	x1, x2 = findInflectionPointRangeCubicBezier(Point{0.0, 0.0}, Point{0.0, 1.0}, Point{1.0, 1.0}, Point{1.0, 0.0}, 0.5, 0.000000001)
-	test.Float(t, x1, 0.499449)
-	test.Float(t, x2, 0.500550)
+		// all within tolerance
+		{Point{0.0, 0.0}, Point{0.0, 1.0}, Point{1.0, 1.0}, Point{1.0, 0.0}, 0.5, 1.0, -0.0503212081, 1.0503212081},
+		{Point{0.0, 0.0}, Point{0.0, 1.0}, Point{1.0, 1.0}, Point{1.0, 0.0}, 0.5, 1e-9, 0.4994496788, 0.5005503212},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v %v %v %v", tt.p0, tt.p1, tt.p2, tt.p3), func(t *testing.T) {
+			x1, x2 := findInflectionPointRangeCubicBezier(tt.p0, tt.p1, tt.p2, tt.p3, tt.t, tt.tolerance)
+			test.Floats(t, []float64{x1, x2}, []float64{tt.x1, tt.x2})
+		})
+	}
 }
 
 func TestCubicBezierStroke(t *testing.T) {

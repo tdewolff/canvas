@@ -19,6 +19,8 @@ var Precision = 8
 
 // Equal returns true if a and b are Equal with tolerance Epsilon.
 func Equal(a, b float64) bool {
+	// see https://floating-point-gui.de/errors/comparison/ on why this is bad
+	// but since we use this (mainly) when a and b represent millimeters, it is good enough I guess
 	return math.Abs(a-b) <= Epsilon
 }
 

@@ -112,11 +112,11 @@ func TestPoint(t *testing.T) {
 	test.Float(t, p.PerpDot(Point{3, 0}), p.Rot90CCW().Dot(Point{3, 0}))
 	test.Float(t, p.Length(), 5.0)
 	test.Float(t, p.Slope(), 4.0/3.0)
-	test.Float(t, p.Angle(), 53.130095*math.Pi/180.0)
-	test.Float(t, p.AngleBetween(p.Rot90CCW()), 90.0*math.Pi/180.0)
-	test.Float(t, Point{0, 0}.AngleBetween(p), 0.0)
-	test.Float(t, p.AngleBetween(Point{0, 0}), 0.0)
-	test.Float(t, p.AngleBetween(p), 0.0)
+	test.Float(t, p.Angle()*180.0/math.Pi, 53.1301023542)
+	test.Float(t, p.AngleBetween(p.Rot90CCW())*180.0/math.Pi, 90.0)
+	test.Float(t, Point{0, 0}.AngleBetween(p)*180.0/math.Pi, 0.0)
+	test.Float(t, p.AngleBetween(Point{0, 0})*180.0/math.Pi, 0.0)
+	test.Float(t, p.AngleBetween(p)*180.0/math.Pi, 0.0)
 	test.T(t, p.Norm(3.0), Point{1.8, 2.4})
 	test.T(t, p.Norm(0.0), Point{0.0, 0.0})
 	test.T(t, Point{}.Norm(1.0), Point{0.0, 0.0})
@@ -299,9 +299,9 @@ func TestSolveCubicFormula(t *testing.T) {
 }
 
 func TestGaussLegendre(t *testing.T) {
-	test.Float(t, gaussLegendre3(math.Log, 0.0, 1.0), -0.947672)
-	test.Float(t, gaussLegendre5(math.Log, 0.0, 1.0), -0.979001)
-	test.Float(t, gaussLegendre7(math.Log, 0.0, 1.0), -0.988738)
+	test.Float(t, gaussLegendre3(math.Log, 0.0, 1.0), -0.9476723836)
+	test.Float(t, gaussLegendre5(math.Log, 0.0, 1.0), -0.9790015666)
+	test.Float(t, gaussLegendre7(math.Log, 0.0, 1.0), -0.9887384497)
 }
 
 func TestPolynomialChebyshevApprox(t *testing.T) {
@@ -325,7 +325,7 @@ func TestInvSpeedPolynomialApprox(t *testing.T) {
 
 	// https://www.wolframalpha.com/input/?i=arclength+x%28t%29%3Dsin+t%2C+y%28t%29%3Dt*t+for+t%3D0+to+2pi
 	f, L := invSpeedPolynomialChebyshevApprox(15, gaussLegendre7, fp, 0.0, 2.0*math.Pi)
-	test.Float(t, L, 40.051641)
+	test.Float(t, L, 40.0516414259)
 	test.Float(t, f(0.0), 0.0)
 	test.That(t, math.Abs(f(40.051641)-2.0*math.Pi) < 0.01)
 	test.That(t, math.Abs(f(10.3539)-math.Pi) < 0.01)

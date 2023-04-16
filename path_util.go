@@ -64,21 +64,39 @@ func ellipseLength(rx, ry, theta1, theta2 float64) float64 {
 func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 float64) (float64, float64, float64, float64) {
 	if Equal(x1, x2) && Equal(y1, y2) {
 		return x1, y1, 0.0, 0.0
+	} else if Equal(y1, y2) && Equal(phi, 0.0) {
+		// common case since circles are defined as two arcs from (+dx,0) to (-dx,0) and back
+		cx, cy := x1+(x2-x1)/2.0, y1
+		theta := 0.0
+		if x1 < x2 {
+			theta = math.Pi
+		}
+		delta := math.Pi
+		if !sweep {
+			delta = -delta
+		}
+		return cx, cy, theta, theta + delta
 	}
 
+	// compute the half distance betwene for start and end point for the unrotated ellipse
 	sinphi, cosphi := math.Sincos(phi)
 	x1p := cosphi*(x1-x2)/2.0 + sinphi*(y1-y2)/2.0
 	y1p := -sinphi*(x1-x2)/2.0 + cosphi*(y1-y2)/2.0
 
-	// reduce rouding errors
-	raddiCheck := x1p*x1p/rx/rx + y1p*y1p/ry/ry
-	if raddiCheck > 1.0 {
-		rx *= math.Sqrt(raddiCheck)
-		ry *= math.Sqrt(raddiCheck)
+	// check that radii are lage enough to reduce rouding errors
+	radiiCheck := x1p*x1p/rx/rx + y1p*y1p/ry/ry
+	if radiiCheck > 1.0 {
+		radiiScale := math.Sqrt(radiiCheck)
+		rx *= radiiScale
+		ry *= radiiScale
 	}
 
+	// calculate the center point (cx,cy)
 	sq := (rx*rx*ry*ry - rx*rx*y1p*y1p - ry*ry*x1p*x1p) / (rx*rx*y1p*y1p + ry*ry*x1p*x1p)
-	if sq < 0.0 {
+	if sq <= Epsilon {
+		// Epsilon instead of 0.0 improves numerical stability for coef near zero
+		// this happens when start and end points are at two opposites of the ellipse and
+		// the line between them passes through the center, a common case
 		sq = 0.0
 	}
 	coef := math.Sqrt(sq)
@@ -96,6 +114,7 @@ func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 floa
 	vx := -(x1p + cxp) / rx
 	vy := -(y1p + cyp) / ry
 
+	// calculate the start angle (theta) and extent angle (delta)
 	theta := math.Acos(ux / math.Sqrt(ux*ux+uy*uy))
 	if uy < 0.0 {
 		theta = -theta
@@ -108,7 +127,7 @@ func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 floa
 	if ux*vy-uy*vx < 0.0 {
 		delta = -delta
 	}
-	if !sweep && delta > 0.0 { // clockwise in Cartesian
+	if !sweep && 0.0 < delta { // clockwise in Cartesian
 		delta -= 2.0 * math.Pi
 	} else if sweep && delta < 0.0 { // counter clockwise in Cartesian
 		delta += 2.0 * math.Pi
