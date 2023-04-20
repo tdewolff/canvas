@@ -602,10 +602,10 @@ func (c *Context) FitImage(img image.Image, rect Rect, fit ImageFit) {
 	}
 	m = m.Mul(c.view).Scale(1.0/xres, 1.0/yres)
 	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
-		m = m.ReflectYAbout(-float64(img.Bounds().Size().Y) / 2.0)
+		m = m.ReflectYAbout(float64(img.Bounds().Size().Y) / 2.0)
 	}
 	if c.coordSystem == CartesianII || c.coordSystem == CartesianIII {
-		m = m.ReflectXAbout(-float64(img.Bounds().Size().X) / 2.0)
+		m = m.ReflectXAbout(float64(img.Bounds().Size().X) / 2.0)
 	}
 	c.RenderImage(img, m)
 }
