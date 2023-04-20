@@ -634,7 +634,9 @@ func (w *pdfPageWriter) SetFill(fill canvas.Paint) {
 	if fill.Equal(w.fill) {
 		return
 	}
-	if fill.IsGradient() {
+	if fill.IsPattern() {
+		// TODO
+	} else if fill.IsGradient() {
 		// TODO: should we unset cs?
 		fmt.Fprintf(w, " /Pattern cs /%v scn", w.getPattern(fill.Gradient))
 	} else {
@@ -654,7 +656,9 @@ func (w *pdfPageWriter) SetStroke(stroke canvas.Paint) {
 	if stroke.Equal(w.stroke) {
 		return
 	}
-	if stroke.IsGradient() {
+	if stroke.IsPattern() {
+		// TODO
+	} else if stroke.IsGradient() {
 		// TODO: should we unset CS?
 		fmt.Fprintf(w, " /Pattern CS /%v SCN", w.getPattern(stroke.Gradient))
 	} else {
