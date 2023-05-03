@@ -6,9 +6,10 @@ package text
 import (
 	"bytes"
 
-	"github.com/benoitkugler/textlayout/fonts/truetype"
-	"github.com/benoitkugler/textlayout/harfbuzz"
-	"github.com/benoitkugler/textlayout/language"
+	"github.com/go-text/typesetting/harfbuzz"
+	"github.com/go-text/typesetting/language"
+	fontapi "github.com/go-text/typesetting/opentype/api/font"
+	"github.com/go-text/typesetting/opentype/loader"
 	"github.com/tdewolff/canvas/font"
 )
 
@@ -19,12 +20,16 @@ type Shaper struct {
 
 // NewShaper returns a new text shaper.
 func NewShaper(b []byte, _ int) (Shaper, error) {
-	font, err := truetype.Parse(bytes.NewReader(b))
+	loader, err := loader.NewLoader(bytes.NewReader(b))
+	if err != nil {
+		return Shaper{}, err
+	}
+	font, err := fontapi.NewFont(loader)
 	if err != nil {
 		return Shaper{}, err
 	}
 	return Shaper{
-		font: harfbuzz.NewFont(font),
+		font: harfbuzz.NewFont(&fontapi.Face{Font: font}),
 	}, nil
 }
 

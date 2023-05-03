@@ -109,3 +109,5 @@ This is a non-exhaustive list of library users I've come across. PRs are welcome
 
 ## License
 Released under the [MIT license](LICENSE.md).
+
+Be aware that Fribidi uses the LGPL license.
