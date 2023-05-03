@@ -616,8 +616,31 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 		return
 	}
 
+	// apply coordinate view to fill/stroke gradients/patterns
+	m := Identity
+	style := c.Style
+	switch c.coordSystem {
+	case CartesianII:
+		m = m.ReflectXAbout(c.Width() / 2.0)
+	case CartesianIII:
+		m = m.ReflectXAbout(c.Width() / 2.0).ReflectYAbout(c.Height() / 2.0)
+	case CartesianIV:
+		m = m.ReflectYAbout(c.Height() / 2.0)
+	}
+	if style.Fill.IsPattern() {
+		style.Fill.Pattern = style.Fill.Pattern.SetView(m)
+	} else if style.Fill.IsGradient() {
+		style.Fill.Gradient = style.Fill.Gradient.SetView(m)
+	}
+	if style.Stroke.IsPattern() {
+		style.Stroke.Pattern = style.Stroke.Pattern.SetView(m)
+	} else if style.Stroke.IsGradient() {
+		style.Stroke.Gradient = style.Stroke.Gradient.SetView(m)
+	}
+
+	// get view matrix
 	coord := c.coord(x, y)
-	m := Identity.Translate(coord.X, coord.Y)
+	m = Identity.Translate(coord.X, coord.Y)
 	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
 		m = m.ReflectY()
 	}
@@ -625,10 +648,11 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 		m = m.ReflectX()
 	}
 	m = m.Mul(c.view)
+
+	dashes := style.Dashes
 	for _, path := range paths {
 		var ok bool
-		style := c.Style
-		style.Dashes, ok = path.checkDash(c.Style.DashOffset, c.Style.Dashes)
+		style.Dashes, ok = path.checkDash(c.Style.DashOffset, dashes)
 		if !ok {
 			style.Stroke = Paint{}
 		}

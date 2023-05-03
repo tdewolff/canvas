@@ -34,9 +34,9 @@ type GradientImage struct {
 	dpmm     float64
 }
 
-func NewGradientImage(g canvas.Gradient, zp, size image.Point, res canvas.Resolution, colorSpace canvas.ColorSpace) *GradientImage {
+func NewGradientImage(g canvas.Gradient, zp, size image.Point, res canvas.Resolution) *GradientImage {
 	return &GradientImage{
-		g:    g.SetColorSpace(colorSpace),
+		g:    g,
 		zp:   zp,   // zero-point in dst
 		size: size, // dst size
 		dpmm: res.DPMM(),

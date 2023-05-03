@@ -6,6 +6,8 @@ import (
 )
 
 type Pattern interface {
+	SetView(Matrix) Pattern
+	SetColorSpace(ColorSpace) Pattern
 	ClipTo(Renderer, *Path)
 }
 
@@ -73,6 +75,25 @@ func NewHatchPattern(ifill interface{}, thickness float64, cell Matrix, hatch Ha
 		cell:      cell,
 		hatch:     hatch,
 	}
+}
+
+// SetView sets the view. Automatically called by Canvas for coordinate system transformations.
+func (p *HatchPattern) SetView(view Matrix) Pattern {
+	return p
+}
+
+// SetColorSpace sets the color space. Automatically called by the rasterizer.
+func (p *HatchPattern) SetColorSpace(colorSpace ColorSpace) Pattern {
+	if _, ok := colorSpace.(LinearColorSpace); ok {
+		return p
+	}
+
+	if p.Fill.IsGradient() {
+		p.Fill.Gradient.SetColorSpace(colorSpace)
+	} else if p.Fill.IsColor() {
+		p.Fill.Color = colorSpace.ToLinear(p.Fill.Color)
+	}
+	return p
 }
 
 // Tile tiles the hatch pattern within the clipping path.
@@ -160,5 +181,4 @@ func NewShapeHatch(ifill interface{}, shape *Path, distance, thickness float64) 
 		}
 		return p
 	})
-
 }

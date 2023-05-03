@@ -131,9 +131,11 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		if style.Fill.IsColor() {
 			src = image.NewUniform(r.colorSpace.ToLinear(style.Fill.Color))
 		} else if style.Fill.IsGradient() {
-			src = NewGradientImage(style.Fill.Gradient, zp, size, r.resolution, r.colorSpace)
+			gradient := style.Fill.Gradient.SetColorSpace(r.colorSpace)
+			src = NewGradientImage(gradient, zp, size, r.resolution)
 		} else if style.Fill.IsPattern() {
-			style.Fill.Pattern.ClipTo(r, fill)
+			pattern := style.Fill.Pattern.SetColorSpace(r.colorSpace)
+			pattern.ClipTo(r, fill)
 		}
 		if src != nil {
 			ras.Draw(r.Image, image.Rect(x, y, x+w, y+h), src, image.Point{dx, dy})
@@ -154,9 +156,11 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		if style.Stroke.IsColor() {
 			src = image.NewUniform(r.colorSpace.ToLinear(style.Stroke.Color))
 		} else if style.Stroke.IsGradient() {
-			src = NewGradientImage(style.Stroke.Gradient, zp, size, r.resolution, r.colorSpace)
+			gradient := style.Stroke.Gradient.SetColorSpace(r.colorSpace)
+			src = NewGradientImage(gradient, zp, size, r.resolution)
 		} else if style.Fill.IsPattern() {
-			style.Stroke.Pattern.ClipTo(r, fill)
+			pattern := style.Stroke.Pattern.SetColorSpace(r.colorSpace)
+			pattern.ClipTo(r, fill)
 		}
 		if src != nil {
 			ras.Draw(r.Image, image.Rect(x, y, x+w, y+h), src, image.Point{dx, dy})

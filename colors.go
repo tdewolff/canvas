@@ -56,6 +56,7 @@ func Hex(s string) color.RGBA {
 
 // Gradient is a gradient pattern for filling.
 type Gradient interface {
+	SetView(Matrix) Gradient
 	SetColorSpace(ColorSpace) Gradient
 	At(float64, float64) color.RGBA
 }
@@ -139,16 +140,31 @@ func NewLinearGradient(start, end Point) *LinearGradient {
 	}
 }
 
-// SetColorSpace returns the linear gradient with the given color space. Automatically called by the rasterizer.
+// SetView sets the view. Automatically called by Canvas for coordinate system transformations.
+func (g *LinearGradient) SetView(view Matrix) Gradient {
+	if view == Identity {
+		return g
+	}
+
+	gradient := *g
+	gradient.Start = view.Dot(gradient.Start)
+	gradient.End = view.Dot(gradient.End)
+	gradient.d = gradient.End.Sub(gradient.Start)
+	gradient.d2 = gradient.d.Dot(gradient.d)
+	return &gradient
+}
+
+// SetColorSpace sets the color space. Automatically called by the rasterizer.
 func (g *LinearGradient) SetColorSpace(colorSpace ColorSpace) Gradient {
 	if _, ok := colorSpace.(LinearColorSpace); ok {
 		return g
 	}
-	gradient := &(*g)
+
+	gradient := *g
 	for i := range gradient.Stops {
 		gradient.Stops[i].Color = colorSpace.ToLinear(gradient.Stops[i].Color)
 	}
-	return gradient
+	return &gradient
 }
 
 // At returns the color at position (x,y).
@@ -193,11 +209,26 @@ func NewRadialGradient(c0 Point, r0 float64, c1 Point, r1 float64) *RadialGradie
 	}
 }
 
-// SetColorSpace returns the linear gradient with the given color space. Automatically called by the rasterizer.
+// SetView sets the view. Automatically called by Canvas for coordinate system transformations.
+func (g *RadialGradient) SetView(view Matrix) Gradient {
+	if view == Identity {
+		return g
+	}
+
+	gradient := *g
+	gradient.C0 = view.Dot(gradient.C0)
+	gradient.C1 = view.Dot(gradient.C1)
+	gradient.cd = gradient.C1.Sub(gradient.C0)
+	gradient.a = gradient.cd.Dot(gradient.cd) - gradient.dr*gradient.dr
+	return &gradient
+}
+
+// SetColorSpace sets the color space. Automatically called by the rasterizer.
 func (g *RadialGradient) SetColorSpace(colorSpace ColorSpace) Gradient {
 	if _, ok := colorSpace.(LinearColorSpace); ok {
 		return g
 	}
+
 	gradient := *g
 	for i := range gradient.Stops {
 		gradient.Stops[i].Color = colorSpace.ToLinear(gradient.Stops[i].Color)
