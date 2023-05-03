@@ -120,19 +120,19 @@ func TestEllipseSplit(t *testing.T) {
 }
 
 func TestArcToQuad(t *testing.T) {
-	test.T(t, arcToQuad(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}), MustParseSVG("M0 0Q0 100 100 100Q200 100 200 0"))
+	test.T(t, arcToQuad(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}), MustParseSVGPath("M0 0Q0 100 100 100Q200 100 200 0"))
 }
 
 func TestArcToCube(t *testing.T) {
 	defer setEpsilon(1e-3)()
-	test.T(t, arcToCube(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}), MustParseSVG("M0 0C0 54.858 45.142 100 100 100C154.858 100 200 54.858 200 0"))
+	test.T(t, arcToCube(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}), MustParseSVGPath("M0 0C0 54.858 45.142 100 100 100C154.858 100 200 54.858 200 0"))
 }
 
 func TestFlattenEllipse(t *testing.T) {
 	tolerance := 1.0
 
 	defer setEpsilon(1e-3)()
-	test.T(t, flattenEllipticArc(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}, tolerance), MustParseSVG("M0 0L3.8202 27.243L15.092 52.545L33.225 74.179L56.889 90.115L84.082 98.716L100 100L127.243 96.18L152.545 84.908L174.179 66.775L190.115 43.111L198.716 15.918L200 0"))
+	test.T(t, flattenEllipticArc(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}, tolerance), MustParseSVGPath("M0 0L3.8202 27.243L15.092 52.545L33.225 74.179L56.889 90.115L84.082 98.716L100 100L127.243 96.18L152.545 84.908L174.179 66.775L190.115 43.111L198.716 15.918L200 0"))
 }
 
 func TestQuadraticBezier(t *testing.T) {
@@ -243,13 +243,13 @@ func TestQuadraticBezierFlatten(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
-			path := MustParseSVG(tt.path)
+			path := MustParseSVGPath(tt.path)
 			p0 := Point{path.d[1], path.d[2]}
 			p1 := Point{path.d[5], path.d[6]}
 			p2 := Point{path.d[7], path.d[8]}
 
 			p := flattenQuadraticBezier(p0, p1, p2, tolerance)
-			test.T(t, p, MustParseSVG(tt.expected))
+			test.T(t, p, MustParseSVGPath(tt.expected))
 		})
 	}
 }
@@ -399,11 +399,11 @@ func TestCubicBezierStrokeHelpers(t *testing.T) {
 
 	p = &Path{}
 	addCubicBezierLine(p, p0, p1, p2, p3, 0.0, 0.5)
-	test.T(t, p, MustParseSVG("L0 -0.5"))
+	test.T(t, p, MustParseSVGPath("L0 -0.5"))
 
 	p = &Path{}
 	addCubicBezierLine(p, p0, p1, p2, p3, 1.0, 0.5)
-	test.T(t, p, MustParseSVG("L1.5 1"))
+	test.T(t, p, MustParseSVGPath("L1.5 1"))
 }
 
 func TestCubicBezierStrokeFlatten(t *testing.T) {
@@ -421,7 +421,7 @@ func TestCubicBezierStrokeFlatten(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
-			path := MustParseSVG(tt.path)
+			path := MustParseSVGPath(tt.path)
 			p0 := Point{path.d[1], path.d[2]}
 			p1 := Point{path.d[5], path.d[6]}
 			p2 := Point{path.d[7], path.d[8]}
@@ -430,7 +430,7 @@ func TestCubicBezierStrokeFlatten(t *testing.T) {
 			p := &Path{}
 			flattenSmoothCubicBezier(p, p0, p1, p2, p3, tt.d, tt.tolerance)
 			reset := setEpsilon(1e-6)
-			test.T(t, p, MustParseSVG(tt.expected))
+			test.T(t, p, MustParseSVGPath(tt.expected))
 			reset()
 		})
 	}

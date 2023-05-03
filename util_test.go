@@ -146,7 +146,7 @@ func TestRect(t *testing.T) {
 	test.T(t, r.Overlaps(Rect{0, 0, 5, 5}), true)
 	test.T(t, r.Overlaps(Rect{-1, -1, 7, 7}), true)
 	test.T(t, r.Overlaps(Rect{1, 1, 3, 3}), true)
-	test.T(t, r.ToPath(), MustParseSVG("M0,0H5V5H0z"))
+	test.T(t, r.ToPath(), MustParseSVGPath("M0,0H5V5H0z"))
 	test.String(t, r.String(), "(0,0)-(5,5)")
 }
 

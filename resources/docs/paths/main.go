@@ -34,7 +34,7 @@ func drawControl(c *canvas.Context, x, y float64) {
 }
 
 func drawPath(c *canvas.Context, x, y float64, path string, moveto bool) {
-	p, err := canvas.ParseSVG(path)
+	p, err := canvas.ParseSVGPath(path)
 	if err != nil {
 		panic(err)
 	}

@@ -1685,17 +1685,27 @@ func skipCommaWhitespace(path []byte) int {
 	return i
 }
 
-// MustParseSVG parses an SVG path data string and panics if it fails.
 func MustParseSVG(s string) *Path {
-	p, err := ParseSVG(s)
+	fmt.Println("DEPRECATED: use MustParseSVGPath instead of MustParseSVG")
+	return MustParseSVGPath(s)
+}
+
+func ParseSVG(s string) (*Path, error) {
+	fmt.Println("DEPRECATED: use ParseSVGPath instead of ParseSVG")
+	return ParseSVGPath(s)
+}
+
+// MustParseSVGPath parses an SVG path data string and panics if it fails.
+func MustParseSVGPath(s string) *Path {
+	p, err := ParseSVGPath(s)
 	if err != nil {
 		panic(err)
 	}
 	return p
 }
 
-// ParseSVG parses an SVG path data string.
-func ParseSVG(s string) (*Path, error) {
+// ParseSVGPath parses an SVG path data string.
+func ParseSVGPath(s string) (*Path, error) {
 	if len(s) == 0 {
 		return &Path{}, nil
 	}

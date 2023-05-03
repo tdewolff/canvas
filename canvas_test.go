@@ -16,7 +16,7 @@ func setEpsilon(epsilon float64) func() {
 }
 
 func TestCanvas(t *testing.T) {
-	path := MustParseSVG("M10 0L20 0Q25 10 30 0C30 10 40 10 40 0A5 5 0 0 0 50 0z")
+	path := MustParseSVGPath("M10 0L20 0Q25 10 30 0C30 10 40 10 40 0A5 5 0 0 0 50 0z")
 
 	family := NewFontFamily("dejavu-serif")
 	if err := family.LoadFontFile("resources/DejaVuSerif.ttf", FontRegular); err != nil {

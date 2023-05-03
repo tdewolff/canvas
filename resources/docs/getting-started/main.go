@@ -13,7 +13,7 @@ func main() {
 	ctx := canvas.NewContext(c)
 
 	// Create a triangle path from an SVG path and draw it to the canvas
-	triangle, err := canvas.ParseSVG("L60 0L30 60z")
+	triangle, err := canvas.ParseSVGPath("L60 0L30 60z")
 	if err != nil {
 		panic(err)
 	}

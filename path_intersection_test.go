@@ -113,8 +113,8 @@ func TestIntersectionLineLine(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.line1, "x", tt.line2), func(t *testing.T) {
-			line1 := MustParseSVG(tt.line1).ReverseScanner()
-			line2 := MustParseSVG(tt.line2).ReverseScanner()
+			line1 := MustParseSVGPath(tt.line1).ReverseScanner()
+			line2 := MustParseSVGPath(tt.line2).ReverseScanner()
 			line1.Scan()
 			line2.Scan()
 
@@ -152,8 +152,8 @@ func TestIntersectionLineQuad(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.line, "x", tt.quad), func(t *testing.T) {
-			line := MustParseSVG(tt.line).ReverseScanner()
-			quad := MustParseSVG(tt.quad).ReverseScanner()
+			line := MustParseSVGPath(tt.line).ReverseScanner()
+			quad := MustParseSVGPath(tt.quad).ReverseScanner()
 			line.Scan()
 			quad.Scan()
 
@@ -201,8 +201,8 @@ func TestIntersectionLineCube(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.line, "x", tt.cube), func(t *testing.T) {
-			line := MustParseSVG(tt.line).ReverseScanner()
-			cube := MustParseSVG(tt.cube).ReverseScanner()
+			line := MustParseSVGPath(tt.line).ReverseScanner()
+			cube := MustParseSVGPath(tt.cube).ReverseScanner()
 			line.Scan()
 			cube.Scan()
 
@@ -277,8 +277,8 @@ func TestIntersectionLineEllipse(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.line, "x", tt.arc), func(t *testing.T) {
-			line := MustParseSVG(tt.line).ReverseScanner()
-			arc := MustParseSVG(tt.arc).ReverseScanner()
+			line := MustParseSVGPath(tt.line).ReverseScanner()
+			arc := MustParseSVGPath(tt.arc).ReverseScanner()
 			line.Scan()
 			arc.Scan()
 
@@ -358,11 +358,11 @@ func TestIntersections(t *testing.T) {
 		{"M4 1L4 3L0 3", "M3 4L4 3L3 2", Intersections{
 			{Point{4.0, 3.0}, 2, 2, 0.0, 0.0, math.Pi, 1.25 * math.Pi, BintoA, NoParallel, false},
 		}},
-		{"M0 1L4 1L4 3L0 3z", MustParseSVG("M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z").Flatten(Tolerance).ToSVG(), Intersections{
+		{"M0 1L4 1L4 3L0 3z", MustParseSVGPath("M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z").Flatten(Tolerance).ToSVG(), Intersections{
 			{Point{4.0, 3.0}, 3, 1, 0.0, 0.0, math.Pi, 262.01783160 * math.Pi / 180.0, BintoA, NoParallel, false},
 			{Point{2.0, 3.0}, 3, 13, 0.5, 0.0, math.Pi, 82.01783160 * math.Pi / 180.0, AintoB, NoParallel, false},
 		}},
-		{"M5 1L9 1L9 5L5 5z", MustParseSVG("M9 5A4 4 0 0 1 1 5A4 4 0 0 1 9 5z").Flatten(Tolerance).ToSVG(), Intersections{
+		{"M5 1L9 1L9 5L5 5z", MustParseSVGPath("M9 5A4 4 0 0 1 1 5A4 4 0 0 1 9 5z").Flatten(Tolerance).ToSVG(), Intersections{
 			{Point{5.0, 1.0}, 1, 37, 0.0, 0.0, 0.0, 4.02145240 * math.Pi / 180.0, BintoA, NoParallel, false},
 			{Point{9.0, 5.0}, 3, 1, 0.0, 0.0, math.Pi, 94.02145240 * math.Pi / 180.0, AintoB, NoParallel, false},
 		}},
@@ -512,8 +512,8 @@ func TestIntersections(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
-			p := MustParseSVG(tt.p)
-			q := MustParseSVG(tt.q)
+			p := MustParseSVGPath(tt.p)
+			q := MustParseSVGPath(tt.q)
 
 			zs := p.Intersections(q)
 			test.T(t, len(zs), len(tt.zs))
@@ -537,7 +537,7 @@ func TestSelfIntersections(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p), func(t *testing.T) {
-			p := MustParseSVG(tt.p)
+			p := MustParseSVGPath(tt.p)
 			zs := p.SelfIntersections()
 			test.T(t, len(zs), len(tt.zs))
 			for i := range zs {
@@ -564,13 +564,13 @@ func TestPathCut(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
-			p := MustParseSVG(tt.p)
-			q := MustParseSVG(tt.q)
+			p := MustParseSVGPath(tt.p)
+			q := MustParseSVGPath(tt.q)
 
 			rs := p.Cut(q)
 			test.T(t, len(rs), len(tt.rs))
 			for i := range rs {
-				test.T(t, rs[i], MustParseSVG(tt.rs[i]))
+				test.T(t, rs[i], MustParseSVGPath(tt.rs[i]))
 			}
 		})
 	}
@@ -604,8 +604,8 @@ func TestPathSettle(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p), func(t *testing.T) {
-			p := MustParseSVG(tt.p)
-			test.T(t, p.Settle(), MustParseSVG(tt.r))
+			p := MustParseSVGPath(tt.p)
+			test.T(t, p.Settle(), MustParseSVGPath(tt.r))
 		})
 	}
 }
@@ -691,10 +691,10 @@ func TestPathAnd(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
-			p := MustParseSVG(tt.p)
-			q := MustParseSVG(tt.q)
+			p := MustParseSVGPath(tt.p)
+			q := MustParseSVGPath(tt.q)
 			r := p.And(q)
-			test.T(t, r, MustParseSVG(tt.r))
+			test.T(t, r, MustParseSVGPath(tt.r))
 		})
 	}
 }
@@ -759,10 +759,10 @@ func TestPathOr(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
-			p := MustParseSVG(tt.p)
-			q := MustParseSVG(tt.q)
+			p := MustParseSVGPath(tt.p)
+			q := MustParseSVGPath(tt.q)
 			r := p.Or(q)
-			test.T(t, r, MustParseSVG(tt.r))
+			test.T(t, r, MustParseSVGPath(tt.r))
 		})
 	}
 }
@@ -828,10 +828,10 @@ func TestPathXor(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
-			p := MustParseSVG(tt.p)
-			q := MustParseSVG(tt.q)
+			p := MustParseSVGPath(tt.p)
+			q := MustParseSVGPath(tt.q)
 			r := p.Xor(q)
-			test.T(t, r, MustParseSVG(tt.r))
+			test.T(t, r, MustParseSVGPath(tt.r))
 		})
 	}
 }
@@ -913,10 +913,10 @@ func TestPathNot(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
-			p := MustParseSVG(tt.p)
-			q := MustParseSVG(tt.q)
+			p := MustParseSVGPath(tt.p)
+			q := MustParseSVGPath(tt.q)
 			r := p.Not(q)
-			test.T(t, r, MustParseSVG(tt.r))
+			test.T(t, r, MustParseSVGPath(tt.r))
 		})
 	}
 }
@@ -932,9 +932,9 @@ func TestPathDivideBy(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
-			p := MustParseSVG(tt.p)
-			q := MustParseSVG(tt.q)
-			test.T(t, p.DivideBy(q), MustParseSVG(tt.r))
+			p := MustParseSVGPath(tt.p)
+			q := MustParseSVGPath(tt.q)
+			test.T(t, p.DivideBy(q), MustParseSVGPath(tt.r))
 		})
 	}
 }

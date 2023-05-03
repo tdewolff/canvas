@@ -36,7 +36,7 @@ func main() {
 	draw(ctx, -121.0, "Overlapping stars 1", canvas.StarPolygon(10, 3.0, 0.5, false).Translate(4.5, 5.0), canvas.StarPolygon(10, 4.0, 1.0, false).Translate(6.0, 5.0))
 	draw(ctx, -133.0, "Overlapping stars 2", canvas.StarPolygon(20, 4.0, 1.0, false).Translate(5.0, 5.0), canvas.StarPolygon(6, 5.0, 2.0, false).Translate(5.0, 5.0))
 
-	bezier := canvas.MustParseSVG("M173,44c-86,152 -215,149 -126,49c240,-239 -155,219 126,-49z")
+	bezier := canvas.MustParseSVGPath("M173,44c-86,152 -215,149 -126,49c240,-239 -155,219 126,-49z")
 	bezier = bezier.Transform(canvas.Identity.Scale(0.05, -0.05).Translate(-100.0, -100.0))
 	draw(ctx, -145.0, "Cubic beziers", bezier.Translate(5.0, 5.0), bezier.Scale(-1.0, 1.0).Translate(5.0, 5.0))
 

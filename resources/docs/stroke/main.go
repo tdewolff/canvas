@@ -26,7 +26,7 @@ func main() {
 }
 
 func drawStrokedPath(c *canvas.Context, x, y float64, path string, cr canvas.Capper, jr canvas.Joiner) {
-	p, err := canvas.ParseSVG(path)
+	p, err := canvas.ParseSVGPath(path)
 	if err != nil {
 		panic(err)
 	}

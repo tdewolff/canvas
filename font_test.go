@@ -50,7 +50,7 @@ func TestFontFace(t *testing.T) {
 	//Epsilon = 1e-3
 	//p, width, err := face.ToPath("AO")
 	//test.Error(t, err)
-	//test.T(t, p, MustParseSVG("M2.4062 3.1719L5.6094 3.1719L4.0156 7.3281L2.4062 3.1719zM-0.078125 0L-0.078125 0.625L0.70312 0.625L3.8125 8.75L4.7969 8.75L7.9219 0.625L8.7812 0.625L8.7812 0L5.6094 0L5.6094 0.625L6.5781 0.625L5.8438 2.5469L2.1562 2.5469L1.4375 0.625L2.3906 0.625L2.3906 0L-0.078125 0zM13.594 0.45312Q15.031 0.45312 15.766 1.4375Q16.5 2.4375 16.5 4.3594Q16.5 6.3125 15.766 7.2969Q15.031 8.2812 13.594 8.2812Q12.156 8.2812 11.422 7.2969Q10.688 6.3125 10.688 4.3594Q10.688 2.4375 11.422 1.4375Q12.156 0.45312 13.594 0.45312zM13.594 -0.17188Q12.703 -0.17188 11.953 0.125Q11.203 0.42188 10.641 0.98438Q9.9844 1.6406 9.6562 2.4688Q9.3438 3.3125 9.3438 4.3594Q9.3438 5.4219 9.6562 6.2656Q9.9844 7.0938 10.641 7.75Q11.219 8.3281 11.953 8.6094Q12.688 8.9062 13.594 8.9062Q15.5 8.9062 16.672 7.6562Q17.844 6.4062 17.844 4.3594Q17.844 3.3125 17.516 2.4688Q17.203 1.6406 16.547 0.98438Q15.969 0.40625 15.234 0.125Q14.484 -0.17188 13.594 -0.17188z"))
+	//test.T(t, p, MustParseSVGPath("M2.4062 3.1719L5.6094 3.1719L4.0156 7.3281L2.4062 3.1719zM-0.078125 0L-0.078125 0.625L0.70312 0.625L3.8125 8.75L4.7969 8.75L7.9219 0.625L8.7812 0.625L8.7812 0L5.6094 0L5.6094 0.625L6.5781 0.625L5.8438 2.5469L2.1562 2.5469L1.4375 0.625L2.3906 0.625L2.3906 0L-0.078125 0zM13.594 0.45312Q15.031 0.45312 15.766 1.4375Q16.5 2.4375 16.5 4.3594Q16.5 6.3125 15.766 7.2969Q15.031 8.2812 13.594 8.2812Q12.156 8.2812 11.422 7.2969Q10.688 6.3125 10.688 4.3594Q10.688 2.4375 11.422 1.4375Q12.156 0.45312 13.594 0.45312zM13.594 -0.17188Q12.703 -0.17188 11.953 0.125Q11.203 0.42188 10.641 0.98438Q9.9844 1.6406 9.6562 2.4688Q9.3438 3.3125 9.3438 4.3594Q9.3438 5.4219 9.6562 6.2656Q9.9844 7.0938 10.641 7.75Q11.219 8.3281 11.953 8.6094Q12.688 8.9062 13.594 8.9062Q15.5 8.9062 16.672 7.6562Q17.844 6.4062 17.844 4.3594Q17.844 3.3125 17.516 2.4688Q17.203 1.6406 16.547 0.98438Q15.969 0.40625 15.234 0.125Q14.484 -0.17188 13.594 -0.17188z"))
 	//test.Float(t, width, 18.515625)
 }
 
@@ -66,24 +66,24 @@ func TestFontDecoration(t *testing.T) {
 	// yStrikoutSize = 102, yStrikeoutPosition = 530
 	// note that we increase distance by half the thickness to match the implementation of Firefox
 	face := family.Face(pt, Black, FontRegular, FontNormal, FontUnderline)
-	test.T(t, face.Decorate(10.0), MustParseSVG("M0 -265L10 -265L10 -175L0 -175z"))
+	test.T(t, face.Decorate(10.0), MustParseSVGPath("M0 -265L10 -265L10 -175L0 -175z"))
 
 	face = family.Face(pt, Black, FontRegular, FontNormal, FontOverline)
-	test.T(t, face.Decorate(10.0), MustParseSVG("M0 1811L10 1811L10 1901L0 1901z"))
+	test.T(t, face.Decorate(10.0), MustParseSVGPath("M0 1811L10 1811L10 1901L0 1901z"))
 
 	face = family.Face(pt, Black, FontRegular, FontNormal, FontStrikethrough)
-	test.T(t, face.Decorate(10.0), MustParseSVG("M0 530L10 530L10 632L0 632z"))
+	test.T(t, face.Decorate(10.0), MustParseSVGPath("M0 530L10 530L10 632L0 632z"))
 
 	face = family.Face(pt, Black, FontRegular, FontNormal, FontDoubleUnderline)
-	test.T(t, face.Decorate(10.0), MustParseSVG("M0 -265L10 -265L10 -175L0 -175zM0 -400L10 -400L10 -310L0 -310z"))
+	test.T(t, face.Decorate(10.0), MustParseSVGPath("M0 -265L10 -265L10 -175L0 -175zM0 -400L10 -400L10 -310L0 -310z"))
 
 	face = family.Face(pt, Black, FontRegular, FontNormal, FontDottedUnderline)
-	test.T(t, face.Decorate(89.0), MustParseSVG(""))
-	test.T(t, face.Decorate(90.0), MustParseSVG("M90 -220A45 45 0 0 1 0 -220A45 45 0 0 1 90 -220z"))
-	test.T(t, face.Decorate(269.0), MustParseSVG("M179.5 -220A45 45 0 0 1 89.5 -220A45 45 0 0 1 179.5 -220z"))
-	test.T(t, face.Decorate(270.0), MustParseSVG("M90 -220A45 45 0 0 1 0 -220A45 45 0 0 1 90 -220zM270 -220A45 45 0 0 1 180 -220A45 45 0 0 1 270 -220z"))
+	test.T(t, face.Decorate(89.0), MustParseSVGPath(""))
+	test.T(t, face.Decorate(90.0), MustParseSVGPath("M90 -220A45 45 0 0 1 0 -220A45 45 0 0 1 90 -220z"))
+	test.T(t, face.Decorate(269.0), MustParseSVGPath("M179.5 -220A45 45 0 0 1 89.5 -220A45 45 0 0 1 179.5 -220z"))
+	test.T(t, face.Decorate(270.0), MustParseSVGPath("M90 -220A45 45 0 0 1 0 -220A45 45 0 0 1 90 -220zM270 -220A45 45 0 0 1 180 -220A45 45 0 0 1 270 -220z"))
 
 	face = family.Face(pt, Black, FontRegular, FontNormal, FontDashedUnderline)
-	test.T(t, face.Decorate(809.0), MustParseSVG("M0 -265L809 -265L809 -175L0 -175z"))
-	test.T(t, face.Decorate(810.0), MustParseSVG("M0 -265L270 -265L270 -175L0 -175zM540 -265L810 -265L810 -175L540 -175z"))
+	test.T(t, face.Decorate(809.0), MustParseSVGPath("M0 -265L809 -265L809 -175L0 -175z"))
+	test.T(t, face.Decorate(810.0), MustParseSVGPath("M0 -265L270 -265L270 -175L0 -175zM540 -265L810 -265L810 -175L540 -175z"))
 }

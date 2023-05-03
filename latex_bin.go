@@ -107,7 +107,7 @@ func ParseLaTeX(s string) (*Path, error) {
 					return nil, errors.New("unexpected SVG format: expected d attribute on path tag")
 				}
 
-				svgPath, err := ParseSVG(string(d))
+				svgPath, err := ParseSVGPath(string(d))
 				if err != nil {
 					return nil, err
 				}

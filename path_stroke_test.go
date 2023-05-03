@@ -70,8 +70,8 @@ func TestPathStroke(t *testing.T) {
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
 			reset := setEpsilon(1e-3)
-			stroke := MustParseSVG(tt.orig).Stroke(tt.w, tt.cp, tt.jr, tolerance)
-			test.T(t, stroke, MustParseSVG(tt.stroke))
+			stroke := MustParseSVGPath(tt.orig).Stroke(tt.w, tt.cp, tt.jr, tolerance)
+			test.T(t, stroke, MustParseSVGPath(tt.stroke))
 			reset()
 		})
 	}
@@ -106,8 +106,8 @@ func TestPathOffset(t *testing.T) {
 	}
 	for j, tt := range tts {
 		t.Run(fmt.Sprintf("%v", j), func(t *testing.T) {
-			offset := MustParseSVG(tt.orig).Offset(tt.w, NonZero, tolerance)
-			test.T(t, offset, MustParseSVG(tt.offset))
+			offset := MustParseSVGPath(tt.orig).Offset(tt.w, NonZero, tolerance)
+			test.T(t, offset, MustParseSVGPath(tt.offset))
 		})
 	}
 }

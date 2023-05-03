@@ -14,7 +14,7 @@ import (
 
 func TestPDF(t *testing.T) {
 	c := canvas.New(10, 10)
-	c.RenderPath(canvas.MustParseSVG("L10 0"), canvas.DefaultStyle, canvas.Identity)
+	c.RenderPath(canvas.MustParseSVGPath("L10 0"), canvas.DefaultStyle, canvas.Identity)
 
 	//	pdfCompress = false
 	//	buf := &bytes.Buffer{}

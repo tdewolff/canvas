@@ -26,67 +26,67 @@ func TestPathEmpty(t *testing.T) {
 }
 
 func TestPathEquals(t *testing.T) {
-	test.That(t, !MustParseSVG("M5 0L5 10").Equals(MustParseSVG("M5 0")))
-	test.That(t, !MustParseSVG("M5 0L5 10").Equals(MustParseSVG("M5 0M5 10")))
-	test.That(t, !MustParseSVG("M5 0L5 10").Equals(MustParseSVG("M5 0L5 9")))
-	test.That(t, MustParseSVG("M5 0L5 10").Equals(MustParseSVG("M5 0L5 10")))
+	test.That(t, !MustParseSVGPath("M5 0L5 10").Equals(MustParseSVGPath("M5 0")))
+	test.That(t, !MustParseSVGPath("M5 0L5 10").Equals(MustParseSVGPath("M5 0M5 10")))
+	test.That(t, !MustParseSVGPath("M5 0L5 10").Equals(MustParseSVGPath("M5 0L5 9")))
+	test.That(t, MustParseSVGPath("M5 0L5 10").Equals(MustParseSVGPath("M5 0L5 10")))
 }
 
 func TestPathSame(t *testing.T) {
-	test.That(t, MustParseSVG("L1 0L1 1L0 1z").Same(MustParseSVG("L0 1L1 1L1 0z")))
+	test.That(t, MustParseSVGPath("L1 0L1 1L0 1z").Same(MustParseSVGPath("L0 1L1 1L1 0z")))
 }
 
 func TestPathClosed(t *testing.T) {
-	test.That(t, !MustParseSVG("M5 0L5 10").Closed())
-	test.That(t, MustParseSVG("M5 0L5 10z").Closed())
-	test.That(t, !MustParseSVG("M5 0L5 10zM5 10").Closed())
-	test.That(t, MustParseSVG("M5 0L5 10zM5 10z").Closed())
+	test.That(t, !MustParseSVGPath("M5 0L5 10").Closed())
+	test.That(t, MustParseSVGPath("M5 0L5 10z").Closed())
+	test.That(t, !MustParseSVGPath("M5 0L5 10zM5 10").Closed())
+	test.That(t, MustParseSVGPath("M5 0L5 10zM5 10z").Closed())
 }
 
 func TestPathAppend(t *testing.T) {
-	test.T(t, MustParseSVG("M5 0L5 10").Append(nil), MustParseSVG("M5 0L5 10"))
-	test.T(t, (&Path{}).Append(MustParseSVG("M5 0L5 10")), MustParseSVG("M5 0L5 10"))
+	test.T(t, MustParseSVGPath("M5 0L5 10").Append(nil), MustParseSVGPath("M5 0L5 10"))
+	test.T(t, (&Path{}).Append(MustParseSVGPath("M5 0L5 10")), MustParseSVGPath("M5 0L5 10"))
 
-	p := MustParseSVG("M5 0L5 10").Append(MustParseSVG("M5 15L10 15"))
-	test.T(t, p, MustParseSVG("M5 0L5 10M5 15L10 15"))
+	p := MustParseSVGPath("M5 0L5 10").Append(MustParseSVGPath("M5 15L10 15"))
+	test.T(t, p, MustParseSVGPath("M5 0L5 10M5 15L10 15"))
 
-	p = MustParseSVG("M5 0L5 10").Append(MustParseSVG("L10 15M20 15L25 15"))
-	test.T(t, p, MustParseSVG("M5 0L5 10M0 0L10 15M20 15L25 15"))
+	p = MustParseSVGPath("M5 0L5 10").Append(MustParseSVGPath("L10 15M20 15L25 15"))
+	test.T(t, p, MustParseSVGPath("M5 0L5 10M0 0L10 15M20 15L25 15"))
 }
 
 func TestPathJoin(t *testing.T) {
-	test.T(t, MustParseSVG("M5 0L5 10").Join(nil), MustParseSVG("M5 0L5 10"))
-	test.T(t, (&Path{}).Join(MustParseSVG("M5 0L5 10")), MustParseSVG("M5 0L5 10"))
+	test.T(t, MustParseSVGPath("M5 0L5 10").Join(nil), MustParseSVGPath("M5 0L5 10"))
+	test.T(t, (&Path{}).Join(MustParseSVGPath("M5 0L5 10")), MustParseSVGPath("M5 0L5 10"))
 
-	p := MustParseSVG("M5 0L5 10").Join(MustParseSVG("L10 15"))
-	test.T(t, p, MustParseSVG("M5 0L5 10M0 0L10 15"))
+	p := MustParseSVGPath("M5 0L5 10").Join(MustParseSVGPath("L10 15"))
+	test.T(t, p, MustParseSVGPath("M5 0L5 10M0 0L10 15"))
 
-	p = MustParseSVG("M5 0L5 10z").Join(MustParseSVG("M5 0L10 15"))
-	test.T(t, p, MustParseSVG("M5 0L5 10zM5 0L10 15"))
+	p = MustParseSVGPath("M5 0L5 10z").Join(MustParseSVGPath("M5 0L10 15"))
+	test.T(t, p, MustParseSVGPath("M5 0L5 10zM5 0L10 15"))
 
-	p = MustParseSVG("M5 0L5 10").Join(MustParseSVG("M5 10L10 15"))
-	test.T(t, p, MustParseSVG("M5 0L5 10L10 15"))
+	p = MustParseSVGPath("M5 0L5 10").Join(MustParseSVGPath("M5 10L10 15"))
+	test.T(t, p, MustParseSVGPath("M5 0L5 10L10 15"))
 
-	p = MustParseSVG("M5 0L5 10").Join(MustParseSVG("L10 15M20 15L25 15"))
-	test.T(t, p, MustParseSVG("M5 0L5 10M0 0L10 15M20 15L25 15"))
+	p = MustParseSVGPath("M5 0L5 10").Join(MustParseSVGPath("L10 15M20 15L25 15"))
+	test.T(t, p, MustParseSVGPath("M5 0L5 10M0 0L10 15M20 15L25 15"))
 
-	p = MustParseSVG("M5 0L5 10").Join(MustParseSVG("M5 10L10 15M20 15L25 15"))
-	test.T(t, p, MustParseSVG("M5 0L5 10L10 15M20 15L25 15"))
+	p = MustParseSVGPath("M5 0L5 10").Join(MustParseSVGPath("M5 10L10 15M20 15L25 15"))
+	test.T(t, p, MustParseSVGPath("M5 0L5 10L10 15M20 15L25 15"))
 
-	p = MustParseSVG("M5 0L10 5").Join(MustParseSVG("M10 5L15 10"))
-	test.T(t, p, MustParseSVG("M5 0L15 10"))
+	p = MustParseSVGPath("M5 0L10 5").Join(MustParseSVGPath("M10 5L15 10"))
+	test.T(t, p, MustParseSVGPath("M5 0L15 10"))
 
-	p = MustParseSVG("M5 0L10 5").Join(MustParseSVG("L5 5z"))
-	test.T(t, p, MustParseSVG("M5 0L10 5M0 0L5 5z"))
+	p = MustParseSVGPath("M5 0L10 5").Join(MustParseSVGPath("L5 5z"))
+	test.T(t, p, MustParseSVGPath("M5 0L10 5M0 0L5 5z"))
 }
 
 func TestPathCoords(t *testing.T) {
-	coords := MustParseSVG("L5 10").Coords()
+	coords := MustParseSVGPath("L5 10").Coords()
 	test.T(t, len(coords), 2)
 	test.T(t, coords[0], Point{0.0, 0.0})
 	test.T(t, coords[1], Point{5.0, 10.0})
 
-	coords = MustParseSVG("L5 10C2.5 10 0 5 0 0z").Coords()
+	coords = MustParseSVGPath("L5 10C2.5 10 0 5 0 0z").Coords()
 	test.T(t, len(coords), 3)
 	test.T(t, coords[0], Point{0.0, 0.0})
 	test.T(t, coords[1], Point{5.0, 10.0})
@@ -141,25 +141,25 @@ func TestPathCommands(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p), func(t *testing.T) {
-			test.T(t, MustParseSVG(tt.p), MustParseSVG(tt.expected))
+			test.T(t, MustParseSVGPath(tt.p), MustParseSVGPath(tt.expected))
 		})
 	}
 
 	p := &Path{}
 	p.Arc(2, 1, 0, 180, 0)
-	test.T(t, p, MustParseSVG("A2 1 0 0 0 4 0"))
+	test.T(t, p, MustParseSVGPath("A2 1 0 0 0 4 0"))
 
 	p = &Path{}
 	p.Arc(2, 1, 0, 0, 180)
-	test.T(t, p, MustParseSVG("A2 1 0 0 1 -4 0"))
+	test.T(t, p, MustParseSVGPath("A2 1 0 0 1 -4 0"))
 
 	p = &Path{}
 	p.Arc(2, 1, 0, 540, 0)
-	test.T(t, p, MustParseSVG("A2 1 0 0 0 4 0A2 1 0 0 0 0 0A2 1 0 0 0 4 0"))
+	test.T(t, p, MustParseSVGPath("A2 1 0 0 0 4 0A2 1 0 0 0 0 0A2 1 0 0 0 4 0"))
 
 	p = &Path{}
 	p.Arc(2, 1, 0, 180, -180)
-	test.T(t, p, MustParseSVG("A2 1 0 0 0 4 0A2 1 0 0 0 0 0"))
+	test.T(t, p, MustParseSVGPath("A2 1 0 0 0 4 0A2 1 0 0 0 0 0"))
 }
 
 func TestPathCrossingsWindings(t *testing.T) {
@@ -241,7 +241,7 @@ func TestPathCrossingsWindings(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, " at ", tt.pos), func(t *testing.T) {
-			p := MustParseSVG(tt.p)
+			p := MustParseSVGPath(tt.p)
 			crossings, boundary := p.Crossings(tt.pos.X, tt.pos.Y)
 			windings, _ := p.Windings(tt.pos.X, tt.pos.Y)
 			test.T(t, []int{crossings, windings}, []int{tt.crossings, tt.windings})
@@ -269,7 +269,7 @@ func TestPathInteriorPoint(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p), func(t *testing.T) {
-			test.T(t, MustParseSVG(tt.p).InteriorPoint(), tt.point)
+			test.T(t, MustParseSVGPath(tt.p).InteriorPoint(), tt.point)
 		})
 	}
 }
@@ -324,7 +324,7 @@ func TestPathFilling(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
-			filling := MustParseSVG(tt.p).Filling(tt.rule)
+			filling := MustParseSVGPath(tt.p).Filling(tt.rule)
 			test.T(t, filling, tt.filling)
 		})
 	}
@@ -348,7 +348,7 @@ func TestPathCCW(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
-			test.T(t, MustParseSVG(tt.p).CCW(), tt.ccw)
+			test.T(t, MustParseSVGPath(tt.p).CCW(), tt.ccw)
 		})
 	}
 }
@@ -379,7 +379,7 @@ func TestPathBounds(t *testing.T) {
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
 			reset := setEpsilon(1e-6)
-			test.T(t, MustParseSVG(tt.p).Bounds(), tt.bounds)
+			test.T(t, MustParseSVGPath(tt.p).Bounds(), tt.bounds)
 			reset()
 		})
 	}
@@ -408,7 +408,7 @@ func TestPathLength(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
-			length := MustParseSVG(tt.p).Length()
+			length := MustParseSVGPath(tt.p).Length()
 			if math.Abs(tt.length-length)/length > 0.01 {
 				test.Fail(t, length, "!=", tt.length, "±1%")
 			}
@@ -430,7 +430,7 @@ func TestPathTransform(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.r, func(t *testing.T) {
-			test.T(t, MustParseSVG(tt.p).Transform(tt.m), MustParseSVG(tt.r))
+			test.T(t, MustParseSVGPath(tt.p).Transform(tt.m), MustParseSVGPath(tt.r))
 		})
 	}
 }
@@ -476,16 +476,16 @@ func TestPathReplace(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
-			p := MustParseSVG(tt.orig)
-			test.T(t, p.replace(tt.line, tt.quad, tt.cube, tt.arc), MustParseSVG(tt.res))
+			p := MustParseSVGPath(tt.orig)
+			test.T(t, p.replace(tt.line, tt.quad, tt.cube, tt.arc), MustParseSVGPath(tt.res))
 		})
 	}
 }
 
 func TestPathMarkers(t *testing.T) {
-	start := MustParseSVG("L1 0L0 1z")
-	mid := MustParseSVG("M-1 0A1 1 0 0 0 1 0z")
-	end := MustParseSVG("L-1 0L0 1z")
+	start := MustParseSVGPath("L1 0L0 1z")
+	mid := MustParseSVGPath("M-1 0A1 1 0 0 0 1 0z")
+	end := MustParseSVGPath("L-1 0L0 1z")
 
 	var tts = []struct {
 		p  string
@@ -499,7 +499,7 @@ func TestPathMarkers(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
-			p := MustParseSVG(tt.p)
+			p := MustParseSVGPath(tt.p)
 			ps := p.Markers(start, mid, end, false)
 			if len(ps) != len(tt.rs) {
 				origs := []string{}
@@ -509,7 +509,7 @@ func TestPathMarkers(t *testing.T) {
 				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.rs, "\n"))
 			} else {
 				for i, p := range ps {
-					test.T(t, p, MustParseSVG(tt.rs[i]))
+					test.T(t, p, MustParseSVGPath(tt.rs[i]))
 				}
 			}
 		})
@@ -517,9 +517,9 @@ func TestPathMarkers(t *testing.T) {
 }
 
 func TestPathMarkersAligned(t *testing.T) {
-	start := MustParseSVG("L1 0L0 1z")
-	mid := MustParseSVG("M-1 0A1 1 0 0 0 1 0z")
-	end := MustParseSVG("L-1 0L0 1z")
+	start := MustParseSVGPath("L1 0L0 1z")
+	mid := MustParseSVGPath("M-1 0A1 1 0 0 0 1 0z")
+	end := MustParseSVGPath("L-1 0L0 1z")
 	var tts = []struct {
 		p  string
 		rs []string
@@ -536,7 +536,7 @@ func TestPathMarkersAligned(t *testing.T) {
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
 			reset := setEpsilon(1e-3)
-			p := MustParseSVG(tt.p)
+			p := MustParseSVGPath(tt.p)
 			ps := p.Markers(start, mid, end, true)
 			if len(ps) != len(tt.rs) {
 				origs := []string{}
@@ -546,7 +546,7 @@ func TestPathMarkersAligned(t *testing.T) {
 				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.rs, "\n"))
 			} else {
 				for i, p := range ps {
-					test.T(t, p, MustParseSVG(tt.rs[i]))
+					test.T(t, p, MustParseSVGPath(tt.rs[i]))
 				}
 			}
 			reset()
@@ -566,7 +566,7 @@ func TestPathSplit(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
-			p := MustParseSVG(tt.p)
+			p := MustParseSVGPath(tt.p)
 			ps := p.Split()
 			if len(ps) != len(tt.rs) {
 				origs := []string{}
@@ -576,7 +576,7 @@ func TestPathSplit(t *testing.T) {
 				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.rs, "\n"))
 			} else {
 				for i, p := range ps {
-					test.T(t, p, MustParseSVG(tt.rs[i]))
+					test.T(t, p, MustParseSVGPath(tt.rs[i]))
 				}
 			}
 		})
@@ -607,7 +607,7 @@ func TestPathSplitAt(t *testing.T) {
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
 			reset := setEpsilon(1e-3)
-			p := MustParseSVG(tt.p)
+			p := MustParseSVGPath(tt.p)
 			ps := p.SplitAt(tt.d...)
 			if len(ps) != len(tt.rs) {
 				origs := []string{}
@@ -617,7 +617,7 @@ func TestPathSplitAt(t *testing.T) {
 				test.T(t, strings.Join(origs, "\n"), strings.Join(tt.rs, "\n"))
 			} else {
 				for i, p := range ps {
-					test.T(t, p, MustParseSVG(tt.rs[i]))
+					test.T(t, p, MustParseSVGPath(tt.rs[i]))
 				}
 			}
 			reset()
@@ -694,7 +694,7 @@ func TestPathDash(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
-			test.T(t, MustParseSVG(tt.p).Dash(tt.offset, tt.d...), MustParseSVG(tt.dashes))
+			test.T(t, MustParseSVGPath(tt.p).Dash(tt.offset, tt.d...), MustParseSVGPath(tt.dashes))
 		})
 	}
 }
@@ -733,12 +733,12 @@ func TestPathReverse(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
-			test.T(t, MustParseSVG(tt.p).Reverse(), MustParseSVG(tt.r))
+			test.T(t, MustParseSVGPath(tt.p).Reverse(), MustParseSVGPath(tt.r))
 		})
 	}
 }
 
-func TestPathParseSVG(t *testing.T) {
+func TestPathParseSVGPath(t *testing.T) {
 	var tts = []struct {
 		p string
 		r string
@@ -758,14 +758,14 @@ func TestPathParseSVG(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
-			p, err := ParseSVG(tt.p)
+			p, err := ParseSVGPath(tt.p)
 			test.Error(t, err)
-			test.T(t, p, MustParseSVG(tt.r))
+			test.T(t, p, MustParseSVGPath(tt.r))
 		})
 	}
 }
 
-func TestPathParseSVGErrors(t *testing.T) {
+func TestPathParseSVGPathErrors(t *testing.T) {
 	var tts = []struct {
 		p   string
 		err string
@@ -783,7 +783,7 @@ func TestPathParseSVGErrors(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
-			_, err := ParseSVG(tt.p)
+			_, err := ParseSVGPath(tt.p)
 			test.That(t, err != nil)
 			test.T(t, err.Error(), tt.err)
 		})
@@ -806,7 +806,7 @@ func TestPathToSVG(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
-			p := MustParseSVG(tt.p)
+			p := MustParseSVGPath(tt.p)
 			test.T(t, p.ToSVG(), tt.svg)
 		})
 	}
@@ -825,7 +825,7 @@ func TestPathToPS(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
-			test.T(t, MustParseSVG(tt.p).ToPS(), tt.ps)
+			test.T(t, MustParseSVGPath(tt.p).ToPS(), tt.ps)
 		})
 	}
 }
@@ -841,7 +841,7 @@ func TestPathToPDF(t *testing.T) {
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
-			test.T(t, MustParseSVG(tt.p).ToPDF(), tt.pdf)
+			test.T(t, MustParseSVGPath(tt.p).ToPDF(), tt.pdf)
 		})
 	}
 }
