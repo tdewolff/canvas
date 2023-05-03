@@ -431,7 +431,8 @@ func (lb *linebreaker) mainLoop(b int, tolerance float64) {
 }
 
 // Linebreak breaks a list of items using Donald Knuth's line breaking algorithm. See Donald E. Knuth and Michael F. Plass, "Breaking Paragraphs into Lines", 1981
-func Linebreak(items []Item, width float64, looseness int) []*Breakpoint {
+func Linebreak(items []Item, width float64, looseness int) ([]*Breakpoint, bool) {
+	overflows := false
 	tolerance := Tolerance
 
 START:
@@ -460,6 +461,7 @@ START:
 				goto START
 			} else {
 				// line doesn't fit, amongst the rejected active set we choose the ones that stick out the least and continue
+				overflows = true
 				minWidth := math.Inf(1.0)
 				for parent := lb.inactiveNodes.head; parent != nil; parent = parent.next {
 					minWidth = math.Min(minWidth, lb.W-parent.W)
@@ -471,7 +473,7 @@ START:
 							Position: b,
 							Line:     parent.Line + 1,
 							Fitness:  1,
-							Width:    lb.width,
+							Width:    lb.W,
 							W:        lb.W,
 							Y:        lb.Y,
 							Z:        lb.Z,
@@ -489,7 +491,7 @@ START:
 	if lb.activeNodes.head == nil {
 		return []*Breakpoint{{
 			Position: len(lb.items) - 1,
-		}}
+		}}, !overflows
 	}
 
 	// choose the active node with fewest total demerits
@@ -530,7 +532,10 @@ START:
 	if 1 < len(breaks) {
 		breaks = breaks[1:]
 	}
-	return breaks
+	for _, b := range breaks {
+		fmt.Println(b.Width, b.W, b.Y, b.Z)
+	}
+	return breaks, !overflows
 }
 
 func IsSpace(r rune) bool {
@@ -719,7 +724,7 @@ func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, indent, widt
 	toUnits := float64(sfnt.Head.UnitsPerEm) / size
 
 	items := GlyphsToItems(glyphs, indent, align)
-	breaks := Linebreak(items, width, looseness)
+	breaks, _ := Linebreak(items, width, looseness)
 
 	i, j := 0, 0 // index into: glyphs, breaks/lines
 	atStart := true

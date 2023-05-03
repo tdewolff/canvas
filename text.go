@@ -123,6 +123,7 @@ type Text struct {
 	TextOrientation
 	width, height float64
 	text          string
+	Overflows     bool // true if lines stick out of the box
 }
 
 type line struct {
@@ -626,8 +627,11 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	items := canvasText.GlyphsToItems(glyphs, indent, align)
 
 	var breaks []*canvasText.Breakpoint
+	var overflows bool
 	if width != 0.0 {
-		breaks = canvasText.Linebreak(items, width, looseness)
+		var ok bool
+		breaks, ok = canvasText.Linebreak(items, width, looseness)
+		overflows = !ok
 	} else if len(items) == 0 {
 		breaks = append(breaks, &canvasText.Breakpoint{Position: 0, Width: 0.0})
 	} else {
@@ -716,6 +720,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		width:           width,
 		height:          height,
 		text:            log,
+		Overflows:       overflows,
 	}
 	glyphs = append(glyphs, canvasText.Glyph{Cluster: uint32(len(log))}) // makes indexing easier
 
@@ -890,7 +895,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	y -= bottom * lineSpacing
 
 	if height != 0.0 && height < y+descent {
-		// doesn't fit
+		// not all lines fit
 		t.lines = t.lines[:len(t.lines)-1]
 		if 0 < j {
 			_, _, descent2, bottom2 := t.lines[j-1].Heights(rt.mode)
