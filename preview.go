@@ -193,9 +193,8 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	ctx.SetStrokeColor(Black)
 	ctx.SetStrokeWidth(0.5)
 	ctx.DrawPath(155, 35, polyline.ToPath())
-	ctx.SetStrokeWidth(0.75)
 	for _, coord := range polyline.Coords() {
-		ctx.DrawPath(155, 35, Circle(2.0).Translate(coord.X, coord.Y))
+		ctx.DrawPath(155, 35, Circle(1.5).Translate(coord.X, coord.Y))
 	}
 
 	// Draw a open set of points being smoothed
@@ -209,7 +208,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	ctx.DrawPath(95, 30, polyline.Smoothen())
 	ctx.SetStrokeColor(Black)
 	for _, coord := range polyline.Coords() {
-		ctx.DrawPath(95, 30, Circle(2.0).Translate(coord.X, coord.Y))
+		ctx.DrawPath(95, 30, Circle(1.5).Translate(coord.X, coord.Y))
 	}
 
 	// Draw path boolean operations
@@ -218,7 +217,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	a = a.Flatten(Tolerance)
 	b = b.Flatten(Tolerance)
 	ctx.SetFillColor(Transparent)
-	ctx.SetStrokeColor(Hex("#CCC"))
+	ctx.SetStrokeColor(Black)
 	ctx.SetStrokeWidth(0.1)
 	face = fontLatin.Face(8.0)
 	titles := []string{"A and B", "A or B", "A xor B", "A not B", "B not A"}
