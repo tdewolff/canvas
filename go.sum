@@ -41,6 +41,7 @@ dmitri.shuralyov.com/gpu/mtl v0.0.0-20201218220906-28db891af037/go.mod h1:H6x//7
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20221208032759-85de2813cf6b/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 eliasnaur.com/font v0.0.0-20220124212145-832bb8fc08c3 h1:djFprmHZgrSepsHAIRMp5UJn3PzsoTg9drI+BDmif5Q=
 eliasnaur.com/font v0.0.0-20220124212145-832bb8fc08c3/go.mod h1:OYVuxibdk9OSLX8vAqydtRPP87PyTFcT9uH3MlEGBQA=
+eliasnaur.com/font v0.0.0-20230308162249-dd43949cb42d h1:ARo7NCVvN2NdhLlJE9xAbKweuI9L6UgfTbYb0YwPacY=
 fyne.io/fyne/v2 v2.3.1 h1:2/dHeRXEpn/D4MyTHdK43g3/pxeLOi3FcdNJI+iphlM=
 fyne.io/fyne/v2 v2.3.1/go.mod h1:dl/M+f0r5lJRhy+gdPbmYy97tbu3SWF/RF6/9KXMs+s=
 fyne.io/systray v1.10.1-0.20230207085535-4a244dbb9d03 h1:zb84y6X6lIi4Aeo8ehu6Qtu2fipBZ6Wzp41Ki/F4qdg=
@@ -48,6 +49,8 @@ fyne.io/systray v1.10.1-0.20230207085535-4a244dbb9d03/go.mod h1:oM2AQqGJ1AMo4nNq
 gioui.org v0.0.0-20210308172011-57750fc8a0a6/go.mod h1:RSH6KIUZ0p2xy5zHDxgAM4zumjgTw83q2ge/PI+yyw8=
 gioui.org v0.0.0-20230224004350-5f818bc5e7f9 h1:8quHBl67dHQh1UvZKcKfW30at01j1wZ7ppM5PvGfZjM=
 gioui.org v0.0.0-20230224004350-5f818bc5e7f9/go.mod h1:+W1Kpf96YcfissZocFqIp6O42FDTuphkObbEybp+Ffc=
+gioui.org v0.0.0-20230506155350-febadd314531 h1:260bE1ilLWjVmeCPGBMH4WNLRcN4IP9ULiqiXkRo5LA=
+gioui.org v0.0.0-20230506155350-febadd314531/go.mod h1:8CFQM/4LurRd9G3NUYdacFb9j2pK0LrAyVO2mAZo4mw=
 gioui.org/cpu v0.0.0-20210808092351-bfe733dd3334/go.mod h1:A8M0Cn5o+vY5LTMlnRoK3O5kG+rH0kWfJjeKd9QpBmQ=
 gioui.org/cpu v0.0.0-20210817075930-8d6a761490d2/go.mod h1:A8M0Cn5o+vY5LTMlnRoK3O5kG+rH0kWfJjeKd9QpBmQ=
 gioui.org/cpu v0.0.0-20220412190645-f1e9e8c3b1f7 h1:tNJdnP5CgM39PRc+KWmBRRYX/zJ+rd5XaYxY5d5veqA=

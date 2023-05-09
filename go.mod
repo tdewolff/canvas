@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	fyne.io/fyne/v2 v2.3.1
-	gioui.org v0.0.0-20230224004350-5f818bc5e7f9
+	gioui.org v0.0.0-20230506155350-febadd314531
 	github.com/ByteArena/poly2tri-go v0.0.0-20170716161910-d102ad91854f
 	github.com/adrg/sysfont v0.1.2
 	github.com/benoitkugler/textprocessing v0.0.2

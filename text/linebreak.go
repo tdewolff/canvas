@@ -532,9 +532,6 @@ START:
 	if 1 < len(breaks) {
 		breaks = breaks[1:]
 	}
-	for _, b := range breaks {
-		fmt.Println(b.Width, b.W, b.Y, b.Z)
-	}
 	return breaks, !overflows
 }
 
