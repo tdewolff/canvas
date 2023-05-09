@@ -47,7 +47,7 @@ func TestLinebreak(t *testing.T) {
 			tt.items = append(tt.items, Glue(0.0, math.Inf(1.0), 0.0))
 			tt.items = append(tt.items, Penalty(0.0, -Infinity, true))
 
-			breakpoints := Linebreak(tt.items, lineWidth, 0)
+			breakpoints, _ := Linebreak(tt.items, lineWidth, 0)
 			test.String(t, breakpoints[len(breakpoints)-2].String(), tt.breaks)
 			for i, ratio := range tt.ratios {
 				test.T(t, breakpoints[i].Ratio, ratio, fmt.Sprintf("ratio of break %d", i))
