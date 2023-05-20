@@ -676,10 +676,10 @@ func (c *Context) DrawText(x, y float64, text *Text) {
 	}
 	m = m.Mul(c.view)
 	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
-		m = m.ReflectYAbout(text.height / 2.0)
+		m = m.ReflectY()
 	}
 	if c.coordSystem == CartesianII || c.coordSystem == CartesianIII {
-		m = m.ReflectXAbout(text.width / 2.0)
+		m = m.ReflectX()
 	}
 	c.RenderText(text, m)
 }
