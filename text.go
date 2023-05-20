@@ -757,22 +757,32 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 				}
 			}
 
-			var ascent, bottom float64
+			var ascent, descent, bottom float64
 			if len(t.lines[j].spans) == 0 {
-				_, ascent, _, bottom = faces[glyphIndices.index(i)].heights(rt.mode)
+				_, ascent, descent, bottom = faces[glyphIndices.index(i)].heights(rt.mode)
 			} else {
-				_, ascent, _, bottom = t.lines[j].Heights(rt.mode)
+				_, ascent, descent, bottom = t.lines[j].Heights(rt.mode)
 			}
 			if 0 < j {
 				ascent *= lineSpacing
+				// don't stretch descent for possible last line
 			}
 			bottom *= lineSpacing
 
+			if height != 0.0 && height < y+ascent+descent {
+				// doesn't fit or at the end of items
+				t.lines = t.lines[:len(t.lines)-1]
+				if 0 < j {
+					t.text = log[:glyphs[i].Cluster]
+				} else {
+					t.text = ""
+					y = 0.0
+				}
+				break
+			}
 			t.lines[j].y = y + ascent
 			y += ascent + bottom
-			if height != 0.0 && (height < y || position == len(items)-1) {
-				// doesn't fit or at the end of items
-				t.text = log[:glyphs[i].Cluster]
+			if position == len(items)-1 {
 				break
 			}
 
@@ -891,28 +901,10 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		i += item.Size
 	}
 
-	_, ascent, descent, bottom := t.lines[j].Heights(rt.mode)
-	y -= bottom * lineSpacing
-
-	if height != 0.0 && height < y+descent {
-		// not all lines fit
-		t.lines = t.lines[:len(t.lines)-1]
-		if 0 < j {
-			_, _, descent2, bottom2 := t.lines[j-1].Heights(rt.mode)
-			y += descent2 - (bottom2+ascent)*lineSpacing
-
-			// update text content when it doesn't fit all text
-			lastSpan := t.lines[j-1].spans[len(t.lines[j-1].spans)-1]
-			lastByte := lastSpan.Glyphs[len(lastSpan.Glyphs)-1].Cluster
-			_, size := utf8.DecodeRuneInString(log[lastByte:])
-			t.text = log[:int(lastByte)+size]
-		} else {
-			// no lines at all
-			y = 0.0
-			t.text = ""
-		}
-	} else {
-		y += descent
+	if 0 < j {
+		// remove line gap of last line
+		_, _, descent, bottom := t.lines[j-1].Heights(rt.mode)
+		y += -bottom*lineSpacing + descent
 	}
 
 	// vertical align
