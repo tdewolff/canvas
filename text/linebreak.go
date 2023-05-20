@@ -562,35 +562,54 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 		return []Item{}
 	}
 
-	stretchWidth := 0.0 // the average space width used for left, right, centered alignment
+	// the average space width used for left, right, centered alignment
+	stretchWidth := 0.0
 	if align != Justified {
 		n := 0.0
 		for _, glyph := range glyphs {
 			if IsSpace(glyph.Text) {
-				if !glyph.Vertical {
-					stretchWidth += float64(glyph.XAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
-				} else {
-					stretchWidth += float64(-glyph.YAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
-				}
+				stretchWidth += glyph.Advance()
 				n += 1.0
 			}
 		}
 		stretchWidth /= n
 	}
 
+	// trim spaces from start and end
+	padStart, padEnd := Box(0.0), Box(0.0)
+	first, last := 0, len(glyphs)
+	for i := 0; i < len(glyphs); i++ {
+		if IsSpace(glyphs[i].Text) {
+			padStart.Width += glyphs[i].Advance()
+			padStart.Size++
+			first++
+		} else {
+			break
+		}
+	}
+	for i := len(glyphs) - 1; 0 <= i; i-- {
+		if IsSpace(glyphs[i].Text) {
+			padEnd.Width += glyphs[i].Advance()
+			padEnd.Size++
+			last--
+		} else {
+			break
+		}
+	}
+
 	items := []Item{}
 	items = append(items, Box(indent))
+	if padStart.Size != 0 {
+		items[0].Width += padStart.Width
+		items[0].Size += padStart.Size
+	}
 	if align == Centered {
 		items = append(items, Glue(0.0, stretchWidth, 0.0))
 	}
-	for i, glyph := range glyphs {
+	for i := first; i < last; i++ {
+		glyph := glyphs[i]
 		if IsSpace(glyph.Text) {
-			var spaceWidth float64
-			if !glyph.Vertical {
-				spaceWidth = float64(glyph.XAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
-			} else {
-				spaceWidth = float64(-glyph.YAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
-			}
+			spaceWidth := glyph.Advance()
 			spaceFactor := 1.0
 			if !FrenchSpacing && align == Justified {
 				j := i - 1
@@ -672,12 +691,7 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 			}
 		} else {
 			// glyphs
-			var width float64
-			if !glyph.Vertical {
-				width = float64(glyph.XAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
-			} else {
-				width = float64(-glyph.YAdvance) * glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
-			}
+			width := glyph.Advance()
 			if 1 < len(items) && items[len(items)-1].Type == BoxType {
 				if IsSpacelessScript(glyph.Script) || IsSpacelessScript(glyphs[i-1].Script) {
 					// allow breaks around spaceless script glyphs, most commonly CJK
@@ -696,6 +710,9 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 			// optional break after hyphen
 			items = append(items, Penalty(0.0, HyphenPenalty, true))
 		}
+	}
+	if padEnd.Size != 0 {
+		items = append(items, padEnd)
 	}
 	if align == Centered {
 		items = append(items, Glue(0.0, stretchWidth, 0.0))

@@ -57,6 +57,14 @@ type Glyph struct {
 	Text     rune
 }
 
+func (g Glyph) Advance() float64 {
+	if !g.Vertical {
+		return float64(g.XAdvance) * g.Size / float64(g.SFNT.Head.UnitsPerEm)
+	} else {
+		return float64(-g.YAdvance) * g.Size / float64(g.SFNT.Head.UnitsPerEm)
+	}
+}
+
 func (g Glyph) String() string {
 	return fmt.Sprintf("%s GID=%v Cluster=%v Adv=(%v,%v) Off=(%v,%v)", string(g.Text), g.ID, g.Cluster, g.XAdvance, g.YAdvance, g.XOffset, g.YOffset)
 }

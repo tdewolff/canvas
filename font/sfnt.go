@@ -78,7 +78,7 @@ func (sfnt *SFNT) NumGlyphs() uint16 {
 	return sfnt.Maxp.NumGlyphs
 }
 
-// GlyphIndex returns the glyphID for a given rune.
+// GlyphIndex returns the glyphID for a given rune. When the rune is not defined it returns 0.
 func (sfnt *SFNT) GlyphIndex(r rune) uint16 {
 	return sfnt.Cmap.Get(r)
 }
