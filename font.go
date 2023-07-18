@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"math"
 	"reflect"
+	"sync"
 
 	"github.com/adrg/sysfont"
 	"github.com/tdewolff/canvas/font"
@@ -107,12 +108,24 @@ func (subsetter *FontSubsetter) List() []uint16 {
 
 ////////////////////////////////////////////////////////////////
 
+var sysfontFinder = struct {
+	f *sysfont.Finder
+	m sync.Mutex
+}{}
+
 // FindLocalFont finds the path to a font from the system's fonts.
 func FindLocalFont(name string, style FontStyle) string {
 	// TODO: use style to match font
-	finder := sysfont.NewFinder(&sysfont.FinderOpts{
-		Extensions: []string{".ttf", ".otf", ".ttc", ".woff", ".woff2", ".eot"},
-	})
+	sysfontFinder.m.Lock()
+	finder := sysfontFinder.f
+	if finder == nil {
+		finder = sysfont.NewFinder(&sysfont.FinderOpts{ // TODO: very slow (takes 1s)
+			Extensions: []string{".ttf", ".otf", ".ttc", ".woff", ".woff2", ".eot"},
+		})
+		sysfontFinder.f = finder
+	}
+	sysfontFinder.m.Unlock()
+
 	font := finder.Match(name)
 	return font.Filename
 }
