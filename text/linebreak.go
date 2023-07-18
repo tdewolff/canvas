@@ -587,7 +587,7 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 			break
 		}
 	}
-	for i := len(glyphs) - 1; 0 <= i; i-- {
+	for i := len(glyphs) - 1; first <= i; i-- {
 		if IsSpace(glyphs[i].Text) {
 			padEnd.Width += glyphs[i].Advance()
 			padEnd.Size++
