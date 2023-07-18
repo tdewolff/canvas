@@ -7,7 +7,7 @@ import (
 	"image"
 	"strings"
 
-	"github.com/go-gl/gl/v4.1-core/gl"
+	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers/rasterizer"
 )
@@ -170,7 +170,7 @@ var fragmentShaderSource = `
 //	"image/color"
 //	"strings"
 //
-//	"github.com/go-gl/gl/v4.6-core/gl"
+//	"github.com/go-gl/gl/v3.3-core/gl"
 //)
 //
 //var vertexShaderSource = `
