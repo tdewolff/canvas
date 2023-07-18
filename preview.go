@@ -99,7 +99,6 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	face = fontArabic.Face(pt)
 	face.Language = "ar"
 	face.Script = text.Arabic
-	face.Direction = text.RightToLeft
 	rt.Add(face, "تسجّل يتكلّم ")
 
 	face = fontDevanagari.Face(pt)
