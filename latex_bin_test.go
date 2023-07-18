@@ -1,4 +1,4 @@
-// +build latex
+//go:build latex
 
 package canvas
 

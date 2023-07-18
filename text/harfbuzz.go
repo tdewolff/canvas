@@ -1,5 +1,4 @@
 //go:build !harfbuzz || js
-// +build !harfbuzz js
 
 package text
 

@@ -1,5 +1,3 @@
-// +build harfbuzz
-
 package main
 
 import (

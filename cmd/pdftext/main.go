@@ -217,7 +217,7 @@ func getObjects(pdf *pdfReader, page int) ([]string, []interface{}) {
 		resources, _ := pdf.GetDict(dict["Resources"])
 		xobjects, _ := pdf.GetDict(resources["XObject"])
 		xnames := []string{}
-		for name, _ := range xobjects {
+		for name := range xobjects {
 			xnames = append(xnames, name)
 		}
 		sort.Strings(xnames)

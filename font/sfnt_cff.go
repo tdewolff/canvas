@@ -237,7 +237,7 @@ func (cff *cffTable) ToPath(p Pather, glyphID, ppem uint16, x0, y0, f float64, h
 				b1 := int32(r.ReadUint8())
 				v = (-(b0-251)*256 - b1 - 108) << 16
 			} else {
-				v = r.ReadInt32() // less-siginificant bits is fraction
+				v = r.ReadInt32() // least-significant bits are fraction
 			}
 			if cff.version == 1 && 48 <= len(stack) || cff.version == 2 && 513 <= len(stack) {
 				return fmt.Errorf("%v: too many operands for operator", table)

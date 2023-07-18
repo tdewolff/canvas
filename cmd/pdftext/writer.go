@@ -118,7 +118,7 @@ func (w *pdfWriter) Close() error {
 			maxObj = ref[0]
 		}
 	}
-	for ref, _ := range w.objects {
+	for ref := range w.objects {
 		if maxObj < ref[0] {
 			maxObj = ref[0]
 		}

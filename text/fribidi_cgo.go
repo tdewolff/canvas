@@ -1,4 +1,4 @@
-// +build fribidi,!js
+//go:build fribidi && !js
 
 package text
 

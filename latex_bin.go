@@ -1,4 +1,4 @@
-// +build latex
+//go:build latex
 
 package canvas
 
@@ -25,11 +25,12 @@ var tempDir = path.Join(os.TempDir(), "tdewolff-canvas")
 
 // ParseLaTeX parses a LaTeX formatted string into a path. It requires latex and dvisvgm to be installed on the machine.
 // The content is surrounded by:
-//   \documentclass{article}
-//   \begin{document}
-//   \thispagestyle{empty}
-//   {{input}}
-//   \end{document}
+//
+//	\documentclass{article}
+//	\begin{document}
+//	\thispagestyle{empty}
+//	{{input}}
+//	\end{document}
 func ParseLaTeX(s string) (*Path, error) {
 	if err := os.MkdirAll(tempDir, os.ModePerm); err != nil {
 		panic(err)
