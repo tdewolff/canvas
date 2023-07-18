@@ -13,29 +13,41 @@ type ScriptItem struct {
 
 // ScriptItemizer divides the string in parts for each different script.
 func ScriptItemizer(runes []rune, embeddingLevels []int) []ScriptItem {
+	if len(runes) == 0 {
+		return []ScriptItem{}
+	}
+
 	i := 0
-	var curLevel int
-	var curScript Script
 	items := []ScriptItem{}
+	scripts := []Script{ScriptInherited} // script stack for embedding levels
 	for j, r := range runes {
+		curLevel := len(scripts) - 1
+		curScript := scripts[curLevel]
 		script, level := LookupScript(r), embeddingLevels[j]
-		if j == 0 {
-			curLevel = level
-			curScript = script
-		} else if level != curLevel || script != curScript && script != ScriptInherited && script != ScriptCommon && curScript != ScriptInherited && curScript != ScriptCommon {
+		if len(scripts) <= level {
+			for len(scripts) < level {
+				scripts = append(scripts, ScriptInherited)
+			}
+			scripts = append(scripts, script)
+		} else {
+			if script != ScriptInherited && script != ScriptCommon {
+				scripts[level] = script
+			} else {
+				script = scripts[level]
+			}
+			scripts = scripts[:level+1]
+		}
+
+		if j != 0 && (curLevel != level || curScript != script && curScript != ScriptInherited && curScript != ScriptCommon && script != ScriptInherited && script != ScriptCommon) {
 			items = append(items, ScriptItem{
 				Script: curScript,
 				Text:   string(runes[i:j]),
 			})
-			curLevel = level
-			curScript = script
 			i = j
-		} else if curScript == ScriptInherited || curScript == ScriptCommon {
-			curScript = script
 		}
 	}
 	items = append(items, ScriptItem{
-		Script: curScript,
+		Script: scripts[len(scripts)-1],
 		Text:   string(runes[i:]),
 	})
 	return items
