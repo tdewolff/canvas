@@ -41,7 +41,7 @@ func (p *Polyline) Coords() []Point {
 	return p.coords
 }
 
-// ToPath convertes the polyline to a path. If the last coordinate equals the first one, we close the path.
+// ToPath converts the polyline to a path. If the last coordinate equals the first one, we close the path.
 func (p *Polyline) ToPath() *Path {
 	if len(p.coords) < 2 {
 		return &Path{}
