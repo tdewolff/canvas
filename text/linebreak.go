@@ -602,6 +602,7 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 	if padStart.Size != 0 {
 		items[0].Width += padStart.Width
 		items[0].Size += padStart.Size
+		items = append(items, Penalty(0, 0, false))
 	}
 	if align == Centered {
 		items = append(items, Glue(0.0, stretchWidth, 0.0))
