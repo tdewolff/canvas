@@ -83,7 +83,7 @@ func (r *Gio) point(p canvas.Point) f32.Point {
 	return f32.Point{float32(r.xScale * p.X), float32(r.yScale * (r.height - p.Y))}
 }
 
-func (r *Gio) renderPath(path *canvas.Path, col color.RGBA, lgrad *canvas.LinearGradient) {
+func (r *Gio) renderPath(path *canvas.Path, fill canvas.Paint) {
 	path = path.ReplaceArcs()
 
 	p := clip.Path{}
@@ -109,24 +109,25 @@ func (r *Gio) renderPath(path *canvas.Path, col color.RGBA, lgrad *canvas.Linear
 	shape := clip.Outline{p.End()}
 	defer shape.Op().Push(r.ops).Pop()
 
-	if lgrad == nil || len(lgrad.Stops) == 0 {
-		paint.Fill(r.ops, toNRGBA(col))
-	} else {
-		linearGradient := paint.LinearGradientOp{}
-		linearGradient.Stop1 = r.point(lgrad.Start)
-		linearGradient.Stop2 = r.point(lgrad.End)
-		linearGradient.Color1 = toNRGBA(lgrad.Stops[0].Color)
-		linearGradient.Color2 = toNRGBA(lgrad.Stops[len(lgrad.Stops)-1].Color)
-		linearGradient.Add(r.ops)
-		paint.PaintOp{}.Add(r.ops)
+	if fill.IsColor() {
+		paint.Fill(r.ops, toNRGBA(fill.Color))
+	} else if fill.IsGradient() {
+		if g, ok := fill.Gradient.(*canvas.LinearGradient); ok && len(g.Stops) == 2 {
+			linearGradient := paint.LinearGradientOp{}
+			linearGradient.Stop1 = r.point(g.Start)
+			linearGradient.Stop2 = r.point(g.End)
+			linearGradient.Color1 = toNRGBA(g.Stops[0].Color)
+			linearGradient.Color2 = toNRGBA(g.Stops[1].Color)
+			linearGradient.Add(r.ops)
+			paint.PaintOp{}.Add(r.ops)
+		}
 	}
 }
 
 // RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (r *Gio) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
 	if style.HasFill() {
-		lgrad, _ := style.Fill.Gradient.(*canvas.LinearGradient)
-		r.renderPath(path.Transform(m), style.Fill.Color, lgrad)
+		r.renderPath(path.Transform(m), style.Fill)
 	}
 
 	if style.HasStroke() {
@@ -134,8 +135,7 @@ func (r *Gio) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 			path = path.Dash(style.DashOffset, style.Dashes...)
 		}
 		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner, canvas.Tolerance)
-		lgrad, _ := style.Stroke.Gradient.(*canvas.LinearGradient)
-		r.renderPath(path.Transform(m), style.Stroke.Color, lgrad)
+		r.renderPath(path.Transform(m), style.Stroke)
 	}
 }
 

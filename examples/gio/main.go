@@ -1,10 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"gioui.org/app"
 	"gioui.org/io/system"
@@ -29,7 +27,6 @@ func loop(w *app.Window) error {
 	var ops op.Ops
 	for {
 		e := <-w.Events()
-		fmt.Println(e)
 		switch e := e.(type) {
 		case system.DestroyEvent:
 			return e.Err
@@ -37,14 +34,11 @@ func loop(w *app.Window) error {
 			gtx := layout.NewContext(&ops, e)
 
 			layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				fmt.Println("a")
-				t := time.Now()
 				c := gio.NewContain(gtx, 200.0, 100.0)
 				ctx := canvas.NewContext(c)
 				if err := canvas.DrawPreview(ctx); err != nil {
 					panic(err)
 				}
-				fmt.Println("b", time.Now().Sub(t))
 				return c.Dimensions()
 			})
 			e.Frame(gtx.Ops)
