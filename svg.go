@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 
@@ -11,86 +12,112 @@ import (
 	"github.com/tdewolff/parse/v2/xml"
 )
 
-func parseCSSDimension(v string, parent float64) (float64, error) {
-	// to px
+type svgParser struct {
+	z                       *parse.Input
+	c                       *Canvas
+	ctx                     *Context
+	width, height, diagonal float64
+	defs                    map[string]interface{}
+	err                     error
+}
+
+func (svg *svgParser) parseDimension(v string, parent float64) float64 {
 	if len(v) == 0 {
-		return 0.0, nil
+		return 0.0
 	}
 
 	nn, _ := parse.Dimension([]byte(v))
 	num, err := strconv.ParseFloat(v[:nn], 64)
 	if err != nil {
-		return 0.0, err
+		if svg.err == nil {
+			svg.err = parse.NewErrorLexer(svg.z, "bad dimension: %w", err)
+		}
+		return 0.0
 	}
 
 	dim := v[nn:]
 	switch strings.ToLower(dim) {
 	case "cm":
-		return num * 10.0 * 96.0 / 25.4, nil
+		return num * 10.0 * 96.0 / 25.4
 	case "mm":
-		return num * 96.0 / 25.4, nil
+		return num * 96.0 / 25.4
 	case "q":
-		return num * 0.25 * 96.0 / 25.4, nil
+		return num * 0.25 * 96.0 / 25.4
 	case "in":
-		return num * 96.0, nil
+		return num * 96.0
 	case "pc":
-		return num * 96.0 / 6.0, nil
+		return num * 96.0 / 6.0
 	case "pt":
-		return num * 96.0 / 72.0, nil
+		return num * 96.0 / 72.0
 	case "", "px":
-		return num, nil
+		return num
 	case "%":
-		return num * parent / 100.0, nil
+		return num * parent / 100.0
 	}
-	return 0.0, fmt.Errorf("unknown dimension: %s", dim)
+	if svg.err == nil {
+		svg.err = parse.NewErrorLexer(svg.z, "unknown dimension: %s", dim)
+	}
+	return 0.0
 }
 
-func parseCSSColorComponent(v string) uint8 {
+func (svg *svgParser) parseColorComponent(v string) uint8 {
 	v = strings.TrimSpace(v)
 	if len(v) == 0 {
 		return 0
 	} else if v[len(v)-1] == '%' {
-		num, _ := strconv.ParseFloat(v[:len(v)-1], 64)
+		num, err := strconv.ParseFloat(v[:len(v)-1], 64)
+		if err != nil && svg.err == nil {
+			svg.err = parse.NewErrorLexer(svg.z, "bad color component: %w", err)
+		}
 		return uint8(num*255.0 + 0.5)
 	}
-	num, _ := strconv.ParseUint(v, 10, 8)
+	num, err := strconv.ParseUint(v, 10, 8)
+	if err != nil && svg.err == nil {
+		svg.err = parse.NewErrorLexer(svg.z, "bad color component: %w", err)
+	}
 	return uint8(num)
 }
 
-func parseCSSColor(v string) color.RGBA {
+func (svg *svgParser) parsePaint(v string) Paint {
 	if len(v) == 0 {
-		return Black
+		return Paint{Color: Black}
 	} else if v[0] == '#' {
-		return Hex(v)
+		return Paint{Color: Hex(v)}
 	}
 	v = strings.ToLower(v)
 	if col, ok := cssColors[v]; ok {
-		return col
+		return Paint{Color: col}
 	}
 	var col color.RGBA
 	if strings.HasPrefix(v, "rgb(") && strings.HasSuffix(v, ")") {
 		comps := strings.Split(v[4:len(v)-1], ",")
 		if len(comps) != 3 {
-			return Black
+			if svg.err == nil {
+				svg.err = parse.NewErrorLexer(svg.z, "bad rgb function")
+			}
+			return Paint{Color: Black}
 		}
-		col.R = parseCSSColorComponent(comps[0])
-		col.G = parseCSSColorComponent(comps[1])
-		col.B = parseCSSColorComponent(comps[2])
+		col.R = svg.parseColorComponent(comps[0])
+		col.G = svg.parseColorComponent(comps[1])
+		col.B = svg.parseColorComponent(comps[2])
 		col.A = 255
 	} else if strings.HasPrefix(v, "rgba(") && strings.HasSuffix(v, ")") {
 		comps := strings.Split(v[4:len(v)-1], ",")
 		if len(comps) != 4 {
-			return Black
+			if svg.err == nil {
+				svg.err = parse.NewErrorLexer(svg.z, "bad rgba function")
+			}
+			return Paint{Color: Black}
 		}
-		col.A = parseCSSColorComponent(comps[3])
-		col.R = uint8(float64(parseCSSColorComponent(comps[0]))*float64(col.A)/255.0 + 0.5)
-		col.G = uint8(float64(parseCSSColorComponent(comps[1]))*float64(col.A)/255.0 + 0.5)
-		col.B = uint8(float64(parseCSSColorComponent(comps[2]))*float64(col.A)/255.0 + 0.5)
+		col.A = svg.parseColorComponent(comps[3])
+		col.R = uint8(float64(svg.parseColorComponent(comps[0]))*float64(col.A)/255.0 + 0.5)
+		col.G = uint8(float64(svg.parseColorComponent(comps[1]))*float64(col.A)/255.0 + 0.5)
+		col.B = uint8(float64(svg.parseColorComponent(comps[2]))*float64(col.A)/255.0 + 0.5)
 	}
-	return col
+	return Paint{Color: col}
 }
 
-func parseCSSPoints(v string) ([]float64, error) {
+func (svg *svgParser) parsePoints(v string) []float64 {
 	v = strings.ReplaceAll(v, "\n", ",")
 	v = strings.ReplaceAll(v, "\t", ",")
 	v = strings.ReplaceAll(v, " ", ",")
@@ -99,78 +126,142 @@ func parseCSSPoints(v string) ([]float64, error) {
 	for _, item := range strings.Split(v, ",") {
 		if 0 < len(item) {
 			val, err := strconv.ParseFloat(item, 64)
-			if err != nil {
-				return nil, err
+			if err != nil && svg.err == nil {
+				svg.err = parse.NewErrorLexer(svg.z, "bad number array: %w", err)
 			}
 			vals = append(vals, val)
 		}
 	}
-	if len(vals)%2 == 1 {
-		vals = vals[:len(vals)-1]
-	}
-	return vals, nil
+	return vals
 }
 
-func parseCSSAttribute(ctx *Context, key, val string) {
+func (svg *svgParser) parseTransform(v string) Matrix {
+	i, j := 0, 0
+	m := Identity
+	var fun string
+	for i < len(v) {
+		if v[i] == '(' {
+			fun = strings.ToLower(strings.TrimSpace(v[j:i]))
+			j = i + 1
+		} else if v[i] == ')' {
+			d := svg.parsePoints(v[j:i])
+			switch fun {
+			case "matrix":
+				if len(d) != 6 {
+					svg.err = parse.NewErrorLexer(svg.z, "bad transform matrix")
+				} else {
+					m = m.Mul(Matrix{{d[0], d[2], d[4]}, {d[1], d[3], d[5]}})
+				}
+			case "translate":
+				if len(d) != 1 && len(d) != 2 {
+					svg.err = parse.NewErrorLexer(svg.z, "bad transform translate")
+				} else if len(d) == 1 {
+					m = m.Translate(d[0], 0.0)
+				} else {
+					m = m.Translate(d[0], d[1])
+				}
+			case "scale":
+				if len(d) != 1 && len(d) != 2 {
+					svg.err = parse.NewErrorLexer(svg.z, "bad transform scale")
+				} else if len(d) == 1 {
+					m = m.Scale(d[0], d[0])
+				} else {
+					m = m.Scale(d[0], d[1])
+				}
+			case "rotate":
+				if len(d) != 1 && len(d) != 3 {
+					svg.err = parse.NewErrorLexer(svg.z, "bad transform rotate")
+				} else if len(d) == 1 {
+					m = m.Rotate(d[0])
+				} else {
+					m = m.RotateAbout(d[0], d[1], d[2])
+				}
+			case "skewx":
+				if len(d) != 1 {
+					svg.err = parse.NewErrorLexer(svg.z, "bad transform skewX")
+				} else {
+					// TODO
+				}
+			case "skewy":
+				if len(d) != 1 {
+					svg.err = parse.NewErrorLexer(svg.z, "bad transform skewY")
+				} else {
+					// TODO
+				}
+			}
+			j = i + 1
+		}
+		i++
+	}
+	return m
+}
+
+func (svg *svgParser) setAttribute(key, val string) {
 	switch key {
 	case "fill":
-		ctx.SetFillColor(parseCSSColor(val))
+		svg.ctx.SetFill(svg.parsePaint(val))
 	case "stroke":
-		ctx.SetStrokeColor(parseCSSColor(val))
+		svg.ctx.SetStroke(svg.parsePaint(val))
 	case "stroke-width":
-		v, _ := parseCSSDimension(val)
-		ctx.SetStrokeWidth(v)
+		svg.ctx.SetStrokeWidth(svg.parseDimension(val, svg.diagonal))
 	case "stroke-dashoffset":
-		v, _ := parseCSSDimension(val)
-		ctx.Style.DashOffset = v
+		svg.ctx.Style.DashOffset = svg.parseDimension(val, svg.diagonal)
 	case "stroke-dasharray":
-		v, _ := parseCSSPoints(val)
-		ctx.Style.Dashes = v
+		svg.ctx.Style.Dashes = svg.parsePoints(val)
 	case "stroke-linecap":
 		if val == "butt" {
-			ctx.SetStrokeCapper(ButtCap)
+			svg.ctx.SetStrokeCapper(ButtCap)
 		} else if val == "round" {
-			ctx.SetStrokeCapper(RoundCap)
+			svg.ctx.SetStrokeCapper(RoundCap)
 		} else if val == "square" {
-			ctx.SetStrokeCapper(SquareCap)
+			svg.ctx.SetStrokeCapper(SquareCap)
 		}
 	case "stroke-linejoin":
 		if val == "arcs" {
-			ctx.SetStrokeJoiner(ArcsJoin)
+			svg.ctx.SetStrokeJoiner(ArcsJoin)
 		} else if val == "bevel" {
-			ctx.SetStrokeJoiner(BevelJoin)
+			svg.ctx.SetStrokeJoiner(BevelJoin)
 		} else if val == "miter" {
-			ctx.SetStrokeJoiner(MiterJoin)
+			// TODO: not exactly correct
+			svg.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, 4.0})
 		} else if val == "miter-clip" {
-			ctx.SetStrokeJoiner(MiterJoin)
+			svg.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, 4.0})
 		} else if val == "round" {
-			ctx.SetStrokeJoiner(RoundJoin)
+			svg.ctx.SetStrokeJoiner(RoundJoin)
 		}
-		// TODO: add more: stroke-miterlimit, stroke-opacity, fill-opacity, transform
+	case "stroke-miterlimit":
+	// TODO: keep in state?
+	case "transform":
+		svg.ctx.ComposeView(svg.parseTransform(val))
+		// TODO: add more: stroke-opacity, fill-opacity
 	}
 }
 
 func ParseSVG(r io.Reader) (*Canvas, error) {
-	var c *Canvas
-	var ctx *Context
+	z := parse.NewInput(r)
+	defer z.Restore()
 
-	var viewBoxWidth, viewBoxHeight float64
-
-	l := xml.NewLexer(parse.NewInput(r))
+	l := xml.NewLexer(z)
+	svg := svgParser{
+		z: z,
+	}
 	for {
 		tt, data := l.Next()
 		switch tt {
 		case xml.ErrorToken:
 			if l.Err() != io.EOF {
-				return nil, l.Err()
-			} else if c == nil {
-				return nil, fmt.Errorf("expected SVG tag")
+				return svg.c, l.Err()
+			} else if svg.err != nil {
+				return svg.c, svg.err
+			} else if svg.c == nil {
+				return svg.c, fmt.Errorf("expected SVG tag")
 			}
-			if c.W == 0.0 || c.H == 0.0 {
-				c.Fit(0.0)
+			if svg.c.W == 0.0 || svg.c.H == 0.0 {
+				svg.c.Fit(0.0)
 			}
-			return c, nil
+			return svg.c, nil
 		case xml.StartTagToken:
+			// TODO: attribute errors point to wrong position
 			attrs := map[string]string{}
 			attrNames := []string{}
 			for {
@@ -185,116 +276,85 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 			}
 
 			tag := string(data[1:])
-			if tag == "svg" {
-				if c != nil {
-					return nil, fmt.Errorf("unexpected SVG tag")
-				}
-
+			if tag == "svg" && svg.c == nil {
 				var err error
 				var viewbox [4]float64
 				var width, height float64
 				if _, ok := attrs["viewBox"]; ok {
 					vals := strings.Split(attrs["viewBox"], " ")
 					if len(vals) != 4 {
-						return nil, fmt.Errorf("svg viewBox attribute invalid")
-					}
-					for i := 0; i < 4; i++ {
-						viewbox[i], err = strconv.ParseFloat(vals[i], 64)
-						if err != nil {
-							return nil, fmt.Errorf("svg viewBox attribute: %w", err)
+						svg.err = parse.NewErrorLexer(svg.z, "bad viewBox")
+					} else {
+						for i := 0; i < 4; i++ {
+							viewbox[i], err = strconv.ParseFloat(vals[i], 64)
+							if err != nil && svg.err == nil {
+								svg.err = parse.NewErrorLexer(svg.z, "bad viewBox: %w", err)
+							}
 						}
 					}
 				}
 				if _, ok := attrs["width"]; ok {
-					width, err = parseCSSDimension(attrs["width"], 0.0)
-					if err != nil {
-						return nil, fmt.Errorf("svg width attribute: %w", err)
-					}
+					width = svg.parseDimension(attrs["width"], 0.0)
 				} else {
 					width = (viewbox[2] - viewbox[0]) * 25.4 / 96.0
 				}
 				if _, ok := attrs["height"]; ok {
-					height, err = parseCSSDimension(attrs["height"], 0.0)
-					if err != nil {
-						return nil, fmt.Errorf("svg height attribute: %w", err)
-					}
+					height = svg.parseDimension(attrs["height"], 0.0)
 				} else {
 					height = (viewbox[3] - viewbox[1]) * 25.4 / 96.0
 				}
 
-				viewBoxWidth = width * 96.0 / 25.4
-				viewBoxHeight = height * 96.0 / 25.4
+				svg.width = width * 96.0 / 25.4
+				svg.height = height * 96.0 / 25.4
+				svg.diagonal = math.Sqrt((svg.width*svg.width + svg.height*svg.height) / 2.0)
 
-				c = New(width, height)
-				ctx = NewContext(c)
-				ctx.SetCoordSystem(CartesianIV)
+				svg.c = New(width, height)
+				svg.ctx = NewContext(svg.c)
+				svg.ctx.SetCoordSystem(CartesianIV)
 				if 0.0 < (viewbox[2]-viewbox[0]) && 0.0 < (viewbox[3]-viewbox[1]) {
 					m := Identity.Scale(width/(viewbox[2]-viewbox[0]), height/(viewbox[3]-viewbox[1])).Translate(-viewbox[0], -viewbox[1])
-					ctx.SetView(m)
-					ctx.SetCoordView(m)
+					svg.ctx.SetView(m)
+					svg.ctx.SetCoordView(m)
 				}
-			} else if c == nil {
-				return nil, fmt.Errorf("expected SVG tag")
+				svg.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, 4.0})
+			} else if tag != "svg" && svg.c == nil {
+				return svg.c, fmt.Errorf("expected SVG tag")
 			}
 
-			ctx.Push()
+			svg.ctx.Push()
 			for _, key := range attrNames {
 				val := attrs[key]
 				if key == "style" {
 					for _, item := range strings.Split(val, ";") {
 						if keyVal := strings.Split(item, ":"); len(keyVal) == 2 {
-							parseCSSAttribute(ctx, strings.TrimSpace(keyVal[0]), strings.TrimSpace(keyVal[1]))
+							svg.setAttribute(strings.TrimSpace(keyVal[0]), strings.TrimSpace(keyVal[1]))
 						}
 					}
 				} else {
-					parseCSSAttribute(ctx, key, val)
+					svg.setAttribute(key, val)
 				}
 			}
 
 			switch tag {
 			case "circle":
-				cx, err := parseCSSDimension(attrs["cx"], viewBoxWidth)
-				if err != nil {
-					return nil, fmt.Errorf("circle cx attribute: %w", err)
-				}
-				cy, err := parseCSSDimension(attrs["cy"], viewBoxHeight)
-				if err != nil {
-					return nil, fmt.Errorf("circle cy attribute: %w", err)
-				}
-				r, err := parseCSSDimension(attrs["r"], 0.0)
-				if err != nil {
-					return nil, fmt.Errorf("circle r attribute: %w", err)
-				}
-				ctx.DrawPath(cx, cy, Circle(r))
+				cx := svg.parseDimension(attrs["cx"], svg.width)
+				cy := svg.parseDimension(attrs["cy"], svg.height)
+				r := svg.parseDimension(attrs["r"], svg.diagonal)
+				svg.ctx.DrawPath(cx, cy, Circle(r))
 			case "ellipse":
-				cx, err := parseCSSDimension(attrs["cx"], viewBoxWidth)
-				if err != nil {
-					return nil, fmt.Errorf("ellipse cx attribute: %w", err)
-				}
-				cy, err := parseCSSDimension(attrs["cy"], viewBoxHeight)
-				if err != nil {
-					return nil, fmt.Errorf("ellipse cy attribute: %w", err)
-				}
-				rx, err := parseCSSDimension(attrs["rx"], viewBoxWidth)
-				if err != nil {
-					return nil, fmt.Errorf("ellipse rx attribute: %w", err)
-				}
-				ry, err := parseCSSDimension(attrs["ry"], viewBoxHeight)
-				if err != nil {
-					return nil, fmt.Errorf("ellipse ry attribute: %w", err)
-				}
-				ctx.DrawPath(cx, cy, Ellipse(rx, ry))
+				cx := svg.parseDimension(attrs["cx"], svg.width)
+				cy := svg.parseDimension(attrs["cy"], svg.height)
+				rx := svg.parseDimension(attrs["rx"], svg.width)
+				ry := svg.parseDimension(attrs["ry"], svg.height)
+				svg.ctx.DrawPath(cx, cy, Ellipse(rx, ry))
 			case "path":
 				p, err := ParseSVGPath(attrs["d"])
-				if err != nil {
-					return nil, fmt.Errorf("path d attribute: %w", err)
+				if err != nil && svg.err == nil {
+					svg.err = parse.NewErrorLexer(svg.z, "bad path: %w", err)
 				}
-				ctx.DrawPath(0, 0, p)
+				svg.ctx.DrawPath(0, 0, p)
 			case "polygon", "polyline":
-				points, err := parseCSSPoints(attrs["points"])
-				if err != nil {
-					return nil, fmt.Errorf("%s points attribute: %w", tag, err)
-				}
+				points := svg.parsePoints(attrs["points"])
 				p := &Path{}
 				for i := 0; i+1 < len(points); i += 2 {
 					if i == 0 {
@@ -306,32 +366,20 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 				if tag == "polygon" {
 					p.Close()
 				}
-				ctx.DrawPath(0.0, 0.0, p)
+				svg.ctx.DrawPath(0.0, 0.0, p)
 			case "rect":
-				x, err := parseCSSDimension(attrs["x"], viewBoxWidth)
-				if err != nil {
-					return nil, fmt.Errorf("rect x attribute: %w", err)
-				}
-				y, err := parseCSSDimension(attrs["y"], viewBoxHeight)
-				if err != nil {
-					return nil, fmt.Errorf("rect y attribute: %w", err)
-				}
-				width, err := parseCSSDimension(attrs["width"], viewBoxWidth)
-				if err != nil {
-					return nil, fmt.Errorf("rect width attribute: %w", err)
-				}
-				height, err := parseCSSDimension(attrs["height"], viewBoxHeight)
-				if err != nil {
-					return nil, fmt.Errorf("rect height attribute: %w", err)
-				}
-				ctx.DrawPath(x, y, Rectangle(width, height))
+				x := svg.parseDimension(attrs["x"], svg.width)
+				y := svg.parseDimension(attrs["y"], svg.height)
+				width := svg.parseDimension(attrs["width"], svg.width)
+				height := svg.parseDimension(attrs["height"], svg.height)
+				svg.ctx.DrawPath(x, y, Rectangle(width, height))
 			}
 
 			if tt == xml.StartTagCloseVoidToken {
-				ctx.Pop()
+				svg.ctx.Pop()
 			}
 		case xml.EndTagToken:
-			ctx.Pop()
+			svg.ctx.Pop()
 		}
 	}
 }
