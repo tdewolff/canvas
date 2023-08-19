@@ -543,7 +543,7 @@ func (c *Context) coord(x, y float64) Point {
 	case CartesianIV:
 		m = m.ReflectYAbout(c.Height() / 2.0)
 	}
-	return c.coordView.Mul(m).Dot(Point{x, y})
+	return m.Mul(c.coordView).Dot(Point{x, y})
 }
 
 // FitImage fits an image to a rectangle using different fit strategies.
