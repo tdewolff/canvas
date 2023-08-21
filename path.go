@@ -1685,16 +1685,6 @@ func skipCommaWhitespace(path []byte) int {
 	return i
 }
 
-func MustParseSVG(s string) *Path {
-	fmt.Println("DEPRECATED: use MustParseSVGPath instead of MustParseSVG")
-	return MustParseSVGPath(s)
-}
-
-func ParseSVG(s string) (*Path, error) {
-	fmt.Println("DEPRECATED: use ParseSVGPath instead of ParseSVG")
-	return ParseSVGPath(s)
-}
-
 // MustParseSVGPath parses an SVG path data string and panics if it fails.
 func MustParseSVGPath(s string) *Path {
 	p, err := ParseSVGPath(s)
