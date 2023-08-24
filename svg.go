@@ -46,6 +46,7 @@ type svgParser struct {
 	fontfamilies map[string]*FontFamily
 	fontfamily   string
 	fontsize     float64
+	textanchor   string
 
 	id string
 
@@ -312,6 +313,8 @@ func (svg *svgParser) setAttribute(key, val string) {
 		svg.refX = svg.parseDimension(val, 0.0)
 	case "refY":
 		svg.refY = svg.parseDimension(val, 0.0)
+	case "text-anchor":
+		svg.textanchor = val
 	}
 }
 
@@ -613,7 +616,13 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 				ff := svg.loadFontFamily(family)
 				face := ff.Face(size, FontRegular)
 				text := NewTextLine(face, string(data), Left)
-				svg.ctx().ctx.DrawText(svg.x, svg.y, text)
+				xadj := 0.0
+				if svg.textanchor == "middle" {
+					xadj = text.Bounds().W / 2
+				} else if svg.textanchor == "end" {
+					xadj = text.Bounds().W
+				}
+				svg.ctx().ctx.DrawText(svg.x-xadj, svg.y, text)
 			}
 			if svg.instyle {
 				parser := css.NewParser(parse.NewInputString(string(data)), false)
