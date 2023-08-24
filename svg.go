@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"bytes"
 	"fmt"
 	"image/color"
 	"io"
@@ -13,29 +14,65 @@ import (
 	"github.com/tdewolff/parse/v2/xml"
 )
 
+type elem struct {
+	tag   string
+	id    string
+	attrs map[string]string
+}
+
+type svgState struct {
+	strokeMiterLimit float64
+	textX            float64
+	textY            float64
+	textAnchor       string
+	fontFamily       string
+	fontSize         float64
+}
+
+var svgDefaultState = svgState{
+	strokeMiterLimit: 4.0,
+	textAnchor:       "start",
+	fontFamily:       "serif",
+	fontSize:         16.0, // in px
+}
+
 type svgParser struct {
 	z                       *parse.Input
 	c                       *Canvas
 	ctx                     *Context
 	width, height, diagonal float64
+	err                     error
 
-	defs map[string]interface{}
+	stateStack []svgState
+	state      svgState
 
-	styles          map[string][]string
-	stylesSelectors []string
+	cssRules []cssRule
+	fonts    map[string]*FontFamily
+}
 
-	err error
+func (svg *svgParser) init(width, height float64, viewbox [4]float64) {
+	svg.c = New(width, height)
+	svg.ctx = NewContext(svg.c)
+	svg.ctx.SetCoordSystem(CartesianIV)
+	if 0.0 < (viewbox[2]-viewbox[0]) && 0.0 < (viewbox[3]-viewbox[1]) {
+		m := Identity.Scale(width/(viewbox[2]-viewbox[0]), height/(viewbox[3]-viewbox[1])).Translate(-viewbox[0], -viewbox[1])
+		svg.ctx.SetView(m)
+		svg.ctx.SetCoordView(m)
+	}
+	svg.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, svgDefaultState.strokeMiterLimit})
+	svg.state = svgDefaultState
+	svg.fonts = map[string]*FontFamily{}
+}
 
-	instyle bool
-	tags    []string
-	classes [][]string
+func (svg *svgParser) push() {
+	svg.ctx.Push()
+	svg.stateStack = append(svg.stateStack, svg.state)
+}
 
-	intext       bool
-	x            float64
-	y            float64
-	fontfamilies map[string]*FontFamily
-	fontfamily   *FontFamily
-	fontface     *FontFace
+func (svg *svgParser) pop() {
+	svg.state = svg.stateStack[len(svg.stateStack)-1]
+	svg.stateStack = svg.stateStack[:len(svg.stateStack)-1]
+	svg.ctx.Pop()
 }
 
 func (svg *svgParser) parseDimension(v string, parent float64) float64 {
@@ -47,7 +84,7 @@ func (svg *svgParser) parseDimension(v string, parent float64) float64 {
 	num, err := strconv.ParseFloat(v[:nn], 64)
 	if err != nil {
 		if svg.err == nil {
-			svg.err = parse.NewErrorLexer(svg.z, "bad dimension: %w", err)
+			svg.err = parse.NewErrorLexer(svg.z, "bad dimension: %w: %s", err, v)
 		}
 		return 0.0
 	}
@@ -84,13 +121,13 @@ func (svg *svgParser) parseColorComponent(v string) uint8 {
 	} else if v[len(v)-1] == '%' {
 		num, err := strconv.ParseFloat(v[:len(v)-1], 64)
 		if err != nil && svg.err == nil {
-			svg.err = parse.NewErrorLexer(svg.z, "bad color component: %w", err)
+			svg.err = parse.NewErrorLexer(svg.z, "bad color component: %w: %s", err, v)
 		}
 		return uint8(num*255.0 + 0.5)
 	}
 	num, err := strconv.ParseUint(v, 10, 8)
 	if err != nil && svg.err == nil {
-		svg.err = parse.NewErrorLexer(svg.z, "bad color component: %w", err)
+		svg.err = parse.NewErrorLexer(svg.z, "bad color component: %w: %s", err, v)
 	}
 	return uint8(num)
 }
@@ -110,7 +147,7 @@ func (svg *svgParser) parsePaint(v string) Paint {
 		comps := strings.Split(v[4:len(v)-1], ",")
 		if len(comps) != 3 {
 			if svg.err == nil {
-				svg.err = parse.NewErrorLexer(svg.z, "bad rgb function")
+				svg.err = parse.NewErrorLexer(svg.z, "bad rgb function: %s", v)
 			}
 			return Paint{Color: Black}
 		}
@@ -119,10 +156,10 @@ func (svg *svgParser) parsePaint(v string) Paint {
 		col.B = svg.parseColorComponent(comps[2])
 		col.A = 255
 	} else if strings.HasPrefix(v, "rgba(") && strings.HasSuffix(v, ")") {
-		comps := strings.Split(v[4:len(v)-1], ",")
+		comps := strings.Split(v[5:len(v)-1], ",")
 		if len(comps) != 4 {
 			if svg.err == nil {
-				svg.err = parse.NewErrorLexer(svg.z, "bad rgba function")
+				svg.err = parse.NewErrorLexer(svg.z, "bad rgba function: %s", v)
 			}
 			return Paint{Color: Black}
 		}
@@ -144,7 +181,7 @@ func (svg *svgParser) parsePoints(v string) []float64 {
 		if 0 < len(item) {
 			val, err := strconv.ParseFloat(item, 64)
 			if err != nil && svg.err == nil {
-				svg.err = parse.NewErrorLexer(svg.z, "bad number array: %w", err)
+				svg.err = parse.NewErrorLexer(svg.z, "bad number array: %w: %s", err, v)
 			}
 			vals = append(vals, val)
 		}
@@ -213,6 +250,109 @@ func (svg *svgParser) parseTransform(v string) Matrix {
 	return m
 }
 
+func (svg *svgParser) parseStyle(b []byte) {
+	p := css.NewParser(parse.NewInputBytes(b), false)
+	for {
+		gt, _, _ := p.Next()
+		if gt == css.ErrorGrammar {
+			break
+		} else if gt == css.BeginRulesetGrammar {
+			selectors := []cssSelector{cssSelector{}}
+			node := cssSelectorNode{op: ' '}
+			vals := p.Values()
+			for i := 0; i < len(vals); i++ {
+				t := vals[i]
+				if t.TokenType == css.DelimToken && t.Data[0] == ',' {
+					selectors = append(selectors, cssSelector{})
+				} else if t.TokenType == css.WhitespaceToken || t.TokenType == css.DelimToken && t.Data[0] == '>' {
+					selectors[len(selectors)-1] = append(selectors[len(selectors)-1], node)
+					node = cssSelectorNode{op: ' '}
+					if t.TokenType == css.DelimToken {
+						node.op = '>'
+					}
+				} else if t.TokenType == css.IdentToken || t.TokenType == css.DelimToken && t.Data[0] == '*' {
+					node.typ = string(t.Data)
+				} else if t.TokenType == css.DelimToken && (t.Data[0] == '.' || t.Data[0] == '#') && i+1 < len(vals) && vals[i+1].TokenType == css.IdentToken {
+					if t.Data[0] == '#' {
+						node.attrs = append(node.attrs, cssAttrSelector{op: '=', attr: "id", val: string(vals[i+1].Data)})
+					} else {
+						node.attrs = append(node.attrs, cssAttrSelector{op: '~', attr: "class", val: string(vals[i+1].Data)})
+					}
+					i++
+				} else if t.TokenType == css.DelimToken && t.Data[0] == '[' && i+2 < len(vals) && vals[i+1].TokenType == css.IdentToken && vals[i+2].TokenType == css.DelimToken {
+					if vals[i+2].Data[0] == ']' {
+						node.attrs = append(node.attrs, cssAttrSelector{op: 0, attr: string(vals[i+1].Data)})
+						i += 2
+					} else if i+4 < len(vals) && vals[i+3].TokenType == css.IdentToken && vals[i+4].TokenType == css.DelimToken && vals[i+4].Data[0] == ']' {
+						node.attrs = append(node.attrs, cssAttrSelector{op: vals[i+2].Data[0], attr: string(vals[i+1].Data), val: string(vals[i+3].Data)})
+						i += 4
+					}
+				}
+			}
+			selectors[len(selectors)-1] = append(selectors[len(selectors)-1], node)
+
+			props := []cssProperty{}
+			for {
+				gt, _, data := p.Next()
+				if gt != css.DeclarationGrammar {
+					break
+				}
+
+				val := strings.Builder{}
+				for _, t := range p.Values() {
+					val.Write(t.Data)
+				}
+				props = append(props, cssProperty{string(data), val.String()})
+			}
+			svg.cssRules = append(svg.cssRules, cssRule{
+				selectors: selectors,
+				props:     props,
+			})
+		}
+	}
+}
+
+func (svg *svgParser) parseStyleAttribute(style string) []cssProperty {
+	props := []cssProperty{}
+	p := css.NewParser(parse.NewInput(bytes.NewBufferString(style)), true)
+	for {
+		gt, _, data := p.Next()
+		if gt == css.ErrorGrammar {
+			break
+		} else if gt == css.DeclarationGrammar {
+			val := strings.Builder{}
+			for _, t := range p.Values() {
+				val.Write(t.Data)
+			}
+			props = append(props, cssProperty{string(data), val.String()})
+		}
+	}
+	return props
+}
+
+func (svg *svgParser) setStyling(elems []elem, props []cssProperty) {
+	// apply CSS from <style>
+	for _, rule := range svg.cssRules {
+		// TODO: this is in order of appearance, use selector specificity/precedence?
+		if rule.AppliesTo(elems) {
+			for _, prop := range rule.props {
+				svg.setAttribute(prop.key, prop.val)
+			}
+		}
+	}
+
+	// apply attributes in order
+	for _, prop := range props {
+		if prop.key == "style" {
+			for _, styleProp := range svg.parseStyleAttribute(prop.val) {
+				svg.setAttribute(styleProp.key, styleProp.val)
+			}
+		} else {
+			svg.setAttribute(prop.key, prop.val)
+		}
+	}
+}
+
 func (svg *svgParser) setAttribute(key, val string) {
 	switch key {
 	case "fill":
@@ -224,7 +364,11 @@ func (svg *svgParser) setAttribute(key, val string) {
 	case "stroke-dashoffset":
 		svg.ctx.Style.DashOffset = svg.parseDimension(val, svg.diagonal)
 	case "stroke-dasharray":
-		svg.ctx.Style.Dashes = svg.parsePoints(val)
+		if val == "none" {
+			svg.ctx.Style.Dashes = []float64{}
+		} else {
+			svg.ctx.Style.Dashes = svg.parsePoints(val)
+		}
 	case "stroke-linecap":
 		if val == "butt" {
 			svg.ctx.SetStrokeCapper(ButtCap)
@@ -239,39 +383,38 @@ func (svg *svgParser) setAttribute(key, val string) {
 		} else if val == "bevel" {
 			svg.ctx.SetStrokeJoiner(BevelJoin)
 		} else if val == "miter" {
-			// TODO: not exactly correct
-			svg.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, 4.0})
+			svg.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, svg.state.strokeMiterLimit})
 		} else if val == "miter-clip" {
-			svg.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, 4.0})
+			// not exactly correct
+			svg.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, svg.state.strokeMiterLimit})
 		} else if val == "round" {
 			svg.ctx.SetStrokeJoiner(RoundJoin)
 		}
 	case "stroke-miterlimit":
-	// TODO: keep in state?
+		svg.state.strokeMiterLimit = svg.parseDimension(val, svg.diagonal)
+		if miter, ok := svg.ctx.StrokeJoiner.(MiterJoiner); ok {
+			miter.Limit = svg.state.strokeMiterLimit
+		}
 	case "transform":
 		svg.ctx.ComposeView(svg.parseTransform(val))
-		// TODO: add more: stroke-opacity, fill-opacity
+	case "text-anchor":
+		svg.state.textAnchor = val
 	case "font-family":
-		svg.fontfamily = svg.loadFontFamily(val)
-		svg.fontface = nil
+		svg.state.fontFamily = val
 	case "font-size":
-		// TODO come up with a better default font
-		if svg.fontfamily == nil {
-			svg.fontfamily = svg.loadFontFamily("monospace")
-		}
-		svg.fontface = svg.fontfamily.Face(svg.parseDimension(val, svg.height), FontRegular)
+		svg.state.fontSize = svg.parseDimension(val, svg.height)
 	}
 }
 
-func (svg *svgParser) loadFontFamily(family string) *FontFamily {
-	if ff, ok := svg.fontfamilies[family]; !ok {
-		ff = NewFontFamily(family)
-		ff.LoadLocalFont(family, FontRegular)
-		svg.fontfamilies[family] = ff
-		return ff
-	} else {
-		return ff
+func (svg *svgParser) getFontFace() *FontFace {
+	fontFamily, ok := svg.fonts[svg.state.fontFamily]
+	if !ok {
+		fontFamily = NewFontFamily(svg.state.fontFamily)
+		fontFamily.LoadLocalFont(svg.state.fontFamily, FontRegular)
+		svg.fonts[svg.state.fontFamily] = fontFamily
 	}
+	fontSize := svg.state.fontSize * 72.0 / 25.4 // pt/mm
+	return fontFamily.Face(fontSize)
 }
 
 func ParseSVG(r io.Reader) (*Canvas, error) {
@@ -282,6 +425,7 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 	svg := svgParser{
 		z: z,
 	}
+	elemStack := []elem{}
 	for {
 		tt, data := l.Next()
 		switch tt {
@@ -298,10 +442,11 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 			}
 			return svg.c, nil
 		case xml.StartTagToken:
-			// TODO: attribute errors point to wrong position
+			// get all attributes
 			attrs := map[string]string{}
 			attrNames := []string{}
 			for {
+				// TODO: attribute errors point to wrong position
 				tt, _ = l.Next()
 				if tt != xml.AttributeToken {
 					break
@@ -312,6 +457,7 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 				attrs[string(l.Text())] = string(val)
 			}
 
+			// handle SVG tag and create canvas
 			tag := string(data[1:])
 			if tag == "svg" && svg.c == nil {
 				var err error
@@ -344,95 +490,33 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 				svg.width = width * 96.0 / 25.4
 				svg.height = height * 96.0 / 25.4
 				svg.diagonal = math.Sqrt((svg.width*svg.width + svg.height*svg.height) / 2.0)
-
-				svg.c = New(width, height)
-				svg.ctx = NewContext(svg.c)
-				svg.ctx.SetCoordSystem(CartesianIV)
-				if 0.0 < (viewbox[2]-viewbox[0]) && 0.0 < (viewbox[3]-viewbox[1]) {
-					m := Identity.Scale(width/(viewbox[2]-viewbox[0]), height/(viewbox[3]-viewbox[1])).Translate(-viewbox[0], -viewbox[1])
-					svg.ctx.SetView(m)
-					svg.ctx.SetCoordView(m)
-				}
-				svg.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, 4.0})
-				svg.defs = make(map[string]interface{})
-				svg.fontfamilies = make(map[string]*FontFamily)
-				svg.styles = make(map[string][]string)
+				svg.init(width, height, viewbox)
 			} else if tag != "svg" && svg.c == nil {
 				return svg.c, fmt.Errorf("expected SVG tag")
 			}
 
-			svg.ctx.Push()
-			svg.tags = append(svg.tags, tag)
-			classes := []string{}
-			for _, key := range attrNames {
-				val := attrs[key]
-				if key == "class" {
-					classes = strings.Split(val, " ")
-				}
-			}
-			svg.classes = append(svg.classes, classes)
-
-			// Check for matching styles
-			for _, s := range svg.stylesSelectors {
-				if styles, ok := svg.styles[s]; ok {
-					selector := strings.Split(s, " ")
-					i := len(svg.tags) - 1
-
-					for len(selector) != 0 && i >= 0 {
-						parts := strings.Split(selector[len(selector)-1], ".")
-						t := parts[0]
-						c := ""
-						if len(parts) == 2 {
-							c = parts[1]
-						}
-
-						tagMatches := false
-						classMatches := false
-						if t == "" {
-							tagMatches = true
-						} else if t == svg.tags[i] {
-							tagMatches = true
-						}
-
-						if c == "" {
-							classMatches = true
-						} else {
-							for _, class := range svg.classes[i] {
-								if class == c {
-									classMatches = true
-									break
-								}
-							}
-						}
-
-						if tagMatches && classMatches {
-							selector = selector[:len(selector)-1]
-						}
-
-						i -= 1
-					}
-
-					if len(selector) == 0 {
-						for _, style := range styles {
-							values := strings.Split(style, ":")
-							svg.setAttribute(values[0], values[1])
-						}
-					}
-				}
-			}
-
-			for _, key := range attrNames {
-				val := attrs[key]
-				if key == "style" {
-					for _, item := range strings.Split(val, ";") {
-						if keyVal := strings.Split(item, ":"); len(keyVal) == 2 {
-							svg.setAttribute(strings.TrimSpace(keyVal[0]), strings.TrimSpace(keyVal[1]))
-						}
-					}
+			// handle style tag
+			if tag == "style" {
+				tt, data = l.Next()
+				if tt == xml.TextToken {
+					svg.parseStyle(data)
+					tt, data = l.Next() // end token
 				} else {
-					svg.setAttribute(key, val)
+					return svg.c, fmt.Errorf("bad style tag")
 				}
+				break
 			}
+
+			// push new state
+			svg.push()
+			elemStack = append(elemStack, elem{tag, attrs["id"], attrs})
+
+			// set styling and presentation attributes
+			props := []cssProperty{}
+			for _, key := range attrNames {
+				props = append(props, cssProperty{key, attrs[key]})
+			}
+			svg.setStyling(elemStack, props)
 
 			switch tag {
 			case "circle":
@@ -483,80 +567,136 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 				height := svg.parseDimension(attrs["height"], svg.height)
 				svg.ctx.DrawPath(x, y, Rectangle(width, height))
 			case "text":
-				svg.intext = true
-				svg.x = svg.parseDimension(attrs["x"], svg.width)
-				svg.y = svg.parseDimension(attrs["y"], svg.height)
-			case "style":
-				svg.instyle = true
+				svg.state.textX = svg.parseDimension(attrs["x"], svg.width)
+				svg.state.textY = svg.parseDimension(attrs["y"], svg.height)
 			}
 
+			// tag is self-closing
 			if tt == xml.StartTagCloseVoidToken {
-				svg.ctx.Pop()
-				if len(svg.tags) > 0 {
-					svg.tags = svg.tags[:len(svg.tags)-1]
-					svg.classes = svg.classes[:len(svg.classes)-1]
-				}
+				elemStack = elemStack[:len(elemStack)-1]
+				svg.pop()
 			}
 		case xml.TextToken:
-			if svg.intext {
-				// TODO come up with a better default font
-				if svg.fontface != nil {
-					svg.fontfamily = svg.loadFontFamily("monospace")
-					svg.fontface = svg.fontfamily.Face(svg.parseDimension("14pt", svg.height), FontRegular)
-				}
-				text := NewTextLine(svg.fontface, string(data), Left)
-				svg.ctx.DrawText(svg.x, svg.y, text)
-			}
-			if svg.instyle {
-				parser := css.NewParser(parse.NewInputString(string(data)), false)
-				selectors := []string{}
-				styles := []string{}
-				for {
-					gt, _, data := parser.Next()
-					if gt == css.QualifiedRuleGrammar || gt == css.BeginRulesetGrammar {
-						selector := []string{}
-						for _, v := range parser.Values() {
-							if v.TokenType == css.DelimToken || v.TokenType == css.IdentToken {
-								selector = append(selector, string(v.Data))
-							} else if v.TokenType == css.WhitespaceToken {
-								selector = append(selector, " ")
-							}
-						}
-						if len(selector) != 0 {
-							selectors = append(selectors, strings.Join(selector, ""))
-						}
+			if 0 < len(elemStack) {
+				tag := elemStack[len(elemStack)-1].tag
+				if tag == "text" {
+					textAlign := Left
+					if svg.state.textAnchor == "middle" {
+						textAlign = Center
+					} else if svg.state.textAnchor == "end" {
+						textAlign = Right
 					}
-
-					if gt == css.DeclarationGrammar {
-						values := ""
-						for _, value := range parser.Values() {
-							values += string(value.Data)
-						}
-						styles = append(styles, fmt.Sprintf("%s:%s", string(data), values))
-					}
-
-					if gt == css.ErrorGrammar || gt == css.EndRulesetGrammar {
-						for _, sel := range selectors {
-							svg.styles[sel] = styles
-							svg.stylesSelectors = append(svg.stylesSelectors, sel)
-						}
-						selectors = []string{}
-						styles = []string{}
-					}
-
-					if gt == css.ErrorGrammar {
-						break
-					}
+					text := NewTextLine(svg.getFontFace(), string(data), textAlign)
+					svg.ctx.DrawText(svg.state.textX, svg.state.textY, text)
 				}
 			}
 		case xml.EndTagToken:
-			svg.ctx.Pop()
-			svg.instyle = false
-			svg.intext = false
-			svg.tags = svg.tags[:len(svg.tags)-1]
-			svg.classes = svg.classes[:len(svg.classes)-1]
+			if len(elemStack) != 0 {
+				elemStack = elemStack[:len(elemStack)-1]
+			}
+			svg.pop()
 		}
 	}
+}
+
+type cssAttrSelector struct {
+	op   byte // empty, =, ~, |
+	attr string
+	val  string
+}
+
+func (sel cssAttrSelector) AppliesTo(elem elem) bool {
+	switch sel.op {
+	case 0:
+		_, ok := elem.attrs[sel.attr]
+		return ok
+	case '=':
+		return elem.attrs[sel.attr] == sel.val
+	case '~':
+		vals := strings.Split(elem.attrs[sel.attr], " ")
+		for _, val := range vals {
+			if val != "" && val == sel.val {
+				return true
+			}
+		}
+		return false
+	case '|':
+		return elem.attrs[sel.attr] == sel.val || strings.HasPrefix(elem.attrs[sel.attr], sel.val+"-")
+	}
+	return false
+}
+
+type cssSelectorNode struct {
+	op    byte   // space or >, first is always space
+	typ   string // is * for universal
+	attrs []cssAttrSelector
+}
+
+func (sel cssSelectorNode) AppliesTo(elem elem) bool {
+	if sel.typ != "*" && sel.typ != "" && sel.typ != elem.tag {
+		return false
+	}
+	for _, attr := range sel.attrs {
+		if !attr.AppliesTo(elem) {
+			return false
+		}
+	}
+	return true
+}
+
+type cssSelector []cssSelectorNode
+
+func (sels cssSelector) AppliesTo(elems []elem) bool {
+	ielem := 0
+Retry:
+	isel := 0
+	ielemNext := len(elems)
+	for isel < len(sels) && ielem < len(elems) {
+		switch sels[isel].op {
+		case ' ':
+			for {
+				if ielem == len(elems) {
+					ielem = ielemNext
+					goto Retry
+				} else if sels[isel].AppliesTo(elems[ielem]) {
+					ielem++
+					break
+				}
+				ielem++
+			}
+			if ielemNext == len(elems) {
+				ielemNext = ielem
+			}
+		case '>':
+			if !sels[isel].AppliesTo(elems[ielem]) {
+				ielem = ielemNext
+				goto Retry
+			}
+			ielem++
+		default:
+			return false
+		}
+		isel++
+	}
+	return len(sels) != 0 && isel == len(sels)
+}
+
+type cssProperty struct {
+	key, val string
+}
+
+type cssRule struct {
+	selectors []cssSelector
+	props     []cssProperty
+}
+
+func (rule cssRule) AppliesTo(elems []elem) bool {
+	for _, sels := range rule.selectors {
+		if sels.AppliesTo(elems) {
+			return true
+		}
+	}
+	return false
 }
 
 var cssColors = map[string]color.RGBA{

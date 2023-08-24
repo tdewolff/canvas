@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"io/ioutil"
 	"math"
+	"os/exec"
 	"reflect"
 	"sync"
 
@@ -116,6 +117,13 @@ var sysfontFinder = struct {
 // FindLocalFont finds the path to a font from the system's fonts.
 func FindLocalFont(name string, style FontStyle) string {
 	// TODO: use style to match font
+	// try with fc-match first
+	filename, err := exec.Command("fc-match", "--format=%{file}", name).Output()
+	if err == nil {
+		return string(filename)
+	}
+
+	// then use known font directories
 	sysfontFinder.m.Lock()
 	finder := sysfontFinder.f
 	if finder == nil {
