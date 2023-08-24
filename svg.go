@@ -13,11 +13,21 @@ import (
 	"github.com/tdewolff/parse/v2/xml"
 )
 
-type svgParser struct {
-	z                       *parse.Input
+type svgParserContext struct {
 	c                       *Canvas
 	ctx                     *Context
 	width, height, diagonal float64
+}
+
+type markerContext struct {
+	c          *Canvas
+	refX, refY float64
+}
+
+type svgParser struct {
+	z *parse.Input
+
+	c []*svgParserContext
 
 	defs map[string]interface{}
 
@@ -34,8 +44,20 @@ type svgParser struct {
 	x            float64
 	y            float64
 	fontfamilies map[string]*FontFamily
-	fontfamily   *FontFamily
-	fontface     *FontFace
+	fontfamily   string
+	fontsize     float64
+
+	id string
+
+	markerstart *markerContext
+	markerend   *markerContext
+	markermid   *markerContext
+	refX        float64
+	refY        float64
+}
+
+func (svg *svgParser) ctx() *svgParserContext {
+	return svg.c[len(svg.c)-1]
 }
 
 func (svg *svgParser) parseDimension(v string, parent float64) float64 {
@@ -47,7 +69,7 @@ func (svg *svgParser) parseDimension(v string, parent float64) float64 {
 	num, err := strconv.ParseFloat(v[:nn], 64)
 	if err != nil {
 		if svg.err == nil {
-			svg.err = parse.NewErrorLexer(svg.z, "bad dimension: %w", err)
+			svg.err = parse.NewErrorLexer(svg.z, "bad dimension: %w: %s", err, v)
 		}
 		return 0.0
 	}
@@ -84,13 +106,13 @@ func (svg *svgParser) parseColorComponent(v string) uint8 {
 	} else if v[len(v)-1] == '%' {
 		num, err := strconv.ParseFloat(v[:len(v)-1], 64)
 		if err != nil && svg.err == nil {
-			svg.err = parse.NewErrorLexer(svg.z, "bad color component: %w", err)
+			svg.err = parse.NewErrorLexer(svg.z, "bad color component: %w: %s", err, v)
 		}
 		return uint8(num*255.0 + 0.5)
 	}
 	num, err := strconv.ParseUint(v, 10, 8)
 	if err != nil && svg.err == nil {
-		svg.err = parse.NewErrorLexer(svg.z, "bad color component: %w", err)
+		svg.err = parse.NewErrorLexer(svg.z, "bad color component: %w: %s", err, v)
 	}
 	return uint8(num)
 }
@@ -119,7 +141,7 @@ func (svg *svgParser) parsePaint(v string) Paint {
 		col.B = svg.parseColorComponent(comps[2])
 		col.A = 255
 	} else if strings.HasPrefix(v, "rgba(") && strings.HasSuffix(v, ")") {
-		comps := strings.Split(v[4:len(v)-1], ",")
+		comps := strings.Split(v[5:len(v)-1], ",")
 		if len(comps) != 4 {
 			if svg.err == nil {
 				svg.err = parse.NewErrorLexer(svg.z, "bad rgba function")
@@ -144,7 +166,7 @@ func (svg *svgParser) parsePoints(v string) []float64 {
 		if 0 < len(item) {
 			val, err := strconv.ParseFloat(item, 64)
 			if err != nil && svg.err == nil {
-				svg.err = parse.NewErrorLexer(svg.z, "bad number array: %w", err)
+				svg.err = parse.NewErrorLexer(svg.z, "bad number array: %w: %s", err, v)
 			}
 			vals = append(vals, val)
 		}
@@ -215,51 +237,81 @@ func (svg *svgParser) parseTransform(v string) Matrix {
 
 func (svg *svgParser) setAttribute(key, val string) {
 	switch key {
+	case "id":
+		svg.id = val
 	case "fill":
-		svg.ctx.SetFill(svg.parsePaint(val))
+		svg.ctx().ctx.SetFill(svg.parsePaint(val))
 	case "stroke":
-		svg.ctx.SetStroke(svg.parsePaint(val))
+		svg.ctx().ctx.SetStroke(svg.parsePaint(val))
 	case "stroke-width":
-		svg.ctx.SetStrokeWidth(svg.parseDimension(val, svg.diagonal))
+		svg.ctx().ctx.SetStrokeWidth(svg.parseDimension(val, svg.ctx().diagonal))
 	case "stroke-dashoffset":
-		svg.ctx.Style.DashOffset = svg.parseDimension(val, svg.diagonal)
+		svg.ctx().ctx.Style.DashOffset = svg.parseDimension(val, svg.ctx().diagonal)
 	case "stroke-dasharray":
-		svg.ctx.Style.Dashes = svg.parsePoints(val)
+		if val == "none" {
+			svg.ctx().ctx.Style.Dashes = []float64{}
+			break
+		}
+		svg.ctx().ctx.Style.Dashes = svg.parsePoints(val)
 	case "stroke-linecap":
 		if val == "butt" {
-			svg.ctx.SetStrokeCapper(ButtCap)
+			svg.ctx().ctx.SetStrokeCapper(ButtCap)
 		} else if val == "round" {
-			svg.ctx.SetStrokeCapper(RoundCap)
+			svg.ctx().ctx.SetStrokeCapper(RoundCap)
 		} else if val == "square" {
-			svg.ctx.SetStrokeCapper(SquareCap)
+			svg.ctx().ctx.SetStrokeCapper(SquareCap)
 		}
 	case "stroke-linejoin":
 		if val == "arcs" {
-			svg.ctx.SetStrokeJoiner(ArcsJoin)
+			svg.ctx().ctx.SetStrokeJoiner(ArcsJoin)
 		} else if val == "bevel" {
-			svg.ctx.SetStrokeJoiner(BevelJoin)
+			svg.ctx().ctx.SetStrokeJoiner(BevelJoin)
 		} else if val == "miter" {
 			// TODO: not exactly correct
-			svg.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, 4.0})
+			svg.ctx().ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, 4.0})
 		} else if val == "miter-clip" {
-			svg.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, 4.0})
+			svg.ctx().ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, 4.0})
 		} else if val == "round" {
-			svg.ctx.SetStrokeJoiner(RoundJoin)
+			svg.ctx().ctx.SetStrokeJoiner(RoundJoin)
 		}
 	case "stroke-miterlimit":
 	// TODO: keep in state?
 	case "transform":
-		svg.ctx.ComposeView(svg.parseTransform(val))
+		svg.ctx().ctx.ComposeView(svg.parseTransform(val))
 		// TODO: add more: stroke-opacity, fill-opacity
 	case "font-family":
-		svg.fontfamily = svg.loadFontFamily(val)
-		svg.fontface = nil
+		svg.fontfamily = val
 	case "font-size":
-		// TODO come up with a better default font
-		if svg.fontfamily == nil {
-			svg.fontfamily = svg.loadFontFamily("monospace")
+		// TODO come up with better relational font sizes
+		if val == "medium" {
+			val = "14pt"
 		}
-		svg.fontface = svg.fontfamily.Face(svg.parseDimension(val, svg.height), FontRegular)
+		svg.fontsize = svg.parseDimension(val, svg.ctx().height)
+	case "marker-start":
+		if strings.HasPrefix(val, "url(") {
+			id := val[5 : len(val)-1]
+			if marker, ok := svg.defs[id]; ok {
+				svg.markerstart = marker.(*markerContext)
+			}
+		}
+	case "marker-end":
+		if strings.HasPrefix(val, "url(") {
+			id := val[5 : len(val)-1]
+			if marker, ok := svg.defs[id]; ok {
+				svg.markerend = marker.(*markerContext)
+			}
+		}
+	case "marker-mid":
+		if strings.HasPrefix(val, "url(") {
+			id := val[5 : len(val)-1]
+			if marker, ok := svg.defs[id]; ok {
+				svg.markermid = marker.(*markerContext)
+			}
+		}
+	case "refX":
+		svg.refX = svg.parseDimension(val, 0.0)
+	case "refY":
+		svg.refY = svg.parseDimension(val, 0.0)
 	}
 }
 
@@ -271,6 +323,27 @@ func (svg *svgParser) loadFontFamily(family string) *FontFamily {
 		return ff
 	} else {
 		return ff
+	}
+}
+
+func (svg *svgParser) markPath(p *Path) {
+	for vi, vp := range p.Coords() {
+		var marker *markerContext
+		if vi == 0 {
+			marker = svg.markerstart
+		} else if vi == len(p.Coords())-1 {
+			marker = svg.markerend
+		} else {
+			marker = svg.markermid
+		}
+
+		if marker != nil {
+			view := Identity.ReflectYAbout(svg.ctx().ctx.Height() / 2.0)
+			// TODO figure out why the slight precision and scale loss here
+			view = view.Translate(vp.X-marker.refX-1, vp.Y-marker.refY-1)
+			view = view.Scale(1.5, 1.5)
+			marker.c.RenderViewTo(svg.ctx().c, view)
+		}
 	}
 }
 
@@ -287,16 +360,24 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 		switch tt {
 		case xml.ErrorToken:
 			if l.Err() != io.EOF {
-				return svg.c, l.Err()
+				if len(svg.c) == 0 {
+					return New(0.0, 0.0), l.Err()
+				}
+
+				return svg.ctx().c, l.Err()
 			} else if svg.err != nil {
-				return svg.c, svg.err
-			} else if svg.c == nil {
-				return svg.c, fmt.Errorf("expected SVG tag")
+				if len(svg.c) == 0 {
+					return New(0.0, 0.0), svg.err
+				}
+
+				return svg.c[0].c, svg.err
+			} else if len(svg.c) == 0 {
+				return New(0.0, 0.0), fmt.Errorf("expected SVG tag")
 			}
-			if svg.c.W == 0.0 || svg.c.H == 0.0 {
-				svg.c.Fit(0.0)
+			if svg.ctx().c.W == 0.0 || svg.ctx().c.H == 0.0 {
+				svg.ctx().c.Fit(0.0)
 			}
-			return svg.c, nil
+			return svg.c[0].c, nil
 		case xml.StartTagToken:
 			// TODO: attribute errors point to wrong position
 			attrs := map[string]string{}
@@ -313,7 +394,7 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 			}
 
 			tag := string(data[1:])
-			if tag == "svg" && svg.c == nil {
+			if (tag == "svg" && len(svg.c) == 0) || tag == "marker" {
 				var err error
 				var viewbox [4]float64
 				var width, height float64
@@ -332,36 +413,47 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 				}
 				if _, ok := attrs["width"]; ok {
 					width = svg.parseDimension(attrs["width"], 0.0)
+				} else if _, ok := attrs["markerWidth"]; ok {
+					width = svg.parseDimension(attrs["markerWidth"], 0.0)
 				} else {
 					width = (viewbox[2] - viewbox[0]) * 25.4 / 96.0
 				}
 				if _, ok := attrs["height"]; ok {
 					height = svg.parseDimension(attrs["height"], 0.0)
+				} else if _, ok := attrs["markerHeight"]; ok {
+					height = svg.parseDimension(attrs["markerHeight"], 0.0)
 				} else {
 					height = (viewbox[3] - viewbox[1]) * 25.4 / 96.0
 				}
 
-				svg.width = width * 96.0 / 25.4
-				svg.height = height * 96.0 / 25.4
-				svg.diagonal = math.Sqrt((svg.width*svg.width + svg.height*svg.height) / 2.0)
+				spc := svgParserContext{}
+				svg.c = append(svg.c, &spc)
 
-				svg.c = New(width, height)
-				svg.ctx = NewContext(svg.c)
-				svg.ctx.SetCoordSystem(CartesianIV)
+				spc.width = width * 96.0 / 25.4
+				spc.height = height * 96.0 / 25.4
+
+				spc.diagonal = math.Sqrt((spc.width*spc.width + spc.height*spc.height) / 2.0)
+
+				spc.c = New(width, height)
+				spc.ctx = NewContext(spc.c)
+				spc.ctx.SetCoordSystem(CartesianIV)
 				if 0.0 < (viewbox[2]-viewbox[0]) && 0.0 < (viewbox[3]-viewbox[1]) {
 					m := Identity.Scale(width/(viewbox[2]-viewbox[0]), height/(viewbox[3]-viewbox[1])).Translate(-viewbox[0], -viewbox[1])
-					svg.ctx.SetView(m)
-					svg.ctx.SetCoordView(m)
+					spc.ctx.SetView(m)
+					spc.ctx.SetCoordView(m)
 				}
-				svg.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, 4.0})
-				svg.defs = make(map[string]interface{})
-				svg.fontfamilies = make(map[string]*FontFamily)
-				svg.styles = make(map[string][]string)
-			} else if tag != "svg" && svg.c == nil {
-				return svg.c, fmt.Errorf("expected SVG tag")
+				spc.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, 4.0})
+
+				if svg.defs == nil {
+					svg.defs = make(map[string]interface{})
+					svg.fontfamilies = make(map[string]*FontFamily)
+					svg.styles = make(map[string][]string)
+				}
+			} else if tag != "svg" && len(svg.c) == 0 {
+				return New(0.0, 0.0), fmt.Errorf("expected SVG tag")
 			}
 
-			svg.ctx.Push()
+			svg.ctx().ctx.Push()
 			svg.tags = append(svg.tags, tag)
 			classes := []string{}
 			for _, key := range attrNames {
@@ -436,22 +528,25 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 
 			switch tag {
 			case "circle":
-				cx := svg.parseDimension(attrs["cx"], svg.width)
-				cy := svg.parseDimension(attrs["cy"], svg.height)
-				r := svg.parseDimension(attrs["r"], svg.diagonal)
-				svg.ctx.DrawPath(cx, cy, Circle(r))
+				cx := svg.parseDimension(attrs["cx"], svg.ctx().width)
+				cy := svg.parseDimension(attrs["cy"], svg.ctx().height)
+				r := svg.parseDimension(attrs["r"], svg.ctx().diagonal)
+				svg.ctx().ctx.DrawPath(cx, cy, Circle(r))
 			case "ellipse":
-				cx := svg.parseDimension(attrs["cx"], svg.width)
-				cy := svg.parseDimension(attrs["cy"], svg.height)
-				rx := svg.parseDimension(attrs["rx"], svg.width)
-				ry := svg.parseDimension(attrs["ry"], svg.height)
-				svg.ctx.DrawPath(cx, cy, Ellipse(rx, ry))
+				cx := svg.parseDimension(attrs["cx"], svg.ctx().width)
+				cy := svg.parseDimension(attrs["cy"], svg.ctx().height)
+				rx := svg.parseDimension(attrs["rx"], svg.ctx().width)
+				ry := svg.parseDimension(attrs["ry"], svg.ctx().height)
+				p := Ellipse(rx, ry)
+				svg.ctx().ctx.DrawPath(cx, cy, p)
 			case "path":
 				p, err := ParseSVGPath(attrs["d"])
 				if err != nil && svg.err == nil {
 					svg.err = parse.NewErrorLexer(svg.z, "bad path: %w", err)
 				}
-				svg.ctx.DrawPath(0, 0, p)
+
+				svg.ctx().ctx.DrawPath(0, 0, p)
+				svg.markPath(p)
 			case "polygon", "polyline":
 				points := svg.parsePoints(attrs["points"])
 				p := &Path{}
@@ -465,7 +560,8 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 				if tag == "polygon" {
 					p.Close()
 				}
-				svg.ctx.DrawPath(0.0, 0.0, p)
+				svg.ctx().ctx.DrawPath(0.0, 0.0, p)
+				svg.markPath(p)
 			case "line":
 				p := &Path{}
 				x1, _ := strconv.ParseInt(attrs["x1"], 10, 64)
@@ -475,23 +571,27 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 
 				p.MoveTo(float64(x1), float64(y1))
 				p.LineTo(float64(x2), float64(y2))
-				svg.ctx.DrawPath(0.0, 0.0, p)
+				svg.ctx().ctx.DrawPath(0.0, 0.0, p)
+				svg.markPath(p)
 			case "rect":
-				x := svg.parseDimension(attrs["x"], svg.width)
-				y := svg.parseDimension(attrs["y"], svg.height)
-				width := svg.parseDimension(attrs["width"], svg.width)
-				height := svg.parseDimension(attrs["height"], svg.height)
-				svg.ctx.DrawPath(x, y, Rectangle(width, height))
+				x := svg.parseDimension(attrs["x"], svg.ctx().width)
+				y := svg.parseDimension(attrs["y"], svg.ctx().height)
+				width := svg.parseDimension(attrs["width"], svg.ctx().width)
+				height := svg.parseDimension(attrs["height"], svg.ctx().height)
+				p := Rectangle(width, height)
+				svg.ctx().ctx.DrawPath(x, y, p)
+				// TODO check if this works when x, y are not in the path
+				svg.markPath(p)
 			case "text":
 				svg.intext = true
-				svg.x = svg.parseDimension(attrs["x"], svg.width)
-				svg.y = svg.parseDimension(attrs["y"], svg.height)
+				svg.x = svg.parseDimension(attrs["x"], svg.ctx().width)
+				svg.y = svg.parseDimension(attrs["y"], svg.ctx().height)
 			case "style":
 				svg.instyle = true
 			}
 
 			if tt == xml.StartTagCloseVoidToken {
-				svg.ctx.Pop()
+				svg.ctx().ctx.Pop()
 				if len(svg.tags) > 0 {
 					svg.tags = svg.tags[:len(svg.tags)-1]
 					svg.classes = svg.classes[:len(svg.classes)-1]
@@ -499,13 +599,19 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 			}
 		case xml.TextToken:
 			if svg.intext {
-				// TODO come up with a better default font
-				if svg.fontface != nil {
-					svg.fontfamily = svg.loadFontFamily("monospace")
-					svg.fontface = svg.fontfamily.Face(svg.parseDimension("14pt", svg.height), FontRegular)
+				// TODO come up with a better default font and size
+				family := svg.fontfamily
+				size := svg.fontsize
+				if family == "" {
+					family = "monospace"
 				}
-				text := NewTextLine(svg.fontface, string(data), Left)
-				svg.ctx.DrawText(svg.x, svg.y, text)
+				if size == 0 {
+					size = svg.parseDimension("14pt", svg.ctx().height)
+				}
+				ff := svg.loadFontFamily(family)
+				face := ff.Face(size, FontRegular)
+				text := NewTextLine(face, string(data), Left)
+				svg.ctx().ctx.DrawText(svg.x-text.Bounds().W/2, svg.y-text.Bounds().H/2, text)
 			}
 			if svg.instyle {
 				parser := css.NewParser(parse.NewInputString(string(data)), false)
@@ -550,11 +656,24 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 				}
 			}
 		case xml.EndTagToken:
-			svg.ctx.Pop()
+			svg.ctx().ctx.Pop()
 			svg.instyle = false
 			svg.intext = false
 			svg.tags = svg.tags[:len(svg.tags)-1]
 			svg.classes = svg.classes[:len(svg.classes)-1]
+			svg.markerstart = nil
+			svg.markerend = nil
+			svg.markermid = nil
+
+			tag := string(data[2 : len(data)-1])
+			if tag == "marker" {
+				canvas := svg.c[len(svg.c)-1].c
+				svg.c = svg.c[:len(svg.c)-1]
+				mc := markerContext{c: canvas, refX: svg.refX, refY: svg.refY}
+				if svg.id != "" {
+					svg.defs[svg.id] = &mc
+				}
+			}
 		}
 	}
 }
