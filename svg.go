@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/tdewolff/parse/v2"
+	"github.com/tdewolff/parse/v2/css"
 	"github.com/tdewolff/parse/v2/xml"
 )
 
@@ -17,8 +18,24 @@ type svgParser struct {
 	c                       *Canvas
 	ctx                     *Context
 	width, height, diagonal float64
-	defs                    map[string]interface{}
-	err                     error
+
+	defs map[string]interface{}
+
+	styles          map[string][]string
+	stylesSelectors []string
+
+	err error
+
+	instyle bool
+	tags    []string
+	classes [][]string
+
+	intext       bool
+	x            float64
+	y            float64
+	fontfamilies map[string]*FontFamily
+	fontfamily   *FontFamily
+	fontface     *FontFace
 }
 
 func (svg *svgParser) parseDimension(v string, parent float64) float64 {
@@ -234,6 +251,26 @@ func (svg *svgParser) setAttribute(key, val string) {
 	case "transform":
 		svg.ctx.ComposeView(svg.parseTransform(val))
 		// TODO: add more: stroke-opacity, fill-opacity
+	case "font-family":
+		svg.fontfamily = svg.loadFontFamily(val)
+		svg.fontface = nil
+	case "font-size":
+		// TODO come up with a better default font
+		if svg.fontfamily == nil {
+			svg.fontfamily = svg.loadFontFamily("monospace")
+		}
+		svg.fontface = svg.fontfamily.Face(svg.parseDimension(val, svg.height), FontRegular)
+	}
+}
+
+func (svg *svgParser) loadFontFamily(family string) *FontFamily {
+	if ff, ok := svg.fontfamilies[family]; !ok {
+		ff = NewFontFamily(family)
+		ff.LoadLocalFont(family, FontRegular)
+		svg.fontfamilies[family] = ff
+		return ff
+	} else {
+		return ff
 	}
 }
 
@@ -317,11 +354,73 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 					svg.ctx.SetCoordView(m)
 				}
 				svg.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, 4.0})
+				svg.defs = make(map[string]interface{})
+				svg.fontfamilies = make(map[string]*FontFamily)
+				svg.styles = make(map[string][]string)
 			} else if tag != "svg" && svg.c == nil {
 				return svg.c, fmt.Errorf("expected SVG tag")
 			}
 
 			svg.ctx.Push()
+			svg.tags = append(svg.tags, tag)
+			classes := []string{}
+			for _, key := range attrNames {
+				val := attrs[key]
+				if key == "class" {
+					classes = strings.Split(val, " ")
+				}
+			}
+			svg.classes = append(svg.classes, classes)
+
+			// Check for matching styles
+			for _, s := range svg.stylesSelectors {
+				if styles, ok := svg.styles[s]; ok {
+					selector := strings.Split(s, " ")
+					i := len(svg.tags) - 1
+
+					for len(selector) != 0 && i >= 0 {
+						parts := strings.Split(selector[len(selector)-1], ".")
+						t := parts[0]
+						c := ""
+						if len(parts) == 2 {
+							c = parts[1]
+						}
+
+						tagMatches := false
+						classMatches := false
+						if t == "" {
+							tagMatches = true
+						} else if t == svg.tags[i] {
+							tagMatches = true
+						}
+
+						if c == "" {
+							classMatches = true
+						} else {
+							for _, class := range svg.classes[i] {
+								if class == c {
+									classMatches = true
+									break
+								}
+							}
+						}
+
+						if tagMatches && classMatches {
+							selector = selector[:len(selector)-1]
+						}
+
+						i -= 1
+					}
+
+					if len(selector) == 0 {
+						for _, style := range styles {
+							values := strings.Split(style, ":")
+							svg.setAttribute(values[0], values[1])
+						}
+					}
+				}
+			}
+
 			for _, key := range attrNames {
 				val := attrs[key]
 				if key == "style" {
@@ -367,19 +466,95 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 					p.Close()
 				}
 				svg.ctx.DrawPath(0.0, 0.0, p)
+			case "line":
+				p := &Path{}
+				x1, _ := strconv.ParseInt(attrs["x1"], 10, 64)
+				y1, _ := strconv.ParseInt(attrs["y1"], 10, 64)
+				x2, _ := strconv.ParseInt(attrs["x2"], 10, 64)
+				y2, _ := strconv.ParseInt(attrs["y2"], 10, 64)
+
+				p.MoveTo(float64(x1), float64(y1))
+				p.LineTo(float64(x2), float64(y2))
+				svg.ctx.DrawPath(0.0, 0.0, p)
 			case "rect":
 				x := svg.parseDimension(attrs["x"], svg.width)
 				y := svg.parseDimension(attrs["y"], svg.height)
 				width := svg.parseDimension(attrs["width"], svg.width)
 				height := svg.parseDimension(attrs["height"], svg.height)
 				svg.ctx.DrawPath(x, y, Rectangle(width, height))
+			case "text":
+				svg.intext = true
+				svg.x = svg.parseDimension(attrs["x"], svg.width)
+				svg.y = svg.parseDimension(attrs["y"], svg.height)
+			case "style":
+				svg.instyle = true
 			}
 
 			if tt == xml.StartTagCloseVoidToken {
 				svg.ctx.Pop()
+				if len(svg.tags) > 0 {
+					svg.tags = svg.tags[:len(svg.tags)-1]
+					svg.classes = svg.classes[:len(svg.classes)-1]
+				}
+			}
+		case xml.TextToken:
+			if svg.intext {
+				// TODO come up with a better default font
+				if svg.fontface != nil {
+					svg.fontfamily = svg.loadFontFamily("monospace")
+					svg.fontface = svg.fontfamily.Face(svg.parseDimension("14pt", svg.height), FontRegular)
+				}
+				text := NewTextLine(svg.fontface, string(data), Left)
+				svg.ctx.DrawText(svg.x, svg.y, text)
+			}
+			if svg.instyle {
+				parser := css.NewParser(parse.NewInputString(string(data)), false)
+				selectors := []string{}
+				styles := []string{}
+				for {
+					gt, _, data := parser.Next()
+					if gt == css.QualifiedRuleGrammar || gt == css.BeginRulesetGrammar {
+						selector := []string{}
+						for _, v := range parser.Values() {
+							if v.TokenType == css.DelimToken || v.TokenType == css.IdentToken {
+								selector = append(selector, string(v.Data))
+							} else if v.TokenType == css.WhitespaceToken {
+								selector = append(selector, " ")
+							}
+						}
+						if len(selector) != 0 {
+							selectors = append(selectors, strings.Join(selector, ""))
+						}
+					}
+
+					if gt == css.DeclarationGrammar {
+						values := ""
+						for _, value := range parser.Values() {
+							values += string(value.Data)
+						}
+						styles = append(styles, fmt.Sprintf("%s:%s", string(data), values))
+					}
+
+					if gt == css.ErrorGrammar || gt == css.EndRulesetGrammar {
+						for _, sel := range selectors {
+							svg.styles[sel] = styles
+							svg.stylesSelectors = append(svg.stylesSelectors, sel)
+						}
+						selectors = []string{}
+						styles = []string{}
+					}
+
+					if gt == css.ErrorGrammar {
+						break
+					}
+				}
 			}
 		case xml.EndTagToken:
 			svg.ctx.Pop()
+			svg.instyle = false
+			svg.intext = false
+			svg.tags = svg.tags[:len(svg.tags)-1]
+			svg.classes = svg.classes[:len(svg.classes)-1]
 		}
 	}
 }
