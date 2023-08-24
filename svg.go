@@ -608,10 +608,12 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 				if size == 0 {
 					size = svg.parseDimension("14pt", svg.ctx().height)
 				}
+				// TODO why is the size so small and needs this kind of scaling?
+				size = size * 2.5
 				ff := svg.loadFontFamily(family)
 				face := ff.Face(size, FontRegular)
 				text := NewTextLine(face, string(data), Left)
-				svg.ctx().ctx.DrawText(svg.x-text.Bounds().W/2, svg.y-text.Bounds().H/2, text)
+				svg.ctx().ctx.DrawText(svg.x, svg.y, text)
 			}
 			if svg.instyle {
 				parser := css.NewParser(parse.NewInputString(string(data)), false)
