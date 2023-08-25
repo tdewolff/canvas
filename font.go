@@ -6,7 +6,9 @@ import (
 	"io/ioutil"
 	"math"
 	"os/exec"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/adrg/sysfont"
@@ -118,9 +120,19 @@ var sysfontFinder = struct {
 func FindLocalFont(name string, style FontStyle) string {
 	// TODO: use style to match font
 	// try with fc-match first
-	filename, err := exec.Command("fc-match", "--format=%{file}", name).Output()
+	extensions := []string{".ttf", ".otf", ".ttc", ".woff", ".woff2", ".eot"}
+
+	fns, err := exec.Command("fc-match", "-s", "--format=%{file}\\n", name).Output()
 	if err == nil {
-		return string(filename)
+		filenames := strings.Split(string(fns), "\n")
+		for _, filename := range filenames {
+			ext := filepath.Ext(filename)
+			for _, extension := range extensions {
+				if ext == extension {
+					return filename
+				}
+			}
+		}
 	}
 
 	// then use known font directories
@@ -128,7 +140,7 @@ func FindLocalFont(name string, style FontStyle) string {
 	finder := sysfontFinder.f
 	if finder == nil {
 		finder = sysfont.NewFinder(&sysfont.FinderOpts{ // TODO: very slow (takes 1s)
-			Extensions: []string{".ttf", ".otf", ".ttc", ".woff", ".woff2", ".eot"},
+			Extensions: extensions,
 		})
 		sysfontFinder.f = finder
 	}
