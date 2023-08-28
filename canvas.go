@@ -674,7 +674,7 @@ func (c *Context) DrawText(x, y float64, text *Text) {
 	if c.coordSystem == CartesianII || c.coordSystem == CartesianIII {
 		m = m.ReflectX()
 	}
-	m = m.Mul(c.view)
+	m = c.view.Translate(coord.X, coord.Y)
 	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
 		m = m.ReflectY()
 	}
