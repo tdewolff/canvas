@@ -42,8 +42,33 @@ func NewShaperSFNT(sfnt *font.SFNT) (Shaper, error) {
 func (s Shaper) Destroy() {
 }
 
+// Check if a rune is a Persian or Arabic number
+func isPersianOrArabicNumber(r rune) bool {
+	return (r >= '\u06F0' && r <= '\u06F9') || (r >= '\u0660' && r <= '\u0669')
+}
+
+// Function to reverse a string
+func reverse(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
+}
+
+// Function to check if a string contains Persian numbers and reverse it
+func reverseIfContainsPersianOrArabicNumbers(s string) string {
+	for _, r := range s {
+		if isPersianOrArabicNumber(r) {
+			return reverse(s)
+		}
+	}
+	return s
+}
+
 // Shape shapes the string for a given direction, script, and language.
 func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Script, lang string, features string, variations string) ([]Glyph, Direction) {
+	text = reverseIfContainsPersianOrArabicNumbers(text)
 	buf := harfbuzz.NewBuffer()
 	rtext := []rune(text)
 	buf.AddRunes(rtext, 0, -1)
