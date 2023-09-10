@@ -770,7 +770,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			bottom *= lineSpacing
 
 			if height != 0.0 && height < y+ascent+descent {
-				// doesn't fit or at the end of items
+				// line doesn't fit
 				t.lines = t.lines[:len(t.lines)-1]
 				if 0 < j {
 					t.text = log[:glyphs[i].Cluster]
@@ -783,6 +783,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			t.lines[j].y = y + ascent
 			y += ascent + bottom
 			if position == len(items)-1 {
+				// end of text
 				break
 			}
 
@@ -901,9 +902,9 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		i += item.Size
 	}
 
-	if 0 < j {
+	if 0 < len(t.lines) {
 		// remove line gap of last line
-		_, _, descent, bottom := t.lines[j-1].Heights(rt.mode)
+		_, _, descent, bottom := t.lines[len(t.lines)-1].Heights(rt.mode)
 		y += -bottom*lineSpacing + descent
 	}
 
