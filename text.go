@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -378,6 +379,7 @@ func (rt *RichText) setFace(face *FontFace) {
 
 // SetFaceSpan sets the font face between start and end measured in bytes.
 func (rt *RichText) SetFaceSpan(face *FontFace, start, end int) {
+	fmt.Println("WARNING: deprecated RichText.SetFaceSpan") // TODO: remove
 	// TODO: optimize when face already is on (part of) the span
 	if end <= start || rt.Len() <= start {
 		return
@@ -402,20 +404,18 @@ func (rt *RichText) SetFaceSpan(face *FontFace, start, end int) {
 	rt.faces = append(rt.faces[:i], append([]*FontFace{face}, rt.faces[j:]...)...)
 }
 
-// Add adds a string with a given font face.
-func (rt *RichText) Add(face *FontFace, text string) *RichText {
+// WriteFace writes a string with a given font face.
+func (rt *RichText) WriteFace(face *FontFace, text string) {
 	rt.SetFace(face)
 	rt.WriteString(text)
-	return rt
 }
 
-// AddCanvas adds a canvas object that can have paths/images/texts.
-func (rt *RichText) AddCanvas(c *Canvas, valign VerticalAlign) *RichText {
-
+// WriteCanvas writes an inline canvas object.
+func (rt *RichText) WriteCanvas(c *Canvas, valign VerticalAlign) {
 	width, height := c.Size()
 	face := rt.faces[len(rt.faces)-1]
 	rt.setFace(nil)
-	rt.WriteRune(rune(len(rt.objects)))
+	rt.WriteRune(rune(len(rt.objects))) // TODO: Bidi spec says we should use U+FFFC
 	rt.objects = append(rt.objects, TextSpanObject{
 		Canvas: c,
 		Width:  width,
@@ -423,37 +423,64 @@ func (rt *RichText) AddCanvas(c *Canvas, valign VerticalAlign) *RichText {
 		VAlign: valign,
 	})
 	rt.setFace(face)
-	return rt
 }
 
-// AddPath adds a path.
-func (rt *RichText) AddPath(path *Path, col color.RGBA, valign VerticalAlign) *RichText {
+// WritePath writes an inline path.
+func (rt *RichText) WritePath(path *Path, col color.RGBA, valign VerticalAlign) {
 	style := DefaultStyle
 	style.Fill.Color = col
 	bounds := path.Bounds()
 	c := New(bounds.X+bounds.W, bounds.Y+bounds.H)
 	c.RenderPath(path, style, Identity)
-	rt.AddCanvas(c, valign)
-	return rt
+	rt.WriteCanvas(c, valign)
 }
 
-// AddImage adds an image.
-func (rt *RichText) AddImage(img image.Image, res Resolution, valign VerticalAlign) *RichText {
+// WriteImage writes an inline image.
+func (rt *RichText) WriteImage(img image.Image, res Resolution, valign VerticalAlign) {
 	bounds := img.Bounds().Size()
 	c := New(float64(bounds.X)/res.DPMM(), float64(bounds.Y)/res.DPMM())
 	c.RenderImage(img, Identity.Scale(1.0/res.DPMM(), 1.0/res.DPMM()))
-	rt.AddCanvas(c, valign)
-	return rt
+	rt.WriteCanvas(c, valign)
 }
 
-// AddLaTeX adds a LaTeX formula.
-func (rt *RichText) AddLaTeX(s string) error {
+// WriteLaTeX writes an inline LaTeX formula.
+func (rt *RichText) WriteLaTeX(s string) error {
 	p, err := ParseLaTeX(s)
 	if err != nil {
 		return err
 	}
-	rt.AddPath(p, Black, Baseline)
+	rt.WritePath(p, Black, Baseline)
 	return nil
+}
+
+func (rt *RichText) Add(face *FontFace, text string) *RichText {
+	fmt.Println("WARNING: deprecated RichText.Add, use RichText.WriteFace") // TODO: remove
+	rt.WriteFace(face, text)
+	return rt
+}
+
+func (rt *RichText) AddCanvas(c *Canvas, valign VerticalAlign) *RichText {
+	fmt.Println("WARNING: deprecated RichText.AddCanvas, use RichText.WriteCanvas") // TODO: remove
+	rt.WriteCanvas(c, valign)
+	return rt
+}
+
+func (rt *RichText) AddPath(path *Path, col color.RGBA, valign VerticalAlign) *RichText {
+	fmt.Println("WARNING: deprecated RichText.AddPath, use RichText.WritePath") // TODO: remove
+	rt.WritePath(path, col, valign)
+	return rt
+}
+
+func (rt *RichText) AddImage(img image.Image, res Resolution, valign VerticalAlign) *RichText {
+	fmt.Println("WARNING: deprecated RichText.AddImage, use RichText.WriteImage") // TODO: remove
+	rt.WriteImage(img, res, valign)
+	return rt
+}
+
+func (rt *RichText) AddLaTeX(s string) *RichText {
+	fmt.Println("WARNING: deprecated RichText.AddLaTeX, use RichText.WriteLaTeX") // TODO: remove
+	rt.WriteLaTeX(s)
+	return rt
 }
 
 func scriptDirection(mode WritingMode, orient TextOrientation, script canvasText.Script, direction canvasText.Direction) (canvasText.Direction, canvasText.Rotation) {
