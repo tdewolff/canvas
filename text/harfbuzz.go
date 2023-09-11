@@ -48,9 +48,9 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	rtext := []rune(text)
 	buf.AddRunes(rtext, 0, -1)
 	buf.ClusterLevel = harfbuzz.MonotoneCharacters
-	buf.Props.Language = language.NewLanguage(lang)
-	buf.Props.Script = language.Script(script)
 	buf.Props.Direction = harfbuzz.Direction(direction)
+	buf.Props.Script = language.Script(script)
+	buf.Props.Language = language.NewLanguage(lang)
 	buf.GuessSegmentProperties() // only sets direction, script, and language if unset
 	buf.Shape(s.font, nil)
 

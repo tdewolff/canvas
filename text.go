@@ -518,9 +518,9 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	faces := []*FontFace{}
 	i := 0       // index into logRunes
 	curFace := 0 // index into rt.faces
-	for j := range logRunes {
+	for j := range append(logRunes, 0) {
 		nextFace := rt.locs.index(j)
-		if nextFace != curFace {
+		if nextFace != curFace || j == len(logRunes) {
 			if rt.faces[curFace] == nil {
 				// path/image objects
 				texts = append(texts, string(logRunes[i:j]))
@@ -537,22 +537,6 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			}
 			curFace = nextFace
 			i = j
-		}
-	}
-	if i < len(logRunes) {
-		if rt.faces[curFace] == nil {
-			// path/image objects
-			texts = append(texts, string(logRunes[i:]))
-			scripts = append(scripts, canvasText.ScriptInvalid)
-			faces = append(faces, nil)
-		} else {
-			// text
-			items := canvasText.ScriptItemizer(logRunes[i:], embeddingLevels[i:])
-			for _, item := range items {
-				texts = append(texts, item.Text)
-				scripts = append(scripts, item.Script)
-				faces = append(faces, rt.faces[curFace])
-			}
 		}
 	}
 
