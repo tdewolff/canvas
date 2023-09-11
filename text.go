@@ -434,8 +434,10 @@ func (rt *RichText) SetFaceSpan(face *FontFace, start, end int) {
 
 // WriteFace writes a string with a given font face.
 func (rt *RichText) WriteFace(face *FontFace, text string) {
+	origFace := rt.faces[len(rt.faces)-1]
 	rt.SetFace(face)
 	rt.WriteString(text)
+	rt.SetFace(origFace)
 }
 
 // WriteCanvas writes an inline canvas object.
