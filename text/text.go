@@ -12,6 +12,7 @@ type ScriptItem struct {
 }
 
 // ScriptItemizer divides the string in parts for each different script.
+// Also separates on runs of U+FFFC (object replacement characters)
 func ScriptItemizer(runes []rune, embeddingLevels []int) []ScriptItem {
 	if len(runes) == 0 {
 		return []ScriptItem{}
@@ -38,7 +39,7 @@ func ScriptItemizer(runes []rune, embeddingLevels []int) []ScriptItem {
 			scripts = scripts[:level+1]
 		}
 
-		if j != 0 && (curLevel != level || curScript != script && curScript != ScriptInherited && curScript != ScriptCommon && script != ScriptInherited && script != ScriptCommon) {
+		if j != 0 && (curLevel != level || curScript != script && curScript != ScriptInherited && curScript != ScriptCommon && script != ScriptInherited && script != ScriptCommon || (r == '\uFFFC') != (runes[j-1] == '\uFFFC')) {
 			items = append(items, ScriptItem{
 				Script: curScript,
 				Text:   string(runes[i:j]),

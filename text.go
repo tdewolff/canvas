@@ -326,9 +326,6 @@ type RichText struct {
 
 // NewRichText returns a new rich text with the given default font face.
 func NewRichText(face *FontFace) *RichText {
-	if face == nil {
-		panic("FontFace cannot be nil")
-	}
 	return &RichText{
 		Builder:     &strings.Builder{},
 		locs:        indexer{0},
@@ -358,13 +355,6 @@ func (rt *RichText) SetTextOrientation(orient TextOrientation) {
 
 // SetFace sets the font face.
 func (rt *RichText) SetFace(face *FontFace) {
-	if face == nil {
-		panic("FontFace cannot be nil")
-	}
-	rt.setFace(face)
-}
-
-func (rt *RichText) setFace(face *FontFace) {
 	if face == rt.faces[len(rt.faces)-1] {
 		return
 	}
@@ -413,8 +403,6 @@ func (rt *RichText) WriteFace(face *FontFace, text string) {
 // WriteCanvas writes an inline canvas object.
 func (rt *RichText) WriteCanvas(c *Canvas, valign VerticalAlign) {
 	width, height := c.Size()
-	face := rt.faces[len(rt.faces)-1]
-	rt.setFace(nil)
 	rt.WriteRune('\uFFFC') // object replacement character
 	rt.objects = append(rt.objects, TextSpanObject{
 		Canvas: c,
@@ -422,7 +410,6 @@ func (rt *RichText) WriteCanvas(c *Canvas, valign VerticalAlign) {
 		Height: height,
 		VAlign: valign,
 	})
-	rt.setFace(face)
 }
 
 // WritePath writes an inline path.
@@ -521,19 +508,11 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	for j := range append(logRunes, 0) {
 		nextFace := rt.locs.index(j)
 		if nextFace != curFace || j == len(logRunes) {
-			if rt.faces[curFace] == nil {
-				// path/image objects
-				texts = append(texts, string(logRunes[i:j]))
-				scripts = append(scripts, canvasText.ScriptInvalid)
-				faces = append(faces, nil)
-			} else {
-				// text
-				items := canvasText.ScriptItemizer(logRunes[i:j], embeddingLevels[i:j])
-				for _, item := range items {
-					texts = append(texts, item.Text)
-					scripts = append(scripts, item.Script)
-					faces = append(faces, rt.faces[curFace])
-				}
+			items := canvasText.ScriptItemizer(logRunes[i:j], embeddingLevels[i:j])
+			for _, item := range items {
+				texts = append(texts, item.Text)
+				scripts = append(scripts, item.Script)
+				faces = append(faces, rt.faces[curFace])
 			}
 			curFace = nextFace
 			i = j
@@ -552,38 +531,30 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		script := scripts[k]
 		direction := canvasText.DirectionInvalid
 		rotation := canvasText.NoRotation
+		ppem := face.PPEM(DefaultResolution)
+		direction, rotation = scriptDirection(rt.mode, rt.orient, script, face.Direction)
+
 		var glyphsString []canvasText.Glyph
-		if face == nil {
-			// path/image objects
-			for i := range text {
+		glyphsString, direction = face.Font.shaper.Shape(text, ppem, direction, script, face.Language, face.Font.features, face.Font.variations)
+		for i, glyph := range glyphsString {
+			glyphsString[i].SFNT = face.Font.SFNT
+			glyphsString[i].Size = face.Size
+			glyphsString[i].Script = script
+			glyphsString[i].Cluster += clusterOffset
+			if glyph.Text == '\uFFFC' {
+				// path/image objects
 				obj := rt.objects[objectOffset]
 				ppem := float64(rt.defaultFace.Font.SFNT.Head.UnitsPerEm)
 				xadv, yadv := obj.Width, obj.Height
 				if rt.mode != HorizontalTB {
 					yadv = -yadv
 				}
-				glyphsString = append(glyphsString, canvasText.Glyph{
-					SFNT:     rt.defaultFace.Font.SFNT,
-					Size:     rt.defaultFace.Size,
-					Script:   script, // ScriptInvalid
-					Vertical: rt.mode != HorizontalTB,
-					Cluster:  clusterOffset + uint32(i),
-					XAdvance: int32(xadv * ppem / rt.defaultFace.Size),
-					YAdvance: int32(yadv * ppem / rt.defaultFace.Size),
-				})
+				glyphsString[i].Vertical = rt.mode != HorizontalTB
+				glyphsString[i].XAdvance = int32(xadv * ppem / face.Size)
+				glyphsString[i].YAdvance = int32(yadv * ppem / face.Size)
 				objectOffset++
-			}
-		} else {
-			// text
-			ppem := face.PPEM(DefaultResolution)
-			direction, rotation = scriptDirection(rt.mode, rt.orient, script, face.Direction)
-			glyphsString, direction = face.Font.shaper.Shape(text, ppem, direction, script, face.Language, face.Font.features, face.Font.variations)
-			for i := range glyphsString {
-				glyphsString[i].SFNT = face.Font.SFNT
-				glyphsString[i].Size = face.Size
-				glyphsString[i].Script = script
+			} else {
 				glyphsString[i].Vertical = direction == canvasText.TopToBottom || direction == canvasText.BottomToTop
-				glyphsString[i].Cluster += clusterOffset
 				if rt.mode != HorizontalTB {
 					if script == canvasText.Mongolian {
 						glyphsString[i].YOffset += int32(face.Font.SFNT.Hhea.Descender)
@@ -658,7 +629,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		}
 	}
 
-	// clean up items, remove penalties/glues that were not chosen as breaks, this concatenates adjacent boxes and thus spans
+	// clean up items, remove penalties/glues that were not chosen as breaks, this concatenates adjacent boxes and thus optimizes final spans
 	var j int
 	i, j = 0, 0 // index into: glyphs, breaks/lines
 	shift := 0  // break index shift
@@ -824,18 +795,8 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 					var w float64
 					var objects []TextSpanObject
-					if face != nil {
-						// text
-						w = face.textWidth(glyphs[a:b])
-						t.fonts[face.Font] = true
-					} else {
-						// path/image object
-						// set face for text decoration purposes
-						if 0 < len(t.lines[j].spans) {
-							face = t.lines[j].spans[len(t.lines[j].spans)-1].Face
-						} else {
-							face = rt.defaultFace
-						}
+					if glyphs[a].Text == '\uFFFC' {
+						// path/image objects
 						for _ = range glyphs[a:b] {
 							obj := rt.objects[objectOffset]
 							if rt.mode == HorizontalTB {
@@ -849,6 +810,10 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 							objects = append(objects, obj)
 							objectOffset++
 						}
+					} else {
+						// text
+						w = face.textWidth(glyphs[a:b])
+						t.fonts[face.Font] = true
 					}
 
 					if directions[k] == canvasText.RightToLeft || directions[k] == canvasText.BottomToTop {
