@@ -185,13 +185,14 @@ func (l line) Heights(mode WritingMode) (float64, float64, float64, float64) {
 
 // TextSpan is a span of text.
 type TextSpan struct {
-	X         float64
-	Width     float64
-	Face      *FontFace
-	Text      string
-	Glyphs    []canvasText.Glyph
-	Direction canvasText.Direction
-	Rotation  canvasText.Rotation
+	X              float64
+	Width          float64
+	Face           *FontFace
+	Text           string
+	Glyphs         []canvasText.Glyph
+	Direction      canvasText.Direction
+	Rotation       canvasText.Rotation
+	embeddingLevel int
 
 	Objects []TextSpanObject
 }
@@ -821,6 +822,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 						for i := 0; i < n; i++ {
 							var obj TextSpanObject
 							if directions[k] == canvasText.RightToLeft || directions[k] == canvasText.BottomToTop {
+								// reverse right-to-left and bottom-to-top glyph order
 								obj = rt.objects[objectOffset+(n-1-i)]
 							} else {
 								obj = rt.objects[objectOffset+i]
@@ -840,7 +842,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 						// text
 						if directions[k] == canvasText.RightToLeft || directions[k] == canvasText.BottomToTop {
 							// reverse right-to-left and bottom-to-top glyph order
-							// this undoes the previous reversal for line breaking purposed
+							// this undoes the previous reversal for line breaking purposes
 							for i := 0; i < (b-a)/2; i++ {
 								glyphs[a+i], glyphs[b-1-i] = glyphs[b-1-i], glyphs[a+i]
 							}
@@ -851,35 +853,16 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 					s := log[ac:bc]
 					t.lines[j].spans = append(t.lines[j].spans, TextSpan{
-						X:         x + dx,
-						Width:     w,
-						Face:      face,
-						Text:      s,
-						Objects:   objects,
-						Glyphs:    glyphs[a:b],
-						Direction: directions[k],
-						Rotation:  rotations[k],
+						X:              x + dx,
+						Width:          w,
+						Face:           face,
+						Text:           s,
+						Objects:        objects,
+						Glyphs:         glyphs[a:b],
+						Direction:      directions[k],
+						Rotation:       rotations[k],
+						embeddingLevel: embeddingLevels[a],
 					})
-
-					if directions[k] == canvasText.RightToLeft || directions[k] == canvasText.BottomToTop {
-						// reverse right-to-left and bottom-to-top span order in line
-						// this undoes the previous reversal for line breaking purposed
-						last := len(t.lines[j].spans) - 1
-						first := last
-						for ; 0 < first; first-- {
-							if t.lines[j].spans[first-1].Direction != canvasText.RightToLeft && t.lines[j].spans[first-1].Direction != canvasText.BottomToTop {
-								break
-							}
-						}
-						if first < last {
-							space := x + dx - t.lines[j].spans[first].X - t.lines[j].spans[first].Width
-							t.lines[j].spans[last].X = t.lines[j].spans[last-1].X
-							for i := first; i < last; i++ {
-								t.lines[j].spans[i].X += w + space
-							}
-						}
-					}
-
 					k = nextK
 					a = b
 					dx += w
@@ -905,6 +888,35 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			}
 		}
 		i += item.Size
+	}
+
+	// reverse right-to-left and bottom-to-top span visual position (not logical order) in line
+	// this undoes the previous reversal for line breaking purposes
+	for _, line := range t.lines {
+		// find runs of a certain level and deeper (including nested)
+		// and reverse order for each level
+		// e.g. [0 1 2 2 1 0] would first reverse order of [1 2 2 1], and then again of [2 2]
+		prevLevel := 0
+		for first := 0; first < len(line.spans); first++ {
+			level := line.spans[first].embeddingLevel
+			if prevLevel < level {
+				last := first + 1
+				for ; last <= len(line.spans); last++ {
+					if last == len(line.spans) || line.spans[last].embeddingLevel < level {
+						if 1 < last-first {
+							// reverse position of spans
+							x := 0.0
+							for i := last - 1; first <= i; i-- {
+								line.spans[i].X = x
+								x += line.spans[i].Width
+							}
+						}
+						break
+					}
+				}
+			}
+			prevLevel = level
+		}
 	}
 
 	if 0 < len(t.lines) {
