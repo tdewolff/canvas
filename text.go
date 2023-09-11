@@ -415,7 +415,7 @@ func (rt *RichText) WriteCanvas(c *Canvas, valign VerticalAlign) {
 	width, height := c.Size()
 	face := rt.faces[len(rt.faces)-1]
 	rt.setFace(nil)
-	rt.WriteRune(rune(len(rt.objects))) // TODO: Bidi spec says we should use U+FFFC
+	rt.WriteRune('\uFFFC') // object replacement character
 	rt.objects = append(rt.objects, TextSpanObject{
 		Canvas: c,
 		Width:  width,
@@ -541,6 +541,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	}
 
 	// shape text into glyphs and keep index into texts and faces
+	objectOffset := 0
 	clusterOffset := uint32(0)
 	glyphIndices := indexer{} // indexes glyphs into texts and faces
 	glyphs := []canvasText.Glyph{}
@@ -554,8 +555,8 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		var glyphsString []canvasText.Glyph
 		if face == nil {
 			// path/image objects
-			for i, r := range text {
-				obj := rt.objects[r]
+			for i := range text {
+				obj := rt.objects[objectOffset]
 				ppem := float64(rt.defaultFace.Font.SFNT.Head.UnitsPerEm)
 				xadv, yadv := obj.Width, obj.Height
 				if rt.mode != HorizontalTB {
@@ -564,13 +565,13 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 				glyphsString = append(glyphsString, canvasText.Glyph{
 					SFNT:     rt.defaultFace.Font.SFNT,
 					Size:     rt.defaultFace.Size,
-					Script:   script,
+					Script:   script, // ScriptInvalid
 					Vertical: rt.mode != HorizontalTB,
-					ID:       uint16(r),
 					Cluster:  clusterOffset + uint32(i),
 					XAdvance: int32(xadv * ppem / rt.defaultFace.Size),
 					YAdvance: int32(yadv * ppem / rt.defaultFace.Size),
 				})
+				objectOffset++
 			}
 		} else {
 			// text
@@ -737,6 +738,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 	i, j = 0, 0      // index into: glyphs, breaks/lines
 	x, y := 0.0, 0.0 // both positive toward the bottom right
+	objectOffset = 0 // index into objects
 	lineSpacing := 1.0 + lineStretch
 	if halign == Right {
 		x += width - breaks[j].Width
@@ -827,14 +829,15 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 						w = face.textWidth(glyphs[a:b])
 						t.fonts[face.Font] = true
 					} else {
-						// path/image object, only one glyph is ever selected; b-a == 1
+						// path/image object
+						// set face for text decoration purposes
 						if 0 < len(t.lines[j].spans) {
 							face = t.lines[j].spans[len(t.lines[j].spans)-1].Face
 						} else {
 							face = rt.defaultFace
 						}
-						for _, glyph := range glyphs[a:b] {
-							obj := rt.objects[glyph.ID]
+						for _ = range glyphs[a:b] {
+							obj := rt.objects[objectOffset]
 							if rt.mode == HorizontalTB {
 								obj.X = w
 								w += obj.Width
@@ -844,6 +847,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 								w += obj.Height
 							}
 							objects = append(objects, obj)
+							objectOffset++
 						}
 					}
 
