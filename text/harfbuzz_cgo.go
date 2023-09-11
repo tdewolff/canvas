@@ -64,7 +64,7 @@ func (s Shaper) Destroy() {
 }
 
 // Shape shapes the string for a given direction, script, and language.
-func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Script, language string, features string, variations string) ([]Glyph, Direction) {
+func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Script, language string, features string, variations string) []Glyph {
 	font, ok := s.fonts[ppem]
 	if !ok {
 		font = C.hb_font_create(s.face)
@@ -139,7 +139,7 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	}
 	C.hb_buffer_destroy(buf)
 	C.free(unsafe.Pointer(ctext))
-	return glyphs, direction
+	return glyphs
 }
 
 func LookupScript(r rune) Script {

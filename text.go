@@ -239,6 +239,43 @@ func itemizeString(log string) []canvasText.ScriptItem {
 	return canvasText.ScriptItemizer(logRunes, embeddingLevels)
 }
 
+func scriptDirection(mode WritingMode, orient TextOrientation, item canvasText.ScriptItem, direction canvasText.Direction) (canvasText.Direction, canvasText.Rotation) {
+	// override text direction for given writing mode
+	vertical := false
+	rotation := canvasText.NoRotation
+	if mode == VerticalLR || mode == VerticalRL {
+		if !canvasText.IsVerticalScript(item.Script) && orient == Natural {
+			// horizontal script with natural orientation
+			rotation = canvasText.CW
+		} else if rot := canvasText.ScriptRotation(item.Script); rot != canvasText.NoRotation {
+			// rotated horizontal script for vertical mode (such as Mongolian)
+			rotation = rot
+		} else {
+			// horizontal script with upright orientation or vertical script
+			vertical = true
+		}
+	}
+
+	if !vertical {
+		if direction != canvasText.LeftToRight && direction != canvasText.RightToLeft {
+			if item.Reverse {
+				direction = canvasText.RightToLeft
+			} else {
+				direction = canvasText.LeftToRight
+			}
+		}
+	} else {
+		if direction != canvasText.TopToBottom && direction != canvasText.BottomToTop {
+			if item.Reverse {
+				direction = canvasText.BottomToTop
+			} else {
+				direction = canvasText.TopToBottom
+			}
+		}
+	}
+	return direction, rotation
+}
+
 // NewTextLine is a simple text line using a single font face, a string (supporting new lines) and horizontal alignment (Left, Center, Right). The text's baseline will be drawn on the current coordinate.
 func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 	t := &Text{
@@ -263,7 +300,8 @@ func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 				lineWidth := 0.0
 				line := line{y: y, spans: []TextSpan{}}
 				for _, item := range itemizeString(s[i:j]) {
-					glyphs, direction := face.Font.shaper.Shape(item.Text, ppem, face.Direction, face.Script, face.Language, face.Font.features, face.Font.variations)
+					direction, _ := scriptDirection(HorizontalTB, Natural, item, face.Direction)
+					glyphs := face.Font.shaper.Shape(item.Text, ppem, direction, face.Script, face.Language, face.Font.features, face.Font.variations)
 					width := face.textWidth(glyphs)
 					line.spans = append(line.spans, TextSpan{
 						X:         lineWidth,
@@ -470,29 +508,6 @@ func (rt *RichText) AddLaTeX(s string) *RichText {
 	return rt
 }
 
-func scriptDirection(mode WritingMode, orient TextOrientation, script canvasText.Script, direction canvasText.Direction) (canvasText.Direction, canvasText.Rotation) {
-	if direction == canvasText.TopToBottom || direction == canvasText.BottomToTop {
-		if mode == HorizontalTB {
-			direction = canvasText.LeftToRight
-		} else {
-			direction = canvasText.TopToBottom
-		}
-	} else if mode != HorizontalTB {
-		// unknown, left to right, right to left
-		direction = canvasText.TopToBottom
-	}
-	rotation := canvasText.NoRotation
-	if mode != HorizontalTB {
-		if !canvasText.IsVerticalScript(script) && orient == Natural {
-			direction = canvasText.LeftToRight
-			rotation = canvasText.CW
-		} else if rotation = canvasText.ScriptRotation(script); rotation != canvasText.NoRotation {
-			direction = canvasText.LeftToRight
-		}
-	}
-	return direction, rotation
-}
-
 // ToText takes the added text spans and fits them within a given box of certain width and height using Donald Knuth's line breaking algorithm.
 func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, indent, lineStretch float64) *Text {
 	log := rt.String()
@@ -501,8 +516,10 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 	// itemize string by font face and script
 	texts := []string{}
-	scripts := []canvasText.Script{}
 	faces := []*FontFace{}
+	scripts := []canvasText.Script{}
+	directions := []canvasText.Direction{}
+	rotations := []canvasText.Rotation{}
 	i := 0       // index into logRunes
 	curFace := 0 // index into rt.faces
 	for j := range append(logRunes, 0) {
@@ -511,8 +528,12 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			items := canvasText.ScriptItemizer(logRunes[i:j], embeddingLevels[i:j])
 			for _, item := range items {
 				texts = append(texts, item.Text)
-				scripts = append(scripts, item.Script)
 				faces = append(faces, rt.faces[curFace])
+				scripts = append(scripts, item.Script)
+
+				direction, rotation := scriptDirection(rt.mode, rt.orient, item, rt.faces[curFace].Direction)
+				directions = append(directions, direction)
+				rotations = append(rotations, rotation)
 			}
 			curFace = nextFace
 			i = j
@@ -524,23 +545,19 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	clusterOffset := uint32(0)
 	glyphIndices := indexer{} // indexes glyphs into texts and faces
 	glyphs := []canvasText.Glyph{}
-	directions := make([]canvasText.Direction, len(texts))
-	rotations := make([]canvasText.Rotation, len(texts))
 	for k, text := range texts {
 		face := faces[k]
 		script := scripts[k]
-		direction := canvasText.DirectionInvalid
-		rotation := canvasText.NoRotation
-		ppem := face.PPEM(DefaultResolution)
-		direction, rotation = scriptDirection(rt.mode, rt.orient, script, face.Direction)
+		direction := directions[k]
+		rotation := rotations[k]
 
-		var glyphsString []canvasText.Glyph
-		glyphsString, direction = face.Font.shaper.Shape(text, ppem, direction, script, face.Language, face.Font.features, face.Font.variations)
-		for i, glyph := range glyphsString {
-			glyphsString[i].SFNT = face.Font.SFNT
-			glyphsString[i].Size = face.Size
-			glyphsString[i].Script = script
-			glyphsString[i].Cluster += clusterOffset
+		ppem := face.PPEM(DefaultResolution)
+		glyphRun := face.Font.shaper.Shape(text, ppem, direction, script, face.Language, face.Font.features, face.Font.variations)
+		for i, glyph := range glyphRun {
+			glyphRun[i].SFNT = face.Font.SFNT
+			glyphRun[i].Size = face.Size
+			glyphRun[i].Script = script
+			glyphRun[i].Cluster += clusterOffset
 			if glyph.Text == '\uFFFC' {
 				// path/image objects
 				obj := rt.objects[objectOffset]
@@ -549,21 +566,21 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 				if rt.mode != HorizontalTB {
 					yadv = -yadv
 				}
-				glyphsString[i].Vertical = rt.mode != HorizontalTB
-				glyphsString[i].XAdvance = int32(xadv * ppem / face.Size)
-				glyphsString[i].YAdvance = int32(yadv * ppem / face.Size)
+				glyphRun[i].Vertical = rt.mode != HorizontalTB
+				glyphRun[i].XAdvance = int32(xadv * ppem / face.Size)
+				glyphRun[i].YAdvance = int32(yadv * ppem / face.Size)
 				objectOffset++
 			} else {
-				glyphsString[i].Vertical = direction == canvasText.TopToBottom || direction == canvasText.BottomToTop
+				glyphRun[i].Vertical = direction == canvasText.TopToBottom || direction == canvasText.BottomToTop
 				if rt.mode != HorizontalTB {
 					if script == canvasText.Mongolian {
-						glyphsString[i].YOffset += int32(face.Font.SFNT.Hhea.Descender)
+						glyphRun[i].YOffset += int32(face.Font.SFNT.Hhea.Descender)
 					} else if rotation != canvasText.NoRotation {
 						// center horizontal text by x-height when rotated in vertical layout
-						glyphsString[i].YOffset -= int32(face.Font.SFNT.OS2.SxHeight) / 2
+						glyphRun[i].YOffset -= int32(face.Font.SFNT.OS2.SxHeight) / 2
 					} else if rt.orient == Upright && rotation == canvasText.NoRotation && !canvasText.IsVerticalScript(script) {
 						// center horizontal text vertically when upright in vertical layout
-						glyphsString[i].YOffset = -(int32(face.Font.SFNT.Head.UnitsPerEm) + int32(face.Font.SFNT.OS2.SxHeight)) / 2
+						glyphRun[i].YOffset = -(int32(face.Font.SFNT.Head.UnitsPerEm) + int32(face.Font.SFNT.OS2.SxHeight)) / 2
 					}
 				}
 			}
@@ -573,13 +590,13 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			// reverse right-to-left and bottom-to-top glyph order for line breaking purposes
 			// this is required when mixing e.g. LTR and RTL scripts where line breaking should
 			// treat the RTL words in the logical order. We undo this later on.
-			for i := 0; i < len(glyphsString)/2; i++ {
-				glyphsString[i], glyphsString[len(glyphsString)-1-i] = glyphsString[len(glyphsString)-1-i], glyphsString[i]
+			for i := 0; i < len(glyphRun)/2; i++ {
+				glyphRun[i], glyphRun[len(glyphRun)-1-i] = glyphRun[len(glyphRun)-1-i], glyphRun[i]
 			}
 		}
 
 		glyphIndices = append(glyphIndices, len(glyphs))
-		glyphs = append(glyphs, glyphsString...)
+		glyphs = append(glyphs, glyphRun...)
 		clusterOffset += uint32(len(text))
 		directions[k] = direction
 		rotations[k] = rotation
@@ -797,8 +814,15 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 					var objects []TextSpanObject
 					if glyphs[a].Text == '\uFFFC' {
 						// path/image objects
-						for _ = range glyphs[a:b] {
-							obj := rt.objects[objectOffset]
+						n := b - a
+						objects = make([]TextSpanObject, n)
+						for i := 0; i < n; i++ {
+							var obj TextSpanObject
+							if directions[k] == canvasText.RightToLeft || directions[k] == canvasText.BottomToTop {
+								obj = rt.objects[objectOffset+(n-1-i)]
+							} else {
+								obj = rt.objects[objectOffset+i]
+							}
 							if rt.mode == HorizontalTB {
 								obj.X = w
 								w += obj.Width
@@ -807,21 +831,20 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 								obj.Y = -w - obj.Height
 								w += obj.Height
 							}
-							objects = append(objects, obj)
-							objectOffset++
+							objects[i] = obj
 						}
+						objectOffset += n
 					} else {
 						// text
+						if directions[k] == canvasText.RightToLeft || directions[k] == canvasText.BottomToTop {
+							// reverse right-to-left and bottom-to-top glyph order
+							// this undoes the previous reversal for line breaking purposed
+							for i := 0; i < (b-a)/2; i++ {
+								glyphs[a+i], glyphs[b-1-i] = glyphs[b-1-i], glyphs[a+i]
+							}
+						}
 						w = face.textWidth(glyphs[a:b])
 						t.fonts[face.Font] = true
-					}
-
-					if directions[k] == canvasText.RightToLeft || directions[k] == canvasText.BottomToTop {
-						// reverse right-to-left and bottom-to-top glyph order
-						// this undoes the previous reversal for line breaking purposed
-						for i := 0; i < (b-a)/2; i++ {
-							glyphs[a+i], glyphs[b-1-i] = glyphs[b-1-i], glyphs[a+i]
-						}
 					}
 
 					s := log[ac:bc]

@@ -43,7 +43,7 @@ func (s Shaper) Destroy() {
 }
 
 // Shape shapes the string for a given direction, script, and language.
-func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Script, lang string, features string, variations string) ([]Glyph, Direction) {
+func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Script, lang string, features string, variations string) []Glyph {
 	buf := harfbuzz.NewBuffer()
 	rtext := []rune(text)
 	buf.AddRunes(rtext, 0, -1)
@@ -74,7 +74,7 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 		glyphs[i].YOffset = int32(position.YOffset)
 		glyphs[i].Text = rtext[info.Cluster]
 	}
-	return glyphs, Direction(buf.Props.Direction)
+	return glyphs
 }
 
 func LookupScript(r rune) Script {
