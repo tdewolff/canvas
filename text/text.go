@@ -8,12 +8,12 @@ import (
 
 type ScriptItem struct {
 	Script
-	Text    string
-	Reverse bool // RightToLeft or BottomToTop
+	Level int
+	Text  string
 }
 
 // ScriptItemizer divides the string in parts for each different script.
-// Also separates on runs of U+FFFC (object replacement characters)
+// Also separates on different embedding levels and runs of U+FFFC (object replacement characters)
 func ScriptItemizer(runes []rune, embeddingLevels []int) []ScriptItem {
 	if len(runes) == 0 {
 		return []ScriptItem{}
@@ -21,38 +21,53 @@ func ScriptItemizer(runes []rune, embeddingLevels []int) []ScriptItem {
 
 	i := 0
 	items := []ScriptItem{}
-	scripts := []Script{ScriptInherited} // script stack for embedding levels
+	scripts := []Script{ScriptUnknown} // script stack for embedding levels
 	for j, r := range runes {
-		prevLevel := len(scripts) - 1
-		prevScript := scripts[prevLevel]
 		script, level := LookupScript(r), embeddingLevels[j]
-		if len(scripts) <= level {
+		if script == ScriptInherited {
+			if r == '\u200C' || r == '\u200D' {
+				script = ScriptCommon
+			} else {
+				script = scripts[level] // take leven from preceding base character
+			}
+		}
+		prevScript := scripts[len(scripts)-1]
+		prevLevel := len(scripts) - 1
+		if len(scripts)-1 < level {
+			// increase level
 			for len(scripts) < level {
-				scripts = append(scripts, ScriptInherited)
+				scripts = append(scripts, ScriptUnknown)
 			}
 			scripts = append(scripts, script)
-		} else {
-			if script != ScriptInherited && script != ScriptCommon {
-				scripts[level] = script
-			} else {
-				script = scripts[level] // TODO: correct?
-			}
+		} else if level < len(scripts)-1 {
+			// decrease level
+			scripts[level] = script
 			scripts = scripts[:level+1]
+		} else if script == ScriptUnknown || script == ScriptCommon {
+			script = prevScript
+		} else {
+			scripts[level] = script
+			if prevScript == ScriptUnknown || prevScript == ScriptCommon {
+				prevScript = script
+			}
 		}
 
-		if j != 0 && (prevLevel != level || prevScript != script && prevScript != ScriptInherited && prevScript != ScriptCommon && script != ScriptInherited && script != ScriptCommon || (r == '\uFFFC') != (runes[j-1] == '\uFFFC')) {
+		scriptBoundary := script != prevScript
+		levelBoundary := level != prevLevel
+		objectReplacementBoundary := 0 < j && (r == '\uFFFC') != (runes[j-1] == '\uFFFC')
+		if 0 < j && (levelBoundary || scriptBoundary || objectReplacementBoundary) {
 			items = append(items, ScriptItem{
-				Script:  prevScript,
-				Text:    string(runes[i:j]),
-				Reverse: (prevLevel % 2) == 1, // odd embedding levels are RTL (reverse)
+				Script: prevScript,
+				Level:  prevLevel,
+				Text:   string(runes[i:j]),
 			})
 			i = j
 		}
 	}
 	items = append(items, ScriptItem{
-		Script:  scripts[len(scripts)-1],
-		Text:    string(runes[i:]),
-		Reverse: ((len(scripts) - 1) % 2) == 1, // odd embedding levels are RTL (reverse)
+		Script: scripts[len(scripts)-1],
+		Level:  len(scripts) - 1,
+		Text:   string(runes[i:]),
 	})
 	return items
 }

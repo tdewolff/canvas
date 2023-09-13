@@ -122,8 +122,8 @@ type Text struct {
 	fonts map[*Font]bool
 	WritingMode
 	TextOrientation
-	width, height float64
-	text          string
+	Width, Height float64
+	Text          string
 	Overflows     bool // true if lines stick out of the box
 }
 
@@ -185,14 +185,14 @@ func (l line) Heights(mode WritingMode) (float64, float64, float64, float64) {
 
 // TextSpan is a span of text.
 type TextSpan struct {
-	X              float64
-	Width          float64
-	Face           *FontFace
-	Text           string
-	Glyphs         []canvasText.Glyph
-	Direction      canvasText.Direction
-	Rotation       canvasText.Rotation
-	embeddingLevel int
+	X         float64
+	Width     float64
+	Face      *FontFace
+	Text      string
+	Glyphs    []canvasText.Glyph
+	Direction canvasText.Direction
+	Rotation  canvasText.Rotation
+	Level     int
 
 	Objects []TextSpanObject
 }
@@ -240,15 +240,17 @@ func itemizeString(log string) []canvasText.ScriptItem {
 	return canvasText.ScriptItemizer(logRunes, embeddingLevels)
 }
 
-func scriptDirection(mode WritingMode, orient TextOrientation, item canvasText.ScriptItem, direction canvasText.Direction) (canvasText.Direction, canvasText.Rotation) {
+func scriptDirection(mode WritingMode, orient TextOrientation, script canvasText.Script, level int, direction canvasText.Direction) (canvasText.Direction, canvasText.Rotation) {
 	// override text direction for given writing mode
+	// script and level come from ScriptItemizer
+	// direction is the explicit direction set on the face
 	vertical := false
 	rotation := canvasText.NoRotation
 	if mode == VerticalLR || mode == VerticalRL {
-		if !canvasText.IsVerticalScript(item.Script) && orient == Natural {
+		if !canvasText.IsVerticalScript(script) && orient == Natural {
 			// horizontal script with natural orientation
 			rotation = canvasText.CW
-		} else if rot := canvasText.ScriptRotation(item.Script); rot != canvasText.NoRotation {
+		} else if rot := canvasText.ScriptRotation(script); rot != canvasText.NoRotation {
 			// rotated horizontal script for vertical mode (such as Mongolian)
 			rotation = rot
 		} else {
@@ -259,7 +261,7 @@ func scriptDirection(mode WritingMode, orient TextOrientation, item canvasText.S
 
 	if !vertical {
 		if direction != canvasText.LeftToRight && direction != canvasText.RightToLeft {
-			if item.Reverse {
+			if (level % 2) == 1 {
 				direction = canvasText.RightToLeft
 			} else {
 				direction = canvasText.LeftToRight
@@ -267,7 +269,7 @@ func scriptDirection(mode WritingMode, orient TextOrientation, item canvasText.S
 		}
 	} else {
 		if direction != canvasText.TopToBottom && direction != canvasText.BottomToTop {
-			if item.Reverse {
+			if (level % 2) == 1 {
 				direction = canvasText.BottomToTop
 			} else {
 				direction = canvasText.TopToBottom
@@ -281,7 +283,7 @@ func scriptDirection(mode WritingMode, orient TextOrientation, item canvasText.S
 func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 	t := &Text{
 		fonts: map[*Font]bool{face.Font: true},
-		text:  s,
+		Text:  s,
 	}
 
 	ascent, descent, spacing := face.Metrics().Ascent, face.Metrics().Descent, face.Metrics().LineGap
@@ -301,7 +303,8 @@ func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 				lineWidth := 0.0
 				line := line{y: y, spans: []TextSpan{}}
 				for _, item := range itemizeString(s[i:j]) {
-					direction, _ := scriptDirection(HorizontalTB, Natural, item, face.Direction)
+					direction, _ := scriptDirection(HorizontalTB, Natural, item.Script, item.Level, face.Direction)
+					// TODO: rotation?
 					glyphs := face.Font.shaper.Shape(item.Text, ppem, direction, face.Script, face.Language, face.Font.features, face.Font.variations)
 					width := face.textWidth(glyphs)
 					line.spans = append(line.spans, TextSpan{
@@ -511,6 +514,15 @@ func (rt *RichText) AddLaTeX(s string) *RichText {
 	return rt
 }
 
+type textRun struct {
+	Text      string
+	Level     int
+	Face      *FontFace
+	Script    canvasText.Script
+	Direction canvasText.Direction
+	Rotation  canvasText.Rotation
+}
+
 // ToText takes the added text spans and fits them within a given box of certain width and height using Donald Knuth's line breaking algorithm.
 func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, indent, lineStretch float64) *Text {
 	log := rt.String()
@@ -518,81 +530,73 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	embeddingLevels := canvasText.EmbeddingLevels(logRunes)
 
 	// itemize string by font face and script
-	texts := []string{}
-	faces := []*FontFace{}
-	scripts := []canvasText.Script{}
-	directions := []canvasText.Direction{}
-	rotations := []canvasText.Rotation{}
+	// this also splits on embedding level boundaries and runs of U+FFFC (object replacement)
 	i := 0       // index into logRunes
 	curFace := 0 // index into rt.faces
+	runs := []textRun{}
 	for j := range append(logRunes, 0) {
 		nextFace := rt.locs.index(j)
 		if nextFace != curFace || j == len(logRunes) {
 			items := canvasText.ScriptItemizer(logRunes[i:j], embeddingLevels[i:j])
 			for _, item := range items {
-				texts = append(texts, item.Text)
-				faces = append(faces, rt.faces[curFace])
-				scripts = append(scripts, item.Script)
-
-				direction, rotation := scriptDirection(rt.mode, rt.orient, item, rt.faces[curFace].Direction)
-				directions = append(directions, direction)
-				rotations = append(rotations, rotation)
+				direction, rotation := scriptDirection(rt.mode, rt.orient, item.Script, item.Level, rt.faces[curFace].Direction)
+				runs = append(runs, textRun{
+					Text:      item.Text,
+					Level:     item.Level,
+					Face:      rt.faces[curFace],
+					Script:    item.Script,
+					Direction: direction,
+					Rotation:  rotation,
+				})
 			}
 			curFace = nextFace
 			i = j
 		}
 	}
 
-	// shape text into glyphs and keep index into texts and faces
+	// shape text into glyphs and keep index into runs
 	objectOffset := 0
 	clusterOffset := uint32(0)
-	glyphIndices := indexer{} // indexes glyphs into texts and faces
-	glyphs := []canvasText.Glyph{}
-	for k, text := range texts {
-		face := faces[k]
-		script := scripts[k]
-		direction := directions[k]
-		rotation := rotations[k]
-
-		ppem := face.PPEM(DefaultResolution)
-		glyphRun := face.Font.shaper.Shape(text, ppem, direction, script, face.Language, face.Font.features, face.Font.variations)
+	glyphIndices := indexer{} // indexes glyphs into runs
+	glyphs := make([]canvasText.Glyph, 0, len(logRunes))
+	for _, run := range runs {
+		ppem := run.Face.PPEM(DefaultResolution)
+		glyphRun := run.Face.Font.shaper.Shape(run.Text, ppem, run.Direction, run.Script, run.Face.Language, run.Face.Font.features, run.Face.Font.variations)
 		for i, glyph := range glyphRun {
-			glyphRun[i].SFNT = face.Font.SFNT
-			glyphRun[i].Size = face.Size
-			glyphRun[i].Script = script
+			glyphRun[i].SFNT = run.Face.Font.SFNT
+			glyphRun[i].Size = run.Face.Size
+			glyphRun[i].Script = run.Script
 			glyphRun[i].Cluster += clusterOffset
 			if glyph.Text == '\uFFFC' {
 				// path/image objects
 				obj := rt.objects[objectOffset]
-				ppem := float64(rt.defaultFace.Font.SFNT.Head.UnitsPerEm)
+				ppem := float64(run.Face.Font.SFNT.Head.UnitsPerEm)
 				xadv, yadv := obj.Width, obj.Height
 				if rt.mode != HorizontalTB {
 					yadv = -yadv
 				}
 				glyphRun[i].Vertical = rt.mode != HorizontalTB
-				glyphRun[i].XAdvance = int32(xadv * ppem / face.Size)
-				glyphRun[i].YAdvance = int32(yadv * ppem / face.Size)
+				glyphRun[i].XAdvance = int32(xadv * ppem / run.Face.Size)
+				glyphRun[i].YAdvance = int32(yadv * ppem / run.Face.Size)
 				objectOffset++
 			} else {
-				glyphRun[i].Vertical = direction == canvasText.TopToBottom || direction == canvasText.BottomToTop
+				glyphRun[i].Vertical = run.Direction == canvasText.TopToBottom || run.Direction == canvasText.BottomToTop
 				if rt.mode != HorizontalTB {
-					if script == canvasText.Mongolian {
-						glyphRun[i].YOffset += int32(face.Font.SFNT.Hhea.Descender)
-					} else if rotation != canvasText.NoRotation {
+					if run.Script == canvasText.Mongolian {
+						glyphRun[i].YOffset += int32(run.Face.Font.SFNT.Hhea.Descender)
+					} else if run.Rotation != canvasText.NoRotation {
 						// center horizontal text by x-height when rotated in vertical layout
-						glyphRun[i].YOffset -= int32(face.Font.SFNT.OS2.SxHeight) / 2
-					} else if rt.orient == Upright && rotation == canvasText.NoRotation && !canvasText.IsVerticalScript(script) {
+						glyphRun[i].YOffset -= int32(run.Face.Font.SFNT.OS2.SxHeight) / 2
+					} else if rt.orient == Upright && run.Rotation == canvasText.NoRotation && !canvasText.IsVerticalScript(run.Script) {
 						// center horizontal text vertically when upright in vertical layout
-						glyphRun[i].YOffset = -(int32(face.Font.SFNT.Head.UnitsPerEm) + int32(face.Font.SFNT.OS2.SxHeight)) / 2
+						glyphRun[i].YOffset = -(int32(run.Face.Font.SFNT.Head.UnitsPerEm) + int32(run.Face.Font.SFNT.OS2.SxHeight)) / 2
 					}
 				}
 			}
 		}
 
-		if direction == canvasText.RightToLeft || direction == canvasText.BottomToTop {
-			// reverse right-to-left and bottom-to-top glyph order for line breaking purposes
-			// this is required when mixing e.g. LTR and RTL scripts where line breaking should
-			// treat the RTL words in the logical order. We undo this later on.
+		if run.Direction == canvasText.RightToLeft || run.Direction == canvasText.BottomToTop {
+			// shaping puts characters in visual order, go back to logical order for line breaking
 			for i := 0; i < len(glyphRun)/2; i++ {
 				glyphRun[i], glyphRun[len(glyphRun)-1-i] = glyphRun[len(glyphRun)-1-i], glyphRun[i]
 			}
@@ -600,11 +604,10 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 		glyphIndices = append(glyphIndices, len(glyphs))
 		glyphs = append(glyphs, glyphRun...)
-		clusterOffset += uint32(len(text))
-		directions[k] = direction
-		rotations[k] = rotation
+		clusterOffset += uint32(len(run.Text))
 	}
 
+	// interchange width/height and halign/valign for vertical text
 	if rt.mode != HorizontalTB {
 		width, height = height, width
 		halign, valign = valign, halign
@@ -620,13 +623,12 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		}
 	}
 
+	// break glyphs into lines following Donald Knuth's line breaking algorithm
+	looseness := 0
 	align := canvasText.Left
 	if halign == Justify {
 		align = canvasText.Justified
 	}
-
-	// break glyphs into lines following Donald Knuth's line breaking algorithm
-	looseness := 0
 	items := canvasText.GlyphsToItems(glyphs, indent, align)
 
 	var breaks []*canvasText.Breakpoint
@@ -649,260 +651,183 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		}
 	}
 
-	// clean up items, remove penalties/glues that were not chosen as breaks, this concatenates adjacent boxes and thus optimizes final spans
-	var j int
-	i, j = 0, 0 // index into: glyphs, breaks/lines
-	shift := 0  // break index shift
-	if 0 < len(items) && items[0].Width == 0.0 {
-		// remove empty indent box
-		items = items[1:]
-		shift++
-	}
-	for k := 0; k < len(items); k++ {
-		size := items[k].Size
-		if k == breaks[j].Position-shift {
-			// keep breaking item
-			breaks[j].Position -= shift
-			j++
-		} else if 0 < k && items[k].Type == canvasText.GlueType && 0 < j && k-1 == breaks[j-1].Position {
-			// put spaces at the beginning of the line into the break
-			items[k-1].Size += items[k].Size
-			items = append(items[:k], items[k+1:]...)
-			shift++
-			k--
-		} else if k+1 < len(items) && items[k].Type == canvasText.GlueType && k+1 == breaks[j].Position-shift {
-			// put spaces at the end of the line into the break
-			items[k+1].Size += items[k].Size
-			items = append(items[:k], items[k+1:]...)
-			shift++
-			k--
-		} else if items[k].Type == canvasText.PenaltyType && items[k].Size == 0 {
-			// remove non-breaking penalties
-			items = append(items[:k], items[k+1:]...)
-			shift++
-			k--
-		} else if items[k].Type == canvasText.GlueType && items[k].Size == 0 && breaks[j].Ratio == 0.0 {
-			// remove empty glues
-			items = append(items[:k], items[k+1:]...)
-			shift++
-			k--
-		} else if 0 < k && items[k].Type == canvasText.GlueType && items[k-1].Type == canvasText.GlueType {
-			// merge glues
-			items[k-1].Width += items[k].Width
-			items[k-1].Stretch += items[k].Stretch
-			items[k-1].Shrink += items[k].Shrink
-			items[k-1].Size += items[k].Size
-			items = append(items[:k], items[k+1:]...)
-			shift++
-			k -= 2 // parse it again in case we have a box-glue pair
-		} else if 0 < k && items[k].Type == canvasText.BoxType && items[k-1].Type == canvasText.BoxType {
-			// merge boxes
-			items[k-1].Width += items[k].Width
-			items[k-1].Size += items[k].Size
-			items = append(items[:k], items[k+1:]...)
-			shift++
-			k--
-		} else if 0 < k && items[k].Type == canvasText.GlueType && (breaks[j].Ratio == 0.0 || items[k].Stretch == 0.0 && items[k].Shrink == 0.0) && items[k-1].Type == canvasText.BoxType {
-			// merge glue with box when glue is the width of a space
-			items[k-1].Type = canvasText.BoxType
-			items[k-1].Width += items[k].Width
-			items[k-1].Size += items[k].Size
-			items = append(items[:k], items[k+1:]...)
-			shift++
-			k--
-		}
-		i += size
-	}
-
 	// build up lines
 	t := &Text{
 		lines:           []line{{}},
 		fonts:           map[*Font]bool{},
 		WritingMode:     rt.mode,
 		TextOrientation: rt.orient,
-		width:           width,
-		height:          height,
-		text:            log,
+		Width:           width,
+		Height:          height,
+		Text:            log,
 		Overflows:       overflows,
 	}
 	glyphs = append(glyphs, canvasText.Glyph{Cluster: uint32(len(log))}) // makes indexing easier
 
-	i, j = 0, 0      // index into: glyphs, breaks/lines
-	x, y := 0.0, 0.0 // both positive toward the bottom right
+	y := 0.0
+	ai, ag := 0, 0   // index into items and glyphs
 	objectOffset = 0 // index into objects
 	lineSpacing := 1.0 + lineStretch
-	if halign == Right {
-		x += width - breaks[j].Width
-	} else if halign == Center || halign == Middle {
-		x += (width - breaks[j].Width) / 2.0
-	}
-	for position, item := range items {
-		if position == breaks[j].Position {
-			if 0 < len(t.lines[j].spans) { // not if there is an empty first line
-				// add spaces to previous span
-				for _, glyph := range glyphs[i : i+item.Size] {
-					t.lines[j].spans[len(t.lines[j].spans)-1].Text += string(glyph.Text)
-				}
-
-				// hyphenate at breakpoint
-				if item.Type == canvasText.PenaltyType && item.Size == 1 && glyphs[i].Text == '\u00AD' {
-					span := &t.lines[j].spans[len(t.lines[j].spans)-1]
-					id := span.Face.Font.GlyphIndex('-')
-					glyph := canvasText.Glyph{
-						SFNT:     span.Face.Font.SFNT,
-						Size:     span.Face.Size,
-						ID:       id,
-						XAdvance: int32(span.Face.Font.GlyphAdvance(id)),
-						Text:     '-',
+	for j := range breaks {
+		eolSkip := 0
+		bi, bg := breaks[j].Position, ag
+		for _, item := range items[ai:bi] {
+			if item.Type == canvasText.GlueType && breaks[j].Ratio != 0.0 {
+				// apply stretching or shrinking of glue (whitespace)
+				for i := bg; i < bg+item.Size; i++ {
+					adv := 0.0
+					face := runs[glyphIndices.index(i)].Face
+					ppem := float64(face.Font.SFNT.Head.UnitsPerEm)
+					if 0.0 < breaks[j].Ratio && !math.IsInf(item.Stretch, 0.0) {
+						adv = breaks[j].Ratio * item.Stretch
+					} else if breaks[j].Ratio < 0.0 && !math.IsInf(item.Shrink, 0.0) {
+						adv = breaks[j].Ratio * item.Shrink
 					}
-					span.Glyphs = append(span.Glyphs, glyph)
-					span.Width += span.Face.textWidth([]canvasText.Glyph{glyph})
-					span.Text += "-"
+					// proportional to glyph in item
+					adv *= (float64(glyphs[i].XAdvance) / ppem * face.Size) / item.Width
+					glyphs[i].XAdvance += int32(adv*ppem/face.Size + 0.5)
 				}
 			}
-
-			var ascent, descent, bottom float64
-			if len(t.lines[j].spans) == 0 {
-				_, ascent, descent, bottom = faces[glyphIndices.index(i)].heights(rt.mode)
+			// skip glue/hyphens at end of line (before breakpoint)
+			if item.Type == canvasText.BoxType {
+				eolSkip = 0
 			} else {
-				_, ascent, descent, bottom = t.lines[j].Heights(rt.mode)
+				eolSkip += item.Size
 			}
-			if 0 < j {
-				ascent *= lineSpacing
-				// don't stretch descent for possible last line
-			}
-			bottom *= lineSpacing
+			bg += item.Size
+		}
 
-			if height != 0.0 && height < y+ascent+descent {
-				// line doesn't fit
-				t.lines = t.lines[:len(t.lines)-1]
-				if 0 < j {
-					t.text = log[:glyphs[i].Cluster]
-				} else {
-					t.text = ""
-					y = 0.0
-				}
-				break
-			}
-			t.lines[j].y = y + ascent
-			y += ascent + bottom
-			if position == len(items)-1 {
-				// end of text
-				break
-			}
+		// handle breakpoint
+		if items[bi].Type == canvasText.PenaltyType && items[bi].Size == 1 && glyphs[bg].Text == '\u00AD' {
+			// hyphenate at breakpoint
+			// TODO: hyphen depends on script
+			id := glyphs[bg].SFNT.GlyphIndex('-')
+			glyphs[bg].ID = id
+			glyphs[bg].XAdvance = int32(glyphs[bg].SFNT.GlyphAdvance(id))
+			glyphs[bg].Text = '-'
+		} else {
+			eolSkip += items[bi].Size
+		}
+		bg += items[bi].Size
+		bi++
 
-			t.lines = append(t.lines, line{})
-			if j+1 < len(breaks) {
-				j++
-			}
-			x = 0.0
-			if halign == Right {
-				x += width - breaks[j].Width
-			} else if halign == Center || halign == Middle {
-				x += (width - breaks[j].Width) / 2.0
-			}
-		} else if item.Type == canvasText.BoxType {
-			// find index k into faces/texts
-			// find a,b index range into glyphs
-			a := i
-			dx := 0.0
-			k := glyphIndices.index(i)
-			for b := i + 1; b <= i+item.Size; b++ {
-				nextK := glyphIndices.index(b)
-				if nextK != k || b == i+item.Size {
-					face := faces[k]
-					ac, bc := glyphs[a].Cluster, glyphs[b].Cluster
+		// absorb whitespace after breakpoint
+		for bi < len(items) && items[bi].Type == canvasText.GlueType {
+			eolSkip += items[bi].Size
+			bg += items[bi].Size
+			bi++
+		}
 
-					var w float64
-					var objects []TextSpanObject
-					if glyphs[a].Text == '\uFFFC' {
-						// path/image objects
-						n := b - a
-						objects = make([]TextSpanObject, n)
-						for i := 0; i < n; i++ {
-							var obj TextSpanObject
-							if directions[k] == canvasText.RightToLeft || directions[k] == canvasText.BottomToTop {
-								// reverse right-to-left and bottom-to-top glyph order
-								obj = rt.objects[objectOffset+(n-1-i)]
-							} else {
-								obj = rt.objects[objectOffset+i]
-							}
-							if rt.mode == HorizontalTB {
-								obj.X = w
-								w += obj.Width
-							} else {
-								obj.X = -obj.Width / 2.0
-								obj.Y = -w - obj.Height
-								w += obj.Height
-							}
-							objects[i] = obj
+		// build text spans of line
+		x := 0.0
+		if halign == Right {
+			x += width - breaks[j].Width
+		} else if halign == Center || halign == Middle {
+			x += (width - breaks[j].Width) / 2.0
+		}
+
+		line := line{}
+		a := ag
+		k := glyphIndices.index(a) // index into runs
+		for b := a + 1; b <= bg-eolSkip; b++ {
+			nextK := glyphIndices.index(b)
+			if nextK != k || b == bg-eolSkip {
+				run := runs[k]
+				ac, bc := glyphs[a].Cluster, glyphs[b].Cluster
+				text := log[ac:bc]
+
+				var w float64
+				var objects []TextSpanObject
+				if glyphs[a].Text == '\uFFFC' {
+					// path/image objects
+					n := b - a
+					objects = make([]TextSpanObject, n)
+					for i := 0; i < n; i++ {
+						var obj TextSpanObject
+						if run.Direction == canvasText.RightToLeft || run.Direction == canvasText.BottomToTop {
+							// logical to visual order
+							obj = rt.objects[objectOffset+(n-1-i)]
+						} else {
+							obj = rt.objects[objectOffset+i]
 						}
-						objectOffset += n
-					} else {
-						// text
-						if directions[k] == canvasText.RightToLeft || directions[k] == canvasText.BottomToTop {
-							// reverse right-to-left and bottom-to-top glyph order
-							// this undoes the previous reversal for line breaking purposes
-							for i := 0; i < (b-a)/2; i++ {
-								glyphs[a+i], glyphs[b-1-i] = glyphs[b-1-i], glyphs[a+i]
-							}
+						if rt.mode == HorizontalTB {
+							obj.X = w
+							w += obj.Width
+						} else {
+							obj.X = -obj.Width / 2.0
+							obj.Y = -w - obj.Height
+							w += obj.Height
 						}
-						w = face.textWidth(glyphs[a:b])
-						t.fonts[face.Font] = true
+						objects[i] = obj
 					}
+					objectOffset += n
+				} else {
+					if run.Direction == canvasText.RightToLeft || run.Direction == canvasText.BottomToTop {
+						// logical to visual order
+						// this undoes the previous reversal after shaping for line breaking
+						for i := 0; i < (b-a)/2; i++ {
+							glyphs[a+i], glyphs[b-1-i] = glyphs[b-1-i], glyphs[a+i]
+						}
+					}
+					w = run.Face.textWidth(glyphs[a:b])
+					t.fonts[run.Face.Font] = true
+				}
 
-					s := log[ac:bc]
-					t.lines[j].spans = append(t.lines[j].spans, TextSpan{
-						X:              x + dx,
-						Width:          w,
-						Face:           face,
-						Text:           s,
-						Objects:        objects,
-						Glyphs:         glyphs[a:b],
-						Direction:      directions[k],
-						Rotation:       rotations[k],
-						embeddingLevel: embeddingLevels[a],
-					})
-					k = nextK
-					a = b
-					dx += w
-				}
-			}
-			x += item.Width
-		} else if item.Type == canvasText.GlueType {
-			width := item.Width
-			if 0.0 <= breaks[j].Ratio {
-				if !math.IsInf(item.Stretch, 0.0) {
-					width += breaks[j].Ratio * item.Stretch
-				}
-			} else if !math.IsInf(item.Shrink, 0.0) {
-				width += breaks[j].Ratio * item.Shrink
-			}
-			x += width
+				line.spans = append(line.spans, TextSpan{
+					X:         x,
+					Width:     w,
+					Face:      run.Face,
+					Text:      text,
+					Objects:   objects,
+					Glyphs:    glyphs[a:b],
+					Direction: run.Direction,
+					Rotation:  run.Rotation,
+					Level:     run.Level,
+				})
 
-			// add spaces to previous span
-			if 0 < len(t.lines[j].spans) { // don't add if there is an empty first line
-				for _, glyph := range glyphs[i : i+item.Size] {
-					t.lines[j].spans[len(t.lines[j].spans)-1].Text += string(glyph.Text)
-				}
+				k = nextK
+				x += w
+				a = b
 			}
 		}
-		i += item.Size
+
+		// set y position of line
+		var ascent, descent, bottom float64
+		if len(line.spans) == 0 {
+			_, ascent, descent, bottom = runs[glyphIndices.index(i)].Face.heights(rt.mode)
+		} else {
+			_, ascent, descent, bottom = line.Heights(rt.mode)
+		}
+		if 0 < j {
+			ascent *= lineSpacing
+		}
+		bottom *= lineSpacing
+		if height != 0.0 && height < y+ascent+descent {
+			// line doesn't fit
+			t.Text = log[:glyphs[a].Cluster]
+			break
+		}
+		line.y = y + ascent
+
+		// add line
+		t.lines = append(t.lines, line)
+		y += ascent + bottom
+
+		ai, ag = bi, bg
 	}
 
-	// reverse right-to-left and bottom-to-top span visual position (not logical order) in line
-	// this undoes the previous reversal for line breaking purposes
+	// reorder from logical to visual order of text spans in line
 	for _, line := range t.lines {
 		// find runs of a certain level and deeper (including nested)
 		// and reverse order for each level
 		// e.g. [0 1 2 2 1 0] would first reverse order of [1 2 2 1], and then again of [2 2]
 		prevLevel := 0
 		for first := 0; first < len(line.spans); first++ {
-			level := line.spans[first].embeddingLevel
+			level := line.spans[first].Level
 			if prevLevel < level {
 				last := first + 1
 				for ; last <= len(line.spans); last++ {
-					if last == len(line.spans) || line.spans[last].embeddingLevel < level {
+					if last == len(line.spans) || line.spans[last].Level < level {
 						if 1 < last-first {
 							// reverse position of spans
 							x := 0.0
@@ -957,6 +882,11 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	return t
 }
 
+// String returns the content of the text box.
+func (t *Text) String() string {
+	return t.Text
+}
+
 // Empty returns true if there are no text lines or text spans.
 func (t *Text) Empty() bool {
 	for _, line := range t.lines {
@@ -969,7 +899,7 @@ func (t *Text) Empty() bool {
 
 // Size returns the width and height of a text box. Either can be zero when unspecified.
 func (t *Text) Size() (float64, float64) {
-	return t.width, t.height
+	return t.Width, t.Height
 }
 
 // Heights returns the top and bottom position of the first and last line respectively.
@@ -1238,9 +1168,4 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
 			}
 		}
 	}
-}
-
-// String returns the content of the text box.
-func (t *Text) String() string {
-	return t.text
 }
