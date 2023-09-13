@@ -371,14 +371,11 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 		r.RenderPath(p, style, m)
 	})
 
-	n, rtls := 0, 0
 	text.WalkSpans(func(x, y float64, span canvas.TextSpan) {
 		if !span.IsText() {
 			for _, obj := range span.Objects {
 				obj.Canvas.RenderViewTo(r, m.Mul(obj.View(x, y, span.Face)))
 			}
-		} else if span.Direction == canvasText.RightToLeft {
-			rtls++
 		}
 	})
 
@@ -405,9 +402,6 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 	if !faceMain.Fill.IsColor() || faceMain.Fill.Color != canvas.Black {
 		fmt.Fprintf(r.w, `;fill:`)
 		r.writePaint(r.w, faceMain.Fill)
-	}
-	if n < rtls*2 {
-		fmt.Fprintf(r.w, `;direction:rtl`)
 	}
 	if text.WritingMode != canvas.HorizontalTB {
 		if text.WritingMode == canvas.VerticalLR {
@@ -441,7 +435,7 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 				x += span.Width
 			}
 			fmt.Fprintf(r.w, `<tspan x="%v" y="%v`, num(x), num(y))
-			r.writeFontStyle(span.Face, faceMain, span.Direction == canvasText.RightToLeft && rtls*2 <= n)
+			r.writeFontStyle(span.Face, faceMain, span.Direction == canvasText.RightToLeft)
 			r.writeClasses(r.w)
 			fmt.Fprintf(r.w, `">`)
 			xml.EscapeText(r.w, []byte(span.Text))
