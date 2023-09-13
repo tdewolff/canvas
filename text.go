@@ -1026,19 +1026,18 @@ func (t *Text) MostCommonFontFace() *FontFace {
 }
 
 type decorationSpan struct {
-	deco  FontDecorator
-	fill  Paint
-	x     float64
-	width float64
-	face  *FontFace // biggest face
+	deco   FontDecorator
+	fill   Paint
+	x0, x1 float64
+	face   *FontFace // biggest face
 }
 
 // WalkDecorations calls the callback for each color of decoration used per line.
 func (t *Text) WalkDecorations(callback func(fill Paint, deco *Path)) {
 	// TODO: vertical text
-	// accumulate paths with colors for all lines
-	fs := []Paint{}
+	// accumulate paths and fill paints for all lines
 	ps := []*Path{}
+	fs := []Paint{}
 	for _, line := range t.lines {
 		// track active decorations, when finished draw and append to accumulated paths
 		active := []decorationSpan{}
@@ -1049,7 +1048,8 @@ func (t *Text) WalkDecorations(callback func(fill Paint, deco *Path)) {
 				for i, deco := range active {
 					if reflect.DeepEqual(span.Face.Fill, deco.fill) && reflect.DeepEqual(deco.deco, spanDeco) {
 						// extend decoration
-						active[i].width = span.X + span.Width - active[i].x
+						active[i].x0 = math.Min(active[i].x0, span.X)
+						active[i].x1 = math.Max(active[i].x1, span.X+span.Width)
 						if active[i].face.Size < span.Face.Size {
 							active[i].face = span.Face
 						}
@@ -1061,11 +1061,11 @@ func (t *Text) WalkDecorations(callback func(fill Paint, deco *Path)) {
 				if !found {
 					// add new decoration
 					active = append(active, decorationSpan{
-						deco:  spanDeco,
-						fill:  span.Face.Fill,
-						x:     span.X,
-						width: span.Width,
-						face:  span.Face,
+						deco: spanDeco,
+						fill: span.Face.Fill,
+						x0:   span.X,
+						x1:   span.X + span.Width,
+						face: span.Face,
 					})
 				}
 			}
@@ -1081,8 +1081,8 @@ func (t *Text) WalkDecorations(callback func(fill Paint, deco *Path)) {
 					decoSpan := active[i-di]
 					xOffset := span.Face.mmPerEm * float64(span.Face.XOffset)
 					yOffset := span.Face.mmPerEm * float64(span.Face.YOffset)
-					p := decoSpan.deco.Decorate(decoSpan.face, decoSpan.width)
-					p = p.Translate(decoSpan.x+xOffset, -line.y+yOffset)
+					p := decoSpan.deco.Decorate(decoSpan.face, decoSpan.x1-decoSpan.x0)
+					p = p.Translate(decoSpan.x0+xOffset, -line.y+yOffset)
 
 					foundFill := false
 					for j, fill := range fs {
