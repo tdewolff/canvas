@@ -653,7 +653,6 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 	// build up lines
 	t := &Text{
-		lines:           []line{{}},
 		fonts:           map[*Font]bool{},
 		WritingMode:     rt.mode,
 		TextOrientation: rt.orient,
@@ -916,7 +915,7 @@ func (t *Text) Heights() (float64, float64) {
 
 // Bounds returns the bounding rectangle that defines the text box.
 func (t *Text) Bounds() Rect {
-	if len(t.lines) == 0 || len(t.lines[0].spans) == 0 {
+	if t.Empty() {
 		return Rect{}
 	}
 	rect := Rect{}
@@ -931,7 +930,7 @@ func (t *Text) Bounds() Rect {
 
 // OutlineBounds returns the rectangle that contains the entire text box, i.e. the glyph outlines (slow).
 func (t *Text) OutlineBounds() Rect {
-	if len(t.lines) == 0 || len(t.lines[0].spans) == 0 {
+	if t.Empty() {
 		return Rect{}
 	}
 	r := Rect{}
