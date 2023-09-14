@@ -16,7 +16,7 @@ import (
 
 type svgDef func(string, *Canvas)
 
-type elem struct {
+type svgElem struct {
 	tag   string
 	id    string
 	attrs map[string]string
@@ -38,13 +38,18 @@ var svgDefaultState = svgState{
 	fontSize:         16.0, // in px
 }
 
-type svgParser struct {
-	z                       *parse.Input
+type svgCanvas struct {
 	c                       *Canvas
 	ctx                     *Context
 	width, height, diagonal float64
-	err                     error
+}
 
+type svgParser struct {
+	z   *parse.Input
+	err error
+	svgCanvas
+
+	elemStack  []svgElem
 	stateStack []svgState
 	state      svgState
 
@@ -56,7 +61,7 @@ type svgParser struct {
 	activeDefs map[string]svgDef
 }
 
-func (svg *svgParser) init(attrWidth, attrHeight, attrViewBox string) {
+func (svg *svgParser) parseViewBox(attrWidth, attrHeight, attrViewBox string) (float64, float64, [4]float64) {
 	var err error
 	var viewbox [4]float64
 	var width, height float64
@@ -83,11 +88,12 @@ func (svg *svgParser) init(attrWidth, attrHeight, attrViewBox string) {
 	} else {
 		height = (viewbox[3] - viewbox[1]) * 25.4 / 96.0
 	}
+	return width, height, viewbox
+}
 
-	width *= 96.0 / 25.4
-	height *= 96.0 / 25.4
-	svg.width, svg.height = width, height
-	svg.diagonal = math.Sqrt((width*width + height*height) / 2.0)
+func (svg *svgParser) init(width, height float64, viewbox [4]float64) {
+	svg.width, svg.height = width*96.0/25.4, height*96.0/25.4
+	svg.diagonal = math.Sqrt((svg.width*svg.width + svg.height*svg.height) / 2.0)
 
 	svg.c = New(width, height)
 	svg.ctx = NewContext(svg.c)
@@ -99,14 +105,12 @@ func (svg *svgParser) init(attrWidth, attrHeight, attrViewBox string) {
 	}
 	svg.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, svgDefaultState.strokeMiterLimit})
 	svg.state = svgDefaultState
-	svg.defs = map[string]svgDef{}
-	svg.fonts = map[string]*FontFamily{}
-	svg.activeDefs = map[string]svgDef{}
 }
 
-func (svg *svgParser) push() {
+func (svg *svgParser) push(tag string, attrs map[string]string) {
 	svg.ctx.Push()
 	svg.stateStack = append(svg.stateStack, svg.state)
+	svg.elemStack = append(svg.elemStack, svgElem{tag, attrs["id"], attrs})
 }
 
 func (svg *svgParser) pop() {
@@ -114,6 +118,7 @@ func (svg *svgParser) pop() {
 		svg.err = parse.NewErrorLexer(svg.z, "invalid SVG")
 		return
 	}
+	svg.elemStack = svg.elemStack[:len(svg.elemStack)-1]
 	svg.state = svg.stateStack[len(svg.stateStack)-1]
 	svg.stateStack = svg.stateStack[:len(svg.stateStack)-1]
 	svg.ctx.Pop()
@@ -357,10 +362,11 @@ func (svg *svgParser) parseAttributes(l *xml.Lexer) (xml.TokenType, []string, ma
 }
 
 type svgTag struct {
-	parent  *svgTag
-	name    string
-	attrs   map[string]string
-	content []*svgTag
+	parent    *svgTag
+	name      string
+	attrNames []string
+	attrs     map[string]string
+	content   []*svgTag
 }
 
 func (svg *svgParser) parseTag(l *xml.Lexer) *svgTag {
@@ -375,12 +381,14 @@ func (svg *svgParser) parseTag(l *xml.Lexer) *svgTag {
 			}
 			break
 		} else if tt == xml.StartTagToken {
+			var attrNames []string
 			var attrs map[string]string
-			tt, _, attrs = svg.parseAttributes(l)
+			tt, attrNames, attrs = svg.parseAttributes(l)
 			tag := &svgTag{
-				parent: parent,
-				name:   string(data[1:]),
-				attrs:  attrs,
+				parent:    parent,
+				name:      string(data[1:]),
+				attrNames: attrNames,
+				attrs:     attrs,
 			}
 
 			if parent == nil {
@@ -460,16 +468,16 @@ func (svg *svgParser) parseDefs(l *xml.Lexer) {
 				rect := layer.path.FastBounds()
 				x1t, y1t, x2t, y2t := x1, y1, x2, y2
 				if x1p {
-					x1t = (rect.X + rect.W*x1t)
+					x1t = (rect.X + rect.W*x1t) * 25.4 / 96.0
 				}
 				if y1p {
-					y1t = (rect.Y + rect.H*y1t)
+					y1t = (rect.Y + rect.H*y1t) * 25.4 / 96.0
 				}
 				if x2p {
-					x2t = (rect.X + rect.W*x2t)
+					x2t = (rect.X + rect.W*x2t) * 25.4 / 96.0
 				}
 				if y2p {
-					y2t = (rect.Y + rect.H*y2t)
+					y2t = (rect.Y + rect.H*y2t) * 25.4 / 96.0
 				}
 				linearGradient := NewLinearGradient(Point{x1t, y1t}, Point{x2t, y2t})
 				linearGradient.Stops = stops
@@ -481,8 +489,14 @@ func (svg *svgParser) parseDefs(l *xml.Lexer) {
 				}
 			}
 		case "marker":
-			width := svg.parseDimension(tag.attrs["markerWidth"], 3.0)
-			height := svg.parseDimension(tag.attrs["markerHeight"], 3.0)
+			width, height, viewbox := svg.parseViewBox(tag.attrs["markerWidth"], tag.attrs["markerHeight"], tag.attrs["viewBox"])
+			if width == 0.0 {
+				width = 3.0
+			}
+			if height == 0.0 {
+				height = 3.0
+			}
+
 			units := tag.attrs["markerUnits"]
 			if units != "userSpaceOnUse" {
 				units = "strokeWidth"
@@ -511,67 +525,62 @@ func (svg *svgParser) parseDefs(l *xml.Lexer) {
 			}
 
 			angle := 0.0
-			orientStartReverse := false
-			switch tag.attrs["orient"] {
-			case "auto":
-				// no-op
-			case "auto-start-reverse":
-				orientStartReverse = true
-			default:
-				refy = svg.parseDimension(tag.attrs["orient"], 0.0)
+			orient := tag.attrs["orient"]
+			if orient != "auto" && orient != "auto-start-reverse" {
+				angle = svg.parseDimension(tag.attrs["orient"], 0.0)
 			}
 
-			marker := &svgParser{}
-			marker.init(tag.attrs["markerWidth"], tag.attrs["markerHeight"], tag.attrs["viewBox"])
+			origSVGCanvas := svg.svgCanvas
+			svg.push(tag.name, tag.attrs)
+			svg.init(width, height, [4]float64{})
 			for _, tag := range tag.content {
-				marker.drawShape(tag.name, tag.attrs)
+				svg.push(tag.name, tag.attrs)
+
+				props := []cssProperty{}
+				for _, key := range tag.attrNames {
+					props = append(props, cssProperty{key, tag.attrs[key]})
+				}
+				svg.setStyling(props)
+
+				svg.drawShape(tag.name, tag.attrs)
+
+				svg.pop()
 			}
-			// TODO: size is too big
-			marker.c.Transform(Identity.Translate(-refx, -refy))
+			marker := svg.c
+			svg.svgCanvas = origSVGCanvas
+			svg.pop()
 
 			svg.defs[id] = func(attr string, c *Canvas) {
 				layers := c.layers[c.zindex]
 				if len(layers) == 0 || layers[len(layers)-1].path == nil {
 					return
 				}
-				path := layers[len(layers)-1].path
-				strokeWidth := layers[len(layers)-1].style.StrokeWidth
+				layer := layers[len(layers)-1]
+				path := layer.path
+				strokeWidth := layer.style.StrokeWidth
 
-				// TODO: get direction at start/end
-				if attr == "marker-start" || attr == "marker-end" {
-					var pos, dir Point
-					if attr == "marker-start" {
-						pos = path.StartPos()
-					} else {
-						pos = path.Pos()
-					}
-					a := dir.Angle() + angle
-					if orientStartReverse {
-						a += 180.0
-					}
-					view := Identity.ReflectYAbout(c.H/2.0).Translate(pos.X, pos.Y).Rotate(a)
-					if units == "strokeWidth" {
-						view = view.Scale(strokeWidth, strokeWidth)
-					}
-					marker.c.RenderViewTo(c, view)
-				} else if attr == "marker-mid" {
-					polyline := PolylineFromPathCoords(path)
-					start, end := 0, len(polyline.coords)
-					if !polyline.Closed() {
-						start++
-						end--
-					}
-					for _, pos := range polyline.coords[start:end] {
-						var dir Point
-						a := dir.Angle() + angle
-						if orientStartReverse {
-							a += 180.0
+				a := angle
+				coordPos := path.Coords()
+				coordDir := path.CoordDirections()
+				for i := range coordPos {
+					if attr == "marker-start" && i == 0 || attr == "marker-end" && i == len(coordPos)-1 || attr == "marker-mid" && i != 0 && i != len(coordPos)-1 {
+						pos, dir := coordPos[i], coordDir[i]
+						if orient == "auto" || orient == "auto-start-reverse" {
+							a = dir.Angle()
+							if orient == "auto-start-reverse" {
+								a += 180.0
+							}
 						}
-						view := Identity.ReflectYAbout(c.H/2.0).Translate(pos.X, pos.Y).Rotate(a)
+
+						view := Identity.ReflectYAbout(c.H/2.0).Scale(25.4/96.0, 25.4/96.0).Translate(pos.X, pos.Y).Rotate(a * 180.0 / math.Pi)
 						if units == "strokeWidth" {
 							view = view.Scale(strokeWidth, strokeWidth)
 						}
-						marker.c.RenderViewTo(c, view)
+
+						f := height / (viewbox[3] - viewbox[1])
+						view = view.Translate(-refx*f, -refy*f).Scale(f, f).ReflectYAbout(height / 2.0)
+
+						marker.RenderViewTo(c, view)
 					}
 				}
 			}
@@ -581,20 +590,19 @@ func (svg *svgParser) parseDefs(l *xml.Lexer) {
 
 func (svg *svgParser) parseStyle(b []byte) {
 	p := css.NewParser(parse.NewInputBytes(b), false)
+	selectors := []cssSelector{}
 	for {
 		gt, _, _ := p.Next()
 		if gt == css.ErrorGrammar {
 			break
-		} else if gt == css.BeginRulesetGrammar {
-			selectors := []cssSelector{cssSelector{}}
+		} else if gt == css.BeginRulesetGrammar || gt == css.QualifiedRuleGrammar {
+			selector := cssSelector{}
 			node := cssSelectorNode{op: ' '}
 			vals := p.Values()
 			for i := 0; i < len(vals); i++ {
 				t := vals[i]
-				if t.TokenType == css.DelimToken && t.Data[0] == ',' {
-					selectors = append(selectors, cssSelector{})
-				} else if t.TokenType == css.WhitespaceToken || t.TokenType == css.DelimToken && t.Data[0] == '>' {
-					selectors[len(selectors)-1] = append(selectors[len(selectors)-1], node)
+				if t.TokenType == css.WhitespaceToken || t.TokenType == css.DelimToken && t.Data[0] == '>' {
+					selector = append(selector, node)
 					node = cssSelectorNode{op: ' '}
 					if t.TokenType == css.DelimToken {
 						node.op = '>'
@@ -618,8 +626,11 @@ func (svg *svgParser) parseStyle(b []byte) {
 					}
 				}
 			}
-			selectors[len(selectors)-1] = append(selectors[len(selectors)-1], node)
+			selector = append(selector, node)
+			selectors = append(selectors, selector)
+		}
 
+		if gt == css.BeginRulesetGrammar {
 			props := []cssProperty{}
 			for {
 				gt, _, data := p.Next()
@@ -637,6 +648,7 @@ func (svg *svgParser) parseStyle(b []byte) {
 				selectors: selectors,
 				props:     props,
 			})
+			selectors = selectors[:0:0]
 		}
 	}
 }
@@ -659,11 +671,11 @@ func (svg *svgParser) parseStyleAttribute(style string) []cssProperty {
 	return props
 }
 
-func (svg *svgParser) setStyling(elems []elem, props []cssProperty) {
+func (svg *svgParser) setStyling(props []cssProperty) {
 	// apply CSS from <style>
 	for _, rule := range svg.cssRules {
 		// TODO: this is in order of appearance, use selector specificity/precedence?
-		if rule.AppliesTo(elems) {
+		if rule.AppliesTo(svg.elemStack) {
 			for _, prop := range rule.props {
 				svg.setAttribute(prop.key, prop.val)
 			}
@@ -840,9 +852,11 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 
 	l := xml.NewLexer(z)
 	svg := svgParser{
-		z: z,
+		z:          z,
+		defs:       map[string]svgDef{},
+		fonts:      map[string]*FontFamily{},
+		activeDefs: map[string]svgDef{},
 	}
-	elemStack := []elem{}
 	for {
 		tt, data := l.Next()
 		switch tt {
@@ -864,7 +878,8 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 
 			// handle SVG tag and create canvas
 			if tag == "svg" && svg.c == nil {
-				svg.init(attrs["width"], attrs["height"], attrs["viewbox"])
+				width, height, viewbox := svg.parseViewBox(attrs["width"], attrs["height"], attrs["viewBox"])
+				svg.init(width, height, viewbox)
 			} else if tag != "svg" && svg.c == nil {
 				return svg.c, fmt.Errorf("expected SVG tag")
 			}
@@ -885,15 +900,14 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 			}
 
 			// push new state
-			svg.push()
-			elemStack = append(elemStack, elem{tag, attrs["id"], attrs})
+			svg.push(tag, attrs)
 
 			// set styling and presentation attributes
 			props := []cssProperty{}
 			for _, key := range attrNames {
 				props = append(props, cssProperty{key, attrs[key]})
 			}
-			svg.setStyling(elemStack, props)
+			svg.setStyling(props)
 
 			// draw shapes such as circles, paths, etc.
 			svg.drawShape(tag, attrs)
@@ -909,12 +923,11 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 
 			// tag is self-closing
 			if tt == xml.StartTagCloseVoidToken {
-				elemStack = elemStack[:len(elemStack)-1]
 				svg.pop()
 			}
 		case xml.TextToken:
-			if 0 < len(elemStack) {
-				tag := elemStack[len(elemStack)-1].tag
+			if 0 < len(svg.elemStack) {
+				tag := svg.elemStack[len(svg.elemStack)-1].tag
 				if tag == "text" {
 					textAlign := Left
 					if svg.state.textAnchor == "middle" {
@@ -927,9 +940,6 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 				}
 			}
 		case xml.EndTagToken:
-			if len(elemStack) != 0 {
-				elemStack = elemStack[:len(elemStack)-1]
-			}
 			svg.pop()
 		}
 	}
@@ -941,7 +951,7 @@ type cssAttrSelector struct {
 	val  string
 }
 
-func (sel cssAttrSelector) AppliesTo(elem elem) bool {
+func (sel cssAttrSelector) AppliesTo(elem svgElem) bool {
 	switch sel.op {
 	case 0:
 		_, ok := elem.attrs[sel.attr]
@@ -962,13 +972,28 @@ func (sel cssAttrSelector) AppliesTo(elem elem) bool {
 	return false
 }
 
+func (attr cssAttrSelector) String() string {
+	sb := strings.Builder{}
+	sb.WriteString(attr.attr)
+	if attr.op != 0 {
+		sb.WriteByte(attr.op)
+		if attr.op != '=' {
+			sb.WriteByte('=')
+		}
+		sb.WriteByte('"')
+		sb.WriteString(attr.val)
+		sb.WriteByte('"')
+	}
+	return sb.String()
+}
+
 type cssSelectorNode struct {
 	op    byte   // space or >, first is always space
 	typ   string // is * for universal
 	attrs []cssAttrSelector
 }
 
-func (sel cssSelectorNode) AppliesTo(elem elem) bool {
+func (sel cssSelectorNode) AppliesTo(elem svgElem) bool {
 	if sel.typ != "*" && sel.typ != "" && sel.typ != elem.tag {
 		return false
 	}
@@ -980,9 +1005,29 @@ func (sel cssSelectorNode) AppliesTo(elem elem) bool {
 	return true
 }
 
+func (sel cssSelectorNode) String() string {
+	sb := strings.Builder{}
+	sb.WriteByte(sel.op)
+	sb.WriteString(sel.typ)
+	for _, attr := range sel.attrs {
+		if attr.attr == "id" && attr.op == '=' {
+			sb.WriteByte('#')
+			sb.WriteString(attr.val)
+		} else if attr.attr == "class" && attr.op == '~' {
+			sb.WriteByte('.')
+			sb.WriteString(attr.val)
+		} else {
+			sb.WriteByte('[')
+			sb.WriteString(attr.String())
+			sb.WriteByte(']')
+		}
+	}
+	return sb.String()
+}
+
 type cssSelector []cssSelectorNode
 
-func (sels cssSelector) AppliesTo(elems []elem) bool {
+func (sels cssSelector) AppliesTo(elems []svgElem) bool {
 	ielem := 0
 Retry:
 	isel := 0
@@ -1017,8 +1062,23 @@ Retry:
 	return len(sels) != 0 && isel == len(sels)
 }
 
+func (sels cssSelector) String() string {
+	if len(sels) == 0 {
+		return ""
+	}
+	sb := strings.Builder{}
+	for _, sel := range sels {
+		sb.WriteString(sel.String())
+	}
+	return sb.String()[1:]
+}
+
 type cssProperty struct {
 	key, val string
+}
+
+func (prop cssProperty) String() string {
+	return prop.key + ":" + prop.val
 }
 
 type cssRule struct {
@@ -1026,13 +1086,30 @@ type cssRule struct {
 	props     []cssProperty
 }
 
-func (rule cssRule) AppliesTo(elems []elem) bool {
+func (rule cssRule) AppliesTo(elems []svgElem) bool {
 	for _, sels := range rule.selectors {
 		if sels.AppliesTo(elems) {
 			return true
 		}
 	}
 	return false
+}
+
+func (rule cssRule) String() string {
+	sb := strings.Builder{}
+	for i, sel := range rule.selectors {
+		if i != 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(sel.String())
+	}
+	sb.WriteString(" { ")
+	for _, prop := range rule.props {
+		sb.WriteString(prop.String())
+		sb.WriteString("; ")
+	}
+	sb.WriteString("}")
+	return sb.String()
 }
 
 var cssColors = map[string]color.RGBA{
