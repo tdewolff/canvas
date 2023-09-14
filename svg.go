@@ -572,14 +572,13 @@ func (svg *svgParser) parseDefs(l *xml.Lexer) {
 							}
 						}
 
-						view := Identity.ReflectYAbout(c.H/2.0).Scale(25.4/96.0, 25.4/96.0).Translate(pos.X, pos.Y).Rotate(a * 180.0 / math.Pi)
+						view := Identity.ReflectYAbout(c.H/2.0).Mul(svg.ctx.View()).Translate(pos.X, pos.Y).Rotate(a * 180.0 / math.Pi)
 						if units == "strokeWidth" {
 							view = view.Scale(strokeWidth, strokeWidth)
 						}
 
 						f := height / (viewbox[3] - viewbox[1])
 						view = view.Translate(-refx*f, -refy*f).Scale(f, f).ReflectYAbout(height / 2.0)
-
 						marker.RenderViewTo(c, view)
 					}
 				}
