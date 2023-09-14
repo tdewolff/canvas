@@ -779,13 +779,18 @@ func (c *Canvas) SetZIndex(zindex int) {
 	c.zindex = zindex
 }
 
-// Clip sets the canvas are to the given rectangle.
-func (c *Canvas) Clip(rect Rect) {
+// Transform transforms the canvas.
+func (c *Canvas) Transform(m Matrix) {
 	for _, layers := range c.layers {
 		for i := range layers {
-			layers[i].m = Identity.Translate(-rect.X, -rect.Y).Mul(layers[i].m)
+			layers[i].m = m.Mul(layers[i].m)
 		}
 	}
+}
+
+// Clip sets the canvas are to the given rectangle.
+func (c *Canvas) Clip(rect Rect) {
+	c.Transform(Identity.Translate(-rect.X, -rect.Y))
 	c.W = rect.W
 	c.H = rect.H
 }

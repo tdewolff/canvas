@@ -17,6 +17,19 @@ func PolylineFromPathCoords(p *Path) *Polyline {
 	return &Polyline{p.Coords()}
 }
 
+// Empty returns true if the polyline is empty.
+func (p *Polyline) Empty() bool {
+	return len(p.coords) < 2
+}
+
+// Len returns the number of segments.
+func (p *Polyline) Len() int {
+	if p.Empty() {
+		return 0
+	}
+	return len(p.coords)
+}
+
 // Add adds a new point to the polyline.
 func (p *Polyline) Add(x, y float64) *Polyline {
 	p.coords = append(p.coords, Point{x, y})
