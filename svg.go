@@ -14,7 +14,7 @@ import (
 	"github.com/tdewolff/parse/v2/xml"
 )
 
-type svgDef func(Rect) interface{}
+type svgDef func(string, *Canvas)
 
 type elem struct {
 	tag   string
@@ -48,13 +48,47 @@ type svgParser struct {
 	stateStack []svgState
 	state      svgState
 
-	cssRules  []cssRule
-	activeDef svgDef
-	defs      map[string]svgDef
-	fonts     map[string]*FontFamily
+	cssRules []cssRule // from <style>
+	defs     map[string]svgDef
+	fonts    map[string]*FontFamily
+
+	// active definitions for attributes
+	activeDefs map[string]svgDef
 }
 
-func (svg *svgParser) init(width, height float64, viewbox [4]float64) {
+func (svg *svgParser) init(attrWidth, attrHeight, attrViewBox string) {
+	var err error
+	var viewbox [4]float64
+	var width, height float64
+	if attrViewBox != "" {
+		vals := strings.Split(attrViewBox, " ")
+		if len(vals) != 4 {
+			svg.err = parse.NewErrorLexer(svg.z, "bad viewBox")
+		} else {
+			for i := 0; i < 4; i++ {
+				viewbox[i], err = strconv.ParseFloat(vals[i], 64)
+				if err != nil && svg.err == nil {
+					svg.err = parse.NewErrorLexer(svg.z, "bad viewBox: %w", err)
+				}
+			}
+		}
+	}
+	if attrWidth != "" {
+		width = svg.parseDimension(attrWidth, 0.0)
+	} else {
+		width = (viewbox[2] - viewbox[0]) * 25.4 / 96.0
+	}
+	if attrHeight != "" {
+		height = svg.parseDimension(attrHeight, 0.0)
+	} else {
+		height = (viewbox[3] - viewbox[1]) * 25.4 / 96.0
+	}
+
+	width *= 96.0 / 25.4
+	height *= 96.0 / 25.4
+	svg.width, svg.height = width, height
+	svg.diagonal = math.Sqrt((width*width + height*height) / 2.0)
+
 	svg.c = New(width, height)
 	svg.ctx = NewContext(svg.c)
 	svg.ctx.SetCoordSystem(CartesianIV)
@@ -67,6 +101,7 @@ func (svg *svgParser) init(width, height float64, viewbox [4]float64) {
 	svg.state = svgDefaultState
 	svg.defs = map[string]svgDef{}
 	svg.fonts = map[string]*FontFamily{}
+	svg.activeDefs = map[string]svgDef{}
 }
 
 func (svg *svgParser) push() {
@@ -75,6 +110,10 @@ func (svg *svgParser) push() {
 }
 
 func (svg *svgParser) pop() {
+	if len(svg.stateStack) == 0 {
+		svg.err = parse.NewErrorLexer(svg.z, "invalid SVG")
+		return
+	}
 	svg.state = svg.stateStack[len(svg.stateStack)-1]
 	svg.stateStack = svg.stateStack[:len(svg.stateStack)-1]
 	svg.ctx.Pop()
@@ -117,6 +156,7 @@ func (svg *svgParser) parseDimension(v string, parent float64) float64 {
 
 	dim := v[nn:]
 	switch strings.ToLower(dim) {
+	// lengths
 	case "cm":
 		return num * 10.0 * 96.0 / 25.4
 	case "mm":
@@ -131,6 +171,18 @@ func (svg *svgParser) parseDimension(v string, parent float64) float64 {
 		return num * 96.0 / 72.0
 	case "", "px":
 		return num
+
+	// angles
+	case "deg":
+		return num
+	case "grad":
+		return num / 400.0 * 360.0
+	case "rad":
+		return num / math.Pi * 180.0
+	case "turn":
+		return num * 360.0
+
+	// other
 	case "%":
 		return num * parent / 100.0
 	}
@@ -159,12 +211,8 @@ func (svg *svgParser) parseColorComponent(v string) uint8 {
 }
 
 func (svg *svgParser) parsePaint(v string) Paint {
-	if strings.HasPrefix(v, "url(") && strings.HasSuffix(v, ")") {
-		if 8 < len(v) && v[5] == '#' {
-			id := v[6 : len(v)-2]
-			svg.activeDef = svg.defs[id]
-			return Paint{Color: Black}
-		}
+	if v == "none" {
+		return Paint{Color: Transparent}
 	}
 	return Paint{Color: svg.parseColor(v)}
 }
@@ -308,116 +356,225 @@ func (svg *svgParser) parseAttributes(l *xml.Lexer) (xml.TokenType, []string, ma
 	return tt, attrNames, attrs
 }
 
-func (svg *svgParser) parseSingleTag(l *xml.Lexer) (xml.TokenType, string, map[string]string) {
-	tt, data := l.Next()
-	if tt == xml.TextToken {
-		tt, data = l.Next()
-	}
-	if tt != xml.StartTagToken {
-		return tt, "", nil
-	}
-
-	tag := string(data[1:])
-	var attrs map[string]string
-	tt, _, attrs = svg.parseAttributes(l)
-	tt = svg.skipToEndTag(l, tt)
-	return tt, tag, attrs
+type svgTag struct {
+	parent  *svgTag
+	name    string
+	attrs   map[string]string
+	content []*svgTag
 }
 
-func (svg *svgParser) skipToEndTag(l *xml.Lexer, tt xml.TokenType) xml.TokenType {
-	// find close tag
-	if tt != xml.StartTagCloseToken {
-		return tt
-	}
-	level := 0
+func (svg *svgParser) parseTag(l *xml.Lexer) *svgTag {
+	var root, parent *svgTag
 	for {
-		tt, _ = l.Next()
-		if tt == xml.EndTagToken || tt == xml.StartTagCloseVoidToken {
-			if level == 0 {
+		tt, data := l.Next()
+		if tt == xml.ErrorToken {
+			if l.Err() != io.EOF {
+				svg.err = l.Err()
+			} else {
+				svg.err = parse.NewErrorLexer(svg.z, "unexpected end-of-file")
+			}
+			break
+		} else if tt == xml.StartTagToken {
+			var attrs map[string]string
+			tt, _, attrs = svg.parseAttributes(l)
+			tag := &svgTag{
+				parent: parent,
+				name:   string(data[1:]),
+				attrs:  attrs,
+			}
+
+			if parent == nil {
+				root = tag
+			} else {
+				parent.content = append(parent.content, tag)
+			}
+
+			if tt == xml.StartTagCloseVoidToken {
+				if parent == nil {
+					break
+				}
+			} else {
+				parent = tag
+			}
+		} else if tt == xml.EndTagToken {
+			if parent == nil {
+				break // when starting on an end tag
+			}
+			parent = parent.parent
+			if parent == nil {
 				break
 			}
-			level--
-		} else if tt == xml.StartTagToken {
-			level++
 		}
 	}
-	return tt
+	return root
 }
 
 func (svg *svgParser) parseDefs(l *xml.Lexer) {
-	tt, data := l.Next()
 	for {
-		if tt == xml.EndTagToken {
+		tag := svg.parseTag(l)
+		if tag == nil {
 			break
-		} else if tt == xml.StartTagToken {
-			tag := string(data[1:])
-			var attrs map[string]string
-			tt, _, attrs = svg.parseAttributes(l)
-			id := attrs["id"]
-			if id == "" {
-				tt = svg.skipToEndTag(l, tt)
-				continue
+		}
+		id := tag.attrs["id"]
+		if id == "" {
+			continue
+		}
+		switch tag.name {
+		case "linearGradient":
+			if _, ok := tag.attrs["x2"]; !ok {
+				tag.attrs["x2"] = "100%"
+			}
+			x1p := strings.HasSuffix(tag.attrs["x1"], "%")
+			y1p := strings.HasSuffix(tag.attrs["y1"], "%")
+			x2p := strings.HasSuffix(tag.attrs["x2"], "%")
+			y2p := strings.HasSuffix(tag.attrs["y2"], "%")
+			x1 := svg.parseDimension(tag.attrs["x1"], 1.0)
+			x2 := svg.parseDimension(tag.attrs["x2"], 1.0)
+			y1 := svg.parseDimension(tag.attrs["y1"], 1.0)
+			y2 := svg.parseDimension(tag.attrs["y2"], 1.0)
+
+			stops := Stops{}
+			for _, tag := range tag.content {
+				if tag.name != "stop" {
+					continue
+				}
+
+				offset := svg.parseNumber(tag.attrs["offset"])
+				stopColor := svg.parseColor(tag.attrs["stop-color"])
+				if v, ok := tag.attrs["stop-opacity"]; ok {
+					stopOpacity := svg.parseNumber(v)
+					stopColor.R = uint8(float64(stopColor.R) / float64(stopColor.A) * stopOpacity * 255.0)
+					stopColor.G = uint8(float64(stopColor.G) / float64(stopColor.A) * stopOpacity * 255.0)
+					stopColor.B = uint8(float64(stopColor.B) / float64(stopColor.A) * stopOpacity * 255.0)
+					stopColor.A = uint8(stopOpacity * 255.0)
+				}
+				stops.Add(offset, stopColor)
+			}
+			svg.defs[id] = func(attr string, c *Canvas) {
+				layers := c.layers[c.zindex]
+				if len(layers) == 0 || layers[len(layers)-1].path == nil {
+					return
+				}
+				layer := &layers[len(layers)-1]
+
+				rect := layer.path.FastBounds()
+				x1t, y1t, x2t, y2t := x1, y1, x2, y2
+				if x1p {
+					x1t = (rect.X + rect.W*x1t)
+				}
+				if y1p {
+					y1t = (rect.Y + rect.H*y1t)
+				}
+				if x2p {
+					x2t = (rect.X + rect.W*x2t)
+				}
+				if y2p {
+					y2t = (rect.Y + rect.H*y2t)
+				}
+				linearGradient := NewLinearGradient(Point{x1t, y1t}, Point{x2t, y2t})
+				linearGradient.Stops = stops
+
+				if attr == "fill" {
+					layer.style.Fill = Paint{Gradient: linearGradient}
+				} else if attr == "stroke" {
+					layer.style.Stroke = Paint{Gradient: linearGradient}
+				}
+			}
+		case "marker":
+			width := svg.parseDimension(tag.attrs["markerWidth"], 3.0)
+			height := svg.parseDimension(tag.attrs["markerHeight"], 3.0)
+			units := tag.attrs["markerUnits"]
+			if units != "userSpaceOnUse" {
+				units = "strokeWidth"
 			}
 
-			switch tag {
-			case "linearGradient":
-				if tt != xml.StartTagCloseToken {
-					break
-				}
-
-				if _, ok := attrs["x2"]; !ok {
-					attrs["x2"] = "100%"
-				}
-				x1p := strings.HasSuffix(attrs["x1"], "%")
-				y1p := strings.HasSuffix(attrs["y1"], "%")
-				x2p := strings.HasSuffix(attrs["x2"], "%")
-				y2p := strings.HasSuffix(attrs["y2"], "%")
-				x1 := svg.parseDimension(attrs["x1"], 1.0)
-				x2 := svg.parseDimension(attrs["x2"], 1.0)
-				y1 := svg.parseDimension(attrs["y1"], 1.0)
-				y2 := svg.parseDimension(attrs["y2"], 1.0)
-
-				stops := Stops{}
-				for {
-					tt, tag, attrs = svg.parseSingleTag(l)
-					if tag != "stop" {
-						break
-					}
-					offset := svg.parseNumber(attrs["offset"])
-					stopColor := svg.parseColor(attrs["stop-color"])
-					if v, ok := attrs["stop-opacity"]; ok {
-						stopOpacity := svg.parseNumber(v)
-						stopColor.R = uint8(float64(stopColor.R) / float64(stopColor.A) * stopOpacity * 255.0)
-						stopColor.G = uint8(float64(stopColor.G) / float64(stopColor.A) * stopOpacity * 255.0)
-						stopColor.B = uint8(float64(stopColor.B) / float64(stopColor.A) * stopOpacity * 255.0)
-						stopColor.A = uint8(stopOpacity * 255.0)
-					}
-					stops.Add(offset, stopColor)
-				}
-				svg.defs[id] = func(rect Rect) interface{} {
-					x1t, y1t, x2t, y2t := x1, y1, x2, y2
-					if x1p {
-						x1t = (rect.X + rect.W*x1t) * 25.4 / 96.0
-					}
-					if y1p {
-						y1t = (rect.Y + rect.H*y1t) * 25.4 / 96.0
-					}
-					if x2p {
-						x2t = (rect.X + rect.W*x2t) * 25.4 / 96.0
-					}
-					if y2p {
-						y2t = (rect.Y + rect.H*y2t) * 25.4 / 96.0
-					}
-					linearGradient := NewLinearGradient(Point{x1t, y1t}, Point{x2t, y2t})
-					linearGradient.Stops = stops
-					return linearGradient
-				}
-				tt, data = l.Next()
+			var refx, refy float64
+			switch tag.attrs["refX"] {
+			case "left":
+				refx = 0.0
+			case "center":
+				refx = width / 2.0
+			case "right":
+				refx = width
 			default:
-				tt = svg.skipToEndTag(l, tt)
+				refx = svg.parseDimension(tag.attrs["refX"], 0.0)
 			}
-		} else {
-			tt, data = l.Next()
+			switch tag.attrs["refY"] {
+			case "top":
+				refy = 0.0
+			case "center":
+				refy = height / 2.0
+			case "bottom":
+				refy = height
+			default:
+				refy = svg.parseDimension(tag.attrs["refY"], 0.0)
+			}
+
+			angle := 0.0
+			orientStartReverse := false
+			switch tag.attrs["orient"] {
+			case "auto":
+				// no-op
+			case "auto-start-reverse":
+				orientStartReverse = true
+			default:
+				refy = svg.parseDimension(tag.attrs["orient"], 0.0)
+			}
+
+			marker := &svgParser{}
+			marker.init(tag.attrs["markerWidth"], tag.attrs["markerHeight"], tag.attrs["viewBox"])
+			for _, tag := range tag.content {
+				marker.drawShape(tag.name, tag.attrs)
+			}
+			// TODO: size is too big
+			marker.c.Transform(Identity.Translate(-refx, -refy))
+
+			svg.defs[id] = func(attr string, c *Canvas) {
+				layers := c.layers[c.zindex]
+				if len(layers) == 0 || layers[len(layers)-1].path == nil {
+					return
+				}
+				path := layers[len(layers)-1].path
+				strokeWidth := layers[len(layers)-1].style.StrokeWidth
+
+				// TODO: get direction at start/end
+				if attr == "marker-start" || attr == "marker-end" {
+					var pos, dir Point
+					if attr == "marker-start" {
+						pos = path.StartPos()
+					} else {
+						pos = path.Pos()
+					}
+					a := dir.Angle() + angle
+					if orientStartReverse {
+						a += 180.0
+					}
+					view := Identity.ReflectYAbout(c.H/2.0).Translate(pos.X, pos.Y).Rotate(a)
+					if units == "strokeWidth" {
+						view = view.Scale(strokeWidth, strokeWidth)
+					}
+					marker.c.RenderViewTo(c, view)
+				} else if attr == "marker-mid" {
+					polyline := PolylineFromPathCoords(path)
+					start, end := 0, len(polyline.coords)
+					if !polyline.Closed() {
+						start++
+						end--
+					}
+					for _, pos := range polyline.coords[start:end] {
+						var dir Point
+						a := dir.Angle() + angle
+						if orientStartReverse {
+							a += 180.0
+						}
+						view := Identity.ReflectYAbout(c.H/2.0).Translate(pos.X, pos.Y).Rotate(a)
+						if units == "strokeWidth" {
+							view = view.Scale(strokeWidth, strokeWidth)
+						}
+						marker.c.RenderViewTo(c, view)
+					}
+				}
+			}
 		}
 	}
 }
@@ -525,12 +682,33 @@ func (svg *svgParser) setStyling(elems []elem, props []cssProperty) {
 	}
 }
 
+func (svg *svgParser) parseUrlID(val string) string {
+	if strings.HasPrefix(val, "url(") && strings.HasSuffix(val, ")") {
+		if 6 < len(val) && (val[4] == '#' || val[5] == '#') {
+			id := val[6 : len(val)-2]
+			if val[4] == '#' {
+				id = val[5 : len(val)-1]
+			}
+			return id
+		}
+	}
+	return ""
+}
+
 func (svg *svgParser) setAttribute(key, val string) {
 	switch key {
 	case "fill":
-		svg.ctx.SetFill(svg.parsePaint(val))
+		if id := svg.parseUrlID(val); id != "" {
+			svg.activeDefs["fill"] = svg.defs[id]
+		} else {
+			svg.ctx.SetFill(svg.parsePaint(val))
+		}
 	case "stroke":
-		svg.ctx.SetStroke(svg.parsePaint(val))
+		if id := svg.parseUrlID(val); id != "" {
+			svg.activeDefs["stroke"] = svg.defs[id]
+		} else {
+			svg.ctx.SetStroke(svg.parsePaint(val))
+		}
 	case "stroke-width":
 		svg.ctx.SetStrokeWidth(svg.parseDimension(val, svg.diagonal))
 	case "stroke-dashoffset":
@@ -575,6 +753,18 @@ func (svg *svgParser) setAttribute(key, val string) {
 		svg.state.fontFamily = val
 	case "font-size":
 		svg.state.fontSize = svg.parseDimension(val, svg.height)
+	case "marker-start":
+		if id := svg.parseUrlID(val); id != "" {
+			svg.activeDefs["marker-start"] = svg.defs[id]
+		}
+	case "marker-mid":
+		if id := svg.parseUrlID(val); id != "" {
+			svg.activeDefs["marker-mid"] = svg.defs[id]
+		}
+	case "marker-end":
+		if id := svg.parseUrlID(val); id != "" {
+			svg.activeDefs["marker-end"] = svg.defs[id]
+		}
 	}
 }
 
@@ -582,11 +772,66 @@ func (svg *svgParser) getFontFace() *FontFace {
 	fontFamily, ok := svg.fonts[svg.state.fontFamily]
 	if !ok {
 		fontFamily = NewFontFamily(svg.state.fontFamily)
-		fontFamily.LoadLocalFont(svg.state.fontFamily, FontRegular)
+		_ = fontFamily.LoadLocalFont(svg.state.fontFamily, FontRegular)
 		svg.fonts[svg.state.fontFamily] = fontFamily
 	}
 	fontSize := svg.state.fontSize * 72.0 / 25.4 // pt/mm
 	return fontFamily.Face(fontSize)
+}
+
+func (svg *svgParser) drawShape(tag string, attrs map[string]string) {
+	switch tag {
+	case "circle":
+		cx := svg.parseDimension(attrs["cx"], svg.width)
+		cy := svg.parseDimension(attrs["cy"], svg.height)
+		r := svg.parseDimension(attrs["r"], svg.diagonal)
+		svg.ctx.DrawPath(cx, cy, Circle(r))
+	case "ellipse":
+		cx := svg.parseDimension(attrs["cx"], svg.width)
+		cy := svg.parseDimension(attrs["cy"], svg.height)
+		rx := svg.parseDimension(attrs["rx"], svg.width)
+		ry := svg.parseDimension(attrs["ry"], svg.height)
+		svg.ctx.DrawPath(cx, cy, Ellipse(rx, ry))
+	case "path":
+		p, err := ParseSVGPath(attrs["d"])
+		if err != nil && svg.err == nil {
+			svg.err = parse.NewErrorLexer(svg.z, "bad path: %w", err)
+		}
+		svg.ctx.DrawPath(0, 0, p)
+	case "polygon", "polyline":
+		points := svg.parsePoints(attrs["points"])
+		p := &Path{}
+		for i := 0; i+1 < len(points); i += 2 {
+			if i == 0 {
+				p.MoveTo(points[0], points[1])
+			} else {
+				p.LineTo(points[i], points[i+1])
+			}
+		}
+		if tag == "polygon" {
+			p.Close()
+		}
+		svg.ctx.DrawPath(0.0, 0.0, p)
+	case "line":
+		p := &Path{}
+		x1, _ := strconv.ParseInt(attrs["x1"], 10, 64)
+		y1, _ := strconv.ParseInt(attrs["y1"], 10, 64)
+		x2, _ := strconv.ParseInt(attrs["x2"], 10, 64)
+		y2, _ := strconv.ParseInt(attrs["y2"], 10, 64)
+
+		p.MoveTo(float64(x1), float64(y1))
+		p.LineTo(float64(x2), float64(y2))
+		svg.ctx.DrawPath(0.0, 0.0, p)
+	case "rect":
+		x := svg.parseDimension(attrs["x"], svg.width)
+		y := svg.parseDimension(attrs["y"], svg.height)
+		width := svg.parseDimension(attrs["width"], svg.width)
+		height := svg.parseDimension(attrs["height"], svg.height)
+		svg.ctx.DrawPath(x, y, Rectangle(width, height))
+	case "text":
+		svg.state.textX = svg.parseDimension(attrs["x"], svg.width)
+		svg.state.textY = svg.parseDimension(attrs["y"], svg.height)
+	}
 }
 
 func ParseSVG(r io.Reader) (*Canvas, error) {
@@ -619,37 +864,7 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 
 			// handle SVG tag and create canvas
 			if tag == "svg" && svg.c == nil {
-				var err error
-				var viewbox [4]float64
-				var width, height float64
-				if _, ok := attrs["viewBox"]; ok {
-					vals := strings.Split(attrs["viewBox"], " ")
-					if len(vals) != 4 {
-						svg.err = parse.NewErrorLexer(svg.z, "bad viewBox")
-					} else {
-						for i := 0; i < 4; i++ {
-							viewbox[i], err = strconv.ParseFloat(vals[i], 64)
-							if err != nil && svg.err == nil {
-								svg.err = parse.NewErrorLexer(svg.z, "bad viewBox: %w", err)
-							}
-						}
-					}
-				}
-				if _, ok := attrs["width"]; ok {
-					width = svg.parseDimension(attrs["width"], 0.0)
-				} else {
-					width = (viewbox[2] - viewbox[0]) * 25.4 / 96.0
-				}
-				if _, ok := attrs["height"]; ok {
-					height = svg.parseDimension(attrs["height"], 0.0)
-				} else {
-					height = (viewbox[3] - viewbox[1]) * 25.4 / 96.0
-				}
-
-				svg.width = width * 96.0 / 25.4
-				svg.height = height * 96.0 / 25.4
-				svg.diagonal = math.Sqrt((svg.width*svg.width + svg.height*svg.height) / 2.0)
-				svg.init(width, height, viewbox)
+				svg.init(attrs["width"], attrs["height"], attrs["viewbox"])
 			} else if tag != "svg" && svg.c == nil {
 				return svg.c, fmt.Errorf("expected SVG tag")
 			}
@@ -680,66 +895,16 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 			}
 			svg.setStyling(elemStack, props)
 
-			switch tag {
-			case "circle":
-				cx := svg.parseDimension(attrs["cx"], svg.width)
-				cy := svg.parseDimension(attrs["cy"], svg.height)
-				r := svg.parseDimension(attrs["r"], svg.diagonal)
-				svg.ctx.DrawPath(cx, cy, Circle(r))
-			case "ellipse":
-				cx := svg.parseDimension(attrs["cx"], svg.width)
-				cy := svg.parseDimension(attrs["cy"], svg.height)
-				rx := svg.parseDimension(attrs["rx"], svg.width)
-				ry := svg.parseDimension(attrs["ry"], svg.height)
-				svg.ctx.DrawPath(cx, cy, Ellipse(rx, ry))
-			case "path":
-				p, err := ParseSVGPath(attrs["d"])
-				if err != nil && svg.err == nil {
-					svg.err = parse.NewErrorLexer(svg.z, "bad path: %w", err)
-				}
-				svg.ctx.DrawPath(0, 0, p)
-			case "polygon", "polyline":
-				points := svg.parsePoints(attrs["points"])
-				p := &Path{}
-				for i := 0; i+1 < len(points); i += 2 {
-					if i == 0 {
-						p.MoveTo(points[0], points[1])
-					} else {
-						p.LineTo(points[i], points[i+1])
-					}
-				}
-				if tag == "polygon" {
-					p.Close()
-				}
-				svg.ctx.DrawPath(0.0, 0.0, p)
-			case "line":
-				p := &Path{}
-				x1, _ := strconv.ParseInt(attrs["x1"], 10, 64)
-				y1, _ := strconv.ParseInt(attrs["y1"], 10, 64)
-				x2, _ := strconv.ParseInt(attrs["x2"], 10, 64)
-				y2, _ := strconv.ParseInt(attrs["y2"], 10, 64)
+			// draw shapes such as circles, paths, etc.
+			svg.drawShape(tag, attrs)
 
-				p.MoveTo(float64(x1), float64(y1))
-				p.LineTo(float64(x2), float64(y2))
-				svg.ctx.DrawPath(0.0, 0.0, p)
-			case "rect":
-				x := svg.parseDimension(attrs["x"], svg.width)
-				y := svg.parseDimension(attrs["y"], svg.height)
-				width := svg.parseDimension(attrs["width"], svg.width)
-				height := svg.parseDimension(attrs["height"], svg.height)
-				svg.ctx.DrawPath(x, y, Rectangle(width, height))
-			case "text":
-				svg.state.textX = svg.parseDimension(attrs["x"], svg.width)
-				svg.state.textY = svg.parseDimension(attrs["y"], svg.height)
-			}
-
-			// TODO: fix linearGradient (ugly!)
-			if layers := svg.c.layers[svg.c.zindex]; 0 < len(layers) && layers[len(layers)-1].path != nil && svg.activeDef != nil {
-				bounds := layers[len(layers)-1].path.FastBounds()
-				def := svg.activeDef(bounds)
-				if linearGradient, ok := def.(*LinearGradient); ok {
-					layers[len(layers)-1].style.Fill = Paint{Gradient: linearGradient}
+			// set linearGradient, markers, etc.
+			// these defs depend on the shape or size of the path
+			for attr, applyDef := range svg.activeDefs {
+				if applyDef != nil {
+					applyDef(attr, svg.c)
 				}
+				svg.activeDefs[attr] = nil
 			}
 
 			// tag is self-closing
