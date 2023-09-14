@@ -263,6 +263,72 @@ func (p *Path) Coords() []Point {
 	return coords
 }
 
+// CoordDirections returns the direction of the segment start/end points. It will return the average direction at the intersection of two end points, and for an open path it will simply return the direction of the start and end points of the path.
+func (p *Path) CoordDirections() []Point {
+	dirs := []Point{}
+	for _, ps := range p.Split() {
+		isFirst := true
+		closed := ps.Closed()
+
+		var start, end Point
+		var n0Start, n1Prev, n0, n1 Point
+		for i := 0; i < len(ps.d); {
+			cmd := ps.d[i]
+			i += cmdLen(cmd)
+
+			start = end
+			end = Point{ps.d[i-3], ps.d[i-2]}
+
+			n1Prev = n1
+			switch cmd {
+			case LineToCmd, CloseCmd:
+				// TODO: why not CCW?
+				n := end.Sub(start).Rot90CW().Norm(1.0)
+				n0, n1 = n, n
+			case QuadToCmd, CubeToCmd:
+				var cp1, cp2 Point
+				if cmd == QuadToCmd {
+					cp := Point{p.d[i-5], p.d[i-4]}
+					cp1, cp2 = quadraticToCubicBezier(start, cp, end)
+				} else {
+					cp1 = Point{p.d[i-7], p.d[i-6]}
+					cp2 = Point{p.d[i-5], p.d[i-4]}
+				}
+				n0 = cubicBezierNormal(start, cp1, cp2, end, 0.0, 1.0)
+				n1 = cubicBezierNormal(start, cp1, cp2, end, 1.0, 1.0)
+			case ArcToCmd:
+				rx, ry, phi := p.d[i-7], p.d[i-6], p.d[i-5]
+				large, sweep := toArcFlags(p.d[i-4])
+				_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
+				n0 = ellipseNormal(rx, ry, phi, sweep, theta0, 1.0)
+				n1 = ellipseNormal(rx, ry, phi, sweep, theta1, 1.0)
+			}
+
+			if cmd == MoveToCmd {
+				continue
+			}
+
+			n := n1Prev.Add(n0)
+			if isFirst {
+				n0Start = n0
+				isFirst = false
+				if closed {
+					continue
+				}
+				n = n0
+			}
+			dirs = append(dirs, n.Rot90CCW())
+		}
+
+		n := n1
+		if closed {
+			n = n1.Add(n0Start)
+		}
+		dirs = append(dirs, n.Rot90CCW())
+	}
+	return dirs
+}
+
 ////////////////////////////////////////////////////////////////
 
 // MoveTo moves the path to (x,y) without connecting the path. It starts a new independent subpath. Multiple subpaths can be useful when negating parts of a previous path by overlapping it with a path in the opposite direction. The behaviour for overlapping paths depends on the FillRule.
@@ -1108,81 +1174,24 @@ func (p *Path) replace(
 // Markers returns an array of start, mid and end marker paths along the path at the coordinates between commands. Align will align the markers with the path direction so that the markers orient towards the path's left.
 func (p *Path) Markers(first, mid, last *Path, align bool) []*Path {
 	markers := []*Path{}
-	for _, ps := range p.Split() {
-		isFirst := true
-		closed := ps.Closed()
+	coordPos := p.Coords()
+	coordDir := p.CoordDirections()
+	for i := range coordPos {
+		q := mid
+		if i == 0 {
+			q = first
+		} else if i == len(coordPos)-1 {
+			q = last
+		}
 
-		var start, end Point
-		var n0Start, n1Prev, n0, n1 Point
-		for i := 0; i < len(ps.d); {
-			cmd := ps.d[i]
-			i += cmdLen(cmd)
-
-			start = end
-			end = Point{ps.d[i-3], ps.d[i-2]}
-
+		if q != nil {
+			pos, dir := coordPos[i], coordDir[i]
+			m := Identity.Translate(pos.X, pos.Y)
 			if align {
-				n1Prev = n1
-				switch cmd {
-				case LineToCmd, CloseCmd:
-					// TODO: why not CCW?
-					n := end.Sub(start).Rot90CW().Norm(1.0)
-					n0, n1 = n, n
-				case QuadToCmd, CubeToCmd:
-					var cp1, cp2 Point
-					if cmd == QuadToCmd {
-						cp := Point{p.d[i-5], p.d[i-4]}
-						cp1, cp2 = quadraticToCubicBezier(start, cp, end)
-					} else {
-						cp1 = Point{p.d[i-7], p.d[i-6]}
-						cp2 = Point{p.d[i-5], p.d[i-4]}
-					}
-					n0 = cubicBezierNormal(start, cp1, cp2, end, 0.0, 1.0)
-					n1 = cubicBezierNormal(start, cp1, cp2, end, 1.0, 1.0)
-				case ArcToCmd:
-					rx, ry, phi := p.d[i-7], p.d[i-6], p.d[i-5]
-					large, sweep := toArcFlags(p.d[i-4])
-					_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
-					n0 = ellipseNormal(rx, ry, phi, sweep, theta0, 1.0)
-					n1 = ellipseNormal(rx, ry, phi, sweep, theta1, 1.0)
-				}
-			}
-
-			if cmd == MoveToCmd {
-				continue
-			}
-
-			q := mid
-			angle := n1Prev.Add(n0).Angle()
-			if isFirst {
-				n0Start = n0
-				isFirst = false
-				if closed {
-					continue
-				}
-				q = first
-				angle = n0.Angle()
-			}
-
-			m := Identity.Translate(start.X, start.Y)
-			if align {
-				m = m.Rotate((angle * 180.0 / math.Pi) + 90.0)
+				m = m.Rotate(dir.Angle() * 180.0 / math.Pi)
 			}
 			markers = append(markers, q.Transform(m))
 		}
-
-		q := last
-		angle := n1.Angle()
-		if closed {
-			q = mid
-			angle = n1.Add(n0Start).Angle()
-		}
-
-		m := Identity.Translate(end.X, end.Y)
-		if align {
-			m = m.Rotate((angle * 180.0 / math.Pi) + 90.0)
-		}
-		markers = append(markers, q.Transform(m))
 	}
 	return markers
 }
