@@ -566,11 +566,7 @@ func (svg *svgParser) parseDefs(l *xml.Lexer) {
 				coordDir := path.CoordDirections()
 				for i := range coordPos {
 					if attr == "marker-start" && i == 0 || attr == "marker-end" && i == len(coordPos)-1 || attr == "marker-mid" && i != 0 && i != len(coordPos)-1 {
-						pos := coordPos[i]
-						dir := Point{}
-						if len(coordDir) > i {
-							dir = coordDir[i]
-						}
+						pos, dir := coordPos[i], coordDir[i]
 						if orient == "auto" || orient == "auto-start-reverse" {
 							a = dir.Angle()
 							if orient == "auto-start-reverse" {
@@ -790,7 +786,7 @@ func (svg *svgParser) getFontFace() *FontFace {
 	if !ok {
 		fontFamily = NewFontFamily(svg.state.fontFamily)
 		if err := fontFamily.LoadLocalFont(svg.state.fontFamily, FontRegular); err != nil {
-			// TODO log this
+			// TODO: fix with fontconfig
 			fontFamily = NewFontFamily("system")
 			fontFamily.LoadLocalFont("system", FontRegular)
 		}

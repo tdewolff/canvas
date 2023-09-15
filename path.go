@@ -267,11 +267,11 @@ func (p *Path) Coords() []Point {
 func (p *Path) CoordDirections() []Point {
 	dirs := []Point{}
 	for _, ps := range p.Split() {
-		isFirst := true
+		first := len(dirs)
 		closed := ps.Closed()
 
 		var start, end Point
-		var n0Start, n1Prev, n0, n1 Point
+		var n1Prev, n0, n1 Point
 		for i := 0; i < len(ps.d); {
 			cmd := ps.d[i]
 			i += cmdLen(cmd)
@@ -282,8 +282,7 @@ func (p *Path) CoordDirections() []Point {
 			n1Prev = n1
 			switch cmd {
 			case LineToCmd, CloseCmd:
-				// TODO: why not CCW?
-				n := end.Sub(start).Rot90CW().Norm(1.0)
+				n := end.Sub(start).Norm(1.0)
 				n0, n1 = n, n
 			case QuadToCmd, CubeToCmd:
 				var cp1, cp2 Point
@@ -294,37 +293,35 @@ func (p *Path) CoordDirections() []Point {
 					cp1 = Point{p.d[i-7], p.d[i-6]}
 					cp2 = Point{p.d[i-5], p.d[i-4]}
 				}
-				n0 = cubicBezierNormal(start, cp1, cp2, end, 0.0, 1.0)
-				n1 = cubicBezierNormal(start, cp1, cp2, end, 1.0, 1.0)
+				n0 = cubicBezierNormal(start, cp1, cp2, end, 0.0, 1.0).Rot90CCW()
+				n1 = cubicBezierNormal(start, cp1, cp2, end, 1.0, 1.0).Rot90CCW()
 			case ArcToCmd:
 				rx, ry, phi := p.d[i-7], p.d[i-6], p.d[i-5]
 				large, sweep := toArcFlags(p.d[i-4])
 				_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
-				n0 = ellipseNormal(rx, ry, phi, sweep, theta0, 1.0)
-				n1 = ellipseNormal(rx, ry, phi, sweep, theta1, 1.0)
+				n0 = ellipseNormal(rx, ry, phi, sweep, theta0, 1.0).Rot90CCW()
+				n1 = ellipseNormal(rx, ry, phi, sweep, theta1, 1.0).Rot90CCW()
 			}
 
 			if cmd == MoveToCmd {
 				continue
 			}
 
-			n := n1Prev.Add(n0)
-			if isFirst {
-				n0Start = n0
-				isFirst = false
-				if closed {
-					continue
-				}
-				n = n0
+			var dir Point
+			if first == len(dirs) {
+				dir = n0
+			} else {
+				dir = n1Prev.Add(n0).Norm(1.0)
 			}
-			dirs = append(dirs, n.Rot90CCW())
+			dirs = append(dirs, dir)
 		}
 
-		n := n1
+		dir := n1
 		if closed {
-			n = n1.Add(n0Start)
+			dir = n1.Add(dirs[first]).Norm(1.0)
+			dirs[first] = dir
 		}
-		dirs = append(dirs, n.Rot90CCW())
+		dirs = append(dirs, dir)
 	}
 	return dirs
 }
