@@ -566,7 +566,11 @@ func (svg *svgParser) parseDefs(l *xml.Lexer) {
 				coordDir := path.CoordDirections()
 				for i := range coordPos {
 					if attr == "marker-start" && i == 0 || attr == "marker-end" && i == len(coordPos)-1 || attr == "marker-mid" && i != 0 && i != len(coordPos)-1 {
-						pos, dir := coordPos[i], coordDir[i]
+						pos := coordPos[i]
+						dir := Point{}
+						if len(coordDir) > i {
+							dir = coordDir[i]
+						}
 						if orient == "auto" || orient == "auto-start-reverse" {
 							a = dir.Angle()
 							if orient == "auto-start-reverse" {
@@ -900,7 +904,7 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 				}
 				break
 			} else if tag == "defs" {
-			        if tt != xml.StartTagCloseVoidToken {
+				if tt != xml.StartTagCloseVoidToken {
 					svg.parseDefs(l)
 				}
 				continue
