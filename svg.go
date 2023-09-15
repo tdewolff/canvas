@@ -900,8 +900,10 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 				}
 				break
 			} else if tag == "defs" {
-				svg.parseDefs(l)
-				break
+			        if tt != xml.StartTagCloseVoidToken {
+					svg.parseDefs(l)
+				}
+				continue
 			}
 
 			// push new state
