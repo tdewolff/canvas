@@ -12,6 +12,8 @@ import (
 	"github.com/tdewolff/parse/v2"
 	"github.com/tdewolff/parse/v2/css"
 	"github.com/tdewolff/parse/v2/xml"
+
+	"golang.org/x/net/html"
 )
 
 type svgDef func(string, *Canvas)
@@ -564,7 +566,11 @@ func (svg *svgParser) parseDefs(l *xml.Lexer) {
 				coordDir := path.CoordDirections()
 				for i := range coordPos {
 					if attr == "marker-start" && i == 0 || attr == "marker-end" && i == len(coordPos)-1 || attr == "marker-mid" && i != 0 && i != len(coordPos)-1 {
-						pos, dir := coordPos[i], coordDir[i]
+						pos := coordPos[i]
+						dir := Point{}
+						if len(coordDir) > i {
+							dir = coordDir[i]
+						}
 						if orient == "auto" || orient == "auto-start-reverse" {
 							a = dir.Angle()
 							if orient == "auto-start-reverse" {
@@ -783,7 +789,11 @@ func (svg *svgParser) getFontFace() *FontFace {
 	fontFamily, ok := svg.fonts[svg.state.fontFamily]
 	if !ok {
 		fontFamily = NewFontFamily(svg.state.fontFamily)
-		_ = fontFamily.LoadLocalFont(svg.state.fontFamily, FontRegular)
+		if err := fontFamily.LoadLocalFont(svg.state.fontFamily, FontRegular); err != nil {
+			// TODO log this
+			fontFamily = NewFontFamily("system")
+			fontFamily.LoadLocalFont("system", FontRegular)
+		}
 		svg.fonts[svg.state.fontFamily] = fontFamily
 	}
 	fontSize := svg.state.fontSize * 72.0 / 25.4 // pt/mm
@@ -934,7 +944,8 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 					} else if svg.state.textAnchor == "end" {
 						textAlign = Right
 					}
-					text := NewTextLine(svg.getFontFace(), string(data), textAlign)
+					t := html.UnescapeString(string(data))
+					text := NewTextLine(svg.getFontFace(), t, textAlign)
 					svg.ctx.DrawText(svg.state.textX, svg.state.textY, text)
 				}
 			}
