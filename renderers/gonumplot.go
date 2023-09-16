@@ -152,13 +152,13 @@ func (r *GonumPlot) FillString(f gonumFont.Face, pt vg.Point, text string) {
 	case font.WeightMedium:
 		style = canvas.FontMedium
 	case font.WeightSemiBold:
-		style = canvas.FontSemibold
+		style = canvas.FontSemiBold
 	case font.WeightBold:
 		style = canvas.FontBold
 	case font.WeightExtraBold:
-		style = canvas.FontBlack
+		style = canvas.FontExtraBold
 	case font.WeightBlack:
-		style = canvas.FontExtraBlack
+		style = canvas.FontBlack
 	}
 	if f.Font.Style == font.StyleItalic || f.Font.Style == font.StyleOblique {
 		style |= canvas.FontItalic
