@@ -144,11 +144,11 @@ func (r *GonumPlot) FillString(f gonumFont.Face, pt vg.Point, text string) {
 	style := canvas.FontRegular
 	switch f.Font.Weight {
 	case font.WeightThin:
-		style = canvas.FontExtraLight
+		style = canvas.FontThin
 	case font.WeightExtraLight:
-		style = canvas.FontLight
+		style = canvas.FontExtraLight
 	case font.WeightLight:
-		style = canvas.FontBook
+		style = canvas.FontLight
 	case font.WeightMedium:
 		style = canvas.FontMedium
 	case font.WeightSemiBold:

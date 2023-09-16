@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"image/color"
 	"io/ioutil"
+	"log"
 	"math"
-	"os/exec"
+	"os"
 	"reflect"
 	"sync"
 
-	"github.com/adrg/sysfont"
 	"github.com/tdewolff/canvas/font"
 	"github.com/tdewolff/canvas/text"
 )
@@ -20,14 +20,14 @@ type FontStyle int
 // see FontStyle
 const (
 	FontRegular    FontStyle = iota // 400
-	FontExtraLight                  // 100
-	FontLight                       // 200
-	FontBook                        // 300
+	FontThin                        // 100
+	FontExtraLight                  // 200
+	FontLight                       // 300
 	FontMedium                      // 500
-	FontSemibold                    // 600
+	FontSemiBold                    // 600
 	FontBold                        // 700
-	FontBlack                       // 800
-	FontExtraBlack                  // 900
+	FontExtraBold                   // 800
+	FontBlack                       // 900
 	FontItalic     FontStyle = 1 << 8
 )
 
@@ -44,21 +44,21 @@ func (style FontStyle) Italic() bool {
 // CSS returns the CSS boldness value for the font face.
 func (style FontStyle) CSS() int {
 	switch style.Weight() {
-	case FontExtraLight:
+	case FontThin:
 		return 100
-	case FontLight:
+	case FontExtraLight:
 		return 200
-	case FontBook:
+	case FontLight:
 		return 300
 	case FontMedium:
 		return 500
-	case FontSemibold:
+	case FontSemiBold:
 		return 600
 	case FontBold:
 		return 700
-	case FontBlack:
+	case FontExtraBold:
 		return 800
-	case FontExtraBlack:
+	case FontBlack:
 		return 900
 	}
 	return 400
@@ -109,32 +109,54 @@ func (subsetter *FontSubsetter) List() []uint16 {
 
 ////////////////////////////////////////////////////////////////
 
-var sysfontFinder = struct {
-	f *sysfont.Finder
-	m sync.Mutex
+var systemFonts = struct {
+	*font.SystemFonts
+	sync.Mutex
 }{}
 
 // FindLocalFont finds the path to a font from the system's fonts.
 func FindLocalFont(name string, style FontStyle) string {
-	// TODO: use style to match font
-	// try with fc-match first
-	filename, err := exec.Command("fc-match", "--format=%{file}", name).Output()
-	if err == nil {
-		return string(filename)
-	}
+	log.Println("WARNING: github.com/tdewolff/canvas/FindLocalFont is deprecated, please use github.com/tdewolff/canvas/FindSystemFont")
+	return FindSystemFont(name, style)
+}
 
-	// then use known font directories
-	sysfontFinder.m.Lock()
-	finder := sysfontFinder.f
-	if finder == nil {
-		finder = sysfont.NewFinder(&sysfont.FinderOpts{ // TODO: very slow (takes 1s)
-			Extensions: []string{".ttf", ".otf", ".ttc", ".woff", ".woff2", ".eot"},
-		})
-		sysfontFinder.f = finder
+// CacheSystemFonts will write and load the list of system fonts to the given filename. It scans the given directories for fonts, leave nil to use github.com/tdewolff/canvas/font/DefaultFontDirs().
+func CacheSystemFonts(filename string, dirs []string) error {
+	var fonts *font.SystemFonts
+	if info, err := os.Stat(filename); err == nil && info.Mode().IsRegular() {
+		fonts, err = font.LoadSystemFonts(filename)
+		if err != nil {
+			return err
+		}
+	} else {
+		if dirs == nil {
+			dirs = font.DefaultFontDirs()
+		}
+		var err error
+		fonts, err = font.FindSystemFonts(dirs)
+		if err != nil {
+			return err
+		}
+		if err := fonts.Save(filename); err != nil {
+			return err
+		}
 	}
-	sysfontFinder.m.Unlock()
+	systemFonts.Lock()
+	systemFonts.SystemFonts = fonts
+	systemFonts.Unlock()
+	return nil
+}
 
-	font := finder.Match(name)
+// FindSystemFont finds the path to a font from the system's fonts.
+func FindSystemFont(name string, style FontStyle) string {
+	systemFonts.Lock()
+	if systemFonts.SystemFonts == nil {
+		systemFonts.SystemFonts, _ = font.FindSystemFonts(font.DefaultFontDirs())
+	}
+	systemFonts.Unlock()
+
+	font, ok := systemFonts.Match(name, font.Style(style))
+	_ = ok // TODO: handle
 	return font.Filename
 }
 
@@ -150,7 +172,13 @@ type Font struct {
 
 // LoadLocalFont loads a font from the system's fonts.
 func LoadLocalFont(name string, style FontStyle) (*Font, error) {
-	return LoadFontFile(FindLocalFont(name, style), style)
+	log.Println("WARNING: github.com/tdewolff/canvas/LoadLocalFont is deprecated, please use github.com/tdewolff/canvas/LoadSystemFont")
+	return LoadSystemFont(name, style)
+}
+
+// LoadSystemFont loads a font from the system's fonts.
+func LoadSystemFont(name string, style FontStyle) (*Font, error) {
+	return LoadFontFile(FindSystemFont(name, style), style)
 }
 
 // LoadFontFile loads a font from a file.
@@ -301,12 +329,24 @@ func (family *FontFamily) SetFeatures(features string) {
 
 // LoadLocalFont loads a font from the system's fonts.
 func (family *FontFamily) LoadLocalFont(name string, style FontStyle) error {
-	return family.LoadFontFile(FindLocalFont(name, style), style)
+	log.Println("WARNING: github.com/tdewolff/canvas/FontFamily.LoadLocalFont is deprecated, please use github.com/tdewolff/canvas/FontFamily.LoadSystemFont")
+	return family.LoadSystemFont(name, style)
 }
 
 // MustLoadLocalFont loads a font from the system's fonts and panics on error.
 func (family *FontFamily) MustLoadLocalFont(name string, style FontStyle) {
-	if err := family.LoadLocalFont(name, style); err != nil {
+	log.Println("WARNING: github.com/tdewolff/canvas/FontFamily.MustLoadLocalFont is deprecated, please use github.com/tdewolff/canvas/FontFamily.MustLoadSystemFont")
+	family.MustLoadSystemFont(name, style)
+}
+
+// LoadSystemFont loads a font from the system's fonts.
+func (family *FontFamily) LoadSystemFont(name string, style FontStyle) error {
+	return family.LoadFontFile(FindSystemFont(name, style), style)
+}
+
+// MustLoadSystemFont loads a font from the system's fonts and panics on error.
+func (family *FontFamily) MustLoadSystemFont(name string, style FontStyle) {
+	if err := family.LoadSystemFont(name, style); err != nil {
 		panic(err)
 	}
 }
@@ -420,18 +460,22 @@ func (family *FontFamily) Face(size float64, args ...interface{}) *FontFace {
 		face.Size *= scale
 		face.XOffset = int32(float64(xOffset) / scale)
 		face.YOffset = int32(float64(yOffset) / scale)
-		if face.Style&0xFF == FontExtraLight {
+		if face.Style&0xFF == FontThin {
+			face.Style = face.Style&0x100 | FontExtraLight
+		} else if face.Style&0xFF == FontExtraLight {
 			face.Style = face.Style&0x100 | FontLight
-		} else if face.Style&0xFF == FontLight || face.Style&0xFF == FontBook {
+		} else if face.Style&0xFF == FontLight {
 			face.Style = face.Style & 0x100
 		} else if face.Style&0xFF == FontRegular {
-			face.Style = face.Style&0x100 | FontSemibold
-		} else if face.Style&0xFF == FontMedium || face.Style&0xFF == FontSemibold {
+			face.Style = face.Style&0x100 | FontSemiBold
+		} else if face.Style&0xFF == FontMedium {
+			face.Style = face.Style&0x100 | FontSemiBold
+		} else if face.Style&0xFF == FontSemiBold {
 			face.Style = face.Style&0x100 | FontBold
 		} else if face.Style&0xFF == FontBold {
+			face.Style = face.Style&0x100 | FontExtraBold
+		} else if face.Style&0xFF == FontExtraBold {
 			face.Style = face.Style&0x100 | FontBlack
-		} else if face.Style&0xFF == FontBlack {
-			face.Style = face.Style&0x100 | FontExtraBlack
 		} else {
 			face.FauxBold += 0.02
 		}
@@ -443,21 +487,21 @@ func (family *FontFamily) Face(size float64, args ...interface{}) *FontFace {
 		if face.Font == nil {
 			panic("requested font style not found")
 		}
-		if face.Style&0xFF == FontExtraLight {
+		if face.Style&0xFF == FontThin {
 			face.FauxBold += -0.02
-		} else if face.Style&0xFF == FontLight {
+		} else if face.Style&0xFF == FontExtraLight {
 			face.FauxBold += -0.01
-		} else if face.Style&0xFF == FontBook {
+		} else if face.Style&0xFF == FontLight {
 			face.FauxBold += -0.005
 		} else if face.Style&0xFF == FontMedium {
 			face.FauxBold += 0.005
-		} else if face.Style&0xFF == FontSemibold {
+		} else if face.Style&0xFF == FontSemiBold {
 			face.FauxBold += 0.01
 		} else if face.Style&0xFF == FontBold {
 			face.FauxBold += 0.02
-		} else if face.Style&0xFF == FontBlack {
+		} else if face.Style&0xFF == FontExtraBold {
 			face.FauxBold += 0.03
-		} else if face.Style&0xFF == FontExtraBlack {
+		} else if face.Style&0xFF == FontBlack {
 			face.FauxBold += 0.04
 		}
 		if face.Style&FontItalic != 0 {

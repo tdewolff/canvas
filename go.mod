@@ -6,8 +6,7 @@ require (
 	fyne.io/fyne/v2 v2.3.1
 	gioui.org v0.0.0-20230506155350-febadd314531
 	github.com/ByteArena/poly2tri-go v0.0.0-20170716161910-d102ad91854f
-	github.com/adrg/sysfont v0.1.2
-	github.com/benoitkugler/textprocessing v0.0.2
+	github.com/benoitkugler/textprocessing v0.0.3
 	github.com/dsnet/compress v0.0.1
 	github.com/go-fonts/latin-modern v0.3.0
 	github.com/go-gl/gl v0.0.0-20211210172815-726fda9656d6
@@ -53,8 +52,6 @@ require (
 
 require (
 	gioui.org/cpu v0.0.0-20220412190645-f1e9e8c3b1f7 // indirect
-	github.com/adrg/strutil v0.3.0 // indirect
-	github.com/adrg/xdg v0.4.0 // indirect
 	github.com/fyne-io/gl-js v0.0.0-20220802150000-8e339395f381 // indirect
 	github.com/goki/freetype v0.0.0-20220119013949-7a161fd3728c // indirect
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c // indirect
@@ -64,7 +61,7 @@ require (
 	golang.org/x/exp v0.0.0-20230315142452-642cacee5cc0 // indirect
 	golang.org/x/exp/shiny v0.0.0-20230315142452-642cacee5cc0 // indirect
 	golang.org/x/mobile v0.0.0-20230301163155-e0f57694e12c // indirect
-	golang.org/x/net v0.8.0 // indirect
+	golang.org/x/net v0.8.0
 	golang.org/x/sys v0.6.0 // indirect
 	star-tex.org/x/tex v0.4.0
 )
