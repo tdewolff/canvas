@@ -633,20 +633,20 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 	var breaks []*canvasText.Breakpoint
 	var overflows bool
-	if width != 0.0 {
-		var ok bool
-		breaks, ok = canvasText.Linebreak(items, width, looseness)
-		overflows = !ok
-	} else if len(items) == 0 {
-		breaks = append(breaks, &canvasText.Breakpoint{Position: 0, Width: 0.0})
-	} else {
-		lineWidth := 0.0
-		for i, item := range items {
-			if item.Type != canvasText.PenaltyType {
-				lineWidth += item.Width
-			} else if item.Penalty <= -canvasText.Infinity {
-				breaks = append(breaks, &canvasText.Breakpoint{Position: i, Width: lineWidth})
-				lineWidth = 0.0
+	if 0 < len(items) {
+		if width != 0.0 {
+			var ok bool
+			breaks, ok = canvasText.Linebreak(items, width, looseness)
+			overflows = !ok
+		} else {
+			lineWidth := 0.0
+			for i, item := range items {
+				if item.Type != canvasText.PenaltyType {
+					lineWidth += item.Width
+				} else if item.Penalty <= -canvasText.Infinity {
+					breaks = append(breaks, &canvasText.Breakpoint{Position: i, Width: lineWidth})
+					lineWidth = 0.0
+				}
 			}
 		}
 	}
