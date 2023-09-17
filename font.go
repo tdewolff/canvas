@@ -116,7 +116,7 @@ var systemFonts = struct {
 
 // FindLocalFont finds the path to a font from the system's fonts.
 func FindLocalFont(name string, style FontStyle) string {
-	log.Println("WARNING: github.com/tdewolff/canvas/FindLocalFont is deprecated, please use github.com/tdewolff/canvas/FindSystemFont")
+	log.Println("WARNING: github.com/tdewolff/canvas/FindLocalFont is deprecated, please use github.com/tdewolff/canvas/FindSystemFont") // TODO: remove
 	return FindSystemFont(name, style)
 }
 
@@ -172,7 +172,7 @@ type Font struct {
 
 // LoadLocalFont loads a font from the system's fonts.
 func LoadLocalFont(name string, style FontStyle) (*Font, error) {
-	log.Println("WARNING: github.com/tdewolff/canvas/LoadLocalFont is deprecated, please use github.com/tdewolff/canvas/LoadSystemFont")
+	log.Println("WARNING: github.com/tdewolff/canvas/LoadLocalFont is deprecated, please use github.com/tdewolff/canvas/LoadSystemFont") // TODO: remove
 	return LoadSystemFont(name, style)
 }
 
@@ -329,13 +329,13 @@ func (family *FontFamily) SetFeatures(features string) {
 
 // LoadLocalFont loads a font from the system's fonts.
 func (family *FontFamily) LoadLocalFont(name string, style FontStyle) error {
-	log.Println("WARNING: github.com/tdewolff/canvas/FontFamily.LoadLocalFont is deprecated, please use github.com/tdewolff/canvas/FontFamily.LoadSystemFont")
+	log.Println("WARNING: github.com/tdewolff/canvas/FontFamily.LoadLocalFont is deprecated, please use github.com/tdewolff/canvas/FontFamily.LoadSystemFont") // TODO: remove
 	return family.LoadSystemFont(name, style)
 }
 
 // MustLoadLocalFont loads a font from the system's fonts and panics on error.
 func (family *FontFamily) MustLoadLocalFont(name string, style FontStyle) {
-	log.Println("WARNING: github.com/tdewolff/canvas/FontFamily.MustLoadLocalFont is deprecated, please use github.com/tdewolff/canvas/FontFamily.MustLoadSystemFont")
+	log.Println("WARNING: github.com/tdewolff/canvas/FontFamily.MustLoadLocalFont is deprecated, please use github.com/tdewolff/canvas/FontFamily.MustLoadSystemFont") // TODO: remove
 	family.MustLoadSystemFont(name, style)
 }
 

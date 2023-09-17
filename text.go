@@ -448,7 +448,6 @@ func (rt *RichText) SetFace(face *FontFace) {
 // SetFaceSpan sets the font face between start and end measured in bytes.
 func (rt *RichText) SetFaceSpan(face *FontFace, start, end int) {
 	fmt.Println("WARNING: deprecated RichText.SetFaceSpan") // TODO: remove
-	// TODO: optimize when face already is on (part of) the span
 	if end <= start || rt.Len() <= start {
 		return
 	} else if rt.Len() < end {
