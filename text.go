@@ -823,13 +823,13 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		prevLevel := 0
 		for first := 0; first < len(line.spans); first++ {
 			level := line.spans[first].Level
-			if prevLevel < level {
+			if prevLevel < level { // every boundary of increased level
 				last := first + 1
 				for ; last <= len(line.spans); last++ {
 					if last == len(line.spans) || line.spans[last].Level < level {
 						if 1 < last-first {
 							// reverse position of spans
-							x := 0.0
+							x := line.spans[first].X
 							for i := last - 1; first <= i; i-- {
 								line.spans[i].X = x
 								x += line.spans[i].Width
