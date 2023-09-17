@@ -279,6 +279,38 @@ func scriptDirection(mode WritingMode, orient TextOrientation, script canvasText
 	return direction, rotation
 }
 
+func reorderSpans(spans []TextSpan) {
+	// find runs of a certain level and deeper (including nested)
+	// and reverse order for each level
+	// e.g. [0 1 2 2 1 0] would first reverse order of [1 2 2 1], and then again of [2 2]
+	prevLevel := 0
+	for first := 0; first < len(spans); first++ {
+		level := spans[first].Level
+		if prevLevel < level { // every boundary of increased level
+			last := first + 1
+			for ; last <= len(spans); last++ {
+				if last == len(spans) || spans[last].Level < level {
+					if 1 < last-first {
+						// reverse position of spans
+						var x float64
+						if (level % 2) == 1 {
+							x = spans[first].X
+						} else {
+							x = spans[last-1].X
+						}
+						for i := last - 1; first <= i; i-- {
+							spans[i].X = x
+							x += spans[i].Width
+						}
+					}
+					break
+				}
+			}
+		}
+		prevLevel = level
+	}
+}
+
 // NewTextLine is a simple text line using a single font face, a string (supporting new lines) and horizontal alignment (Left, Center, Right). The text's baseline will be drawn on the current coordinate.
 func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 	t := &Text{
@@ -299,33 +331,37 @@ func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 				continue
 			}
 			if i < j {
+				x := 0.0
 				ppem := face.PPEM(DefaultResolution)
-				lineWidth := 0.0
 				line := line{y: y, spans: []TextSpan{}}
 				for _, item := range itemizeString(s[i:j]) {
 					direction, _ := scriptDirection(HorizontalTB, Natural, item.Script, item.Level, face.Direction)
-					// TODO: rotation?
 					glyphs := face.Font.shaper.Shape(item.Text, ppem, direction, face.Script, face.Language, face.Font.features, face.Font.variations)
 					width := face.textWidth(glyphs)
 					line.spans = append(line.spans, TextSpan{
-						X:         lineWidth,
+						X:         x,
 						Width:     width,
 						Face:      face,
 						Text:      item.Text,
 						Glyphs:    glyphs,
 						Direction: direction,
+						Level:     item.Level,
 					})
-					lineWidth += width
+					x += width
 				}
 				if halign == Center || halign == Middle {
 					for k := range line.spans {
-						line.spans[k].X = -lineWidth / 2.0
+						line.spans[k].X = -x / 2.0
 					}
 				} else if halign == Right {
 					for k := range line.spans {
-						line.spans[k].X = -lineWidth
+						line.spans[k].X = -x
 					}
 				}
+
+				// reorder runs of RTL text
+				reorderSpans(line.spans)
+
 				t.lines = append(t.lines, line)
 			}
 			y += ascent + descent + spacing
@@ -817,35 +853,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 	// reorder from logical to visual order of text spans in line
 	for _, line := range t.lines {
-		// find runs of a certain level and deeper (including nested)
-		// and reverse order for each level
-		// e.g. [0 1 2 2 1 0] would first reverse order of [1 2 2 1], and then again of [2 2]
-		prevLevel := 0
-		for first := 0; first < len(line.spans); first++ {
-			level := line.spans[first].Level
-			if prevLevel < level { // every boundary of increased level
-				last := first + 1
-				for ; last <= len(line.spans); last++ {
-					if last == len(line.spans) || line.spans[last].Level < level {
-						if 1 < last-first {
-							// reverse position of spans
-							var x float64
-							if (level % 2) == 1 {
-								x = line.spans[first].X
-							} else {
-								x = line.spans[last-1].X
-							}
-							for i := last - 1; first <= i; i-- {
-								line.spans[i].X = x
-								x += line.spans[i].Width
-							}
-						}
-						break
-					}
-				}
-			}
-			prevLevel = level
-		}
+		reorderSpans(line.spans)
 	}
 
 	if 0 < len(t.lines) {
