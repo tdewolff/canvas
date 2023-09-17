@@ -829,7 +829,12 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 					if last == len(line.spans) || line.spans[last].Level < level {
 						if 1 < last-first {
 							// reverse position of spans
-							x := line.spans[first].X
+							var x float64
+							if (level % 2) == 1 {
+								x = line.spans[first].X
+							} else {
+								x = line.spans[last-1].X
+							}
 							for i := last - 1; first <= i; i-- {
 								line.spans[i].X = x
 								x += line.spans[i].Width
