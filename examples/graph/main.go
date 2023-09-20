@@ -17,7 +17,7 @@ var fontFamily *canvas.FontFamily
 
 func main() {
 	fontFamily = canvas.NewFontFamily("times")
-	if err := fontFamily.LoadLocalFont("NimbusRoman-Regular", canvas.FontRegular); err != nil {
+	if err := fontFamily.LoadSystemFont("Nimbus Roman, serif", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 
@@ -122,9 +122,9 @@ func draw(c *canvas.Context) {
 	labelFace := fontFamily.Face(14.0, color.Black, canvas.FontRegular, canvas.FontNormal)
 	labelSubFace := fontFamily.Face(14.0, color.Black, canvas.FontRegular, canvas.FontSubscript)
 	rt := canvas.NewRichText(labelFace)
-	rt.Add(labelFace, "CO")
-	rt.Add(labelSubFace, "2")
-	rt.Add(labelFace, " (ppm)")
+	rt.WriteFace(labelFace, "CO")
+	rt.WriteFace(labelSubFace, "2")
+	rt.WriteFace(labelFace, " (ppm)")
 	c.Push()
 	c.ComposeView(canvas.Identity.Rotate(90))
 	text := rt.ToText(0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0)
@@ -135,8 +135,8 @@ func draw(c *canvas.Context) {
 	titleFace := fontFamily.Face(16.0, color.Black, canvas.FontRegular, canvas.FontNormal)
 	titleSubFace := fontFamily.Face(16.0, color.Black, canvas.FontRegular, canvas.FontSubscript)
 	rt = canvas.NewRichText(titleFace)
-	rt.Add(titleFace, "Atmospheric CO")
-	rt.Add(titleSubFace, "2")
-	rt.Add(titleFace, " at Mauna Loa Observatory")
+	rt.WriteFace(titleFace, "Atmospheric CO")
+	rt.WriteFace(titleSubFace, "2")
+	rt.WriteFace(titleFace, " at Mauna Loa Observatory")
 	c.DrawText(60.0, 91.0, rt.ToText(0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0))
 }

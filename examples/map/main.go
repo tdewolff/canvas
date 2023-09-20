@@ -13,14 +13,7 @@ import (
 	"github.com/tdewolff/canvas/renderers"
 )
 
-var dejaVuSerif *canvas.FontFamily
-
 func main() {
-	dejaVuSerif = canvas.NewFontFamily("dejavu-serif")
-	if err := dejaVuSerif.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
-		panic(err)
-	}
-
 	c := canvas.New(100, 100)
 	ctx := canvas.NewContext(c)
 	draw(ctx)

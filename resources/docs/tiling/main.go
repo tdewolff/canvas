@@ -10,7 +10,7 @@ import (
 
 func main() {
 	fontLatin := canvas.NewFontFamily("latin")
-	if err := fontLatin.LoadLocalFont("Nimbus Sans Bold", canvas.FontRegular); err != nil {
+	if err := fontLatin.LoadSystemFont("Nimbus Sans Bold, sans", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 	face := fontLatin.Face(2.0)

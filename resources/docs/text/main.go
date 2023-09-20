@@ -13,11 +13,11 @@ var fontFamily, fontLatin, fontArabic, fontDevanagari, fontMongolian, fontCJK *c
 
 func main() {
 	fontFamily = canvas.NewFontFamily("times")
-	if err := fontFamily.LoadLocalFont("Liberation Serif", canvas.FontRegular); err != nil {
+	if err := fontFamily.LoadSystemFont("Liberation Serif, serif", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 	fontLatin = canvas.NewFontFamily("latin")
-	if err := fontLatin.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
+	if err := fontLatin.LoadSystemFont("DejaVu Serif, serif", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 	fontArabic = canvas.NewFontFamily("arabic")
@@ -25,11 +25,11 @@ func main() {
 		panic(err)
 	}
 	fontDevanagari = canvas.NewFontFamily("devanagari")
-	if err := fontDevanagari.LoadLocalFont("NotoSerif Devanagari", canvas.FontRegular); err != nil {
+	if err := fontDevanagari.LoadSystemFont("Noto Serif Devanagari", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 	fontMongolian = canvas.NewFontFamily("mongolian")
-	if err := fontMongolian.LoadLocalFont("NotoSans Mongolian", canvas.FontRegular); err != nil {
+	if err := fontMongolian.LoadSystemFont("Noto Sans Mongolian", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 	fontCJK = canvas.NewFontFamily("cjk")
@@ -92,11 +92,11 @@ func main() {
 	face := fontFamily.Face(10.0, color.Black, canvas.FontRegular, canvas.FontNormal)
 	rt := canvas.NewRichText(face)
 	rt.WriteString("Where ")
-	rt.AddPath(p, canvas.Green, canvas.Baseline)
+	rt.WritePath(p, canvas.Green, canvas.Baseline)
 	rt.WriteString(" and ")
-	rt.AddImage(img, canvas.DPMM(200.0), canvas.Baseline)
+	rt.WriteImage(img, canvas.DPMM(200.0), canvas.Baseline)
 	rt.WriteString(" refer to foo when ")
-	if err := rt.AddLaTeX("x = \\frac{5}{2}"); err != nil {
+	if err := rt.WriteLaTeX("x = \\frac{5}{2}"); err != nil {
 		panic(err)
 	}
 	rt.WriteString(".")
@@ -128,12 +128,12 @@ func drawCJK(ctx *canvas.Context, x, y float64, title string, mode canvas.Writin
 	faceCJK := fontCJK.Face(10.0, color.Black, canvas.FontRegular, canvas.FontNormal)
 
 	rt := canvas.NewRichText(faceLatin)
-	rt.Add(faceCJK, "中文 日語 ")
-	rt.Add(faceArabic, "اللغة العربية ")
-	rt.Add(faceLatin, "Latin script ")
-	rt.Add(faceMongolian, "ᠮᠣᠩᠭᠣᠯ ᠪᠢᠴᠢᠭ ")
-	rt.Add(faceLatin, "русский язык ")
-	rt.Add(faceDevanagari, "देवनागरी")
+	rt.WriteFace(faceCJK, "中文 日語 ")
+	rt.WriteFace(faceArabic, "اللغة العربية ")
+	rt.WriteFace(faceLatin, "Latin script ")
+	rt.WriteFace(faceMongolian, "ᠮᠣᠩᠭᠣᠯ ᠪᠢᠴᠢᠭ ")
+	rt.WriteFace(faceLatin, "русский язык ")
+	rt.WriteFace(faceDevanagari, "देवनागरी")
 
 	halign := canvas.Left
 	if mode == canvas.VerticalRL {

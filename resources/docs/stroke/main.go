@@ -12,8 +12,8 @@ var fontFamily *canvas.FontFamily
 var strokeWidth = 10.0
 
 func main() {
-	fontFamily = canvas.NewFontFamily("times")
-	if err := fontFamily.LoadLocalFont("Liberation Serif", canvas.FontRegular); err != nil {
+	fontFamily = canvas.NewFontFamily("latin")
+	if err := fontFamily.LoadSystemFont("Liberation Serif, serif", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 

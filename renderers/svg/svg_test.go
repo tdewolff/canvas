@@ -16,11 +16,11 @@ func TestSVGText(t *testing.T) {
 	//dejaVu12sub := dejaVuSerif.Face(12.0*ptPerMm, Black, FontRegular, FontSubscript)
 	//garamond10 := ebGaramond.Face(10.0*ptPerMm, Black, FontBold, FontNormal)
 
-	//rt := NewRichText()
-	//rt.Add(dejaVu8, "dejaVu8")
-	//rt.Add(dejaVu12, " glyphspacing")
-	//rt.Add(dejaVu12sub, " dejaVu12sub")
-	//rt.Add(garamond10, " garamond10")
+	//rt := NewRichText(dejaVu12)
+	//rt.WriteFace(dejaVu8, "dejaVu8")
+	//rt.WriteFace(dejaVu12, " glyphspacing")
+	//rt.WriteFace(dejaVu12sub, " dejaVu12sub")
+	//rt.WriteFace(garamond10, " garamond10")
 	//text := rt.ToText(dejaVu12.TextWidth("glyphspacing")+float64(len("glyphspacing")-1), 100.0, Justify, Top, 0.0, 0.0)
 
 	//buf := &bytes.Buffer{}

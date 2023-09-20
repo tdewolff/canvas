@@ -76,7 +76,7 @@ func DefaultFontDirs() []string {
 	return dirs
 }
 
-func DefaultSystemFonts() map[string][]string {
+func DefaultGenericFonts() map[string][]string {
 	// TODO: use OS and OS version or maybe even parse fontconfig files for Unix
 	fonts := map[string][]string{}
 	//switch runtime.GOOS {
@@ -110,6 +110,17 @@ func DefaultSystemFonts() map[string][]string {
 		"BPG Glaho International",
 		"Tahoma",
 	}
+	fonts["cursive"] = []string{
+		"ITC Zapf Chancery Std",
+		"Zapfino",
+		"Comic Sans MS",
+	}
+	fonts["fantasy"] = []string{
+		"Impact",
+		"Copperplate Gothic Std",
+		"Cooper Std",
+		"Bauhaus Std",
+	}
 	fonts["monospace"] = []string{
 		"Noto Sans Mono",
 		"DejaVu Sans Mono",
@@ -122,24 +133,6 @@ func DefaultSystemFonts() map[string][]string {
 		"Nimbus Mono",
 		"Nimbus Mono PS",
 		"Courier",
-	}
-	fonts["fantasy"] = []string{
-		"Impact",
-		"Copperplate Gothic Std",
-		"Cooper Std",
-		"Bauhaus Std",
-	}
-	fonts["cursive"] = []string{
-		"ITC Zapf Chancery Std",
-		"Zapfino",
-		"Comic Sans MS",
-	}
-	fonts["system-ui"] = []string{
-		"Cantarell",
-		"Noto Sans UI",
-		"Segoe UI",
-		"Segoe UI Historic",
-		"Segoe UI Symbol",
 	}
 	return fonts
 }
@@ -286,7 +279,7 @@ func (metadata FontMetadata) String() string {
 }
 
 type SystemFonts struct {
-	Defaults map[string][]string
+	Generics map[string][]string
 	Fonts    map[string]map[Style]FontMetadata
 }
 
@@ -321,18 +314,29 @@ func (s *SystemFonts) Add(metadata FontMetadata) {
 }
 
 func (s *SystemFonts) Match(name string, style Style) (FontMetadata, bool) {
-	var metadatas map[Style]FontMetadata
-	if names, ok := s.Defaults[name]; ok {
-		// get font names for serif, sans-serif, system-ui, ...
-		for _, name := range names {
-			if metadatas, ok = s.Fonts[name]; ok {
-				break
-			}
+	// expand generic font names
+	families := strings.Split(name, ",")
+	for i := 0; i < len(families); i++ {
+		families[i] = strings.TrimSpace(families[i])
+		if names, ok := s.Generics[families[i]]; ok {
+			families = append(families[:i], append(names, families[i+1:]...)...)
+			i += len(names) - 1
 		}
-	} else if metadatas, ok = s.Fonts[name]; !ok {
+	}
+
+	// find the first font name that exists
+	var metadatas map[Style]FontMetadata
+	for _, family := range families {
+		metadatas, _ = s.Fonts[family]
+		if metadatas != nil {
+			break
+		}
+	}
+	if metadatas == nil {
 		return FontMetadata{}, false
 	}
 
+	// exact style match
 	if metadata, ok := metadatas[style]; ok {
 		return metadata, true
 	}
@@ -371,15 +375,15 @@ func (s *SystemFonts) Match(name string, style Style) (FontMetadata, bool) {
 func (s *SystemFonts) String() string {
 	sb := &strings.Builder{}
 
-	fmt.Fprintf(sb, "Default font families:")
-	defaults := make([]string, 0, len(s.Defaults))
-	for def := range s.Defaults {
-		defaults = append(defaults, def)
+	fmt.Fprintf(sb, "Generic font families:")
+	generics := make([]string, 0, len(s.Generics))
+	for generic := range s.Generics {
+		generics = append(generics, generic)
 	}
-	sort.Strings(defaults)
-	for _, def := range defaults {
-		fmt.Fprintf(sb, "\n  %s:", def)
-		for i, family := range s.Defaults[def] {
+	sort.Strings(generics)
+	for _, generic := range generics {
+		fmt.Fprintf(sb, "\n  %s:", generic)
+		for i, family := range s.Generics[generic] {
 			if i != 0 {
 				fmt.Fprintf(sb, ",")
 			}
@@ -474,7 +478,7 @@ func FindSystemFonts(dirs []string) (*SystemFonts, error) {
 	if Err != nil {
 		return nil, Err
 	}
-	fonts.Defaults = DefaultSystemFonts()
+	fonts.Generics = DefaultGenericFonts()
 	return fonts, nil
 }
 

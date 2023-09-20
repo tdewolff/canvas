@@ -44,7 +44,7 @@ func lum(col color.RGBA) float64 {
 
 func main() {
 	font := canvas.NewFontFamily("latin")
-	if err := font.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
+	if err := font.LoadSystemFont("serif", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 

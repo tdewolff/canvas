@@ -83,10 +83,10 @@ func doTestPDFText(t *testing.T, subsetFonts bool, expectedSize int, filename st
 	garamond10 := ebGaramond.Face(10, canvas.Black, canvas.FontBold, canvas.FontNormal)
 
 	rt := canvas.NewRichText(dejaVu12)
-	rt.Add(dejaVu8, "dejaVu8")
-	rt.Add(dejaVu12, " glyphspacing")
-	rt.Add(dejaVu12sub, " dejaVu12sub")
-	rt.Add(garamond10, " garamond10")
+	rt.WriteFace(dejaVu8, "dejaVu8")
+	rt.WriteFace(dejaVu12, " glyphspacing")
+	rt.WriteFace(dejaVu12sub, " dejaVu12sub")
+	rt.WriteFace(garamond10, " garamond10")
 	text := rt.ToText(180, 20.0, canvas.Justify, canvas.Top, 0.0, 0.0)
 
 	buf := &bytes.Buffer{}

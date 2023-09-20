@@ -14,8 +14,8 @@ var fontLatin *canvas.FontFamily
 
 func main() {
 	t0 := time.Now()
-	fontLatin = canvas.NewFontFamily("DejaVu Serif")
-	if err := fontLatin.LoadLocalFont("DejaVuSerif", canvas.FontRegular); err != nil {
+	fontLatin = canvas.NewFontFamily("latin")
+	if err := fontLatin.LoadSystemFont("serif", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 

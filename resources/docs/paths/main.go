@@ -9,7 +9,7 @@ var fontFamily *canvas.FontFamily
 
 func main() {
 	fontFamily = canvas.NewFontFamily("times")
-	if err := fontFamily.LoadLocalFont("Liberation Serif", canvas.FontRegular); err != nil {
+	if err := fontFamily.LoadSystemFont("Liberation Serif, serif", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 

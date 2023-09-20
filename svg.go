@@ -785,10 +785,8 @@ func (svg *svgParser) getFontFace() *FontFace {
 	fontFamily, ok := svg.fonts[svg.state.fontFamily]
 	if !ok {
 		fontFamily = NewFontFamily(svg.state.fontFamily)
-		if err := fontFamily.LoadLocalFont(svg.state.fontFamily, FontRegular); err != nil {
-			// TODO: fix with fontconfig
-			fontFamily = NewFontFamily("system")
-			fontFamily.LoadLocalFont("system", FontRegular)
+		if err := fontFamily.LoadSystemFont(svg.state.fontFamily, FontRegular); err != nil {
+			panic(err)
 		}
 		svg.fonts[svg.state.fontFamily] = fontFamily
 	}

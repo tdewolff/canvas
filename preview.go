@@ -2,6 +2,7 @@ package canvas
 
 import (
 	"bytes"
+	"fmt"
 	"image/color"
 	"io/ioutil"
 	"os"
@@ -11,6 +12,14 @@ import (
 	"github.com/tdewolff/canvas/text"
 )
 
+func loadFont(name string, style FontStyle) ([]byte, error) {
+	filename, ok := FindSystemFont(name, style)
+	if !ok {
+		return nil, fmt.Errorf("failed to find font '%s'", name)
+	}
+	return ioutil.ReadFile(filename)
+}
+
 // DrawPreview draws the canvas's preview to a Context.
 func DrawPreview(ctx *Context) error {
 	root := os.Getenv("GOPATH")
@@ -19,15 +28,15 @@ func DrawPreview(ctx *Context) error {
 	}
 	root = filepath.Join(root, "src/github.com/tdewolff/canvas")
 
-	latin, err := ioutil.ReadFile(FindLocalFont("DejaVuSerif", FontRegular))
+	latin, err := loadFont("DejaVu Serif, serif", FontRegular)
 	if err != nil {
 		return err
 	}
-	arabic, err := ioutil.ReadFile(FindLocalFont("DejaVuSans", FontRegular))
+	arabic, err := loadFont("DejaVu Sans, sans", FontRegular)
 	if err != nil {
 		return err
 	}
-	devanagari, err := ioutil.ReadFile(FindLocalFont("NotoSerifDevanagari", FontRegular))
+	devanagari, err := loadFont("Noto Serif Devanagari", FontRegular)
 	if err != nil {
 		return err
 	}
@@ -63,17 +72,17 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	pt := 14.0
 	face := fontLatin.Face(pt)
 	rt := NewRichText(face)
-	rt.Add(face, "Lorem dolor ipsum ")
-	rt.Add(fontLatin.Face(pt, White, FontBold), "confiscator")
-	rt.Add(face, " cur\u00ADabitur ")
-	rt.Add(fontLatin.Face(pt, FontItalic), "mattis")
-	rt.Add(face, " dui ")
-	rt.Add(fontLatin.Face(pt, FontBold|FontItalic), "tellus")
-	rt.Add(face, " vel. Proin ")
-	rt.Add(fontLatin.Face(pt, FontUnderline), "sodales")
-	rt.Add(face, " eros vel ")
-	rt.Add(fontLatin.Face(pt, FontSineUnderline), "nibh")
-	rt.Add(face, " fringilla pellen\u00ADtesque eu ")
+	rt.WriteString("Lorem dolor ipsum ")
+	rt.WriteFace(fontLatin.Face(pt, White, FontBold), "confiscator")
+	rt.WriteString(" cur\u00ADabitur ")
+	rt.WriteFace(fontLatin.Face(pt, FontItalic), "mattis")
+	rt.WriteString(" dui ")
+	rt.WriteFace(fontLatin.Face(pt, FontBold|FontItalic), "tellus")
+	rt.WriteString(" vel. Proin ")
+	rt.WriteFace(fontLatin.Face(pt, FontUnderline), "sodales")
+	rt.WriteString(" eros vel ")
+	rt.WriteFace(fontLatin.Face(pt, FontSineUnderline), "nibh")
+	rt.WriteString(" fringilla pellen\u00ADtesque eu ")
 
 	// Smiley face
 	c2 := New(6.144, 6.144)
@@ -88,23 +97,23 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	ctx2.DrawPath(0.0, 0.0, MustParseSVGPath("M77.1,32.27c4.3,0,7.78,5,7.78,11.27S81.4,54.81,77.1,54.81s-7.79-5-7.79-11.27S72.8,32.27,77.1,32.27Z"))
 	// mouth
 	ctx2.DrawPath(0.0, 0.0, MustParseSVGPath("M28.8,70.82a39.65,39.65,0,0,0,8.83,8.41,42.72,42.72,0,0,0,25,7.53,40.44,40.44,0,0,0,24.12-8.12,35.75,35.75,0,0,0,7.49-7.87.22.22,0,0,1,.31,0L97,73.14a.21.21,0,0,1,0,.29A45.87,45.87,0,0,1,82.89,88.58,37.67,37.67,0,0,1,62.83,95a39,39,0,0,1-20.68-5.55A50.52,50.52,0,0,1,25.9,73.57a.23.23,0,0,1,0-.28l2.52-2.5a.22.22,0,0,1,.32,0l0,0Z"))
-	rt.AddCanvas(c2, FontMiddle)
-	rt.Add(face, " cillum. ")
+	rt.WriteCanvas(c2, FontMiddle)
+	rt.WriteString(" cillum. ")
 
 	face = fontLatin.Face(pt)
 	face.Language = "ru"
 	face.Script = text.Cyrillic
-	rt.Add(face, "дёжжэнтиюнт холст ")
+	rt.WriteFace(face, "дёжжэнтиюнт холст ")
 
 	face = fontArabic.Face(pt)
 	face.Language = "ar"
 	face.Script = text.Arabic
-	rt.Add(face, "تسجّل يتكلّم ")
+	rt.WriteFace(face, "تسجّل يتكلّم ")
 
 	face = fontDevanagari.Face(pt)
 	face.Language = "hi"
 	face.Script = text.Devanagari
-	rt.Add(face, "हालाँकि प्र ")
+	rt.WriteFace(face, "हालाँकि प्र ")
 
 	x := 5.0
 	y := 95.0

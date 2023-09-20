@@ -41,7 +41,7 @@ func TestRichText(t *testing.T) {
 	face := family.Face(pt, Black, FontRegular, FontNormal) // line height is 13.96875
 
 	rt := NewRichText(face)
-	rt.Add(face, "ee. ee eeee") // e is 1212 wide, dot and space are 651 wide
+	rt.WriteString("ee. ee eeee") // e is 1212 wide, dot and space are 651 wide
 
 	// test halign
 	text := rt.ToText(6500.0, 5000.0, Left, Top, 0.0, 0.0)
@@ -94,16 +94,16 @@ func TestRichText(t *testing.T) {
 	test.T(t, len(text.lines[0].spans), 1)
 	test.Float(t, text.lines[0].spans[0].X, 0.0)
 
-	//rt = NewRichText()
+	//rt = NewRichText(face)
 	//text = rt.ToText(55.0, 50.0, Left, Top, 0.0, 0.0)
 	//test.T(t, len(text.lines), 0)
 
-	//rt = NewRichText()
-	//rt.Add(face, "mm ")
-	//rt.Add(face, " mm ")
-	//rt.Add(face, " \n ")
-	//rt.Add(face, "mmmm")
-	//rt.Add(face, " mmmm ")
+	//rt = NewRichText(face)
+	//rt.WriteString("mm ")
+	//rt.WriteString(" mm ")
+	//rt.WriteString(" \n ")
+	//rt.WriteString("mmmm")
+	//rt.WriteString(" mmmm ")
 	//text = rt.ToText(75.0, 30.0, Justify, Top, 0.0, 0.0)
 	//test.T(t, len(text.lines), 2)
 	//test.Float(t, text.lines[0].spans[0].dx, 0.0)
@@ -112,19 +112,19 @@ func TestRichText(t *testing.T) {
 	//test.Float(t, text.lines[1].spans[0].dx, 0.0)
 	//test.Float(t, text.lines[1].spans[0].width, 45.5) // cannot stretch in any reasonable way
 
-	//rt = NewRichText()
-	//rt.Add(face, "mm. ")
+	//rt = NewRichText(face)
+	//rt.WriteString("mm. ")
 	//text = rt.ToText(30.0, 50.0, Left, Top, 0.0, 0.0) // wrap at space
 	//test.T(t, len(text.lines), 1)
 
-	//rt = NewRichText()
-	//rt.Add(face, "mm\u200bmm \r\nmm")
+	//rt = NewRichText(face)
+	//rt.WriteString("mm\u200bmm \r\nmm")
 	//text = rt.ToText(30.0, 50.0, Left, Top, 0.0, 0.0) // wrap at word break
 	//test.T(t, len(text.lines), 3)
 	//test.T(t, text.lines[0].spans[0].Text, "mm-")
 
-	//rt = NewRichText()
-	//rt.Add(face, "\u200bmm")
+	//rt = NewRichText(face)
+	//rt.WriteString("\u200bmm")
 	//text = rt.ToText(20.0, 50.0, Left, Top, 0.0, 0.0) // wrap at space
 	//test.T(t, len(text.lines), 1)
 }
@@ -138,7 +138,7 @@ func TestRichText2(t *testing.T) {
 	face := family.Face(pt, Black, FontRegular, FontNormal) // line height is 13.96875
 
 	rt := NewRichText(face)
-	rt.Add(face, " a")
+	rt.WriteString(" a")
 	rt.ToText(100.0, 100.0, Left, Top, 0.0, 0.0)
 }
 
@@ -152,8 +152,8 @@ func TestTextBounds(t *testing.T) {
 	face12 := family.Face(1.5*pt, Black, FontRegular, FontNormal, FontUnderline)
 
 	rt := NewRichText(face8)
-	rt.Add(face8, "test")
-	rt.Add(face12, "test")
+	rt.WriteString("test")
+	rt.WriteFace(face12, "test")
 	text := rt.ToText(4096.0, 4096.0, Left, Top, 0.0, 0.0)
 
 	top, ascent, descent, bottom := text.lines[0].Heights(0.0)
