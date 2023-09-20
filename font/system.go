@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 
 	"golang.org/x/text/encoding/unicode"
@@ -22,8 +23,6 @@ func DefaultFontDirs() []string {
 		dirs = []string{
 			"/usr/share/fonts",
 			"/usr/local/share/fonts",
-			"/usr/share/texmf/fonts",
-			"/usr/share/texmf-dist/fonts",
 		}
 		if home := os.Getenv("HOME"); home != "" {
 			dirs = append(dirs, filepath.Join(home, ".fonts"))
@@ -151,53 +150,85 @@ type Style int
 // see Style
 const (
 	UnknownStyle Style = -1
-	Regular      Style = iota // 400
-	Thin                      // 100
-	ExtraLight                // 200
-	Light                     // 300
-	Medium                    // 500
-	SemiBold                  // 600
-	Bold                      // 700
-	ExtraBold                 // 800
-	Black                     // 900
-	Italic       Style = 1 << 8
+	Thin         Style = iota
+	ExtraLight
+	Light
+	Regular
+	Medium
+	SemiBold
+	Bold
+	ExtraBold
+	Black
+	Italic Style = 1 << 8
 )
 
+func ParseStyleCSS(weight int, italic bool) Style {
+	weight = int(float64(weight)/100.0+0.5) * 100
+	if weight < 100 {
+		weight = 100
+	} else if 900 < weight {
+		weight = 900
+	}
+
+	var style Style
+	if italic {
+		style = Italic
+	}
+	switch weight {
+	case 100:
+		return style | Thin
+	case 200:
+		return style | ExtraLight
+	case 300:
+		return style | Light
+	case 500:
+		return style | Medium
+	case 600:
+		return style | SemiBold
+	case 700:
+		return style | Bold
+	case 800:
+		return style | ExtraBold
+	case 900:
+		return style | Black
+	}
+	return style | Regular
+}
+
 func ParseStyle(s string) Style {
-	style := Regular
-	if strings.HasSuffix(s, "Italic") {
-		s = s[:len(s)-6]
-		if 0 < len(s) && s[len(s)-1] == ' ' {
-			s = s[:len(s)-1]
+	var style Style
+	s = strings.TrimSpace(s)
+	italics := []string{"Italic", "Oblique", "Slanted", "Italique", "Cursiva", "Slant", "Ita", "Obl"}
+	for _, italic := range italics {
+		if strings.HasSuffix(s, italic) {
+			s = s[:len(s)-len(italic)]
+			if 0 < len(s) && (s[len(s)-1] == ' ' || s[len(s)-1] == '-') {
+				s = s[:len(s)-1]
+			}
+			style = Italic
+			break
 		}
-		style = Italic
-	} else if strings.HasSuffix(s, "Oblique") {
-		s = s[:len(s)-7]
-		if 0 < len(s) && s[len(s)-1] == ' ' {
-			s = s[:len(s)-1]
-		}
-		style = Italic
 	}
 
 	switch s {
-	case "", "Regular":
-		return Regular
-	case "Thin":
-		return Thin
-	case "ExtraLight":
-		return ExtraLight
-	case "Light", "Book":
-		return Light
-	case "Medium":
-		return Medium
-	case "SemiBold":
-		return SemiBold
-	case "Bold":
-		return Bold
-	case "ExtraBold":
-		return ExtraBold
-	case "Black":
-		return Black
+	case "", "Regular", "Normal", "Normál", "Reg", "Roman", "Text", "Book":
+		style |= Regular
+	case "Thin", "Hairline":
+		style |= Thin
+	case "ExtraLight", "UltraLight", "Extra Light", "ExtraLt":
+		style |= ExtraLight
+	case "Light", "Lt", "SemiLight":
+		style |= Light
+	case "Medium", "Med":
+		style |= Medium
+	case "SemiBold", "Semibold", "Demi", "Semi Bold", "Semibd":
+		style |= SemiBold
+	case "Bold", "Negrita", "Gras", "Bol":
+		style |= Bold
+	case "ExtraBold", "Extra Bold":
+		style |= ExtraBold
+	case "Black", "Heavy":
+		style |= Black
 	default:
 		style = UnknownStyle
 	}
@@ -214,10 +245,44 @@ func (style Style) Italic() bool {
 	return style&Italic != 0
 }
 
+func (style Style) String() string {
+	var s string
+	switch style.Weight() {
+	case Thin:
+		s = "Thin"
+	case ExtraLight:
+		s = "ExtraLight"
+	case Light:
+		s = "Light"
+	case Regular:
+		s = "Regular"
+	case Medium:
+		s = "Medium"
+	case SemiBold:
+		s = "SemiBold"
+	case Bold:
+		s = "Bold"
+	case ExtraBold:
+		s = "ExtraBold"
+	case Black:
+		s = "Black"
+	default:
+		return "UnknownStyle"
+	}
+	if style.Italic() {
+		s += " Italic"
+	}
+	return s
+}
+
 type FontMetadata struct {
 	Filename string
 	Family   string
 	Style
+}
+
+func (metadata FontMetadata) String() string {
+	return fmt.Sprintf("%s (%v): %s", metadata.Family, metadata.Style, metadata.Filename)
 }
 
 type SystemFonts struct {
@@ -270,11 +335,82 @@ func (s *SystemFonts) Match(name string, style Style) (FontMetadata, bool) {
 
 	if metadata, ok := metadatas[style]; ok {
 		return metadata, true
-	} else if metadata, ok := metadatas[Regular]; ok {
-		return metadata, true
 	}
-	// TODO: return any
+
+	styles := []Style{}
+	weight := style.Weight()
+	if weight == Regular {
+		styles = append(styles, Medium)
+	} else if weight == Medium {
+		styles = append(styles, Regular)
+	}
+	if weight == SemiBold || weight == Bold || weight == ExtraBold || weight == Black {
+		for s := weight + 1; s <= Black; s++ {
+			styles = append(styles, s)
+		}
+		for s := weight - 1; Thin <= s; s-- {
+			styles = append(styles, s)
+		}
+	} else {
+		for s := weight - 1; Thin <= s; s-- {
+			styles = append(styles, s)
+		}
+		for s := weight + 1; s <= Black; s++ {
+			styles = append(styles, s)
+		}
+	}
+
+	for _, s := range styles {
+		if metadata, ok := metadatas[style&Italic|s]; ok {
+			return metadata, true
+		}
+	}
 	return FontMetadata{}, false
+}
+
+func (s *SystemFonts) String() string {
+	sb := &strings.Builder{}
+
+	fmt.Fprintf(sb, "Default font families:")
+	defaults := make([]string, 0, len(s.Defaults))
+	for def := range s.Defaults {
+		defaults = append(defaults, def)
+	}
+	sort.Strings(defaults)
+	for _, def := range defaults {
+		fmt.Fprintf(sb, "\n  %s:", def)
+		for i, family := range s.Defaults[def] {
+			if i != 0 {
+				fmt.Fprintf(sb, ",")
+			}
+			fmt.Fprintf(sb, " %s", family)
+		}
+	}
+
+	fmt.Fprintf(sb, "\n\nFont family styles:")
+	families := make([]string, 0, len(s.Fonts))
+	for family := range s.Fonts {
+		families = append(families, family)
+	}
+	sort.Strings(families)
+	for _, family := range families {
+		fmt.Fprintf(sb, "\n  %s:", family)
+		styles := make([]Style, 0, len(s.Fonts[family]))
+		for style := range s.Fonts[family] {
+			styles = append(styles, style)
+		}
+		sort.SliceStable(styles, func(i, j int) bool {
+			return styles[i] < styles[j]
+		})
+		for i, style := range styles {
+			if i != 0 {
+				fmt.Fprintf(sb, ",")
+			}
+			fmt.Fprintf(sb, " %v", style)
+		}
+	}
+	fmt.Fprintf(sb, "\n")
+	return sb.String()
 }
 
 func FindSystemFonts(dirs []string) (*SystemFonts, error) {
