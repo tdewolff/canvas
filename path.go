@@ -250,13 +250,13 @@ func (p *Path) StartPos() Point {
 	return Point{}
 }
 
-// Coords returns all the coordinates of the segment start/end points.
+// Coords returns all the coordinates of the segment start/end points. It omits zero-length CloseCmds.
 func (p *Path) Coords() []Point {
 	coords := []Point{}
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		i += cmdLen(cmd)
-		if len(coords) == 0 || !Equal(coords[len(coords)-1].X, p.d[i-3]) || !Equal(coords[len(coords)-1].Y, p.d[i-2]) {
+		if len(coords) == 0 || cmd != CloseCmd || !coords[len(coords)-1].Equals(Point{p.d[i-3], p.d[i-2]}) {
 			coords = append(coords, Point{p.d[i-3], p.d[i-2]})
 		}
 	}
@@ -266,62 +266,73 @@ func (p *Path) Coords() []Point {
 // CoordDirections returns the direction of the segment start/end points. It will return the average direction at the intersection of two end points, and for an open path it will simply return the direction of the start and end points of the path.
 func (p *Path) CoordDirections() []Point {
 	dirs := []Point{}
-	for _, ps := range p.Split() {
-		first := len(dirs)
-		closed := ps.Closed()
+	var first int
+	var closed bool
+	var start, end Point
+	var n1Prev, n0, n1 Point
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		i += cmdLen(cmd)
 
-		var start, end Point
-		var n1Prev, n0, n1 Point
-		for i := 0; i < len(ps.d); {
-			cmd := ps.d[i]
-			i += cmdLen(cmd)
+		start = end
+		end = Point{p.d[i-3], p.d[i-2]}
+		if cmd == CloseCmd && start.Equals(end) {
+			closed = true
+			continue
+		}
 
-			start = end
-			end = Point{ps.d[i-3], ps.d[i-2]}
-
-			n1Prev = n1
-			switch cmd {
-			case LineToCmd, CloseCmd:
-				n := end.Sub(start).Norm(1.0)
-				n0, n1 = n, n
-			case QuadToCmd, CubeToCmd:
-				var cp1, cp2 Point
-				if cmd == QuadToCmd {
-					cp := Point{p.d[i-5], p.d[i-4]}
-					cp1, cp2 = quadraticToCubicBezier(start, cp, end)
-				} else {
-					cp1 = Point{p.d[i-7], p.d[i-6]}
-					cp2 = Point{p.d[i-5], p.d[i-4]}
-				}
-				n0 = cubicBezierNormal(start, cp1, cp2, end, 0.0, 1.0).Rot90CCW()
-				n1 = cubicBezierNormal(start, cp1, cp2, end, 1.0, 1.0).Rot90CCW()
-			case ArcToCmd:
-				rx, ry, phi := p.d[i-7], p.d[i-6], p.d[i-5]
-				large, sweep := toArcFlags(p.d[i-4])
-				_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
-				n0 = ellipseNormal(rx, ry, phi, sweep, theta0, 1.0).Rot90CCW()
-				n1 = ellipseNormal(rx, ry, phi, sweep, theta1, 1.0).Rot90CCW()
-			}
-
-			if cmd == MoveToCmd {
-				continue
-			}
-
-			var dir Point
-			if first == len(dirs) {
-				dir = n0
+		n1Prev = n1
+		switch cmd {
+		case LineToCmd, CloseCmd:
+			n := end.Sub(start).Norm(1.0)
+			n0, n1 = n, n
+		case QuadToCmd, CubeToCmd:
+			var cp1, cp2 Point
+			if cmd == QuadToCmd {
+				cp := Point{p.d[i-5], p.d[i-4]}
+				cp1, cp2 = quadraticToCubicBezier(start, cp, end)
 			} else {
+				cp1 = Point{p.d[i-7], p.d[i-6]}
+				cp2 = Point{p.d[i-5], p.d[i-4]}
+			}
+			n0 = cubicBezierNormal(start, cp1, cp2, end, 0.0, 1.0).Rot90CCW()
+			n1 = cubicBezierNormal(start, cp1, cp2, end, 1.0, 1.0).Rot90CCW()
+		case ArcToCmd:
+			rx, ry, phi := p.d[i-7], p.d[i-6], p.d[i-5]
+			large, sweep := toArcFlags(p.d[i-4])
+			_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
+			n0 = ellipseNormal(rx, ry, phi, sweep, theta0, 1.0).Rot90CCW()
+			n1 = ellipseNormal(rx, ry, phi, sweep, theta1, 1.0).Rot90CCW()
+		}
+
+		if cmd != MoveToCmd {
+			dir := n0
+			if first < len(dirs) {
 				dir = n1Prev.Add(n0).Norm(1.0)
 			}
 			dirs = append(dirs, dir)
+		} else if first < len(dirs) {
+			// MoveTo, start of new subpath
+			dir := n1Prev
+			if closed {
+				dir = n1Prev.Add(dirs[first]).Norm(1.0)
+				dirs[first] = dir
+			}
+			dirs = append(dirs, dir)
+			first = len(dirs) - 1
 		}
-
+		closed = cmd == CloseCmd
+	}
+	if first < len(dirs) {
 		dir := n1
 		if closed {
 			dir = n1.Add(dirs[first]).Norm(1.0)
 			dirs[first] = dir
 		}
 		dirs = append(dirs, dir)
+	} else if len(dirs) == 0 && 0 < len(p.d) {
+		// path is one MoveTo
+		dirs = append(dirs, Point{})
 	}
 	return dirs
 }
