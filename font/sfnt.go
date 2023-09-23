@@ -88,6 +88,44 @@ func (sfnt *SFNT) GlyphName(glyphID uint16) string {
 	return sfnt.Post.Get(glyphID)
 }
 
+// VerticalMetrics returns the ascender, descender, and line gap values. It returns the "win" values, or the "typo" values if OS/2.FsSelection.USE_TYPO_METRICS is set. If those are zero or not set, default to the "hhea" values.
+func (sfnt *SFNT) VerticalMetrics() (uint16, uint16, uint16) {
+	// see https://learn.microsoft.com/en-us/typography/opentype/spec/recom#baseline-to-baseline-distances
+	var ascender, descender, lineGap uint16
+	if 0 < sfnt.Hhea.Ascender {
+		ascender = uint16(sfnt.Hhea.Ascender)
+	}
+	if sfnt.Hhea.Descender < 0 {
+		descender = uint16(-sfnt.Hhea.Descender)
+	}
+	if 0 < sfnt.Hhea.LineGap {
+		lineGap = uint16(sfnt.Hhea.LineGap)
+	}
+
+	if (sfnt.OS2.FsSelection & 0x0080) != 0 { // USE_TYPO_METRICS
+		if 0 < sfnt.OS2.STypoAscender && sfnt.OS2.STypoDescender < 0 {
+			ascender = uint16(sfnt.OS2.STypoAscender)
+			descender = uint16(-sfnt.OS2.STypoDescender)
+			if 0 < sfnt.OS2.STypoLineGap {
+				lineGap = uint16(sfnt.OS2.STypoLineGap)
+			} else {
+				lineGap = 0
+			}
+		}
+	} else {
+		if sfnt.OS2.UsWinAscent != 0 && sfnt.OS2.UsWinDescent != 0 {
+			ascender, descender = sfnt.OS2.UsWinAscent, sfnt.OS2.UsWinDescent
+			externalLeading := int(sfnt.Hhea.Ascender-sfnt.Hhea.Descender+sfnt.Hhea.LineGap) - int(sfnt.OS2.UsWinAscent+sfnt.OS2.UsWinDescent)
+			if 0 < externalLeading {
+				lineGap = uint16(externalLeading)
+			} else {
+				lineGap = 0
+			}
+		}
+	}
+	return ascender, descender, lineGap
+}
+
 // GlyphPath draws the glyph's contour as a path to the pather interface. It will use the specified ppem (pixels-per-EM) for hinting purposes. The path is draws to the (x,y) coordinate and scaled using the given scale factor.
 func (sfnt *SFNT) GlyphPath(p Pather, glyphID, ppem uint16, x, y, scale float64, hinting Hinting) error {
 	if sfnt.IsTrueType {

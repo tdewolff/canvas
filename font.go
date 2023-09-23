@@ -668,11 +668,12 @@ func (m FontMetrics) String() string {
 // Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explanation of the different metrics.
 func (face *FontFace) Metrics() FontMetrics {
 	sfnt := face.Font.SFNT
+	ascender, descender, lineGap := sfnt.VerticalMetrics()
 	return FontMetrics{
-		LineHeight: face.mmPerEm * float64(sfnt.Hhea.Ascender-sfnt.Hhea.Descender+sfnt.Hhea.LineGap),
-		Ascent:     face.mmPerEm * float64(sfnt.Hhea.Ascender),
-		Descent:    face.mmPerEm * float64(-sfnt.Hhea.Descender),
-		LineGap:    face.mmPerEm * float64(sfnt.Hhea.LineGap),
+		LineHeight: face.mmPerEm * float64(ascender+descender+lineGap),
+		Ascent:     face.mmPerEm * float64(ascender),
+		Descent:    face.mmPerEm * float64(descender),
+		LineGap:    face.mmPerEm * float64(lineGap),
 		XHeight:    face.mmPerEm * float64(sfnt.OS2.SxHeight),
 		CapHeight:  face.mmPerEm * float64(sfnt.OS2.SCapHeight),
 		XMin:       face.mmPerEm * float64(sfnt.Head.XMin),
