@@ -75,17 +75,30 @@ Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise pl
 ## Users
 This is a non-exhaustive list of library users I've come across. PRs are welcome to extend the list!
 
-* https://github.com/aldernero/sketchy
-* https://github.com/davidhampgonsalves/quickdraw
-* https://github.com/engelsjk/go-annular
-* https://github.com/fullstack-lang/gongdoc
-* https://github.com/jansorg/marketplace-stats
-* https://github.com/kpym/marianne
-* https://github.com/namsor/go-qrcode
-* https://github.com/peteraba/roadmapper
-* https://github.com/stv0g/vand
-* https://github.com/uncopied/chirograph
-* https://github.com/winkula/dragons
+* https://github.com/aldernero/gaul (generative art utility library)
+* https://github.com/aldernero/sketchy (generative art framework)
+* https://github.com/carbocation/genomisc (genomics tools)
+* https://github.com/davidhampgonsalves/life-dashboard (show text and emoticons in Kindle)
+* https://github.com/davidhampgonsalves/quickdraw (grid of Google Quick Draw Drawings)
+* https://github.com/dotaspirit/dotaspirit (draw Dota match data: https://vk.com/rsltdtk)
+* https://github.com/engelsjk/go-annular (generative art of annular rings)
+* https://github.com/eukarya-inc/reearth-plateauview
+* https://github.com/octohelm/gio-compose (UI component solution for Gio)
+* https://github.com/holedaemon/gopster (Topster port)
+* https://github.com/iand/genster (family trees)
+* https://github.com/jansorg/marketplace-stats (reports for JetBrains marketplace)
+* https://github.com/kpym/marianne (French repulic logo)
+* https://github.com/mrmelon54/favicon (Favicon generator)
+* https://github.com/namsor/go-qrcode (QR code encoder)
+* https://github.com/omniskop/vitrum (GUI framework)
+* https://github.com/Pavel7004/GraphPlot (plot graphs)
+* https://github.com/peteraba/roadmapper (tracking roadmaps: https://rdmp.app/)
+* https://github.com/Preston-PLB/choRenderer (render chord charts in propresenter7)
+* https://github.com/stv0g/vand (camper/van monitor and control)
+* https://github.com/uncopied/chirograph (barcode security for art)
+* https://github.com/uncopied/go-qrcode (QR code encoder)
+* https://github.com/wisepythagoras/gis-utils (GIS utilities)
+* https://supertxt.net/git/st-int.html (SuperTXT integrations)
 
 ## Articles
 * [Numerically stable quadratic formula](https://math.stackexchange.com/questions/866331/numerically-stable-algorithm-for-solving-the-quadratic-equation-when-a-is-very/2007723#2007723)
