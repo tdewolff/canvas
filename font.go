@@ -352,7 +352,7 @@ func (f *Font) Face(size float64, ifill interface{}, deco ...FontDecorator) *Fon
 	}
 	face.Deco = deco
 	face.Hinting = font.VerticalHinting
-	face.mmPerEm = face.Size / float64(face.Font.Head.UnitsPerEm)
+	face.MmPerEm = face.Size / float64(face.Font.Head.UnitsPerEm)
 	return face
 }
 
@@ -599,7 +599,7 @@ func (family *FontFamily) Face(size float64, args ...interface{}) *FontFace {
 		face.XOffset = int32(float64(xOffset) / scale)
 		face.YOffset = int32(float64(yOffset) / scale)
 	}
-	face.mmPerEm = face.Size / float64(face.Font.Head.UnitsPerEm)
+	face.MmPerEm = face.Size / float64(face.Font.Head.UnitsPerEm)
 	return face
 }
 
@@ -630,7 +630,7 @@ type FontFace struct {
 	// line height
 	// shadow
 
-	mmPerEm float64 // millimeters per EM unit!
+	MmPerEm float64 // millimeters per EM unit!
 }
 
 // Equals returns true when two font face are equal.
@@ -670,23 +670,23 @@ func (face *FontFace) Metrics() FontMetrics {
 	sfnt := face.Font.SFNT
 	ascender, descender, lineGap := sfnt.VerticalMetrics()
 	return FontMetrics{
-		LineHeight: face.mmPerEm * float64(ascender+descender+lineGap),
-		Ascent:     face.mmPerEm * float64(ascender),
-		Descent:    face.mmPerEm * float64(descender),
-		LineGap:    face.mmPerEm * float64(lineGap),
-		XHeight:    face.mmPerEm * float64(sfnt.OS2.SxHeight),
-		CapHeight:  face.mmPerEm * float64(sfnt.OS2.SCapHeight),
-		XMin:       face.mmPerEm * float64(sfnt.Head.XMin),
-		YMin:       face.mmPerEm * float64(sfnt.Head.YMin),
-		XMax:       face.mmPerEm * float64(sfnt.Head.XMax),
-		YMax:       face.mmPerEm * float64(sfnt.Head.YMax),
+		LineHeight: face.MmPerEm * float64(ascender+descender+lineGap),
+		Ascent:     face.MmPerEm * float64(ascender),
+		Descent:    face.MmPerEm * float64(descender),
+		LineGap:    face.MmPerEm * float64(lineGap),
+		XHeight:    face.MmPerEm * float64(sfnt.OS2.SxHeight),
+		CapHeight:  face.MmPerEm * float64(sfnt.OS2.SCapHeight),
+		XMin:       face.MmPerEm * float64(sfnt.Head.XMin),
+		YMin:       face.MmPerEm * float64(sfnt.Head.YMin),
+		XMax:       face.MmPerEm * float64(sfnt.Head.XMax),
+		YMax:       face.MmPerEm * float64(sfnt.Head.YMax),
 	}
 }
 
 // PPEM returns the pixels-per-EM for a given resolution of the font face.
 func (face *FontFace) PPEM(resolution Resolution) uint16 {
 	// ppem is for hinting purposes only, this does not influence glyph advances
-	return uint16(resolution.DPMM() * face.mmPerEm * float64(face.Font.Head.UnitsPerEm))
+	return uint16(resolution.DPMM() * face.MmPerEm * float64(face.Font.Head.UnitsPerEm))
 }
 
 // LineHeight returns the height (ascent+descent) of a line.
@@ -711,7 +711,7 @@ func (face *FontFace) textWidth(glyphs []text.Glyph) float64 {
 			w -= glyph.YAdvance
 		}
 	}
-	return face.mmPerEm * float64(w)
+	return face.MmPerEm * float64(w)
 }
 
 func (face *FontFace) heights(mode WritingMode) (float64, float64, float64, float64) {
@@ -748,7 +748,7 @@ func (face *FontFace) ToPath(s string) (*Path, float64, error) {
 
 func (face *FontFace) toPath(glyphs []text.Glyph, ppem uint16) (*Path, float64, error) {
 	p := &Path{}
-	f := face.mmPerEm
+	f := face.MmPerEm
 	x, y := face.XOffset, face.YOffset
 	for _, glyph := range glyphs {
 		err := face.Font.GlyphPath(p, glyph.ID, ppem, f*float64(x+glyph.XOffset), f*float64(y+glyph.YOffset), f, font.NoHinting)
@@ -765,7 +765,7 @@ func (face *FontFace) toPath(glyphs []text.Glyph, ppem uint16) (*Path, float64, 
 	if face.FauxItalic != 0.0 {
 		p = p.Transform(Identity.Shear(face.FauxItalic, 0.0))
 	}
-	return p, face.mmPerEm * float64(x), nil
+	return p, face.MmPerEm * float64(x), nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -787,10 +787,10 @@ func (underline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
 	y := -face.Size * underlineDistance
 	if face.Font.Post.UnderlineThickness != 0 {
-		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
+		r = face.MmPerEm * float64(face.Font.Post.UnderlineThickness)
 	}
 	if face.Font.Post.UnderlinePosition != 0 {
-		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
+		y = face.MmPerEm * float64(face.Font.Post.UnderlinePosition)
 	}
 	y -= r
 
@@ -813,7 +813,7 @@ func (overline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
 	y := face.Metrics().Ascent
 	if face.Font.Post.UnderlineThickness != 0 {
-		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
+		r = face.MmPerEm * float64(face.Font.Post.UnderlineThickness)
 	}
 	y -= 0.5 * r
 
@@ -839,10 +839,10 @@ func (strikethrough) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
 	y := face.Metrics().XHeight / 2.0
 	if face.Font.OS2.YStrikeoutSize != 0 {
-		r = face.mmPerEm * float64(face.Font.OS2.YStrikeoutSize)
+		r = face.MmPerEm * float64(face.Font.OS2.YStrikeoutSize)
 	}
 	if face.Font.OS2.YStrikeoutPosition != 0 {
-		y = face.mmPerEm * float64(face.Font.OS2.YStrikeoutPosition)
+		y = face.MmPerEm * float64(face.Font.OS2.YStrikeoutPosition)
 	}
 	y += 0.5 * r
 
@@ -868,10 +868,10 @@ func (doubleUnderline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
 	y := -face.Size * underlineDistance
 	if face.Font.Post.UnderlineThickness != 0 {
-		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
+		r = face.MmPerEm * float64(face.Font.Post.UnderlineThickness)
 	}
 	if face.Font.Post.UnderlinePosition != 0 {
-		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
+		y = face.MmPerEm * float64(face.Font.Post.UnderlinePosition)
 	}
 	y -= r
 
@@ -896,10 +896,10 @@ func (dottedUnderline) Decorate(face *FontFace, w float64) *Path {
 	r := 0.5 * face.Size * underlineThickness
 	y := -face.Size * underlineDistance
 	if face.Font.Post.UnderlineThickness != 0 {
-		r = 0.5 * face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
+		r = 0.5 * face.MmPerEm * float64(face.Font.Post.UnderlineThickness)
 	}
 	if face.Font.Post.UnderlinePosition != 0 {
-		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
+		y = face.MmPerEm * float64(face.Font.Post.UnderlinePosition)
 	}
 	y -= 2.0 * r
 	w -= 2.0 * r
@@ -934,10 +934,10 @@ func (dashedUnderline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
 	y := -face.Size * underlineDistance
 	if face.Font.Post.UnderlineThickness != 0 {
-		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
+		r = face.MmPerEm * float64(face.Font.Post.UnderlineThickness)
 	}
 	if face.Font.Post.UnderlinePosition != 0 {
-		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
+		y = face.MmPerEm * float64(face.Font.Post.UnderlinePosition)
 	}
 	y -= r
 
@@ -967,10 +967,10 @@ func (wavyUnderline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
 	y := -face.Size * underlineDistance
 	if face.Font.Post.UnderlineThickness != 0 {
-		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
+		r = face.MmPerEm * float64(face.Font.Post.UnderlineThickness)
 	}
 	if face.Font.Post.UnderlinePosition != 0 {
-		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
+		y = face.MmPerEm * float64(face.Font.Post.UnderlinePosition)
 	}
 	y -= r
 
@@ -1012,10 +1012,10 @@ func (sineUnderline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
 	y := -face.Size * underlineDistance
 	if face.Font.Post.UnderlineThickness != 0 {
-		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
+		r = face.MmPerEm * float64(face.Font.Post.UnderlineThickness)
 	}
 	if face.Font.Post.UnderlinePosition != 0 {
-		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
+		y = face.MmPerEm * float64(face.Font.Post.UnderlinePosition)
 	}
 	y -= r
 
@@ -1056,10 +1056,10 @@ func (sawtoothUnderline) Decorate(face *FontFace, w float64) *Path {
 	r := face.Size * underlineThickness
 	y := -face.Size * underlineDistance
 	if face.Font.Post.UnderlineThickness != 0 {
-		r = face.mmPerEm * float64(face.Font.Post.UnderlineThickness)
+		r = face.MmPerEm * float64(face.Font.Post.UnderlineThickness)
 	}
 	if face.Font.Post.UnderlinePosition != 0 {
-		y = face.mmPerEm * float64(face.Font.Post.UnderlinePosition)
+		y = face.MmPerEm * float64(face.Font.Post.UnderlinePosition)
 	}
 	y -= r
 

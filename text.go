@@ -160,7 +160,7 @@ func (l line) Heights(mode WritingMode) (float64, float64, float64, float64) {
 			if span.IsText() {
 				for _, glyph := range span.Glyphs {
 					if glyph.Vertical {
-						width = math.Max(width, 1.2*span.Face.mmPerEm*float64(glyph.SFNT.GlyphAdvance(glyph.ID))) // TODO: what left/right padding should upright characters in a vertical layout have?
+						width = math.Max(width, 1.2*span.Face.MmPerEm*float64(glyph.SFNT.GlyphAdvance(glyph.ID))) // TODO: what left/right padding should upright characters in a vertical layout have?
 					} else {
 						spanTop, spanAscent, spanDescent, spanBottom := span.Face.heights(mode)
 						top = math.Max(top, spanTop)
@@ -1090,8 +1090,8 @@ func (t *Text) WalkDecorations(callback func(fill Paint, deco *Path)) {
 				if !found {
 					// remove active decoration and draw it
 					decoSpan := active[i-di]
-					xOffset := span.Face.mmPerEm * float64(span.Face.XOffset)
-					yOffset := span.Face.mmPerEm * float64(span.Face.YOffset)
+					xOffset := span.Face.MmPerEm * float64(span.Face.XOffset)
+					yOffset := span.Face.MmPerEm * float64(span.Face.YOffset)
 					p := decoSpan.deco.Decorate(decoSpan.face, decoSpan.x1-decoSpan.x0)
 					p = p.Translate(decoSpan.x0+xOffset, -line.y+yOffset)
 
@@ -1130,8 +1130,8 @@ func (t *Text) WalkLines(callback func(float64, []TextSpan)) {
 func (t *Text) WalkSpans(callback func(float64, float64, TextSpan)) {
 	for _, line := range t.lines {
 		for _, span := range line.spans {
-			xOffset := span.Face.mmPerEm * float64(span.Face.XOffset)
-			yOffset := span.Face.mmPerEm * float64(span.Face.YOffset)
+			xOffset := span.Face.MmPerEm * float64(span.Face.XOffset)
+			yOffset := span.Face.MmPerEm * float64(span.Face.YOffset)
 			if t.WritingMode == HorizontalTB {
 				callback(span.X+xOffset, -line.y+yOffset, span)
 			} else {
