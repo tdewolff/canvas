@@ -826,7 +826,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		}
 
 		// set y position of line
-		var ascent, descent, bottom float64
+		/*var ascent, descent, bottom float64
 		if len(line.spans) == 0 {
 			_, ascent, descent, bottom = runs[glyphIndices.index(i)].Face.heights(rt.mode)
 		} else {
@@ -840,12 +840,14 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			// line doesn't fit
 			t.Text = log[:glyphs[a].Cluster]
 			break
-		}
-		line.y = y + ascent
+		}*/
+		faceSize := runs[glyphIndices.index(i)].Face.Size
+		lineHeight := faceSize * lineSpacing * 1.13
+		line.y = y + lineHeight
 
 		// add line
 		t.lines = append(t.lines, line)
-		y += ascent + bottom
+		y += lineHeight
 
 		ai, ag = bi, bg
 	}
