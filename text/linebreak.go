@@ -523,7 +523,7 @@ START:
 		if b.Line+1 < len(breaks) {
 			breaks[b.Line+1].Width -= b.W
 		}
-		if b.Ratio < -1.0 || Tolerance < b.Ratio {
+		if b.Ratio < -1.0 || Tolerance < b.Ratio || b.Ratio > 1.0 {
 			b.Ratio = 0.0
 		}
 		breaks[b.Line] = b
