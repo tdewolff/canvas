@@ -703,26 +703,47 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	objectOffset = 0 // index into objects
 	lineSpacing := 1.0 + lineStretch
 	for j := range breaks {
-		eolSkip := 0
+		// j is the current line
+		// [ai,bi) is the range of items
+		// [ag,bg) is the range of glyphs
+		eolSkip := 0 // number of glyphs after the last box
 		bi, bg := breaks[j].Position, ag
-		for _, item := range items[ai:bi] {
-			if item.Type == canvasText.GlueType && breaks[j].Ratio != 0.0 {
-				// apply stretching or shrinking of glue (whitespace)
-				for i := bg; i < bg+item.Size; i++ {
-					adv := 0.0
-					face := runs[glyphIndices.index(i)].Face
-					ppem := float64(face.Font.SFNT.Head.UnitsPerEm)
-					if 0.0 < breaks[j].Ratio && !math.IsInf(item.Stretch, 0.0) {
-						adv = breaks[j].Ratio * item.Stretch
-					} else if breaks[j].Ratio < 0.0 && !math.IsInf(item.Shrink, 0.0) {
-						adv = breaks[j].Ratio * item.Shrink
+
+		// apply stretching or shrinking of glue (whitespace)
+		// find run of glue/penalty and sum the width, stretch, and shrink values
+		// then calculate the final stretch/shrink factor and apply to all glyphs in the run
+		if breaks[j].Ratio != 0.0 {
+			ag2, bg2 := ag, ag
+			width, stretch, shrink := 0.0, 0.0, 0.0
+			for i := ai; i <= bi; i++ {
+				if i == bi || items[i].Type == canvasText.BoxType {
+					if 0.0 < width {
+						adv := 0.0
+						if 0.0 < breaks[j].Ratio && !math.IsInf(stretch, 0.0) {
+							adv = breaks[j].Ratio * stretch
+						} else if breaks[j].Ratio < 0.0 && !math.IsInf(shrink, 0.0) {
+							adv = breaks[j].Ratio * shrink
+						}
+						adv /= width // stretch/shrink factor
+						for g := ag2; g < bg2; g++ {
+							glyphs[g].XAdvance += int32(adv*float64(glyphs[g].XAdvance) + 0.5)
+						}
 					}
-					// proportional to glyph in item
-					adv *= (float64(glyphs[i].XAdvance) / ppem * face.Size) / item.Width
-					glyphs[i].XAdvance += int32(adv*ppem/face.Size + 0.5)
+					width, stretch, shrink = 0.0, 0.0, 0.0
+					bg2 = ag2
+				} else if items[i].Type == canvasText.GlueType {
+					width += items[i].Width
+					stretch += items[i].Stretch
+					shrink += items[i].Shrink
+				}
+				if i < bi {
+					bg2 += items[i].Size
 				}
 			}
-			// skip glue/hyphens at end of line (before breakpoint)
+		}
+
+		// skip glue/hyphens at end of line (before breakpoint)
+		for _, item := range items[ai:bi] {
 			if item.Type == canvasText.BoxType {
 				eolSkip = 0
 			} else {
