@@ -729,16 +729,17 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 							glyphs[g].XAdvance += int32(adv*float64(glyphs[g].XAdvance) + 0.5)
 						}
 					}
+					if i == bi {
+						break
+					}
 					width, stretch, shrink = 0.0, 0.0, 0.0
-					bg2 = ag2
+					ag2 = bg2 + items[i].Size
 				} else if items[i].Type == canvasText.GlueType {
 					width += items[i].Width
 					stretch += items[i].Stretch
 					shrink += items[i].Shrink
 				}
-				if i < bi {
-					bg2 += items[i].Size
-				}
+				bg2 += items[i].Size
 			}
 		}
 
