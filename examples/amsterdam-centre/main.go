@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/gob"
 	"fmt"
 	"image/color"
+	"os"
 
 	"github.com/paulmach/orb"
 	"github.com/paulmach/osm"
@@ -20,21 +22,44 @@ func main() {
 	renderers.Write("out.png", c, canvas.DPMM(8.0))
 }
 
+func fetch(filename string, bounds *osm.Bounds) (*osm.OSM, error) {
+	if _, err := os.Stat(filename); err == nil {
+		m := &osm.OSM{}
+		if f, err := os.Open(filename); err != nil {
+			return nil, err
+		} else if err := gob.NewDecoder(f).Decode(m); err != nil {
+			return nil, err
+		}
+		return m, nil
+	}
+
+	fmt.Printf("Fetching %s from OSM API...", filename)
+	m, err := osmapi.Map(context.Background(), bounds)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("done")
+	if f, err := os.Create(filename); err != nil {
+		return m, err
+	} else if err := gob.NewEncoder(f).Encode(m); err != nil {
+		return m, err
+	}
+	return m, nil
+}
+
 func draw(c *canvas.Context) {
 	xmin, xmax := 4.8884, 4.9090
 	ymin, ymax := 52.3659, 52.3779
 
 	xmid := xmin + (xmax-xmin)/2.0
-	fmt.Print("Fetching data from OSM API...")
-	ams0, err := osmapi.Map(context.Background(), &osm.Bounds{ymin, ymax, xmin, xmid})
+	ams0, err := fetch("ams0.osm", &osm.Bounds{ymin, ymax, xmin, xmid})
 	if err != nil {
 		panic(err)
 	}
-	ams1, err := osmapi.Map(context.Background(), &osm.Bounds{ymin, ymax, xmid, xmax})
+	ams1, err := fetch("ams1.osm", &osm.Bounds{ymin, ymax, xmid, xmax})
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("done")
 
 	categories := map[string]color.RGBA{
 		"route_primary":     {248, 201, 103, 255},
@@ -48,12 +73,11 @@ func draw(c *canvas.Context) {
 	}
 
 	c.SetFillColor(color.RGBA{235, 227, 205, 255})
-	c.DrawPath(0.0, 0.0, canvas.Rectangle(141.0, 111.0))
+	c.DrawPath(0.0, 0.0, canvas.Rectangle(100.0, 100.0))
 
 	lines := map[string]*canvas.Path{}
 	rings := map[string]*canvas.Path{}
 	for _, ams := range []*osm.OSM{ams0, ams1} {
-
 		fc, err := osmgeojson.Convert(ams,
 			osmgeojson.NoID(true),
 			osmgeojson.NoMeta(true),
@@ -150,9 +174,9 @@ func draw(c *canvas.Context) {
 
 	xscale := 100.0 / (xmax - xmin)
 	yscale := 100.0 / (ymax - ymin)
-	c.SetView(canvas.Identity.Translate(0.0, 0.0).Scale(xscale, yscale).Translate(-xmin, -ymin))
+	view := canvas.Identity.Translate(0.0, 0.0).Scale(xscale, yscale).Translate(-xmin, -ymin)
 
-	c.SetStrokeWidth(0.2)
+	c.SetStrokeWidth(0.1)
 	catOrder := []string{"water", "route_pedestrian", "route_residential", "route_secondary", "route_primary", "route_transit", "park", "building"}
 	for _, cat := range catOrder {
 		c.SetFillColor(categories[cat])
@@ -162,7 +186,7 @@ func draw(c *canvas.Context) {
 			c.SetStrokeColor(canvas.Transparent)
 		}
 		if lines[cat] != nil {
-			width := 0.00015
+			width := 0.5
 			if cat == "route_residential" {
 				width /= 1.5
 			} else if cat == "route_primary" {
@@ -172,10 +196,13 @@ func draw(c *canvas.Context) {
 			} else if cat == "route_transit" {
 				width /= 8.0
 			}
-			c.DrawPath(0.0, 0.0, lines[cat].Stroke(width, canvas.RoundCap, canvas.RoundJoin, 0.01))
+			p := lines[cat].Transform(view)
+			p = p.Stroke(width, canvas.RoundCap, canvas.RoundJoin, 0.01)
+			c.DrawPath(0.0, 0.0, p)
 		}
 		if rings[cat] != nil {
-			c.DrawPath(0.0, 0.0, rings[cat])
+			p := rings[cat].Transform(view)
+			c.DrawPath(0.0, 0.0, p)
 		}
 	}
 
