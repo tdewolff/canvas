@@ -52,11 +52,11 @@ Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise pl
 - - [gonum/plot](https://github.com/gonum/plot)
 
 ## Examples
-**[Street Map](https://github.com/tdewolff/canvas/tree/master/examples/map)**: the centre of Amsterdam is drawn from data loaded from the Open Street Map API.
+**[Amsterdam city centre](https://github.com/tdewolff/canvas/tree/master/examples/amsterdam-centre)**: the centre of Amsterdam is drawn from data loaded from the Open Street Map API.
 
-**[Mauna-Loa CO2 concentration](https://github.com/tdewolff/canvas/tree/master/examples/graph)**: using data from the Mauna-Loa observatory, carbon dioxide concentrations over time are drawn
+**[Mauna-Loa CO2 concentration](https://github.com/tdewolff/canvas/tree/master/examples/co2-mauna-loa)**: using data from the Mauna-Loa observatory, carbon dioxide concentrations over time are drawn
 
-**[PDF document](https://github.com/tdewolff/canvas/tree/master/examples/document)**: an example of a text document using the PDF backend.
+**[Text document](https://github.com/tdewolff/canvas/tree/master/examples/text-document)**: an example of a text document using the PDF backend.
 
 **[OpenGL](https://github.com/tdewolff/canvas/tree/master/examples/opengl)**: an example using the OpenGL backend.
 
