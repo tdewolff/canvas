@@ -128,7 +128,7 @@ func draw(c *canvas.Context) {
 	c.Push()
 	c.ComposeView(canvas.Identity.Rotate(90))
 	text := rt.ToText(0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0)
-	c.DrawText(40.0, 10.0, text)
+	c.DrawText(-10.0, 40.0, text)
 	c.Pop()
 	c.DrawText(60.0, -10.0, canvas.NewTextLine(labelFace, "Year", canvas.Center))
 
