@@ -33,6 +33,7 @@ func ellipseDeriv2(rx, ry, phi float64, theta float64) Point {
 }
 
 func ellipseCurvatureRadius(rx, ry float64, sweep bool, theta float64) float64 {
+	// positive for ccw / sweep
 	// phi has no influence on the curvature
 	dp := ellipseDeriv(rx, ry, 0.0, sweep, theta)
 	ddp := ellipseDeriv2(rx, ry, 0.0, theta)

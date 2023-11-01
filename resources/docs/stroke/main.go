@@ -66,10 +66,16 @@ func draw(c *canvas.Context) {
 	drawStrokedPath(c, 80.0, 67.0, pathJoiner, canvas.ButtCap, canvas.BevelJoin)
 
 	drawText(c, 123.0, 77.0, "MiterJoin")
-	drawStrokedPath(c, 130.0, 67.0, pathJoiner, canvas.ButtCap, canvas.MiterClipJoin(canvas.BevelJoin, math.NaN()))
+	drawStrokedPath(c, 130.0, 67.0, pathJoiner, canvas.ButtCap, canvas.MiterJoiner{canvas.BevelJoin, math.NaN()})
 
 	drawText(c, 173.0, 77.0, "ArcsJoin")
-	drawStrokedPath(c, 180.0, 67.0, pathJoiner, canvas.ButtCap, canvas.ArcsClipJoin(canvas.BevelJoin, math.NaN()))
+	drawStrokedPath(c, 180.0, 67.0, pathJoiner, canvas.ButtCap, canvas.ArcsJoiner{canvas.BevelJoin, math.NaN()})
+
+	drawText(c, 123.0, 35.0, "MiterClipJoin")
+	drawStrokedPath(c, 130.0, 25.0, pathJoiner, canvas.ButtCap, canvas.MiterJoiner{nil, 1.5})
+
+	drawText(c, 173.0, 35.0, "ArcsClipJoin")
+	drawStrokedPath(c, 180.0, 25.0, pathJoiner, canvas.ButtCap, canvas.ArcsJoiner{nil, 1.5})
 
 	strokeWidth = 15.0
 	drawText(c, 25.0, 35.0, "Tight corners")

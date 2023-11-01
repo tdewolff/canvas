@@ -1204,7 +1204,7 @@ func (p *Path) Markers(first, mid, last *Path, align bool) []*Path {
 	return markers
 }
 
-// Split splits the path into its independent subpaths. The path is split before each MoveTo command. None of the subpaths shall be empty.
+// Split splits the path into its independent subpaths. The path is split before each MoveTo command.
 func (p *Path) Split() []*Path {
 	var i, j int
 	ps := []*Path{}

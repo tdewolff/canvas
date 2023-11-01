@@ -99,7 +99,7 @@ type RoundJoiner struct{}
 func (RoundJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
 	rEnd := pivot.Add(n1)
 	lEnd := pivot.Sub(n1)
-	cw := n0.Rot90CW().Dot(n1) >= 0.0
+	cw := 0.0 <= n0.Rot90CW().Dot(n1)
 	if cw { // bend to the right, ie. CW (or 180 degree turn)
 		rhs.LineTo(rEnd.X, rEnd.Y)
 		lhs.ArcTo(halfWidth, halfWidth, 0.0, false, false, lEnd.X, lEnd.Y)
@@ -113,13 +113,9 @@ func (RoundJoiner) String() string {
 	return "Round"
 }
 
-// MiterJoin connects two path elements by extending the ends of the paths as lines until they meet. If this point is further than 2 mm * (strokeWidth / 2.0) away, this will result in a bevel join.
-var MiterJoin Joiner = MiterJoiner{BevelJoin, 2.0}
-
-// MiterClipJoin returns a MiterJoiner with given limit*strokeWidth/2.0 in mm upon which the gapJoiner function will be used. Limit can be NaN so that the gapJoiner is never used.
-func MiterClipJoin(gapJoiner Joiner, limit float64) Joiner {
-	return MiterJoiner{gapJoiner, limit}
-}
+// MiterJoin connects two path elements by extending the ends of the paths as lines until they meet. If this point is further than the limit, this will result in a bevel join (MiterJoin) or they will meet at the limit (MiterClipJoin).
+var MiterJoin Joiner = MiterJoiner{BevelJoin, 4.0}
+var MiterClipJoin Joiner = MiterJoiner{nil, 4.0}
 
 // MiterJoiner is a miter joiner.
 type MiterJoiner struct {
@@ -135,45 +131,58 @@ func (j MiterJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point
 	}
 	limit := math.Max(j.Limit, 1.001) // otherwise nearly linear joins will also get clipped
 
-	cw := n0.Rot90CW().Dot(n1) >= 0.0
+	cw := 0.0 <= n0.Rot90CW().Dot(n1)
 	hw := halfWidth
 	if cw {
 		hw = -hw // used to calculate |R|, when running CW then n0 and n1 point the other way, so the sign of r0 and r1 is negated
 	}
 
 	theta := n0.AngleBetween(n1) / 2.0
-	d := hw / math.Cos(theta)
-	if !math.IsNaN(limit) && limit*halfWidth < math.Abs(d) {
+	d := hw / math.Cos(theta) // half the miter length
+	clip := !math.IsNaN(limit) && limit*halfWidth < math.Abs(d)
+	if clip && j.GapJoiner != nil {
 		j.GapJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	}
-	mid := pivot.Add(n0.Add(n1).Norm(d))
 
 	rEnd := pivot.Add(n1)
 	lEnd := pivot.Sub(n1)
-	if cw { // bend to the right, ie. CW
-		lhs.LineTo(mid.X, mid.Y)
+	mid := pivot.Add(n0.Add(n1).Norm(d))
+	if clip {
+		// miter-clip
+		t := math.Abs(limit * halfWidth / d)
+		if cw { // bend to the right, ie. CW
+			mid0 := lhs.Pos().Interpolate(mid, t)
+			mid1 := lEnd.Interpolate(mid, t)
+			lhs.LineTo(mid0.X, mid0.Y)
+			lhs.LineTo(mid1.X, mid1.Y)
+		} else {
+			mid0 := rhs.Pos().Interpolate(mid, t)
+			mid1 := rEnd.Interpolate(mid, t)
+			rhs.LineTo(mid0.X, mid0.Y)
+			rhs.LineTo(mid1.X, mid1.Y)
+		}
 	} else {
-		rhs.LineTo(mid.X, mid.Y)
+		if cw { // bend to the right, ie. CW
+			lhs.LineTo(mid.X, mid.Y)
+		} else {
+			rhs.LineTo(mid.X, mid.Y)
+		}
 	}
 	rhs.LineTo(rEnd.X, rEnd.Y)
 	lhs.LineTo(lEnd.X, lEnd.Y)
 }
 
 func (j MiterJoiner) String() string {
-	if math.IsNaN(j.Limit) {
-		return "Miter"
+	if j.GapJoiner == nil {
+		return "MiterClip"
 	}
-	return "MiterClip"
+	return "Miter"
 }
 
-// ArcsJoin connects two path elements by extending the ends of the paths as circle arcs until they meet. If this point is further than 10 mm * (strokeWidth / 2.0) away, this will result in a bevel join.
-var ArcsJoin Joiner = ArcsJoiner{BevelJoin, 10.0}
-
-// ArcsClipJoin returns an ArcsJoiner with given limit in mm*strokeWidth/2.0 upon which the gapJoiner function will be used. Limit can be NaN so that the gapJoiner is never used.
-func ArcsClipJoin(gapJoiner Joiner, limit float64) Joiner {
-	return ArcsJoiner{gapJoiner, limit}
-}
+// ArcsJoin connects two path elements by extending the ends of the paths as circle arcs until they meet. If this point is further than the limit, this will result in a bevel join (ArcsJoin) or they will meet at the limit (ArcsClipJoin).
+var ArcsJoin Joiner = ArcsJoiner{BevelJoin, 4.0}
+var ArcsClipJoin Joiner = ArcsJoiner{nil, 4.0}
 
 // ArcsJoiner is an arcs joiner.
 type ArcsJoiner struct {
@@ -181,7 +190,21 @@ type ArcsJoiner struct {
 	Limit     float64
 }
 
-// Join adds a join to a right-hand-side and left-hand-side path, of width 2*halfWidth, around a pivot point with starting and ending normals of n0 and n1, and radius of curvatures of the previous and next segments.
+func closestArcIntersection(c Point, cw bool, pivot, i0, i1 Point) Point {
+	thetaPivot := pivot.Sub(c).Angle()
+	dtheta0 := i0.Sub(c).Angle() - thetaPivot
+	dtheta1 := i1.Sub(c).Angle() - thetaPivot
+	if cw { // arc runs clockwise, so look the other way around
+		dtheta0 = -dtheta0
+		dtheta1 = -dtheta1
+	}
+	if angleNorm(dtheta1) < angleNorm(dtheta0) {
+		return i1
+	}
+	return i0
+}
+
+// Join adds a join to a right-hand-side and left-hand-side path, of width 2*halfWidth, around a pivot point with starting and ending normals of n0 and n1, and radius of curvatures of the previous and next segments, which are positive for CCW arcs.
 func (j ArcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point, r0, r1 float64) {
 	if n0.Equals(n1.Neg()) {
 		BevelJoin.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
@@ -192,7 +215,7 @@ func (j ArcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point,
 	}
 	limit := math.Max(j.Limit, 1.001) // 1.001 so that nearly linear joins will not get clipped
 
-	cw := n0.Rot90CW().Dot(n1) >= 0.0
+	cw := 0.0 <= n0.Rot90CW().Dot(n1)
 	hw := halfWidth
 	if cw {
 		hw = -hw // used to calculate |R|, when running CW then n0 and n1 point the other way, so the sign of r0 and r1 is negated
@@ -223,30 +246,94 @@ func (j ArcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point,
 	}
 	if !ok {
 		// no intersection
-		j.GapJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
+		BevelJoin.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	}
 
 	// find the closest intersection when following the arc (using either arc r0 or r1 with center c0 or c1 respectively)
-	c, rcw := c0, r0 < 0.0
-	if math.IsNaN(r0) {
-		c, rcw = c1, r1 >= 0.0
-	}
-	thetaPivot := pivot.Sub(c).Angle()
-	dtheta0 := i0.Sub(c).Angle() - thetaPivot
-	dtheta1 := i1.Sub(c).Angle() - thetaPivot
-	if rcw { // r runs clockwise, so look the other way around
-		dtheta0 = -dtheta0
-		dtheta1 = -dtheta1
-	}
-	mid := i0
-	if angleNorm(dtheta1) < angleNorm(dtheta0) {
-		mid = i1
+	var mid Point
+	if !math.IsNaN(r0) {
+		mid = closestArcIntersection(c0, r0 < 0.0, pivot, i0, i1)
+	} else {
+		mid = closestArcIntersection(c1, 0.0 <= r1, pivot, i0, i1)
 	}
 
-	if !math.IsNaN(limit) && limit*halfWidth < mid.Sub(pivot).Length() {
+	// check arc limit
+	d := mid.Sub(pivot).Length()
+	clip := !math.IsNaN(limit) && limit*halfWidth < d
+	if clip && j.GapJoiner != nil {
 		j.GapJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
+	}
+
+	mid2 := mid
+	if clip {
+		// arcs-clip
+		start, end := pivot.Add(n0), pivot.Add(n1)
+		if cw {
+			start, end = pivot.Sub(n0), pivot.Sub(n1)
+		}
+
+		var clipMid, clipNormal Point
+		if !math.IsNaN(r0) && !math.IsNaN(r1) && (0.0 < r0) == (0.0 < r1) {
+			// circle have opposite direction/sweep
+			// NOTE: this may cause the bevel to be imperfectly oriented
+			clipMid = mid.Sub(pivot).Norm(limit * halfWidth)
+			clipNormal = clipMid.Rot90CCW()
+		} else {
+			// circle in between both stroke edges
+			rMid := (r0 - r1) / 2.0
+			if math.IsNaN(r0) {
+				rMid = -(r1 + hw) * 2.0
+			} else if math.IsNaN(r1) {
+				rMid = (r0 + hw) * 2.0
+			}
+
+			sweep := 0.0 < rMid
+			RMid := math.Abs(rMid)
+			cx, cy, a0, _ := ellipseToCenter(pivot.X, pivot.Y, RMid, RMid, 0.0, false, sweep, mid.X, mid.Y)
+			cMid := Point{cx, cy}
+			dtheta := limit * halfWidth / rMid
+
+			clipMid = EllipsePos(RMid, RMid, 0.0, cMid.X, cMid.Y, a0+dtheta)
+			clipNormal = ellipseNormal(RMid, RMid, 0.0, sweep, a0+dtheta, 1.0)
+		}
+
+		if math.IsNaN(r1) {
+			i0, ok = intersectionRayLine(clipMid, clipMid.Add(clipNormal), mid, end)
+			if !ok {
+				// not sure when this occurs
+				BevelJoin.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
+				return
+			}
+			mid2 = i0
+		} else {
+			i0, i1, ok = intersectionRayCircle(clipMid, clipMid.Add(clipNormal), c1, R1)
+			if !ok {
+				// not sure when this occurs
+				BevelJoin.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
+				return
+			}
+			mid2 = closestArcIntersection(c1, 0.0 <= r1, pivot, i0, i1)
+		}
+
+		if math.IsNaN(r0) {
+			i0, ok = intersectionRayLine(clipMid, clipMid.Add(clipNormal), start, mid)
+			if !ok {
+				// not sure when this occurs
+				BevelJoin.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
+				return
+			}
+			mid = i0
+		} else {
+			i0, i1, ok = intersectionRayCircle(clipMid, clipMid.Add(clipNormal), c0, R0)
+			if !ok {
+				// not sure when this occurs
+				BevelJoin.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
+				return
+			}
+			mid = closestArcIntersection(c0, r0 < 0.0, pivot, i0, i1)
+		}
 	}
 
 	rEnd := pivot.Add(n1)
@@ -256,39 +343,45 @@ func (j ArcsJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point,
 		if math.IsNaN(r0) {
 			lhs.LineTo(mid.X, mid.Y)
 		} else {
-			lhs.ArcTo(R0, R0, 0.0, false, r0 > 0.0, mid.X, mid.Y)
+			lhs.ArcTo(R0, R0, 0.0, false, 0.0 < r0, mid.X, mid.Y)
+		}
+		if clip {
+			lhs.LineTo(mid2.X, mid2.Y)
 		}
 		if math.IsNaN(r1) {
 			lhs.LineTo(lEnd.X, lEnd.Y)
 		} else {
-			lhs.ArcTo(R1, R1, 0.0, false, r1 > 0.0, lEnd.X, lEnd.Y)
+			lhs.ArcTo(R1, R1, 0.0, false, 0.0 < r1, lEnd.X, lEnd.Y)
 		}
 	} else { // bend to the left, ie. CCW
 		if math.IsNaN(r0) {
 			rhs.LineTo(mid.X, mid.Y)
 		} else {
-			rhs.ArcTo(R0, R0, 0.0, false, r0 > 0.0, mid.X, mid.Y)
+			rhs.ArcTo(R0, R0, 0.0, false, 0.0 < r0, mid.X, mid.Y)
+		}
+		if clip {
+			rhs.LineTo(mid2.X, mid2.Y)
 		}
 		if math.IsNaN(r1) {
 			rhs.LineTo(rEnd.X, rEnd.Y)
 		} else {
-			rhs.ArcTo(R1, R1, 0.0, false, r1 > 0.0, rEnd.X, rEnd.Y)
+			rhs.ArcTo(R1, R1, 0.0, false, 0.0 < r1, rEnd.X, rEnd.Y)
 		}
 		lhs.LineTo(lEnd.X, lEnd.Y)
 	}
 }
 
 func (j ArcsJoiner) String() string {
-	if math.IsNaN(j.Limit) {
-		return "Arcs"
+	if j.GapJoiner == nil {
+		return "ArcsClip"
 	}
-	return "ArcsClip"
+	return "Arcs"
 }
 
 type pathStrokeState struct {
 	cmd    float64
 	p0, p1 Point   // position of start and end
-	n0, n1 Point   // normal of start and end
+	n0, n1 Point   // normal of start and end (points right when walking the path)
 	r0, r1 float64 // radius of start and end
 
 	cp1, cp2                    Point   // Béziers
@@ -441,7 +534,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner, tolerance f
 
 				if !cur.n1.Equals(next.n0.Neg()) {
 					// all turns except 0 degrees and 180 degrees are added
-					cw := cur.n1.Rot90CW().Dot(next.n0) >= 0.0
+					cw := 0.0 <= cur.n1.Rot90CW().Dot(next.n0)
 					if cw {
 						rhsInnerBends = append(rhsInnerBends, len(rhs.d)-cmdLen(LineToCmd))
 					} else {

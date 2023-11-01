@@ -547,6 +547,23 @@ func (zs Intersections) LineEllipse(l0, l1, center, radius Point, phi, theta0, t
 // see T.W. Sederberg and T. Nishita, "Curve intersection using Bézier clipping", 1990
 // see T.W. Sederberg and S.R. Parry, "Comparison of three curve intersection algorithms", 1986
 
+func intersectionRayLine(a0, a1, b0, b1 Point) (Point, bool) {
+	da := a1.Sub(a0)
+	db := b1.Sub(b0)
+	div := da.PerpDot(db)
+	if Equal(div, 0.0) {
+		// parallel
+		return Point{}, false
+	}
+
+	tb := da.PerpDot(a0.Sub(b0)) / div
+	if Interval(tb, 0.0, 1.0) {
+		fmt.Println(tb, b0.Interpolate(b1, tb))
+		return b0.Interpolate(b1, tb), true
+	}
+	return Point{}, false
+}
+
 // http://mathworld.wolfram.com/Circle-LineIntersection.html
 func intersectionRayCircle(l0, l1, c Point, r float64) (Point, Point, bool) {
 	d := l1.Sub(l0).Norm(1.0) // along line direction, anchored in l0, its length is 1

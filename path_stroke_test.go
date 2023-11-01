@@ -31,15 +31,15 @@ func TestPathStroke(t *testing.T) {
 		{"M0 0L10 0L10 10", 2.0, ButtCap, BevelJoin, "M0 -1L10 -1L11 0L11 10L9 10L9 1L0 1z"},
 		{"M0 0L10 0L10 -10", 2.0, ButtCap, BevelJoin, "M0 -1L9 -1L9 -10L11 -10L11 0L10 1L0 1z"},
 
-		{"M0 0L10 0L20 0", 2.0, ButtCap, MiterClipJoin(BevelJoin, 2.0), "M0 -1L10 -1L20 -1L20 1L10 1L0 1z"},
-		{"M0 0L10 0L5 0", 2.0, ButtCap, MiterClipJoin(BevelJoin, 2.0), "M0 -1L10 -1L10 1L5 1L5 -1L10 -1L10 1L0 1z"},
-		{"M0 0L10 0L10 10", 2.0, ButtCap, MiterClipJoin(BevelJoin, 1.0), "M0 -1L10 -1L11 0L11 10L9 10L9 1L0 1z"},
-		{"M0 0L10 0L10 10", 2.0, ButtCap, MiterClipJoin(BevelJoin, 2.0), "M0 -1L10 -1L11 -1L11 0L11 10L9 10L9 1L0 1z"},
-		{"M0 0L10 0L10 -10", 2.0, ButtCap, MiterClipJoin(BevelJoin, 2.0), "M0 -1L9 -1L9 -10L11 -10L11 0L11 1L10 1L0 1z"},
+		{"M0 0L10 0L20 0", 2.0, ButtCap, MiterJoiner{BevelJoin, 2.0}, "M0 -1L10 -1L20 -1L20 1L10 1L0 1z"},
+		{"M0 0L10 0L5 0", 2.0, ButtCap, MiterJoiner{BevelJoin, 2.0}, "M0 -1L10 -1L10 1L5 1L5 -1L10 -1L10 1L0 1z"},
+		{"M0 0L10 0L10 10", 2.0, ButtCap, MiterJoiner{BevelJoin, 1.0}, "M0 -1L10 -1L11 0L11 10L9 10L9 1L0 1z"},
+		{"M0 0L10 0L10 10", 2.0, ButtCap, MiterJoiner{BevelJoin, 2.0}, "M0 -1L10 -1L11 -1L11 0L11 10L9 10L9 1L0 1z"},
+		{"M0 0L10 0L10 -10", 2.0, ButtCap, MiterJoiner{BevelJoin, 2.0}, "M0 -1L9 -1L9 -10L11 -10L11 0L11 1L10 1L0 1z"},
 
-		{"M0 0L10 0L20 0", 2.0, ButtCap, ArcsClipJoin(BevelJoin, 2.0), "M0 -1L10 -1L20 -1L20 1L10 1L0 1z"},
-		{"M0 0L10 0L5 0", 2.0, ButtCap, ArcsClipJoin(BevelJoin, 2.0), "M0 -1L10 -1L10 1L5 1L5 -1L10 -1L10 1L0 1z"},
-		{"M0 0L10 0L10 10", 2.0, ButtCap, ArcsClipJoin(BevelJoin, 1.0), "M0 -1L10 -1L11 0L11 10L9 10L9 1L0 1z"},
+		{"M0 0L10 0L20 0", 2.0, ButtCap, ArcsJoiner{BevelJoin, 2.0}, "M0 -1L10 -1L20 -1L20 1L10 1L0 1z"},
+		{"M0 0L10 0L5 0", 2.0, ButtCap, ArcsJoiner{BevelJoin, 2.0}, "M0 -1L10 -1L10 1L5 1L5 -1L10 -1L10 1L0 1z"},
+		{"M0 0L10 0L10 10", 2.0, ButtCap, ArcsJoiner{BevelJoin, 1.0}, "M0 -1L10 -1L11 0L11 10L9 10L9 1L0 1z"},
 
 		{"M0 0L10 0L10 10L0 10z", 2.0, ButtCap, BevelJoin, "M0 -1L10 -1L11 0L11 10L10 11L0 11L-1 10L-1 0zM1 1L1 9L9 9L9 1z"},
 		{"M0 0L0 10L10 10L10 0z", 2.0, ButtCap, BevelJoin, "M-1 0L0 -1L10 -1L11 0L11 10L10 11L0 11L-1 10zM1 1L1 9L9 9L9 1z"},
@@ -56,16 +56,16 @@ func TestPathStroke(t *testing.T) {
 		{"M0 0A5 5 0 0 0 10 0A10 10 0 0 1 0 10", 2.0, ButtCap, ArcsJoin, "M1 0A4 4 0 0 0 9 0L11 0A11 11 0 0 1 0 11L0 9A9 9 0 0 0 9 0L11 0A6 6 0 0 1 -1 0z"},
 
 		// circle and line intersecting in one point
-		{"M0 0A2 2 0 0 1 2 2L5 2", 2.0, ButtCap, ArcsClipJoin(BevelJoin, 10.0), "M0 -1A3 3 0 0 1 3 2L2 1L5 1L5 3L2 3L0 3A1 1 0 0 0 1 2A1 1 0 0 0 0 1z"},
-		{"M0 4A2 2 0 0 0 2 2L5 2", 2.0, ButtCap, ArcsClipJoin(BevelJoin, 10.0), "M0 3A1 1 0 0 0 1 2A1 1 0 0 0 0 1L2 1L5 1L5 3L2 3L3 2A3 3 0 0 1 0 5z"},
-		{"M5 2L2 2A2 2 0 0 0 0 0", 2.0, ButtCap, ArcsClipJoin(BevelJoin, 10.0), "M5 3L2 3L0 3A1 1 0 0 0 1 2A1 1 0 0 0 0 1L0-1A3 3 0 0 1 3 2L2 1L5 1z"},
-		{"M5 2L2 2A2 2 0 0 1 0 4", 2.0, ButtCap, ArcsClipJoin(BevelJoin, 10.0), "M5 3L2 3L3 2A3 3 0 0 1 0 5L0 3A1 1 0 0 0 1 2A1 1 0 0 0 0 1L2 1L5 1z"},
+		{"M0 0A2 2 0 0 1 2 2L5 2", 2.0, ButtCap, ArcsJoiner{BevelJoin, 10.0}, "M0 -1A3 3 0 0 1 3 2L2 1L5 1L5 3L2 3L0 3A1 1 0 0 0 1 2A1 1 0 0 0 0 1z"},
+		{"M0 4A2 2 0 0 0 2 2L5 2", 2.0, ButtCap, ArcsJoiner{BevelJoin, 10.0}, "M0 3A1 1 0 0 0 1 2A1 1 0 0 0 0 1L2 1L5 1L5 3L2 3L3 2A3 3 0 0 1 0 5z"},
+		{"M5 2L2 2A2 2 0 0 0 0 0", 2.0, ButtCap, ArcsJoiner{BevelJoin, 10.0}, "M5 3L2 3L0 3A1 1 0 0 0 1 2A1 1 0 0 0 0 1L0-1A3 3 0 0 1 3 2L2 1L5 1z"},
+		{"M5 2L2 2A2 2 0 0 1 0 4", 2.0, ButtCap, ArcsJoiner{BevelJoin, 10.0}, "M5 3L2 3L3 2A3 3 0 0 1 0 5L0 3A1 1 0 0 0 1 2A1 1 0 0 0 0 1L2 1L5 1z"},
 
 		// cut by limit
-		{"M0 0A2 2 0 0 1 2 2L5 2", 2.0, ButtCap, ArcsClipJoin(BevelJoin, 1.0), "M0 -1A3 3 0 0 1 3 2L2 1L5 1L5 3L2 3L1 2A1 1 0 0 0 0 1z"},
+		{"M0 0A2 2 0 0 1 2 2L5 2", 2.0, ButtCap, ArcsJoiner{BevelJoin, 1.0}, "M0 -1A3 3 0 0 1 3 2L2 1L5 1L5 3L2 3L1 2A1 1 0 0 0 0 1z"},
 
 		// no intersection
-		{"M0 0A2 2 0 0 1 2 2L5 2", 3.0, ButtCap, ArcsClipJoin(BevelJoin, 10.0), "M0 -1.5A3.5 3.5 0 0 1 3.5 2L2 .5L5 .5L5 3.5L2 3.5L.5 2A.5 .5 0 0 0 0 1.5z"},
+		{"M0 0A2 2 0 0 1 2 2L5 2", 3.0, ButtCap, ArcsJoiner{BevelJoin, 10.0}, "M0 -1.5A3.5 3.5 0 0 1 3.5 2L2 .5L5 .5L5 3.5L2 3.5L.5 2A.5 .5 0 0 0 0 1.5z"},
 	}
 	for _, tt := range tts {
 		t.Run(tt.orig, func(t *testing.T) {
