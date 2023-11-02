@@ -15,14 +15,24 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster i
 **Figure 1**: top-left you can see text being fitted into a box, justified using Donald Knuth's linea breaking algorithm to stretch the spaces between words to fill the whole width. You can observe a variety of styles and text decorations applied, as well as support for LTR/RTL mixing and complex scripts. In the bottom-right the word "stroke" is being stroked and drawn as a path. Top-right we see a LaTeX formula that has been converted to a path. Left of that we see an ellipse showcasing precise dashing, notably the length of e.g. the short dash is equal wherever it is on the curve. Note that the dashes themselves are elliptical arcs as well (thus exactly precise even if magnified greatly). To the right we see a closed polygon of four points being smoothed by cubic Béziers that are smooth along the whole path, and the blue line on the left shows a smoothed open path. On the bottom you can see a rotated rasterized image. The bottom-left shows path boolean operations. The result is equivalent for all renderers (PNG, PDF, SVG, etc.).
 
 ### Sponsors
-
 Please see https://www.patreon.com/tdewolff for ways to contribute, otherwise please contact me directly!
+
+## State
+Whether this library is ready for production environments is up to your own judgment. In general, this library is written thoughtfully and complete, but the scope of this work is so big and the implementation can be quite complex that inevitably it must have a great amount of bugs. Effort was put in writing unit and fuzz tests so that I suspect only special use-cases will stumble into bugs, but coverage is still lacking. As time permits, work is done to flesh-out functionality, find bugs, and optimize code. Optimization could be in execution time / reducing code complexity, reducing memory footprint, or reducing the length of paths from operation.
+
+Please issue bug reports or feature requests to help this library mature! All help is appreciated. Also see [Wiki - Planning](https://github.com/tdewolff/canvas/wiki/Planning) for an inexhaustive list of ideas and TODOs.
 
 ## Recent changes
 - `Context` view and coordinate view have been altered. `View` now doesn't affect the coordinate view/system. To achieve the same as before, replace `ctx.SetView(m)` by `ctx.SetView(m); ctx.SetCoordView(m)`. The change makes coordinate systems more intuitive when using in combination with views, the given coordinate reflects the coordinate where it is drawn irrespective of the view.
 - `Flatten()`, `Stroke()`, and `Offset()` now require an additional `tolerance` variable, which used to be set by the `Tolerance` parameter with a default value of `0.01`. To get the original behaviour, use `Flatten(0.01)`, `Stroke(width, capper, joiner, 0.01)`, and `Offset(width, fillRule, 0.01)`.
 - `Interior()` is renamed to `Fills()`
 - `ParseSVG` and `MustParseSVG` are now `ParseSVGPath` and `MustParseSVGPath` to avoid confusion that it parses entire SVGs
+- Instead of `MiterClipJoin(limit)` use `MiterClipJoiner{nil, limit}` or `MiterClipJoin` to use the default limit of `4.0`, same for `ArcsClipJoin`
+- `Path.Segments` has been deprecated, please use `Path.Scanner`
+- `*LocalFont` have been deprecated, please use `*SystemFont`
+- `RichText.SetFaceSpan` has been deprecated
+- `RichText.Add` has been deprecated, please use `RichText.WriteFace`
+- `RichText.Add*` have been deprecated, please use `RichText.Write*`
 
 ## Features
 - Path segment types: MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close

@@ -42,9 +42,9 @@ func main() {
 	draw(ctx, -158.0, p0.Append(p1), a)
 	draw2(ctx, -170.0, p0.Append(p1), a)
 
-	a = canvas.Rectangle(2.0, 4.0).Translate(1.0, 0.0)
-	b := canvas.Rectangle(4.0, 2.0).Translate(0.0, 1.0)
-	b = b.Append(canvas.Circle(1.0).Reverse().Translate(3.0, 3.0))
+	a = canvas.Rectangle(2.0, 4.0).Translate(6.0, 5.0)
+	b := canvas.Rectangle(4.0, 2.0).Translate(5.0, 6.0)
+	b = b.Append(canvas.Circle(1.0).Reverse().Translate(8.0, 8.0))
 	draw(ctx, -194.0, a, b)
 
 	c.Fit(1.0)
@@ -60,9 +60,10 @@ func draw2(ctx *canvas.Context, y float64, p, q *canvas.Path) {
 	p = p.Flatten(0.01)
 	q = q.Flatten(0.01)
 
-	ctx.SetFillColor(canvas.Hex("#CCC8"))
+	ctx.SetFillColor(canvas.Hex("#CC08"))
 	ctx.SetStrokeColor(canvas.Transparent)
 	ctx.DrawPath(3.0, y, p)
+	ctx.SetFillColor(canvas.Hex("#C0C8"))
 	ctx.DrawPath(3.0, y, q)
 
 	ctx.SetFillColor(canvas.Transparent)
@@ -94,9 +95,10 @@ func draw(ctx *canvas.Context, y float64, p, q *canvas.Path) {
 	p = p.Flatten(0.01)
 	q = q.Flatten(0.01)
 
-	ctx.SetFillColor(canvas.Hex("#CCC8"))
+	ctx.SetFillColor(canvas.Hex("#CC08"))
 	ctx.SetStrokeColor(canvas.Transparent)
 	ctx.DrawPath(3.0, y, p)
+	ctx.SetFillColor(canvas.Hex("#C0C8"))
 	ctx.DrawPath(3.0, y, q)
 
 	ctx.SetFillColor(canvas.Transparent)

@@ -55,29 +55,29 @@ func TestPathAppend(t *testing.T) {
 }
 
 func TestPathJoin(t *testing.T) {
+	var tests = []struct {
+		p, q     string
+		expected string
+	}{
+		{"M5 0L5 10", "", "M5 0L5 10"},
+		{"", "M5 0L5 10", "M5 0L5 10"},
+		{"M5 0L5 10", "L10 15", "M5 0L5 10M0 0L10 15"},
+		{"M5 0L5 10z", "M5 0L10 15", "M5 0L5 10zM5 0L10 15"},
+		{"M5 0L5 10", "M5 10L10 15", "M5 0L5 10L10 15"},
+		{"M5 0L5 10", "L10 15M20 15L25 15", "M5 0L5 10M0 0L10 15M20 15L25 15"},
+		{"M5 0L5 10", "M5 10L10 15M20 15L25 15", "M5 0L5 10L10 15M20 15L25 15"},
+		{"M5 0L10 5", "M10 5L15 10", "M5 0L15 10"},
+		{"M5 0L10 5", "L5 5z", "M5 0L10 5M0 0L5 5z"},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
+			p := MustParseSVGPath(tt.p).Join(MustParseSVGPath(tt.q))
+			test.T(t, p, MustParseSVGPath(tt.expected))
+		})
+	}
+
 	test.T(t, MustParseSVGPath("M5 0L5 10").Join(nil), MustParseSVGPath("M5 0L5 10"))
-	test.T(t, (&Path{}).Join(MustParseSVGPath("M5 0L5 10")), MustParseSVGPath("M5 0L5 10"))
-
-	p := MustParseSVGPath("M5 0L5 10").Join(MustParseSVGPath("L10 15"))
-	test.T(t, p, MustParseSVGPath("M5 0L5 10M0 0L10 15"))
-
-	p = MustParseSVGPath("M5 0L5 10z").Join(MustParseSVGPath("M5 0L10 15"))
-	test.T(t, p, MustParseSVGPath("M5 0L5 10zM5 0L10 15"))
-
-	p = MustParseSVGPath("M5 0L5 10").Join(MustParseSVGPath("M5 10L10 15"))
-	test.T(t, p, MustParseSVGPath("M5 0L5 10L10 15"))
-
-	p = MustParseSVGPath("M5 0L5 10").Join(MustParseSVGPath("L10 15M20 15L25 15"))
-	test.T(t, p, MustParseSVGPath("M5 0L5 10M0 0L10 15M20 15L25 15"))
-
-	p = MustParseSVGPath("M5 0L5 10").Join(MustParseSVGPath("M5 10L10 15M20 15L25 15"))
-	test.T(t, p, MustParseSVGPath("M5 0L5 10L10 15M20 15L25 15"))
-
-	p = MustParseSVGPath("M5 0L10 5").Join(MustParseSVGPath("M10 5L15 10"))
-	test.T(t, p, MustParseSVGPath("M5 0L15 10"))
-
-	p = MustParseSVGPath("M5 0L10 5").Join(MustParseSVGPath("L5 5z"))
-	test.T(t, p, MustParseSVGPath("M5 0L10 5M0 0L5 5z"))
 }
 
 func TestPathCoords(t *testing.T) {
