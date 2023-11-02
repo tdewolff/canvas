@@ -707,6 +707,12 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		// [ai,bi) is the range of items
 		// [ag,bg) is the range of glyphs
 		eolSkip := 0 // number of glyphs after the last box
+
+		// skip glues/penalties with no glyphs
+		for ai < breaks[j].Position && items[ai].Type != canvasText.BoxType {
+			ag += items[ai].Size
+			ai++
+		}
 		bi, bg := breaks[j].Position, ag
 
 		// apply stretching or shrinking of glue (whitespace)
@@ -769,7 +775,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		bi++
 
 		// absorb whitespace after breakpoint
-		for bi < len(items) && (items[bi].Type == canvasText.GlueType || items[bi].Type == canvasText.PenaltyType) {
+		for bi < len(items) && items[bi].Type == canvasText.GlueType {
 			eolSkip += items[bi].Size
 			bg += items[bi].Size
 			bi++
