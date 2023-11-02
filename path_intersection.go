@@ -447,6 +447,7 @@ func booleanIntersections(op pathOp, Zs Intersections, p, q *Path, ccwA, ccwB bo
 				tangentStart = z.tangentStart(gotoB, forwardA, forwardB)
 			}
 			r.Close()
+			r.optimizeClose()
 			R = R.Append(r)
 		}
 	}

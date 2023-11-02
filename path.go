@@ -483,17 +483,23 @@ func (p *Path) Arc(rx, ry, rot, theta0, theta1 float64) {
 
 // Close closes a (sub)path with a LineTo to the start of the path (the most recent MoveTo command). It also signals the path closes as opposed to being just a LineTo command, which can be significant for stroking purposes for example.
 func (p *Path) Close() {
-	end := p.StartPos()
 	if len(p.d) == 0 || p.d[len(p.d)-1] == CloseCmd {
+		// already closed or empty
 		return
 	} else if p.d[len(p.d)-1] == MoveToCmd {
+		// remove MoveTo + Close
 		p.d = p.d[:len(p.d)-cmdLen(MoveToCmd)]
 		return
-	} else if p.d[len(p.d)-1] == LineToCmd && Equal(p.d[len(p.d)-3], end.X) && Equal(p.d[len(p.d)-2], end.Y) {
+	}
+
+	end := p.StartPos()
+	if p.d[len(p.d)-1] == LineToCmd && Equal(p.d[len(p.d)-3], end.X) && Equal(p.d[len(p.d)-2], end.Y) {
+		// replace LineTo by Close if equal
 		p.d[len(p.d)-1] = CloseCmd
 		p.d[len(p.d)-cmdLen(LineToCmd)] = CloseCmd
 		return
-	} else if cmdLen(LineToCmd) <= len(p.d) && p.d[len(p.d)-1] == LineToCmd {
+	} else if p.d[len(p.d)-1] == LineToCmd {
+		// replace LineTo by Close if equidirectional extension
 		start := Point{p.d[len(p.d)-3], p.d[len(p.d)-2]}
 		prevStart := Point{}
 		if cmdLen(LineToCmd) < len(p.d) {
@@ -508,6 +514,43 @@ func (p *Path) Close() {
 		}
 	}
 	p.d = append(p.d, CloseCmd, end.X, end.Y, CloseCmd)
+}
+
+func (p *Path) optimizeClose() {
+	if len(p.d) == 0 || p.d[len(p.d)-1] != CloseCmd {
+		return
+	}
+
+	// find last MoveTo
+	end := Point{}
+	iMoveTo := len(p.d)
+	for 0 < iMoveTo {
+		cmd := p.d[iMoveTo-1]
+		iMoveTo -= cmdLen(cmd)
+		if cmd == MoveToCmd {
+			end = Point{p.d[iMoveTo+1], p.d[iMoveTo+2]}
+			break
+		}
+	}
+
+	if p.d[iMoveTo] == MoveToCmd && p.d[iMoveTo+cmdLen(MoveToCmd)] == LineToCmd && iMoveTo+cmdLen(MoveToCmd)+cmdLen(LineToCmd) < len(p.d)-cmdLen(CloseCmd) {
+		// replace Close + MoveTo + LineTo by Close + MoveTo if equidirectional
+		// move Close and MoveTo backward or forward along the path
+		start := Point{p.d[len(p.d)-cmdLen(CloseCmd)-3], p.d[len(p.d)-cmdLen(CloseCmd)-2]}
+		nextEnd := Point{p.d[iMoveTo+cmdLen(MoveToCmd)+cmdLen(LineToCmd)-3], p.d[iMoveTo+cmdLen(MoveToCmd)+cmdLen(LineToCmd)-2]}
+		if Equal(end.Sub(start).AngleBetween(nextEnd.Sub(end)), 0.0) {
+			// update Close
+			p.d[len(p.d)-3] = nextEnd.X
+			p.d[len(p.d)-2] = nextEnd.Y
+
+			// update MoveTo
+			p.d[iMoveTo+1] = nextEnd.X
+			p.d[iMoveTo+2] = nextEnd.Y
+
+			// remove LineTo
+			p.d = append(p.d[:iMoveTo+cmdLen(MoveToCmd)], p.d[iMoveTo+cmdLen(MoveToCmd)+cmdLen(LineToCmd):]...)
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////
@@ -1626,9 +1669,8 @@ func (seg Segment) Arc() (float64, float64, float64, bool, bool) {
 }
 
 // Segments returns the path segments as a slice of segment structures.
-// DEPRECATED
 func (p *Path) Segments() []Segment {
-	log.Println("WARNING: github.com/tdewolff/canvas/path.Segments is deprecated, please use github.com/tdewolff/canvas/path.Scanner")
+	log.Println("WARNING: github.com/tdewolff/canvas/Path.Segments is deprecated, please use github.com/tdewolff/canvas/Path.Scanner") // TODO: remove
 
 	segs := []Segment{}
 	var start, end Point
