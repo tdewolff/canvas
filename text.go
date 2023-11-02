@@ -724,6 +724,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 						} else if breaks[j].Ratio < 0.0 && !math.IsInf(shrink, 0.0) {
 							adv = breaks[j].Ratio * shrink
 						}
+						breaks[j].Width += adv
 						adv /= width // stretch/shrink factor
 						for g := ag2; g < bg2; g++ {
 							glyphs[g].XAdvance += int32(adv*float64(glyphs[g].XAdvance) + 0.5)
@@ -768,7 +769,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		bi++
 
 		// absorb whitespace after breakpoint
-		for bi < len(items) && items[bi].Type == canvasText.GlueType {
+		for bi < len(items) && (items[bi].Type == canvasText.GlueType || items[bi].Type == canvasText.PenaltyType) {
 			eolSkip += items[bi].Size
 			bg += items[bi].Size
 			bi++
@@ -1185,7 +1186,9 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
 				if err != nil {
 					panic(err)
 				}
-				p = p.Transform(Identity.Rotate(float64(span.Rotation)))
+				if span.Rotation != 0.0 {
+					p = p.Transform(Identity.Rotate(float64(span.Rotation)))
+				}
 				if resolution != 0.0 && span.Face.Hinting != font.NoHinting && span.Rotation == text.NoRotation {
 					// grid-align vertically on pixel raster, this improves font sharpness
 					_, dy := m.Pos()
