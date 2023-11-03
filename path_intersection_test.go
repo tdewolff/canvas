@@ -652,6 +652,9 @@ func TestPathAnd(t *testing.T) {
 		{"L2 0L2 2L0 2z", "L1 0L1 1L0 1z", "M1 0L1 1L0 1L0 0z"},
 		{"L1 0L1 1L0 1z", "L2 0L2 2L0 2z", "M1 0L1 1L0 1L0 0z"},
 
+		// fully parallel
+		{"L10 0L10 5L7.5 7.5L5 5L2.5 7.5L5 10L7.5 7.5L10 10L10 15L0 15z", "M7.5 7.5L5 10L2.5 7.5L5 5z", ""},
+
 		// subpaths on A cross at the same point on B
 		{"L1 0L1 1L0 1zM2 -1L2 2L1 2L1 1.1L1.6 0.5L1 -0.1L1 -1z", "M2 -1L2 2L1 2L1 -1z", "M1 1.1L1.6 0.5L1 -0.1L1 -1L2 -1L2 2L1 2z"},
 		{"L1 0L1 1L0 1zM2 -1L2 2L1 2L1 1L1.5 0.5L1 0L1 -1z", "M2 -1L2 2L1 2L1 -1z", "M1 1L1.5 0.5L1 0L1 -1L2 -1L2 2L1 2z"},
@@ -735,6 +738,9 @@ func TestPathOr(t *testing.T) {
 		{"L1 0L1 1L0 1z", "L2 0L2 1L0 1z", "M2 0L2 1L0 1L0 0z"},
 		{"L3 0L3 1L0 1z", "M1 0L2 0L2 1L1 1z", "M3 0L3 1L0 1L0 0z"},
 		{"L2 0L2 2L0 2z", "L1 0L1 1L0 1z", "M2 0L2 2L0 2L0 0z"},
+
+		// fully parallel
+		{"L10 0L10 5L7.5 7.5L5 5L2.5 7.5L5 10L7.5 7.5L10 10L10 15L0 15z", "M7.5 7.5L5 10L2.5 7.5L5 5z", "M7.5 7.5L10 10L10 15L0 15L0 0L10 0L10 5z"},
 
 		// subpaths
 		{"M1 0L3 0L3 4L1 4z", "M0 1L4 1L4 3L0 3zM2 2L2 5L5 5L5 2z", "M3 1L4 1L4 2L3 2L3 3L4 3L4 2L5 2L5 5L2 5L2 4L1 4L1 3L0 3L0 1L1 1L1 0L3 0z"}, // different winding

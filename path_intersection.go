@@ -89,6 +89,102 @@ func (p *Path) Settle() *Path {
 	return r
 }
 
+func (p *Path) Settle2() *Path {
+	if p.Empty() {
+		return p
+	}
+
+	Zs := selfCollisions(p)
+	//fmt.Println(Zs)
+
+	// duplicate intersections for intersectionNodes
+	Zs2 := make(Intersections, len(Zs)*2)
+	for i, z := range Zs {
+		Zs2[2*i+0] = z
+		z.SegA, z.SegB = z.SegB, z.SegA
+		z.TA, z.TB = z.TB, z.TA
+		z.DirA, z.DirB = z.DirB, z.DirA
+		if z.Kind == AintoB {
+			z.Kind = BintoA
+		} else if z.Kind == BintoA {
+			z.Kind = AintoB
+		}
+		Zs2[2*i+1] = z
+	}
+	idx := Zs2.ArgASort()
+	Zs2.ASort()
+	fmt.Println(Zs2)
+
+	zs2 := intersectionNodes(Zs2, p, p) // TODO: don't calculate twice for p
+	fmt.Println(zs2)
+	for i, z := range zs2 {
+		fmt.Println("", i, z.a, z.b)
+	}
+
+	// reverse intersection duplication for z.i
+	zs := make([]*intersectionNode, 0, len(zs2)/2)
+	handled := make([]bool, len(zs2))
+	for i := range zs2 {
+		if handled[i] {
+			continue
+		}
+
+		j := 0
+		for ; j < len(zs2); j++ {
+			if i != j && idx[zs2[i].i]/2 == idx[zs2[j].i]/2 {
+				break
+			}
+		}
+		handled[i] = true
+		handled[j] = true
+
+		zs2[j].prevA.nextA = zs2[i]
+		zs2[j].nextA.prevA = zs2[i]
+		zs2[j].prevB.nextB = zs2[i]
+		zs2[j].nextB.prevB = zs2[i]
+		zs = append(zs, zs2[i])
+	}
+	fmt.Println(zs)
+	for i, z := range zs {
+		fmt.Println("", i, z.a, z.b)
+	}
+
+	R := &Path{}
+	for _, z0 := range zs {
+		r := &Path{}
+		gotoB := z0.kind == BintoA
+		forward := !gotoB
+		for z := z0; ; {
+			if gotoB {
+				if forward {
+					r = r.Join(z.b)
+					z = z.nextB
+				} else {
+					r = r.Join(z.b.Reverse())
+					z = z.prevB
+				}
+			} else {
+				if forward {
+					r = r.Join(z.a)
+					z = z.nextA
+				} else {
+					r = r.Join(z.a.Reverse())
+					z = z.prevA
+				}
+			}
+			if z.i == z0.i {
+				break
+			}
+			forward = z.kind == BintoA
+			gotoB = !gotoB
+		}
+		r.Close()
+		//r.optimizeClose()
+		R = R.Append(r)
+	}
+	return R
+}
+
 func (p *Path) selfSettle() *Path {
 	// p is non-complex
 	if p.Empty() || !p.Closed() {
@@ -385,9 +481,9 @@ func booleanIntersections(op pathOp, Zs Intersections, p, q *Path, ccwA, ccwB bo
 
 	R := &Path{}
 	zs := intersectionNodes(Zs, p, q)
-	visited := map[int]map[int]bool{} // per direction
+	visited := [][]bool{} // per direction
 	for k := 0; k < K; k++ {
-		visited[k] = map[int]bool{}
+		visited = append(visited, make([]bool, len(Zs)))
 	}
 	for _, z0 := range zs {
 		for k := 0; k < K; k++ {
@@ -567,7 +663,10 @@ func (z *intersectionNode) String() string {
 	if z.parallel == NoParallel && z.tangent {
 		tangent = " Tangent"
 	}
-	return fmt.Sprintf("(%v A=[%v→,→%v] B=[%v→,→%v]%v%v%v)", z.i, z.prevA.i, z.nextA.i, z.prevB.i, z.nextB.i, z.kind, z.parallel, tangent)
+	if z.nextB == nil {
+		return fmt.Sprintf("(%v A=[%v→·→%v]%v%v%v)", z.i, z.prevA.i, z.nextA.i, z.kind, z.parallel, tangent)
+	}
+	return fmt.Sprintf("(%v A=[%v→·→%v] B=[%v→·→%v]%v%v%v)", z.i, z.prevA.i, z.nextA.i, z.prevB.i, z.nextB.i, z.kind, z.parallel, tangent)
 }
 
 func (z *intersectionNode) tangentStart(gotoB, forwardA, forwardB bool) bool {
@@ -847,7 +946,7 @@ func collisions(ps, qs []*Path, keepTangents bool) Intersections {
 		for _, q := range qs {
 			closedB, lenB := q.Closed(), q.Len()
 
-			// TODO: uses O(N^2), try sweep line or bently-ottman to reduce to O((N+K) log N)
+			// TODO: uses O(N^2), try sweep line or bently-ottman to reduce to O((N+K) log N) (or better yet https://dl.acm.org/doi/10.1145/147508.147511)
 			Zs := Intersections{}
 			segA := segOffsetA + 1
 			for i := 4; i < len(p.d); {
@@ -1071,11 +1170,11 @@ func (p *Path) SelfIntersections() Intersections {
 func selfCollisions(p *Path) Intersections {
 	Zs := Intersections{}
 
-	// TODO: uses O(N^2), try sweep line or bently-ottman to reduce to O((N+K) log N), or is there something more efficient for self-intersection finding?
+	// TODO: uses O(N^2), try sweep line or bently-ottman (or better yet https://dl.acm.org/doi/10.1145/147508.147511) to reduce to O((N+K) log N), or is there something more efficient for self-intersection finding?
 	segA := 1
 	for i := 4; i < len(p.d); {
 		if p.d[i] == CubeToCmd {
-			// TODO: find intersections in Cube
+			// TODO: find intersections in Cube after we support non-flat paths
 		}
 		pn := cmdLen(p.d[i])
 		segB := segA + 1

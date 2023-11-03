@@ -15,7 +15,7 @@ import (
 
 type intersectionKind int
 
-// AintoB is when A intersects and goes into the LHS of B, BintoA is the reversed
+// AintoB is when A intersects and goes into the left-hand side of B, BintoA is the reverse
 const (
 	AintoB intersectionKind = 1
 	BintoA intersectionKind = 2
@@ -156,6 +156,27 @@ func (zs Intersections) ASort() {
 		}
 		return zi.SegA < zj.SegA
 	})
+}
+
+// ArgASort sorts indices of intersections for curve A
+func (zs Intersections) ArgASort() []int {
+	idx := make([]int, len(zs))
+	for i := range idx {
+		idx[i] = i
+	}
+	sort.SliceStable(idx, func(i, j int) bool {
+		zi, zj := zs[idx[i]], zs[idx[j]]
+		if zi.SegA == zj.SegA {
+			if Equal(zi.TA, zj.TA) {
+				// A intersects B twice at the same point, sort in case of parallel parts
+				// TODO: is this valid?? make sure that sorting is consistent to match with order when intersections are slightly separated. That is, you have outer and inner intersection pairs related to the parallel parts in between, that should be sorted as such (outer incoming, inner incoming, inner outgoing, outer outgoing) over A
+				return zi.Kind == BintoA
+			}
+			return zi.TA < zj.TA
+		}
+		return zi.SegA < zj.SegA
+	})
+	return idx
 }
 
 // ArgBSort sorts indices of intersections for curve B
