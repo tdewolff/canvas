@@ -138,6 +138,11 @@ func (p *Path) Closed() bool {
 	return 0 < len(p.d) && p.d[len(p.d)-1] == CloseCmd
 }
 
+// PointClosed returns true if the last subpath of p is a closed path and the close command is a point and not a line.
+func (p *Path) PointClosed() bool {
+	return 6 < len(p.d) && p.d[len(p.d)-1] == CloseCmd && Equal(p.d[len(p.d)-7], p.d[len(p.d)-3]) && Equal(p.d[len(p.d)-6], p.d[len(p.d)-2])
+}
+
 // Complex returns true when path p has subpaths.
 func (p *Path) Complex() bool {
 	for i := 0; i < len(p.d); {
@@ -591,33 +596,30 @@ func (p *Path) simplifyToCoords() []Point {
 	return coords
 }
 
-func windings(zs Intersections) (int, bool) {
-	// Count intersections of ray with path. Count half an intersection on boundaries, half an intersection when on the start of the ray, and a quarter when both. Paths that cross upwards are positive and downwards are negative. Parallel boundaries (top/bottom of a rectangle for example).
+func windings(zs []PathIntersection) (int, bool) {
+	// Count intersections of ray with path. Count half an intersection on boundaries, half an intersection when on the start of the ray, and a quarter when both. Paths that cross upwards are negative and downwards are positive.
 	n := 0.0
 	boundary := false
 	for _, z := range zs {
-		if Equal(z.TA, 0.0) {
-			boundary = true
-		}
-
 		d := 1.0
-		if Equal(z.TA, 0.0) {
+		if z.Tangent {
+			boundary = true
 			d /= 2.0
 		}
-		if Equal(z.TB, 0.0) || Equal(z.TB, 1.0) {
+		if Equal(z.T, 0.0) || Equal(z.T, 1.0) {
 			d /= 2.0
 		}
-		if z.Parallel == NoParallel {
-			if angleBetweenExclusive(z.DirB, 0.0, math.Pi) {
-				n += d
+		if !z.Parallel {
+			if z.Into {
+				n -= d // path goes downwards
 			} else {
-				n -= d
+				n += d // path goes upwards
 			}
-		} else if z.Parallel == Parallel && (Equal(z.TB, 0.0) || Equal(z.TB, 1.0)) {
+		} else {
 			// Horizontal boundary, parallels give two intersections. Bend downwards virtually to create intersections that cancel out.
-			if Equal(z.TB, 1.0) {
+			if Equal(z.T, 1.0) {
 				n += d
-			} else {
+			} else if Equal(z.T, 0.0) {
 				n -= d
 			}
 		}
@@ -635,7 +637,7 @@ func (p *Path) Windings(x, y float64) (int, bool) {
 	n := 0
 	boundary := false
 	for _, pi := range p.Split() {
-		zs := pi.rayIntersections(x, y)
+		zs := pi.RayIntersections(x, y)
 		ni, boundaryi := windings(zs)
 		if boundaryi {
 			boundary = true
@@ -650,18 +652,18 @@ func (p *Path) Crossings(x, y float64) (int, bool) {
 	n := 0
 	boundary := false
 	for _, pi := range p.Split() {
-		// Count intersections of ray with path. Count half an intersection on boundaries, half an intersection when on the start of the ray, and a quarter when both. Paths that cross upwards are positive and downwards are negative. Parallel boundaries (top/bottom of a rectangle for example).
+		// Count intersections of ray with path. Count half an intersection on boundaries and half an intersection when on the start of the ray.
 		ni := 0.0
-		for _, z := range pi.rayIntersections(x, y) {
-			if Equal(z.TA, 0.0) {
+		for _, z := range pi.RayIntersections(x, y) {
+			if z.Tangent {
 				boundary = true
-			} else if z.Parallel == NoParallel {
-				if Equal(z.TB, 0.0) || Equal(z.TB, 1.0) {
+			} else if !z.Parallel {
+				if Equal(z.T, 0.0) || Equal(z.T, 1.0) {
 					ni += 0.5
 				} else {
 					ni += 1.0
 				}
-			} else if z.Parallel == Parallel && (Equal(z.TB, 0.0) || Equal(z.TB, 1.0)) {
+			} else if Equal(z.T, 0.0) || Equal(z.T, 1.0) {
 				ni -= 0.5
 			}
 		}
@@ -700,13 +702,13 @@ func (p *Path) InteriorPoint() Point {
 	// select the middle between an intersection into p and out of p
 	bounds := p.Bounds()
 	pos := Point{bounds.X, bounds.Y + bounds.H/2.0}
-	zs := p.rayIntersections(pos.X, pos.Y)
+	zs := p.RayIntersections(pos.X, pos.Y)
 
 	i := 0
-	if Equal(zs[i].TB, 0.0) || Equal(zs[i].TB, 1.0) {
-		if zs[i].Parallel == Parallel || zs[i+1].Parallel == Parallel {
+	if Equal(zs[i].T, 0.0) || Equal(zs[i].T, 1.0) {
+		if zs[i].Parallel || zs[i+1].Parallel {
 			i += 3
-			for i+1 < len(zs) && zs[i-1].Parallel == Parallel && zs[i].Parallel == Parallel {
+			for i+1 < len(zs) && zs[i-1].Parallel && zs[i].Parallel {
 				i += 2
 			}
 		} else {
@@ -728,17 +730,17 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 	filling := make([]bool, len(ps))
 	for i, pi := range ps {
 		pos := pi.InteriorPoint()              // get point inside subpath
-		zs := p.rayIntersections(pos.X, pos.Y) // get all intersections outwards
+		zs := p.RayIntersections(pos.X, pos.Y) // get all intersections outwards
 
 		// interior point may be inside another subpath
 		// remove intersections until we find the one that leaves the current subpath
 		coincides := false
 		for {
 			j := 1
-			isSelf := index[i] <= zs[0].SegB && zs[0].SegB < index[i+1]
+			isSelf := index[i] <= zs[0].Seg && zs[0].Seg < index[i+1]
 			coincides = !isSelf
 			for j < len(zs) && Equal(zs[j].X, zs[0].X) {
-				if index[i] <= zs[j].SegB && zs[j].SegB < index[i+1] {
+				if index[i] <= zs[j].Seg && zs[j].Seg < index[i+1] {
 					isSelf = true
 				} else {
 					coincides = true
@@ -762,7 +764,7 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 					break
 				}
 				found := false
-				subpath := index.get(z.SegB)
+				subpath := index.get(z.Seg)
 				for k := 0; k < len(subpaths); k++ {
 					if subpaths[k] == subpath {
 						found = true
@@ -777,9 +779,9 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 			// check if the path bends to the left (inside or encapsulates or right (outside)
 			area, areaExact := PolylineFromPathCoords(pi).Area(), math.NaN()
 			for _, subpath := range subpaths[1:] {
-				zs2 := Intersections{}
+				zs2 := []PathIntersection{}
 				for _, z := range zs {
-					if index.get(z.SegB) == subpath {
+					if index.get(z.Seg) == subpath {
 						zs2 = append(zs2, z)
 					}
 				}
@@ -799,7 +801,7 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 					}
 					if area2 < area || area2Exact < areaExact {
 						for j := 0; j < len(zs) && Equal(zs[j].X, zs[0].X); j++ {
-							if index.get(zs[j].SegB) == subpath {
+							if index.get(zs[j].Seg) == subpath {
 								zs = append(zs[:j], zs[j+1:]...)
 								j--
 							}

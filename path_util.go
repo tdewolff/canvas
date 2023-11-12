@@ -493,6 +493,14 @@ func cubicBezierDeriv2(p0, p1, p2, p3 Point, t float64) Point {
 	return p0.Add(p1).Add(p2).Add(p3)
 }
 
+func cubicBezierDeriv3(p0, p1, p2, p3 Point, t float64) Point {
+	p0 = p0.Mul(-6.0)
+	p1 = p1.Mul(18.0)
+	p2 = p2.Mul(-18.0)
+	p3 = p3.Mul(6.0)
+	return p0.Add(p1).Add(p2).Add(p3)
+}
+
 // negative when curve bends CW while following t
 func cubicBezierCurvatureRadius(p0, p1, p2, p3 Point, t float64) float64 {
 	dp := cubicBezierDeriv(p0, p1, p2, p3, t)

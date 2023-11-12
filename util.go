@@ -252,9 +252,9 @@ func (p Point) Slope() float64 {
 	return p.Y / p.X
 }
 
-// Angle returns the angle in radians between the x-axis and OP.
+// Angle returns the angle in radians [0,2PI) between the x-axis and OP.
 func (p Point) Angle() float64 {
-	return math.Atan2(p.Y, p.X)
+	return angleNorm(math.Atan2(p.Y, p.X))
 }
 
 // AngleBetween returns the angle between OP and OQ.
