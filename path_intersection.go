@@ -25,7 +25,7 @@ func (p *Path) ContainsPath(q *Path) bool {
 	for _, qi := range qs {
 		inside := false
 		for _, pi := range ps {
-			zp, _ := pathIntersections([]*Path{pi}, []*Path{qi}, false)
+			zp, _ := pathIntersections([]*Path{pi}, []*Path{qi}, false, false)
 			if len(zp) == 0 && qi.inside(pi) {
 				inside = true
 				break
@@ -286,7 +286,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 	}
 
 	// find all intersections (non-tangent) between p and q
-	zp, zq := pathIntersections(ps, qs, false)
+	zp, zq := pathIntersections(ps, qs, false, true)
 
 	// handle open subpaths
 	j, d := 0, 0 // j is index into zp/zq, d is number of removed segments
@@ -442,7 +442,6 @@ func booleanIntersections(op pathOp, zs []PathIntersectionNode) *Path {
 		startInwards[1] = true
 		invertP[1] = true
 	}
-	fmt.Println(zs)
 
 	R := &Path{}
 	visited := [][]bool{} // per direction
@@ -457,22 +456,20 @@ func booleanIntersections(op pathOp, zs []PathIntersectionNode) *Path {
 
 			r := &Path{}
 			var forwardP, forwardQ bool
-			onQ := startInwards[k] != z0.PintoQ // ensure result is CCW
-			if onQ {
-				forwardQ = invertQ[k] == z0.PintoQ
-			} else {
+			onP := startInwards[k] == z0.PintoQ // ensure result is CCW
+			if onP {
 				forwardP = invertP[k] == z0.PintoQ
+			} else {
+				forwardQ = invertQ[k] == z0.PintoQ
 			}
 
 			// don't start on parallel tangent intersection (ie. not crossing)
-			parallelTangent := z0.ParallelTangent(onQ, forwardP, forwardQ)
+			parallelTangent := z0.ParallelTangent(onP, forwardP, forwardQ)
 			if parallelTangent {
-				fmt.Println("skip")
 				continue
 			}
 
 			for z := &z0; ; {
-				fmt.Println(z, parallelTangent, "---", onQ, forwardP, forwardQ, "---", z.p.StartPos())
 				visited[k][z.i] = true
 				if z.i != z0.i && z.x != nil && (forwardP == forwardQ) != z.ParallelReversed {
 					// parallel lines for crossing intersections
@@ -483,15 +480,7 @@ func booleanIntersections(op pathOp, zs []PathIntersectionNode) *Path {
 						r = r.Join(z.x.Reverse())
 					}
 				}
-				if onQ {
-					if forwardQ {
-						r = r.Join(z.q)
-						z = z.nextQ
-					} else {
-						r = r.Join(z.prevQ.q.Reverse())
-						z = z.prevQ
-					}
-				} else {
+				if onP {
 					if forwardP {
 						r = r.Join(z.p)
 						z = z.nextP
@@ -499,20 +488,28 @@ func booleanIntersections(op pathOp, zs []PathIntersectionNode) *Path {
 						r = r.Join(z.prevP.p.Reverse())
 						z = z.prevP
 					}
+				} else {
+					if forwardQ {
+						r = r.Join(z.q)
+						z = z.nextQ
+					} else {
+						r = r.Join(z.prevQ.q.Reverse())
+						z = z.prevQ
+					}
 				}
 
 				if z.i == z0.i {
 					break
 				}
-				onQ = !onQ
+				onP = !onP
 				if parallelTangent {
 					// no-op
-				} else if onQ {
-					forwardQ = invertQ[k] == z.PintoQ
-				} else {
+				} else if onP {
 					forwardP = invertP[k] == z.PintoQ
+				} else {
+					forwardQ = invertQ[k] == z.PintoQ
 				}
-				parallelTangent = z.ParallelTangent(onQ, forwardP, forwardQ)
+				parallelTangent = z.ParallelTangent(onP, forwardP, forwardQ)
 			}
 			r.Close()
 			r.optimizeClose()
@@ -540,7 +537,7 @@ func (p *Path) Intersections(q *Path) ([]PathIntersection, []PathIntersection) {
 	if !p.Flat() {
 		q = q.Flatten(Tolerance)
 	}
-	return pathIntersections(p.Split(), q.Split(), false)
+	return pathIntersections(p.Split(), q.Split(), false, false)
 }
 
 // Touches returns true if path p and path q touch or intersect.
@@ -554,7 +551,7 @@ func (p *Path) Collisions(q *Path) ([]PathIntersection, []PathIntersection) {
 	if !p.Flat() {
 		q = q.Flatten(Tolerance)
 	}
-	return pathIntersections(p.Split(), q.Split(), true)
+	return pathIntersections(p.Split(), q.Split(), true, false)
 }
 
 // SelfIntersects returns true if path p self-intersect.
