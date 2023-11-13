@@ -442,6 +442,7 @@ func booleanIntersections(op pathOp, zs []PathIntersectionNode) *Path {
 		startInwards[1] = true
 		invertP[1] = true
 	}
+	fmt.Println(zs)
 
 	R := &Path{}
 	visited := [][]bool{} // per direction
@@ -463,9 +464,17 @@ func booleanIntersections(op pathOp, zs []PathIntersectionNode) *Path {
 				forwardP = invertP[k] == z0.PintoQ
 			}
 
+			// don't start on parallel tangent intersection (ie. not crossing)
+			parallelTangent := z0.ParallelTangent(onQ, forwardP, forwardQ)
+			if parallelTangent {
+				fmt.Println("skip")
+				continue
+			}
+
 			for z := &z0; ; {
+				fmt.Println(z, parallelTangent, "---", onQ, forwardP, forwardQ, "---", z.p.StartPos())
 				visited[k][z.i] = true
-				if z.i != z0.i && z.Parallel && (forwardP == forwardQ) != z.Reversed {
+				if z.i != z0.i && z.x != nil && (forwardP == forwardQ) != z.ParallelReversed {
 					// parallel lines for crossing intersections
 					// only show when not changing forwardness, or when parallel in reverse order
 					if forwardP {
@@ -496,11 +505,14 @@ func booleanIntersections(op pathOp, zs []PathIntersectionNode) *Path {
 					break
 				}
 				onQ = !onQ
-				if onQ {
+				if parallelTangent {
+					// no-op
+				} else if onQ {
 					forwardQ = invertQ[k] == z.PintoQ
 				} else {
 					forwardP = invertP[k] == z.PintoQ
 				}
+				parallelTangent = z.ParallelTangent(onQ, forwardP, forwardQ)
 			}
 			r.Close()
 			r.optimizeClose()

@@ -70,23 +70,31 @@ type PathIntersectionNode struct {
 	p, q *Path // path towards next node
 	x    *Path // parallel/ovarlapping path at node, can be nil
 
-	PintoQ   bool
-	Parallel bool
-	Reversed bool // P and Q have opposite direction on parallel part
+	PintoQ           bool
+	Tangent          bool
+	Parallel         bool
+	ParallelReversed bool
+}
+
+func (z PathIntersectionNode) ParallelTangent(onQ, forwardP, forwardQ bool) bool {
+	return z.Tangent && (!onQ && (forwardP && z.Parallel || !forwardP && z.prevP.Parallel) || onQ && (forwardQ && (z.Parallel && !z.ParallelReversed || z.nextQ.Parallel && z.nextQ.ParallelReversed) || !forwardQ && (z.prevQ.Parallel && !z.prevQ.ParallelReversed || z.Parallel && z.ParallelReversed)))
 }
 
 func (z PathIntersectionNode) String() string {
 	var extra string
 	if z.PintoQ {
-		extra = " PintoQ"
+		extra += " PintoQ"
 	} else {
-		extra = " QintoP"
+		extra += " QintoP"
+	}
+	if z.Tangent {
+		extra += " Tangent"
 	}
 	if z.Parallel {
 		extra += " Parallel"
-	}
-	if z.Reversed {
-		extra += " Reversed"
+		if z.ParallelReversed {
+			extra += "-Reversed"
+		}
 	}
 	return fmt.Sprintf("(%v P=[%v→·→%v] Q=[%v→·→%v]%v)", z.i, z.prevP.i, z.nextP.i, z.prevQ.i, z.nextQ.i, extra)
 }
@@ -116,25 +124,34 @@ func pathIntersectionNodes(p, q *Path, zp, zq []PathIntersection) []PathIntersec
 			j++
 		}
 
-		k0 := k
+		i0, k0 := i, k
 		for ; i < j; i++ {
 			// loop over the intersections in a subpath of p
 			idxZ[i] = k
 			if zp[i].Parallel {
-				// add parallel part to next node, skip this intersection
-				k1 := k
+				i1, k1 := i+1, k
 				if i+1 == j {
-					k1 = k0
+					i1, k1 = i0, k0
 				}
-				idxZ[i] = k1
-				zs[k1].Parallel = true
-				zs[k1].x = ps[i]
-				continue
+				reversed := zq[i1].Parallel
+
+				if zp[i].Tangent {
+					zs[k].Parallel = true
+					zs[k].ParallelReversed = reversed
+				} else {
+					// add parallel part to next node, skip this intersection
+					idxZ[i] = k1
+					zs[k1].Parallel = true
+					zs[k1].ParallelReversed = reversed
+					zs[k1].x = ps[i]
+					continue
+				}
 			}
 
 			zs[k].i = k
 			zs[k].p = ps[i]
 			zs[k].PintoQ = zp[i].Into
+			zs[k].Tangent = zp[i].Tangent
 
 			if k0 < k {
 				zs[k].prevP = &zs[k-1]
@@ -170,17 +187,7 @@ func pathIntersectionNodes(p, q *Path, zp, zq []PathIntersection) []PathIntersec
 		for ; i < j; i++ {
 			// loop over the intersections in a subpath of q
 			k := idxZ[idxP[i]] // index in zq => index in zp => index in zs
-			if zq[i].Parallel {
-				var p0, p1 int
-				p0 = idxP[i]
-				if i+1 == j {
-					p1 = idxP[i0]
-				} else {
-					p1 = idxP[i+1]
-				}
-				if p1 < p0 {
-					zs[k].Reversed = true
-				}
+			if zq[i].Parallel && !zq[i].Tangent {
 				continue
 			}
 
@@ -196,6 +203,10 @@ func pathIntersectionNodes(p, q *Path, zp, zq []PathIntersection) []PathIntersec
 			zs[idxZ[idxP[i0]]].prevQ = &zs[idxZ[idxP[i-1]]]
 			zs[idxZ[idxP[i-1]]].nextQ = &zs[idxZ[idxP[i0]]]
 		}
+	}
+
+	for _, z := range zs {
+		fmt.Printf("%v %p %p %p %p %v --- %v --- %v\n", z.i, z.prevP, z.nextP, z.prevQ, z.nextQ, z.p, z.q, z.x)
 	}
 
 	if len(zs)%2 != 0 {
@@ -593,7 +604,7 @@ func pathIntersections(ps, qs []*Path, withTangents bool) ([]PathIntersection, [
 							angleQo = angleNorm(z3.Dir[1])
 							angleQi = angleQo + angleNorm(z2.Dir[1]+math.Pi-angleQo)
 							PinQo := angleBetweenExclusive(z3.Dir[0]-dangle, angleQo-dangle, angleQi-dangle)
-							if tangent := PinQi == PinQo; withTangents || !tangent {
+							if tangent := PinQi == PinQo; withTangents || !tangent || true {
 								ji, jo := i+n-1, (i+n+m-1)%len(zs)
 								zi, zo := zs[ji], zs[jo]
 								if Equal(zi.T[0], 1.0) || Equal(zi.T[1], 1.0) || Equal(zo.T[0], 1.0) || Equal(zo.T[1], 1.0) {
@@ -604,6 +615,7 @@ func pathIntersections(ps, qs []*Path, withTangents bool) ([]PathIntersection, [
 									Seg:      segOffsetP + segsP[ji],
 									T:        zi.T[0],
 									Parallel: true,
+									Tangent:  tangent,
 								}, PathIntersection{
 									Point:   zo.Point,
 									Seg:     segOffsetP + segsP[jo],
@@ -617,6 +629,7 @@ func pathIntersections(ps, qs []*Path, withTangents bool) ([]PathIntersection, [
 										Seg:      segOffsetQ + segsQ[ji],
 										T:        zi.T[1],
 										Parallel: true,
+										Tangent:  tangent,
 									}, PathIntersection{
 										Point:   zo.Point,
 										Seg:     segOffsetQ + segsQ[jo],
@@ -636,6 +649,7 @@ func pathIntersections(ps, qs []*Path, withTangents bool) ([]PathIntersection, [
 										Seg:      segOffsetQ + segsQ[jo],
 										T:        zo.T[1],
 										Parallel: true,
+										Tangent:  tangent,
 									})
 								}
 							}
