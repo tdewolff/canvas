@@ -737,10 +737,10 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 		coincides := false
 		for {
 			j := 1
-			isSelf := index[i] <= zs[0].Seg && zs[0].Seg < index[i+1]
+			isSelf := index.in(i, zs[0].Seg)
 			coincides = !isSelf
 			for j < len(zs) && Equal(zs[j].X, zs[0].X) {
-				if index[i] <= zs[j].Seg && zs[j].Seg < index[i+1] {
+				if index.in(i, zs[j].Seg) {
 					isSelf = true
 				} else {
 					coincides = true

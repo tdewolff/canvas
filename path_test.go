@@ -376,13 +376,16 @@ func TestPathBounds(t *testing.T) {
 		{"A100 100 0 1 0 -100 100", Rect{-200, -100, 200, 200}}, // hit xmin, ymin
 		{"A100 100 0 1 1 -100 100", Rect{-100, 0, 200, 200}},    // hit xmax, ymax
 	}
+	origEpsilon := Epsilon
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
-			reset := setEpsilon(1e-6)
-			test.T(t, MustParseSVGPath(tt.p).Bounds(), tt.bounds)
-			reset()
+			Epsilon = origEpsilon
+			bounds := MustParseSVGPath(tt.p).Bounds()
+			Epsilon = 1e-6
+			test.T(t, bounds, tt.bounds)
 		})
 	}
+	Epsilon = origEpsilon
 }
 
 // for quadratic Bézier use https://www.wolframalpha.com/input/?i=length+of+the+curve+%7Bx%3D2*(1-t)*t*50.00+%2B+t%5E2*100.00,+y%3D2*(1-t)*t*66.67+%2B+t%5E2*0.00%7D+from+0+to+1
@@ -533,11 +536,13 @@ func TestPathMarkersAligned(t *testing.T) {
 		{"C0 6.66667 3.33333 10 10 10C16.66667 10 20 6.66667 20 0", []string{"L0 1L-1 0z", "M9 10A1 1 0 0 0 11 10z", "M20 0L20 1L21 0z"}},
 		{"A10 10 0 0 0 10 10A10 10 0 0 0 20 0", []string{"L0 1L-1 0z", "M9 10A1 1 0 0 0 11 10z", "M20 0L20 1L21 0z"}},
 	}
+	origEpsilon := Epsilon
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
-			reset := setEpsilon(1e-3)
+			Epsilon = origEpsilon
 			p := MustParseSVGPath(tt.p)
 			ps := p.Markers(start, mid, end, true)
+			Epsilon = 1e-3
 			if len(ps) != len(tt.rs) {
 				origs := []string{}
 				for _, p := range ps {
@@ -549,9 +554,9 @@ func TestPathMarkersAligned(t *testing.T) {
 					test.T(t, p, MustParseSVGPath(tt.rs[i]))
 				}
 			}
-			reset()
 		})
 	}
+	Epsilon = origEpsilon
 }
 
 func TestPathSplit(t *testing.T) {
@@ -604,11 +609,13 @@ func TestPathSplitAt(t *testing.T) {
 		{"A10 10 0 0 0 20 0", []float64{15.707963}, []string{"A10 10 0 0 0 10 10", "M10 10A10 10 0 0 0 20 0"}},
 		{"A10 10 0 1 0 2.9289 -7.0711", []float64{15.707963}, []string{"A10 10 0 0 0 10.024 9.9999", "M10.024 9.9999A10 10 0 1 0 2.9289 -7.0711"}},
 	}
+	origEpsilon := Epsilon
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
-			reset := setEpsilon(1e-3)
+			Epsilon = origEpsilon
 			p := MustParseSVGPath(tt.p)
 			ps := p.SplitAt(tt.d...)
+			Epsilon = 1e-3
 			if len(ps) != len(tt.rs) {
 				origs := []string{}
 				for _, p := range ps {
@@ -620,9 +627,9 @@ func TestPathSplitAt(t *testing.T) {
 					test.T(t, p, MustParseSVGPath(tt.rs[i]))
 				}
 			}
-			reset()
 		})
 	}
+	Epsilon = origEpsilon
 }
 
 func TestDashCanonical(t *testing.T) {

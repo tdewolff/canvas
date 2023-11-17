@@ -419,8 +419,10 @@ func TestCubicBezierStrokeFlatten(t *testing.T) {
 		{"C0 0 1 0 2 2", 0.0, 0.1, "L1.22865 0.8L2 2"},       // p0 == p1
 		{"C1 1 2 2 3 5", 0.0, 0.1, "L2.481111 3.612482L3 5"}, // s2 == 0
 	}
+	origEpsilon := Epsilon
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
+			Epsilon = origEpsilon
 			path := MustParseSVGPath(tt.path)
 			p0 := Point{path.d[1], path.d[2]}
 			p1 := Point{path.d[5], path.d[6]}
@@ -429,11 +431,11 @@ func TestCubicBezierStrokeFlatten(t *testing.T) {
 
 			p := &Path{}
 			flattenSmoothCubicBezier(p, p0, p1, p2, p3, tt.d, tt.tolerance)
-			reset := setEpsilon(1e-6)
+			Epsilon = 1e-6
 			test.T(t, p, MustParseSVGPath(tt.expected))
-			reset()
 		})
 	}
+	Epsilon = origEpsilon
 }
 
 func TestCubicBezierInflectionPoints(t *testing.T) {
