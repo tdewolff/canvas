@@ -506,6 +506,7 @@ func pathIntersections(p, q *Path, withTangents, withParallelTangents bool) ([]P
 		j := 0
 		if self {
 			j = i
+			offsetQ = offsetP
 		}
 		for j < len(qs) {
 			// register segment indices [1,len), or [1,len-1) when closed by zero-length close command, we add segOffset when adding to PathIntersection
@@ -513,6 +514,7 @@ func pathIntersections(p, q *Path, withTangents, withParallelTangents bool) ([]P
 			if self && i == j {
 				qsj = nil
 			}
+
 			zs, segsP, segsQ := intersectionPath(ps[i], qsj)
 			if 0 < len(zs) {
 				// omit close command with zero length
@@ -599,7 +601,7 @@ func pathIntersections(p, q *Path, withTangents, withParallelTangents bool) ([]P
 
 						reversed := endQ && zs[i+n-2].AntiAligned() || !endQ && zs[i+n-1].AntiAligned()
 						parallelStart := zs[i+n-1].Aligned() || reversed
-						if !parallelStart {
+						if !parallelStart || self {
 							// intersection at segment endpoint of one or both paths
 							// (thetaP0,thetaP1) is the LHS angle range for Q
 							// PintoQ is the incoming and outgoing direction of P into LHS of Q

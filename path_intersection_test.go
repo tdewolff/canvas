@@ -815,26 +815,34 @@ func TestPathSettle(t *testing.T) {
 		{NonZero, "L10 0L10 10L0 10zM5 5L15 5L15 15L5 15z", "M10 5L15 5L15 15L5 15L5 10L0 10L0 0L10 0z"},
 		{EvenOdd, "L10 0L10 10L0 10zM5 5L15 5L15 15L5 15z", "M10 5L15 5L15 15L5 15L5 10L0 10L0 0L10 0zM10 5L5 5L5 10L10 10z"},
 		{NonZero, "L4 0L4 4L0 4zM-1 1L1 1L1 3L-1 3zM3 1L5 1L5 3L3 3zM4.5 1.5L5.5 1.5L5.5 2.5L4.5 2.5z", "M0 1L0 0L4 0L4 1L5 1L5 1.5L5.5 1.5L5.5 2.5L5 2.5L5 3L4 3L4 4L0 4L0 3L-1 3L-1 1L0 1z"},
+		{EvenOdd, "L4 0L4 4L0 4zM-1 1L1 1L1 3L-1 3zM3 1L5 1L5 3L3 3zM4.5 1.5L5.5 1.5L5.5 2.5L4.5 2.5z", "M0 1L0 0L4 0L4 1L5 1L5 1.5L5.5 1.5L5.5 2.5L5 2.5L5 3L4 3L4 4L0 4L0 3L-1 3L-1 1L0 1zM0 1L0 3L1 3L1 1zM4 1L3 1L3 3L4 3zM5 1.5L4.5 1.5L4.5 2.5L5 2.5z"},
 
 		// tangent
-		//{NonZero, "L5 5L10 0L10 10L5 5L0 10z", "M5 5L10 0L10 10zM5 5L0 10L0 0z"},
+		//{NonZero, "L5 5L10 0L10 10L5 5L0 10z", "M5 5L10 0L10 10zM5 5L0 10L0 0z"}, // separate or one?
 		//{NonZero, "L2 2L3 0zM1 0L2 2L4 0L4 -1L1 -1z", "M2 2L0 0L1 0L1 -1L4 -1L4 0z"},
 		//{NonZero, "L2 2L3 0zM1 0L2 2L4 0L4 3L1 3z", "M1 1L1 3L4 3L4 0L2 2zM1 1L1 0L2 2L3 0L0 0z"},
 		// parallel segments
+		//{NonZero, "L1 0L1 1L0 1zM1 0L2 0L2 1L1 1z", ""},
+		//{NonZero, "L1 0L1 1L0 1zM1 0L1 1L2 1L2 0z", ""},
 		//{NonZero, "L10 0L5 2L5 8L0 10L10 10L5 8L5 2z", "M5 8L5 2L0 0L10 0L5 2L5 8L10 10L0 10z"},
+		//{NonZero, "L10 0L10 10L5 7.5L10 5L10 15L0 15z", ""},
+		//{EvenOdd, "L10 0L10 10L5 7.5L10 5L10 15L0 15z", ""},
 		//{NonZero, "L10 0L10 5L0 10L0 5L10 10L10 15L0 15z", "M5 7.5L0 5L0 0L10 0L10 5zM5 7.5L10 10L10 15L0 15L0 10z"},
 		//{NonZero, "L10 0L10 5L5 10L0 5L0 15L10 15L10 10L5 5L0 10z", "M7.5 7.5L5 5L2.5 7.5L5 10zM0 15L0 0L10 0L10 5L7.5 7.5L10 10L10 15zM2.5 7.5L0 5L0 10z"},
+		//{EvenOdd, "L10 0L10 5L5 10L0 5L0 15L10 15L10 10L5 5L0 10z", ""},
 		//{"L3 0L3 1L0 1zM1 0L1 1L2 1L2 0z", "M1 0L1 1L0 1L0 0zM2 0L3 0L3 1L2 1z"},
 
 		// non flat
 		//{"M0 1L4 1L4 3L0 3zM4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", "M4 3A1 1 0 0 0 2 3L0 3L0 1L4 1zM4 3A1 1 0 0 1 2 3z"},
 
 		// special cases
-		//{NonZero, "M1 4L0 2L1 0L2 0L2 4zM1 3L0 2L1 1z", ""}, // tangent left-most endpoing
-		//{NonZero, "M0 2L1 0L2 0L2 4L1 4zM0 2L1 1L1 3z", ""}, // tangent left-most endpoing
-		//{NonZero, "M0 2L1 0L2 0L2 4L1 4zM0 2L1 3L1 1z", ""}, // tangent left-most endpoing
-		//{NonZero, "M0 2L1 0L2 0L1 3zM0 2L1 1L2 4L1 4z", ""}, // secant left-most endpoing
-		//{NonZero, "M0 2L1 0L2 0L1 3zM0 2L1 4L2 4L1 1z", ""}, // secant left-most endpoing
+		//{NonZero, "M1 4L0 2L1 0L2 0L2 4zM1 3L0 2L1 1z", ""}, // tangent left-most endpoint
+		//{NonZero, "M0 2L1 0L2 0L2 4L1 4zM0 2L1 1L1 3z", ""}, // tangent left-most endpoint
+		//{NonZero, "M0 2L1 0L2 0L2 4L1 4zM0 2L1 3L1 1z", ""}, // tangent left-most endpoint
+		//{NonZero, "M0 2L1 0L2 0L1 3zM0 2L1 1L2 4L1 4z", ""}, // secant left-most endpoint
+		//{NonZero, "M0 2L1 0L2 0L1 3zM0 2L1 4L2 4L1 1z", ""}, // secant left-most endpoint
+		//{NonZero, "L2 0L2 2L0 2L0 1L-1 2L0 1z", ""}, // parallel left-most endpoint
+		//{NonZero, "L0 1L-1 2L0 1z", ""},             // all parallel
 
 		// example from Subramaniam's thesis
 		//{NonZero, "M0 0L5.5 10L4.5 10L9 1.5L1 8L9 8L1.6 2L3 1L5 7L8 0z", "M3.349892008639309 6.090712742980562L0 0L8 0L6.479452054794521 3.547945205479452L9 1.5L6.592324805339266 6.047830923248053L9 8L5.5588235294117645 8L4.990463215258855 9.073569482288828L4.3999999999999995 8L1 8L3.349892008639309 6.090712742980561zM3.9753086419753085 3.9259259259259265L3 1L1.6 2L3.975308641975309 3.925925925925927zM4.990463215258855 9.073569482288828L5.5 10L4.5 10L4.990463215258855 9.073569482288828z"},
@@ -929,6 +937,7 @@ func TestPathAnd(t *testing.T) {
 		//{"M23 15L24 15L24 16L23 16zM23.4 14L24.4 14L24.4 15L23.4 15z", "M15 16A1 1 0 0 1 16 15L24 15A1 1 0 0 1 25 16L25 24A1 1 0 0 1 24 25L16 25A1 1 0 0 1 15 24z", "M23 15L24 15L24 16L23 16z"},
 		//{"M23 15L24 15L24 16L23 16zM24 15.4L25 15.4L25 16.4L24 16.4z", "M14 14L24 14L24 24L14 24z", "M23 15L24 15L24 16L23 16z"},
 		{"M0 1L2 1L2 2L0 2zM3 1L5 1L5 2L3 2z", "M1 0L4 0L4 3L1 3z", "M1 1L2 1L2 2L1 2zM4 1L4 2L3 2L3 1z"},
+		//{"L5 0L5 5L0 5zM1 1L1 4L4 4L4 1z", "M3 2L6 2L6 3L3 3z", "M5 2L5 3L4 3L4 2z"},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {

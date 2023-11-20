@@ -91,10 +91,10 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 	p = p.Flatten(Tolerance) // TODO: remove when we handle quad/cube/arc intersection combinations
 
 	// zp is an list of even length where each ith intersections is a pseudo-vertex of the ith+len/2
-	zp, zq := pathIntersections(p, nil, true, true)
-	for i := range zp {
-		fmt.Println(i, zp[i])
-	}
+	zp, zq := pathIntersections(p, nil, false, true)
+	//for i := range zp {
+	//	fmt.Println(i, zp[i])
+	//}
 
 	// sort zq and keep indices between pseudo-vertices
 	pair := make([]int, len(zp))
@@ -102,9 +102,9 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 		pair[i] = i
 	}
 	sort.Stable(pathIntersectionSort{zq, pair})
-	for i := range pair {
-		fmt.Println(i, pair[i])
-	}
+	//for i := range pair {
+	//	fmt.Println(i, pair[i])
+	//}
 
 	// build up map from 2-degenerate intersections to nodes
 	k := 0
@@ -119,7 +119,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 	n := k
 
 	// cut path at intersections
-	pi, segs := cut(p, zp)
+	parts, segs := cut(p, zp)
 
 	// build up linked nodes between the intersections
 	// reverse direction for clock-wise path to ensure one of both paths goes outwards
@@ -129,8 +129,8 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 	for i, _ := range zp {
 		nodes[i].k = idxK[i]
 		nodes[i].Point = zp[i].Point
-
-		nodes[i].p = pi[i]
+		nodes[i].p = parts[i]
+		nodes[i].AintoB = zp[i].Into
 
 		// the next node on the end of a subpath should be its starting point
 		i1 := i + 1
@@ -139,13 +139,11 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 			i0, i1 = i1, i0
 		}
 		nodes[i].next = pair[i1] // next node on the intersecting (not current) path
-
-		nodes[i].AintoB = zp[i].Into
 	}
-	for i := range nodes {
-		fmt.Println(i, nodes[i], nodes[i].p)
-	}
-	fmt.Println()
+	//for i := range nodes {
+	//	fmt.Println(i, nodes[i], nodes[i].p)
+	//}
+	//fmt.Println()
 
 	// split simple (non-self-intersecting) paths from intersecting paths
 	// find the starting intersections and their winding for intersecting paths
@@ -158,93 +156,73 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 			continue
 		}
 
+		// Find the left-most path segment coordinate for each subpath, we thus know that to the
+		// right of the coordinate the path is filled and that it is an outer ring. If the path
+		// runs counter clock-wise at the coordinate, the LHS is filled, otherwise it runs
+		// clock-wise and has the RHS filled.
+		// Follow the path until the first intersection and add to the queue.
+		var pos Point
+		seg, curSeg := 0, 0
+		for i := 0; i < len(pi.d); {
+			i += cmdLen(pi.d[i])
+			if curSeg == 0 || pi.d[i-3] < pos.X {
+				pos = Point{pi.d[i-3], pi.d[i-2]}
+				seg = curSeg + 1
+				//j = i
+			}
+			curSeg++
+		}
+
+		// TODO: what if pos is a tangent intersection
+		parentWindings, _ := p.Windings(pos.X, pos.Y)
+
+		// find the intersections for the subpath
 		j1 := j0
 		for _, z := range zp[j0:] {
-			j1++
 			if segs[i] <= z.Seg {
 				break
 			}
+			j1++
 		}
-
 		if j0 == j1 {
 			// subpath has no intersections
+			winding := 1
 			ccw := pi.CCW()
-			pos := pi.StartPos() // we're sure this is not tangent with another path
-			parentWindings, _ := p.Windings(pos.X, pos.Y)
-			windings := parentWindings
-			if ccw {
-				windings++
-			} else {
-				windings--
+			if !ccw {
+				winding = -1
 			}
 
-			// orient filling paths CCW
-			filling := fillRule == EvenOdd && windings%2 != 0 || fillRule == NonZero && windings != 0
-			if ccw != filling {
+			windings := parentWindings + winding
+			fills := fillRule == EvenOdd && windings%2 != 0 || fillRule == NonZero && windings != 0
+			if ccw != fills {
+				// orient filling paths CCW
 				pi = pi.Reverse()
 			}
 			simple = simple.Append(pi)
 		} else {
-			// Find the left-most path segment coordinate for each subpath, we thus know that to the
-			// right of the coordinate the path is filled and that it is an outer ring. If the path
-			// runs counter clock-wise at the coordinate, the LHS is filled, otherwise it runs
-			// clock-wise and has the RHS filled.
-			// Follow the path until the first intersection and add to the queue.
-			var pos Point
-			j, seg, curSeg := 0, 0, 0
-			for i := 4; i < len(pi.d); i += cmdLen(pi.d[i-1]) {
-				if curSeg == 0 || pi.d[i-3] < pos.X {
-					pos = Point{pi.d[i-3], pi.d[i-2]}
-					seg = curSeg + 1
-					j = i
-				}
-				curSeg++
-			}
-
-			// check if the path at the location is running clock-wise or counter clock-wise
-			cur := Point{pi.d[j-3], pi.d[j-2]}
-			jPrev, jNext := j-cmdLen(pi.d[j]), j+cmdLen(pi.d[j])
-			if jPrev == 0 {
-				jPrev = len(pi.d) - cmdLen(CloseCmd)
-			}
-			if jNext == len(pi.d) {
-				jNext = cmdLen(MoveToCmd)
-			}
-			prev := Point{pi.d[jPrev-3], pi.d[jPrev-2]}
-			next := Point{pi.d[jNext-3], pi.d[jNext-2]}
-			dangle := next.Sub(cur).Angle() - cur.Sub(prev).Angle()
-
-			// for vertically aligned endpoints, we always pick the first so that dangle!=0.0
-			var ccw bool
-			if angleEqual(dangle, math.Pi) {
-				// TODO: segments are anti-aligned (parallel)
-				panic("not handled")
-			} else {
-				// if the endpoint turns to the left following the path, it must be CCW
-				ccw = angleBetween(dangle, 0.0, math.Pi)
-			}
-
 			// find the first intersection that follows
-			idx := j0
+			next := j0
 			for j := j0; j < j1; j++ {
 				if seg <= zp[j].Seg {
-					idx = j
+					next = j
 					break
 				}
 			}
 
-			// TODO: what if pos is a tangent intersection
-			parentWindings, _ := p.Windings(pos.X, pos.Y)
-			winding := 0
-			if ccw {
-				winding++
-			} else {
-				winding--
+			// get the previous intersection to find the whole path segment including the left-most
+			// vertex, this will allow us to determine if this part runs counter clock-wise
+			prev := next - 1
+			if prev < j0 {
+				prev = j1 - 1
 			}
-			fmt.Println("init", pos, "ccw", ccw, "node", idx)
-			//if (winding == 1) == nodes[idx].AintoB {
-			idx = pair[idx]
-			//}
+			winding := 1
+			if !parts[prev].CCW() {
+				winding = -1
+			}
+
+			// from the intersection, we will follow the "other" path first
+			next = pair[next]
+			//fmt.Println("init", pos, seg, "ccw", ccw, "node", idx)
 
 			// insert into queueDisjoint reverse sorted by X
 			// if the path goes ccw, then the LHS is filled when arriving at the intersection
@@ -253,7 +231,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 				k--
 			}
 
-			item := nodeItem{idx, parentWindings, winding}
+			item := nodeItem{next, parentWindings, winding}
 			queue = append(queue[:k], append([]nodeItem{item}, queue[k:]...)...)
 			xs = append(xs[:k], append([]float64{pos.X}, xs[k:]...)...)
 		}
@@ -382,20 +360,6 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 	}
 
 	ps, qs := p.Split(), q.Split()
-	p = &Path{}
-	for i := range ps {
-		if ps[i].Closed() && !ps[i].CCW() {
-			fmt.Println("warn: pi != ccw")
-			ps[i] = ps[i].Reverse()
-		}
-		p = p.Append(ps[i])
-	}
-	for i := range qs {
-		if qs[i].Closed() && !qs[i].CCW() {
-			fmt.Println("warn: qi != ccw")
-			qs[i] = qs[i].Reverse()
-		}
-	}
 
 	// implicitly close all subpaths of path q
 	q = &Path{} // collect all closed paths
