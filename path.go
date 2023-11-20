@@ -26,6 +26,10 @@ const (
 	EvenOdd
 )
 
+func (fillRule FillRule) Fills(windings int) bool {
+	return fillRule == EvenOdd && windings%2 != 0 || fillRule == NonZero && windings != 0
+}
+
 // Command values as powers of 2 so that the float64 representation is exact
 const (
 	MoveToCmd = 1.0 << iota //  1.0
@@ -597,38 +601,35 @@ func (p *Path) simplifyToCoords() []Point {
 	return coords
 }
 
+// windings counts intersections of ray with path. Paths that cross downwards are negative and upwards are positive. Don't count intersections on the boundary.
 func windings(zs []PathIntersection) (int, bool) {
-	// Count intersections of ray with path. Paths that cross downwards are negative and upwards are positive. Keep track if intersections are at the start of the ray (boundary) or not.
 	n := 0.0
 	boundary := false
 	for _, z := range zs {
 		d := 1.0
-		if z.Tangent {
-			boundary = true
-		}
 		if Equal(z.T, 0.0) || Equal(z.T, 1.0) {
 			d /= 2.0 // count half to not count twice
 		}
 		if !z.Parallel {
 			if z.Into {
-				n -= d // path goes downwards
-			} else {
-				n += d // path goes upwards
+				d = -d // path goes downwards
 			}
 		} else {
 			// Horizontal boundary, parallels give two intersections. Bend downwards virtually to create intersections that cancel out.
-			if Equal(z.T, 1.0) {
-				n += d
-			} else if Equal(z.T, 0.0) {
-				n -= d
+			if Equal(z.T, 0.0) {
+				d = -d
+			} else if !Equal(z.T, 1.0) {
+				d = 0.0
 			}
 		}
-	}
 
-	if boundary {
-		return 0, true
+		if z.Tangent {
+			boundary = true
+		} else {
+			n += d
+		}
 	}
-	return int(n), false // n is integer
+	return int(n), boundary // n is integer
 }
 
 // Windings returns the number of windings at the given point, i.e. the sum of windings for each time a ray from (x,y) towards (∞,y) intersects the path. Counter clock-wise intersections count as positive, while clock-wise intersections count as negative. Additionally, it returns whether the point is on a path's boundary (which counts as being on the exterior).
@@ -640,8 +641,9 @@ func (p *Path) Windings(x, y float64) (int, bool) {
 		ni, boundaryi := windings(zs)
 		if boundaryi {
 			boundary = true
+		} else {
+			n += ni
 		}
-		n += ni
 	}
 	return n, boundary
 }
@@ -788,7 +790,7 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 
 				// windings start outside (or on boundary, same result) of the subpath
 				// windings==0 it is outside, otherwise it is inside/encapsulates the current path
-				if n2, _ := windings(zs2); n2 != 0 {
+				if n2, boundary := windings(zs2); !boundary && n2 != 0 {
 					// if subpath has smaller area it inside, remove its intersections
 					area2, area2Exact := PolylineFromPathCoords(ps[subpath]).Area(), math.NaN()
 					if area == area2 || area == 0 || area2 == 0 {
@@ -815,16 +817,16 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 		if boundary {
 			// happens only when the current subpath goes up and down at the InteriorPoint
 			// or for open subpaths, count as if we we're inside the two edges
-			n++
+			n = 1
 		}
 		filling[i] = fillRule == NonZero && n != 0 || n%2 != 0
 	}
 	return filling
 }
 
-// CCW returns true when the path has (mostly) a counter clockwise direction. It does not need the path to be closed and will return true for a empty or straight line.
+// CCW returns true when the path has (mostly) a counter clockwise direction. It implictly closes open paths and will return true for a empty or straight line.
 func (p *Path) CCW() bool {
-	// use the Shoelace formula
+	// Shoelace formula
 	area := 0.0
 	for _, pi := range p.Split() {
 		coords := pi.simplifyToCoords()

@@ -836,9 +836,9 @@ func TestPathSettle(t *testing.T) {
 		//{"M0 1L4 1L4 3L0 3zM4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", "M4 3A1 1 0 0 0 2 3L0 3L0 1L4 1zM4 3A1 1 0 0 1 2 3z"},
 
 		// special cases
-		//{NonZero, "M1 4L0 2L1 0L2 0L2 4zM1 3L0 2L1 1z", ""}, // tangent left-most endpoint
-		//{NonZero, "M0 2L1 0L2 0L2 4L1 4zM0 2L1 1L1 3z", ""}, // tangent left-most endpoint
-		//{NonZero, "M0 2L1 0L2 0L2 4L1 4zM0 2L1 3L1 1z", ""}, // tangent left-most endpoint
+		{NonZero, "M1 4L0 2L1 0L2 0L2 4zM1 3L0 2L1 1z", "M1 4L0 2L1 0L2 0L2 4z"},              // tangent left-most endpoint
+		{NonZero, "M0 2L1 0L2 0L2 4L1 4zM0 2L1 1L1 3z", "M0 2L1 0L2 0L2 4L1 4z"},              // tangent left-most endpoint
+		{NonZero, "M0 2L1 0L2 0L2 4L1 4zM0 2L1 3L1 1z", "M0 2L1 0L2 0L2 4L1 4zM0 2L1 3L1 1z"}, // tangent left-most endpoint
 		//{NonZero, "M0 2L1 0L2 0L1 3zM0 2L1 1L2 4L1 4z", ""}, // secant left-most endpoint
 		//{NonZero, "M0 2L1 0L2 0L1 3zM0 2L1 4L2 4L1 1z", ""}, // secant left-most endpoint
 		//{NonZero, "L2 0L2 2L0 2L0 1L-1 2L0 1z", ""}, // parallel left-most endpoint

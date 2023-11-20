@@ -63,6 +63,55 @@ type nodeItem struct {
 	winding        int // winding of current ring (+1 or -1)
 }
 
+func leftmostWindings(subpath int, ps []*Path, x, y float64) int {
+	// Count windings on left-most coordinate, taking into account tangent intersections which may
+	// be tangent on the outside or inside of the current subpath.
+	// Secant intersections are not counted.
+	zs := ps[subpath].RayIntersections(x, y)
+	n, tangent := windings(zs)
+
+	var angle0, angle1 float64 // as this is the left-most point, must be in [-0.5*PI,0.5*PI]
+	if tangent {
+		n = 0
+		angle0 = angleNorm(zs[0].Dir + math.Pi)
+		if Equal(zs[0].T, 1.0) {
+			angle1 = zs[1].Dir
+		} else {
+			angle1 = zs[0].Dir
+		}
+		if angle1 < angle0 {
+			angle0, angle1 = angle1, angle0
+		}
+		angle0 = angle1 + angleNorm(angle0-angle1)
+	}
+
+	for i := range ps {
+		if i == subpath {
+			continue
+		}
+
+		zs := ps[i].RayIntersections(x, y)
+		ni, tangenti := windings(zs)
+		if !tangenti {
+			n += ni
+		} else if tangent {
+			var in0, in1 bool
+			in0 = angleBetweenExclusive(zs[0].Dir+math.Pi, angle1, angle0)
+			if Equal(zs[0].T, 1.0) {
+				in1 = angleBetweenExclusive(zs[1].Dir, angle1, angle0)
+			} else {
+				in1 = angleBetweenExclusive(zs[0].Dir, angle1, angle0)
+			}
+
+			if !in0 && !in1 {
+				// current subpath is outside of subpath of interest, count non-boundary windings
+				n += ni
+			}
+		}
+	}
+	return n
+}
+
 // Settle combines the path p with itself, including all subpaths, removing all self-intersections and overlapping parts. It returns subpaths with counter clockwise directions when filling, and clockwise directions for holes. This means that the result is the same whether using the EvenOdd or NonZero winding rules. The result will only contain point-tangent intersections, but not parallel-tangent intersections or regular intersections.
 // See L. Subramaniam, "Partition of a non-simple polygon into simple pologons", 2003
 func (p *Path) Settle(fillRule FillRule) *Path {
@@ -173,8 +222,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 			curSeg++
 		}
 
-		// TODO: what if pos is a tangent intersection
-		parentWindings, _ := p.Windings(pos.X, pos.Y)
+		parentWindings := leftmostWindings(i, ps, pos.X, pos.Y)
 
 		// find the intersections for the subpath
 		j1 := j0
@@ -193,12 +241,14 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 			}
 
 			windings := parentWindings + winding
-			fills := fillRule == EvenOdd && windings%2 != 0 || fillRule == NonZero && windings != 0
-			if ccw != fills {
-				// orient filling paths CCW
-				pi = pi.Reverse()
+			fills := fillRule.Fills(windings)
+			if fills != fillRule.Fills(parentWindings) {
+				if ccw != fills {
+					// orient filling paths CCW
+					pi = pi.Reverse()
+				}
+				simple = simple.Append(pi)
 			}
-			simple = simple.Append(pi)
 		} else {
 			// find the first intersection that follows
 			next := j0
@@ -222,7 +272,6 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 
 			// from the intersection, we will follow the "other" path first
 			next = pair[next]
-			//fmt.Println("init", pos, seg, "ccw", ccw, "node", idx)
 
 			// insert into queueDisjoint reverse sorted by X
 			// if the path goes ccw, then the LHS is filled when arriving at the intersection
@@ -253,7 +302,8 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 
 		i0 := cur.i
 		windings := cur.parentWindings + cur.winding
-		use := fillRule == EvenOdd || fillRule == NonZero && ((cur.parentWindings == 0) || (windings == 0))
+		fills := fillRule.Fills(windings)
+		use := fills != fillRule.Fills(cur.parentWindings)
 
 		i := i0
 		r := &Path{}
@@ -287,8 +337,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 		}
 
 		if use {
-			filling := fillRule == EvenOdd && windings%2 != 0 || fillRule == NonZero && windings != 0
-			if (cur.winding == 1) != filling {
+			if (cur.winding == 1) != fills {
 				r = r.Reverse() // orient all filling paths CCW
 			}
 			r.Close()
@@ -660,7 +709,7 @@ func (p *Path) Collisions(q *Path) ([]PathIntersection, []PathIntersection) {
 // An intersection is tangent only when it is at (x,y), i.e. the start of the ray.
 // Intersections are sorted along the ray.
 func (p *Path) RayIntersections(x, y float64) []PathIntersection {
-	seg := 0
+	seg, k0 := 0, 0
 	var start, end Point
 	var zs []Intersection
 	Zs := []PathIntersection{}
@@ -670,6 +719,7 @@ func (p *Path) RayIntersections(x, y float64) []PathIntersection {
 		switch cmd {
 		case MoveToCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
+			k0 = len(Zs)
 		case LineToCmd, CloseCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
 			ymin := math.Min(start.Y, end.Y)
@@ -707,7 +757,7 @@ func (p *Path) RayIntersections(x, y float64) []PathIntersection {
 			}
 		}
 		for _, z := range zs {
-			Zs = append(Zs, PathIntersection{
+			Z := PathIntersection{
 				Point:    z.Point,
 				Seg:      seg,
 				T:        z.T[1],
@@ -715,7 +765,14 @@ func (p *Path) RayIntersections(x, y float64) []PathIntersection {
 				Tangent:  Equal(z.T[0], 0.0),
 				Parallel: z.Aligned() || z.AntiAligned(),
 				Into:     z.Into(),
-			})
+			}
+
+			if cmd == CloseCmd && Equal(z.T[1], 1.0) {
+				// sort at subpath's end as first
+				Zs = append(Zs[:k0], append([]PathIntersection{Z}, Zs[k0:]...)...)
+			} else {
+				Zs = append(Zs, Z)
+			}
 		}
 		i += cmdLen(cmd)
 		start = end
