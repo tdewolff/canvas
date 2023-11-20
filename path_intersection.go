@@ -38,169 +38,288 @@ func (p *Path) ContainsPath(q *Path) bool {
 	return true
 }
 
-// Settle combines the path p with itself, including all subpaths, removing all self-intersections and overlapping parts. It returns subpaths with counter clockwise directions when filling, and clockwise directions for holes.
-func (p *Path) Settle() *Path {
-	// TODO: settle and self-settle for fillrule == EvenOdd
-	// TODO: optimize, is very slow for many paths, maybe not use boolean for each subpath, but process in one go?
+// pseudoVertex is an self-intersection node on the path with indices (A is further along the original path, B is over the crossing path) going further along the path in either direction. We keep information of the direction of crossing, either A goes left of B (AintoB) or B goes left of A (BintoA). TODO: tangents?
+type pseudoVertex struct {
+	k      int   // pseudo vertex pair index
+	Point        // position
+	p      *Path // path to next pseudo vertex
+	next   int   // index to next vertex in array (over the intersecting path)
+	AintoB bool  // A goes into the LHS of B
+}
+
+func (v pseudoVertex) String() string {
+	var extra string
+	if v.AintoB {
+		extra += " AintoB"
+	} else {
+		extra += " BintoA"
+	}
+	return fmt.Sprintf("(%d {%g,%g} ·→%d%s)", v.k, v.Point.X, v.Point.Y, v.next, extra)
+}
+
+type nodeItem struct {
+	i              int // index in nodes
+	parentWindings int // winding number of parent (outer) ring
+	winding        int // winding of current ring (+1 or -1)
+}
+
+// Settle combines the path p with itself, including all subpaths, removing all self-intersections and overlapping parts. It returns subpaths with counter clockwise directions when filling, and clockwise directions for holes. This means that the result is the same whether using the EvenOdd or NonZero winding rules. The result will only contain point-tangent intersections, but not parallel-tangent intersections or regular intersections.
+// See L. Subramaniam, "Partition of a non-simple polygon into simple pologons", 2003
+func (p *Path) Settle(fillRule FillRule) *Path {
 	if p.Empty() {
 		return p
 	}
-	return p
 
-	//ps := p.Split()
-	//p = ps[0].selfSettle()
-	//for _, q := range ps[1:] {
-	//	q = q.selfSettle()
-	//	p = boolean(p, pathOpSettle, q)
-	//}
+	// split open and closed paths since we only handle closed paths
+	ps := p.Split()
+	p = &Path{}
+	open := &Path{}
+	for i := 0; i < len(ps); i++ {
+		if !ps[i].Closed() {
+			open = open.Append(ps[i])
+			ps = append(ps[:i], ps[i+1:]...)
+			i--
+		} else {
+			p = p.Append(ps[i])
+		}
+	}
+	if p.Empty() {
+		return open
+	}
 
-	//// make all filling paths go CCW
-	//r := &Path{}
-	//ps = p.Split()
-	//filling := p.Filling(NonZero)
-	//for i := range ps {
-	//	if ps[i].Empty() || !ps[i].Closed() {
-	//		r = r.Append(ps[i])
-	//		continue
-	//	}
-	//	if ps[i].CCW() == filling[i] {
-	//		r = r.Append(ps[i])
-	//	} else {
-	//		r = r.Append(ps[i].Reverse())
-	//	}
-	//}
-	//return r
+	// TODO: if we remove flatten make sure that path is x-monotone, also needed for Bentley-Ottmann
+	p = p.Flatten(Tolerance) // TODO: remove when we handle quad/cube/arc intersection combinations
+
+	// zp is an list of even length where each ith intersections is a pseudo-vertex of the ith+len/2
+	zp, zq := pathIntersections(p, nil, true, true)
+	for i := range zp {
+		fmt.Println(i, zp[i])
+	}
+
+	// sort zq and keep indices between pseudo-vertices
+	pair := make([]int, len(zp))
+	for i := range zp {
+		pair[i] = i
+	}
+	sort.Stable(pathIntersectionSort{zq, pair})
+	for i := range pair {
+		fmt.Println(i, pair[i])
+	}
+
+	// build up map from 2-degenerate intersections to nodes
+	k := 0
+	idxK := make([]int, len(zp))
+	for i, _ := range zp {
+		if i < pair[i] {
+			idxK[i] = k
+			idxK[pair[i]] = k
+			k++
+		}
+	}
+	n := k
+
+	// cut path at intersections
+	pi, segs := cut(p, zp)
+
+	// build up linked nodes between the intersections
+	// reverse direction for clock-wise path to ensure one of both paths goes outwards
+	// the next index is always along the "other" path, ie. the path intersecting the current
+	i0, subpathIndex := 0, 0
+	nodes := make([]pseudoVertex, len(zp))
+	for i, _ := range zp {
+		nodes[i].k = idxK[i]
+		nodes[i].Point = zp[i].Point
+
+		nodes[i].p = pi[i]
+
+		// the next node on the end of a subpath should be its starting point
+		i1 := i + 1
+		subpathIndex = segs.get(zp[i].Seg)
+		if i1 == len(zp) || segs.get(zp[i1].Seg) != subpathIndex {
+			i0, i1 = i1, i0
+		}
+		nodes[i].next = pair[i1] // next node on the intersecting (not current) path
+
+		nodes[i].AintoB = zp[i].Into
+	}
+	for i := range nodes {
+		fmt.Println(i, nodes[i], nodes[i].p)
+	}
+	fmt.Println()
+
+	// split simple (non-self-intersecting) paths from intersecting paths
+	// find the starting intersections and their winding for intersecting paths
+	j0 := 0
+	simple := &Path{}
+	var xs []float64
+	var queue []nodeItem
+	for i, pi := range ps {
+		if pi.Empty() {
+			continue
+		}
+
+		j1 := j0
+		for _, z := range zp[j0:] {
+			j1++
+			if segs[i] <= z.Seg {
+				break
+			}
+		}
+
+		if j0 == j1 {
+			// subpath has no intersections
+			ccw := pi.CCW()
+			pos := pi.StartPos() // we're sure this is not tangent with another path
+			parentWindings, _ := p.Windings(pos.X, pos.Y)
+			windings := parentWindings
+			if ccw {
+				windings++
+			} else {
+				windings--
+			}
+
+			// orient filling paths CCW
+			filling := fillRule == EvenOdd && windings%2 != 0 || fillRule == NonZero && windings != 0
+			if ccw != filling {
+				pi = pi.Reverse()
+			}
+			simple = simple.Append(pi)
+		} else {
+			// Find the left-most path segment coordinate for each subpath, we thus know that to the
+			// right of the coordinate the path is filled and that it is an outer ring. If the path
+			// runs counter clock-wise at the coordinate, the LHS is filled, otherwise it runs
+			// clock-wise and has the RHS filled.
+			// Follow the path until the first intersection and add to the queue.
+			var pos Point
+			j, seg, curSeg := 0, 0, 0
+			for i := 4; i < len(pi.d); i += cmdLen(pi.d[i-1]) {
+				if curSeg == 0 || pi.d[i-3] < pos.X {
+					pos = Point{pi.d[i-3], pi.d[i-2]}
+					seg = curSeg + 1
+					j = i
+				}
+				curSeg++
+			}
+
+			// check if the path at the location is running clock-wise or counter clock-wise
+			cur := Point{pi.d[j-3], pi.d[j-2]}
+			jPrev, jNext := j-cmdLen(pi.d[j]), j+cmdLen(pi.d[j])
+			if jPrev == 0 {
+				jPrev = len(pi.d) - cmdLen(CloseCmd)
+			}
+			if jNext == len(pi.d) {
+				jNext = cmdLen(MoveToCmd)
+			}
+			prev := Point{pi.d[jPrev-3], pi.d[jPrev-2]}
+			next := Point{pi.d[jNext-3], pi.d[jNext-2]}
+			dangle := next.Sub(cur).Angle() - cur.Sub(prev).Angle()
+
+			// for vertically aligned endpoints, we always pick the first so that dangle!=0.0
+			var ccw bool
+			if angleEqual(dangle, math.Pi) {
+				// TODO: segments are anti-aligned (parallel)
+				panic("not handled")
+			} else {
+				// if the endpoint turns to the left following the path, it must be CCW
+				ccw = angleBetween(dangle, 0.0, math.Pi)
+			}
+
+			// find the first intersection that follows
+			idx := j0
+			for j := j0; j < j1; j++ {
+				if seg <= zp[j].Seg {
+					idx = j
+					break
+				}
+			}
+
+			// TODO: what if pos is a tangent intersection
+			parentWindings, _ := p.Windings(pos.X, pos.Y)
+			winding := 0
+			if ccw {
+				winding++
+			} else {
+				winding--
+			}
+			fmt.Println("init", pos, "ccw", ccw, "node", idx)
+			//if (winding == 1) == nodes[idx].AintoB {
+			idx = pair[idx]
+			//}
+
+			// insert into queueDisjoint reverse sorted by X
+			// if the path goes ccw, then the LHS is filled when arriving at the intersection
+			k := len(queue)
+			for 0 < k && xs[k-1] <= pos.X {
+				k--
+			}
+
+			item := nodeItem{idx, parentWindings, winding}
+			queue = append(queue[:k], append([]nodeItem{item}, queue[k:]...)...)
+			xs = append(xs[:k], append([]float64{pos.X}, xs[k:]...)...)
+		}
+		j0 = j1
+	}
+
+	R := &Path{}
+	ring := 0
+	visits := make([]int, n) // visits per intersections, we will visit each twice
+	for 0 < len(queue) {
+		cur := queue[len(queue)-1]
+		queue = queue[:len(queue)-1]
+		j := len(queue)
+
+		// process all nodes connected on the outside (another outer ring) or inside (inner ring)
+		if 2 <= visits[nodes[cur.i].k] {
+			continue // already processed
+		}
+
+		i0 := cur.i
+		windings := cur.parentWindings + cur.winding
+		use := fillRule == EvenOdd || fillRule == NonZero && ((cur.parentWindings == 0) || (windings == 0))
+
+		i := i0
+		r := &Path{}
+		for {
+			visits[nodes[i].k]++
+
+			//fmt.Println(i, "k", nodes[i].k, "visits", visits[nodes[i].k])
+			if visits[nodes[i].k] < 2 {
+				var item nodeItem
+				//fmt.Println(i, pair[i], nodes[i], nodes[pair[i]], cur.winding)
+				if (cur.winding == 1) != nodes[i].AintoB { // != (nodes[i].ccwA && nodes[i].ccwB) {
+					// inner ring
+					//fmt.Println(ring, i, "inner", nodes[i])
+					item = nodeItem{pair[i], windings, cur.winding}
+				} else {
+					// disjoint ring
+					//fmt.Println(ring, i, "disjoint", nodes[i])
+					item = nodeItem{pair[i], cur.parentWindings, -cur.winding}
+				}
+				queue = append(queue[:j], append([]nodeItem{item}, queue[j:]...)...)
+			}
+
+			if use {
+				r = r.Join(nodes[i].p)
+			}
+
+			i = nodes[i].next
+			if i == i0 {
+				break
+			}
+		}
+
+		if use {
+			filling := fillRule == EvenOdd && windings%2 != 0 || fillRule == NonZero && windings != 0
+			if (cur.winding == 1) != filling {
+				r = r.Reverse() // orient all filling paths CCW
+			}
+			r.Close()
+			R = R.Append(r)
+		}
+		ring++
+	}
+	return R.Append(simple).Append(open)
 }
-
-//func (p *Path) Settle2() *Path {
-//	if p.Empty() {
-//		return p
-//	}
-//
-//	Zs := selfCollisions(p)
-//	//fmt.Println(Zs)
-//
-//	// duplicate intersections for intersectionNodes
-//	Zs2 := make(Intersections, len(Zs)*2)
-//	for i, z := range Zs {
-//		Zs2[2*i+0] = z
-//		z.SegA, z.SegB = z.SegB, z.SegA
-//		z.TA, z.TB = z.TB, z.TA
-//		z.DirA, z.DirB = z.DirB, z.DirA
-//		if z.Kind == AintoB {
-//			z.Kind = BintoA
-//		} else if z.Kind == BintoA {
-//			z.Kind = AintoB
-//		}
-//		Zs2[2*i+1] = z
-//	}
-//	idx := Zs2.ArgASort()
-//	Zs2.ASort()
-//	fmt.Println(Zs2)
-//
-//	zs2 := intersectionNodes(Zs2, p, p) // TODO: don't calculate twice for p
-//	fmt.Println(zs2)
-//	for i, z := range zs2 {
-//		fmt.Println("", i, z.a, z.b)
-//	}
-//
-//	// reverse intersection duplication for z.i
-//	zs := make([]*intersectionNode, 0, len(zs2)/2)
-//	handled := make([]bool, len(zs2))
-//	for i := range zs2 {
-//		if handled[i] {
-//			continue
-//		}
-//
-//		j := 0
-//		for ; j < len(zs2); j++ {
-//			if i != j && idx[zs2[i].i]/2 == idx[zs2[j].i]/2 {
-//				break
-//			}
-//		}
-//		handled[i] = true
-//		handled[j] = true
-//
-//		zs2[j].prevA.nextA = zs2[i]
-//		zs2[j].nextA.prevA = zs2[i]
-//		zs2[j].prevB.nextB = zs2[i]
-//		zs2[j].nextB.prevB = zs2[i]
-//		zs = append(zs, zs2[i])
-//	}
-//	fmt.Println(zs)
-//	for i, z := range zs {
-//		fmt.Println("", i, z.a, z.b)
-//	}
-//
-//	R := &Path{}
-//	for _, z0 := range zs {
-//		r := &Path{}
-//		gotoB := z0.kind == BintoA
-//		forward := !gotoB
-//		for z := z0; ; {
-//			if gotoB {
-//				if forward {
-//					r = r.Join(z.b)
-//					z = z.nextB
-//				} else {
-//					r = r.Join(z.b.Reverse())
-//					z = z.prevB
-//				}
-//			} else {
-//				if forward {
-//					r = r.Join(z.a)
-//					z = z.nextA
-//				} else {
-//					r = r.Join(z.a.Reverse())
-//					z = z.prevA
-//				}
-//			}
-//			if z.i == z0.i {
-//				break
-//			}
-//			forward = z.kind == BintoA
-//			gotoB = !gotoB
-//		}
-//		r.Close()
-//		//r.optimizeClose()
-//		R = R.Append(r)
-//	}
-//	return R
-//}
-//
-//func (p *Path) selfSettle() *Path {
-//	// p is non-complex
-//	if p.Empty() || !p.Closed() {
-//		return p
-//	}
-//	q := p.Flatten(Tolerance)
-//	Zs := collisions([]*Path{q}, []*Path{q}, false)
-//	if len(Zs) == 0 {
-//		return p
-//	}
-//
-//	// TODO: implement parallel lines in selfCollisions, which is more efficient than collisions
-//	//Zs := selfCollisions(q)
-//
-//	// duplicate intersections
-//	//Zs2 := make(Intersections, len(Zs)*2)
-//	//for i, z := range Zs {
-//	//	Zs2[2*i+0] = z
-//	//	z.SegA, z.SegB = z.SegB, z.SegA
-//	//	z.TA, z.TB = z.TB, z.TA
-//	//	z.DirA, z.DirB = z.DirB, z.DirA
-//	//	if z.Kind == AintoB {
-//	//		z.Kind = BintoA
-//	//	} else if z.Kind == BintoA {
-//	//		z.Kind = AintoB
-//	//	}
-//	//	Zs2[2*i+1] = z
-//	//}
-//	//Zs2.ASort()
-//
-//	ccw := q.CCW()
-//	return booleanIntersections(pathOpNot, Zs, q, q, ccw, ccw) // TODO: not sure why NOT works
-//}
 
 // And returns the boolean path operation of path p and q. Path q is implicitly closed.
 func (p *Path) And(q *Path) *Path {
@@ -239,9 +358,9 @@ const (
 
 // path p can be open or closed paths (we handle them separately), path q is closed implicitly
 func boolean(p *Path, op pathOp, q *Path) *Path {
-	// remove self-intersections within each path and direct them all CCW
-	p = p.Settle()
-	q = q.Settle()
+	// remove self-intersections within each path and make filling paths CCW
+	p = p.Settle(NonZero) // TODO: where to get fillrule from?
+	q = q.Settle(NonZero)
 
 	// return in case of one path is empty
 	if q.Empty() {
