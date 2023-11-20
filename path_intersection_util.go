@@ -44,7 +44,20 @@ func (p *Path) inside(q *Path) bool {
 
 type subpathIndexer []int // index from segment to subpath
 
-func newSubpathIndexer(ps []*Path) subpathIndexer {
+func newSubpathIndexer(p *Path) subpathIndexer {
+	segs := 0
+	var idx subpathIndexer
+	for i := 0; i < len(p.d); i += cmdLen(p.d[i]) {
+		if i != 0 && p.d[i] == MoveToCmd {
+			idx = append(idx, segs)
+		}
+		segs++
+	}
+	idx = append(idx, segs)
+	return idx
+}
+
+func newSubpathIndexerSubpaths(ps []*Path) subpathIndexer {
 	segs := 0
 	idx := make(subpathIndexer, len(ps))
 	for i, pi := range ps {
@@ -230,16 +243,16 @@ func pathIntersectionNodes(p, q *Path, zp, zq []PathIntersection) []PathIntersec
 
 func cut(p *Path, zs []PathIntersection) ([]*Path, subpathIndexer) {
 	if len(zs) == 0 {
-		return []*Path{p}, []int{p.Len()}
+		return []*Path{p}, newSubpathIndexer(p)
 	}
 
 	j := 0   // index into intersections
 	k := 0   // index into ps
-	seg := 0 // index into path segments
+	seg := 0 // segment count
 	var ps []*Path
 	var first, cur []float64
-	segs := subpathIndexer{} // count segments in ps per subpath
-	for i := 0; i < len(p.d); {
+	segs := subpathIndexer{}
+	for i := 0; i < len(p.d); i += cmdLen(p.d[i]) {
 		cmd := p.d[i]
 		if 0 < i && cmd == MoveToCmd {
 			closed := p.d[i-1] == CloseCmd
@@ -255,9 +268,9 @@ func cut(p *Path, zs []PathIntersection) ([]*Path, subpathIndexer) {
 				cur[len(cur)-1] = CloseCmd
 				cur[len(cur)-4] = CloseCmd
 			}
-			segs = append(segs, seg)
 			first = nil
 			k = len(ps)
+			segs = append(segs, seg)
 		}
 		if j < len(zs) && seg == zs[j].Seg {
 			// segment has an intersection, cut it up and append first part to prev intersection
@@ -300,7 +313,6 @@ func cut(p *Path, zs []PathIntersection) ([]*Path, subpathIndexer) {
 				}
 			}
 		}
-		i += cmdLen(cmd)
 		seg++
 	}
 	closed := 0 < len(p.d) && p.d[len(p.d)-1] == CloseCmd
@@ -421,7 +433,7 @@ func (z PathIntersection) String() string {
 	if z.Tangent {
 		extra += " Tangent"
 	}
-	return fmt.Sprintf("({%g,%g} seg=%d t=%g dir=%g%v)", z.Point.X, z.Point.Y, z.Seg, z.T, z.Dir, extra)
+	return fmt.Sprintf("({%g,%g} seg=%d t=%g dir=%g°%v)", z.Point.X, z.Point.Y, z.Seg, z.T, angleNorm(z.Dir)*180.0/math.Pi, extra)
 }
 
 type pathIntersectionSort struct {
@@ -464,224 +476,259 @@ func (a pathIntersectionsSort) Less(i, j int) bool {
 
 // pathIntersections converts segment intersections into path intersections, resolving tangency at segment endpoints, collapsing runs of parallel/overlapping segments
 func pathIntersections(p, q *Path, withTangents, withParallelTangents bool) ([]PathIntersection, []PathIntersection) {
-	// register segment indices [1,len), or [1,len-1) when closed by zero-length close command, we add segOffset when adding to PathIntersection
-	zs, segsP, segsQ := intersectionPath(p, q)
-
 	self := q == nil
+
+	// TODO: pass []*Path?
+	var ps, qs []*Path
+	ps = p.Split()
 	if self {
 		q = p
+		qs = ps
+	} else {
+		qs = q.Split()
 	}
 
+	lenQs := make([]int, len(qs))
+	closedQs := make([]bool, len(qs))
+	pointClosedQs := make([]bool, len(qs))
+	for i := range qs {
+		lenQs[i] = qs[i].Len()
+		closedQs[i] = qs[i].Closed()
+		pointClosedQs[i] = qs[i].PointClosed()
+	}
+
+	offsetP := 0
 	var zp, zq []PathIntersection
-	if 0 < len(zs) {
-		// omit close command with zero length
-		lenP, closedP := p.Len(), p.Closed()
-		if closedP && p.PointClosed() {
-			lenP--
+	for i := range ps {
+		offsetQ := 0
+		lenP := ps[i].Len()
+
+		j := 0
+		if self {
+			j = i
 		}
-		lenQ, closedQ := q.Len(), q.Closed()
-		if closedQ && q.PointClosed() {
-			lenQ--
-		}
+		for j < len(qs) {
+			// register segment indices [1,len), or [1,len-1) when closed by zero-length close command, we add segOffset when adding to PathIntersection
+			qsj := qs[j]
+			if self && i == j {
+				qsj = nil
+			}
+			zs, segsP, segsQ := intersectionPath(ps[i], qsj)
+			if 0 < len(zs) {
+				// omit close command with zero length
+				lenP, closedP := ps[i].Len(), ps[i].Closed()
+				if closedP && ps[i].PointClosed() {
+					lenP--
+				}
+				lenQ, closedQ := lenQs[j], closedQs[j]
+				if pointClosedQs[j] {
+					lenQ--
+				}
 
-		// sort by intersections on P and secondary on Q
-		// move degenerate intersections at the end of the path to the start
-		sort.Stable(intersectionPathSort{
-			zs:      zs,
-			segsP:   segsP,
-			segsQ:   segsQ,
-			lenP:    lenP,
-			lenQ:    lenQ,
-			closedP: closedP,
-			closedQ: closedQ,
-		})
-
-		// Remove degenerate tangent intersections at segment endpoint:
-		// - Intersection at endpoints for P and Q: 4 degenerate intersections
-		// - Intersection at endpoints for P or Q: 2 degenerate intersections
-		// - Parallel/overlapping sections: 4 degenerate intersections
-		var n int
-		for i := 0; i < len(zs); i += n {
-			n = 1
-			z := zs[i]
-			startP, startQ := Equal(z.T[0], 0.0), Equal(z.T[1], 0.0)
-			endP, endQ := Equal(z.T[0], 1.0), Equal(z.T[1], 1.0)
-			endpointP, endpointQ := startP || endP, startQ || endQ
-
-			if !z.Tangent {
-				// crossing intersection in the middle of both segments
-				PintoQ := z.Into()
-				zp = append(zp, PathIntersection{
-					Point: z.Point,
-					Seg:   segsP[i],
-					T:     z.T[0],
-					Dir:   z.Dir[0],
-					Into:  PintoQ,
+				// sort by intersections on P and secondary on Q
+				// move degenerate intersections at the end of the path to the start
+				sort.Stable(intersectionPathSort{
+					zs:      zs,
+					segsP:   segsP,
+					segsQ:   segsQ,
+					lenP:    lenP,
+					lenQ:    lenQ,
+					closedP: closedP,
+					closedQ: closedQ,
 				})
-				zq = append(zq, PathIntersection{
-					Point: z.Point,
-					Seg:   segsQ[i],
-					T:     z.T[1],
-					Dir:   z.Dir[1],
-					Into:  !PintoQ,
-				})
-			} else if !endpointP && !endpointQ || !closedP && (segsP[i] == 1 && startP || segsP[i] == lenP-1 && endP) || !closedQ && (segsQ[i] == 1 && startQ || segsQ[i] == lenQ-1 && endQ) {
-				// touching intersection in the middle of both segments
-				// or touching at the start/end of an open path
-				if withTangents {
-					zp = append(zp, PathIntersection{
-						Point:   z.Point,
-						Seg:     segsP[i],
-						T:       z.T[0],
-						Dir:     z.Dir[0],
-						Tangent: true,
-					})
-					zq = append(zq, PathIntersection{
-						Point:   z.Point,
-						Seg:     segsQ[i],
-						T:       z.T[1],
-						Dir:     z.Dir[1],
-						Tangent: true,
-					})
-				}
-			} else {
-				if endpointP && endpointQ {
-					n = 4
-				} else if endpointP || endpointQ {
-					n = 2
-				}
 
-				if parallelEnding := z.Aligned() || endQ && zs[i+1].AntiAligned() || !endQ && z.AntiAligned(); parallelEnding {
-					// found end of parallel as it wraps around path end, skip until start
-					continue
-				}
+				// Remove degenerate tangent intersections at segment endpoint:
+				// - Intersection at endpoints for P and Q: 4 degenerate intersections
+				// - Intersection at endpoints for P or Q: 2 degenerate intersections
+				// - Parallel/overlapping sections: 4 degenerate intersections
+				var n int
+				for i := 0; i < len(zs); i += n {
+					n = 1
+					z := zs[i]
+					startP, startQ := Equal(z.T[0], 0.0), Equal(z.T[1], 0.0)
+					endP, endQ := Equal(z.T[0], 1.0), Equal(z.T[1], 1.0)
+					endpointP, endpointQ := startP || endP, startQ || endQ
 
-				reversed := endQ && zs[i+n-2].AntiAligned() || !endQ && zs[i+n-1].AntiAligned()
-				parallelStart := zs[i+n-1].Aligned() || reversed
-				if !parallelStart {
-					// intersection at segment endpoint of one or both paths
-					// (thetaP0,thetaP1) is the LHS angle range for Q
-					// PintoQ is the incoming and outgoing direction of P into LHS of Q
-					j := i + n - 1
-					zi, zo := z, zs[j]
-					angleQo := zo.Dir[1]
-					angleQi := angleQo + angleNorm(zi.Dir[1]+math.Pi-angleQo)
-					PinQi := angleBetweenExclusive(zi.Dir[0]+math.Pi, angleQo, angleQi)
-					PinQo := angleBetweenExclusive(zo.Dir[0], angleQo, angleQi)
-					if tangent := PinQi == PinQo; withTangents || !tangent {
+					if !z.Tangent {
+						// crossing intersection in the middle of both segments
+						PintoQ := z.Into()
 						zp = append(zp, PathIntersection{
-							Point:   zo.Point,
-							Seg:     segsP[j],
-							T:       zo.T[0],
-							Dir:     zo.Dir[0],
-							Into:    !tangent && PinQo,
-							Tangent: tangent,
+							Point: z.Point,
+							Seg:   offsetP + segsP[i],
+							T:     z.T[0],
+							Dir:   z.Dir[0],
+							Into:  PintoQ,
 						})
 						zq = append(zq, PathIntersection{
-							Point:   zo.Point,
-							Seg:     segsQ[j],
-							T:       zo.T[1],
-							Dir:     zo.Dir[1],
-							Into:    !tangent && !PinQo,
-							Tangent: tangent,
+							Point: z.Point,
+							Seg:   offsetQ + segsQ[i],
+							T:     z.T[1],
+							Dir:   z.Dir[1],
+							Into:  !PintoQ,
 						})
-					}
-				} else {
-					// intersection is parallel
-					m := 0
-					for {
-						// find parallel end, skipping all parallel sections in between
-						z := zs[(i+n+m)%len(zs)]
-						if (Equal(z.T[0], 0.0) || Equal(z.T[0], 1.0)) && (Equal(z.T[1], 0.0) || Equal(z.T[1], 1.0)) {
-							m += 4
-						} else {
-							m += 2
-						}
-						endQ := Equal(z.T[1], 1.0)
-						if parallelStart := zs[(i+n+m-1)%len(zs)].Aligned() || endQ && zs[(i+n+m-2)%len(zs)].AntiAligned() || !endQ && zs[(i+n+m-1)%len(zs)].AntiAligned(); !parallelStart {
-							// found end of parallel run
-							break
-						}
-					}
-
-					j0, j1 := i, i+1
-					j2, j3 := (i+n+m-2)%len(zs), (i+n+m-1)%len(zs) // may wrap path end
-					z0, z1, z2, z3 := zs[j0], zs[j1], zs[j2], zs[j3]
-
-					// dangle is the turn angle following P over the parallel segments
-					angleQo := angleNorm(z1.Dir[1])
-					angleQi := angleQo + angleNorm(z0.Dir[1]+math.Pi-angleQo)
-					PinQi := angleBetweenExclusive(z0.Dir[0]+math.Pi, angleQo, angleQi)
-
-					dangle := zs[(i+n)%len(zs)].Dir[0] - zs[i+n-1].Dir[0]
-					angleQo = angleNorm(z3.Dir[1])
-					angleQi = angleQo + angleNorm(z2.Dir[1]+math.Pi-angleQo)
-					PinQo := angleBetweenExclusive(z3.Dir[0]-dangle, angleQo-dangle, angleQi-dangle)
-					if tangent := PinQi == PinQo; withParallelTangents || withTangents || !tangent {
-						ji, jo := i+n-1, (i+n+m-1)%len(zs)
-						zi, zo := zs[ji], zs[jo]
-						zp = append(zp, PathIntersection{
-							Point:    zi.Point,
-							Seg:      segsP[ji],
-							T:        zi.T[0],
-							Dir:      zi.Dir[0],
-							Into:     withParallelTangents && !PinQo,
-							Parallel: true,
-							Tangent:  withParallelTangents && tangent,
-						}, PathIntersection{
-							Point:   zo.Point,
-							Seg:     segsP[jo],
-							T:       zo.T[0],
-							Dir:     zo.Dir[0],
-							Into:    (withParallelTangents || !tangent) && PinQo,
-							Tangent: tangent,
-						})
-						if !reversed {
-							zq = append(zq, PathIntersection{
-								Point:    zi.Point,
-								Seg:      segsQ[ji],
-								T:        zi.T[1],
-								Dir:      zi.Dir[1],
-								Into:     withParallelTangents && PinQo,
-								Parallel: true,
-								Tangent:  withParallelTangents && tangent,
-							}, PathIntersection{
-								Point:   zo.Point,
-								Seg:     segsQ[jo],
-								T:       zo.T[1],
-								Dir:     zo.Dir[1],
-								Into:    (withParallelTangents || !tangent) && !PinQo,
-								Tangent: tangent,
+					} else if !endpointP && !endpointQ || !closedP && (segsP[i] == 1 && startP || segsP[i] == lenP-1 && endP) || !closedQ && (segsQ[i] == 1 && startQ || segsQ[i] == lenQ-1 && endQ) {
+						// touching intersection in the middle of both segments
+						// or touching at the start/end of an open path
+						if withTangents {
+							zp = append(zp, PathIntersection{
+								Point:   z.Point,
+								Seg:     offsetP + segsP[i],
+								T:       z.T[0],
+								Dir:     z.Dir[0],
+								Tangent: true,
 							})
-						} else {
 							zq = append(zq, PathIntersection{
-								Point:   zi.Point,
-								Seg:     segsQ[ji],
-								T:       zi.T[1],
-								Dir:     zi.Dir[1],
-								Into:    (withParallelTangents || !tangent) && !PinQo,
-								Tangent: tangent,
-							}, PathIntersection{
-								Point:    zo.Point,
-								Seg:      segsQ[jo],
-								T:        zo.T[1],
-								Dir:      zo.Dir[1],
-								Into:     withParallelTangents && PinQo,
-								Parallel: true,
-								Tangent:  withParallelTangents && tangent,
+								Point:   z.Point,
+								Seg:     offsetQ + segsQ[i],
+								T:       z.T[1],
+								Dir:     z.Dir[1],
+								Tangent: true,
 							})
 						}
+					} else {
+						if endpointP && endpointQ {
+							n = 4
+						} else if endpointP || endpointQ {
+							n = 2
+						}
+
+						if parallelEnding := z.Aligned() || endQ && zs[i+1].AntiAligned() || !endQ && z.AntiAligned(); parallelEnding {
+							// found end of parallel as it wraps around path end, skip until start
+							continue
+						}
+
+						reversed := endQ && zs[i+n-2].AntiAligned() || !endQ && zs[i+n-1].AntiAligned()
+						parallelStart := zs[i+n-1].Aligned() || reversed
+						if !parallelStart {
+							// intersection at segment endpoint of one or both paths
+							// (thetaP0,thetaP1) is the LHS angle range for Q
+							// PintoQ is the incoming and outgoing direction of P into LHS of Q
+							j := i + n - 1
+							zi, zo := z, zs[j]
+							angleQo := zo.Dir[1]
+							angleQi := angleQo + angleNorm(zi.Dir[1]+math.Pi-angleQo)
+							PinQi := angleBetweenExclusive(zi.Dir[0]+math.Pi, angleQo, angleQi)
+							PinQo := angleBetweenExclusive(zo.Dir[0], angleQo, angleQi)
+							if tangent := PinQi == PinQo; withTangents || !tangent {
+								zp = append(zp, PathIntersection{
+									Point:   zo.Point,
+									Seg:     offsetP + segsP[j],
+									T:       zo.T[0],
+									Dir:     zo.Dir[0],
+									Into:    !tangent && PinQo,
+									Tangent: tangent,
+								})
+								zq = append(zq, PathIntersection{
+									Point:   zo.Point,
+									Seg:     offsetQ + segsQ[j],
+									T:       zo.T[1],
+									Dir:     zo.Dir[1],
+									Into:    !tangent && !PinQo,
+									Tangent: tangent,
+								})
+							}
+						} else {
+							// intersection is parallel
+							m := 0
+							for {
+								// find parallel end, skipping all parallel sections in between
+								z := zs[(i+n+m)%len(zs)]
+								if (Equal(z.T[0], 0.0) || Equal(z.T[0], 1.0)) && (Equal(z.T[1], 0.0) || Equal(z.T[1], 1.0)) {
+									m += 4
+								} else {
+									m += 2
+								}
+								endQ := Equal(z.T[1], 1.0)
+								if parallelStart := zs[(i+n+m-1)%len(zs)].Aligned() || endQ && zs[(i+n+m-2)%len(zs)].AntiAligned() || !endQ && zs[(i+n+m-1)%len(zs)].AntiAligned(); !parallelStart {
+									// found end of parallel run
+									break
+								}
+							}
+
+							j0, j1 := i, i+1
+							j2, j3 := (i+n+m-2)%len(zs), (i+n+m-1)%len(zs) // may wrap path end
+							z0, z1, z2, z3 := zs[j0], zs[j1], zs[j2], zs[j3]
+
+							// dangle is the turn angle following P over the parallel segments
+							angleQo := angleNorm(z1.Dir[1])
+							angleQi := angleQo + angleNorm(z0.Dir[1]+math.Pi-angleQo)
+							PinQi := angleBetweenExclusive(z0.Dir[0]+math.Pi, angleQo, angleQi)
+
+							dangle := zs[(i+n)%len(zs)].Dir[0] - zs[i+n-1].Dir[0]
+							angleQo = angleNorm(z3.Dir[1])
+							angleQi = angleQo + angleNorm(z2.Dir[1]+math.Pi-angleQo)
+							PinQo := angleBetweenExclusive(z3.Dir[0]-dangle, angleQo-dangle, angleQi-dangle)
+							if tangent := PinQi == PinQo; withParallelTangents || withTangents || !tangent {
+								ji, jo := i+n-1, (i+n+m-1)%len(zs)
+								zi, zo := zs[ji], zs[jo]
+								zp = append(zp, PathIntersection{
+									Point:    zi.Point,
+									Seg:      offsetP + segsP[ji],
+									T:        zi.T[0],
+									Dir:      zi.Dir[0],
+									Into:     withParallelTangents && !PinQo,
+									Parallel: true,
+									Tangent:  withParallelTangents && tangent,
+								}, PathIntersection{
+									Point:   zo.Point,
+									Seg:     offsetP + segsP[jo],
+									T:       zo.T[0],
+									Dir:     zo.Dir[0],
+									Into:    (withParallelTangents || !tangent) && PinQo,
+									Tangent: tangent,
+								})
+								if !reversed {
+									zq = append(zq, PathIntersection{
+										Point:    zi.Point,
+										Seg:      offsetQ + segsQ[ji],
+										T:        zi.T[1],
+										Dir:      zi.Dir[1],
+										Into:     withParallelTangents && PinQo,
+										Parallel: true,
+										Tangent:  withParallelTangents && tangent,
+									}, PathIntersection{
+										Point:   zo.Point,
+										Seg:     offsetQ + segsQ[jo],
+										T:       zo.T[1],
+										Dir:     zo.Dir[1],
+										Into:    (withParallelTangents || !tangent) && !PinQo,
+										Tangent: tangent,
+									})
+								} else {
+									zq = append(zq, PathIntersection{
+										Point:   zi.Point,
+										Seg:     offsetQ + segsQ[ji],
+										T:       zi.T[1],
+										Dir:     zi.Dir[1],
+										Into:    (withParallelTangents || !tangent) && !PinQo,
+										Tangent: tangent,
+									}, PathIntersection{
+										Point:    zo.Point,
+										Seg:      offsetQ + segsQ[jo],
+										T:        zo.T[1],
+										Dir:      zo.Dir[1],
+										Into:     withParallelTangents && PinQo,
+										Parallel: true,
+										Tangent:  withParallelTangents && tangent,
+									})
+								}
+							}
+							i += m // skip parallel mid and end (here) and start (in for)
+						}
 					}
-					i += m // skip parallel mid and end (here) and start (in for)
 				}
 			}
+			offsetQ += lenQs[j]
+			j++
 		}
+		offsetP += lenP
 	}
+
 	if self {
 		zp = append(zp, zq...)
 		zq = append(zq, zp[:len(zq)]...)
-		sort.Stable(pathIntersectionsSort{zp, zq})
 	}
+	sort.Stable(pathIntersectionsSort{zp, zq})
 	return zp, zq
 }
 
@@ -729,7 +776,7 @@ func (a intersectionPathSort) Less(i, j int) bool {
 
 // intersectionPath returns all intersections along a path including the path segments associated.
 // If q is nil, it returns all intersections (non-tangent) within the same path (faster).
-// All intersections are sorted by path P and then by path Q
+// All intersections are sorted by path P and then by path Q. P and Q must not have subpaths.
 func intersectionPath(p, q *Path) (Intersections, []int, []int) {
 	var zs Intersections
 	var segsP, segsQ []int
@@ -742,13 +789,13 @@ func intersectionPath(p, q *Path) (Intersections, []int, []int) {
 	// TODO: uses O(N^2), try sweep line or bently-ottman to reduce to O((N+K) log N) (or better yet https://dl.acm.org/doi/10.1145/147508.147511)
 	segP, segQ := 1, 1
 	for i := 4; i < len(p.d); {
+		pn := cmdLen(p.d[i])
 		if self && p.d[i] == CubeToCmd {
 			// TODO: find intersections in Cube after we support non-flat paths
 		}
 
 		j := 4
 		segQ = 1
-		pn := cmdLen(p.d[i])
 		if self {
 			segQ = segP + 1
 			j = i + pn
@@ -759,21 +806,14 @@ func intersectionPath(p, q *Path) (Intersections, []int, []int) {
 
 			k := len(zs)
 			zs = intersectionSegment(zs, p0, p.d[i:i+pn], q0, q.d[j:j+qn])
-			if self {
-				for i := len(zs) - 1; k <= i; i-- {
-					if zs[i].Tangent {
-						zs = zs[:len(zs)-1]
+			if self && (i+pn == j || i == 4 && q.d[j] == CloseCmd) {
+				// remove tangent intersections for adjacent segments on the same subpath
+				for k1 := len(zs) - 1; k <= k1; k1-- {
+					if zs[k1].Tangent && (i+pn == j && Equal(zs[k1].T[0], 1.0) && Equal(zs[k1].T[1], 0.0) || i == 4 && q.d[j] == CloseCmd && Equal(zs[k1].T[0], 0.0) && Equal(zs[k1].T[1], 1.0)) {
+						zs = append(zs[:k1], zs[k1+1:]...)
 					}
 				}
 			}
-			//if self && k < len(zs) && (i+pn == j || i == 4 && j+qn == len(q.d)) {
-			//	// remove tangent intersections for adjacent segments
-			//	if i+pn == j {
-			//		zs = zs[:len(zs)-1] // end of p and start of q
-			//	} else {
-			//		zs = append(zs[:k], zs[k+1:]...) // start of p and end of q at path closing
-			//	}
-			//}
 			for ; k < len(zs); k++ {
 				segsP = append(segsP, segP)
 				segsQ = append(segsQ, segQ)

@@ -263,11 +263,13 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 	}
 
 	ps, qs := p.Split(), q.Split()
+	p = &Path{}
 	for i := range ps {
 		if ps[i].Closed() && !ps[i].CCW() {
 			fmt.Println("warn: pi != ccw")
 			ps[i] = ps[i].Reverse()
 		}
+		p = p.Append(ps[i])
 	}
 	for i := range qs {
 		if qs[i].Closed() && !qs[i].CCW() {
@@ -277,7 +279,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 	}
 
 	// implicitly close all subpaths of path q
-	p, q = &Path{}, &Path{} // collect all closed paths
+	q = &Path{} // collect all closed paths
 	lenQs := make([]int, len(qs))
 	for i := range qs {
 		lenQs[i] = qs[i].Len()
@@ -287,34 +289,33 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		q = q.Append(qs[i])
 	}
 
-	// split open subpaths from p
-	segOffsetP := 0
-	Ropen := &Path{}
-	var zp, zq []PathIntersection
-	for i := 0; i < len(ps); i++ {
-		n := len(zp)
-		segOffsetQ := 0
-		for j := range qs {
-			// find all intersections (incl. parallel-tangent but not point-tangent) between p and q
-			zpi, zqj := pathIntersections(ps[i], qs[j], false, true)
-			for k := range zqj {
-				zqj[k].Seg += segOffsetQ
-			}
-			zp = append(zp, zpi...)
-			zq = append(zq, zqj...)
-			segOffsetQ += lenQs[j]
-		}
+	// find all intersections (incl. parallel-tangent but not point-tangent) between p and q
+	zp, zq := pathIntersections(p, q, false, true)
 
-		if ps[i].Closed() {
-			for k := range zp[n:] {
-				zp[n+k].Seg += segOffsetP
+	// split open subpaths from p
+	j := 0      // index into zp
+	p = &Path{} // collect all closed paths
+	offset, shift := 0, 0
+	Ropen := &Path{}
+	for i := 0; i < len(ps); i++ {
+		n := 0
+		length, closed := ps[i].Len(), ps[i].Closed()
+		for ; j+n < len(zp) && zp[j+n].Seg < offset+length; n++ {
+			if closed {
+				zp[j+n].Seg -= shift
+			} else {
+				zp[j+n].Seg -= offset
 			}
-			segOffsetP += ps[i].Len()
+		}
+		offset += length
+
+		if closed {
 			p = p.Append(ps[i])
+			j += n
 		} else {
 			// open subpath on P
 			hasIntersections := false
-			for _, z := range zp[n:] {
+			for _, z := range zp[j : j+n] {
 				if !z.Tangent {
 					hasIntersections = true
 					break
@@ -337,32 +338,32 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 				}
 			} else {
 				// paths cross, select the parts outside/inside depending on the operation
-				pss, _ := cut(ps[i], zp[n:])
-				inside := !zp[n].Into
+				pss, _ := cut(ps[i], zp[j:j+n])
+				inside := !zp[j].Into
 				if op == pathOpOr || inside && op == pathOpAnd || !inside && (op == pathOpXor || op == pathOpNot) {
 					Ropen = Ropen.Append(pss[0])
 				}
 				for k := 1; k < len(pss); k++ {
-					inside := zp[n+k-1].Into
-					if !zp[n+k-1].Parallel && (op == pathOpOr || inside && op == pathOpAnd || !inside && (op == pathOpXor || op == pathOpNot)) {
+					inside := zp[j+k-1].Into
+					if !zp[j+k-1].Parallel && (op == pathOpOr || inside && op == pathOpAnd || !inside && (op == pathOpXor || op == pathOpNot)) {
 						Ropen = Ropen.Append(pss[k])
 					}
 				}
 			}
 			ps = append(ps[:i], ps[i+1:]...)
-			zp = zp[:n]
-			zq = zq[:n]
+			zp = append(zp[:j], zp[j+n:]...)
+			zq = append(zq[:j], zq[j+n:]...)
+			shift += length
 			i--
 		}
 	}
 
 	// handle intersecting subpaths
-	sort.Stable(pathIntersectionsSort{zp, zq})
 	zs := pathIntersectionNodes(p, q, zp, zq)
 	R := booleanIntersections(op, zs)
 
 	// handle the remaining subpaths that are non-intersecting but possibly overlapping, either one containing the other or by being equal
-	pIndex, qIndex := newSubpathIndexer(ps), newSubpathIndexer(qs)
+	pIndex, qIndex := newSubpathIndexerSubpaths(ps), newSubpathIndexerSubpaths(qs)
 	pHandled, qHandled := make([]bool, len(ps)), make([]bool, len(qs))
 	for i := range zp {
 		pHandled[pIndex.get(zp[i].Seg)] = true
@@ -542,7 +543,7 @@ func (p *Path) Intersections(q *Path) ([]PathIntersection, []PathIntersection) {
 	if !p.Flat() {
 		q = q.Flatten(Tolerance)
 	}
-	return intersections(p, q, false, false)
+	return pathIntersections(p, q, false, false)
 }
 
 // Touches returns true if path p and path q touch or intersect.
@@ -556,35 +557,7 @@ func (p *Path) Collisions(q *Path) ([]PathIntersection, []PathIntersection) {
 	if !p.Flat() {
 		q = q.Flatten(Tolerance)
 	}
-	return intersections(p, q, true, false)
-}
-
-func intersections(p, q *Path, withTangents, withParallelTangents bool) ([]PathIntersection, []PathIntersection) {
-	ps, qs := p.Split(), q.Split()
-	lenQs := make([]int, len(qs))
-	for i := range qs {
-		lenQs[i] = qs[i].Len()
-	}
-
-	offsetP := 0
-	var zp, zq []PathIntersection
-	for i := range ps {
-		offsetQ := 0
-		lenP := ps[i].Len()
-		for j := range qs {
-			zpi, zqj := pathIntersections(ps[i], qs[j], withTangents, withParallelTangents)
-			for k := range zpi {
-				zpi[k].Seg += offsetP
-				zqj[k].Seg += offsetQ
-			}
-			zp = append(zp, zpi...)
-			zq = append(zq, zqj...)
-			offsetQ += lenQs[j]
-		}
-		offsetP += lenP
-	}
-	sort.Stable(pathIntersectionsSort{zp, zq})
-	return zp, zq
+	return pathIntersections(p, q, true, false)
 }
 
 // SelfIntersects returns true if path p self-intersect.
@@ -655,6 +628,7 @@ func (p *Path) RayIntersections(x, y float64) []PathIntersection {
 				Point:    z.Point,
 				Seg:      seg,
 				T:        z.T[1],
+				Dir:      z.Dir[1],
 				Tangent:  Equal(z.T[0], 0.0),
 				Parallel: z.Aligned() || z.AntiAligned(),
 				Into:     z.Into(),

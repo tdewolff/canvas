@@ -144,6 +144,7 @@ func (p *Path) PointClosed() bool {
 }
 
 // Complex returns true when path p has subpaths.
+// TODO: naming right? A simple path would not self-intersect. Add XMonotone and Flat as well
 func (p *Path) Complex() bool {
 	for i := 0; i < len(p.d); {
 		if p.d[i] == MoveToCmd && i != 0 {
@@ -597,17 +598,16 @@ func (p *Path) simplifyToCoords() []Point {
 }
 
 func windings(zs []PathIntersection) (int, bool) {
-	// Count intersections of ray with path. Count half an intersection on boundaries, half an intersection when on the start of the ray, and a quarter when both. Paths that cross upwards are negative and downwards are positive.
+	// Count intersections of ray with path. Paths that cross downwards are negative and upwards are positive. Keep track if intersections are at the start of the ray (boundary) or not.
 	n := 0.0
 	boundary := false
 	for _, z := range zs {
 		d := 1.0
 		if z.Tangent {
 			boundary = true
-			d /= 2.0
 		}
 		if Equal(z.T, 0.0) || Equal(z.T, 1.0) {
-			d /= 2.0
+			d /= 2.0 // count half to not count twice
 		}
 		if !z.Parallel {
 			if z.Into {
@@ -625,14 +625,13 @@ func windings(zs []PathIntersection) (int, bool) {
 		}
 	}
 
-	// If on boundary, n will be -0.5 (for CW paths) or 0.5 (for CCW paths) or 0.0
 	if boundary {
 		return 0, true
 	}
 	return int(n), false // n is integer
 }
 
-// Windings returns the number of windings, i.e. the number of times a ray from (x,y) towards (∞,y) intersects the path. Counter clock-wise intersections count as positive, while clock-wise intersections count as negative. Additionally, it returns whether the point is on a path's boundary (which would count as being on the exterior).
+// Windings returns the number of windings at the given point, i.e. the sum of windings for each time a ray from (x,y) towards (∞,y) intersects the path. Counter clock-wise intersections count as positive, while clock-wise intersections count as negative. Additionally, it returns whether the point is on a path's boundary (which counts as being on the exterior).
 func (p *Path) Windings(x, y float64) (int, bool) {
 	n := 0
 	boundary := false
@@ -647,12 +646,12 @@ func (p *Path) Windings(x, y float64) (int, bool) {
 	return n, boundary
 }
 
-// Crossings returns the number of crossings, i.e. the number of times a ray from (x,y) towards (∞,y) intersects the path. Additionally, it returns whether the point is on a path's boundary (which would not count towards the number of crossings).
+// Crossings returns the number of crossings wiht the path from the given point outwards, i.e. the number of times a ray from (x,y) towards (∞,y) intersects the path. Additionally, it returns whether the point is on a path's boundary (which does not count towards the number of crossings).
 func (p *Path) Crossings(x, y float64) (int, bool) {
 	n := 0
 	boundary := false
 	for _, pi := range p.Split() {
-		// Count intersections of ray with path. Count half an intersection on boundaries and half an intersection when on the start of the ray.
+		// Count intersections of ray with path. Count half an intersection on boundaries.
 		ni := 0.0
 		for _, z := range pi.RayIntersections(x, y) {
 			if z.Tangent {
@@ -689,7 +688,7 @@ func (p *Path) Fills(x, y float64, fillRule FillRule) bool {
 	return fillRule == NonZero && n != 0 || n%2 != 0
 }
 
-// InteriorPoint returns a point on the interior of the path. The path should be a non-complex non-self-intersecting path (i.e. settled with no subpaths). Uses the first subpath on complex paths. Returns the start position on open paths.
+// InteriorPoint returns a point on the interior of the path. The path should be a non-complex non-self-intersecting path (i.e. settled with no subpaths). It uses the first subpath if there are multiple and returns the start position on open paths.
 func (p *Path) InteriorPoint() Point {
 	if p.Complex() {
 		p = p.Split()[0]
@@ -723,10 +722,11 @@ func (p *Path) InteriorPoint() Point {
 	return zs[i].Point.Interpolate(zs[i+1].Point, 0.5)
 }
 
-// Filling returns whether each subpath gets filled or not. A path may not be filling when it negates another path and depends on the FillRule. If a subpath is not closed, it is implicitly assumed to be closed. Subpaths may not (self-)intersect, use Settle to remove (self-)intersections.
+// Filling returns whether each subpath gets filled or not. Whether a path is filled depends on the FillRule and whether it negates another path. If a subpath is not closed, it is implicitly assumed to be closed. Subpaths must not self-intersect, use Settle to remove self-intersections.
 func (p *Path) Filling(fillRule FillRule) []bool {
+	// TODO: can be simplified assuming XMonotone and getting the left-most coordinate
 	ps := p.Split()
-	index := newSubpathIndexer(ps)
+	index := newSubpathIndexerSubpaths(ps)
 	filling := make([]bool, len(ps))
 	for i, pi := range ps {
 		pos := pi.InteriorPoint()              // get point inside subpath
@@ -776,7 +776,7 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 				}
 			}
 
-			// check if the path bends to the left (inside or encapsulates or right (outside)
+			// check if the path bends to the left (inside) or encapsulates or right (outside)
 			area, areaExact := PolylineFromPathCoords(pi).Area(), math.NaN()
 			for _, subpath := range subpaths[1:] {
 				zs2 := []PathIntersection{}
