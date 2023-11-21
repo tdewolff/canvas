@@ -550,9 +550,9 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner, tolerance f
 
 	if closed {
 		rhs.Close()
+		rhs.optimizeClose()
 		lhs.Close()
-		optimizeMoveTo(rhs)
-		optimizeMoveTo(lhs)
+		lhs.optimizeClose()
 		return rhs, lhs
 	}
 
@@ -562,7 +562,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner, tolerance f
 	rhs = rhs.Join(lhs)
 	cr.Cap(rhs, halfWidth, states[0].p0, states[0].n0.Neg())
 	rhs.Close()
-	optimizeMoveTo(rhs)
+	rhs.optimizeClose()
 	return rhs, nil
 }
 
@@ -604,22 +604,6 @@ func closeInnerBends(p *Path, indices []int, closed bool) {
 		// update MoveTo to match the last LineTo (which will be a Close)
 		p.d[1] = p.d[len(p.d)-3]
 		p.d[2] = p.d[len(p.d)-2]
-	}
-}
-
-func optimizeMoveTo(p *Path) {
-	// move MoveTo to the initial position of the Close if they are colinear
-	if p.d[cmdLen(MoveToCmd)] == LineToCmd && p.d[len(p.d)-cmdLen(CloseCmd)-1] == LineToCmd {
-		start := Point{p.d[len(p.d)-cmdLen(CloseCmd)-3], p.d[len(p.d)-cmdLen(CloseCmd)-2]}
-		mid := Point{p.d[1], p.d[2]}
-		end := Point{p.d[cmdLen(MoveToCmd)+1], p.d[cmdLen(MoveToCmd)+2]}
-		if Equal(end.Sub(mid).AngleBetween(mid.Sub(start)), 0.0) {
-			p.d[1] = p.d[len(p.d)-cmdLen(CloseCmd)-3]
-			p.d[2] = p.d[len(p.d)-cmdLen(CloseCmd)-2]
-			p.d[len(p.d)-cmdLen(CloseCmd)-4] = CloseCmd
-			p.d[len(p.d)-cmdLen(CloseCmd)-1] = CloseCmd
-			p.d = p.d[:len(p.d)-cmdLen(CloseCmd)]
-		}
 	}
 }
 
