@@ -830,6 +830,9 @@ func (p *Path) CCW() bool {
 	area := 0.0
 	for _, pi := range p.Split() {
 		coords := pi.simplifyToCoords()
+		if !pi.Closed() {
+			coords = append(coords, coords[0])
+		}
 		for i := 1; i < len(coords); i++ {
 			area += (coords[i].X - coords[i-1].X) * (coords[i-1].Y + coords[i].Y)
 		}

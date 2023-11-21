@@ -818,9 +818,10 @@ func TestPathSettle(t *testing.T) {
 		{EvenOdd, "L4 0L4 4L0 4zM-1 1L1 1L1 3L-1 3zM3 1L5 1L5 3L3 3zM4.5 1.5L5.5 1.5L5.5 2.5L4.5 2.5z", "M0 1L0 0L4 0L4 1L5 1L5 1.5L5.5 1.5L5.5 2.5L5 2.5L5 3L4 3L4 4L0 4L0 3L-1 3L-1 1L0 1zM0 1L0 3L1 3L1 1zM4 1L3 1L3 3L4 3zM5 1.5L4.5 1.5L4.5 2.5L5 2.5z"},
 
 		// tangent
-		//{NonZero, "L5 5L10 0L10 10L5 5L0 10z", "M5 5L10 0L10 10zM5 5L0 10L0 0z"}, // separate or one?
-		//{NonZero, "L2 2L3 0zM1 0L2 2L4 0L4 -1L1 -1z", "M2 2L0 0L1 0L1 -1L4 -1L4 0z"},
-		//{NonZero, "L2 2L3 0zM1 0L2 2L4 0L4 3L1 3z", "M1 1L1 3L4 3L4 0L2 2zM1 1L1 0L2 2L3 0L0 0z"},
+		//{NonZero, "L5 5L10 0L10 10L5 5L0 10z", "M5 5L0 10L0 0zM5 5L10 0L10 10z"},
+		{NonZero, "L2 2L3 0zM1 0L2 2L4 0L4 -1L1 -1z", "M2 2L0 0L1 0L1 -1L4 -1L4 0z"},
+		//{NonZero, "L2 2L3 0zM1 0L2 2L4 0L4 3L1 3z", "M1 1L0 0L1 0zM1 1L2 2L4 0L4 3L1 3zM2 2L1 0L3 0z"},
+
 		// parallel segments
 		//{NonZero, "L1 0L1 1L0 1zM1 0L2 0L2 1L1 1z", ""},
 		//{NonZero, "L1 0L1 1L0 1zM1 0L1 1L2 1L2 0z", ""},
@@ -839,10 +840,10 @@ func TestPathSettle(t *testing.T) {
 		{NonZero, "M1 4L0 2L1 0L2 0L2 4zM1 3L0 2L1 1z", "M1 4L0 2L1 0L2 0L2 4z"},              // tangent left-most endpoint
 		{NonZero, "M0 2L1 0L2 0L2 4L1 4zM0 2L1 1L1 3z", "M0 2L1 0L2 0L2 4L1 4z"},              // tangent left-most endpoint
 		{NonZero, "M0 2L1 0L2 0L2 4L1 4zM0 2L1 3L1 1z", "M0 2L1 0L2 0L2 4L1 4zM0 2L1 3L1 1z"}, // tangent left-most endpoint
-		//{NonZero, "M0 2L1 0L2 1L1 3zM0 2L1 1L2 3L1 4z", ""},                                   // secant left-most endpoint
+		{NonZero, "M0 2L1 0L2 1L1 3zM0 2L1 1L2 3L1 4z", "M0 2L1 0L2 1L1.5 2L2 3L1 4z"},        // secant left-most endpoint
 		//{NonZero, "M0 2L1 0L2 1L1 3zM0 2L1 4L2 3L1 1z", ""},                                   // secant left-most endpoint
-		//{NonZero, "L2 0L2 2L0 2L0 1L-1 2L0 1z", ""}, // parallel left-most endpoint
-		//{NonZero, "L0 1L-1 2L0 1z", ""},             // all parallel
+		//{NonZero, "L2 0L2 2L0 2L0 1L-1 2L-2 2L-1 2L0 1z", ""}, // parallel left-most endpoint
+		//{NonZero, "L0 1L-1 2L0 1z", ""},                       // all parallel
 
 		// example from Subramaniam's thesis
 		{NonZero, "M0 0L5.5 10L4.5 10L9 1.5L1 8L9 8L1.6 2L3 1L5 7L8 0z", "M3.349892008639309 6.090712742980562L0 0L8 0L6.479452054794521 3.547945205479452L9 1.5L6.592324805339266 6.047830923248053L9 8L5.5588235294117645 8L4.990463215258855 9.073569482288828L4.3999999999999995 8L1 8L3.349892008639309 6.090712742980561zM3.9753086419753085 3.9259259259259265L3 1L1.6 2L3.975308641975309 3.925925925925927zM4.990463215258855 9.073569482288828L5.5 10L4.5 10L4.990463215258855 9.073569482288828z"},

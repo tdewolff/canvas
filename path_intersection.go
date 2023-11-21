@@ -40,11 +40,13 @@ func (p *Path) ContainsPath(q *Path) bool {
 
 // pseudoVertex is an self-intersection node on the path with indices (A is further along the original path, B is over the crossing path) going further along the path in either direction. We keep information of the direction of crossing, either A goes left of B (AintoB) or B goes left of A (BintoA). TODO: tangents?
 type pseudoVertex struct {
-	k      int   // pseudo vertex pair index
-	Point        // position
-	p      *Path // path to next pseudo vertex
-	next   int   // index to next vertex in array (over the intersecting path)
-	AintoB bool  // A goes into the LHS of B
+	k     int   // pseudo vertex pair index
+	Point       // position
+	p     *Path // path to next pseudo vertex
+	next  int   // index to next vertex in array (over the intersecting path)
+
+	AintoB  bool // A goes into the LHS of B
+	Tangent bool
 }
 
 func (v pseudoVertex) String() string {
@@ -53,6 +55,9 @@ func (v pseudoVertex) String() string {
 		extra += " AintoB"
 	} else {
 		extra += " BintoA"
+	}
+	if v.Tangent {
+		extra += " Tangent"
 	}
 	return fmt.Sprintf("(%d {%g,%g} ·→%d%s)", v.k, v.Point.X, v.Point.Y, v.next, extra)
 }
@@ -68,23 +73,23 @@ func leftmostWindings(subpath int, ps []*Path, x, y float64) int {
 	// be tangent on the outside or inside of the current subpath.
 	// Secant intersections are not counted.
 	zs := ps[subpath].RayIntersections(x, y)
-	n, tangent := windings(zs)
 
+	//ccw := true
 	var angle0, angle1 float64 // as this is the left-most point, must be in [-0.5*PI,0.5*PI]
-	if tangent {
-		n = 0
-		angle0 = angleNorm(zs[0].Dir + math.Pi)
-		if Equal(zs[0].T, 1.0) {
-			angle1 = zs[1].Dir
-		} else {
-			angle1 = zs[0].Dir
-		}
-		if angle1 < angle0 {
-			angle0, angle1 = angle1, angle0
-		}
-		angle0 = angle1 + angleNorm(angle0-angle1)
+	angle0 = angleNorm(zs[0].Dir + math.Pi)
+	if Equal(zs[0].T, 1.0) {
+		angle1 = zs[1].Dir
+	} else {
+		angle1 = zs[0].Dir
 	}
+	if angle1 < angle0 {
+		// angle turns right, ie. part of a clock-wise oriented path
+		angle0, angle1 = angle1, angle0
+		//ccw = false
+	}
+	angle0 = angle1 + angleNorm(angle0-angle1)
 
+	var n int
 	for i := range ps {
 		if i == subpath {
 			continue
@@ -94,17 +99,19 @@ func leftmostWindings(subpath int, ps []*Path, x, y float64) int {
 		ni, tangenti := windings(zs)
 		if !tangenti {
 			n += ni
-		} else if tangent {
-			var in0, in1 bool
-			in0 = angleBetweenExclusive(zs[0].Dir+math.Pi, angle1, angle0)
-			if Equal(zs[0].T, 1.0) {
-				in1 = angleBetweenExclusive(zs[1].Dir, angle1, angle0)
-			} else {
-				in1 = angleBetweenExclusive(zs[0].Dir, angle1, angle0)
-			}
+		} else {
+			//var in0, in1 bool
+			in0 := angleBetweenExclusive(zs[0].Dir+math.Pi, angle1, angle0)
+			//if Equal(zs[0].T, 1.0) {
+			//	in1 = angleBetweenExclusive(zs[1].Dir, angle1, angle0)
+			//} else {
+			//	in1 = angleBetweenExclusive(zs[0].Dir, angle1, angle0)
+			//}
 
-			if !in0 && !in1 {
-				// current subpath is outside of subpath of interest, count non-boundary windings
+			//fmt.Println(in0, in1, ccw)
+			if !in0 { //&& !in1|| {
+				// following this subpath would go inside the subpath of interest
+				// count non-boundary windings of this path
 				n += ni
 			}
 		}
@@ -112,9 +119,12 @@ func leftmostWindings(subpath int, ps []*Path, x, y float64) int {
 	return n
 }
 
-// Settle combines the path p with itself, including all subpaths, removing all self-intersections and overlapping parts. It returns subpaths with counter clockwise directions when filling, and clockwise directions for holes. This means that the result is the same whether using the EvenOdd or NonZero winding rules. The result will only contain point-tangent intersections, but not parallel-tangent intersections or regular intersections.
+// Settle simplifies a path by removing all self-intersections and overlapping parts. Open paths are not handled and returned as-is. The returned subpaths are oriented counter clock-wise when filled and clock-wise for holes. This means that the result is agnostic to the winding rule used for drawing. The result will only contain point-tangent intersections, but not parallel-tangent intersections or regular intersections.
 // See L. Subramaniam, "Partition of a non-simple polygon into simple pologons", 2003
 func (p *Path) Settle(fillRule FillRule) *Path {
+	// TODO: handle tangent intersections, which should divide into inner/disjoint rings
+	// TODO: handle and remove parallel parts
+	// TODO: for EvenOdd, output filled polygons only, not fill-rings and hole-rings
 	if p.Empty() {
 		return p
 	}
@@ -140,7 +150,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 	p = p.Flatten(Tolerance) // TODO: remove when we handle quad/cube/arc intersection combinations
 
 	// zp is an list of even length where each ith intersections is a pseudo-vertex of the ith+len/2
-	zp, zq := pathIntersections(p, nil, false, true)
+	zp, zq := pathIntersections(p, nil, false, false)
 	//for i := range zp {
 	//	fmt.Println(i, zp[i])
 	//}
@@ -168,7 +178,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 	n := k
 
 	// cut path at intersections
-	parts, segs := cut(p, zp)
+	paths, segs := cut(p, zp)
 
 	// build up linked nodes between the intersections
 	// reverse direction for clock-wise path to ensure one of both paths goes outwards
@@ -178,8 +188,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 	for i, _ := range zp {
 		nodes[i].k = idxK[i]
 		nodes[i].Point = zp[i].Point
-		nodes[i].p = parts[i]
-		nodes[i].AintoB = zp[i].Into
+		nodes[i].p = paths[i]
 
 		// the next node on the end of a subpath should be its starting point
 		i1 := i + 1
@@ -188,6 +197,9 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 			i0, i1 = i1, i0
 		}
 		nodes[i].next = pair[i1] // next node on the intersecting (not current) path
+
+		nodes[i].AintoB = zp[i].Into
+		nodes[i].Tangent = zp[i].Tangent
 	}
 	//for i := range nodes {
 	//	fmt.Println(i, nodes[i], nodes[i].p)
@@ -266,7 +278,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 				prev = j1 - 1
 			}
 			winding := 1
-			if !parts[prev].CCW() {
+			if !paths[prev].CCW() {
 				winding = -1
 			}
 
@@ -309,19 +321,20 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 		r := &Path{}
 		for {
 			visits[nodes[i].k]++
-
-			//fmt.Println(i, "k", nodes[i].k, "visits", visits[nodes[i].k])
 			if visits[nodes[i].k] < 2 {
 				var item nodeItem
-				//fmt.Println(i, pair[i], nodes[i], nodes[pair[i]], cur.winding)
-				if (cur.winding == 1) != nodes[i].AintoB { // != (nodes[i].ccwA && nodes[i].ccwB) {
+				if !nodes[i].Tangent && (cur.winding == 1) != nodes[i].AintoB {
 					// inner ring
 					//fmt.Println(ring, i, "inner", nodes[i])
 					item = nodeItem{pair[i], windings, cur.winding}
 				} else {
 					// disjoint ring
+					winding := -cur.winding
+					if nodes[i].Tangent {
+						winding = cur.winding
+					}
 					//fmt.Println(ring, i, "disjoint", nodes[i])
-					item = nodeItem{pair[i], cur.parentWindings, -cur.winding}
+					item = nodeItem{pair[i], cur.parentWindings, winding}
 				}
 				queue = append(queue[:j], append([]nodeItem{item}, queue[j:]...)...)
 			}
@@ -329,7 +342,6 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 			if use {
 				r = r.Join(nodes[i].p)
 			}
-
 			i = nodes[i].next
 			if i == i0 {
 				break
