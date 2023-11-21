@@ -545,6 +545,7 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner, tolerance f
 		}
 	}
 
+	// TODO: use Settle with positive or negative fill rule
 	closeInnerBends(rhs, rhsInnerBends, closed)
 	closeInnerBends(lhs, lhsInnerBends, closed)
 
@@ -578,8 +579,6 @@ func closeInnerBends(p *Path, indices []int, closed bool) {
 			iNext = cmdLen(MoveToCmd)
 		}
 		if 0 < iPrev && iNext < len(p.d) {
-			// TODO: (stroke) implement inner bend optimization for all combinations
-			// TODO: (stroke) if segments do not cross keep looking, what if while looking we pass another index in indices? Remove all?
 			prevStart := Point{p.d[iPrev-3], p.d[iPrev-2]}
 			prevEnd := Point{p.d[i-3], p.d[i-2]}
 			nextStart := Point{p.d[i+1], p.d[i+2]}

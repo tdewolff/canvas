@@ -33,6 +33,7 @@ Please issue bug reports or feature requests to help this library mature! All he
 - `RichText.SetFaceSpan` has been deprecated
 - `RichText.Add` has been deprecated, please use `RichText.WriteFace`
 - `RichText.Add*` have been deprecated, please use `RichText.Write*`
+- `Path.Complex` has been renamed as `Path.HasSubpaths`
 
 ## Features
 - Path segment types: MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close

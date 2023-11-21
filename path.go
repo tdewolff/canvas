@@ -147,9 +147,15 @@ func (p *Path) PointClosed() bool {
 	return 6 < len(p.d) && p.d[len(p.d)-1] == CloseCmd && Equal(p.d[len(p.d)-7], p.d[len(p.d)-3]) && Equal(p.d[len(p.d)-6], p.d[len(p.d)-2])
 }
 
-// Complex returns true when path p has subpaths.
+// XMonotone returns true if the path is x-monotone, that is each path segment is either increasing or decreasing with X while moving across the segment. This is always true for line segments, but may not be the case for Beziér or arc segments.
+func (p *Path) XMonotone() bool {
+	// TODO: implement XMonotone
+	panic("not implemented")
+}
+
+// HasSubpaths returns true when path p has subpaths.
 // TODO: naming right? A simple path would not self-intersect. Add XMonotone and Flat as well
-func (p *Path) Complex() bool {
+func (p *Path) HasSubpaths() bool {
 	for i := 0; i < len(p.d); {
 		if p.d[i] == MoveToCmd && i != 0 {
 			return true
@@ -692,9 +698,7 @@ func (p *Path) Fills(x, y float64, fillRule FillRule) bool {
 
 // InteriorPoint returns a point on the interior of the path. The path should be a non-complex non-self-intersecting path (i.e. settled with no subpaths). It uses the first subpath if there are multiple and returns the start position on open paths.
 func (p *Path) InteriorPoint() Point {
-	if p.Complex() {
-		p = p.Split()[0]
-	}
+	p = p.Split()[0]
 	if !p.Closed() {
 		return p.StartPos()
 	}
@@ -1135,11 +1139,11 @@ func (p *Path) Scale(x, y float64) *Path {
 	return p.Transform(Identity.Scale(x, y))
 }
 
-// Flat returns true if the path is flat.
+// Flat returns true if the path consists of solely line segments, that is only MoveTo, LineTo and Close commands.
 func (p *Path) Flat() bool {
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
-		if cmd == QuadToCmd || cmd == CubeToCmd || cmd == ArcToCmd {
+		if cmd != MoveToCmd && cmd != LineToCmd && cmd != CloseCmd {
 			return false
 		}
 		i += cmdLen(cmd)
@@ -2124,6 +2128,7 @@ func (p *Path) ToPDF() string {
 func (p *Path) ToRasterizer(ras *vector.Rasterizer, resolution Resolution) {
 	dpmm := resolution.DPMM()
 	p = p.Flatten(PixelTolerance / dpmm) // tolerance of 1/10 of a pixel
+	// TODO: smoothen path using Ramer-...
 
 	dy := float64(ras.Bounds().Size().Y)
 	for i := 0; i < len(p.d); {
