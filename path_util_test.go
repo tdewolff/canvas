@@ -129,10 +129,11 @@ func TestArcToCube(t *testing.T) {
 }
 
 func TestFlattenEllipse(t *testing.T) {
+	defer setEpsilon(1e-3)()
 	tolerance := 1.0
 
-	defer setEpsilon(1e-3)()
-	test.T(t, flattenEllipticArc(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}, tolerance), MustParseSVGPath("M0 0L3.8202 27.243L15.092 52.545L33.225 74.179L56.889 90.115L84.082 98.716L100 100L127.243 96.18L152.545 84.908L174.179 66.775L190.115 43.111L198.716 15.918L200 0"))
+	// circular
+	test.T(t, flattenEllipticArc(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}, tolerance), MustParseSVGPath("L3.8513 30.6285L20.8474 62.5902L48.0297 86.4971L81.9001 99.2726L118.0998 99.2726L151.9702 86.4971L179.1525 62.5902L196.1486 30.6285L200 0"))
 }
 
 func TestQuadraticBezier(t *testing.T) {

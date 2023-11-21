@@ -433,15 +433,15 @@ func TestIntersections(t *testing.T) {
 			{Point{4.0, 3.0}, 3, 0.0, math.Pi, false, false, false},
 			{Point{2.0, 3.0}, 3, 0.5, math.Pi, true, false, false},
 		}, []PathIntersection{
-			{Point{4.0, 3.0}, 1, 0.0, 262.01783160 * math.Pi / 180.0, true, false, false},
-			{Point{2.0, 3.0}, 13, 0.0, 82.01783160 * math.Pi / 180.0, false, false, false},
+			{Point{4.0, 3.0}, 1, 0.0, 262.83296263 * math.Pi / 180.0, true, false, false},
+			{Point{2.0, 3.0}, 10, 0.0, 82.83296263 * math.Pi / 180.0, false, false, false},
 		}},
 		{"M5 1L9 1L9 5L5 5z", MustParseSVGPath("M9 5A4 4 0 0 1 1 5A4 4 0 0 1 9 5z").Flatten(Tolerance).ToSVG(), []PathIntersection{
-			{Point{5.0, 1.0}, 1, 0.0, 0.0, false, false, false},
 			{Point{9.0, 5.0}, 3, 0.0, math.Pi, true, false, false},
+			{Point{5.0, 1.00828530}, 4, 0.997928675, 1.5 * math.Pi, false, false, false},
 		}, []PathIntersection{
-			{Point{5.0, 1.0}, 37, 0.0, 4.02145240 * math.Pi / 180.0, true, false, false},
-			{Point{9.0, 5.0}, 1, 0.0, 94.02145240 * math.Pi / 180.0, false, false, false},
+			{Point{9.0, 5.0}, 1, 0.0, 93.76219714 * math.Pi / 180.0, false, false, false},
+			{Point{5.0, 1.00828530}, 26, 0.5, 0.0, true, false, false},
 		}},
 
 		// touches / parallel
