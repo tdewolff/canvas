@@ -313,8 +313,37 @@ func ellipseToCubicBeziers(start Point, rx, ry, phi float64, large, sweep bool, 
 }
 
 func flattenEllipticArc(start Point, rx, ry, phi float64, large, sweep bool, end Point, tolerance float64) *Path {
+	if Equal(rx, ry) {
+		// circle
+		r := rx
+		cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
+
+		// draw line segments from arc+tolerance to arc+tolerance, touching arc-tolerance in between
+		// we start and end at the arc itself
+		dtheta := math.Abs(theta1 - theta0)
+		thetam := math.Acos(r / (r + tolerance))     // half angle of first/last segment
+		thetat := math.Acos(r / (r + 2.0*tolerance)) // half angle of middle segments
+		n := math.Ceil((dtheta - thetam*2.0) / (thetat * 2.0))
+
+		// evenly space out points along arc
+		// also adjust distance from arc to lower total deviation area
+		ratio := dtheta / (thetam*2.0 + thetat*2.0*n)
+		thetam *= ratio
+		thetat *= ratio
+
+		p := &Path{}
+		p.MoveTo(start.X, start.Y)
+		theta := thetam + thetat
+		for i := 0; i < int(n); i++ {
+			t := theta0 + math.Copysign(theta, theta1-theta0)
+			pos := PolarPoint(t, r+ratio*tolerance).Add(Point{cx, cy})
+			p.LineTo(pos.X, pos.Y)
+			theta += 2.0 * thetat
+		}
+		p.LineTo(end.X, end.Y)
+		return p
+	}
 	// TODO: (flatten ellipse) use direct algorithm
-	// TODO: (flatten ellipse) use tolerance
 	return arcToCube(start, rx, ry, phi, large, sweep, end).Flatten(tolerance)
 }
 
