@@ -389,8 +389,8 @@ type pathStrokeState struct {
 	large, sweep                bool    // arcs
 }
 
-// offsetSegment returns the rhs and lhs paths from offsetting a path segment. It closes rhs and lhs when p is closed as well.
-func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner, tolerance float64) (*Path, *Path) {
+// offset returns the rhs and lhs paths from offsetting a path (must not have subpaths). It closes rhs and lhs when p is closed as well.
+func (p *Path) offset(halfWidth float64, cr Capper, jr Joiner, stroke bool, tolerance float64) (*Path, *Path) {
 	// only non-empty paths are evaluated
 	closed := false
 	states := []pathStrokeState{}
@@ -545,7 +545,6 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner, tolerance f
 		}
 	}
 
-	// TODO: use Settle with positive or negative fill rule
 	closeInnerBends(rhs, rhsInnerBends, closed)
 	closeInnerBends(lhs, lhsInnerBends, closed)
 
@@ -557,17 +556,22 @@ func offsetSegment(p *Path, halfWidth float64, cr Capper, jr Joiner, tolerance f
 		return rhs, lhs
 	}
 
-	// default to CCW direction
-	lhs = lhs.Reverse()
-	cr.Cap(rhs, halfWidth, states[len(states)-1].p1, states[len(states)-1].n1)
-	rhs = rhs.Join(lhs)
-	cr.Cap(rhs, halfWidth, states[0].p0, states[0].n0.Neg())
-	rhs.Close()
-	rhs.optimizeClose()
-	return rhs, nil
+	if stroke {
+		// default to CCW direction
+		lhs = lhs.Reverse()
+		cr.Cap(rhs, halfWidth, states[len(states)-1].p1, states[len(states)-1].n1)
+		rhs = rhs.Join(lhs)
+		cr.Cap(rhs, halfWidth, states[0].p0, states[0].n0.Neg())
+		rhs.Close()
+		rhs.optimizeClose()
+		lhs = nil
+	}
+	return rhs, lhs
 }
 
 func closeInnerBends(p *Path, indices []int, closed bool) {
+	// TODO: remove when Settle can handle at least arcs, this function will prevent flattening in most cases
+
 	// closed paths end with a LineTo to the original MoveTo but are not (yet) closed
 	di := 0
 	for _, i := range indices {
@@ -606,35 +610,29 @@ func closeInnerBends(p *Path, indices []int, closed bool) {
 	}
 }
 
-// Offset offsets the path to expand by w and returns a new path. If w is negative it will contract. Path must be closed. The tolerance is the maximum deviation from the actual offset when flattening Béziers and optimizing the path. Subpaths may not (self-)intersect, use Settle to remove (self-)intersections.
+// Offset offsets the path to expand by w and returns a new path. If w is negative it will contract. For open paths, a positive w will offset the path to the right-hand side. The tolerance is the maximum deviation from the actual offset when flattening Béziers and optimizing the path. Subpaths may not (self-)intersect, use Settle to remove (self-)intersections.
 func (p *Path) Offset(w float64, fillRule FillRule, tolerance float64) *Path {
 	if Equal(w, 0.0) {
 		return p
 	}
 
+	positive := 0.0 < w
+	w = math.Abs(w)
+
 	q := &Path{}
 	filling := p.Filling(fillRule)
-	for i, ps := range p.Split() {
-		if !ps.Closed() {
-			continue
+	for i, pi := range p.Split() {
+		ccw := pi.CCW()
+		fillRule := Positive
+		if !ccw {
+			fillRule = Negative
 		}
 
-		useRHS := false
-		if ps.CCW() {
-			useRHS = !useRHS
-		}
-		if 0.0 < w {
-			useRHS = !useRHS
-		}
-		if filling[i] {
-			useRHS = !useRHS
-		}
-
-		rhs, lhs := offsetSegment(ps, math.Abs(w), ButtCap, RoundJoin, tolerance)
-		if useRHS {
-			q = q.Append(rhs)
+		rhs, lhs := pi.offset(w, ButtCap, RoundJoin, false, tolerance)
+		if !pi.Closed() || (ccw != filling[i]) != positive {
+			q = q.Append(rhs.Settle(fillRule))
 		} else {
-			q = q.Append(lhs)
+			q = q.Append(lhs.Settle(fillRule))
 		}
 	}
 	return q
@@ -652,19 +650,19 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path 
 	}
 	q := &Path{}
 	halfWidth := w / 2.0
-	for _, ps := range p.Split() {
-		rhs, lhs := offsetSegment(ps, halfWidth, cr, jr, tolerance)
+	for _, pi := range p.Split() {
+		rhs, lhs := pi.offset(halfWidth, cr, jr, true, tolerance)
 		if lhs != nil { // closed path
 			// inner path should go opposite direction to cancel the outer path
-			if ps.CCW() {
-				q = q.Append(rhs)
-				q = q.Append(lhs.Reverse())
+			if pi.CCW() {
+				q = q.Append(rhs.Settle(Positive))
+				q = q.Append(lhs.Settle(Positive).Reverse())
 			} else {
-				q = q.Append(lhs.Reverse())
-				q = q.Append(rhs)
+				q = q.Append(lhs.Settle(Negative))
+				q = q.Append(rhs.Settle(Negative).Reverse())
 			}
 		} else {
-			q = q.Append(rhs)
+			q = q.Append(rhs.Settle(Positive))
 		}
 	}
 	return q

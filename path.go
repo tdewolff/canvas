@@ -17,17 +17,29 @@ var Tolerance = 0.01
 // PixelTolerance is the maximum deviation of the rasterized path from the original for flattening purposed in pixels.
 var PixelTolerance = 0.1
 
-// FillRule is the algorithm to specify which area is to be filled and which not, in particular when multiple subpaths overlap. The NonZero rule is the default and will fill any point that is being enclosed by an unequal number of paths winding clockwise and counter clockwise, otherwise it will not be filled. The EvenOdd rule will fill any point that is being enclosed by an uneven number of paths, whichever their direction.
+// FillRule is the algorithm to specify which area is to be filled and which not, in particular when multiple subpaths overlap. The NonZero rule is the default and will fill any point that is being enclosed by an unequal number of paths winding clock-wise and counter clock-wise, otherwise it will not be filled. The EvenOdd rule will fill any point that is being enclosed by an uneven number of paths, whichever their direction. Positive fills only counter clock-wise oriented paths, while Negative fills only clock-wise oriented paths.
 type FillRule int
 
 // see FillRule
 const (
 	NonZero FillRule = iota
 	EvenOdd
+	Positive
+	Negative
 )
 
 func (fillRule FillRule) Fills(windings int) bool {
-	return fillRule == EvenOdd && windings%2 != 0 || fillRule == NonZero && windings != 0
+	switch fillRule {
+	case NonZero:
+		return windings != 0
+	case EvenOdd:
+		return windings%2 != 0
+	case Positive:
+		return 0 < windings
+	case Negative:
+		return windings < 0
+	}
+	return false
 }
 
 // Command values as powers of 2 so that the float64 representation is exact
