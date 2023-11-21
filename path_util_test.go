@@ -120,12 +120,12 @@ func TestEllipseSplit(t *testing.T) {
 }
 
 func TestArcToQuad(t *testing.T) {
-	test.T(t, arcToQuad(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}), MustParseSVGPath("M0 0Q0 100 100 100Q200 100 200 0"))
+	test.T(t, arcToQuad(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}), MustParseSVGPath("Q0 100 100 100Q200 100 200 0"))
 }
 
 func TestArcToCube(t *testing.T) {
 	defer setEpsilon(1e-3)()
-	test.T(t, arcToCube(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}), MustParseSVGPath("M0 0C0 54.858 45.142 100 100 100C154.858 100 200 54.858 200 0"))
+	test.T(t, arcToCube(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}), MustParseSVGPath("C0 54.858 45.142 100 100 100C154.858 100 200 54.858 200 0"))
 }
 
 func TestFlattenEllipse(t *testing.T) {
