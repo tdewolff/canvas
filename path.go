@@ -15,7 +15,7 @@ import (
 var Tolerance = 0.01
 
 // PixelTolerance is the maximum deviation of the rasterized path from the original for flattening purposed in pixels.
-var PixelTolerance = 0.25
+var PixelTolerance = 0.1
 
 // FillRule is the algorithm to specify which area is to be filled and which not, in particular when multiple subpaths overlap. The NonZero rule is the default and will fill any point that is being enclosed by an unequal number of paths winding clockwise and counter clockwise, otherwise it will not be filled. The EvenOdd rule will fill any point that is being enclosed by an uneven number of paths, whichever their direction.
 type FillRule int
@@ -2123,7 +2123,7 @@ func (p *Path) ToPDF() string {
 // ToRasterizer rasterizes the path using the given rasterizer and resolution.
 func (p *Path) ToRasterizer(ras *vector.Rasterizer, resolution Resolution) {
 	dpmm := resolution.DPMM()
-	p = p.Flatten(PixelTolerance / dpmm) // tolerance of 1/4 of a pixel
+	p = p.Flatten(PixelTolerance / dpmm) // tolerance of 1/10 of a pixel
 
 	dy := float64(ras.Bounds().Size().Y)
 	for i := 0; i < len(p.d); {
