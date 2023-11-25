@@ -885,7 +885,12 @@ func intersectionSegment(zs Intersections, a0 Point, a []float64, b0 Point, b []
 		} else if b[0] == CubeToCmd {
 			panic("unsupported intersection for arc-cube")
 		} else if b[0] == ArcToCmd {
-			panic("unsupported intersection for arc-arc")
+			rx2 := b[1]
+			ry2 := b[2]
+			phi2 := b[3] * math.Pi / 180.0
+			large2, sweep2 := toArcFlags(b[4])
+			cx2, cy2, theta20, theta21 := ellipseToCenter(b0.X, b0.Y, rx2, ry2, phi2, large2, sweep2, b[5], b[6])
+			zs = intersectionEllipseEllipse(zs, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1, Point{cx2, cy2}, Point{rx2, ry2}, phi2, theta20, theta21)
 		}
 	}
 
@@ -1061,7 +1066,6 @@ func intersectionLineQuad(zs Intersections, l0, l1, p0, p1, p2 Point) Intersecti
 				s = (pos.Y - l0.Y) / (l1.Y - l0.Y)
 			}
 			if Interval(s, 0.0, 1.0) {
-				// TODO: check if partly overlapping curves are correct
 				deriv := quadraticBezierDeriv(p0, p1, p2, root)
 				dirb := deriv.Angle()
 				endpoint := Equal(root, 0.0) || Equal(root, 1.0) || Equal(s, 0.0) || Equal(s, 1.0)
@@ -1117,7 +1121,6 @@ func intersectionLineCube(zs Intersections, l0, l1, p0, p1, p2, p3 Point) Inters
 				s = (pos.Y - l0.Y) / (l1.Y - l0.Y)
 			}
 			if Interval(s, 0.0, 1.0) {
-				// TODO: check if partly overlapping curves are correct
 				deriv := cubicBezierDeriv(p0, p1, p2, p3, root)
 				dirb := deriv.Angle()
 				tangent := Equal(A.Dot(deriv), 0.0)
@@ -1204,7 +1207,6 @@ func intersectionLineEllipse(zs Intersections, l0, l1, center, radius Point, phi
 
 		angle := math.Atan2(y, x)
 		if Interval(s, 0.0, 1.0) && angleBetween(angle, theta0, theta1) {
-			// TODO: check if partly overlapping curves are correct
 			if theta0 <= theta1 {
 				angle = theta0 - Epsilon + angleNorm(angle-theta0+Epsilon)
 			} else {
@@ -1229,9 +1231,74 @@ func intersectionLineEllipse(zs Intersections, l0, l1, center, radius Point, phi
 	return zs
 }
 
+func intersectionEllipseEllipse(zs Intersections, c0, r0 Point, phi0, thetaStart0, thetaEnd0 float64, c1, r1 Point, phi1, thetaStart1, thetaEnd1 float64) Intersections {
+	// TODO: needs more testing
+	if !Equal(r0.X, r0.Y) || !Equal(r1.X, r1.Y) {
+		panic("not handled") // ellipses
+	} else if c0.Equals(c1) && r0.Equals(r1) {
+		//if angleBetween(thetaStart0, thetaStart1, thetaEnd1){
+		//	zs = zs.add(c0.Add(mid).Add(dev), ta0, ta1, angleNorm(dir0), angleNorm(dir1), true)
+
+		//}
+		//panic("not handled") // equal
+		return zs
+	}
+
+	// https://math.stackexchange.com/questions/256100/how-can-i-find-the-points-at-which-two-circles-intersect
+	// https://gist.github.com/jupdike/bfe5eb23d1c395d8a0a1a4ddd94882ac
+	R := c0.Sub(c1).Length()
+	if R < math.Abs(r0.X-r1.X) || r0.X+r1.X < R {
+		return zs
+	}
+	R2 := R * R
+
+	k := r0.X*r0.X - r1.X*r1.X
+	a := 0.5
+	b := 0.5 * k / R2
+	c := 0.5 * math.Sqrt(2.0*(r0.X*r0.X+r1.X*r1.X)/R2-k*k/(R2*R2)-1.0)
+
+	mid := c1.Sub(c0).Mul(a + b)
+	dev := Point{c1.Y - c0.Y, c0.X - c1.X}.Mul(c)
+
+	tangent := dev.Equals(Point{})
+	anglea0 := mid.Add(dev).Angle()
+	anglea1 := c0.Sub(c1).Add(mid).Add(dev).Angle()
+	ta0 := (anglea0 - thetaStart0) / (thetaEnd0 - thetaStart0)
+	ta1 := (anglea1 - thetaStart1) / (thetaEnd1 - thetaStart1)
+	if 0.0 <= ta0 && ta0 <= 1.0 && 0.0 <= ta1 && ta1 <= 1.0 {
+		dir0 := anglea0 + math.Pi/2.0
+		if thetaEnd0 < thetaStart0 {
+			dir0 += math.Pi
+		}
+		dir1 := anglea1 + math.Pi/2.0
+		if thetaEnd1 < thetaStart1 {
+			dir1 += math.Pi
+		}
+		zs = zs.add(c0.Add(mid).Add(dev), ta0, ta1, angleNorm(dir0), angleNorm(dir1), tangent)
+	}
+
+	if !tangent {
+		angleb0 := mid.Sub(dev).Angle()
+		angleb1 := c0.Sub(c1).Add(mid).Sub(dev).Angle()
+		tb0 := (angleb0 - thetaStart0) / (thetaEnd0 - thetaStart0)
+		tb1 := (angleb1 - thetaStart1) / (thetaEnd1 - thetaStart1)
+		if 0.0 <= tb0 && tb0 <= 1.0 && 0.0 <= tb1 && tb1 <= 1.0 {
+			dir0 := angleb0 + math.Pi/2.0
+			if thetaEnd0 < thetaStart0 {
+				dir0 += math.Pi
+			}
+			dir1 := angleb1 + math.Pi/2.0
+			if thetaEnd1 < thetaStart1 {
+				dir1 += math.Pi
+			}
+			zs = zs.add(c0.Add(mid).Sub(dev), tb0, tb1, angleNorm(dir0), angleNorm(dir1), false)
+		}
+	}
+	return zs
+}
+
 // TODO: bezier-bezier intersection
 // TODO: bezier-ellipse intersection
-// TODO: ellipse-ellipse intersection
 
 // For Bézier-Bézier interesections:
 // see T.W. Sederberg, "Computer Aided Geometric Design", 2012

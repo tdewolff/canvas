@@ -312,6 +312,17 @@ func ellipseToCubicBeziers(start Point, rx, ry, phi float64, large, sweep bool, 
 	return beziers
 }
 
+func xmonotoneEllipticArc(start Point, rx, ry, phi float64, large, sweep bool, end Point) *Path {
+	//cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
+
+	p := &Path{}
+	p.MoveTo(start.X, start.Y)
+
+	// TODO: xmonotone ellipse
+	p.ArcTo(rx, ry, phi, large, sweep, end.X, end.Y)
+	return p
+}
+
 func flattenEllipticArc(start Point, rx, ry, phi float64, large, sweep bool, end Point, tolerance float64) *Path {
 	if Equal(rx, ry) {
 		// circle

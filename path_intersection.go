@@ -146,12 +146,28 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 		return open
 	}
 
-	// TODO: if we remove flatten make sure that path is x-monotone, also needed for Bentley-Ottmann
-	p = p.Flatten(Tolerance) // TODO: remove when we handle quad/cube/arc intersection combinations
-	ps = p.Split()
+	// TODO: make sure that path is x-monotone, also needed for Bentley-Ottmann
+	// TODO: remove when we handle quad/cube/arc intersection combinations
+	// flatten bezier segments
+	quad := func(p0, p1, p2 Point) *Path {
+		return flattenQuadraticBezier(p0, p1, p2, Tolerance)
+	}
+	cube := func(p0, p1, p2, p3 Point) *Path {
+		return flattenCubicBezier(p0, p1, p2, p3, Tolerance)
+	}
+	arc := func(start Point, rx, ry, phi float64, large, sweep bool, end Point) *Path {
+		if !Equal(rx, ry) {
+			return flattenEllipticArc(start, rx, ry, phi, large, sweep, end, Tolerance)
+		}
+		return xmonotoneEllipticArc(start, rx, ry, phi, large, sweep, end)
+	}
+	p = p.replace(nil, quad, cube, arc)
 
 	// zp is an list of even length where each ith intersections is a pseudo-vertex of the ith+len/2
 	zp, zq := pathIntersections(p, nil, false, false)
+	if 0 < len(zp) {
+		ps = p.Split() // otherwise, keep unflattened path
+	}
 	//for i := range zp {
 	//	fmt.Println(i, zp[i])
 	//}

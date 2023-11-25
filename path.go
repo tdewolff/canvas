@@ -451,14 +451,16 @@ func (p *Path) ArcTo(rx, ry, rot float64, large, sweep bool, x, y float64) {
 	if start.Equals(end) {
 		return
 	}
-	if Equal(rx, 0.0) || Equal(ry, 0.0) {
+	if Equal(rx, 0.0) || math.IsInf(rx, 0) || Equal(ry, 0.0) || math.IsInf(ry, 0) {
 		p.LineTo(end.X, end.Y)
 		return
 	}
 
 	rx = math.Abs(rx)
 	ry = math.Abs(ry)
-	if rx < ry {
+	if Equal(rx, ry) {
+		rot = 0.0 // circle
+	} else if rx < ry {
 		rx, ry = ry, rx
 		rot += 90.0
 	}

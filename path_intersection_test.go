@@ -298,6 +298,41 @@ func TestIntersectionLineEllipse(t *testing.T) {
 	Epsilon = origEpsilon
 }
 
+func TestIntersectionEllipseEllipse(t *testing.T) {
+	var tts = []struct {
+		arc, arc2 string
+		zs        Intersections
+	}{
+		// secant
+		{"M5 0A5 5 0 0 1 -5 0", "M-10 -5A10 10 0 0 1 -10 15", Intersections{
+			{Point{0.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{math.Pi, 0.5 * math.Pi}, false},
+		}},
+	}
+	origEpsilon := Epsilon
+	for _, tt := range tts {
+		t.Run(fmt.Sprint(tt.arc, "x", tt.arc2), func(t *testing.T) {
+			Epsilon = origEpsilon
+			arc := MustParseSVGPath(tt.arc).ReverseScanner()
+			arc2 := MustParseSVGPath(tt.arc2).ReverseScanner()
+			arc.Scan()
+			arc2.Scan()
+
+			rx, ry, rot, large, sweep := arc.Arc()
+			phi := rot * math.Pi / 180.0
+			cx, cy, theta0, theta1 := ellipseToCenter(arc.Start().X, arc.Start().Y, rx, ry, phi, large, sweep, arc.End().X, arc.End().Y)
+
+			rx2, ry2, rot2, large2, sweep2 := arc2.Arc()
+			phi2 := rot2 * math.Pi / 180.0
+			cx2, cy2, theta20, theta21 := ellipseToCenter(arc2.Start().X, arc2.Start().Y, rx2, ry2, phi2, large2, sweep2, arc2.End().X, arc2.End().Y)
+
+			zs := intersectionEllipseEllipse(nil, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1, Point{cx2, cy2}, Point{rx2, ry2}, phi2, theta20, theta21)
+			Epsilon = 3.0 * origEpsilon
+			test.T(t, zs, tt.zs)
+		})
+	}
+	Epsilon = origEpsilon
+}
+
 func TestIntersections(t *testing.T) {
 	var tts = []struct {
 		p, q   string
