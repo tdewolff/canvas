@@ -937,6 +937,11 @@ func (t *Text) Empty() bool {
 	return true
 }
 
+// Lines returns the number of text lines of the text box.
+func (t *Text) Lines() int {
+	return len(t.lines)
+}
+
 // Size returns the width and height of a text box. Either can be zero when unspecified.
 func (t *Text) Size() (float64, float64) {
 	return t.Width, t.Height
