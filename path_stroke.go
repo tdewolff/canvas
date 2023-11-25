@@ -390,7 +390,7 @@ type pathStrokeState struct {
 }
 
 // offset returns the rhs and lhs paths from offsetting a path (must not have subpaths). It closes rhs and lhs when p is closed as well.
-func (p *Path) offset(halfWidth float64, cr Capper, jr Joiner, stroke bool, tolerance float64) (*Path, *Path) {
+func (p *Path) offset(halfWidth float64, cr Capper, jr Joiner, strokeOpen bool, tolerance float64) (*Path, *Path) {
 	// only non-empty paths are evaluated
 	closed := false
 	states := []pathStrokeState{}
@@ -545,6 +545,7 @@ func (p *Path) offset(halfWidth float64, cr Capper, jr Joiner, stroke bool, tole
 		}
 	}
 
+	// TODO: remove when Settle handles arcs
 	closeInnerBends(rhs, rhsInnerBends, closed)
 	closeInnerBends(lhs, lhsInnerBends, closed)
 
@@ -553,11 +554,7 @@ func (p *Path) offset(halfWidth float64, cr Capper, jr Joiner, stroke bool, tole
 		rhs.optimizeClose()
 		lhs.Close()
 		lhs.optimizeClose()
-		return rhs, lhs
-	}
-
-	if stroke {
-		// default to CCW direction
+	} else if strokeOpen {
 		lhs = lhs.Reverse()
 		cr.Cap(rhs, halfWidth, states[len(states)-1].p1, states[len(states)-1].n1)
 		rhs = rhs.Join(lhs)
@@ -570,8 +567,7 @@ func (p *Path) offset(halfWidth float64, cr Capper, jr Joiner, stroke bool, tole
 }
 
 func closeInnerBends(p *Path, indices []int, closed bool) {
-	// TODO: remove when Settle can handle at least arcs, this function will prevent flattening in most cases
-
+	// TODO: remove this part until we can handle intersections with at least arcs, this part will prevent flattening in most cases
 	// closed paths end with a LineTo to the original MoveTo but are not (yet) closed
 	di := 0
 	for _, i := range indices {
@@ -622,18 +618,26 @@ func (p *Path) Offset(w float64, fillRule FillRule, tolerance float64) *Path {
 	q := &Path{}
 	filling := p.Filling(fillRule)
 	for i, pi := range p.Split() {
-		ccw := pi.CCW()
-		fillRule := Positive
-		if !ccw {
-			fillRule = Negative
+		r := &Path{}
+		ccw, closed := pi.CCW(), pi.Closed()
+		rhs, lhs := pi.offset(w, ButtCap, RoundJoin, false, tolerance)
+		if !closed || (ccw != filling[i]) != positive {
+			r = rhs
+		} else {
+			r = lhs
 		}
 
-		rhs, lhs := pi.offset(w, ButtCap, RoundJoin, false, tolerance)
-		if !pi.Closed() || (ccw != filling[i]) != positive {
-			q = q.Append(rhs.Settle(fillRule))
-		} else {
-			q = q.Append(lhs.Settle(fillRule))
+		if closed {
+			if ccw {
+				r = r.Settle(Positive)
+			} else {
+				r = r.Settle(Negative)
+			}
+			if !filling[i] {
+				r = r.Reverse()
+			}
 		}
+		q = q.Append(r)
 	}
 	return q
 }
@@ -651,16 +655,16 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path 
 	q := &Path{}
 	halfWidth := w / 2.0
 	for _, pi := range p.Split() {
+		fillRule := Positive
+		if !pi.CCW() {
+			fillRule = Negative
+		}
+
 		rhs, lhs := pi.offset(halfWidth, cr, jr, true, tolerance)
 		if lhs != nil { // closed path
 			// inner path should go opposite direction to cancel the outer path
-			if pi.CCW() {
-				q = q.Append(rhs.Settle(Positive))
-				q = q.Append(lhs.Settle(Positive).Reverse())
-			} else {
-				q = q.Append(lhs.Settle(Negative))
-				q = q.Append(rhs.Settle(Negative).Reverse())
-			}
+			q = q.Append(rhs.Settle(fillRule))
+			q = q.Append(lhs.Settle(fillRule).Reverse())
 		} else {
 			q = q.Append(rhs.Settle(Positive))
 		}

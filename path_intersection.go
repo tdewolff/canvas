@@ -148,6 +148,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 
 	// TODO: if we remove flatten make sure that path is x-monotone, also needed for Bentley-Ottmann
 	p = p.Flatten(Tolerance) // TODO: remove when we handle quad/cube/arc intersection combinations
+	ps = p.Split()
 
 	// zp is an list of even length where each ith intersections is a pseudo-vertex of the ith+len/2
 	zp, zq := pathIntersections(p, nil, false, false)
@@ -202,7 +203,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 		nodes[i].Tangent = zp[i].Tangent
 	}
 	//for i := range nodes {
-	//	fmt.Println(i, nodes[i], nodes[i].p)
+	//	fmt.Println(i, nodes[i])
 	//}
 	//fmt.Println()
 
