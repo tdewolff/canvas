@@ -313,13 +313,32 @@ func ellipseToCubicBeziers(start Point, rx, ry, phi float64, large, sweep bool, 
 }
 
 func xmonotoneEllipticArc(start Point, rx, ry, phi float64, large, sweep bool, end Point) *Path {
-	//cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
+	sign := 1.0
+	if !sweep {
+		sign = -1.0
+	}
+
+	cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
+	sinphi, cosphi := math.Sincos(phi)
+	thetaRight := math.Atan2(-ry*sinphi, rx*cosphi)
+	thetaLeft := thetaRight + math.Pi
 
 	p := &Path{}
 	p.MoveTo(start.X, start.Y)
+	left := !angleEqual(thetaLeft, theta0) && angleNorm(sign*(thetaLeft-theta0)) < angleNorm(sign*(thetaRight-theta0))
+	for t := theta0; !angleEqual(t, theta1); {
+		dt := angleNorm(sign * (theta1 - t))
+		if left {
+			dt = math.Min(dt, angleNorm(sign*(thetaLeft-t)))
+		} else {
+			dt = math.Min(dt, angleNorm(sign*(thetaRight-t)))
+		}
+		t += sign * dt
 
-	// TODO: xmonotone ellipse
-	p.ArcTo(rx, ry, phi, large, sweep, end.X, end.Y)
+		pos := EllipsePos(rx, ry, phi, cx, cy, t)
+		p.ArcTo(rx, ry, phi*180.0/math.Pi, large, sweep, pos.X, pos.Y)
+		left = !left
+	}
 	return p
 }
 

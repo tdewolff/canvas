@@ -128,6 +128,13 @@ func TestArcToCube(t *testing.T) {
 	test.T(t, arcToCube(Point{0.0, 0.0}, 100.0, 100.0, 0.0, false, false, Point{200.0, 0.0}), MustParseSVGPath("C0 54.858 45.142 100 100 100C154.858 100 200 54.858 200 0"))
 }
 
+func TestXMonotoneEllipse(t *testing.T) {
+	test.T(t, xmonotoneEllipticArc(Point{0.0, 0.0}, 100.0, 50.0, 0.0, false, false, Point{0.0, 100.0}), MustParseSVGPath("M0 0A100 50 0 0 0 -100 50A100 50 0 0 0 0 100"))
+
+	defer setEpsilon(1e-3)()
+	test.T(t, xmonotoneEllipticArc(Point{0.0, 0.0}, 50.0, 25.0, math.Pi/4.0, false, false, Point{100.0 / math.Sqrt(2.0), 100.0 / math.Sqrt(2.0)}), MustParseSVGPath("M0 0A50 25 45 0 0 -4.1731 11.6383A50 25 45 0 0 70.71067811865474 70.71067811865474"))
+}
+
 func TestFlattenEllipse(t *testing.T) {
 	defer setEpsilon(1e-3)()
 	tolerance := 1.0
