@@ -307,6 +307,35 @@ func TestIntersectionEllipseEllipse(t *testing.T) {
 		{"M5 0A5 5 0 0 1 -5 0", "M-10 -5A10 10 0 0 1 -10 15", Intersections{
 			{Point{0.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{math.Pi, 0.5 * math.Pi}, false},
 		}},
+
+		// tangent
+		{"A5 5 0 0 1 0 10", "M10 0A5 5 0 0 0 10 10", Intersections{
+			{Point{5.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true},
+		}},
+
+		// fully parallel
+		{"A5 5 0 0 1 0 10", "A5 5 0 0 1 0 10", Intersections{
+			{Point{0.0, 0.0}, [2]float64{0.0, 0.0}, [2]float64{0.0, 0.0}, true},
+			{Point{0.0, 10.0}, [2]float64{1.0, 1.0}, [2]float64{math.Pi, math.Pi}, true},
+		}},
+		{"A5 5 0 0 1 0 10", "M0 10A5 5 0 0 0 0 0", Intersections{
+			{Point{0.0, 0.0}, [2]float64{0.0, 1.0}, [2]float64{0.0, math.Pi}, true},
+			{Point{0.0, 10.0}, [2]float64{1.0, 0.0}, [2]float64{math.Pi, 0.0}, true},
+		}},
+
+		// partly parallel
+		{"A5 5 0 0 1 0 10", "A5 5 0 0 1 5 5", Intersections{
+			{Point{0.0, 0.0}, [2]float64{0.0, 0.0}, [2]float64{0.0, 0.0}, true},
+			{Point{5.0, 5.0}, [2]float64{0.5, 1.0}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true},
+		}},
+		{"A5 5 0 0 1 0 10", "M5 5A5 5 0 0 1 0 10", Intersections{
+			{Point{5.0, 5.0}, [2]float64{0.5, 0.0}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true},
+			{Point{0.0, 10.0}, [2]float64{1.0, 1.0}, [2]float64{math.Pi, math.Pi}, true},
+		}},
+		{"A5 5 0 0 1 0 10", "M5 5A5 5 0 0 1 -5 5", Intersections{
+			{Point{5.0, 5.0}, [2]float64{0.5, 0.0}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true},
+			{Point{0.0, 10.0}, [2]float64{1.0, 0.5}, [2]float64{math.Pi, math.Pi}, true},
+		}},
 	}
 	origEpsilon := Epsilon
 	for _, tt := range tts {

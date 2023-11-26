@@ -1235,12 +1235,55 @@ func intersectionEllipseEllipse(zs Intersections, c0, r0 Point, phi0, thetaStart
 	// TODO: needs more testing
 	if !Equal(r0.X, r0.Y) || !Equal(r1.X, r1.Y) {
 		panic("not handled") // ellipses
-	} else if c0.Equals(c1) && r0.Equals(r1) {
-		//if angleBetween(thetaStart0, thetaStart1, thetaEnd1){
-		//	zs = zs.add(c0.Add(mid).Add(dev), ta0, ta1, angleNorm(dir0), angleNorm(dir1), true)
+	}
 
-		//}
-		//panic("not handled") // equal
+	arcAngle := func(theta float64, sweep bool) float64 {
+		theta += math.Pi / 2.0
+		if !sweep {
+			theta -= math.Pi
+		}
+		return angleNorm(theta)
+	}
+
+	dtheta0 := thetaEnd0 - thetaStart0
+	thetaStart0 = angleNorm(thetaStart0 + phi0)
+	thetaEnd0 = thetaStart0 + dtheta0
+
+	dtheta1 := thetaEnd1 - thetaStart1
+	thetaStart1 = angleNorm(thetaStart1 + phi1)
+	thetaEnd1 = thetaStart1 + dtheta1
+
+	if c0.Equals(c1) && r0.Equals(r1) {
+		// parallel
+		tOffset1 := 0.0
+		dirOffset1 := 0.0
+		if (0.0 <= dtheta0) != (0.0 <= dtheta1) {
+			thetaStart1, thetaEnd1 = thetaEnd1, thetaStart1 // keep order on first arc
+			dirOffset1 = math.Pi
+			tOffset1 = 1.0
+		}
+
+		// will add exactly 2 intersections
+		if t := angleTime(thetaStart0, thetaStart1, thetaEnd1); Interval(t, 0.0, 1.0) {
+			dir := arcAngle(thetaStart0, 0.0 <= dtheta0)
+			pos := EllipsePos(r0.X, r0.Y, 0.0, c0.X, c0.Y, thetaStart0)
+			zs = zs.add(pos, 0.0, math.Abs(t-tOffset1), dir, angleNorm(dir+dirOffset1), true)
+		}
+		if t := angleTime(thetaStart1, thetaStart0, thetaEnd0); IntervalExclusive(t, 0.0, 1.0) {
+			dir := arcAngle(thetaStart1, 0.0 <= dtheta0)
+			pos := EllipsePos(r0.X, r0.Y, 0.0, c0.X, c0.Y, thetaStart1)
+			zs = zs.add(pos, t, tOffset1, dir, angleNorm(dir+dirOffset1), true)
+		}
+		if t := angleTime(thetaEnd1, thetaStart0, thetaEnd0); IntervalExclusive(t, 0.0, 1.0) {
+			dir := arcAngle(thetaEnd1, 0.0 <= dtheta0)
+			pos := EllipsePos(r0.X, r0.Y, 0.0, c0.X, c0.Y, thetaEnd1)
+			zs = zs.add(pos, t, 1.0-tOffset1, dir, angleNorm(dir+dirOffset1), true)
+		}
+		if t := angleTime(thetaEnd0, thetaStart1, thetaEnd1); Interval(t, 0.0, 1.0) {
+			dir := arcAngle(thetaEnd0, 0.0 <= dtheta0)
+			pos := EllipsePos(r0.X, r0.Y, 0.0, c0.X, c0.Y, thetaEnd0)
+			zs = zs.add(pos, 1.0, math.Abs(t-tOffset1), dir, angleNorm(dir+dirOffset1), true)
+		}
 		return zs
 	}
 
@@ -1263,35 +1306,25 @@ func intersectionEllipseEllipse(zs Intersections, c0, r0 Point, phi0, thetaStart
 	tangent := dev.Equals(Point{})
 	anglea0 := mid.Add(dev).Angle()
 	anglea1 := c0.Sub(c1).Add(mid).Add(dev).Angle()
-	ta0 := (anglea0 - thetaStart0) / (thetaEnd0 - thetaStart0)
-	ta1 := (anglea1 - thetaStart1) / (thetaEnd1 - thetaStart1)
-	if 0.0 <= ta0 && ta0 <= 1.0 && 0.0 <= ta1 && ta1 <= 1.0 {
-		dir0 := anglea0 + math.Pi/2.0
-		if thetaEnd0 < thetaStart0 {
-			dir0 += math.Pi
-		}
-		dir1 := anglea1 + math.Pi/2.0
-		if thetaEnd1 < thetaStart1 {
-			dir1 += math.Pi
-		}
-		zs = zs.add(c0.Add(mid).Add(dev), ta0, ta1, angleNorm(dir0), angleNorm(dir1), tangent)
+	ta0 := angleTime(anglea0, thetaStart0, thetaEnd0)
+	ta1 := angleTime(anglea1, thetaStart1, thetaEnd1)
+	if Interval(ta0, 0.0, 1.0) && Interval(ta1, 0.0, 1.0) {
+		dir0 := arcAngle(anglea0, 0.0 <= dtheta0)
+		dir1 := arcAngle(anglea1, 0.0 <= dtheta1)
+		endpoint := Equal(ta0, 0.0) || Equal(ta0, 1.0) || Equal(ta1, 0.0) || Equal(ta1, 1.0)
+		zs = zs.add(c0.Add(mid).Add(dev), ta0, ta1, dir0, dir1, tangent || endpoint)
 	}
 
 	if !tangent {
 		angleb0 := mid.Sub(dev).Angle()
 		angleb1 := c0.Sub(c1).Add(mid).Sub(dev).Angle()
-		tb0 := (angleb0 - thetaStart0) / (thetaEnd0 - thetaStart0)
-		tb1 := (angleb1 - thetaStart1) / (thetaEnd1 - thetaStart1)
-		if 0.0 <= tb0 && tb0 <= 1.0 && 0.0 <= tb1 && tb1 <= 1.0 {
-			dir0 := angleb0 + math.Pi/2.0
-			if thetaEnd0 < thetaStart0 {
-				dir0 += math.Pi
-			}
-			dir1 := angleb1 + math.Pi/2.0
-			if thetaEnd1 < thetaStart1 {
-				dir1 += math.Pi
-			}
-			zs = zs.add(c0.Add(mid).Sub(dev), tb0, tb1, angleNorm(dir0), angleNorm(dir1), false)
+		tb0 := angleTime(angleb0, thetaStart0, thetaEnd0)
+		tb1 := angleTime(angleb1, thetaStart1, thetaEnd1)
+		if Interval(tb0, 0.0, 1.0) && Interval(tb1, 0.0, 1.0) {
+			dir0 := arcAngle(angleb0, 0.0 <= dtheta0)
+			dir1 := arcAngle(angleb1, 0.0 <= dtheta1)
+			endpoint := Equal(tb0, 0.0) || Equal(tb0, 1.0) || Equal(tb1, 0.0) || Equal(tb1, 1.0)
+			zs = zs.add(c0.Add(mid).Sub(dev), tb0, tb1, dir0, dir1, endpoint)
 		}
 	}
 	return zs
