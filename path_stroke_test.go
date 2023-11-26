@@ -24,22 +24,22 @@ func TestPathStroke(t *testing.T) {
 		{"M10 10L10 5", 2.0, SquareCap, RoundJoin, "M9 4L11 4L11 5L11 10L11 11L9 11z"},
 
 		{"L10 0L20 0", 2.0, ButtCap, RoundJoin, "M0 -1L10 -1L20 -1L20 1L10 1L0 1z"},
-		{"L10 0L10 10", 2.0, ButtCap, RoundJoin, "M0 -1L10 -1A1 1 0 0 1 11 0L11 10L9 10L9 1L0 1z"},
-		{"L10 0L10 -10", 2.0, ButtCap, RoundJoin, "M0 -1L9 -1L9 -10L11 -10L11 0A1 1 0 0 1 10 1L0 1z"},
+		{"L10 0L10 10", 2.0, ButtCap, RoundJoin, "M9 1L0 1L0 -1L10 -1A1 1 0 0 1 11 0L11 10L9 10z"},
+		{"L10 0L10 -10", 2.0, ButtCap, RoundJoin, "M9 -1L9 -10L11 -10L11 0A1 1 0 0 1 10 1L0 1L0 -1z"},
 
 		{"L10 0L20 0", 2.0, ButtCap, BevelJoin, "M0 -1L10 -1L20 -1L20 1L10 1L0 1z"},
-		{"L10 0L10 10", 2.0, ButtCap, BevelJoin, "M0 -1L10 -1L11 0L11 10L9 10L9 1L0 1z"},
-		{"L10 0L10 -10", 2.0, ButtCap, BevelJoin, "M0 -1L9 -1L9 -10L11 -10L11 0L10 1L0 1z"},
+		{"L10 0L10 10", 2.0, ButtCap, BevelJoin, "M9 1L0 1L0 -1L10 -1L11 0L11 10L9 10z"},
+		{"L10 0L10 -10", 2.0, ButtCap, BevelJoin, "M9 -1L9 -10L11 -10L11 0L10 1L0 1L0 -1z"},
 
 		{"L10 0L20 0", 2.0, ButtCap, MiterJoiner{BevelJoin, 2.0}, "M0 -1L10 -1L20 -1L20 1L10 1L0 1z"},
 		{"L10 0L5 0", 2.0, ButtCap, MiterJoiner{BevelJoin, 2.0}, "M0 -1L10 -1L10 1L5 1L5 -1L10 -1L10 1L0 1z"},
-		{"L10 0L10 10", 2.0, ButtCap, MiterJoiner{BevelJoin, 1.0}, "M0 -1L10 -1L11 0L11 10L9 10L9 1L0 1z"},
-		{"L10 0L10 10", 2.0, ButtCap, MiterJoiner{BevelJoin, 2.0}, "M0 -1L10 -1L11 -1L11 0L11 10L9 10L9 1L0 1z"},
-		{"L10 0L10 -10", 2.0, ButtCap, MiterJoiner{BevelJoin, 2.0}, "M0 -1L9 -1L9 -10L11 -10L11 0L11 1L10 1L0 1z"},
+		{"L10 0L10 10", 2.0, ButtCap, MiterJoiner{BevelJoin, 1.0}, "M9 1L0 1L0 -1L10 -1L11 0L11 10L9 10z"},
+		{"L10 0L10 10", 2.0, ButtCap, MiterJoiner{BevelJoin, 2.0}, "M9 1L0 1L0 -1L10 -1L11 -1L11 0L11 10L9 10z"},
+		{"L10 0L10 -10", 2.0, ButtCap, MiterJoiner{BevelJoin, 2.0}, "M9 -1L9 -10L11 -10L11 0L11 1L10 1L0 1L0 -1z"},
 
 		{"L10 0L20 0", 2.0, ButtCap, ArcsJoiner{BevelJoin, 2.0}, "M0 -1L10 -1L20 -1L20 1L10 1L0 1z"},
 		{"L10 0L5 0", 2.0, ButtCap, ArcsJoiner{BevelJoin, 2.0}, "M0 -1L10 -1L10 1L5 1L5 -1L10 -1L10 1L0 1z"},
-		{"L10 0L10 10", 2.0, ButtCap, ArcsJoiner{BevelJoin, 1.0}, "M0 -1L10 -1L11 0L11 10L9 10L9 1L0 1z"},
+		{"L10 0L10 10", 2.0, ButtCap, ArcsJoiner{BevelJoin, 1.0}, "M9 1L0 1L0 -1L10 -1L11 0L11 10L9 10z"},
 
 		{"L10 0L10 10L0 10z", 2.0, ButtCap, BevelJoin, "M0 -1L10 -1L11 0L11 10L10 11L0 11L-1 10L-1 0zM1 1L1 9L9 9L9 1z"},
 		{"L0 10L10 10L10 0z", 2.0, ButtCap, BevelJoin, "M-1 0L0 -1L10 -1L11 0L11 10L10 11L0 11L-1 10zM1 1L1 9L9 9L9 1z"},

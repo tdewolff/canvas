@@ -545,10 +545,6 @@ func (p *Path) offset(halfWidth float64, cr Capper, jr Joiner, strokeOpen bool, 
 		}
 	}
 
-	// TODO: remove when Settle handles arcs
-	closeInnerBends(rhs, rhsInnerBends, closed)
-	closeInnerBends(lhs, lhsInnerBends, closed)
-
 	if closed {
 		rhs.Close()
 		rhs.optimizeClose()
@@ -564,46 +560,6 @@ func (p *Path) offset(halfWidth float64, cr Capper, jr Joiner, strokeOpen bool, 
 		lhs = nil
 	}
 	return rhs, lhs
-}
-
-func closeInnerBends(p *Path, indices []int, closed bool) {
-	// TODO: remove this part until we can handle intersections with at least arcs, this part will prevent flattening in most cases
-	// closed paths end with a LineTo to the original MoveTo but are not (yet) closed
-	di := 0
-	for _, i := range indices {
-		i -= di
-		cmd := p.d[i]
-		iPrev := i - cmdLen(p.d[i-1])
-		iNext := i + cmdLen(cmd)
-		if closed && iNext == len(p.d) {
-			iNext = cmdLen(MoveToCmd)
-		}
-		if 0 < iPrev && iNext < len(p.d) {
-			prevStart := Point{p.d[iPrev-3], p.d[iPrev-2]}
-			prevEnd := Point{p.d[i-3], p.d[i-2]}
-			nextStart := Point{p.d[i+1], p.d[i+2]}
-			nextEnd := Point{p.d[iNext+1], p.d[iNext+2]}
-
-			if p.d[iPrev] == LineToCmd && p.d[iNext] == LineToCmd {
-				zs := intersectionLineLine(nil, prevStart, prevEnd, nextStart, nextEnd)
-				if zs.HasSecant() {
-					p.d[i-3] = zs[0].X
-					p.d[i-2] = zs[0].Y
-					p.d = append(p.d[:i:i], p.d[i+cmdLen(cmd):]...)
-					di += cmdLen(cmd)
-				}
-				//} else if p.d[iPrev] == LineToCmd && p.d[iNext] == ArcToCmd {
-				//} else if p.d[iPrev] == ArcToCmd && p.d[iNext] == LineToCmd {
-				//} else if p.d[iPrev] == ArcToCmd && p.d[iNext] == ArcToCmd {
-			}
-		}
-	}
-
-	if closed {
-		// update MoveTo to match the last LineTo (which will be a Close)
-		p.d[1] = p.d[len(p.d)-3]
-		p.d[2] = p.d[len(p.d)-2]
-	}
 }
 
 // Offset offsets the path to expand by w and returns a new path. If w is negative it will contract. For open paths, a positive w will offset the path to the right-hand side. The tolerance is the maximum deviation from the actual offset when flattening Béziers and optimizing the path. Subpaths may not (self-)intersect, use Settle to remove (self-)intersections.
