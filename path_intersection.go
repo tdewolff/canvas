@@ -414,10 +414,6 @@ const (
 
 // path p can be open or closed paths (we handle them separately), path q is closed implicitly
 func boolean(p *Path, op pathOp, q *Path) *Path {
-	// remove self-intersections within each path and make filling paths CCW
-	p = p.Settle(NonZero) // TODO: where to get fillrule from?
-	q = q.Settle(NonZero)
-
 	// return in case of one path is empty
 	if q.Empty() {
 		if op != pathOpAnd {
@@ -432,10 +428,9 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		return &Path{}
 	}
 
-	// we can only handle line-line, line-quad, line-cube, and line-arc intersections
-	if !p.Flat() {
-		q = q.Flatten(Tolerance)
-	}
+	// remove self-intersections within each path and make filling paths CCW
+	p = p.Settle(NonZero) // TODO: where to get fillrule from?
+	q = q.Settle(NonZero)
 
 	ps, qs := p.Split(), q.Split()
 
