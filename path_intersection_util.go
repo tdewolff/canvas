@@ -789,6 +789,7 @@ func intersectionPath(p, q *Path) (Intersections, []int, []int) {
 	}
 
 	// TODO: uses O(N^2), try sweep line or bently-ottman to reduce to O((N+K) log N) (or better yet https://dl.acm.org/doi/10.1145/147508.147511)
+	// see https://www.webcitation.org/6ahkPQIsN        Bentley-Ottmann
 	segP, segQ := 1, 1
 	for i := 4; i < len(p.d); {
 		pn := cmdLen(p.d[i])

@@ -573,6 +573,7 @@ func cubicBezierCurvatureRadius(p0, p1, p2, p3 Point, t float64) float64 {
 
 // return the normal at the right-side of the curve (when increasing t)
 func cubicBezierNormal(p0, p1, p2, p3 Point, t, d float64) Point {
+	// TODO: remove and use cubicBezierDeriv + Rot90CW?
 	if t == 0.0 {
 		n := p1.Sub(p0)
 		if n.X == 0 && n.Y == 0 {

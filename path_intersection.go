@@ -219,7 +219,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 		nodes[i].Tangent = zp[i].Tangent
 	}
 	//for i := range nodes {
-	//	fmt.Println(i, nodes[i])
+	//	fmt.Println(i, nodes[i], nodes[i].p)
 	//}
 	//fmt.Println()
 
@@ -246,10 +246,11 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 			if curSeg == 0 || pi.d[i-3] < pos.X {
 				pos = Point{pi.d[i-3], pi.d[i-2]}
 				seg = curSeg + 1
-				//j = i
 			}
 			curSeg++
 		}
+
+		// TODO: get CCW from left-most point, either rotates right (CW) or left (CCW) along path
 
 		parentWindings := leftmostWindings(i, ps, pos.X, pos.Y)
 
@@ -295,9 +296,10 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 				prev = j1 - 1
 			}
 			winding := 1
-			if !paths[prev].CCW() {
+			if !nodes[prev].p.CCW() {
 				winding = -1
 			}
+			// TODO: should switch winding if path B is oriented differently
 
 			// from the intersection, we will follow the "other" path first
 			next = pair[next]

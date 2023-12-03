@@ -905,7 +905,7 @@ func TestPathSettle(t *testing.T) {
 		{NonZero, "M0 2L1 0L2 0L2 4L1 4zM0 2L1 1L1 3z", "M0 2L1 0L2 0L2 4L1 4z"},              // tangent left-most endpoint
 		{NonZero, "M0 2L1 0L2 0L2 4L1 4zM0 2L1 3L1 1z", "M0 2L1 0L2 0L2 4L1 4zM0 2L1 3L1 1z"}, // tangent left-most endpoint
 		{NonZero, "M0 2L1 0L2 1L1 3zM0 2L1 1L2 3L1 4z", "M0 2L1 0L2 1L1.5 2L2 3L1 4z"},        // secant left-most endpoint
-		//{NonZero, "M0 2L1 0L2 1L1 3zM0 2L1 4L2 3L1 1z", ""},                                   // secant left-most endpoint
+		//{NonZero, "M0 2L1 0L2 1L1 3zM0 2L1 4L2 3L1 1z", "M0 2L1 3L1.5 2L2 3L1 4zM0 2L1 0L2 1L1.5 2L1 1z"}, // secant left-most endpoint
 		//{NonZero, "L2 0L2 2L0 2L0 1L-1 2L-2 2L-1 2L0 1z", ""}, // parallel left-most endpoint
 		//{NonZero, "L0 1L-1 2L0 1z", ""},                       // all parallel
 
