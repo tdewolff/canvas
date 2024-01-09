@@ -270,12 +270,12 @@ func (style Style) String() string {
 
 type FontMetadata struct {
 	Filename string
-	Family   string
+	Families []string
 	Style
 }
 
 func (metadata FontMetadata) String() string {
-	return fmt.Sprintf("%s (%v): %s", metadata.Family, metadata.Style, metadata.Filename)
+	return fmt.Sprintf("%s (%v): %s", strings.Join(metadata.Families, ","), metadata.Style, metadata.Filename)
 }
 
 type SystemFonts struct {
@@ -307,10 +307,12 @@ func (s *SystemFonts) Save(filename string) error {
 }
 
 func (s *SystemFonts) Add(metadata FontMetadata) {
-	if _, ok := s.Fonts[metadata.Family]; !ok {
-		s.Fonts[metadata.Family] = map[Style]FontMetadata{}
+	for _, family := range metadata.Families {
+		if _, ok := s.Fonts[family]; !ok {
+			s.Fonts[family] = map[Style]FontMetadata{}
+		}
+		s.Fonts[family][metadata.Style] = metadata
 	}
-	s.Fonts[metadata.Family][metadata.Style] = metadata
 }
 
 func (s *SystemFonts) Match(name string, style Style) (FontMetadata, bool) {
@@ -438,27 +440,61 @@ func FindSystemFonts(dirs []string) (*SystemFonts, error) {
 				return nil
 			}
 
-			var getMetadata func(io.ReadSeeker) (FontMetadata, error)
-			switch filepath.Ext(path) {
-			case ".ttf", ".otf":
-				getMetadata = getSFNTMetadata
-				// TODO: handle .ttc, .woff, .woff2, .eot
-			}
+			//var getMetadata func(io.ReadSeeker) (FontMetadata, error)
+			//switch filepath.Ext(path) {
+			//case ".ttf", ".otf":
+			//	getMetadata = getSFNTMetadata
+			//	// TODO: handle .ttc, .woff, .woff2, .eot
+			//}
+			//
+			//if getMetadata != nil {
+			//	f, err := os.Open(path)
+			//	if err != nil {
+			//		return nil
+			//	}
+			//	defer f.Close()
+			//
+			//	metadata, err := getMetadata(f)
+			//	if err != nil {
+			//		return nil
+			//	}
+			//	metadata.Filename = path
+			//	fonts.Add(metadata)
+			//}
 
-			if getMetadata != nil {
-				f, err := os.Open(path)
-				if err != nil {
-					return nil
-				}
-				defer f.Close()
-
-				metadata, err := getMetadata(f)
-				if err != nil {
-					return nil
-				}
-				metadata.Filename = path
-				fonts.Add(metadata)
+			fontData, err := os.ReadFile(path)
+			if err != nil {
+				return nil
 			}
+			//SFNT, err := ParseFont(fontData, 0)
+			//if err != nil {
+			//	return nil
+			//}
+			//
+			//var names []string
+			//var style string
+			//for id := 0; id < 25; id++ {
+			//
+			//	for _, record := range SFNT.Name.Get(NameID(id)) {
+			//		if id == 1 || id == 4 || id == 6 {
+			//			names = append(names, record.String())
+			//		}
+			//		if id == int(NameFontSubfamily) || id == int(NamePreferredSubfamily) {
+			//			style = record.String()
+			//		}
+			//	}
+			//}
+			//var metadata FontMetadata //, err := getMetadata(f)
+			metadata, err := ParseMetadata(fontData, 0)
+			if err != nil {
+				return nil
+			}
+			metadata.Filename = path
+			//metadata.Families = names
+			//metadata.Style = ParseStyle(style)
+
+			fonts.Add(*metadata)
+
 			return nil
 		})
 	}
@@ -591,7 +627,7 @@ func getSFNTMetadata(r io.ReadSeeker) (FontMetadata, error) {
 			return FontMetadata{}, fmt.Errorf("unknown subfamily style: %s", subfamily)
 		}
 
-		metadata.Family = family
+		metadata.Families = []string{family}
 		metadata.Style = style
 	} else if version == 1 {
 		// TODO
