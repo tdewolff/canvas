@@ -293,14 +293,7 @@ func (lb *linebreaker) computeAdjustmentRatio(b int, active *Breakpoint) float64
 	}
 	ratio := 0.0
 	if L < lb.width {
-		if lb.Y-active.Y == 0.0 {
-			// no stretching allowed, add artificial space to distinguish unstretchable lines
-			// this helps with left/center/right aligned text
-			// this promotes putting as many glyphs (CJK) as possible on a line
-			return Infinity * (1.0 + (lb.width-L)/lb.width) // range [1000,2000]
-		} else {
-			ratio = (lb.width - L) / (lb.Y - active.Y)
-		}
+		ratio = (lb.width - L) / (lb.Y - active.Y)
 	} else if lb.width < L {
 		ratio = (lb.width - L) / (lb.Z - active.Z)
 	}
