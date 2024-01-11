@@ -440,59 +440,16 @@ func FindSystemFonts(dirs []string) (*SystemFonts, error) {
 				return nil
 			}
 
-			//var getMetadata func(io.ReadSeeker) (FontMetadata, error)
-			//switch filepath.Ext(path) {
-			//case ".ttf", ".otf":
-			//	getMetadata = getSFNTMetadata
-			//	// TODO: handle .ttc, .woff, .woff2, .eot
-			//}
-			//
-			//if getMetadata != nil {
-			//	f, err := os.Open(path)
-			//	if err != nil {
-			//		return nil
-			//	}
-			//	defer f.Close()
-			//
-			//	metadata, err := getMetadata(f)
-			//	if err != nil {
-			//		return nil
-			//	}
-			//	metadata.Filename = path
-			//	fonts.Add(metadata)
-			//}
-
 			fontData, err := os.ReadFile(path)
 			if err != nil {
 				return nil
 			}
-			//SFNT, err := ParseFont(fontData, 0)
-			//if err != nil {
-			//	return nil
-			//}
-			//
-			//var names []string
-			//var style string
-			//for id := 0; id < 25; id++ {
-			//
-			//	for _, record := range SFNT.Name.Get(NameID(id)) {
-			//		if id == 1 || id == 4 || id == 6 {
-			//			names = append(names, record.String())
-			//		}
-			//		if id == int(NameFontSubfamily) || id == int(NamePreferredSubfamily) {
-			//			style = record.String()
-			//		}
-			//	}
-			//}
-			//var metadata FontMetadata //, err := getMetadata(f)
+			
 			metadata, err := ParseMetadata(fontData, 0)
 			if err != nil {
 				return nil
 			}
 			metadata.Filename = path
-			//metadata.Families = names
-			//metadata.Style = ParseStyle(style)
-
 			fonts.Add(*metadata)
 
 			return nil
