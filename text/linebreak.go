@@ -572,7 +572,10 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 				n += 1.0
 			}
 		}
-		stretchWidth /= n
+
+		if n > 0 { 
+		    stretchWidth /= n
+		}
 	}
 
 	// trim spaces from start and end
