@@ -572,9 +572,8 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 				n += 1.0
 			}
 		}
-
-		if n > 0 { 
-		    stretchWidth /= n
+		if 1e-8 < n {
+			stretchWidth /= n
 		}
 	}
 
