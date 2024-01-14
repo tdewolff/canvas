@@ -107,6 +107,141 @@ func ParseFont(b []byte, index int) (*SFNT, error) {
 	return ParseSFNT(sfntBytes, index)
 }
 
+func ParseMetadata(b []byte, index int) (*FontMetadata, error) {
+	sfntBytes, err := ToSFNT(b)
+	if err != nil {
+		return nil, err
+	}
+	return parseMetadata(sfntBytes, index)
+}
+func parseMetadata(byt []byte, index int) (*FontMetadata, error) {
+	if len(byt) < 12 || uint(math.MaxUint32) < uint(len(byt)) {
+		return nil, ErrInvalidFontData
+	}
+
+	r := NewBinaryReader(byt)
+	sfntVersion := r.ReadString(4)
+	isCollection := sfntVersion == "ttcf"
+	if isCollection {
+		majorVersion := r.ReadUint16()
+		minorVersion := r.ReadUint16()
+		if majorVersion != 1 && majorVersion != 2 || minorVersion != 0 {
+			return nil, fmt.Errorf("bad TTC version")
+		}
+
+		numFonts := r.ReadUint32()
+		if index < 0 || numFonts <= uint32(index) {
+			return nil, fmt.Errorf("bad font index %d", index)
+		}
+		if r.Len() < 4*numFonts {
+			return nil, ErrInvalidFontData
+		}
+
+		_ = r.ReadBytes(uint32(4 * index))
+		offset := r.ReadUint32()
+		var length uint32
+		if uint32(index)+1 == numFonts {
+			length = uint32(len(byt)) - offset
+		} else {
+			length = r.ReadUint32() - offset
+		}
+		if uint32(len(byt))-8 < offset || uint32(len(byt))-8-offset < length {
+			return nil, ErrInvalidFontData
+		}
+
+		r.Seek(offset)
+		sfntVersion = r.ReadString(4)
+	} else if index != 0 {
+		return nil, fmt.Errorf("bad font index %d", index)
+	}
+	if sfntVersion != "OTTO" && sfntVersion != "true" && binary.BigEndian.Uint32([]byte(sfntVersion)) != 0x00010000 {
+		return nil, fmt.Errorf("bad SFNT version")
+	}
+	numTables := r.ReadUint16()
+	_ = r.ReadUint16()                  // searchRange
+	_ = r.ReadUint16()                  // entrySelector
+	_ = r.ReadUint16()                  // rangeShift
+	if r.Len() < 16*uint32(numTables) { // can never exceed uint32 as numTables is uint16
+		return nil, ErrInvalidFontData
+	}
+
+	var nameTableData []byte
+	for i := 0; i < int(numTables); i++ {
+		tag := r.ReadString(4)
+		_ = r.ReadUint32() // checksum
+		offset := r.ReadUint32()
+		length := r.ReadUint32()
+
+		padding := (4 - length&3) & 3
+		if uint32(len(byt)) <= offset || uint32(len(byt))-offset < length || uint32(len(byt))-offset-length < padding {
+			return nil, ErrInvalidFontData
+		}
+
+		if tag == "head" {
+			if length < 12 {
+				return nil, ErrInvalidFontData
+			}
+		}
+
+		if string(tag) != "name" {
+			continue
+		}
+
+		nameTableData = byt[offset : offset+length : offset+length]
+		break
+	}
+
+	if nameTableData == nil {
+		return nil, fmt.Errorf("missing table name")
+	}
+
+	r = NewBinaryReader(nameTableData)
+	version := r.ReadUint16()
+	if version != 0 && version != 1 {
+		return nil, fmt.Errorf("name: bad version")
+	}
+	count := r.ReadUint16()
+	storageOffset := r.ReadUint16()
+	if uint32(len(nameTableData)) < 6+12*uint32(count) || uint16(len(nameTableData)) < storageOffset {
+		return nil, fmt.Errorf("name: bad table")
+	}
+
+	var names []string
+	var style string
+
+	for i := 0; i < int(count); i++ {
+		var record nameRecord
+		record.Platform = PlatformID(r.ReadUint16())
+		record.Encoding = EncodingID(r.ReadUint16())
+		record.Language = r.ReadUint16()
+		record.Name = NameID(r.ReadUint16())
+
+		length := r.ReadUint16()
+		offset := r.ReadUint16()
+		if uint16(len(nameTableData))-storageOffset < offset || uint16(len(nameTableData))-storageOffset-offset < length {
+			return nil, fmt.Errorf("name: bad table")
+		}
+		record.Value = nameTableData[storageOffset+offset : storageOffset+offset+length]
+
+		if record.Name == NameFontFamily ||
+			record.Name == NameFull ||
+			record.Name == NamePostScript {
+			names = append(names, record.String())
+		}
+
+		if record.Name == NameFontSubfamily ||
+			record.Name == NamePreferredSubfamily {
+			style = record.String()
+		}
+	}
+
+	return &FontMetadata{
+		Filename: "",
+		Families: names,
+		Style:    ParseStyle(style),
+	}, nil
+}
+
 // FromGoFreetype parses a structure from truetype.Font to a valid SFNT byte slice.
 func FromGoFreetype(font *truetype.Font) []byte {
 	v := reflect.ValueOf(*font)
