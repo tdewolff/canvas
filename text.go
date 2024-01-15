@@ -788,6 +788,9 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		} else if halign == Center || halign == Middle {
 			x += (width - breaks[j].Width) / 2.0
 		}
+		if j == 0 {
+			x += indent
+		}
 
 		line := line{}
 		a := ag
