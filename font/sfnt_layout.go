@@ -58,9 +58,10 @@ func (sfnt *SFNT) parseScriptList(b []byte) (scriptList, error) {
 
 			r3.Seek(uint32(scriptOffset) + uint32(langSysOffset))
 			lookupOrderOffset := r3.ReadUint16()
-			if lookupOrderOffset != 0 {
-				return scripts, fmt.Errorf("lookupOrderOffset must be NULL")
-			}
+			_ = lookupOrderOffset
+			//if lookupOrderOffset != 0 {
+			//	return scripts, fmt.Errorf("lookupOrderOffset must be NULL")
+			//}
 			requiredFeatureIndex := r3.ReadUint16()
 			featureIndexCount := r3.ReadUint16()
 			featureIndices := make([]uint16, featureIndexCount)
