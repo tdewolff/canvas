@@ -70,7 +70,7 @@ func DefaultFontDirs() []string {
 			sysRoot = "C:"
 		}
 		dirs = []string{
-			filepath.Join(filepath.VolumeName(sysRoot), `Windows`, "Fonts"),
+			filepath.Join(filepath.VolumeName(sysRoot), `\Windows`, "Fonts"),
 		}
 	}
 	return dirs
