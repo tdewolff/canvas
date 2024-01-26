@@ -242,11 +242,12 @@ func pathIntersectionNodes(p, q *Path, zp, zq []PathIntersection) []PathIntersec
 }
 
 func cut(p *Path, zs []PathIntersection) ([]*Path, subpathIndexer) {
+	// zs must be sorted
 	if len(zs) == 0 {
 		return []*Path{p}, newSubpathIndexer(p)
 	}
 
-	j := 0   // index into intersections
+	j := 0   // index into zs
 	k := 0   // index into ps
 	seg := 0 // segment count
 	var ps []*Path
@@ -391,9 +392,10 @@ func cutSegment(start Point, d []float64, t float64) (*Path, *Path) {
 // PathIntersection is an intersection of a path.
 // Intersection is either tangent or secant. Tangent intersections may be Parallel. Secant intersections either go into the other path (Into is set) or the other path goes into this path (Into is not set).
 // Possible types of intersections:
-//  - Crossing anywhere: Tangent=false, Parallel=false
-//  - Touching anywhere: Tangent=true, Parallel=false, Into is invalid
-//  - Parallel onwards:  Tangent=false, Parallel=true, Into is invalid
+//   - Crossing anywhere: Tangent=false, Parallel=false
+//   - Touching anywhere: Tangent=true, Parallel=false, Into is invalid
+//   - Parallel onwards:  Tangent=false, Parallel=true, Into is invalid
+//
 // NB: Tangent may also be true for non-closing paths when touching its endpoints
 type PathIntersection struct {
 	Point         // coordinate of intersection
@@ -409,13 +411,14 @@ type PathIntersection struct {
 func (z PathIntersection) Less(o PathIntersection) bool {
 	ti := float64(z.Seg) + z.T
 	tj := float64(o.Seg) + o.T
-	if Equal(ti, tj) {
-		// Q crosses P twice at the same point, Q must be at a tangent intersections, since
-		// all secant and parallel tangent intersections have been removed with Settle.
-		// Choose the parallel-end first and then the parallel-start
-		return !z.Parallel
-	}
-	return ti < tj
+	// TODO: this generates panics
+	//if Equal(ti, tj) {
+	//	// Q crosses P twice at the same point, Q must be at a tangent intersections, since
+	//	// all secant and parallel tangent intersections have been removed with Settle.
+	//	// Choose the parallel-end first and then the parallel-start
+	//	return !z.Parallel
+	//}
+	return z.Seg < o.Seg || ti < tj
 }
 
 func (z PathIntersection) Equals(o PathIntersection) bool {
@@ -908,9 +911,10 @@ func intersectionSegment(zs Intersections, a0 Point, a []float64, b0 Point, b []
 // Intersection is an intersection between two path segments, e.g. Line x Line.
 // Note that intersection is tangent also when it is one of the endpoints, in which case it may be tangent for this segment but we should double check when converting to a PathIntersection as it may or may not cross depending on the adjacent segment(s). Also, the Into value at tangent intersections at endpoints should be interpreted as if the paths were extended and the path would go into the left-hand side of the other path.
 // Possible types of intersections:
-//  - Crossing not at endpoint: Tangent=false, Aligned=false
-//  - Touching not at endpoint: Tangent=true,  Aligned=true, Into is invalid
-//  - Touching at endpoint:     Tangent=true,  may be aligned for (partly) overlapping paths
+//   - Crossing not at endpoint: Tangent=false, Aligned=false
+//   - Touching not at endpoint: Tangent=true,  Aligned=true, Into is invalid
+//   - Touching at endpoint:     Tangent=true,  may be aligned for (partly) overlapping paths
+//
 // NB: for quad/cube/ellipse aligned angles at the endpoint for non-overlapping curves are deviated slightly to correctly calculate the value for Into, and will thus not be aligned
 type Intersection struct {
 	Point              // coordinate of intersection
@@ -976,6 +980,8 @@ func (zs Intersections) HasTangent() bool {
 }
 
 func (zs Intersections) add(pos Point, ta, tb, dira, dirb float64, tangent bool) Intersections {
+	ta = math.Max(0.0, math.Min(1.0, ta))
+	tb = math.Max(0.0, math.Min(1.0, tb))
 	return append(zs, Intersection{pos, [2]float64{ta, tb}, [2]float64{dira, dirb}, tangent})
 }
 

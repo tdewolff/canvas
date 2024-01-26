@@ -168,6 +168,9 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 	if 0 < len(zp) {
 		ps = p.Split() // otherwise, keep unflattened path
 	}
+	//for i, z := range zp {
+	//	fmt.Println(i, z)
+	//}
 	//for i := range zp {
 	//	fmt.Println(i, zp[i])
 	//}
@@ -196,6 +199,12 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 
 	// cut path at intersections
 	paths, segs := cut(p, zp)
+	//for i, z := range zp[1:] {
+	//	if z.Seg < zp[i].Seg || z.Seg == zp[i].Seg && !Equal(z.T, zp[i].T) && z.T < zp[i].T {
+	//		fmt.Println(i, "bad", zp[i], z, zp[i].Less(z))
+	//	}
+	//}
+	//fmt.Println(len(paths), len(zp))
 
 	// build up linked nodes between the intersections
 	// reverse direction for clock-wise path to ensure one of both paths goes outwards
