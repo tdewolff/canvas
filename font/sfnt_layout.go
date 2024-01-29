@@ -58,10 +58,9 @@ func (sfnt *SFNT) parseScriptList(b []byte) (scriptList, error) {
 
 			r3.Seek(uint32(scriptOffset) + uint32(langSysOffset))
 			lookupOrderOffset := r3.ReadUint16()
-			_ = lookupOrderOffset
-			//if lookupOrderOffset != 0 {
-			//	return scripts, fmt.Errorf("lookupOrderOffset must be NULL")
-			//}
+			if lookupOrderOffset != 0 {
+				return scripts, fmt.Errorf("lookupOrderOffset must be NULL")
+			}
 			requiredFeatureIndex := r3.ReadUint16()
 			featureIndexCount := r3.ReadUint16()
 			featureIndices := make([]uint16, featureIndexCount)
@@ -804,25 +803,29 @@ func (sfnt *SFNT) parseGPOSGSUB(name string, subtableMap subtableMap) (*gposgsub
 	scriptListOffset := r.ReadUint16()
 	if len(b)-2 < int(scriptListOffset) {
 		return nil, fmt.Errorf("%s: bad scriptList offset", name)
-	}
-	table.scriptList, err = sfnt.parseScriptList(b[scriptListOffset:])
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", name, err)
+	} else if scriptListOffset != 0 {
+		table.scriptList, err = sfnt.parseScriptList(b[scriptListOffset:])
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", name, err)
+		}
+	} else {
+		table.scriptList = scriptList{}
 	}
 
 	featureListOffset := r.ReadUint16()
 	if len(b)-2 < int(featureListOffset) {
 		return nil, fmt.Errorf("%s: bad featureList offset", name)
+	} else if featureListOffset != 0 {
+		table.featureList = sfnt.parseFeatureList(b[featureListOffset:])
 	}
-	table.featureList = sfnt.parseFeatureList(b[featureListOffset:])
 
 	lookupListOffset := r.ReadUint16()
 	if len(b)-2 < int(lookupListOffset) {
 		return nil, fmt.Errorf("%s: bad lookupList offset", name)
-	}
-	if lookupListOffset != 0 {
+	} else if lookupListOffset != 0 {
 		table.lookupList = sfnt.parseLookupList(b[lookupListOffset:])
 	}
+
 	table.tables = make([]interface{}, len(table.lookupList))
 	for j, lookup := range table.lookupList {
 		if parseSubtable, ok := subtableMap[lookup.lookupType]; ok {
@@ -847,8 +850,9 @@ func (sfnt *SFNT) parseGPOSGSUB(name string, subtableMap subtableMap) (*gposgsub
 		featureVariationsOffset = r.ReadUint32()
 		if len(b)-8 < int(featureVariationsOffset) {
 			return nil, fmt.Errorf("%s: bad featureVariations offset", name)
+		} else if featureVariationsOffset != 0 {
+			table.featureVariationsList = featureVariationsList{b[featureVariationsOffset:]}
 		}
-		table.featureVariationsList = featureVariationsList{b[featureVariationsOffset:]}
 	}
 	return table, nil
 }
