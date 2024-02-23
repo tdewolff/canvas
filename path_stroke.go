@@ -488,9 +488,6 @@ func (p *Path) offset(halfWidth float64, cr Capper, jr Joiner, strokeOpen bool, 
 	lStart := states[0].p0.Sub(states[0].n0)
 	rhs.MoveTo(rStart.X, rStart.Y)
 	lhs.MoveTo(lStart.X, lStart.Y)
-
-	rhsInnerBends := []int{}
-	lhsInnerBends := []int{}
 	for i, cur := range states {
 		switch cur.cmd {
 		case LineToCmd:
@@ -531,16 +528,6 @@ func (p *Path) offset(halfWidth float64, cr Capper, jr Joiner, strokeOpen bool, 
 
 			if !cur.n1.Equals(next.n0) {
 				jr.Join(rhs, lhs, halfWidth, cur.p1, cur.n1, next.n0, cur.r1, next.r0)
-
-				if !cur.n1.Equals(next.n0.Neg()) {
-					// all turns except 0 degrees and 180 degrees are added
-					cw := 0.0 <= cur.n1.Rot90CW().Dot(next.n0)
-					if cw {
-						rhsInnerBends = append(rhsInnerBends, len(rhs.d)-cmdLen(LineToCmd))
-					} else {
-						lhsInnerBends = append(lhsInnerBends, len(lhs.d)-cmdLen(LineToCmd))
-					}
-				}
 			}
 		}
 	}
