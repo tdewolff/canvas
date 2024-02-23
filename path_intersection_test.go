@@ -808,26 +808,28 @@ func TestIntersections(t *testing.T) {
 	Epsilon = origEpsilon
 }
 
-//func TestSelfIntersections(t *testing.T) {
-//	var tts = []struct {
-//		p  string
-//		zs Intersections
-//	}{
-//		{"L10 10L10 0L0 10z", Intersections{
-//			{Point{5.0, 5.0}, 1, 3, 0.5, 0.5, 0.25 * math.Pi, 0.75 * math.Pi, BintoA, NoParallel, false},
-//		}},
-//	}
-//	for _, tt := range tts {
-//		t.Run(fmt.Sprint(tt.p), func(t *testing.T) {
-//			p := MustParseSVGPath(tt.p)
-//			zs := p.SelfIntersections()
-//			test.T(t, len(zs), len(tt.zs))
-//			for i := range zs {
-//				test.T(t, zs[i], tt.zs[i])
-//			}
-//		})
-//	}
-//}
+func TestSelfIntersections(t *testing.T) {
+	var tts = []struct {
+		p  string
+		zs []PathIntersection
+	}{
+		//{"L10 10L10 0L0 10z", Intersections{ {Point{5.0, 5.0}, 1, 3, 0.5, 0.5, 0.25 * math.Pi, 0.75 * math.Pi, BintoA, NoParallel, false},
+		//}},
+
+		/// bugs
+		{"M3.512162397982181 1.239754268684486L3.3827323986701674 1.1467946944092953L3.522449858001167 1.2493787337129587A0.21166666666666667 0.21166666666666667 0 0 1 3.5121623979821806 1.2397542686844856z", []PathIntersection{}},
+	}
+	for _, tt := range tts {
+		t.Run(fmt.Sprint(tt.p), func(t *testing.T) {
+			p := MustParseSVGPath(tt.p)
+			zs, _ := pathIntersections(p, nil, true, true)
+			test.T(t, len(zs), len(tt.zs))
+			for i := range zs {
+				test.T(t, zs[i], tt.zs[i])
+			}
+		})
+	}
+}
 
 func TestPathCut(t *testing.T) {
 	var tts = []struct {

@@ -796,7 +796,13 @@ func intersectionPath(p, q *Path) (Intersections, []int, []int) {
 	segP, segQ := 1, 1
 	for i := 4; i < len(p.d); {
 		pn := cmdLen(p.d[i])
-		if self && p.d[i] == CubeToCmd {
+		p0 := Point{p.d[i-3], p.d[i-2]}
+		if p.d[i] == CloseCmd && p0.Equals(Point{p.d[i+1], p.d[i+2]}) {
+			// point-closed
+			i += pn
+			segP++
+			continue
+		} else if self && p.d[i] == CubeToCmd {
 			// TODO: find intersections in Cube after we support non-flat paths
 		}
 
@@ -808,14 +814,29 @@ func intersectionPath(p, q *Path) (Intersections, []int, []int) {
 		}
 		for j < len(q.d) {
 			qn := cmdLen(q.d[j])
-			p0, q0 := Point{p.d[i-3], p.d[i-2]}, Point{q.d[j-3], q.d[j-2]}
+			q0 := Point{q.d[j-3], q.d[j-2]}
+			if q.d[j] == CloseCmd && q0.Equals(Point{q.d[j+1], q.d[j+2]}) {
+				// point-closed
+				j += qn
+				segQ++
+				continue
+			}
 
 			k := len(zs)
 			zs = intersectionSegment(zs, p0, p.d[i:i+pn], q0, q.d[j:j+qn])
-			if self && (i+pn == j || i == 4 && q.d[j] == CloseCmd) {
+			if self && (i+pn == j || i == 4) {
 				// remove tangent intersections for adjacent segments on the same subpath
 				for k1 := len(zs) - 1; k <= k1; k1-- {
-					if zs[k1].Tangent && (i+pn == j && Equal(zs[k1].T[0], 1.0) && Equal(zs[k1].T[1], 0.0) || i == 4 && q.d[j] == CloseCmd && Equal(zs[k1].T[0], 0.0) && Equal(zs[k1].T[1], 1.0)) {
+					if !zs[k1].Tangent {
+						continue
+					}
+
+					// segments are joined if either j comes after i, or if i is first and j is last (or before last if last is point-closed)
+					joined := i+pn == j && Equal(zs[k1].T[0], 1.0) && Equal(zs[k1].T[1], 0.0) ||
+						i == 4 && Equal(zs[k1].T[0], 0.0) && Equal(zs[k1].T[1], 1.0) &&
+							(q.d[j] == CloseCmd || j+qn < len(q.d) && q.d[j+qn] == CloseCmd &&
+								Point{q.d[j+qn-3], q.d[j+qn-2]}.Equals(Point{q.d[j+qn+1], q.d[j+qn+2]}))
+					if joined {
 						zs = append(zs[:k1], zs[k1+1:]...)
 					}
 				}
