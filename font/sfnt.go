@@ -1190,8 +1190,18 @@ func (sfnt *SFNT) parseKern() error {
 		_ = r.ReadUint16() // searchRange
 		_ = r.ReadUint16() // entrySelector
 		_ = r.ReadUint16() // rangeShift
-		if uint32(length) < 14+6*uint32(nPairs) {
-			return fmt.Errorf("kern: bad length for subtable %d", j)
+		if uint32(length) < 14+6*uint32(nPairs) || r.Len() < uint32(length) {
+			if j+1 == int(nTables) {
+				// for some fonts the subtable's length exceeds what can fit in a uint16
+				// we allow only the last subtable to exceed as long as it stays within the table
+				pairsLength := 6 * uint32(nPairs)
+				pairsLength &= 0xFFFF
+				if uint32(length) != 14+pairsLength || r.Len() < pairsLength {
+					return fmt.Errorf("kern: bad length for subtable %d", j)
+				}
+			} else {
+				return fmt.Errorf("kern: bad length for subtable %d", j)
+			}
 		}
 
 		subtable.Pairs = make([]kernPair, nPairs)
