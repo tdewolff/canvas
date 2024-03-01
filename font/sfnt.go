@@ -1204,13 +1204,20 @@ func (sfnt *SFNT) parseKern() error {
 			}
 		}
 
+		sorted := true
 		subtable.Pairs = make([]kernPair, nPairs)
 		for i := 0; i < int(nPairs); i++ {
 			subtable.Pairs[i].Key = r.ReadUint32()
 			subtable.Pairs[i].Value = r.ReadInt16()
 			if 0 < i && subtable.Pairs[i].Key <= subtable.Pairs[i-1].Key {
-				return fmt.Errorf("kern: bad left right pair for subtable %d", j)
+				sorted = false
 			}
+		}
+		if !sorted {
+			// some fonts haven't sorted the pairs, allow those subtables and sort them here
+			sort.SliceStable(subtable.Pairs, func(i, j int) bool {
+				return subtable.Pairs[i].Key < subtable.Pairs[j].Key
+			})
 		}
 
 		// read unread bytes if length is bigger
