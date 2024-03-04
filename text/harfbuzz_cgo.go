@@ -22,7 +22,7 @@ import (
 	"unicode/utf8"
 	"unsafe"
 
-	"github.com/tdewolff/canvas/font"
+	"github.com/tdewolff/font"
 )
 
 // Design inspired by https://github.com/npillmayer/tyse/blob/main/engine/text/textshaping/

@@ -8,7 +8,7 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
-	"github.com/tdewolff/canvas/font"
+	"github.com/tdewolff/font"
 	"golang.org/x/text/encoding/charmap"
 )
 

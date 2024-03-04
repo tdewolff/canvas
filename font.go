@@ -10,8 +10,8 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/tdewolff/canvas/font"
 	"github.com/tdewolff/canvas/text"
+	"github.com/tdewolff/font"
 )
 
 // FontStyle defines the font style to be used for the font. It specifies a boldness with optionally italic, e.g. FontBlack | FontItalic will specify a black boldness (a font-weight of 800 in CSS) and italic.
@@ -188,7 +188,7 @@ func FindLocalFont(name string, style FontStyle) string {
 	return filename
 }
 
-// CacheSystemFonts will write and load the list of system fonts to the given filename. It scans the given directories for fonts, leave nil to use github.com/tdewolff/canvas/font/DefaultFontDirs().
+// CacheSystemFonts will write and load the list of system fonts to the given filename. It scans the given directories for fonts, leave nil to use github.com/tdewolff/font/DefaultFontDirs().
 func CacheSystemFonts(filename string, dirs []string) error {
 	var fonts *font.SystemFonts
 	if info, err := os.Stat(filename); err == nil && info.Mode().IsRegular() {

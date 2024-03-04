@@ -5,7 +5,7 @@ import (
 	"math"
 	"unicode"
 
-	"github.com/tdewolff/canvas/font"
+	"github.com/tdewolff/font"
 )
 
 // See: Donald E. Knuth and Michael F. Plass, "Breaking Paragraphs into Lines", 1981

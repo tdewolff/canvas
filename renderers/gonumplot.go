@@ -6,7 +6,7 @@ import (
 	"math"
 
 	"github.com/tdewolff/canvas"
-	canvasFont "github.com/tdewolff/canvas/font"
+	canvasFont "github.com/tdewolff/font"
 	"golang.org/x/image/font"
 	gonumFont "gonum.org/v1/plot/font"
 	"gonum.org/v1/plot/vg"

@@ -15,8 +15,8 @@ import (
 	"strings"
 
 	"github.com/tdewolff/canvas"
-	canvasFont "github.com/tdewolff/canvas/font"
 	canvasText "github.com/tdewolff/canvas/text"
+	canvasFont "github.com/tdewolff/font"
 )
 
 type Options struct {

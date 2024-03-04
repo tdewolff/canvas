@@ -9,7 +9,7 @@ import (
 	"github.com/go-text/typesetting/language"
 	fontapi "github.com/go-text/typesetting/opentype/api/font"
 	"github.com/go-text/typesetting/opentype/loader"
-	"github.com/tdewolff/canvas/font"
+	"github.com/tdewolff/font"
 )
 
 // Shaper is a text shaper formatting a string in properly positioned glyphs.
