@@ -343,6 +343,8 @@ github.com/tdewolff/font v0.0.0-20240304124129-69daaf2ab9ab h1:Fao0QejqxrVSpgyCF
 github.com/tdewolff/font v0.0.0-20240304124129-69daaf2ab9ab/go.mod h1:t7g3ZEPalm2wkgagF2nss6DCfvBliekfnZYFiu4WqEU=
 github.com/tdewolff/font v0.0.0-20240305151633-f69a3adc9d92 h1:QfqzZ5hJ0eH6kfsViAqL0vrXX3p/CUewuzbqrefzDho=
 github.com/tdewolff/font v0.0.0-20240305151633-f69a3adc9d92/go.mod h1:NlGnfhGrPSwSRo7Q/SsJ/RI3/03lBBmqTRtT4/DuC0g=
+github.com/tdewolff/font v0.0.0-20240305203601-31e85c6c16a3 h1:AeqNFC9aXWAbpeOB+uQF1ucHasgRsYtDF1seuTxI7hg=
+github.com/tdewolff/font v0.0.0-20240305203601-31e85c6c16a3/go.mod h1:NlGnfhGrPSwSRo7Q/SsJ/RI3/03lBBmqTRtT4/DuC0g=
 github.com/tdewolff/minify/v2 v2.20.5 h1:IbJpmpAFESnuJPdsvFBJWsDcXE5qHsmaVQrRqhOI9sI=
 github.com/tdewolff/minify/v2 v2.20.5/go.mod h1:N78HtaitkDYAWXFbqhWX/LzgwylwudK0JvybGDVQ+Mw=
 github.com/tdewolff/parse/v2 v2.7.3 h1:SHj/ry85FdqniccvzJTG+Gt/mi/HNa1cJcTzYZnvc5U=

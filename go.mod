@@ -2,8 +2,6 @@ module github.com/tdewolff/canvas
 
 go 1.22.0
 
-replace github.com/tdewolff/font => ../font
-
 require (
 	fyne.io/fyne/v2 v2.4.1
 	gioui.org v0.3.1
@@ -18,7 +16,7 @@ require (
 	github.com/paulmach/osm v0.7.1
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/tdewolff/argp v0.0.0-20240303230445-a8dec846536d
-	github.com/tdewolff/font v0.0.0-20240305151633-f69a3adc9d92
+	github.com/tdewolff/font v0.0.0-20240305203601-31e85c6c16a3
 	github.com/tdewolff/minify/v2 v2.20.5
 	github.com/tdewolff/parse/v2 v2.7.3
 	github.com/tdewolff/test v1.0.11-0.20231121141655-2d5236e10ae4
