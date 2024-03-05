@@ -266,7 +266,16 @@ func (c *Context) Pop() {
 
 // CoordView returns the current affine transformation matrix through which all operation coordinates will be transformed.
 func (c *Context) CoordView() Matrix {
-	return c.coordView
+	m := Identity
+	switch c.coordSystem {
+	case CartesianII:
+		m = m.ReflectXAbout(c.Width() / 2.0)
+	case CartesianIII:
+		m = m.ReflectXAbout(c.Width() / 2.0).ReflectYAbout(c.Height() / 2.0)
+	case CartesianIV:
+		m = m.ReflectYAbout(c.Height() / 2.0)
+	}
+	return m.Mul(c.coordView)
 }
 
 // SetCoordView sets the current affine transformation matrix through which all operation coordinates will be transformed. See `Matrix` for how transformations work.
