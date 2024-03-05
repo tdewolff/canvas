@@ -633,7 +633,7 @@ func (w *pdfPageWriter) AddURIAction(uri string, rect canvas.Rect) {
 		"Type":     pdfName("Annot"),
 		"Subtype":  pdfName("Link"),
 		"Border":   pdfArray{0, 0, 0},
-		"Rect":     pdfArray{rect.X, rect.Y, rect.W, rect.H},
+		"Rect":     pdfArray{rect.X * ptPerMm, rect.Y * ptPerMm, (rect.X + rect.W) * ptPerMm, (rect.Y + rect.H) * ptPerMm},
 		"Contents": uri,
 		"A": pdfDict{
 			"S":   pdfName("URI"),
