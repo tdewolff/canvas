@@ -251,18 +251,14 @@ func (w *pdfWriter) getFont(font *canvas.Font, vertical bool) pdfRef {
 }
 
 func (w *pdfWriter) writeFont(ref pdfRef, font *canvas.Font, vertical bool) {
-	// subset the font
+	// subset the font, we only write the used characters to the PDF CMap object to reduce its
+	// length. At the end of the function we add a CID to GID mapping to correctly select the
+	// right glyphID.
 	sfnt, sfntOld := font.SFNT, font.SFNT
-	var glyphIDs []uint16
+	glyphIDs := w.fontSubset[font].List() // also when not subsetting, to minimize cmap table
 	if w.subset && sfnt.IsTrueType {
 		// TODO: CFF font subsetting doesn't work
-		glyphIDs = w.fontSubset[font].List()
 		sfnt = sfnt.Subset(glyphIDs, canvasFont.SubsetOptions{Tables: canvasFont.KeepPDFTables})
-	} else {
-		glyphIDs = make([]uint16, sfnt.NumGlyphs())
-		for glyphID := uint16(0); glyphID < sfnt.NumGlyphs(); glyphID++ {
-			glyphIDs = append(glyphIDs, glyphID)
-		}
 	}
 	fontProgram := sfnt.Write()
 
@@ -543,6 +539,7 @@ type pdfPageWriter struct {
 	pdf           *pdfWriter
 	width, height float64
 	resources     pdfDict
+	annots        pdfArray
 
 	graphicsStates map[float64]pdfName
 	alpha          float64
@@ -611,7 +608,7 @@ func (w *pdfPageWriter) writePage(parent pdfRef) pdfRef {
 		stream.dict["Filter"] = pdfFilterFlate
 	}
 	contents := w.pdf.writeObject(stream)
-	return w.pdf.writeObject(pdfDict{
+	page := pdfDict{
 		"Type":      pdfName("Page"),
 		"Parent":    parent,
 		"MediaBox":  pdfArray{0.0, 0.0, w.width * ptPerMm, w.height * ptPerMm},
@@ -623,7 +620,27 @@ func (w *pdfPageWriter) writePage(parent pdfRef) pdfRef {
 			"CS":   pdfName("DeviceRGB"),
 		},
 		"Contents": contents,
-	})
+	}
+	if 0 < len(w.annots) {
+		page["Annots"] = w.annots
+	}
+	return w.pdf.writeObject(page)
+}
+
+// AddAnnotation adds an annotation.
+func (w *pdfPageWriter) AddURIAction(uri string, rect canvas.Rect) {
+	annot := pdfDict{
+		"Type":     pdfName("Annot"),
+		"Subtype":  pdfName("Link"),
+		"Border":   pdfArray{0, 0, 0},
+		"Rect":     pdfArray{rect.X, rect.Y, rect.W, rect.H},
+		"Contents": uri,
+		"A": pdfDict{
+			"S":   pdfName("URI"),
+			"URI": uri,
+		},
+	}
+	w.annots = append(w.annots, annot)
 }
 
 // SetAlpha sets the transparency value.

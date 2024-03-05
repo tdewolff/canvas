@@ -65,6 +65,11 @@ func (r *PDF) NewPage(width, height float64) {
 	r.w = r.w.pdf.NewPage(width, height)
 }
 
+// AddLink adds a link to the PDF document.
+func (r *PDF) AddLink(uri string, rect canvas.Rect) {
+	r.w.AddURIAction(uri, rect)
+}
+
 // Close finished and closes the PDF.
 func (r *PDF) Close() error {
 	return r.w.pdf.Close()
