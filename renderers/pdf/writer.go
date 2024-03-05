@@ -266,7 +266,7 @@ func (w *pdfWriter) writeFont(ref pdfRef, font *canvas.Font, vertical bool) {
 	f := 1000.0 / float64(sfnt.Head.UnitsPerEm)
 	widths := make([]int, len(glyphIDs)+1)
 	for subsetGlyphID, glyphID := range glyphIDs {
-		widths[subsetGlyphID] = int(f*float64(sfnt.GlyphAdvance(glyphID)) + 0.5)
+		widths[subsetGlyphID] = int(f*float64(sfntOld.GlyphAdvance(glyphID)) + 0.5)
 	}
 	DW := widths[0]
 	W := pdfArray{}
