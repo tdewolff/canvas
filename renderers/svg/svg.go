@@ -16,7 +16,7 @@ import (
 
 	"github.com/tdewolff/canvas"
 	canvasText "github.com/tdewolff/canvas/text"
-	canvasFont "github.com/tdewolff/font"
+	"github.com/tdewolff/font"
 )
 
 type Options struct {
@@ -85,22 +85,24 @@ func (r *SVG) Close() error {
 func (r *SVG) writeFonts() {
 	if 0 < len(r.fonts) {
 		fmt.Fprintf(r.w, "<style>")
-		for font := range r.fonts {
-			b := font.SFNT.Data
+		for f := range r.fonts {
+			sfnt := f.SFNT
 			if r.opts.SubsetFonts {
-				glyphIDs := r.fontSubset[font].List()
-				b, _ = font.SFNT.Subset(glyphIDs, canvasFont.WriteMinTables)
+				glyphIDs := r.fontSubset[f].List()
+				sfnt = sfnt.Subset(glyphIDs, font.SubsetOptions{Tables: font.KeepMinTables})
 			}
-			fmt.Fprintf(r.w, "\n@font-face{font-family:'%s'", font.Name())
-			if font.Style().Weight() != canvas.FontRegular {
-				fmt.Fprintf(r.w, ";font-weight:%d", font.Style().CSS())
+			fontProgram := sfnt.Write()
+
+			fmt.Fprintf(r.w, "\n@font-face{font-family:'%s'", f.Name())
+			if f.Style().Weight() != canvas.FontRegular {
+				fmt.Fprintf(r.w, ";font-weight:%d", f.Style().CSS())
 			}
-			if font.Style().Italic() {
+			if f.Style().Italic() {
 				fmt.Fprintf(r.w, ";font-style:italic")
 			}
 			fmt.Fprintf(r.w, ";src:url('data:type/opentype;base64,")
 			encoder := base64.NewEncoder(base64.StdEncoding, r.w)
-			encoder.Write(b)
+			encoder.Write(fontProgram)
 			encoder.Close()
 			fmt.Fprintf(r.w, "');}")
 		}

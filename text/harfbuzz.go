@@ -35,7 +35,7 @@ func NewShaper(b []byte, _ int) (Shaper, error) {
 // NewShaperSFNT returns a new text shaper using a SFNT structure.
 func NewShaperSFNT(sfnt *font.SFNT) (Shaper, error) {
 	// TODO: add interface to SFNT for use in this harfbuzz implementation
-	return NewShaper(sfnt.Data, 0)
+	return NewShaper(sfnt.Write(), 0)
 }
 
 // Destroy destroys the allocated C memory.

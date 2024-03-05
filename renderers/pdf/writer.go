@@ -252,19 +252,25 @@ func (w *pdfWriter) getFont(font *canvas.Font, vertical bool) pdfRef {
 
 func (w *pdfWriter) writeFont(ref pdfRef, font *canvas.Font, vertical bool) {
 	// subset the font
-	fontProgram := font.SFNT.Data
-	glyphIDs := w.fontSubset[font].List()
-	if w.subset {
+	sfnt, sfntOld := font.SFNT, font.SFNT
+	var glyphIDs []uint16
+	if w.subset && sfnt.IsTrueType {
 		// TODO: CFF font subsetting doesn't work
-		// TODO: remove all optional tables such as kern, GPOS, GSUB, ...
-		fontProgram, glyphIDs = font.SFNT.Subset(glyphIDs, canvasFont.WritePDFTables)
+		glyphIDs = w.fontSubset[font].List()
+		sfnt = sfnt.Subset(glyphIDs, canvasFont.SubsetOptions{Tables: canvasFont.KeepPDFTables})
+	} else {
+		glyphIDs = make([]uint16, sfnt.NumGlyphs())
+		for glyphID := uint16(0); glyphID < sfnt.NumGlyphs(); glyphID++ {
+			glyphIDs = append(glyphIDs, glyphID)
+		}
 	}
+	fontProgram := sfnt.Write()
 
 	// calculate the character widths for the W array and shorten it
-	f := 1000.0 / float64(font.SFNT.Head.UnitsPerEm)
+	f := 1000.0 / float64(sfnt.Head.UnitsPerEm)
 	widths := make([]int, len(glyphIDs)+1)
 	for subsetGlyphID, glyphID := range glyphIDs {
-		widths[subsetGlyphID] = int(f*float64(font.SFNT.GlyphAdvance(glyphID)) + 0.5)
+		widths[subsetGlyphID] = int(f*float64(sfnt.GlyphAdvance(glyphID)) + 0.5)
 	}
 	DW := widths[0]
 	W := pdfArray{}
@@ -302,7 +308,7 @@ func (w *pdfWriter) writeFont(ref pdfRef, font *canvas.Font, vertical bool) {
 	startUnicode := uint32('\uFFFD')
 	length := uint16(1)
 	for subsetGlyphID, glyphID := range glyphIDs[1:] {
-		unicode := uint32(font.SFNT.Cmap.ToUnicode(glyphID))
+		unicode := uint32(sfntOld.Cmap.ToUnicode(glyphID))
 		if 0x010000 <= unicode && unicode <= 0x10FFFF {
 			// UTF-16 surrogates
 			unicode -= 0x10000
@@ -368,7 +374,7 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 
 	// get name and CID subtype
 	name := font.Name()
-	if records := font.SFNT.Name.Get(canvasFont.NamePostScript); 0 < len(records) {
+	if records := sfntOld.Name.Get(canvasFont.NamePostScript); 0 < len(records) {
 		name = records[0].String()
 	}
 	baseFont := strings.ReplaceAll(name, " ", "")
@@ -382,9 +388,9 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 	}
 
 	cidSubtype := ""
-	if font.SFNT.IsTrueType {
+	if sfnt.IsTrueType {
 		cidSubtype = "CIDFontType2"
-	} else if font.SFNT.IsCFF {
+	} else if sfnt.IsCFF {
 		cidSubtype = "CIDFontType0"
 	}
 
@@ -412,15 +418,15 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 				"FontName": pdfName(baseFont),
 				"Flags":    4, // Symbolic
 				"FontBBox": pdfArray{
-					int(f * float64(font.SFNT.Head.XMin)),
-					int(f * float64(font.SFNT.Head.YMin)),
-					int(f * float64(font.SFNT.Head.XMax)),
-					int(f * float64(font.SFNT.Head.YMax)),
+					int(f * float64(sfnt.Head.XMin)),
+					int(f * float64(sfnt.Head.YMin)),
+					int(f * float64(sfnt.Head.XMax)),
+					int(f * float64(sfnt.Head.YMax)),
 				},
-				"ItalicAngle": float64(font.SFNT.Post.ItalicAngle),
-				"Ascent":      int(f * float64(font.SFNT.Hhea.Ascender)),
-				"Descent":     -int(f * float64(font.SFNT.Hhea.Descender)),
-				"CapHeight":   int(f * float64(font.SFNT.OS2.SCapHeight)),
+				"ItalicAngle": float64(sfntOld.Post.ItalicAngle),
+				"Ascent":      int(f * float64(sfnt.Hhea.Ascender)),
+				"Descent":     -int(f * float64(sfnt.Hhea.Descender)),
+				"CapHeight":   int(f * float64(sfntOld.OS2.SCapHeight)),
 				"StemV":       80, // taken from Inkscape, should be calculated somehow, maybe use: 10+220*(usWeightClass-50)/900
 				"FontFile3":   fontfileRef,
 			},

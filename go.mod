@@ -1,6 +1,8 @@
 module github.com/tdewolff/canvas
 
-go 1.17
+go 1.22.0
+
+replace github.com/tdewolff/font => ../font
 
 require (
 	fyne.io/fyne/v2 v2.4.1
@@ -16,13 +18,13 @@ require (
 	github.com/paulmach/osm v0.7.1
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/tdewolff/argp v0.0.0-20240303230445-a8dec846536d
-	github.com/tdewolff/font v0.0.0-20240304124129-69daaf2ab9ab
+	github.com/tdewolff/font v0.0.0-20240305151633-f69a3adc9d92
 	github.com/tdewolff/minify/v2 v2.20.5
 	github.com/tdewolff/parse/v2 v2.7.3
 	github.com/tdewolff/test v1.0.11-0.20231121141655-2d5236e10ae4
 	github.com/wcharczuk/go-chart/v2 v2.1.1
-	golang.org/x/image v0.13.0
-	golang.org/x/text v0.13.0
+	golang.org/x/image v0.15.0
+	golang.org/x/text v0.14.0
 	gonum.org/v1/plot v0.14.0
 )
 
@@ -31,6 +33,7 @@ require (
 	gioui.org/shader v1.0.8 // indirect
 	git.sr.ht/~sbinet/gg v0.5.0 // indirect
 	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b // indirect
+	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/benoitkugler/textlayout v0.3.0 // indirect
 	github.com/blend/go-sdk v1.20220411.3 // indirect
 	github.com/campoy/embedmd v1.0.0 // indirect
