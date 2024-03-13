@@ -669,7 +669,7 @@ func solveQuadraticFormula(a, b, c float64) (float64, float64) {
 		return -b / (2.0 * a), math.NaN()
 	}
 
-	// Avoid catastrophic cancellation, which occurs when we subtract two nearly equal numbers and causes a large error this can be the case when 4*a*c is small so that sqrt(discriminant) -> b, and the sign of b and in front of the radical are the same instead we calculate x where b and the radical have different signs, and then use this result in the analytical equivalent of the formula, called the Citardauq Formula.
+	// Avoid catastrophic cancellation, which occurs when we subtract two nearly equal numbers and causes a large error. This can be the case when 4*a*c is small so that sqrt(discriminant) -> b, and the sign of b and in front of the radical are the same. Instead, we calculate x where b and the radical have different signs, and then use this result in the analytical equivalent of the formula, called the Citardauq Formula.
 	q := math.Sqrt(discriminant)
 	if b < 0.0 {
 		// apply sign of b

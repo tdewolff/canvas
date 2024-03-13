@@ -1190,29 +1190,33 @@ func intersectionLineEllipse(zs Intersections, l0, l1, center, radius Point, phi
 	l0 = l0.Sub(center).Rot(-phi, Origin)
 	l1 = l1.Sub(center).Rot(-phi, Origin)
 
-	// write ellipse as Ax^2 + By^2 = 1 and line as Cx + Dy = E
-	A := 1.0 / (radius.X * radius.X)
-	B := 1.0 / (radius.Y * radius.Y)
-	C := l1.Y - l0.Y
-	D := l0.X - l1.X
-	E := l0.Dot(Point{C, D})
+	// line: cx + dy + e = 0
+	c := l0.Y - l1.Y
+	d := l1.X - l0.X
+	e := l0.PerpDot(l1)
 
-	// rewrite as a polynomial by substituting x or y: ax^2 + bx + c = 0
-	var a, b, c float64
-	horizontal := math.Abs(C) <= math.Abs(D)
+	// follow different code paths when line is mostly horizontal or vertical
+	horizontal := math.Abs(c) <= math.Abs(d)
+
+	// ellipse: x^2/a + y^2/b = 1
+	a := radius.X * radius.X
+	b := radius.Y * radius.Y
+
+	// rewrite as a polynomial by substituting x or y to obtain:
+	// At^2 + Bt + C = 0, with t either x (horizontal) or y (!horizontal)
+	var A, B, C float64
+	A = a*c*c + b*d*d
 	if horizontal {
-		a = A*D*D + B*C*C
-		b = -2.0 * B * E * C
-		c = B*E*E - D*D
+		B = 2.0 * a * c * e
+		C = a*e*e - a*b*d*d
 	} else {
-		a = B*C*C + A*D*D
-		b = -2.0 * A * E * D
-		c = A*E*E - C*C
+		B = 2.0 * b * d * e
+		C = b*e*e - a*b*c*c
 	}
 
 	// find solutions
 	roots := []float64{}
-	r0, r1 := solveQuadraticFormula(a, b, c)
+	r0, r1 := solveQuadraticFormula(A, B, C)
 	if !math.IsNaN(r0) {
 		roots = append(roots, r0)
 		if !math.IsNaN(r1) && !Equal(r0, r1) {
@@ -1222,37 +1226,40 @@ func intersectionLineEllipse(zs Intersections, l0, l1, center, radius Point, phi
 
 	for _, root := range roots {
 		// get intersection position with center as origin
-		var x, y, s float64
+		var x, y, s0, s1 float64
 		if horizontal {
 			x = root
-			y = (E - C*x) / D
-			s = (x - l0.X) / (l1.X - l0.X)
+			y = -e/d - c*root/d
+			s0 = l0.X
+			s1 = l1.X
 		} else {
+			x = -e/c - d*root/c
 			y = root
-			x = (E - D*y) / C
-			s = (y - l0.Y) / (l1.Y - l0.Y)
+			s0 = l0.Y
+			s1 = l1.Y
 		}
 
 		angle := math.Atan2(y, x)
-		if Interval(s, 0.0, 1.0) && angleBetween(angle, theta0, theta1) {
+		if Interval(root, s0, s1) && angleBetween(angle, theta0, theta1) {
 			if theta0 <= theta1 {
 				angle = theta0 - Epsilon + angleNorm(angle-theta0+Epsilon)
 			} else {
 				angle = theta1 - Epsilon + angleNorm(angle-theta1+Epsilon)
 			}
-			t := (angle - theta0) / (theta1 - theta0)
 			pos := Point{x, y}.Rot(phi, Origin).Add(center)
 			dirb := ellipseDeriv(radius.X, radius.Y, phi, theta0 <= theta1, angle).Angle()
-			endpoint := Equal(t, 0.0) || Equal(t, 1.0) || Equal(s, 0.0) || Equal(s, 1.0)
+			endpoint := Equal(angle, theta0) || Equal(angle, theta1) || Equal(root, s0) || Equal(root, s1)
 			if endpoint {
 				// deviate angle slightly at endpoint when aligned to properly set Into
-				if (theta0 <= theta1) == (Equal(t, 0.0) || !Equal(t, 1.0) && Equal(s, 0.0)) {
+				if (theta0 <= theta1) == (Equal(angle, theta0) || !Equal(angle, theta1) && Equal(root, s0)) {
 					dirb += Epsilon * 2.0 // t=0 and CCW, or t=1 and CW
 				} else {
 					dirb -= Epsilon * 2.0 // t=0 and CW, or t=1 and CCW
 				}
 				dirb = angleNorm(dirb)
 			}
+			s := (root - s0) / (s1 - s0)
+			t := (angle - theta0) / (theta1 - theta0)
 			zs = zs.add(pos, s, t, dira, dirb, endpoint || Equal(root, 0.0))
 		}
 	}
@@ -1291,23 +1298,27 @@ func intersectionEllipseEllipse(zs Intersections, c0, r0 Point, phi0, thetaStart
 			tOffset1 = 1.0
 		}
 
-		// will add exactly 2 intersections
+		// will add either 1 (when touching) or 2 (when overlapping) intersections
 		if t := angleTime(thetaStart0, thetaStart1, thetaEnd1); Interval(t, 0.0, 1.0) {
+			// ellipse0 starts within/on border of ellipse1
 			dir := arcAngle(thetaStart0, 0.0 <= dtheta0)
 			pos := EllipsePos(r0.X, r0.Y, 0.0, c0.X, c0.Y, thetaStart0)
 			zs = zs.add(pos, 0.0, math.Abs(t-tOffset1), dir, angleNorm(dir+dirOffset1), true)
 		}
 		if t := angleTime(thetaStart1, thetaStart0, thetaEnd0); IntervalExclusive(t, 0.0, 1.0) {
+			// ellipse1 starts within ellipse0
 			dir := arcAngle(thetaStart1, 0.0 <= dtheta0)
 			pos := EllipsePos(r0.X, r0.Y, 0.0, c0.X, c0.Y, thetaStart1)
 			zs = zs.add(pos, t, tOffset1, dir, angleNorm(dir+dirOffset1), true)
 		}
 		if t := angleTime(thetaEnd1, thetaStart0, thetaEnd0); IntervalExclusive(t, 0.0, 1.0) {
+			// ellipse1 ends within ellipse0
 			dir := arcAngle(thetaEnd1, 0.0 <= dtheta0)
 			pos := EllipsePos(r0.X, r0.Y, 0.0, c0.X, c0.Y, thetaEnd1)
 			zs = zs.add(pos, t, 1.0-tOffset1, dir, angleNorm(dir+dirOffset1), true)
 		}
 		if t := angleTime(thetaEnd0, thetaStart1, thetaEnd1); Interval(t, 0.0, 1.0) {
+			// ellipse0 ends within/on border of ellipse1
 			dir := arcAngle(thetaEnd0, 0.0 <= dtheta0)
 			pos := EllipsePos(r0.X, r0.Y, 0.0, c0.X, c0.Y, thetaEnd0)
 			zs = zs.add(pos, 1.0, math.Abs(t-tOffset1), dir, angleNorm(dir+dirOffset1), true)
