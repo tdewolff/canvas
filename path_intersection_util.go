@@ -542,6 +542,65 @@ func pathIntersections(p, q *Path, withTangents, withParallelTangents bool) ([]P
 					closedQ: closedQ,
 				})
 
+				// Extra tests until all bugs are found
+				// TODO: remove
+				bug := false
+				for i := 0; i < len(zs); i++ {
+					z := zs[i]
+					startP, startQ := Equal(z.T[0], 0.0), Equal(z.T[1], 0.0)
+					endP, endQ := Equal(z.T[0], 1.0), Equal(z.T[1], 1.0)
+					if !closedP && (startP || endP) || !closedQ && (startQ || endQ) {
+						continue
+					}
+					if startP || startQ {
+						bug = true
+						break
+					} else if endP && endQ {
+						if len(zs) < i+4 {
+							bug = true
+							break
+						} else if !Equal(zs[i+1].T[0], 1.0) || !Equal(zs[i+1].T[1], 0.0) {
+							bug = true
+							break
+						} else if !Equal(zs[i+2].T[0], 0.0) || !Equal(zs[i+2].T[1], 1.0) {
+							bug = true
+							break
+						} else if !Equal(zs[i+3].T[0], 0.0) || !Equal(zs[i+3].T[1], 0.0) {
+							bug = true
+							break
+						}
+						i += 3
+					} else if endP {
+						if len(zs) < i+2 {
+							bug = true
+							break
+						} else if !Equal(zs[i+1].T[0], 0.0) || !Equal(zs[i+1].T[1], z.T[1]) {
+							bug = true
+							break
+						}
+						i += 1
+					} else if endQ {
+						if len(zs) < i+2 {
+							bug = true
+							break
+						} else if !Equal(zs[i+1].T[0], z.T[0]) || !Equal(zs[i+1].T[1], 0.0) {
+							bug = true
+							break
+						}
+						i += 1
+					}
+				}
+				if bug {
+					for i, z := range zs {
+						fmt.Printf("Intersection %d: seg=(%d,%d) t=(%g,%g) pos=(%g,%g) dir=(%g°,%g°)", i, segsP[i], segsQ[i], z.T[0], z.T[1], z.X, z.Y, z.Dir[0]*180.0/math.Pi, z.Dir[1]*180.0/math.Pi)
+						if z.Tangent {
+							fmt.Printf(" tangent")
+						}
+						fmt.Printf("\n")
+					}
+					panic("Bug found in path intersection code, please report on GitHub at https://github.com/tdewolff/canvas/issues with the path or paths that caused this panic.")
+				}
+
 				// Remove degenerate tangent intersections at segment endpoint:
 				// - Intersection at endpoints for P and Q: 4 degenerate intersections
 				// - Intersection at endpoints for P or Q: 2 degenerate intersections
@@ -1268,6 +1327,7 @@ func intersectionLineEllipse(zs Intersections, l0, l1, center, radius Point, phi
 
 func intersectionEllipseEllipse(zs Intersections, c0, r0 Point, phi0, thetaStart0, thetaEnd0 float64, c1, r1 Point, phi1, thetaStart1, thetaEnd1 float64) Intersections {
 	// TODO: needs more testing
+	// TODO: intersection inconsistency due to numerical stability in finding tangent collisions for subsequent paht segments (line -> ellipse), or due to the endpoint of a line not touching with another arc, but the subsequent segment does touch with its starting point
 	if !Equal(r0.X, r0.Y) || !Equal(r1.X, r1.Y) {
 		panic("not handled") // ellipses
 	}
