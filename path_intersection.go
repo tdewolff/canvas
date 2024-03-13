@@ -156,10 +156,10 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 		return flattenCubicBezier(p0, p1, p2, p3, Tolerance)
 	}
 	arc := func(start Point, rx, ry, phi float64, large, sweep bool, end Point) *Path {
-		if !Equal(rx, ry) {
-			return flattenEllipticArc(start, rx, ry, phi, large, sweep, end, Tolerance)
-		}
-		return xmonotoneEllipticArc(start, rx, ry, phi, large, sweep, end)
+		//if !Equal(rx, ry) {
+		return flattenEllipticArc(start, rx, ry, phi, large, sweep, end, Tolerance)
+		//}
+		//return xmonotoneEllipticArc(start, rx, ry, phi, large, sweep, end)
 	}
 	p = p.replace(nil, quad, cube, arc)
 
