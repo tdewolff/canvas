@@ -5,7 +5,7 @@ import (
 	"math"
 	"unicode"
 
-	"github.com/tdewolff/canvas/font"
+	"github.com/tdewolff/font"
 )
 
 // See: Donald E. Knuth and Michael F. Plass, "Breaking Paragraphs into Lines", 1981
@@ -293,14 +293,7 @@ func (lb *linebreaker) computeAdjustmentRatio(b int, active *Breakpoint) float64
 	}
 	ratio := 0.0
 	if L < lb.width {
-		if lb.Y-active.Y == 0.0 {
-			// no stretching allowed, add artificial space to distinguish unstretchable lines
-			// this helps with left/center/right aligned text
-			// this promotes putting as many glyphs (CJK) as possible on a line
-			return Infinity * (1.0 + (lb.width-L)/lb.width) // range [1000,2000]
-		} else {
-			ratio = (lb.width - L) / (lb.Y - active.Y)
-		}
+		ratio = (lb.width - L) / (lb.Y - active.Y)
 	} else if lb.width < L {
 		ratio = (lb.width - L) / (lb.Z - active.Z)
 	}
@@ -572,7 +565,9 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 				n += 1.0
 			}
 		}
-		stretchWidth /= n
+		if 1e-8 < n {
+			stretchWidth /= n
+		}
 	}
 
 	// trim spaces from start and end

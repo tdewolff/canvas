@@ -72,7 +72,7 @@ func PNG(opts ...interface{}) canvas.Writer {
 		case canvas.ColorSpace:
 			colorSpace = o
 		default:
-			return errorWriter(fmt.Errorf("unknown option: %v", opt))
+			return errorWriter(fmt.Errorf("unknown PNG option: %T(%v)", opt, opt))
 		}
 	}
 	return func(w io.Writer, c *canvas.Canvas) error {
@@ -94,7 +94,7 @@ func JPEG(opts ...interface{}) canvas.Writer {
 		case *jpeg.Options:
 			options = o
 		default:
-			return errorWriter(fmt.Errorf("unknown option: %v", opt))
+			return errorWriter(fmt.Errorf("unknown JPEG option: %T(%v)", opt, opt))
 		}
 	}
 	return func(w io.Writer, c *canvas.Canvas) error {
@@ -116,7 +116,7 @@ func GIF(opts ...interface{}) canvas.Writer {
 		case *gif.Options:
 			options = o
 		default:
-			return errorWriter(fmt.Errorf("unknown option: %v", opt))
+			return errorWriter(fmt.Errorf("unknown option: %T(%v)", opt, opt))
 		}
 	}
 	return func(w io.Writer, c *canvas.Canvas) error {
@@ -138,7 +138,7 @@ func TIFF(opts ...interface{}) canvas.Writer {
 		case *tiff.Options:
 			options = o
 		default:
-			return errorWriter(fmt.Errorf("unknown option: %v", opt))
+			return errorWriter(fmt.Errorf("unknown option: %T(%v)", opt, opt))
 		}
 	}
 	return func(w io.Writer, c *canvas.Canvas) error {
@@ -157,7 +157,7 @@ func BMP(opts ...interface{}) canvas.Writer {
 		case canvas.ColorSpace:
 			colorSpace = o
 		default:
-			return errorWriter(fmt.Errorf("unknown option: %v", opt))
+			return errorWriter(fmt.Errorf("unknown option: %T(%v)", opt, opt))
 		}
 	}
 	return func(w io.Writer, c *canvas.Canvas) error {
@@ -179,7 +179,7 @@ func BMP(opts ...interface{}) canvas.Writer {
 //		case canvas.ColorSpace:
 //			colorSpace = o
 //		default:
-//			return errorWriter(fmt.Errorf("unknown option: %v", opt))
+//			return errorWriter(fmt.Errorf("unknown WEBP option: %T(%v)", opt,opt))
 //		}
 //	}
 //	return func(w io.Writer, c *canvas.Canvas) error {
@@ -199,7 +199,7 @@ func SVGZ(opts ...interface{}) canvas.Writer {
 		case *svg.Options:
 			options = o
 		default:
-			return errorWriter(fmt.Errorf("unknown option: %v", opt))
+			return errorWriter(fmt.Errorf("unknown SVGZ option: %T(%v)", opt, opt))
 		}
 	}
 	if options == nil {
@@ -223,7 +223,7 @@ func SVG(opts ...interface{}) canvas.Writer {
 		case *svg.Options:
 			options = o
 		default:
-			return errorWriter(fmt.Errorf("unknown option: %v", opt))
+			return errorWriter(fmt.Errorf("unknown SVG option: %T(%v)", opt, opt))
 		}
 	}
 	return func(w io.Writer, c *canvas.Canvas) error {
@@ -240,7 +240,7 @@ func PDF(opts ...interface{}) canvas.Writer {
 		case *pdf.Options:
 			options = o
 		default:
-			return errorWriter(fmt.Errorf("unknown option: %v", opt))
+			return errorWriter(fmt.Errorf("unknown PDF option: %T(%v)", opt, opt))
 		}
 	}
 	return func(w io.Writer, c *canvas.Canvas) error {
@@ -252,7 +252,7 @@ func PDF(opts ...interface{}) canvas.Writer {
 
 func TeX(opts ...interface{}) canvas.Writer {
 	for _, opt := range opts {
-		return errorWriter(fmt.Errorf("unknown option: %v", opt))
+		return errorWriter(fmt.Errorf("unknown TeX option: %T(%v)", opt, opt))
 	}
 	return func(w io.Writer, c *canvas.Canvas) error {
 		tex := tex.New(w, c.W, c.H)
@@ -268,7 +268,7 @@ func PS(opts ...interface{}) canvas.Writer {
 		case *ps.Options:
 			options = o
 		default:
-			return errorWriter(fmt.Errorf("unknown option: %v", opt))
+			return errorWriter(fmt.Errorf("unknown PS option: %T(%v)", opt, opt))
 		}
 	}
 	if options == nil {
@@ -290,7 +290,7 @@ func EPS(opts ...interface{}) canvas.Writer {
 		case *ps.Options:
 			options = o
 		default:
-			return errorWriter(fmt.Errorf("unknown option: %v", opt))
+			return errorWriter(fmt.Errorf("unknown EPS option: %T(%v)", opt, opt))
 		}
 	}
 	if options == nil {

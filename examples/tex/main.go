@@ -18,6 +18,7 @@ func main() {
 	defer c.Close()
 
 	ctx := canvas.NewContext(c)
+	ctx.SetCoordView(canvas.Identity.Scale(0.5, 0.5))
 	ctx.SetView(canvas.Identity.Scale(0.5, 0.5))
 	if err := canvas.DrawPreview(ctx); err != nil {
 		panic(err)

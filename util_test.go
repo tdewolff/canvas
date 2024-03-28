@@ -28,6 +28,38 @@ func TestAngleNorm(t *testing.T) {
 	}
 }
 
+func TestAngleTime(t *testing.T) {
+	var tests = []struct {
+		theta, lower, upper float64
+		t                   float64
+	}{
+		{0.0, 0.0, 1.0, 0.0},
+		{1.0, 0.0, 1.0, 1.0},
+		{0.5, 0.0, 1.0, 0.5},
+		{0.5 + 2.0*math.Pi, 0.0, 1.0, 0.5},
+		{0.5, 0.0 + 2.0*math.Pi, 1.0 + 2.0*math.Pi, 0.5},
+		{0.5, 1.0 + 2.0*math.Pi, 0.0 + 2.0*math.Pi, 0.5},
+		{0.5 - 2.0*math.Pi, 0.0, 1.0, 0.5},
+		{0.5, 0.0 - 2.0*math.Pi, 1.0 - 2.0*math.Pi, 0.5},
+		{0.5, 1.0 - 2.0*math.Pi, 0.0 - 2.0*math.Pi, 0.5},
+		{-0.1, 0.0, 1.0, 2.0*math.Pi - 0.1},
+		{1.1, 0.0, 1.0, 1.1},
+		{2.0, 3.0, 1.0, 0.5},
+		{0.75 * math.Pi, 1.5 * math.Pi, 2.5 * math.Pi, 1.25},
+
+		// tolerance
+		{0.0 - Epsilon, 0.0, 1.0, 0.0},
+		{1.0 + Epsilon, 0.0, 1.0, 1.0},
+		{0.0 - Epsilon, 1.0, 0.0, 1.0},
+		{1.0 + Epsilon, 1.0, 0.0, 0.0},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%g<=%g<=%g", tt.theta, tt.lower, tt.upper), func(t *testing.T) {
+			test.FloatDiff(t, angleTime(tt.theta, tt.lower, tt.upper), tt.t, 1e-9)
+		})
+	}
+}
+
 func TestAngleBetween(t *testing.T) {
 	var tests = []struct {
 		theta, lower, upper float64

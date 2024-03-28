@@ -91,9 +91,9 @@ func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 	}
 
 	if style.HasFill() {
-		if style.FillColor != r.style.FillColor {
-			r.ctx.Set("fillStyle", canvas.CSSColor(style.FillColor).String())
-			r.style.FillColor = style.FillColor
+		if style.Fill.IsColor() && style.Fill.Color != r.style.Fill.Color {
+			r.ctx.Set("fillStyle", canvas.CSSColor(style.Fill.Color).String())
+			r.style.Fill.Color = style.Fill.Color
 		}
 		r.ctx.Call("fill")
 	}
@@ -154,9 +154,9 @@ func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 			r.ctx.Set("lineWidth", style.StrokeWidth*r.dpm)
 			r.style.StrokeWidth = style.StrokeWidth
 		}
-		if style.StrokeColor != r.style.StrokeColor {
-			r.ctx.Set("strokeStyle", canvas.CSSColor(style.StrokeColor).String())
-			r.style.StrokeColor = style.StrokeColor
+		if style.Stroke.IsColor() && style.Stroke.Color != r.style.Stroke.Color {
+			r.ctx.Set("strokeStyle", canvas.CSSColor(style.Stroke.Color).String())
+			r.style.Stroke.Color = style.Stroke.Color
 		}
 		r.ctx.Call("stroke")
 	} else if style.HasStroke() {
@@ -164,11 +164,11 @@ func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		if style.IsDashed() {
 			path = path.Dash(style.DashOffset, style.Dashes...)
 		}
-		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner)
+		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner, canvas.Tolerance)
 		r.writePath(path.Transform(m).ReplaceArcs())
-		if style.StrokeColor != r.style.FillColor {
-			r.ctx.Set("fillStyle", canvas.CSSColor(style.StrokeColor).String())
-			r.style.FillColor = style.StrokeColor
+		if style.Stroke.IsColor() && style.Stroke.Color != r.style.Fill.Color {
+			r.ctx.Set("fillStyle", canvas.CSSColor(style.Stroke.Color).String())
+			r.style.Fill.Color = style.Stroke.Color
 		}
 		r.ctx.Call("fill")
 	}

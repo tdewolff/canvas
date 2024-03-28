@@ -1,3 +1,3 @@
 all:
 	go run -tags latex main.go
-	latexmk preview.tex
+	latexmk main.tex

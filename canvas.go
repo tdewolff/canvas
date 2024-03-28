@@ -266,7 +266,16 @@ func (c *Context) Pop() {
 
 // CoordView returns the current affine transformation matrix through which all operation coordinates will be transformed.
 func (c *Context) CoordView() Matrix {
-	return c.coordView
+	m := Identity
+	switch c.coordSystem {
+	case CartesianII:
+		m = m.ReflectXAbout(c.Width() / 2.0)
+	case CartesianIII:
+		m = m.ReflectXAbout(c.Width() / 2.0).ReflectYAbout(c.Height() / 2.0)
+	case CartesianIV:
+		m = m.ReflectYAbout(c.Height() / 2.0)
+	}
+	return m.Mul(c.coordView)
 }
 
 // SetCoordView sets the current affine transformation matrix through which all operation coordinates will be transformed. See `Matrix` for how transformations work.
@@ -782,8 +791,8 @@ func (c *Canvas) SetZIndex(zindex int) {
 // Transform transforms the canvas.
 func (c *Canvas) Transform(m Matrix) {
 	for _, layers := range c.layers {
-		for i := range layers {
-			layers[i].m = m.Mul(layers[i].m)
+		for i, l := range layers {
+			layers[i].m = m.Mul(l.m)
 		}
 	}
 }
@@ -800,7 +809,7 @@ func (c *Canvas) Fit(margin float64) {
 	rect := Rect{}
 	// TODO: slow when we have many paths (see Graph example)
 	for _, layers := range c.layers {
-		for i, l := range layers {
+		for _, l := range layers {
 			bounds := Rect{}
 			if l.path != nil {
 				bounds = l.path.Bounds()
@@ -817,11 +826,7 @@ func (c *Canvas) Fit(margin float64) {
 				bounds = Rect{0.0, 0.0, float64(size.X), float64(size.Y)}
 			}
 			bounds = bounds.Transform(l.m)
-			if i == 0 {
-				rect = bounds
-			} else {
-				rect = rect.Add(bounds)
-			}
+			rect = rect.Add(bounds)
 		}
 	}
 	rect.X -= margin

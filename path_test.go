@@ -55,29 +55,29 @@ func TestPathAppend(t *testing.T) {
 }
 
 func TestPathJoin(t *testing.T) {
+	var tests = []struct {
+		p, q     string
+		expected string
+	}{
+		{"M5 0L5 10", "", "M5 0L5 10"},
+		{"", "M5 0L5 10", "M5 0L5 10"},
+		{"M5 0L5 10", "L10 15", "M5 0L5 10M0 0L10 15"},
+		{"M5 0L5 10z", "M5 0L10 15", "M5 0L5 10zM5 0L10 15"},
+		{"M5 0L5 10", "M5 10L10 15", "M5 0L5 10L10 15"},
+		{"M5 0L5 10", "L10 15M20 15L25 15", "M5 0L5 10M0 0L10 15M20 15L25 15"},
+		{"M5 0L5 10", "M5 10L10 15M20 15L25 15", "M5 0L5 10L10 15M20 15L25 15"},
+		{"M5 0L10 5", "M10 5L15 10", "M5 0L15 10"},
+		{"M5 0L10 5", "L5 5z", "M5 0L10 5M0 0L5 5z"},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
+			p := MustParseSVGPath(tt.p).Join(MustParseSVGPath(tt.q))
+			test.T(t, p, MustParseSVGPath(tt.expected))
+		})
+	}
+
 	test.T(t, MustParseSVGPath("M5 0L5 10").Join(nil), MustParseSVGPath("M5 0L5 10"))
-	test.T(t, (&Path{}).Join(MustParseSVGPath("M5 0L5 10")), MustParseSVGPath("M5 0L5 10"))
-
-	p := MustParseSVGPath("M5 0L5 10").Join(MustParseSVGPath("L10 15"))
-	test.T(t, p, MustParseSVGPath("M5 0L5 10M0 0L10 15"))
-
-	p = MustParseSVGPath("M5 0L5 10z").Join(MustParseSVGPath("M5 0L10 15"))
-	test.T(t, p, MustParseSVGPath("M5 0L5 10zM5 0L10 15"))
-
-	p = MustParseSVGPath("M5 0L5 10").Join(MustParseSVGPath("M5 10L10 15"))
-	test.T(t, p, MustParseSVGPath("M5 0L5 10L10 15"))
-
-	p = MustParseSVGPath("M5 0L5 10").Join(MustParseSVGPath("L10 15M20 15L25 15"))
-	test.T(t, p, MustParseSVGPath("M5 0L5 10M0 0L10 15M20 15L25 15"))
-
-	p = MustParseSVGPath("M5 0L5 10").Join(MustParseSVGPath("M5 10L10 15M20 15L25 15"))
-	test.T(t, p, MustParseSVGPath("M5 0L5 10L10 15M20 15L25 15"))
-
-	p = MustParseSVGPath("M5 0L10 5").Join(MustParseSVGPath("M10 5L15 10"))
-	test.T(t, p, MustParseSVGPath("M5 0L15 10"))
-
-	p = MustParseSVGPath("M5 0L10 5").Join(MustParseSVGPath("L5 5z"))
-	test.T(t, p, MustParseSVGPath("M5 0L10 5M0 0L5 5z"))
 }
 
 func TestPathCoords(t *testing.T) {
@@ -376,13 +376,16 @@ func TestPathBounds(t *testing.T) {
 		{"A100 100 0 1 0 -100 100", Rect{-200, -100, 200, 200}}, // hit xmin, ymin
 		{"A100 100 0 1 1 -100 100", Rect{-100, 0, 200, 200}},    // hit xmax, ymax
 	}
+	origEpsilon := Epsilon
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
-			reset := setEpsilon(1e-6)
-			test.T(t, MustParseSVGPath(tt.p).Bounds(), tt.bounds)
-			reset()
+			Epsilon = origEpsilon
+			bounds := MustParseSVGPath(tt.p).Bounds()
+			Epsilon = 1e-6
+			test.T(t, bounds, tt.bounds)
 		})
 	}
+	Epsilon = origEpsilon
 }
 
 // for quadratic Bézier use https://www.wolframalpha.com/input/?i=length+of+the+curve+%7Bx%3D2*(1-t)*t*50.00+%2B+t%5E2*100.00,+y%3D2*(1-t)*t*66.67+%2B+t%5E2*0.00%7D+from+0+to+1
@@ -422,11 +425,11 @@ func TestPathTransform(t *testing.T) {
 		m Matrix
 		r string
 	}{
-		{"M0 0L10 0Q15 10 20 0C23 10 27 10 30 0z", Identity.Translate(0, 100), "M0 100L10 100Q15 110 20 100C23 110 27 110 30 100z"},
+		{"L10 0Q15 10 20 0C23 10 27 10 30 0z", Identity.Translate(0, 100), "M0 100L10 100Q15 110 20 100C23 110 27 110 30 100z"},
 		{"A10 10 0 0 0 20 0", Identity.Translate(0, 10), "M0 10A10 10 0 0 0 20 10"},
-		{"A10 10 0 0 0 20 0", Identity.Scale(1, -1), "M0 0A10 10 0 0 1 20 0"},
-		{"A10 5 0 0 0 20 0", Identity.Rotate(270), "M0 0A10 5 90 0 0 0 -20"},
-		{"A10 10 0 0 0 20 0", Identity.Rotate(120).Scale(1, -2), "M0 0A20 10 30 0 1 -10 17.3205080757"},
+		{"A10 10 0 0 0 20 0", Identity.Scale(1, -1), "A10 10 0 0 1 20 0"},
+		{"A10 5 0 0 0 20 0", Identity.Rotate(270), "A10 5 90 0 0 0 -20"},
+		{"A10 10 0 0 0 20 0", Identity.Rotate(120).Scale(1, -2), "A20 10 30 0 1 -10 17.3205080757"},
 	}
 	for _, tt := range tts {
 		t.Run(tt.r, func(t *testing.T) {
@@ -493,8 +496,8 @@ func TestPathMarkers(t *testing.T) {
 	}{
 		{"M10 0", []string{"M10 0L11 0L10 1z"}},
 		{"M10 0L20 10", []string{"M10 0L11 0L10 1z", "M20 10L19 10L20 11z"}},
-		{"L10 0L20 10", []string{"M0 0L1 0L0 1z", "M9 0A1 1 0 0 0 11 0z", "M20 10L19 10L20 11z"}},
-		{"L10 0L20 10z", []string{"M0 0L1 0L0 1z", "M9 0A1 1 0 0 0 11 0z", "M19 10A1 1 0 0 0 21 10z", "M0 0L-1 0L0 1z"}},
+		{"L10 0L20 10", []string{"L1 0L0 1z", "M9 0A1 1 0 0 0 11 0z", "M20 10L19 10L20 11z"}},
+		{"L10 0L20 10z", []string{"L1 0L0 1z", "M9 0A1 1 0 0 0 11 0z", "M19 10A1 1 0 0 0 21 10z", "L-1 0L0 1z"}},
 		{"M10 0L20 10M30 0L40 10", []string{"M10 0L11 0L10 1z", "M19 10A1 1 0 0 0 21 10z", "M29 0A1 1 0 0 0 31 0z", "M40 10L39 10L40 11z"}},
 	}
 	for _, tt := range tts {
@@ -526,18 +529,20 @@ func TestPathMarkersAligned(t *testing.T) {
 	}{
 		{"M10 0", []string{"M10 0L11 0L10 1z"}},
 		{"M10 0L20 10", []string{"M10 0L10.707 0.707L9.293 0.707z", "M20 10L19.293 9.293L19.293 10.707z"}},
-		{"L10 0L20 10", []string{"M0 0L1 0L0 1z", "M9.076 -0.383A1 1 0 0 0 10.924 0.383z", "M20 10L19.293 9.293L19.293 10.707z"}},
-		{"L10 0L20 10z", []string{"M0 0L0.230 -0.973L0.973 0.230z", "M9.076 -0.383A1 1 0 0 0 10.924 0.383z", "M20.585 9.189A1 1 0 0 0 19.415 10.811z", "M0 0L-0.230 0.973L0.973 0.230z"}},
+		{"L10 0L20 10", []string{"L1 0L0 1z", "M9.076 -0.383A1 1 0 0 0 10.924 0.383z", "M20 10L19.293 9.293L19.293 10.707z"}},
+		{"L10 0L20 10z", []string{"L0.230 -0.973L0.973 0.230z", "M9.076 -0.383A1 1 0 0 0 10.924 0.383z", "M20.585 9.189A1 1 0 0 0 19.415 10.811z", "L-0.230 0.973L0.973 0.230z"}},
 		{"M10 0L20 10M30 0L40 10", []string{"M10 0L10.707 0.707L9.293 0.707z", "M19.293 9.293A1 1 0 0 0 20.707 10.707z", "M29.293 -0.707A1 1 0 0 0 30.707 0.707z", "M40 10L39.293 9.293L39.293 10.707z"}},
 		{"Q0 10 10 10Q20 10 20 0", []string{"L0 1L-1 0z", "M9 10A1 1 0 0 0 11 10z", "M20 0L20 1L21 0z"}},
 		{"C0 6.66667 3.33333 10 10 10C16.66667 10 20 6.66667 20 0", []string{"L0 1L-1 0z", "M9 10A1 1 0 0 0 11 10z", "M20 0L20 1L21 0z"}},
 		{"A10 10 0 0 0 10 10A10 10 0 0 0 20 0", []string{"L0 1L-1 0z", "M9 10A1 1 0 0 0 11 10z", "M20 0L20 1L21 0z"}},
 	}
+	origEpsilon := Epsilon
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
-			reset := setEpsilon(1e-3)
+			Epsilon = origEpsilon
 			p := MustParseSVGPath(tt.p)
 			ps := p.Markers(start, mid, end, true)
+			Epsilon = 1e-3
 			if len(ps) != len(tt.rs) {
 				origs := []string{}
 				for _, p := range ps {
@@ -549,9 +554,9 @@ func TestPathMarkersAligned(t *testing.T) {
 					test.T(t, p, MustParseSVGPath(tt.rs[i]))
 				}
 			}
-			reset()
 		})
 	}
+	Epsilon = origEpsilon
 }
 
 func TestPathSplit(t *testing.T) {
@@ -604,11 +609,13 @@ func TestPathSplitAt(t *testing.T) {
 		{"A10 10 0 0 0 20 0", []float64{15.707963}, []string{"A10 10 0 0 0 10 10", "M10 10A10 10 0 0 0 20 0"}},
 		{"A10 10 0 1 0 2.9289 -7.0711", []float64{15.707963}, []string{"A10 10 0 0 0 10.024 9.9999", "M10.024 9.9999A10 10 0 1 0 2.9289 -7.0711"}},
 	}
+	origEpsilon := Epsilon
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
-			reset := setEpsilon(1e-3)
+			Epsilon = origEpsilon
 			p := MustParseSVGPath(tt.p)
 			ps := p.SplitAt(tt.d...)
+			Epsilon = 1e-3
 			if len(ps) != len(tt.rs) {
 				origs := []string{}
 				for _, p := range ps {
@@ -620,9 +627,9 @@ func TestPathSplitAt(t *testing.T) {
 					test.T(t, p, MustParseSVGPath(tt.rs[i]))
 				}
 			}
-			reset()
 		})
 	}
+	Epsilon = origEpsilon
 }
 
 func TestDashCanonical(t *testing.T) {

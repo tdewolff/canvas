@@ -748,8 +748,7 @@ func (svg *svgParser) setAttribute(key, val string) {
 		} else if val == "miter" {
 			svg.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, svg.state.strokeMiterLimit})
 		} else if val == "miter-clip" {
-			// not exactly correct
-			svg.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, svg.state.strokeMiterLimit})
+			svg.ctx.SetStrokeJoiner(MiterJoiner{nil, svg.state.strokeMiterLimit})
 		} else if val == "round" {
 			svg.ctx.SetStrokeJoiner(RoundJoin)
 		}

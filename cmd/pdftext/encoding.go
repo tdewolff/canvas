@@ -8,7 +8,7 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
-	"github.com/tdewolff/canvas/font"
+	"github.com/tdewolff/font"
 	"golang.org/x/text/encoding/charmap"
 )
 
@@ -474,7 +474,9 @@ func (r *pdfReader) GetFont(dict pdfDict, name pdfName) (pdfFont, error) {
 								return nil, fmt.Errorf("character name doesn't exist: %v", name)
 							}
 							f.diffs[byte(code)] = r
-							f.diffsRev[r] = byte(code)
+							if _, ok := f.diffsRev[r]; !ok {
+								f.diffsRev[r] = byte(code)
+							}
 							code++
 							i++
 						}

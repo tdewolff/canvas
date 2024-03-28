@@ -67,9 +67,8 @@ func (r *Rasterizer) Size() (float64, float64) {
 // RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
 	// TODO: use fill rule (EvenOdd, NonZero) for rasterizer
-	fill := path
-	stroke := path
 	bounds := canvas.Rect{}
+	var fill, stroke *canvas.Path
 	if style.HasFill() {
 		fill = path.Transform(m)
 		if !style.HasStroke() {
@@ -78,6 +77,7 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 	}
 	if style.HasStroke() {
 		tolerance := canvas.PixelTolerance / r.resolution.DPMM()
+		stroke = path
 		if 0 < len(style.Dashes) {
 			stroke = stroke.Dash(style.DashOffset, style.Dashes...)
 		}
@@ -159,9 +159,9 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		} else if style.Stroke.IsGradient() {
 			gradient := style.Stroke.Gradient.SetColorSpace(r.colorSpace)
 			src = NewGradientImage(gradient, zp, size, r.resolution)
-		} else if style.Fill.IsPattern() {
+		} else if style.Stroke.IsPattern() {
 			pattern := style.Stroke.Pattern.SetColorSpace(r.colorSpace)
-			pattern.ClipTo(r, fill)
+			pattern.ClipTo(r, stroke)
 		}
 		if src != nil {
 			ras.Draw(r.Image, image.Rect(x, y, x+w, y+h), src, image.Point{dx, dy})

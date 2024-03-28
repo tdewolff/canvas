@@ -6,37 +6,18 @@ import (
 	"sort"
 )
 
-// Paths are cut at the intersections between P and Q. The intersections are put into a doubly linked list with paths going forward and backward over P and Q. Depending on the boolean operation we should choose the right cut. Note that there can be circular loops when choosing cuts based on a condition, so we should take care to visit all intersections. Additionally, if path P or path Q contain subpaths with a different winding, we will first combine the subpaths so to remove all subpath intersections.
+/*
+Paths are cut at the intersections between P and Q. The intersections are put into a doubly linked list with paths going forward and backward over P and Q. Depending on the boolean operation we should choose the right cut. Note that there can be circular loops when choosing cuts based on a condition, so we should take care to visit all intersections. Additionally, if path P or path Q contain subpaths with a different winding, we will first combine the subpaths so to remove all subpath intersections.
 
-func segmentPos(start Point, d []float64, t float64) Point {
-	// used for open paths in boolean
-	if d[0] == LineToCmd || d[0] == CloseCmd {
-		return start.Interpolate(Point{d[1], d[2]}, t)
-	} else if d[0] == QuadToCmd {
-		cp := Point{d[1], d[2]}
-		end := Point{d[3], d[4]}
-		return quadraticBezierPos(start, cp, end, t)
-	} else if d[0] == CubeToCmd {
-		cp1 := Point{d[1], d[2]}
-		cp2 := Point{d[3], d[4]}
-		end := Point{d[5], d[6]}
-		return cubicBezierPos(start, cp1, cp2, end, t)
-	} else if d[0] == ArcToCmd {
-		rx, ry, phi := d[1], d[2], d[3]
-		large, sweep := toArcFlags(d[4])
-		cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, d[5], d[6])
-		return EllipsePos(rx, ry, phi, cx, cy, theta0+t*(theta1-theta0))
-	}
-	return Point{}
-}
-
-// returns true if p is inside q or equivalent to q, paths may not intersect
-// p should not have subpaths
-func (p *Path) inside(q *Path) bool {
-	// if p does not fill with the EvenOdd rule, it is inside q
-	p = p.Append(q)
-	return !p.Filling(EvenOdd)[0]
-}
+Functions:
+ - LineLine, LineQuad, LineCube, LineEllipse: find intersections between segments (line is A, the other is B) and record coordinate, position along segment A and B in the range of [0,1], direction of segment A and B at intersection, and whether the intersection is secant (crossing) or tangent (touching).
+ - appendSegment, rayIntersections, selfCollisions, collisions: find intersections between paths and record segment index, and for collisions also record kind (AintoB or BintoA), parallel (No-/A-/B-/ABParallel).
+ - cutPathSegment: cut segment at position [0,1]
+ - intersectionNodes: cut path at the intersections and connect as two doubly-linked lists, one along path A and one along path B, recording the path from one node to the other. Handles parallel parts as well.
+ - cut: cut path at the intersections
+ - booleanIntersections: build up path from intersections according to boolean operation
+ - boolean: boolean operation on path
+*/
 
 // ContainsPath returns true if path q is contained within path p, i.e. path q is inside path p and both paths have no intersections (but may touch). Paths must have been settled to remove self-intersections.
 func (p *Path) ContainsPath(q *Path) bool {
@@ -44,7 +25,8 @@ func (p *Path) ContainsPath(q *Path) bool {
 	for _, qi := range qs {
 		inside := false
 		for _, pi := range ps {
-			if qi.inside(pi) && len(collisions([]*Path{pi}, []*Path{qi}, false)) == 0 {
+			zp, _ := pathIntersections(pi, qi, false, false)
+			if len(zp) == 0 && qi.inside(pi) {
 				inside = true
 				break
 			}
@@ -56,71 +38,354 @@ func (p *Path) ContainsPath(q *Path) bool {
 	return true
 }
 
-// Settle combines the path p with itself, including all subpaths, removing all self-intersections and overlapping parts. It returns subpaths with counter clockwise directions when filling, and clockwise directions for holes.
-func (p *Path) Settle() *Path {
-	// TODO: settle and self-settle for fillrule == EvenOdd
-	// TODO: optimize, is very slow for many paths, maybe not use boolean for each subpath, but process in one go?
+// pseudoVertex is an self-intersection node on the path with indices (A is further along the original path, B is over the crossing path) going further along the path in either direction. We keep information of the direction of crossing, either A goes left of B (AintoB) or B goes left of A (BintoA). TODO: tangents?
+type pseudoVertex struct {
+	k     int   // pseudo vertex pair index
+	Point       // position
+	p     *Path // path to next pseudo vertex
+	next  int   // index to next vertex in array (over the intersecting path)
+
+	AintoB  bool // A goes into the LHS of B
+	Tangent bool
+}
+
+func (v pseudoVertex) String() string {
+	var extra string
+	if v.AintoB {
+		extra += " AintoB"
+	} else {
+		extra += " BintoA"
+	}
+	if v.Tangent {
+		extra += " Tangent"
+	}
+	return fmt.Sprintf("(%d {%g,%g} ·→%d%s)", v.k, v.Point.X, v.Point.Y, v.next, extra)
+}
+
+type nodeItem struct {
+	i              int // index in nodes
+	parentWindings int // winding number of parent (outer) ring
+	winding        int // winding of current ring (+1 or -1)
+}
+
+func leftmostWindings(subpath int, ps []*Path, x, y float64) int {
+	// Count windings on left-most coordinate, taking into account tangent intersections which may
+	// be tangent on the outside or inside of the current subpath.
+	// Secant intersections are not counted.
+	zs := ps[subpath].RayIntersections(x, y)
+
+	//ccw := true
+	var angle0, angle1 float64 // as this is the left-most point, must be in [-0.5*PI,0.5*PI]
+	angle0 = angleNorm(zs[0].Dir + math.Pi)
+	if Equal(zs[0].T, 1.0) {
+		angle1 = zs[1].Dir
+	} else {
+		angle1 = zs[0].Dir
+	}
+	if angle1 < angle0 {
+		// angle turns right, ie. part of a clock-wise oriented path
+		angle0, angle1 = angle1, angle0
+		//ccw = false
+	}
+	angle0 = angle1 + angleNorm(angle0-angle1)
+
+	var n int
+	for i := range ps {
+		if i == subpath {
+			continue
+		}
+
+		zs := ps[i].RayIntersections(x, y)
+		ni, tangenti := windings(zs)
+		if !tangenti {
+			n += ni
+		} else {
+			//var in0, in1 bool
+			in0 := angleBetweenExclusive(zs[0].Dir+math.Pi, angle1, angle0)
+			//if Equal(zs[0].T, 1.0) {
+			//	in1 = angleBetweenExclusive(zs[1].Dir, angle1, angle0)
+			//} else {
+			//	in1 = angleBetweenExclusive(zs[0].Dir, angle1, angle0)
+			//}
+
+			//fmt.Println(in0, in1, ccw)
+			if !in0 { //&& !in1|| {
+				// following this subpath would go inside the subpath of interest
+				// count non-boundary windings of this path
+				n += ni
+			}
+		}
+	}
+	return n
+}
+
+// Settle simplifies a path by removing all self-intersections and overlapping parts. Open paths are not handled and returned as-is. The returned subpaths are oriented counter clock-wise when filled and clock-wise for holes. This means that the result is agnostic to the winding rule used for drawing. The result will only contain point-tangent intersections, but not parallel-tangent intersections or regular intersections.
+// See L. Subramaniam, "Partition of a non-simple polygon into simple pologons", 2003
+func (p *Path) Settle(fillRule FillRule) *Path {
+	// TODO: handle tangent intersections, which should divide into inner/disjoint rings
+	// TODO: handle and remove parallel parts
+	// TODO: for EvenOdd, output filled polygons only, not fill-rings and hole-rings
 	if p.Empty() {
 		return p
 	}
 
+	// split open and closed paths since we only handle closed paths
 	ps := p.Split()
-	p = ps[0].selfSettle()
-	for _, q := range ps[1:] {
-		q = q.selfSettle()
-		p = boolean(p, pathOpSettle, q)
+	p = &Path{}
+	open := &Path{}
+	for i := 0; i < len(ps); i++ {
+		if !ps[i].Closed() {
+			open = open.Append(ps[i])
+			ps = append(ps[:i], ps[i+1:]...)
+			i--
+		} else {
+			p = p.Append(ps[i])
+		}
+	}
+	if p.Empty() {
+		return open
 	}
 
-	// make all filling paths go CCW
-	r := &Path{}
-	ps = p.Split()
-	filling := p.Filling(NonZero)
-	for i := range ps {
-		if ps[i].Empty() || !ps[i].Closed() {
-			r = r.Append(ps[i])
+	// TODO: make sure that path is x-monotone, also needed for Bentley-Ottmann
+	// TODO: remove when we handle quad/cube/arc intersection combinations
+	// flatten bezier segments
+	quad := func(p0, p1, p2 Point) *Path {
+		return flattenQuadraticBezier(p0, p1, p2, Tolerance)
+	}
+	cube := func(p0, p1, p2, p3 Point) *Path {
+		return flattenCubicBezier(p0, p1, p2, p3, Tolerance)
+	}
+	arc := func(start Point, rx, ry, phi float64, large, sweep bool, end Point) *Path {
+		//if !Equal(rx, ry) {
+		return flattenEllipticArc(start, rx, ry, phi, large, sweep, end, Tolerance)
+		//}
+		//return xmonotoneEllipticArc(start, rx, ry, phi, large, sweep, end)
+	}
+	p = p.replace(nil, quad, cube, arc)
+
+	// zp is an list of even length where each ith intersections is a pseudo-vertex of the ith+len/2
+	zp, zq := pathIntersections(p, nil, false, false)
+	if 0 < len(zp) {
+		ps = p.Split() // otherwise, keep unflattened path
+	}
+	//for i, z := range zp {
+	//	fmt.Println(i, z)
+	//}
+	//for i := range zp {
+	//	fmt.Println(i, zp[i])
+	//}
+
+	// sort zq and keep indices between pseudo-vertices
+	pair := make([]int, len(zp))
+	for i := range zp {
+		pair[i] = i
+	}
+	sort.Stable(pathIntersectionSort{zq, pair})
+	//for i := range pair {
+	//	fmt.Println(i, pair[i])
+	//}
+
+	// build up map from 2-degenerate intersections to nodes
+	k := 0
+	idxK := make([]int, len(zp))
+	for i, _ := range zp {
+		if i < pair[i] {
+			idxK[i] = k
+			idxK[pair[i]] = k
+			k++
+		}
+	}
+	n := k
+
+	// cut path at intersections
+	paths, segs := cut(p, zp)
+	//for i, z := range zp[1:] {
+	//	if z.Seg < zp[i].Seg || z.Seg == zp[i].Seg && !Equal(z.T, zp[i].T) && z.T < zp[i].T {
+	//		fmt.Println(i, "bad", zp[i], z, zp[i].Less(z))
+	//	}
+	//}
+	//fmt.Println(len(paths), len(zp))
+
+	// build up linked nodes between the intersections
+	// reverse direction for clock-wise path to ensure one of both paths goes outwards
+	// the next index is always along the "other" path, ie. the path intersecting the current
+	i0, subpathIndex := 0, 0
+	nodes := make([]pseudoVertex, len(zp))
+	for i, _ := range zp {
+		nodes[i].k = idxK[i]
+		nodes[i].Point = zp[i].Point
+		nodes[i].p = paths[i]
+
+		// the next node on the end of a subpath should be its starting point
+		i1 := i + 1
+		subpathIndex = segs.get(zp[i].Seg)
+		if i1 == len(zp) || segs.get(zp[i1].Seg) != subpathIndex {
+			i0, i1 = i1, i0
+		}
+		nodes[i].next = pair[i1] // next node on the intersecting (not current) path
+
+		nodes[i].AintoB = zp[i].Into
+		nodes[i].Tangent = zp[i].Tangent
+	}
+	//for i := range nodes {
+	//	fmt.Println(i, nodes[i], nodes[i].p)
+	//}
+	//fmt.Println()
+
+	// split simple (non-self-intersecting) paths from intersecting paths
+	// find the starting intersections and their winding for intersecting paths
+	j0 := 0
+	simple := &Path{}
+	var xs []float64
+	var queue []nodeItem
+	for i, pi := range ps {
+		if pi.Empty() {
 			continue
 		}
-		if ps[i].CCW() == filling[i] {
-			r = r.Append(ps[i])
-		} else {
-			r = r.Append(ps[i].Reverse())
+
+		// Find the left-most path segment coordinate for each subpath, we thus know that to the
+		// right of the coordinate the path is filled and that it is an outer ring. If the path
+		// runs counter clock-wise at the coordinate, the LHS is filled, otherwise it runs
+		// clock-wise and has the RHS filled.
+		// Follow the path until the first intersection and add to the queue.
+		var pos Point
+		seg, curSeg := 0, 0
+		for i := 0; i < len(pi.d); {
+			i += cmdLen(pi.d[i])
+			if curSeg == 0 || pi.d[i-3] < pos.X {
+				pos = Point{pi.d[i-3], pi.d[i-2]}
+				seg = curSeg + 1
+			}
+			curSeg++
 		}
+
+		// TODO: get CCW from left-most point, either rotates right (CW) or left (CCW) along path
+
+		parentWindings := leftmostWindings(i, ps, pos.X, pos.Y)
+
+		// find the intersections for the subpath
+		j1 := j0
+		for _, z := range zp[j0:] {
+			if segs[i] <= z.Seg {
+				break
+			}
+			j1++
+		}
+		if j0 == j1 {
+			// subpath has no intersections
+			winding := 1
+			ccw := pi.CCW()
+			if !ccw {
+				winding = -1
+			}
+
+			windings := parentWindings + winding
+			fills := fillRule.Fills(windings)
+			if fills != fillRule.Fills(parentWindings) {
+				if ccw != fills {
+					// orient filling paths CCW
+					pi = pi.Reverse()
+				}
+				simple = simple.Append(pi)
+			}
+		} else {
+			// find the first intersection that follows
+			next := j0
+			for j := j0; j < j1; j++ {
+				if seg <= zp[j].Seg {
+					next = j
+					break
+				}
+			}
+
+			// get the previous intersection to find the whole path segment including the left-most
+			// vertex, this will allow us to determine if this part runs counter clock-wise
+			prev := next - 1
+			if prev < j0 {
+				prev = j1 - 1
+			}
+			winding := 1
+			if !nodes[prev].p.CCW() {
+				winding = -1
+			}
+			// TODO: should switch winding if path B is oriented differently
+
+			// from the intersection, we will follow the "other" path first
+			next = pair[next]
+
+			// insert into queueDisjoint reverse sorted by X
+			// if the path goes ccw, then the LHS is filled when arriving at the intersection
+			k := len(queue)
+			for 0 < k && xs[k-1] <= pos.X {
+				k--
+			}
+
+			item := nodeItem{next, parentWindings, winding}
+			queue = append(queue[:k], append([]nodeItem{item}, queue[k:]...)...)
+			xs = append(xs[:k], append([]float64{pos.X}, xs[k:]...)...)
+		}
+		j0 = j1
 	}
-	return r
-}
 
-func (p *Path) selfSettle() *Path {
-	// p is non-complex
-	if p.Empty() || !p.Closed() {
-		return p
+	R := &Path{}
+	ring := 0
+	visits := make([]int, n) // visits per intersections, we will visit each twice
+	for 0 < len(queue) {
+		cur := queue[len(queue)-1]
+		queue = queue[:len(queue)-1]
+		j := len(queue)
+
+		// process all nodes connected on the outside (another outer ring) or inside (inner ring)
+		if 2 <= visits[nodes[cur.i].k] {
+			continue // already processed
+		}
+
+		i0 := cur.i
+		windings := cur.parentWindings + cur.winding
+		fills := fillRule.Fills(windings)
+		use := fills != fillRule.Fills(cur.parentWindings)
+
+		i := i0
+		r := &Path{}
+		for {
+			visits[nodes[i].k]++
+			if visits[nodes[i].k] < 2 {
+				var item nodeItem
+				if !nodes[i].Tangent && (cur.winding == 1) != nodes[i].AintoB {
+					// inner ring
+					//fmt.Println(ring, i, "inner", nodes[i])
+					item = nodeItem{pair[i], windings, cur.winding}
+				} else {
+					// disjoint ring
+					winding := -cur.winding
+					if nodes[i].Tangent {
+						winding = cur.winding
+					}
+					//fmt.Println(ring, i, "disjoint", nodes[i])
+					item = nodeItem{pair[i], cur.parentWindings, winding}
+				}
+				queue = append(queue[:j], append([]nodeItem{item}, queue[j:]...)...)
+			}
+
+			if use {
+				r = r.Join(nodes[i].p)
+			}
+			i = nodes[i].next
+			if i == i0 {
+				break
+			}
+		}
+
+		if use {
+			if (cur.winding == 1) != fills {
+				r = r.Reverse() // orient all filling paths CCW
+			}
+			r.Close()
+			R = R.Append(r)
+		}
+		ring++
 	}
-	q := p.Flatten(Tolerance)
-	Zs := collisions([]*Path{q}, []*Path{q}, false)
-	if len(Zs) == 0 {
-		return p
-	}
-
-	// TODO: implement parallel lines in selfCollisions, which is more efficient than collisions
-	//Zs := selfCollisions(q)
-
-	// duplicate intersections
-	//Zs2 := make(Intersections, len(Zs)*2)
-	//for i, z := range Zs {
-	//	Zs2[2*i+0] = z
-	//	z.SegA, z.SegB = z.SegB, z.SegA
-	//	z.TA, z.TB = z.TB, z.TA
-	//	z.DirA, z.DirB = z.DirB, z.DirA
-	//	if z.Kind == AintoB {
-	//		z.Kind = BintoA
-	//	} else if z.Kind == BintoA {
-	//		z.Kind = AintoB
-	//	}
-	//	Zs2[2*i+1] = z
-	//}
-	//Zs2.ASort()
-
-	ccw := q.CCW()
-	return booleanIntersections(pathOpNot, Zs, q, q, ccw, ccw) // TODO: not sure why NOT works
+	return R.Append(simple).Append(open)
 }
 
 // And returns the boolean path operation of path p and q. Path q is implicitly closed.
@@ -156,37 +421,10 @@ const (
 	pathOpXor
 	pathOpNot
 	pathOpDivide
-	pathOpSettle
 )
-
-type subpathIndexer []int // index from segment to subpath
-
-func newSubpathIndexer(ps []*Path) subpathIndexer {
-	idx := make(subpathIndexer, len(ps)+1)
-	idx[0] = 0
-	for i, pi := range ps {
-		idx[i+1] = idx[i] + pi.Len()
-	}
-	return idx
-}
-
-func (idx subpathIndexer) get(seg int) int {
-	for i, n := range idx[1:] {
-		if seg < n {
-			return i
-		}
-	}
-	panic("bug: segment doesn't exist on path")
-}
 
 // path p can be open or closed paths (we handle them separately), path q is closed implicitly
 func boolean(p *Path, op pathOp, q *Path) *Path {
-	if op != pathOpSettle {
-		// remove self-intersections within each path and direct them all CCW
-		p = p.Settle()
-		q = q.Settle()
-	}
-
 	// return in case of one path is empty
 	if q.Empty() {
 		if op != pathOpAnd {
@@ -195,67 +433,64 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		return &Path{}
 	}
 	if p.Empty() {
-		if op == pathOpOr || op == pathOpXor || op == pathOpSettle {
+		if op == pathOpOr || op == pathOpXor {
 			return q
 		}
 		return &Path{}
 	}
 
-	// we can only handle line-line, line-quad, line-cube, and line-arc intersections
-	if !p.Flat() {
-		q = q.Flatten(Tolerance)
-	}
-	ccwA, ccwB := true, true // by default true after Settle, except when operation is Settle
+	// remove self-intersections within each path and make filling paths CCW
+	p = p.Settle(NonZero) // TODO: where to get fillrule from?
+	q = q.Settle(NonZero)
+
 	ps, qs := p.Split(), q.Split()
-	if op == pathOpSettle {
-		// implicitly close all subpaths of path q
-		// given the if above, this will close q for all boolean operations (once)
-		for i := range ps {
-			if ps[i].Closed() {
-				ccwA = ps[i].CCW()
-				break
-			}
-		}
-		for i := range qs {
-			if !qs[i].Closed() {
-				qs[i].Close()
-			}
-			if i == 0 {
-				ccwB = qs[i].CCW()
-			}
-		}
-	}
 
-	// find all intersections (non-tangent) between p and q
-	Zs := collisions(ps, qs, false)
-
-	// handle open subpaths on path p and remove from Zs
-	Ropen := &Path{}
-	p, q = &Path{}, &Path{}
+	// implicitly close all subpaths of path q
+	q = &Path{} // collect all closed paths
+	lenQs := make([]int, len(qs))
 	for i := range qs {
+		lenQs[i] = qs[i].Len()
+		if !qs[i].Closed() {
+			qs[i].Close()
+		}
 		q = q.Append(qs[i])
 	}
-	j, segOffsetA, d := 0, 0, 0 // j is index into Zs, d is number of removed segments
+
+	// find all intersections (incl. parallel-tangent but not point-tangent) between p and q
+	zp, zq := pathIntersections(p, q, false, true)
+
+	// split open subpaths from p
+	j := 0      // index into zp
+	p = &Path{} // collect all closed paths
+	offset, shift := 0, 0
+	Ropen := &Path{}
 	for i := 0; i < len(ps); i++ {
-		lenA := ps[i].Len()
-		closed := ps[i].Closed()
 		n := 0
-		for ; j+n < len(Zs) && Zs[j+n].SegA < segOffsetA+lenA; n++ {
+		length, closed := ps[i].Len(), ps[i].Closed()
+		for ; j+n < len(zp) && zp[j+n].Seg < offset+length; n++ {
 			if closed {
-				Zs[j+n].SegA -= d
+				zp[j+n].Seg -= shift
 			} else {
-				Zs[j+n].SegA -= segOffsetA
+				zp[j+n].Seg -= offset
 			}
 		}
-		segOffsetA += lenA
+		offset += length
 
 		if closed {
 			p = p.Append(ps[i])
 			j += n
 		} else {
-			zs := Zs[j : j+n]
-			if len(zs) == 0 {
-				// either the path is outside, inside, or on the boundary (remove path)
+			// open subpath on P
+			hasIntersections := false
+			for _, z := range zp[j : j+n] {
+				if !z.Tangent {
+					hasIntersections = true
+					break
+				}
+			}
+
+			if !hasIntersections {
+				// either the path is outside, inside, or fully on the boundary
 				p0 := ps[i].StartPos()
 				n, boundary := q.Windings(p0.X, p0.Y)
 				for k := 4; k < len(ps[i].d) && boundary; {
@@ -265,51 +500,50 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 					k += cmdLen(ps[i].d[k])
 				}
 				inside := n != 0 // NonZero
-				if op == pathOpOr || op == pathOpSettle && !boundary || inside && op == pathOpAnd || !inside && !boundary && (op == pathOpXor || op == pathOpNot) {
+				if op == pathOpOr || inside && op == pathOpAnd || !inside && !boundary && (op == pathOpXor || op == pathOpNot) {
 					Ropen = Ropen.Append(ps[i])
 				}
 			} else {
 				// paths cross, select the parts outside/inside depending on the operation
-				// parts on the boundary are removed
-				pss := cut(zs, ps[i])
-				inside := zs[0].Kind == BintoA
-				if op == pathOpOr || op == pathOpSettle || inside && op == pathOpAnd || !inside && (op == pathOpXor || op == pathOpNot) {
+				pss, _ := cut(ps[i], zp[j:j+n])
+				inside := !zp[j].Into
+				if op == pathOpOr || inside && op == pathOpAnd || !inside && (op == pathOpXor || op == pathOpNot) {
 					Ropen = Ropen.Append(pss[0])
 				}
 				for k := 1; k < len(pss); k++ {
-					if zs[k-1].Parallel != Parallel && zs[k-1].Parallel != AParallel {
-						inside := zs[k-1].Kind == AintoB
-						if op == pathOpOr || op == pathOpSettle || inside && op == pathOpAnd || !inside && (op == pathOpXor || op == pathOpNot) {
-							Ropen = Ropen.Append(pss[k])
-						}
+					inside := zp[j+k-1].Into
+					if !zp[j+k-1].Parallel && (op == pathOpOr || inside && op == pathOpAnd || !inside && (op == pathOpXor || op == pathOpNot)) {
+						Ropen = Ropen.Append(pss[k])
 					}
 				}
 			}
-			Zs = append(Zs[:j], Zs[j+n:]...)
 			ps = append(ps[:i], ps[i+1:]...)
-			d += lenA
+			zp = append(zp[:j], zp[j+n:]...)
+			zq = append(zq[:j], zq[j+n:]...)
+			shift += length
 			i--
 		}
 	}
 
 	// handle intersecting subpaths
-	R := booleanIntersections(op, Zs, p, q, ccwA, ccwB)
+	zs := pathIntersectionNodes(p, q, zp, zq)
+	R := booleanIntersections(op, zs)
 
 	// handle the remaining subpaths that are non-intersecting but possibly overlapping, either one containing the other or by being equal
-	pIndex, qIndex := newSubpathIndexer(ps), newSubpathIndexer(qs)
+	pIndex, qIndex := newSubpathIndexerSubpaths(ps), newSubpathIndexerSubpaths(qs)
 	pHandled, qHandled := make([]bool, len(ps)), make([]bool, len(qs))
-	for _, z := range Zs {
-		pHandled[pIndex.get(z.SegA)] = true
-		qHandled[qIndex.get(z.SegB)] = true
+	for i := range zp {
+		pHandled[pIndex.get(zp[i].Seg)] = true
+		qHandled[qIndex.get(zq[i].Seg)] = true
 	}
 
-	// equal polygons
+	// equal paths
 	for i, pi := range ps {
 		if !pHandled[i] {
 			for j, qi := range qs {
 				if !qHandled[j] {
 					if pi.Same(qi) {
-						if op == pathOpAnd || op == pathOpOr || op == pathOpSettle {
+						if op == pathOpAnd || op == pathOpOr {
 							R = R.Append(pi)
 						}
 						pHandled[i] = true
@@ -320,10 +554,10 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		}
 	}
 
-	// contained (non-touching) polygons
+	// contained paths
 	for i, pi := range ps {
 		if !pHandled[i] && pi.inside(q) {
-			if op == pathOpAnd || op == pathOpDivide || op == pathOpSettle && ccwA != ccwB {
+			if op == pathOpAnd || op == pathOpDivide {
 				R = R.Append(pi)
 			} else if op == pathOpXor {
 				R = R.Append(pi.Reverse())
@@ -331,7 +565,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 			pHandled[i] = true
 		}
 	}
-	// polygons with no overlap
+	// non-overlapping paths
 	if op != pathOpAnd {
 		for i, pi := range ps {
 			if !pHandled[i] {
@@ -340,10 +574,10 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		}
 	}
 
-	// contained (non-touching) polygons
+	// contained paths
 	for i, qi := range qs {
 		if !qHandled[i] && qi.inside(p) {
-			if op == pathOpAnd || op == pathOpDivide || op == pathOpSettle && ccwA != ccwB {
+			if op == pathOpAnd || op == pathOpDivide {
 				R = R.Append(qi)
 			} else if op == pathOpXor || op == pathOpNot {
 				R = R.Append(qi.Reverse())
@@ -351,8 +585,8 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 			qHandled[i] = true
 		}
 	}
-	// polygons with no overlap
-	if op == pathOpOr || op == pathOpXor || op == pathOpSettle {
+	// non-overlapping paths
+	if op == pathOpOr || op == pathOpXor {
 		for i, qi := range qs {
 			if !qHandled[i] {
 				R = R.Append(qi)
@@ -362,91 +596,96 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 	return R.Append(Ropen) // add the open paths
 }
 
-func booleanIntersections(op pathOp, Zs Intersections, p, q *Path, ccwA, ccwB bool) *Path {
+func booleanIntersections(op pathOp, zs []PathIntersectionNode) *Path {
 	K := 1 // number of time to run from each intersection
 	startInwards := []bool{false, false}
-	invertA := []bool{false, false}
-	invertB := []bool{false, false}
+	invertP := []bool{false, false}
+	invertQ := []bool{false, false}
 	if op == pathOpAnd {
-		startInwards[0], invertA[0] = true, true
-	} else if op == pathOpOr || op == pathOpSettle && ccwA == ccwB {
-		invertB[0] = true
-	} else if op == pathOpXor || op == pathOpSettle && ccwA != ccwB {
+		startInwards[0] = true
+		invertP[0] = true
+	} else if op == pathOpOr {
+		invertQ[0] = true
+	} else if op == pathOpXor {
+		// run as (p NOT q) and then as (q NOT p)
 		K = 2
-		invertA[1] = true
-		invertB[1] = true
-	} else if op == pathOpNot {
+		invertP[1] = true
+		invertQ[1] = true
 	} else if op == pathOpDivide {
-		// run as NOT and then as AND
+		// run as (p NOT q) and then as (p AND q)
 		K = 2
 		startInwards[1] = true
-		invertA[1] = true
+		invertP[1] = true
 	}
 
 	R := &Path{}
-	zs := intersectionNodes(Zs, p, q)
-	visited := map[int]map[int]bool{} // per direction
-	for k := 0; k < K; k++ {
-		visited[k] = map[int]bool{}
-	}
+	visited := make([][2]bool, len(zs)) // per direction
 	for _, z0 := range zs {
 		for k := 0; k < K; k++ {
-			if visited[k][z0.i] {
+			if visited[z0.i][k] {
 				continue
 			}
+
 			r := &Path{}
-			var forwardA, forwardB bool
-			gotoB := startInwards[k] == (ccwB == (z0.kind == BintoA)) // ensure result is CCW
-			if gotoB {
-				forwardB = invertB[k] != (ccwA == (z0.kind == BintoA))
+			var forwardP, forwardQ bool
+			onP := startInwards[k] == z0.PintoQ // ensure result is CCW
+			if onP {
+				forwardP = invertP[k] == z0.PintoQ
 			} else {
-				forwardA = invertA[k] != (ccwB == (z0.kind == BintoA))
+				forwardQ = invertQ[k] == z0.PintoQ
 			}
-			// parallel lines for touching intersections
-			tangentStart := z0.tangentStart(gotoB, forwardA, forwardB)
-			if tangentStart {
+
+			// don't start on parallel tangent intersection (ie. not crossing)
+			parallelTangent := z0.ParallelTangent(onP, forwardP, forwardQ)
+			if parallelTangent {
 				continue
 			}
-			for z := z0; ; {
-				visited[k][z.i] = true
-				if z.i != z0.i && (forwardA == forwardB) == (z.parallel == Parallel) {
+
+			for z := &z0; ; {
+				visited[z.i][k] = true
+				if z.i != z0.i && z.x != nil && (forwardP == forwardQ) != z.ParallelReversed {
 					// parallel lines for crossing intersections
-					if forwardA {
-						r = r.Join(z.c)
+					// only show when not changing forwardness, or when parallel in reverse order
+					if forwardP {
+						r = r.Join(z.x)
 					} else {
-						r = r.Join(z.c.Reverse())
+						r = r.Join(z.x.Reverse())
 					}
 				}
-				if gotoB {
-					if forwardB {
-						r = r.Join(z.b)
-						z = z.nextB
+
+				if onP {
+					if forwardP {
+						r = r.Join(z.p)
+						z = z.nextP
 					} else {
-						r = r.Join(z.prevB.b.Reverse())
-						z = z.prevB
+						r = r.Join(z.prevP.p.Reverse())
+						z = z.prevP
 					}
 				} else {
-					if forwardA {
-						r = r.Join(z.a)
-						z = z.nextA
+					if forwardQ {
+						r = r.Join(z.q)
+						z = z.nextQ
 					} else {
-						r = r.Join(z.prevA.a.Reverse())
-						z = z.prevA
+						r = r.Join(z.prevQ.q.Reverse())
+						z = z.prevQ
 					}
 				}
-				gotoB = !gotoB
+
 				if z.i == z0.i {
 					break
-				} else if !tangentStart {
-					if gotoB {
-						forwardB = invertB[k] != (ccwA == (z.kind == BintoA))
-					} else {
-						forwardA = invertA[k] != (ccwB == (z.kind == BintoA))
-					}
 				}
-				tangentStart = z.tangentStart(gotoB, forwardA, forwardB)
+				onP = !onP
+				if parallelTangent {
+					// no-op
+				} else if onP {
+					forwardP = invertP[k] == z.PintoQ
+				} else {
+					forwardQ = invertQ[k] == z.PintoQ
+				}
+				parallelTangent = z.ParallelTangent(onP, forwardP, forwardQ)
 			}
 			r.Close()
+			r.optimizeClose()
 			R = R.Append(r)
 		}
 	}
@@ -455,666 +694,74 @@ func booleanIntersections(op pathOp, Zs Intersections, p, q *Path, ccwA, ccwB bo
 
 // Cut cuts path p by path q and returns the parts.
 func (p *Path) Cut(q *Path) []*Path {
-	return cut(p.Intersections(q), p)
-}
-
-func cut(Zs Intersections, p *Path) []*Path {
-	if len(Zs) == 0 {
-		return []*Path{p}
-	}
-
-	// cut path segments for path P
-	j := 0   // index into intersections
-	k := 0   // index into ps
-	seg := 0 // index into path segments
-	ps := []*Path{}
-	var first, cur []float64
-	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
-		if cmd == MoveToCmd {
-			closed := 3 < i && p.d[i-1] == CloseCmd
-			if first != nil {
-				// there were intersections in the last subpath
-				if closed {
-					cur = append(cur, first[4:]...) // last subpath was closed
-					ps = append(ps, &Path{cur})
-					cur = nil
-				} else {
-					ps = append(ps[:k], append([]*Path{{first}}, ps[k:]...)...)
-				}
-			} else if closed {
-				cur[len(cur)-1] = CloseCmd
-				cur[len(cur)-4] = CloseCmd
-			}
-			first = nil
-			k = len(ps)
-		} else if cmd == CloseCmd {
-			p.d[i], p.d[i+3] = LineToCmd, LineToCmd
-		}
-		if j < len(Zs) && seg == Zs[j].SegA {
-			// segment has an intersection, cut it up and append first part to prev intersection
-			p0, p1 := cutPathSegment(Point{p.d[i-3], p.d[i-2]}, p.d[i:i+cmdLen(cmd)], Zs[j].TA)
-			if !p0.Empty() {
-				cur = append(cur, p0.d[4:]...)
-			}
-
-			for j+1 < len(Zs) && seg == Zs[j+1].SegA {
-				// next cut is on the same segment, find new t after the first cut and set path
-				if first == nil {
-					first = cur // take aside the path to the first intersection to later append it
-				} else {
-					ps = append(ps, &Path{cur})
-				}
-				j++
-				t := (Zs[j].TA - Zs[j-1].TA) / (1.0 - Zs[j-1].TA)
-				if !p1.Empty() {
-					p0, p1 = cutPathSegment(Point{p1.d[1], p1.d[2]}, p1.d[4:], t)
-				} else {
-					p0 = p1
-				}
-				cur = p0.d
-			}
-			if first == nil {
-				first = cur // take aside the path to the first intersection to later append it
-			} else {
-				ps = append(ps, &Path{cur})
-			}
-			cur = p1.d
-			j++
-		} else {
-			// segment has no intersection
-			if len(cur) == 0 || cmd != CloseCmd || p.d[i+1] != cur[len(cur)-3] || p.d[i+2] != cur[len(cur)-2] {
-				cur = append(cur, p.d[i:i+cmdLen(cmd)]...)
-			}
-		}
-		if cmd == CloseCmd {
-			p.d[i], p.d[i+3] = CloseCmd, CloseCmd // keep the original unchanged
-		}
-		i += cmdLen(cmd)
-		seg++
-	}
-	closed := 3 < len(p.d) && p.d[len(p.d)-1] == CloseCmd
-	if first != nil {
-		// there were intersections in the last subpath
-		if closed {
-			cur = append(cur, first[4:]...) // last subpath was closed
-		} else {
-			ps = append(ps[:k], append([]*Path{{first}}, ps[k:]...)...)
-		}
-	} else if closed {
-		cur[len(cur)-1] = CloseCmd
-		cur[len(cur)-4] = CloseCmd
-	}
-	ps = append(ps, &Path{cur})
-	return ps
-}
-
-type intersectionNode struct {
-	i            int // intersection index in path A
-	prevA, nextA *intersectionNode
-	prevB, nextB *intersectionNode
-
-	kind     intersectionKind
-	parallel intersectionParallel
-	tangent  bool
-	a, b     *Path // towards next intersection
-	c        *Path // common (parallel) along A
-}
-
-func (z *intersectionNode) String() string {
-	tangent := ""
-	if z.parallel == NoParallel && z.tangent {
-		tangent = " Tangent"
-	}
-	return fmt.Sprintf("(%v A=[%v→,→%v] B=[%v→,→%v]%v%v%v)", z.i, z.prevA.i, z.nextA.i, z.prevB.i, z.nextB.i, z.kind, z.parallel, tangent)
-}
-
-func (z *intersectionNode) tangentStart(gotoB, forwardA, forwardB bool) bool {
-	return z.tangent && (gotoB &&
-		(forwardB && (z.parallel == Parallel || z.parallel == BParallel) ||
-			!forwardB && (z.prevB.parallel == Parallel || z.prevB.parallel == BParallel)) ||
-		!gotoB && (forwardA && (z.parallel == Parallel || z.parallel == AParallel) ||
-			!forwardA && (z.prevA.parallel == Parallel || z.prevA.parallel == AParallel)))
-}
-
-// get intersections for paths p and q sorted for both, both paths must be closed
-func intersectionNodes(Zs Intersections, p, q *Path) []*intersectionNode {
-	if len(Zs) == 0 {
-		return nil
-	}
-
-	zs := make([]*intersectionNode, len(Zs))
-	for i, z := range Zs {
-		zs[i] = &intersectionNode{
-			i:    i,
-			kind: z.Kind,
-			a:    &Path{},
-			b:    &Path{},
-			c:    &Path{},
-		}
-	}
-
-	// cut path segments for path P
-	seg := 0      // index into path segments
-	j, j0 := 0, 0 // index into intersections
-	var first, cur []float64
-	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
-		if cmd == MoveToCmd {
-			if first != nil {
-				// there were intersections in the last subpath
-				zs[j-1].a.d = append(cur, first[4:]...)
-				zs[j-1].nextA = zs[j0]
-				zs[j0].prevA = zs[j-1]
-			}
-			first, cur = nil, nil
-			j0 = j
-		} else if cmd == CloseCmd {
-			p.d[i], p.d[i+3] = LineToCmd, LineToCmd
-		}
-		if j < len(Zs) && seg == Zs[j].SegA {
-			// segment has an intersection, cut it up and append first part to prev intersection
-			p0, p1 := cutPathSegment(Point{p.d[i-3], p.d[i-2]}, p.d[i:i+cmdLen(cmd)], Zs[j].TA)
-			if !p0.Empty() {
-				cur = append(cur, p0.d[4:]...)
-			}
-
-			for j+1 < len(Zs) && seg == Zs[j+1].SegA {
-				// next cut is on the same segment, find new t after the first cut and set path
-				if first == nil {
-					first = cur // take aside the path to the first intersection to later append it
-				} else {
-					zs[j-1].a.d = cur
-					zs[j-1].nextA = zs[j]
-					zs[j].prevA = zs[j-1]
-				}
-				j++
-				t := (Zs[j].TA - Zs[j-1].TA) / (1.0 - Zs[j-1].TA)
-				if !p1.Empty() {
-					p0, p1 = cutPathSegment(Point{p1.d[1], p1.d[2]}, p1.d[4:], t)
-				} else {
-					p0 = p1
-				}
-				cur = p0.d
-			}
-			if first == nil {
-				first = cur // take aside the path to the first intersection to later append it
-			} else {
-				zs[j-1].a.d = cur
-				zs[j-1].nextA = zs[j]
-				zs[j].prevA = zs[j-1]
-			}
-			cur = p1.d
-			j++
-		} else {
-			// segment has no intersection
-			if len(cur) == 0 || cmd != CloseCmd || p.d[i+1] != cur[len(cur)-3] || p.d[i+2] != cur[len(cur)-2] {
-				cur = append(cur, p.d[i:i+cmdLen(cmd)]...)
-			}
-		}
-		if cmd == CloseCmd {
-			p.d[i], p.d[i+3] = CloseCmd, CloseCmd // keep the original unchanged
-		}
-		i += cmdLen(cmd)
-		seg++
-	}
-	if first != nil {
-		zs[len(zs)-1].a.d = append(cur, first[4:]...)
-		zs[len(zs)-1].nextA = zs[j0]
-		zs[j0].prevA = zs[len(zs)-1]
-	}
-
-	// build index map for intersections on Q to P (zs is sorted for P)
-	idxs := Zs.ArgBSort() // sorted indices for intersections of q by p
-
-	// cut path segments for path Q
-	seg = 0      // index into path segments
-	j, j0 = 0, 0 // index into intersections
-	first, cur = nil, nil
-	for i := 0; i < len(q.d); {
-		cmd := q.d[i]
-		if cmd == MoveToCmd {
-			if first != nil {
-				// there were intersections in the last subpath
-				zs[idxs[j-1]].b.d = append(cur, first[4:]...)
-				zs[idxs[j-1]].nextB = zs[idxs[j0]]
-				zs[idxs[j0]].prevB = zs[idxs[j-1]]
-			}
-			first, cur = nil, nil
-			j0 = j
-		} else if cmd == CloseCmd {
-			q.d[i], q.d[i+3] = LineToCmd, LineToCmd
-		}
-		if j < len(Zs) && seg == Zs[idxs[j]].SegB {
-			// segment has an intersection, cut it up and append first part to prev intersection
-			p0, p1 := cutPathSegment(Point{q.d[i-3], q.d[i-2]}, q.d[i:i+cmdLen(cmd)], Zs[idxs[j]].TB)
-			if !p0.Empty() {
-				cur = append(cur, p0.d[4:]...)
-			}
-
-			for j+1 < len(Zs) && seg == Zs[idxs[j+1]].SegB {
-				// next cut is on the same segment, find new t after the first cut and set path
-				if first == nil {
-					first = cur // take aside the path to the first intersection to later append it
-				} else {
-					zs[idxs[j-1]].b.d = cur
-					zs[idxs[j-1]].nextB = zs[idxs[j]]
-					zs[idxs[j]].prevB = zs[idxs[j-1]]
-				}
-				j++
-				t := (Zs[idxs[j]].TB - Zs[idxs[j-1]].TB) / (1.0 - Zs[idxs[j-1]].TB)
-				if !p1.Empty() {
-					p0, p1 = cutPathSegment(Point{p1.d[1], p1.d[2]}, p1.d[4:], t)
-				} else {
-					p0 = p1
-				}
-				cur = p0.d
-			}
-			if first == nil {
-				first = cur // take aside the path to the first intersection to later append it
-			} else {
-				zs[idxs[j-1]].b.d = cur
-				zs[idxs[j-1]].nextB = zs[idxs[j]]
-				zs[idxs[j]].prevB = zs[idxs[j-1]]
-			}
-			cur = p1.d
-			j++
-		} else {
-			// segment has no intersection
-			if len(cur) == 0 || cmd != CloseCmd || q.d[i+1] != cur[len(cur)-3] || q.d[i+2] != cur[len(cur)-2] {
-				cur = append(cur, q.d[i:i+cmdLen(cmd)]...)
-			}
-		}
-		if cmd == CloseCmd {
-			q.d[i], q.d[i+3] = CloseCmd, CloseCmd // keep the original unchanged
-		}
-		i += cmdLen(cmd)
-		seg++
-	}
-	if first != nil {
-		zs[idxs[len(zs)-1]].b.d = append(cur, first[4:]...)
-		zs[idxs[len(zs)-1]].nextB = zs[idxs[j0]]
-		zs[idxs[j0]].prevB = zs[idxs[len(zs)-1]]
-	}
-
-	// collapse nodes for parallel lines, except when tangent
-	for j := len(Zs) - 1; 0 <= j; j-- {
-		if Zs[j].Tangent {
-			zs[j].parallel = Zs[j].Parallel
-			zs[j].tangent = true
-		} else if Zs[j].Parallel == Parallel || Zs[j].Parallel == AParallel {
-			// remove node at j and join with next
-			zs[j].nextA.c = zs[j].a
-			if Zs[j].Parallel == AParallel {
-				zs[j].prevB.b = zs[j].b
-			}
-			zs[j].nextA.parallel = Zs[j].Parallel
-
-			zs[j].prevA.nextA = zs[j].nextA
-			zs[j].nextA.prevA = zs[j].prevA
-			zs[j].prevB.nextB = zs[j].nextB
-			zs[j].nextB.prevB = zs[j].prevB
-			zs = append(zs[:j], zs[j+1:]...)
-		}
-	}
-	if len(zs)%2 != 0 {
-		panic("bug: number of nodes must be even")
-	}
-	return zs
-}
-
-func cutPathSegment(start Point, d []float64, t float64) (*Path, *Path) {
-	p0, p1 := &Path{}, &Path{}
-	if Equal(t, 0.0) {
-		p0.MoveTo(start.X, start.Y)
-		p1.MoveTo(start.X, start.Y)
-		p1.d = append(p1.d, d...)
-		return p0, p1
-	} else if Equal(t, 1.0) {
-		p0.MoveTo(start.X, start.Y)
-		p0.d = append(p0.d, d...)
-		p1.MoveTo(d[len(d)-3], d[len(d)-2])
-		return p0, p1
-	}
-	if d[0] == LineToCmd {
-		c := start.Interpolate(Point{d[len(d)-3], d[len(d)-2]}, t)
-		p0.MoveTo(start.X, start.Y)
-		p0.LineTo(c.X, c.Y)
-		p1.MoveTo(c.X, c.Y)
-		p1.LineTo(d[len(d)-3], d[len(d)-2])
-	} else if d[0] == QuadToCmd {
-		r0, r1, r2, q0, q1, q2 := quadraticBezierSplit(start, Point{d[1], d[2]}, Point{d[3], d[4]}, t)
-		p0.MoveTo(r0.X, r0.Y)
-		p0.QuadTo(r1.X, r1.Y, r2.X, r2.Y)
-		p1.MoveTo(q0.X, q0.Y)
-		p1.QuadTo(q1.X, q1.Y, q2.X, q2.Y)
-	} else if d[0] == CubeToCmd {
-		r0, r1, r2, r3, q0, q1, q2, q3 := cubicBezierSplit(start, Point{d[1], d[2]}, Point{d[3], d[4]}, Point{d[5], d[6]}, t)
-		p0.MoveTo(r0.X, r0.Y)
-		p0.CubeTo(r1.X, r1.Y, r2.X, r2.Y, r3.X, r3.Y)
-		p1.MoveTo(q0.X, q0.Y)
-		p1.CubeTo(q1.X, q1.Y, q2.X, q2.Y, q3.X, q3.Y)
-	} else if d[0] == ArcToCmd {
-		large, sweep := toArcFlags(d[4])
-		cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, d[1], d[2], d[3], large, sweep, d[5], d[6])
-		theta := theta0 + (theta1-theta0)*t
-		c, large0, large1, ok := ellipseSplit(d[1], d[2], d[3], cx, cy, theta0, theta1, theta)
-		if !ok {
-			// should never happen
-			panic("theta not in elliptic arc range for splitting")
-		}
-		p0.MoveTo(start.X, start.Y)
-		p0.ArcTo(d[1], d[2], d[3]*180.0/math.Pi, large0, sweep, c.X, c.Y)
-		p1.MoveTo(c.X, c.Y)
-		p1.ArcTo(d[1], d[2], d[3]*180.0/math.Pi, large1, sweep, d[len(d)-3], d[len(d)-2])
-	}
-	return p0, p1
+	zs, _ := p.Intersections(q)
+	pi, _ := cut(p, zs)
+	return pi
 }
 
 // Intersects returns true if path p and path q intersect.
 func (p *Path) Intersects(q *Path) bool {
-	return 0 < len(p.Intersections(q))
+	zs, _ := p.Intersections(q)
+	return 0 < len(zs)
 }
 
 // Intersections for path p by path q, sorted for path p.
-func (p *Path) Intersections(q *Path) Intersections {
+func (p *Path) Intersections(q *Path) ([]PathIntersection, []PathIntersection) {
 	if !p.Flat() {
 		q = q.Flatten(Tolerance)
 	}
-	return collisions(p.Split(), q.Split(), false)
+	return pathIntersections(p, q, false, false)
 }
 
 // Touches returns true if path p and path q touch or intersect.
 func (p *Path) Touches(q *Path) bool {
-	return 0 < len(p.Collisions(q))
+	zs, _ := p.Collisions(q)
+	return 0 < len(zs)
 }
 
 // Collisions (secants/intersections and tangents/touches) for path p by path q, sorted for path p.
-func (p *Path) Collisions(q *Path) Intersections {
+func (p *Path) Collisions(q *Path) ([]PathIntersection, []PathIntersection) {
 	if !p.Flat() {
 		q = q.Flatten(Tolerance)
 	}
-	return collisions(p.Split(), q.Split(), true)
-}
-
-func collisions(ps, qs []*Path, keepTangents bool) Intersections {
-	zs := Intersections{}
-	segOffsetA := 0
-	for _, p := range ps {
-		closedA, lenA := p.Closed(), p.Len()
-		segOffsetB := 0
-		for _, q := range qs {
-			closedB, lenB := q.Closed(), q.Len()
-
-			// TODO: uses O(N^2), try sweep line or bently-ottman to reduce to O((N+K) log N)
-			Zs := Intersections{}
-			segA := segOffsetA + 1
-			for i := 4; i < len(p.d); {
-				pn := cmdLen(p.d[i])
-				segB := segOffsetB + 1
-				for j := 4; j < len(q.d); {
-					qn := cmdLen(q.d[j])
-					p0, q0 := Point{p.d[i-3], p.d[i-2]}, Point{q.d[j-3], q.d[j-2]}
-					Zs = Zs.appendSegment(segA, p0, p.d[i:i+pn], segB, q0, q.d[j:j+qn])
-					j += qn
-					segB++
-				}
-				i += pn
-				segA++
-			}
-			if len(Zs) == 0 {
-				segOffsetB += lenB
-				continue
-			}
-
-			// sort by position on P and secondary on Q
-			// wrap intersections at the very end of the path towards the beginning, note that we must ignore a final but zero distance close command
-			pointCloseA, pointCloseB := 0, 0
-			if closedA && 6 < len(p.d) && Equal(p.d[len(p.d)-7], p.d[len(p.d)-3]) && Equal(p.d[len(p.d)-6], p.d[len(p.d)-2]) {
-				pointCloseA = 1
-			}
-			if closedB && 6 < len(q.d) && Equal(q.d[len(q.d)-7], q.d[len(q.d)-3]) && Equal(q.d[len(q.d)-6], q.d[len(q.d)-2]) {
-				pointCloseB = 1
-			}
-			Zs.sortAndWrapEnd(segOffsetA, segOffsetB, lenA-pointCloseA, lenB-pointCloseB)
-
-			// remove consecutive parallel sections with 4 degenerate collisions
-			// keep outer most, may remove all parallel sections if paths are equal
-			for i := 0; i < len(Zs); i++ {
-				if zi := Zs[i]; Equal(zi.TA, 1.0) && Equal(zi.TB, 1.0) && angleEqual(zi.DirA, zi.DirB) {
-					// forward parallel section
-					segA := zi.SegA + 1
-					if segA == segOffsetA+lenA-pointCloseA {
-						segA = segOffsetA + 1
-					}
-					segB := zi.SegB + 1
-					if segB == segOffsetB+lenB-pointCloseB {
-						segB = segOffsetB + 1
-					}
-					if zo := Zs[(i+3)%len(Zs)]; zo.SegB == segB && Equal(zo.TA, 0.0) && Equal(zo.TB, 0.0) && angleEqual(zo.DirA, zo.DirB) {
-						Zs = append(Zs[:i], Zs[i+4:]...)
-						i--
-					}
-				} else if Equal(zi.TA, 1.0) && Equal(zi.TB, 0.0) && angleEqual(zi.DirA, zi.DirB+math.Pi) {
-					// reverse parallel section
-					segA := zi.SegA + 1
-					if segA == segOffsetA+lenA-pointCloseA {
-						segA = segOffsetA + 1
-					}
-					segB := zi.SegB - 1
-					if segB == segOffsetB {
-						segB = segOffsetB + lenB - pointCloseB - 1
-					}
-					if zo := Zs[(i+1)%len(Zs)]; zo.SegB == segB && Equal(zo.TA, 0.0) && Equal(zo.TB, 1.0) && angleEqual(zo.DirA, zo.DirB+math.Pi) {
-						Zs = append(Zs[:i-1], Zs[i+3:]...)
-						i -= 2
-					}
-				}
-			}
-
-			// remove duplicate tangent collisions at segment endpoints: either 4 degenerate
-			// collisions when for both path p and path q the endpoints coincide, or 2 degenerate
-			// collisions when an endpoint collides within a segment, for each parallel segment in
-			// between an additional 2 degenerate collisions are created
-			// note that collisions between segments of the same path are never generated
-			for i := 0; i < len(Zs); i++ {
-				z := Zs[i]
-				if !z.Tangent {
-					// regular intersection
-					zs = append(zs, z)
-				} else if !Equal(z.TA, 0.0) && !Equal(z.TB, 0.0) && !Equal(z.TA, 1.0) && !Equal(z.TB, 1.0) {
-					// regular tangent that is not at segment end point, does not intersect
-					if keepTangents {
-						zs = append(zs, z)
-					}
-				} else if !closedA && (z.SegA == segOffsetA+1 && Equal(z.TA, 0.0) || z.SegA == segOffsetA+lenA-1 && Equal(z.TA, 1.0)) || !closedB && (z.SegB == segOffsetB+1 && Equal(z.TB, 0.0) || z.SegB == segOffsetB+lenB-1 && Equal(z.TB, 1.0)) {
-					// tangent at start/end of path p or path q, not intersecting as paths are open
-					if keepTangents {
-						zs = append(zs, z)
-					}
-				} else {
-					i0 := i
-					var parallel, reverse bool // reverse is set when parallel and in reverse order
-				Next:
-					// tangent at segment end point: we either have a regular (mid-mid),
-					// 2-degenerate (mid-end), or 4-degenerate (end-end) intersection
-					m := 1
-					zi := Zs[i%len(Zs)] // incoming intersection
-					if Equal(zi.TA, 1.0) {
-						m *= 2
-					}
-					if Equal(zi.TB, 0.0) || Equal(zi.TB, 1.0) {
-						m *= 2
-					}
-					zo := Zs[(i+m-1)%len(Zs)] // outgoing intersection
-
-					// skip if incoming is parallel since we're in the middle of a series of parallel segmentes, and we need to be at the start
-					if !parallel && (angleEqual(zi.DirA, zi.DirB) || angleEqual(zi.DirA, zo.DirB+math.Pi)) {
-						i += m - 1
-						continue
-					}
-					i += m
-
-					// ends in parallel segment, follow until we reach a non-parallel segment
-					if !reverse && angleEqual(zo.DirA, zo.DirB) {
-						// parallel
-						parallel = true
-						goto Next
-					} else if (!parallel || reverse) && angleEqual(zo.DirA, zi.DirB+math.Pi) {
-						// reverse and parallel
-						reverse = true
-						parallel = true
-						goto Next
-					}
-
-					// choose both angles of A of the first and second intersection
-					i1, i2, i3 := i0+1, (i-2)%len(Zs), (i-1)%len(Zs)
-					if Equal(Zs[i1].TA, 1.0) {
-						i1 += 2 // first intersection at endpoint of A, select the outgoing angle
-					}
-					//if Equal(Zs[i1].TB, 1.0) {
-					//	i1-- // prefer TA=TB=0 to append to intersections
-					//}
-					if Equal(Zs[i2].TA, 0.0) {
-						i2 -= 2 // second, intersection at endpoint of A, select incoming angle
-					}
-					z0, z1, z2, z3 := Zs[i0], Zs[i1], Zs[i2], Zs[i3]
-					// first intersection is LHS of A when between (theta0,theta1)
-					// second intersection is LHS of A when between (theta2,theta3)
-					alpha0 := angleNorm(z1.DirA)
-					alpha1 := alpha0 + angleNorm(z0.DirA+math.Pi-alpha0)
-					alpha2 := angleNorm(z3.DirA)
-					alpha3 := alpha2 + angleNorm(z2.DirA+math.Pi-alpha2)
-
-					// check whether the incoming and outgoing angle of B is (going) LHS of A
-					var beta1, beta2 float64
-					if !reverse {
-						beta0 := angleNorm(z1.DirB)
-						beta1 = beta0 + angleNorm(z0.DirB+math.Pi-beta0)
-						beta2 = angleNorm(z3.DirB)
-					} else {
-						beta0 := angleNorm(z0.DirB + math.Pi)
-						beta1 = beta0 + angleNorm(z1.DirB-beta0)
-						beta2 = angleNorm(z2.DirB + math.Pi)
-					}
-					bi := angleBetweenExclusive(beta1, alpha0, alpha1)
-					bo := angleBetweenExclusive(beta2, alpha2, alpha3)
-
-					if !parallel && bi != bo {
-						// no parallels in between, add one intersection
-						if bo != reverse {
-							z3.Kind = BintoA
-						} else {
-							z3.Kind = AintoB
-						}
-						z3.Parallel = NoParallel
-						z3.Tangent = false
-						zs = append(zs, z3)
-					} else if parallel {
-						// parallels in between, add an intersection at the start and end
-						z0 = Zs[i1] // get intersection at t=0 for B
-						if bi != bo {
-							if bo != reverse {
-								z0.Kind = BintoA
-								z3.Kind = BintoA
-							} else {
-								z0.Kind = AintoB
-								z3.Kind = AintoB
-							}
-							z0.Tangent = false
-							z3.Tangent = false
-						} else {
-							// parallel touches, but we add them as if they intersect
-							if bo != reverse {
-								z0.Kind = AintoB
-								z3.Kind = BintoA
-							} else {
-								z0.Kind = BintoA
-								z3.Kind = AintoB
-							}
-						}
-						if !reverse {
-							z0.Parallel = Parallel
-							z3.Parallel = NoParallel
-						} else {
-							z0.Parallel = AParallel
-							z3.Parallel = BParallel
-						}
-						zs = append(zs, z0, z3)
-					}
-					i--
-				}
-			}
-			segOffsetB += lenB
-		}
-		segOffsetA += lenA
-	}
-	zs.ASort()
-	return zs
+	return pathIntersections(p, q, true, false)
 }
 
 // SelfIntersects returns true if path p self-intersect.
-func (p *Path) SelfIntersects() bool {
-	return 0 < len(p.SelfIntersections())
-}
+//func (p *Path) SelfIntersects() bool {
+//	return 0 < len(p.SelfIntersections())
+//}
+//
+//// SelfIntersections for path p.
+//func (p *Path) SelfIntersections() []PathIntersection {
+//	if !p.Flat() {
+//		p = p.Flatten(Tolerance)
+//	}
+//	return selfCollisions(p)
+//}
 
-// SelfIntersections for path p.
-func (p *Path) SelfIntersections() Intersections {
-	if !p.Flat() {
-		p = p.Flatten(Tolerance)
-	}
-	return selfCollisions(p)
-}
-
-// selfCollisions returns collisions with self, p must have no subpaths
-func selfCollisions(p *Path) Intersections {
-	Zs := Intersections{}
-
-	// TODO: uses O(N^2), try sweep line or bently-ottman to reduce to O((N+K) log N), or is there something more efficient for self-intersection finding?
-	segA := 1
-	for i := 4; i < len(p.d); {
-		if p.d[i] == CubeToCmd {
-			// TODO: find intersections in Cube
-		}
-		pn := cmdLen(p.d[i])
-		segB := segA + 1
-		for j := i + pn; j < len(p.d); {
-			qn := cmdLen(p.d[j])
-			p0, q0 := Point{p.d[i-3], p.d[i-2]}, Point{p.d[j-3], p.d[j-2]}
-			Zs = Zs.appendSegment(segA, p0, p.d[i:i+pn], segB, q0, p.d[j:j+qn])
-			j += qn
-			segB++
-		}
-		i += pn
-		segA++
-	}
-
-	// remove tangent collisions
-	for i := len(Zs) - 1; 0 <= i; i-- {
-		if Zs[i].Tangent {
-			Zs = append(Zs[:i], Zs[i+1:]...)
-		}
-	}
-	return Zs
-}
-
-// intersections of path with ray starting at (x,y) to (∞,y)
-func (p *Path) rayIntersections(x, y float64) Intersections {
-	j, seg := 0, 0
+// RayIntersections returns the intersections of a path with a ray starting at (x,y) to (∞,y).
+// An intersection is tangent only when it is at (x,y), i.e. the start of the ray.
+// Intersections are sorted along the ray.
+func (p *Path) RayIntersections(x, y float64) []PathIntersection {
+	seg, k0 := 0, 0
 	var start, end Point
-	zs := Intersections{}
+	var zs []Intersection
+	Zs := []PathIntersection{}
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
+		zs = zs[:0]
 		switch cmd {
 		case MoveToCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
+			k0 = len(Zs)
 		case LineToCmd, CloseCmd:
 			end = Point{p.d[i+1], p.d[i+2]}
 			ymin := math.Min(start.Y, end.Y)
 			ymax := math.Max(start.Y, end.Y)
 			xmax := math.Max(start.X, end.X)
 			if Interval(y, ymin, ymax) && x <= xmax+Epsilon {
-				zs = zs.LineLine(Point{x, y}, Point{xmax + 1.0, y}, start, end)
+				zs = intersectionLineLine(zs, Point{x, y}, Point{xmax + 1.0, y}, start, end)
 			}
 		case QuadToCmd:
 			cp := Point{p.d[i+1], p.d[i+2]}
@@ -1123,7 +770,7 @@ func (p *Path) rayIntersections(x, y float64) Intersections {
 			ymax := math.Max(math.Max(start.Y, end.Y), cp.Y)
 			xmax := math.Max(math.Max(start.X, end.X), cp.X)
 			if Interval(y, ymin, ymax) && x <= xmax+Epsilon {
-				zs = zs.LineQuad(Point{x, y}, Point{xmax + 1.0, y}, start, cp, end)
+				zs = intersectionLineQuad(zs, Point{x, y}, Point{xmax + 1.0, y}, start, cp, end)
 			}
 		case CubeToCmd:
 			cp1 := Point{p.d[i+1], p.d[i+2]}
@@ -1133,7 +780,7 @@ func (p *Path) rayIntersections(x, y float64) Intersections {
 			ymax := math.Max(math.Max(start.Y, end.Y), math.Max(cp1.Y, cp2.Y))
 			xmax := math.Max(math.Max(start.X, end.X), math.Max(cp1.X, cp2.X))
 			if Interval(y, ymin, ymax) && x <= xmax+Epsilon {
-				zs = zs.LineCube(Point{x, y}, Point{xmax + 1.0, y}, start, cp1, cp2, end)
+				zs = intersectionLineCube(zs, Point{x, y}, Point{xmax + 1.0, y}, start, cp1, cp2, end)
 			}
 		case ArcToCmd:
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
@@ -1141,22 +788,33 @@ func (p *Path) rayIntersections(x, y float64) Intersections {
 			end = Point{p.d[i+5], p.d[i+6]}
 			cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
 			if Interval(y, cy-math.Max(rx, ry), cy+math.Max(rx, ry)) && x <= cx+math.Max(rx, ry)+Epsilon {
-				zs = zs.LineEllipse(Point{x, y}, Point{cx + rx + 1.0, y}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
+				zs = intersectionLineEllipse(zs, Point{x, y}, Point{cx + rx + 1.0, y}, Point{cx, cy}, Point{rx, ry}, phi, theta0, theta1)
 			}
 		}
-		for j < len(zs) {
-			if !Equal(zs[j].TA, 0.0) {
-				zs[j].TA = math.NaN()
+		for _, z := range zs {
+			Z := PathIntersection{
+				Point:    z.Point,
+				Seg:      seg,
+				T:        z.T[1],
+				Dir:      z.Dir[1],
+				Tangent:  Equal(z.T[0], 0.0),
+				Parallel: z.Aligned() || z.AntiAligned(),
+				Into:     z.Into(),
 			}
-			zs[j].SegB = seg
-			j++
+
+			if cmd == CloseCmd && Equal(z.T[1], 1.0) {
+				// sort at subpath's end as first
+				Zs = append(Zs[:k0], append([]PathIntersection{Z}, Zs[k0:]...)...)
+			} else {
+				Zs = append(Zs, Z)
+			}
 		}
 		i += cmdLen(cmd)
 		start = end
 		seg++
 	}
-	sort.SliceStable(zs, func(i, j int) bool {
-		return zs[i].X < zs[j].X
+	sort.SliceStable(Zs, func(i, j int) bool {
+		return Zs[i].X < Zs[j].X
 	})
-	return zs
+	return Zs
 }

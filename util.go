@@ -32,6 +32,14 @@ func Interval(f, lower, upper float64) bool {
 	return lower-Epsilon <= f && f <= upper+Epsilon
 }
 
+// IntervalExclusive returns true if f is in open interval [lower+Epsilon,upper-Epsilon] where lower and upper can be interchanged.
+func IntervalExclusive(f, lower, upper float64) bool {
+	if upper < lower {
+		lower, upper = upper, lower
+	}
+	return lower+Epsilon < f && f < upper-Epsilon
+}
+
 // angleEqual returns true if both angles are equal.
 func angleEqual(a, b float64) bool {
 	return angleBetween(a, b, b) // angleBetween will add Epsilon to lower and upper
@@ -44,6 +52,29 @@ func angleNorm(theta float64) float64 {
 		theta += 2.0 * math.Pi
 	}
 	return theta
+}
+
+// angleTime returns the time [0.0,1.0] of theta between [lower,upper]. When outside of [lower,upper], the result will also be outside of [0.0,1.0].
+func angleTime(theta, lower, upper float64) float64 {
+	sweep := true
+	if upper < lower {
+		// sweep is false, ie direction is along negative angle (clockwise)
+		lower, upper = upper, lower
+		sweep = false
+	}
+	theta = angleNorm(theta - lower + Epsilon)
+	upper = angleNorm(upper - lower)
+
+	t := (theta - Epsilon) / upper
+	if !sweep {
+		t = 1.0 - t
+	}
+	if Equal(t, 0.0) {
+		return 0.0
+	} else if Equal(t, 1.0) {
+		return 1.0
+	}
+	return t
 }
 
 // angleBetween is true when theta is in range [lower,upper] including the end points. Angles can be outside the [0,2PI) range.
@@ -252,9 +283,9 @@ func (p Point) Slope() float64 {
 	return p.Y / p.X
 }
 
-// Angle returns the angle in radians between the x-axis and OP.
+// Angle returns the angle in radians [0,2PI) between the x-axis and OP.
 func (p Point) Angle() float64 {
-	return math.Atan2(p.Y, p.X)
+	return angleNorm(math.Atan2(p.Y, p.X))
 }
 
 // AngleBetween returns the angle between OP and OQ.
@@ -638,7 +669,7 @@ func solveQuadraticFormula(a, b, c float64) (float64, float64) {
 		return -b / (2.0 * a), math.NaN()
 	}
 
-	// Avoid catastrophic cancellation, which occurs when we subtract two nearly equal numbers and causes a large error this can be the case when 4*a*c is small so that sqrt(discriminant) -> b, and the sign of b and in front of the radical are the same instead we calculate x where b and the radical have different signs, and then use this result in the analytical equivalent of the formula, called the Citardauq Formula.
+	// Avoid catastrophic cancellation, which occurs when we subtract two nearly equal numbers and causes a large error. This can be the case when 4*a*c is small so that sqrt(discriminant) -> b, and the sign of b and in front of the radical are the same. Instead, we calculate x where b and the radical have different signs, and then use this result in the analytical equivalent of the formula, called the Citardauq Formula.
 	q := math.Sqrt(discriminant)
 	if b < 0.0 {
 		// apply sign of b

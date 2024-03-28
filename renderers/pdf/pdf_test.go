@@ -64,8 +64,12 @@ func TestPDFPath(t *testing.T) {
 const fontDir = "../../resources/"
 
 func TestPDFText(t *testing.T) {
-	doTestPDFText(t, false, 506000, "TestPDFText_no_subset.pdf")
-	doTestPDFText(t, true, 325000, "TestPDFText_subset_fonts.pdf")
+	t.Run("without_subset", func(t *testing.T) {
+		doTestPDFText(t, false, 506000, "TestPDFText_no_subset.pdf")
+	})
+	t.Run("with_subset", func(t *testing.T) {
+		doTestPDFText(t, true, 294000, "TestPDFText_subset_fonts.pdf")
+	})
 }
 
 func doTestPDFText(t *testing.T, subsetFonts bool, expectedSize int, filename string) {
