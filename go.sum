@@ -342,8 +342,8 @@ github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXl
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
 github.com/tdewolff/argp v0.0.0-20240307141015-960de61a6aa8 h1:jhgOvRmOvhuMEd3z8kSI4zyqTg0WF3KuuOcJAXHaW9s=
 github.com/tdewolff/argp v0.0.0-20240307141015-960de61a6aa8/go.mod h1:e1dkYfBKpwfFhwXWrQpEU2ClFgxYOT4SrHd6fKD7nIE=
-github.com/tdewolff/font v0.0.0-20240404194347-a4a0e4b6336d h1:/rjvwYC+afrlMZ/ybtdrbB8xYY2y7Sa1Jhgu/wJgxd4=
-github.com/tdewolff/font v0.0.0-20240404194347-a4a0e4b6336d/go.mod h1:S1ByajP+rzLFlhudtNTELNuhxoSZ19Coif+JE4kivAo=
+github.com/tdewolff/font v0.0.0-20240404204409-be214eafe484 h1:pS1QrGQdj4Qrwc26uU8wDHlGq1oe/64mFjwWhCuGdvo=
+github.com/tdewolff/font v0.0.0-20240404204409-be214eafe484/go.mod h1:S1ByajP+rzLFlhudtNTELNuhxoSZ19Coif+JE4kivAo=
 github.com/tdewolff/minify/v2 v2.20.5 h1:IbJpmpAFESnuJPdsvFBJWsDcXE5qHsmaVQrRqhOI9sI=
 github.com/tdewolff/minify/v2 v2.20.5/go.mod h1:N78HtaitkDYAWXFbqhWX/LzgwylwudK0JvybGDVQ+Mw=
 github.com/tdewolff/parse/v2 v2.7.3 h1:SHj/ry85FdqniccvzJTG+Gt/mi/HNa1cJcTzYZnvc5U=
