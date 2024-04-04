@@ -828,13 +828,13 @@ func (svg *svgParser) drawShape(tag string, attrs map[string]string) {
 		svg.ctx.DrawPath(0.0, 0.0, p)
 	case "line":
 		p := &Path{}
-		x1, _ := strconv.ParseInt(attrs["x1"], 10, 64)
-		y1, _ := strconv.ParseInt(attrs["y1"], 10, 64)
-		x2, _ := strconv.ParseInt(attrs["x2"], 10, 64)
-		y2, _ := strconv.ParseInt(attrs["y2"], 10, 64)
+		x1 := svg.parseDimension(attrs["x1"], svg.width)
+		y1 := svg.parseDimension(attrs["y1"], svg.height)
+		x2 := svg.parseDimension(attrs["x2"], svg.width)
+		y2 := svg.parseDimension(attrs["y2"], svg.height)
 
-		p.MoveTo(float64(x1), float64(y1))
-		p.LineTo(float64(x2), float64(y2))
+		p.MoveTo(x1, y1)
+		p.LineTo(x2, y2)
 		svg.ctx.DrawPath(0.0, 0.0, p)
 	case "rect":
 		x := svg.parseDimension(attrs["x"], svg.width)
