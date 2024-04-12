@@ -344,6 +344,8 @@ github.com/tdewolff/argp v0.0.0-20240307141015-960de61a6aa8 h1:jhgOvRmOvhuMEd3z8
 github.com/tdewolff/argp v0.0.0-20240307141015-960de61a6aa8/go.mod h1:e1dkYfBKpwfFhwXWrQpEU2ClFgxYOT4SrHd6fKD7nIE=
 github.com/tdewolff/font v0.0.0-20240404204409-be214eafe484 h1:pS1QrGQdj4Qrwc26uU8wDHlGq1oe/64mFjwWhCuGdvo=
 github.com/tdewolff/font v0.0.0-20240404204409-be214eafe484/go.mod h1:S1ByajP+rzLFlhudtNTELNuhxoSZ19Coif+JE4kivAo=
+github.com/tdewolff/font v0.0.0-20240412122105-b43814e4d094 h1:PFVLgSaSLYk89rgDMkPKaOL2jTTaDd51PJV756inSEg=
+github.com/tdewolff/font v0.0.0-20240412122105-b43814e4d094/go.mod h1:S1ByajP+rzLFlhudtNTELNuhxoSZ19Coif+JE4kivAo=
 github.com/tdewolff/minify/v2 v2.20.5 h1:IbJpmpAFESnuJPdsvFBJWsDcXE5qHsmaVQrRqhOI9sI=
 github.com/tdewolff/minify/v2 v2.20.5/go.mod h1:N78HtaitkDYAWXFbqhWX/LzgwylwudK0JvybGDVQ+Mw=
 github.com/tdewolff/parse/v2 v2.7.3 h1:SHj/ry85FdqniccvzJTG+Gt/mi/HNa1cJcTzYZnvc5U=
