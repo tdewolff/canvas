@@ -1256,7 +1256,7 @@ func intersectionLineEllipse(zs Intersections, l0, l1, center, radius Point, phi
 			s1 = l1.Y
 		}
 
-		angle := math.Atan2(y, x)
+		angle := math.Atan2(y*radius.X, x*radius.Y)
 		if Interval(root, s0, s1) && angleBetween(angle, theta0, theta1) {
 			if theta0 <= theta1 {
 				angle = theta0 - Epsilon + angleNorm(angle-theta0+Epsilon)
