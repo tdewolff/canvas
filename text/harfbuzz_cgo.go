@@ -50,7 +50,7 @@ func NewShaper(b []byte, index int) (Shaper, error) {
 
 // NewShaperSFNT returns a new text shaper using a SFNT structure.
 func NewShaperSFNT(sfnt *font.SFNT) (Shaper, error) {
-	return NewShaper(sfnt.Data, 0)
+	return NewShaper(sfnt.Write(), 0)
 }
 
 // Destroy destroys the allocated C memory.
