@@ -274,7 +274,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 		if j0 == j1 {
 			// subpath has no intersections
 			winding := 1
-			ccw := pi.CCW()
+			ccw := pi.CCW() // TODO: this may be wrong for curved paths, we should use left-most point
 			if !ccw {
 				winding = -1
 			}
@@ -305,7 +305,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 				prev = j1 - 1
 			}
 			winding := 1
-			if !nodes[prev].p.CCW() { // TODO: is this correct for all paths?
+			if !nodes[prev].p.CCW() { // TODO: THIS IS WRONG! we should use the left-most point, not CCW
 				winding = -1
 			}
 			// TODO: should switch winding if path B is oriented differently

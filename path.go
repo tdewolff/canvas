@@ -842,12 +842,15 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 	return filling
 }
 
-// CCW returns true when the path has (mostly) a counter clockwise direction. It will return true for a empty or straight line.
+// CCW returns true when the path has (mostly) a counter clockwise direction. It implictly closes open paths and will return true for a empty or straight line.
 func (p *Path) CCW() bool {
 	// Shoelace formula
 	area := 0.0
 	for _, pi := range p.Split() {
 		coords := pi.simplifyToCoords()
+		if !pi.Closed() {
+			coords = append(coords, coords[0])
+		}
 		for i := 1; i < len(coords); i++ {
 			area += (coords[i-1].X - coords[i].X) * (coords[i-1].Y + coords[i].Y)
 		}
