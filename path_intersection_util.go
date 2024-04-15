@@ -650,6 +650,7 @@ func pathIntersections(p, q *Path, withTangents, withParallelTangents bool) ([]P
 								})
 							}
 						} else {
+
 							// intersection is parallel
 							m := 0
 							for {
@@ -1031,13 +1032,12 @@ func intersectionLineLine(zs Intersections, a0, a1, b0, b1 Point) Intersections 
 
 	da := a1.Sub(a0)
 	db := b1.Sub(b0)
-	div := da.PerpDot(db)
-	if Equal(div, 0.0) {
+	angle0 := da.Angle()
+	angle1 := db.Angle()
+	if angleEqual(angle0, angle1) || angleEqual(angle0, angle1+math.Pi) {
 		// parallel
 		if Equal(da.PerpDot(b1.Sub(a0)), 0.0) {
 			// aligned, rotate to x-axis
-			angle0 := da.Angle()
-			angle1 := db.Angle()
 			a := a0.Rot(-angle0, Point{}).X
 			b := a1.Rot(-angle0, Point{}).X
 			c := b0.Rot(-angle0, Point{}).X
@@ -1071,6 +1071,7 @@ func intersectionLineLine(zs Intersections, a0, a1, b0, b1 Point) Intersections 
 		return zs
 	}
 
+	div := da.PerpDot(db)
 	ta := db.PerpDot(a0.Sub(b0)) / div
 	tb := da.PerpDot(a0.Sub(b0)) / div
 	if Interval(ta, 0.0, 1.0) && Interval(tb, 0.0, 1.0) {
