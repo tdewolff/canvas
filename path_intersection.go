@@ -305,7 +305,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 				prev = j1 - 1
 			}
 			winding := 1
-			if !nodes[prev].p.CCW() { // TODO: THIS IS WRONG but works usually (see fauxbold 'u' for DejaVu Sans)
+			if !nodes[prev].p.CCW() { // TODO: is this correct for all paths?
 				winding = -1
 			}
 			// TODO: should switch winding if path B is oriented differently
