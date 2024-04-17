@@ -23,12 +23,14 @@ type Options struct {
 	Compression int
 	EmbedFonts  bool
 	SubsetFonts bool
+	SizeUnits   string
 	canvas.ImageEncoding
 }
 
 var DefaultOptions = Options{
 	EmbedFonts:    true,
 	SubsetFonts:   false, // TODO: enable when properly handling GPOS and GSUB tables
+	SizeUnits:     "mm",
 	ImageEncoding: canvas.Lossless,
 }
 
@@ -58,7 +60,7 @@ func New(w io.Writer, width, height float64, opts *Options) *SVG {
 		w, _ = gzip.NewWriterLevel(w, opts.Compression)
 	}
 
-	fmt.Fprintf(w, `<svg version="1.1" width="%vmm" height="%vmm" viewBox="0 0 %v %v" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, dec(width), dec(height), dec(width), dec(height))
+	fmt.Fprintf(w, `<svg version="1.1" width="%v%s" height="%v%s" viewBox="0 0 %v %v" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">`, dec(width), opts.SizeUnits, dec(height), opts.SizeUnits, dec(width), dec(height))
 	return &SVG{
 		w:          w,
 		width:      width,
