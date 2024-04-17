@@ -257,7 +257,11 @@ func (w *pdfWriter) writeFont(ref pdfRef, font *canvas.Font, vertical bool) {
 	sfnt := font.SFNT
 	glyphIDs := w.fontSubset[font].List() // also when not subsetting, to minimize cmap table
 	if w.subset {
-		sfnt = sfnt.Subset(glyphIDs, canvasFont.SubsetOptions{Tables: canvasFont.KeepMinTables})
+		sfntSubset, err := sfnt.Subset(glyphIDs, canvasFont.SubsetOptions{Tables: canvasFont.KeepMinTables})
+		if err == nil {
+			//	// TODO: report error?
+			sfnt = sfntSubset
+		}
 	}
 	fontProgram := sfnt.Write()
 

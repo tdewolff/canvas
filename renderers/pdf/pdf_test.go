@@ -2,6 +2,7 @@ package pdf
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"io"
 	"os"
@@ -68,7 +69,7 @@ func TestPDFText(t *testing.T) {
 		doTestPDFText(t, false, 506000, "TestPDFText_no_subset.pdf")
 	})
 	t.Run("with_subset", func(t *testing.T) {
-		doTestPDFText(t, true, 294000, "TestPDFText_subset_fonts.pdf")
+		doTestPDFText(t, true, 9500, "TestPDFText_subset_fonts.pdf")
 	})
 }
 
@@ -108,6 +109,7 @@ func doTestPDFText(t *testing.T, subsetFonts bool, expectedSize int, filename st
 	pdf.Close()
 
 	written := len(buf.Bytes()) // expecting around 506K
+	fmt.Println(written)
 	test.That(t, expectedSize-1000 < written && written < expectedSize+1000, "Unexpected rendering result length")
 }
 

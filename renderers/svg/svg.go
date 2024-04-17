@@ -89,7 +89,11 @@ func (r *SVG) writeFonts() {
 			sfnt := f.SFNT
 			if r.opts.SubsetFonts {
 				glyphIDs := r.fontSubset[f].List()
-				sfnt = sfnt.Subset(glyphIDs, font.SubsetOptions{Tables: font.KeepMinTables})
+				sfntSubset, err := sfnt.Subset(glyphIDs, font.SubsetOptions{Tables: font.KeepMinTables})
+				if err == nil {
+					//	// TODO: report error?
+					sfnt = sfntSubset
+				}
 			}
 			fontProgram := sfnt.Write()
 
