@@ -104,6 +104,21 @@ func angleBetweenExclusive(theta, lower, upper float64) bool {
 
 ////////////////////////////////////////////////////////////////
 
+type numEps float64
+
+func (f numEps) String() string {
+	s := fmt.Sprintf("%.*g", int(math.Ceil(-math.Log10(Epsilon))), f)
+	if dot := strings.IndexByte(s, '.'); dot != -1 {
+		for dot < len(s) && s[len(s)-1] == '0' {
+			s = s[:len(s)-1]
+		}
+		if dot < len(s) && s[len(s)-1] == '.' {
+			s = s[:len(s)-1]
+		}
+	}
+	return s
+}
+
 type num float64
 
 func (f num) String() string {

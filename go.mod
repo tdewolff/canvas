@@ -19,7 +19,7 @@ require (
 	github.com/tdewolff/font v0.0.0-20240417221047-e5855237f87b
 	github.com/tdewolff/minify/v2 v2.20.5
 	github.com/tdewolff/parse/v2 v2.7.3
-	github.com/tdewolff/test v1.0.11-0.20231121141655-2d5236e10ae4
+	github.com/tdewolff/test v1.0.11-0.20240106005702-7de5f7df4739
 	github.com/wcharczuk/go-chart/v2 v2.1.1
 	golang.org/x/image v0.15.0
 	golang.org/x/text v0.14.0

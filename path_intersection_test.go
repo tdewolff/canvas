@@ -123,9 +123,15 @@ func TestIntersectionLineLine(t *testing.T) {
 			line2.Scan()
 
 			zs := intersectionLineLine(nil, line1.Start(), line1.End(), line2.Start(), line2.End())
-			test.T(t, len(zs), len(tt.zs))
-			for i := range zs {
-				test.T(t, zs[i], tt.zs[i])
+			for i := range tt.zs {
+				if i < len(zs) {
+					test.T(t, zs[i], tt.zs[i])
+				} else {
+					test.Fail(t, "expected", test.Green, tt.zs[i], test.Reset)
+				}
+			}
+			for j := len(tt.zs); j < len(zs); j++ {
+				test.Fail(t, "unexpected", test.Red, zs[j], test.Reset)
 			}
 		})
 	}

@@ -115,7 +115,7 @@ func (z PathIntersectionNode) String() string {
 		}
 	}
 	pos := z.p.StartPos()
-	return fmt.Sprintf("(%v {%g,%g} P=[%v→·→%v] Q=[%v→·→%v]%v)", z.i, pos.X, pos.Y, z.prevP.i, z.nextP.i, z.prevQ.i, z.nextQ.i, extra)
+	return fmt.Sprintf("(%v {%v,%v} P=[%v→·→%v] Q=[%v→·→%v]%v)", z.i, numEps(pos.X), numEps(pos.Y), z.prevP.i, z.nextP.i, z.prevQ.i, z.nextQ.i, extra)
 }
 
 func pathIntersectionNodes(p, q *Path, zp, zq []PathIntersection) []PathIntersectionNode {
@@ -436,7 +436,7 @@ func (z PathIntersection) String() string {
 	if z.Tangent {
 		extra += " Tangent"
 	}
-	return fmt.Sprintf("({%g,%g} seg=%d t=%g dir=%g°%v)", z.Point.X, z.Point.Y, z.Seg, z.T, angleNorm(z.Dir)*180.0/math.Pi, extra)
+	return fmt.Sprintf("({%v,%v} seg=%d t=%v dir=%v°%v)", numEps(z.Point.X), numEps(z.Point.Y), z.Seg, numEps(z.T), numEps(angleNorm(z.Dir)*180.0/math.Pi), extra)
 }
 
 type pathIntersectionSort struct {
@@ -605,7 +605,7 @@ func pathIntersections(p, q *Path, withTangents, withParallelTangents bool) ([]P
 								fmt.Printf("Path Q: len=%d data=%v\n", q.Len(), q)
 							}
 							for i, z := range zs {
-								fmt.Printf("Intersection %d: seg=(%d,%d) t=(%g,%g) pos=(%g,%g) dir=(%g°,%g°)", i, segsP[i], segsQ[i], z.T[0], z.T[1], z.X, z.Y, z.Dir[0]*180.0/math.Pi, z.Dir[1]*180.0/math.Pi)
+								fmt.Printf("Intersection %d: seg=(%d,%d) t=(%v,%v) pos=(%v,%v) dir=(%v°,%v°)", i, segsP[i], segsQ[i], numEps(z.T[0]), numEps(z.T[1]), numEps(z.X), numEps(z.Y), numEps(z.Dir[0]*180.0/math.Pi), numEps(z.Dir[1]*180.0/math.Pi))
 								if z.Tangent {
 									fmt.Printf(" tangent")
 								}
@@ -988,7 +988,7 @@ func (z Intersection) String() string {
 	if z.Tangent {
 		tangent = " Tangent"
 	}
-	return fmt.Sprintf("({%g,%g} t={%g,%g} dir={%g°,%g°}%v)", z.Point.X, z.Point.Y, z.T[0], z.T[1], angleNorm(z.Dir[0])*180.0/math.Pi, angleNorm(z.Dir[1])*180.0/math.Pi, tangent)
+	return fmt.Sprintf("({%v,%v} t={%v,%v} dir={%v°,%v°}%v)", numEps(z.Point.X), numEps(z.Point.Y), numEps(z.T[0]), numEps(z.T[1]), numEps(angleNorm(z.Dir[0])*180.0/math.Pi), numEps(angleNorm(z.Dir[1])*180.0/math.Pi), tangent)
 }
 
 type Intersections []Intersection
