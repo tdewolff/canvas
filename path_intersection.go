@@ -38,36 +38,6 @@ func (p *Path) ContainsPath(q *Path) bool {
 	return true
 }
 
-// pseudoVertex is an self-intersection node on the path with indices (A is further along the original path, B is over the crossing path) going further along the path in either direction. We keep information of the direction of crossing, either A goes left of B (AintoB) or B goes left of A (BintoA). TODO: tangents?
-type pseudoVertex struct {
-	k     int   // pseudo vertex pair index
-	Point       // position
-	p     *Path // path to next pseudo vertex
-	next  int   // index to next vertex in array (over the intersecting path)
-
-	AintoB  bool // A goes into the LHS of B
-	Tangent bool
-}
-
-func (v pseudoVertex) String() string {
-	var extra string
-	if v.AintoB {
-		extra += " AintoB"
-	} else {
-		extra += " BintoA"
-	}
-	if v.Tangent {
-		extra += " Tangent"
-	}
-	return fmt.Sprintf("(%d {%g,%g} ·→%d%s)", v.k, v.Point.X, v.Point.Y, v.next, extra)
-}
-
-type nodeItem struct {
-	i              int // index in nodes
-	parentWindings int // winding number of parent (outer) ring
-	winding        int // winding of current ring (+1 or -1)
-}
-
 func leftmostWindings(subpath int, ps []*Path, x, y float64) int {
 	// Count windings on left-most coordinate, taking into account tangent intersections which may
 	// be tangent on the outside or inside of the current subpath.
@@ -117,6 +87,36 @@ func leftmostWindings(subpath int, ps []*Path, x, y float64) int {
 		}
 	}
 	return n
+}
+
+// pseudoVertex is an self-intersection node on the path with indices (A is further along the original path, B is over the crossing path) going further along the path in either direction. We keep information of the direction of crossing, either A goes left of B (AintoB) or B goes left of A (BintoA). TODO: tangents?
+type pseudoVertex struct {
+	k     int   // pseudo vertex pair index
+	Point       // position
+	p     *Path // path to next pseudo vertex
+	next  int   // index to next vertex in array (over the intersecting path)
+
+	AintoB  bool // A goes into the LHS of B
+	Tangent bool
+}
+
+func (v pseudoVertex) String() string {
+	var extra string
+	if v.AintoB {
+		extra += " AintoB"
+	} else {
+		extra += " BintoA"
+	}
+	if v.Tangent {
+		extra += " Tangent"
+	}
+	return fmt.Sprintf("(%d {%g,%g} ·→%d%s)", v.k, v.Point.X, v.Point.Y, v.next, extra)
+}
+
+type nodeItem struct {
+	i              int // index in nodes
+	parentWindings int // winding number of parent (outer) ring
+	winding        int // winding of current ring (+1 or -1)
 }
 
 // Settle simplifies a path by removing all self-intersections and overlapping parts. Open paths are not handled and returned as-is. The returned subpaths are oriented counter clock-wise when filled and clock-wise for holes. This means that the result is agnostic to the winding rule used for drawing. The result will only contain point-tangent intersections, but not parallel-tangent intersections or regular intersections.
@@ -242,8 +242,8 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 	var xs []float64
 	var queue []nodeItem
 	for i, pi := range ps {
-		if pi.Empty() {
-			continue
+		if len(pi.d) <= 8 {
+			continue // consists solely of MoveTo and Close
 		}
 
 		// Find the left-most path segment coordinate for each subpath, we thus know that to the
@@ -252,17 +252,32 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 		// clock-wise and has the RHS filled.
 		// Follow the path until the first intersection and add to the queue.
 		var pos Point
-		seg, curSeg := 0, 0
-		for i := 0; i < len(pi.d); {
-			i += cmdLen(pi.d[i])
+		j, seg, curSeg := 0, 0, 0
+		for i := 4; i < len(pi.d); {
 			if curSeg == 0 || pi.d[i-3] < pos.X {
 				pos = Point{pi.d[i-3], pi.d[i-2]}
 				seg = curSeg + 1
+				j = i
 			}
+			i += cmdLen(pi.d[i])
 			curSeg++
 		}
 
-		// TODO: get CCW from left-most point, either rotates right (CW) or left (CCW) along path
+		// get directions to and from the leftmost point
+		next := pi.direction(j, 0.0)
+		if j == 4 {
+			j = len(pi.d)
+		}
+		prev := pi.direction(j-cmdLen(pi.d[j-1]), 1.0)
+
+		// find if leftmost point turns to the left (CCW) or to the right (CW)
+		var ccw bool
+		if dir := prev.PerpDot(next); Equal(dir, 0.0) {
+			// both segment go straight up or down
+			ccw = next.Y < 0.0 // goes down
+		} else {
+			ccw = 0.0 < dir
+		}
 
 		parentWindings := leftmostWindings(i, ps, pos.X, pos.Y)
 
@@ -277,7 +292,6 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 		if j0 == j1 {
 			// subpath has no intersections
 			winding := 1
-			ccw := pi.CCW() // TODO: this may be wrong for curved paths, we should use left-most point
 			if !ccw {
 				winding = -1
 			}
@@ -308,10 +322,9 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 				prev = j1 - 1
 			}
 			winding := 1
-			if !nodes[prev].p.CCW() { // TODO: THIS IS WRONG! we should use the left-most point, not CCW
+			if !ccw {
 				winding = -1
 			}
-			// TODO: should switch winding if path B is oriented differently
 
 			// from the intersection, we will follow the "other" path first
 			next = pair[next]
@@ -384,6 +397,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 				r = r.Reverse() // orient all filling paths CCW
 			}
 			r.Close()
+			r.optimizeClose()
 			R = R.Append(r)
 		}
 		ring++

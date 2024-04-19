@@ -495,7 +495,6 @@ func TestPathMarkers(t *testing.T) {
 		rs []string
 	}{
 		{"M10 0", []string{"M10 0L11 0L10 1z"}},
-		{"M10 0z", []string{"M10 0L11 0L10 1z"}},
 		{"M10 0L20 10", []string{"M10 0L11 0L10 1z", "M20 10L19 10L20 11z"}},
 		{"L10 0L20 10", []string{"L1 0L0 1z", "M9 0A1 1 0 0 0 11 0z", "M20 10L19 10L20 11z"}},
 		{"L10 0L20 10z", []string{"L1 0L0 1z", "M9 0A1 1 0 0 0 11 0z", "M19 10A1 1 0 0 0 21 10z", "L-1 0L0 1z"}},

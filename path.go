@@ -305,7 +305,7 @@ func (p *Path) direction(i int, t float64) Point {
 		t = 0.0
 	} else if i < len(p.d) && i == last {
 		// get path's final direction when i points to zero-length Close
-		i -= cmdLen(CloseCmd)
+		i -= cmdLen(p.d[i-1])
 		t = 1.0
 	}
 	if i < 0 || len(p.d) <= i || last < i+cmdLen(p.d[i]) {
