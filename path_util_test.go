@@ -241,6 +241,10 @@ func TestQuadraticBezierDistance(t *testing.T) {
 	}
 }
 
+func TestXMonotoneQuadraticBezier(t *testing.T) {
+	test.T(t, xmonotoneQuadraticBezier(Point{2.0, 0.0}, Point{0.0, 1.0}, Point{2.0, 2.0}), MustParseSVGPath("M2 0Q1 0.5 1 1Q1 1.5 2 2"))
+}
+
 func TestQuadraticBezierFlatten(t *testing.T) {
 	tolerance := 0.1
 	tests := []struct {
@@ -412,6 +416,11 @@ func TestCubicBezierStrokeHelpers(t *testing.T) {
 	p = &Path{}
 	addCubicBezierLine(p, p0, p1, p2, p3, 1.0, 0.5)
 	test.T(t, p, MustParseSVGPath("L1.5 1"))
+}
+
+func TestXMonotoneCubicBezier(t *testing.T) {
+	test.T(t, xmonotoneCubicBezier(Point{1.0, 0.0}, Point{0.0, 0.0}, Point{0.0, 1.0}, Point{1.0, 1.0}), MustParseSVGPath("M1 0C0.5 0 0.25 0.25 0.25 0.5C0.25 0.75 0.5 1 1 1"))
+	test.T(t, xmonotoneCubicBezier(Point{0.0, 0.0}, Point{3.0, 0.0}, Point{-2.0, 1.0}, Point{1.0, 1.0}), MustParseSVGPath("M0 0C0.75 0 1 0.0625 1 0.15625C1 0.34375 0.0 0.65625 0.0 0.84375C0.0 0.9375 0.25 1 1 1"))
 }
 
 func TestCubicBezierStrokeFlatten(t *testing.T) {

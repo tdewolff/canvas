@@ -684,6 +684,20 @@ func addCubicBezierLine(p *Path, p0, p1, p2, p3 Point, t, d float64) {
 	p.LineTo(pos.X, pos.Y)
 }
 
+func xmonotoneQuadraticBezier(p0, p1, p2 Point) *Path {
+	p := &Path{}
+	p.MoveTo(p0.X, p0.Y)
+	if tdenom := (p0.X - 2*p1.X + p2.X); !Equal(tdenom, 0.0) {
+		if t := (p0.X - p1.X) / tdenom; 0.0 < t && t < 1.0 {
+			_, q1, q2, _, r1, r2 := quadraticBezierSplit(p0, p1, p2, t)
+			p.QuadTo(q1.X, q1.Y, q2.X, q2.Y)
+			p1, p2 = r1, r2
+		}
+	}
+	p.QuadTo(p1.X, p1.Y, p2.X, p2.Y)
+	return p
+}
+
 func flattenQuadraticBezier(p0, p1, p2 Point, tolerance float64) *Path {
 	// see Flat, precise flattening of cubic Bézier path and offset curves, by T.F. Hain et al., 2005,  https://www.sciencedirect.com/science/article/pii/S0097849305001287
 	t := 0.0
@@ -708,6 +722,34 @@ func flattenQuadraticBezier(p0, p1, p2 Point, tolerance float64) *Path {
 		p.LineTo(p0.X, p0.Y)
 	}
 	p.LineTo(p2.X, p2.Y)
+	return p
+}
+
+func xmonotoneCubicBezier(p0, p1, p2, p3 Point) *Path {
+	a := -p0.X + 3*p1.X - 3*p2.X + p3.X
+	b := 2*p0.X - 4*p1.X + 2*p2.X
+	c := -p0.X + p1.X
+
+	p := &Path{}
+	p.MoveTo(p0.X, p0.Y)
+
+	split := false
+	t1, t2 := solveQuadraticFormula(a, b, c)
+	if !math.IsNaN(t1) && IntervalExclusive(t1, 0.0, 1.0) {
+		_, q1, q2, q3, r0, r1, r2, r3 := cubicBezierSplit(p0, p1, p2, p3, t1)
+		p.CubeTo(q1.X, q1.Y, q2.X, q2.Y, q3.X, q3.Y)
+		p0, p1, p2, p3 = r0, r1, r2, r3
+		split = true
+	}
+	if !math.IsNaN(t2) && IntervalExclusive(t2, 0.0, 1.0) {
+		if split {
+			t2 = (t2 - t1) / (1.0 - t1)
+		}
+		_, q1, q2, q3, _, r1, r2, r3 := cubicBezierSplit(p0, p1, p2, p3, t2)
+		p.CubeTo(q1.X, q1.Y, q2.X, q2.Y, q3.X, q3.Y)
+		p1, p2, p3 = r1, r2, r3
+	}
+	p.CubeTo(p1.X, p1.Y, p2.X, p2.Y, p3.X, p3.Y)
 	return p
 }
 

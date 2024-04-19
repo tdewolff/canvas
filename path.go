@@ -159,14 +159,8 @@ func (p *Path) PointClosed() bool {
 	return 6 < len(p.d) && p.d[len(p.d)-1] == CloseCmd && Equal(p.d[len(p.d)-7], p.d[len(p.d)-3]) && Equal(p.d[len(p.d)-6], p.d[len(p.d)-2])
 }
 
-// XMonotone returns true if the path is x-monotone, that is each path segment is either increasing or decreasing with X while moving across the segment. This is always true for line segments, but may not be the case for Beziér or arc segments.
-func (p *Path) XMonotone() bool {
-	// TODO: implement XMonotone
-	panic("not implemented")
-}
-
 // HasSubpaths returns true when path p has subpaths.
-// TODO: naming right? A simple path would not self-intersect. Add XMonotone and Flat as well
+// TODO: naming right? A simple path would not self-intersect. Add IsXMonotone and IsFlat as well?
 func (p *Path) HasSubpaths() bool {
 	for i := 0; i < len(p.d); {
 		if p.d[i] == MoveToCmd && i != 0 {
@@ -1216,9 +1210,23 @@ func (p *Path) Flatten(tolerance float64) *Path {
 	return p.replace(nil, quad, cube, arc)
 }
 
-// ReplaceArcs replaces ArcTo commands by CubeTo commands.
+// ReplaceArcs replaces ArcTo commands by CubeTo commands and returns a new path.
 func (p *Path) ReplaceArcs() *Path {
 	return p.replace(nil, nil, nil, arcToCube)
+}
+
+// XMonotone replaces all Bézier and arc segments to be x-monotone and returns a new path, that is each path segment is either increasing or decreasing with X while moving across the segment. This is always true for line segments.
+func (p *Path) XMonotone() *Path {
+	quad := func(p0, p1, p2 Point) *Path {
+		return xmonotoneQuadraticBezier(p0, p1, p2)
+	}
+	cube := func(p0, p1, p2, p3 Point) *Path {
+		return xmonotoneCubicBezier(p0, p1, p2, p3)
+	}
+	arc := func(start Point, rx, ry, phi float64, large, sweep bool, end Point) *Path {
+		return xmonotoneEllipticArc(start, rx, ry, phi, large, sweep, end)
+	}
+	return p.replace(nil, quad, cube, arc)
 }
 
 // replace replaces path segments by their respective functions, each returning the path that will replace the segment or nil if no replacement is to be performed. The line function will take the start and end points. The bezier function will take the start point, control point 1 and 2, and the end point (i.e. a cubic Bézier, quadratic Béziers will be implicitly converted to cubic ones). The arc function will take a start point, the major and minor radii, the radial rotaton counter clockwise, the large and sweep booleans, and the end point. The replacing path will replace the path segment without any checks, you need to make sure the be moved so that its start point connects with the last end point of the base path before the replacement. If the end point of the replacing path is different that the end point of what is replaced, the path that follows will be displaced.
