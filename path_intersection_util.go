@@ -650,7 +650,6 @@ func pathIntersections(p, q *Path, withTangents, withParallelTangents bool) ([]P
 								})
 							}
 						} else {
-
 							// intersection is parallel
 							m := 0
 							for {
@@ -1210,6 +1209,7 @@ func intersectionLineCube(zs Intersections, l0, l1, p0, p1, p2, p3 Point) Inters
 }
 
 func intersectionLineEllipse(zs Intersections, l0, l1, center, radius Point, phi, theta0, theta1 float64) Intersections {
+	// TODO: intersection inconsistency due to numerical stability in finding tangent collisions for subsequent paht segments (line -> ellipse), or due to the endpoint of a line not touching with another arc, but the subsequent segment does touch with its starting point
 	dira := l1.Sub(l0).Angle()
 
 	// we take the ellipse center as the origin and counter-rotate by phi
@@ -1294,7 +1294,6 @@ func intersectionLineEllipse(zs Intersections, l0, l1, center, radius Point, phi
 
 func intersectionEllipseEllipse(zs Intersections, c0, r0 Point, phi0, thetaStart0, thetaEnd0 float64, c1, r1 Point, phi1, thetaStart1, thetaEnd1 float64) Intersections {
 	// TODO: needs more testing
-	// TODO: intersection inconsistency due to numerical stability in finding tangent collisions for subsequent paht segments (line -> ellipse), or due to the endpoint of a line not touching with another arc, but the subsequent segment does touch with its starting point
 	if !Equal(r0.X, r0.Y) || !Equal(r1.X, r1.Y) {
 		panic("not handled") // ellipses
 	}
