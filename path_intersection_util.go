@@ -1024,7 +1024,7 @@ func (zs Intersections) add(pos Point, ta, tb, dira, dirb float64, tangent bool)
 	return append(zs, Intersection{pos, [2]float64{ta, tb}, [2]float64{dira, dirb}, tangent})
 }
 
-// http://www.cs.swan.ac.uk/~cssimon/line_intersection.html
+// https://www.geometrictools.com/GTE/Mathematics/IntrLine2Line2.h
 func intersectionLineLine(zs Intersections, a0, a1, b0, b1 Point) Intersections {
 	if a0.Equals(a1) || b0.Equals(b1) {
 		return zs
@@ -1068,6 +1068,14 @@ func intersectionLineLine(zs Intersections, a0, a1, b0, b1 Point) Intersections 
 				zs = zs.add(a1, 1.0, (b-c)/(d-c), angle0, angle1, true)
 			}
 		}
+		return zs
+	} else if a1.Equals(b0) {
+		// handle common case to avoid numerical issues
+		zs = zs.add(a1, 1.0, 0.0, angle0, angle1, true)
+		return zs
+	} else if a0.Equals(b1) {
+		// handle common case to avoid numerical issues
+		zs = zs.add(a0, 0.0, 1.0, angle0, angle1, true)
 		return zs
 	}
 
