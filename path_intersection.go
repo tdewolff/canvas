@@ -168,9 +168,8 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 
 	// zp is an list of even length where each ith intersections is a pseudo-vertex of the ith+len/2
 	zp, zq := pathIntersections(p, nil, false, false)
-	if 0 < len(zp) {
-		ps = p.Split() // otherwise, keep unflattened path
-	}
+	psOrig := ps
+	ps = p.Split()
 	//for i, z := range zp {
 	//	fmt.Println(i, z)
 	//}
@@ -246,6 +245,20 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 			continue // consists solely of MoveTo and Close
 		}
 
+		j1 := j0
+		for _, z := range zp[j0:] {
+			if segs[i] <= z.Seg {
+				break
+			}
+			j1++
+		}
+		hasIntersections := j0 != j1
+
+		if !hasIntersections {
+			// use unflattened path when subpath has no intersections, but make sure it is XMonotone
+			pi = psOrig[i].XMonotone()
+		}
+
 		// Find the left-most path segment coordinate for each subpath, we thus know that to the
 		// right of the coordinate the path is filled and that it is an outer ring. If the path
 		// runs counter clock-wise at the coordinate, the LHS is filled, otherwise it runs
@@ -282,14 +295,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 		parentWindings := leftmostWindings(i, ps, pos.X, pos.Y)
 
 		// find the intersections for the subpath
-		j1 := j0
-		for _, z := range zp[j0:] {
-			if segs[i] <= z.Seg {
-				break
-			}
-			j1++
-		}
-		if j0 == j1 {
+		if !hasIntersections {
 			// subpath has no intersections
 			winding := 1
 			if !ccw {
@@ -402,6 +408,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 		}
 		ring++
 	}
+	// TODO: undo X-Monotone to give a more optimal path?
 	return R.Append(simple).Append(open)
 }
 
