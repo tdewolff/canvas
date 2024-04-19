@@ -41,6 +41,7 @@ func TestPathStroke(t *testing.T) {
 		{"L10 0L5 0", 2.0, ButtCap, ArcsJoiner{BevelJoin, 2.0}, "M0 -1L10 -1L10 1L5 1L5 -1L10 -1L10 1L0 1z"},
 		{"L10 0L10 10", 2.0, ButtCap, ArcsJoiner{BevelJoin, 1.0}, "M9 1L0 1L0 -1L10 -1L11 0L11 10L9 10z"},
 
+		{"L10 0L10 10L0 10z", 2.0, ButtCap, MiterJoin, "M11 -1L11 11L-1 11L-1 -1zM1 1L1 9L9 9L9 1z"},
 		{"L10 0L10 10L0 10z", 2.0, ButtCap, BevelJoin, "M0 -1L10 -1L11 0L11 10L10 11L0 11L-1 10L-1 0zM1 1L1 9L9 9L9 1z"},
 		{"L0 10L10 10L10 0z", 2.0, ButtCap, BevelJoin, "M-1 0L0 -1L10 -1L11 0L11 10L10 11L0 11L-1 10zM1 9L9 9L9 1L1 1z"},
 		{"Q10 0 10 10", 2.0, ButtCap, BevelJoin, "M0 -1L9.5137 3.4975L11 10L9 10L7.7845 4.5025L0 1z"},
