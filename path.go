@@ -973,7 +973,7 @@ func (p *Path) Bounds() Rect {
 			xmin = math.Min(xmin, end.X)
 			xmax = math.Max(xmax, end.X)
 			if tdenom := (start.X - 2*cp.X + end.X); !Equal(tdenom, 0.0) {
-				if t := (start.X - cp.X) / tdenom; 0.0 < t && t < 1.0 {
+				if t := (start.X - cp.X) / tdenom; IntervalExclusive(t, 0.0, 1.0) {
 					x := quadraticBezierPos(start, cp, end, t)
 					xmin = math.Min(xmin, x.X)
 					xmax = math.Max(xmax, x.X)
@@ -983,7 +983,7 @@ func (p *Path) Bounds() Rect {
 			ymin = math.Min(ymin, end.Y)
 			ymax = math.Max(ymax, end.Y)
 			if tdenom := (start.Y - 2*cp.Y + end.Y); !Equal(tdenom, 0.0) {
-				if t := (start.Y - cp.Y) / tdenom; 0.0 < t && t < 1.0 {
+				if t := (start.Y - cp.Y) / tdenom; IntervalExclusive(t, 0.0, 1.0) {
 					y := quadraticBezierPos(start, cp, end, t)
 					ymin = math.Min(ymin, y.Y)
 					ymax = math.Max(ymax, y.Y)
@@ -1001,12 +1001,12 @@ func (p *Path) Bounds() Rect {
 
 			xmin = math.Min(xmin, end.X)
 			xmax = math.Max(xmax, end.X)
-			if !math.IsNaN(t1) && 0.0 < t1 && t1 < 1.0 {
+			if !math.IsNaN(t1) && IntervalExclusive(t1, 0.0, 1.0) {
 				x1 := cubicBezierPos(start, cp1, cp2, end, t1)
 				xmin = math.Min(xmin, x1.X)
 				xmax = math.Max(xmax, x1.X)
 			}
-			if !math.IsNaN(t2) && 0.0 < t2 && t2 < 1.0 {
+			if !math.IsNaN(t2) && IntervalExclusive(t2, 0.0, 1.0) {
 				x2 := cubicBezierPos(start, cp1, cp2, end, t2)
 				xmin = math.Min(xmin, x2.X)
 				xmax = math.Max(xmax, x2.X)
@@ -1019,12 +1019,12 @@ func (p *Path) Bounds() Rect {
 
 			ymin = math.Min(ymin, end.Y)
 			ymax = math.Max(ymax, end.Y)
-			if !math.IsNaN(t1) && 0.0 < t1 && t1 < 1.0 {
+			if !math.IsNaN(t1) && IntervalExclusive(t1, 0.0, 1.0) {
 				y1 := cubicBezierPos(start, cp1, cp2, end, t1)
 				ymin = math.Min(ymin, y1.Y)
 				ymax = math.Max(ymax, y1.Y)
 			}
-			if !math.IsNaN(t2) && 0.0 < t2 && t2 < 1.0 {
+			if !math.IsNaN(t2) && IntervalExclusive(t2, 0.0, 1.0) {
 				y2 := cubicBezierPos(start, cp1, cp2, end, t2)
 				ymin = math.Min(ymin, y2.Y)
 				ymax = math.Max(ymax, y2.Y)
