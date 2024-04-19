@@ -1069,11 +1069,11 @@ func intersectionLineLine(zs Intersections, a0, a1, b0, b1 Point) Intersections 
 		}
 		return zs
 	} else if a1.Equals(b0) {
-		// handle common case to avoid numerical issues
+		// handle common cases with endpoints to avoid numerical issues
 		zs = zs.add(a1, 1.0, 0.0, angle0, angle1, true)
 		return zs
 	} else if a0.Equals(b1) {
-		// handle common case to avoid numerical issues
+		// handle common cases with endpoints to avoid numerical issues
 		zs = zs.add(a0, 0.0, 1.0, angle0, angle1, true)
 		return zs
 	}
