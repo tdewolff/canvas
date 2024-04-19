@@ -80,13 +80,13 @@ func (svg *svgParser) parseViewBox(attrWidth, attrHeight, attrViewBox string) (f
 			}
 		}
 	}
-	if attrWidth != "" {
-		width = svg.parseDimension(attrWidth, 0.0)
+	if attrWidth != "" && !strings.HasSuffix(attrWidth, "%") {
+		width = svg.parseDimension(attrWidth, 1.0)
 	} else {
 		width = (viewbox[2] - viewbox[0]) * 25.4 / 96.0
 	}
-	if attrHeight != "" {
-		height = svg.parseDimension(attrHeight, 0.0)
+	if attrHeight != "" && !strings.HasSuffix(attrHeight, "%") {
+		height = svg.parseDimension(attrHeight, 1.0)
 	} else {
 		height = (viewbox[3] - viewbox[1]) * 25.4 / 96.0
 	}
