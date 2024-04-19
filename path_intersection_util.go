@@ -1209,23 +1209,39 @@ func intersectionLineCube(zs Intersections, l0, l1, p0, p1, p2, p3 Point) Inters
 }
 
 // handle line-arc intersections and their peculiarities regarding angles
-func addLineArcIntersection(zs Intersections, pos Point, dira, dirb, t, angle, theta0, theta1 float64, tangent bool) Intersections {
+func addLineArcIntersection(zs Intersections, pos Point, dira, dirb, t, t0, t1, angle, theta0, theta1 float64, tangent bool) Intersections {
 	if theta0 <= theta1 {
 		angle = theta0 - Epsilon + angleNorm(angle-theta0+Epsilon)
 	} else {
 		angle = theta1 - Epsilon + angleNorm(angle-theta1+Epsilon)
 	}
-	endpoint := Equal(t, 0.0) || Equal(t, 1.0) || Equal(angle, theta0) || Equal(angle, theta1)
+	endpoint := Equal(t, t0) || Equal(t, t1) || Equal(angle, theta0) || Equal(angle, theta1)
 	if endpoint {
 		// deviate angle slightly at endpoint when aligned to properly set Into
-		if (theta0 <= theta1) == (Equal(angle, theta0) || !Equal(angle, theta1) && Equal(t, 0.0)) {
+		if (theta0 <= theta1) == (Equal(angle, theta0) || !Equal(angle, theta1) && Equal(t, t0)) {
 			dirb += Epsilon * 2.0 // t=0 and CCW, or t=1 and CW
 		} else {
 			dirb -= Epsilon * 2.0 // t=0 and CW, or t=1 and CCW
 		}
 		dirb = angleNorm(dirb)
 	}
-	s := (angle - theta0) / (theta1 - theta0)
+
+	// snap segment parameters to 0.0 and 1.0 to avoid numerical issues
+	var s float64
+	if Equal(t, t0) {
+		t = 0.0
+	} else if Equal(t, t1) {
+		t = 1.0
+	} else {
+		t = (t - t0) / (t1 - t0)
+	}
+	if Equal(angle, theta0) {
+		s = 0.0
+	} else if Equal(angle, theta1) {
+		s = 1.0
+	} else {
+		s = (angle - theta0) / (theta1 - theta0)
+	}
 	return zs.add(pos, t, s, dira, dirb, endpoint || tangent)
 }
 
@@ -1264,7 +1280,7 @@ func intersectionLineCircle(zs Intersections, l0, l1, center Point, radius, thet
 		if Interval(root, 0.0, length) && angleBetween(angle, theta0, theta1) {
 			pos = center.Add(pos)
 			dirb := ellipseDeriv(radius, radius, 0.0, theta0 <= theta1, angle).Angle()
-			zs = addLineArcIntersection(zs, pos, dira, dirb, root/length, angle, theta0, theta1, tangent)
+			zs = addLineArcIntersection(zs, pos, dira, dirb, root, 0.0, length, angle, theta0, theta1, tangent)
 			added = true
 		}
 	}
@@ -1276,7 +1292,7 @@ func intersectionLineCircle(zs Intersections, l0, l1, center Point, radius, thet
 			if angleBetween(angle, theta0, theta1) {
 				pos = center.Add(pos)
 				dirb := ellipseDeriv(radius, radius, 0.0, theta0 <= theta1, angle).Angle()
-				zs = addLineArcIntersection(zs, pos, dira, dirb, 0.0, angle, theta0, theta1, true)
+				zs = addLineArcIntersection(zs, pos, dira, dirb, 0.0, 0.0, length, angle, theta0, theta1, true)
 			}
 		}
 		if pos := l1.Sub(center); Equal(pos.Length(), radius) {
@@ -1284,7 +1300,7 @@ func intersectionLineCircle(zs Intersections, l0, l1, center Point, radius, thet
 			if angleBetween(angle, theta0, theta1) {
 				pos = center.Add(pos)
 				dirb := ellipseDeriv(radius, radius, 0.0, theta0 <= theta1, angle).Angle()
-				zs = addLineArcIntersection(zs, pos, dira, dirb, 1.0, angle, theta0, theta1, true)
+				zs = addLineArcIntersection(zs, pos, dira, dirb, length, 0.0, length, angle, theta0, theta1, true)
 			}
 		}
 	}
@@ -1356,10 +1372,9 @@ func intersectionLineEllipse(zs Intersections, l0, l1, center, radius Point, phi
 		tangent := Equal(root, 0.0)
 		angle := math.Atan2(y*radius.X, x*radius.Y)
 		if Interval(root, t0, t1) && angleBetween(angle, theta0, theta1) {
-			t := (root - t0) / (t1 - t0)
 			pos := Point{x, y}.Rot(phi, Origin).Add(center)
 			dirb := ellipseDeriv(radius.X, radius.Y, phi, theta0 <= theta1, angle).Angle()
-			zs = addLineArcIntersection(zs, pos, dira, dirb, t, angle, theta0, theta1, tangent)
+			zs = addLineArcIntersection(zs, pos, dira, dirb, root, t0, t1, angle, theta0, theta1, tangent)
 		}
 	}
 	return zs
