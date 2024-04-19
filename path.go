@@ -546,6 +546,7 @@ func (p *Path) Close() {
 	p.d = append(p.d, CloseCmd, end.X, end.Y, CloseCmd)
 }
 
+// optimizeClose removes a superfluous first line segment in-place of a subpath. If both the first and last segment are line segments and are colinear, move the start of the path forward one segment
 func (p *Path) optimizeClose() {
 	if len(p.d) == 0 || p.d[len(p.d)-1] != CloseCmd {
 		return
@@ -565,7 +566,7 @@ func (p *Path) optimizeClose() {
 
 	if p.d[iMoveTo] == MoveToCmd && p.d[iMoveTo+cmdLen(MoveToCmd)] == LineToCmd && iMoveTo+cmdLen(MoveToCmd)+cmdLen(LineToCmd) < len(p.d)-cmdLen(CloseCmd) {
 		// replace Close + MoveTo + LineTo by Close + MoveTo if equidirectional
-		// move Close and MoveTo backward or forward along the path
+		// move Close and MoveTo forward along the path
 		start := Point{p.d[len(p.d)-cmdLen(CloseCmd)-3], p.d[len(p.d)-cmdLen(CloseCmd)-2]}
 		nextEnd := Point{p.d[iMoveTo+cmdLen(MoveToCmd)+cmdLen(LineToCmd)-3], p.d[iMoveTo+cmdLen(MoveToCmd)+cmdLen(LineToCmd)-2]}
 		if Equal(end.Sub(start).AngleBetween(nextEnd.Sub(end)), 0.0) {
