@@ -146,9 +146,12 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 		return open
 	}
 
-	// TODO: make sure that path is x-monotone, also needed for Bentley-Ottmann
-	// TODO: remove when we handle quad/cube/arc intersection combinations
-	// flatten bezier segments
+	// Flatten Bézier segments, this is justified since the primary usage of Settle is after
+	// applying stroke, which already flattened all Bézier curves. The other usages of Settle, such
+	// as for path boolean operations, suffer from the loss of precision (though this is very common
+	// among path manipulation libraries).
+	// Additionally, this ensures that the path X-monotone (which should be preserved if in the
+	// future we add support for quad/cube intersections).
 	quad := func(p0, p1, p2 Point) *Path {
 		return flattenQuadraticBezier(p0, p1, p2, Tolerance)
 	}
@@ -156,10 +159,10 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 		return flattenCubicBezier(p0, p1, p2, p3, Tolerance)
 	}
 	arc := func(start Point, rx, ry, phi float64, large, sweep bool, end Point) *Path {
-		//if !Equal(rx, ry) {
-		return flattenEllipticArc(start, rx, ry, phi, large, sweep, end, Tolerance)
-		//}
-		//return xmonotoneEllipticArc(start, rx, ry, phi, large, sweep, end)
+		if !Equal(rx, ry) {
+			return flattenEllipticArc(start, rx, ry, phi, large, sweep, end, Tolerance)
+		}
+		return xmonotoneEllipticArc(start, rx, ry, phi, large, sweep, end)
 	}
 	p = p.replace(nil, quad, cube, arc)
 
