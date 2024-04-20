@@ -459,6 +459,22 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 	w.write("\nendobj\n")
 }
 
+func (w *pdfWriter) writeFonts(fontMap map[*canvas.Font]pdfRef, vertical bool) {
+	// sort fonts by ref to make PDF deterministic
+	refs := make([]pdfRef, 0, len(fontMap))
+	refMap := make(map[pdfRef]*canvas.Font, len(fontMap))
+	for font, ref := range fontMap {
+		refs = append(refs, ref)
+		refMap[ref] = font
+	}
+	sort.Slice(refs, func(i, j int) bool {
+		return refs[i] < refs[j]
+	})
+	for _, ref := range refs {
+		w.writeFont(ref, refMap[ref], vertical)
+	}
+}
+
 // Close finished the document.
 func (w *pdfWriter) Close() error {
 	// TODO: support cross reference table streams and compressed objects for all dicts
@@ -471,12 +487,9 @@ func (w *pdfWriter) Close() error {
 		kids = append(kids, page)
 	}
 
-	for font, ref := range w.fontsH {
-		w.writeFont(ref, font, false)
-	}
-	for font, ref := range w.fontsV {
-		w.writeFont(ref, font, true)
-	}
+	// write fonts
+	w.writeFonts(w.fontsH, false)
+	w.writeFonts(w.fontsV, false)
 
 	// document catalog
 	w.objOffsets[0] = w.pos
