@@ -1283,7 +1283,26 @@ func intersectionLineCircle(zs Intersections, l0, l1, center Point, radius, thet
 		}
 	}
 
-	added := false
+	// handle common cases with endpoints to avoid numerical issues
+	// snap closest root to path's start or end
+	if 0 < len(roots) {
+		if pos := l0.Sub(center); Equal(pos.Length(), radius) {
+			if len(roots) == 1 || math.Abs(roots[0]) < math.Abs(roots[1]) {
+				roots[0] = 0.0
+			} else {
+				roots[1] = 0.0
+			}
+		}
+		if pos := l1.Sub(center); Equal(pos.Length(), radius) {
+			if len(roots) == 1 || math.Abs(roots[0]-length) < math.Abs(roots[1]-length) {
+				roots[0] = length
+			} else {
+				roots[1] = length
+			}
+		}
+	}
+
+	// add intersections
 	dira := dir.Angle()
 	tangent := len(roots) == 1
 	for _, root := range roots {
@@ -1293,27 +1312,6 @@ func intersectionLineCircle(zs Intersections, l0, l1, center Point, radius, thet
 			pos = center.Add(pos)
 			dirb := ellipseDeriv(radius, radius, 0.0, theta0 <= theta1, angle).Angle()
 			zs = addLineArcIntersection(zs, pos, dira, dirb, root, 0.0, length, angle, theta0, theta1, tangent)
-			added = true
-		}
-	}
-
-	// handle common cases with endpoints to avoid numerical issues
-	if !added {
-		if pos := l0.Sub(center); Equal(pos.Length(), radius) {
-			angle := math.Atan2(pos.Y*radius, pos.X*radius)
-			if angleBetween(angle, theta0, theta1) {
-				pos = center.Add(pos)
-				dirb := ellipseDeriv(radius, radius, 0.0, theta0 <= theta1, angle).Angle()
-				zs = addLineArcIntersection(zs, pos, dira, dirb, 0.0, 0.0, length, angle, theta0, theta1, true)
-			}
-		}
-		if pos := l1.Sub(center); Equal(pos.Length(), radius) {
-			angle := math.Atan2(pos.Y*radius, pos.X*radius)
-			if angleBetween(angle, theta0, theta1) {
-				pos = center.Add(pos)
-				dirb := ellipseDeriv(radius, radius, 0.0, theta0 <= theta1, angle).Angle()
-				zs = addLineArcIntersection(zs, pos, dira, dirb, length, 0.0, length, angle, theta0, theta1, true)
-			}
 		}
 	}
 	return zs
