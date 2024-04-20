@@ -11,17 +11,29 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
+const minNormalFloat64 = 0x1p-1022
+
 // Epsilon is the smallest number below which we assume the value to be zero. This is to avoid numerical floating point issues.
 var Epsilon = 1e-10
 
 // Precision is the number of significant digits at which floating point value will be printed to output formats.
 var Precision = 8
 
-// Equal returns true if a and b are Equal with tolerance Epsilon.
+// Equal returns true if a and b are equal within an absolute tolerance of Epsilon or within a relative tolerance of Epsilon (relative to the largest of the two).
 func Equal(a, b float64) bool {
-	// see https://floating-point-gui.de/errors/comparison/ on why this is bad
-	// but since we use this (mainly) when a and b represent millimeters, it is good enough I guess
-	return math.Abs(a-b) <= Epsilon
+	// See https://floating-point-gui.de/errors/comparison/ and
+	// https://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
+	// for more information. To be blunt, the code below may not be appropriate for all cases,
+	// especially for small numbers. Since most comparions involve millimeter scale (the
+	// coordinates in a canvas), this is probably OK. We should make sure that computations
+	// resulting in small numbers (below Epsilon) should be insignificant in their difference.
+	diff := math.Abs(a - b)
+	abs := a == b || diff <= Epsilon // handle infinities and absolute epsilon
+	if !abs && (a != 0.0 || b != 0.0) {
+		// handle relative epsilon for large numbers (relative to largest number)
+		return diff/math.Max(math.Abs(a), math.Abs(b)) <= Epsilon
+	}
+	return abs
 }
 
 // Interval returns true if f is in closed interval [lower-Epsilon,upper+Epsilon] where lower and upper can be interchanged.
