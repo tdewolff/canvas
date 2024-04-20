@@ -1273,7 +1273,7 @@ func intersectionLineCircle(zs Intersections, l0, l1, center Point, radius, thet
 	b := 2.0 * D.Dot(diff)
 	c := diff.Dot(diff) - radius*radius
 
-	// find solutions
+	// find solutions for t ∈ [0,1], the parameter along the line's path
 	roots := []float64{}
 	r0, r1 := solveQuadraticFormula(a, b, c)
 	if !math.IsNaN(r0) {

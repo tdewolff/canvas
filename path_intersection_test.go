@@ -856,10 +856,7 @@ func TestSelfIntersections(t *testing.T) {
 		t.Run(fmt.Sprint(tt.p), func(t *testing.T) {
 			p := MustParseSVGPath(tt.p)
 			zs, _ := pathIntersections(p, nil, true, true)
-			test.T(t, len(zs), len(tt.zs))
-			for i := range zs {
-				test.T(t, zs[i], tt.zs[i])
-			}
+			test.T(t, zs, tt.zs)
 		})
 	}
 }
@@ -880,15 +877,15 @@ func TestPathCut(t *testing.T) {
 		},
 	}
 	for _, tt := range tts {
+		ttrs := []*Path{}
+		for _, rs := range tt.rs {
+			ttrs = append(ttrs, MustParseSVGPath(rs))
+		}
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
 			p := MustParseSVGPath(tt.p)
 			q := MustParseSVGPath(tt.q)
-
 			rs := p.Cut(q)
-			test.T(t, len(rs), len(tt.rs))
-			for i := range rs {
-				test.T(t, rs[i], MustParseSVGPath(tt.rs[i]))
-			}
+			test.T(t, rs, ttrs)
 		})
 	}
 }
