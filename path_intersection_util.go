@@ -1026,7 +1026,7 @@ func (zs Intersections) add(pos Point, ta, tb, dira, dirb float64, tangent bool)
 // https://www.geometrictools.com/GTE/Mathematics/IntrLine2Line2.h
 func intersectionLineLine(zs Intersections, a0, a1, b0, b1 Point) Intersections {
 	if a0.Equals(a1) || b0.Equals(b1) {
-		return zs
+		return zs // zero-length Close
 	}
 
 	da := a1.Sub(a0)
@@ -1090,6 +1090,10 @@ func intersectionLineLine(zs Intersections, a0, a1, b0, b1 Point) Intersections 
 
 // https://www.particleincell.com/2013/cubic-line-intersection/
 func intersectionLineQuad(zs Intersections, l0, l1, p0, p1, p2 Point) Intersections {
+	if l0.Equals(l1) {
+		return zs // zero-length Close
+	}
+
 	// write line as A.X = bias
 	A := Point{l1.Y - l0.Y, l0.X - l1.X}
 	bias := l0.Dot(A)
@@ -1141,6 +1145,10 @@ func intersectionLineQuad(zs Intersections, l0, l1, p0, p1, p2 Point) Intersecti
 
 // https://www.particleincell.com/2013/cubic-line-intersection/
 func intersectionLineCube(zs Intersections, l0, l1, p0, p1, p2, p3 Point) Intersections {
+	if l0.Equals(l1) {
+		return zs // zero-length Close
+	}
+
 	// write line as A.X = bias
 	A := Point{l1.Y - l0.Y, l0.X - l1.X}
 	bias := l0.Dot(A)
@@ -1247,6 +1255,10 @@ func addLineArcIntersection(zs Intersections, pos Point, dira, dirb, t, t0, t1, 
 
 // https://www.geometrictools.com/GTE/Mathematics/IntrLine2Circle2.h
 func intersectionLineCircle(zs Intersections, l0, l1, center Point, radius, theta0, theta1 float64) Intersections {
+	if l0.Equals(l1) {
+		return zs // zero-length Close
+	}
+
 	// solve l0 + t*(l1-l0) = P + t*D = X  (line equation)
 	// and |X - center| = |X - C| = R = radius  (circle equation)
 	// by substitution and squaring: |P + t*D - C|^2 = R^2
@@ -1310,6 +1322,8 @@ func intersectionLineCircle(zs Intersections, l0, l1, center Point, radius, thet
 func intersectionLineEllipse(zs Intersections, l0, l1, center, radius Point, phi, theta0, theta1 float64) Intersections {
 	if Equal(radius.X, radius.Y) {
 		return intersectionLineCircle(zs, l0, l1, center, radius.X, theta0, theta1)
+	} else if l0.Equals(l1) {
+		return zs // zero-length Close
 	}
 
 	// TODO: needs more testing
