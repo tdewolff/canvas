@@ -79,7 +79,7 @@ func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 floa
 		return cx, cy, theta, theta + delta
 	}
 
-	// compute the half distance betwene for start and end point for the unrotated ellipse
+	// compute the half distance between start and end point for the unrotated ellipse
 	sinphi, cosphi := math.Sincos(phi)
 	x1p := cosphi*(x1-x2)/2.0 + sinphi*(y1-y2)/2.0
 	y1p := -sinphi*(x1-x2)/2.0 + cosphi*(y1-y2)/2.0
@@ -347,6 +347,8 @@ func flattenEllipticArc(start Point, rx, ry, phi float64, large, sweep bool, end
 		// circle
 		r := rx
 		cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
+		theta0 += phi
+		theta1 += phi
 
 		// draw line segments from arc+tolerance to arc+tolerance, touching arc-tolerance in between
 		// we start and end at the arc itself
