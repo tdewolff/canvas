@@ -26,13 +26,13 @@ type Rasterizer struct {
 	colorSpace canvas.ColorSpace
 }
 
-// New returns a renderer that draws to a rasterized image. By default the linear color space is used, which assumes input and output colors are in linearRGB. If the sRGB color space is used for drawing with an average of gamma=2.2, the input and output colors are assumed to be in sRGB (a common assumption) and blending happens in linearRGB. Be aware that for text this results in thin stems for black-on-white (but wide stems for white-on-black).
+// New returns a renderer that draws to a rasterized image. The final width and height of the image is the width and height (mm) multiplied by the resolution (px/mm), thus a higher resolution results in larger images. By default the linear color space is used, which assumes input and output colors are in linearRGB. If the sRGB color space is used for drawing with an average of gamma=2.2, the input and output colors are assumed to be in sRGB (a common assumption) and blending happens in linearRGB. Be aware that for text this results in thin stems for black-on-white (but wide stems for white-on-black).
 func New(width, height float64, resolution canvas.Resolution, colorSpace canvas.ColorSpace) *Rasterizer {
 	img := image.NewRGBA(image.Rect(0, 0, int(width*resolution.DPMM()+0.5), int(height*resolution.DPMM()+0.5)))
 	return FromImage(img, resolution, colorSpace)
 }
 
-// FromImage returns a renderer that draws to an existing image.
+// FromImage returns a renderer that draws to an existing image. A resolution of 1.0 means that canvas coordinates in millimeters are a 1-to-1 relation to pixels. A higher resolution means that a smaller rectangle in the canvas space corresponds to the final rasterized image (eg. a resolution of 2.0 means that 10 mm from the origin becomes the 20th pixel).
 func FromImage(img draw.Image, resolution canvas.Resolution, colorSpace canvas.ColorSpace) *Rasterizer {
 	bounds := img.Bounds()
 	if bounds.Dx() == 0 || bounds.Dy() == 0 {

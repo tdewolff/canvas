@@ -1136,11 +1136,13 @@ func (p *Path) Transform(m Matrix) *Path {
 			end := m.Dot(Point{p.d[i+5], p.d[i+6]})
 
 			// For ellipses written as the conic section equation in matrix form, we have:
-			// (x, y) E (x; y) = 0, with E = (1/rx^2, 0; 0, 1/ry^2)
-			// for our transformed ellipse we have (x', y') = T (x, y), with T the affine transformation matrix
-			// so that (T^-1 (x'; y'))^T E (T^-1 (x'; y') = 0  =>  (x', y') T^(-1,T) E T^(-1) (x'; y') = 0
-			// we define Q = T^(-1,T) E T^(-1) the new ellipse equation which is typically rotated from the x-axis.
-			// That's why we find the eigenvalues and eigenvectors (the new direction and length of the major and minor axes).
+			// [x, y] E [x; y] = 0, with E = [1/rx^2, 0; 0, 1/ry^2]
+			// For our transformed ellipse we have [x', y'] = T [x, y], with T the affine
+			// transformation matrix so that
+			// (T^-1 [x'; y'])^T E (T^-1 [x'; y'] = 0  =>  [x', y'] T^(-T) E T^(-1) [x'; y'] = 0
+			// We define Q = T^(-1,T) E T^(-1) the new ellipse equation which is typically rotated
+			// from the x-axis. That's why we find the eigenvalues and eigenvectors (the new
+			// direction and length of the major and minor axes).
 			T := m.Rotate(phi * 180.0 / math.Pi)
 			invT := T.Inv()
 			Q := Identity.Scale(1.0/rx/rx, 1.0/ry/ry)

@@ -432,7 +432,7 @@ func TestPathTransform(t *testing.T) {
 		{"A10 10 0 0 0 20 0", Identity.Rotate(120).Scale(1, -2), "A20 10 30 0 1 -10 17.3205080757"},
 	}
 	for _, tt := range tts {
-		t.Run(tt.r, func(t *testing.T) {
+		t.Run(tt.p, func(t *testing.T) {
 			test.T(t, MustParseSVGPath(tt.p).Transform(tt.m), MustParseSVGPath(tt.r))
 		})
 	}
