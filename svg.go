@@ -793,7 +793,7 @@ func (svg *svgParser) getFontFace() *FontFace {
 		svg.fonts[svg.state.fontFamily] = fontFamily
 	}
 	fontSize := svg.state.fontSize * 72.0 / 25.4 // pt/mm
-	return fontFamily.Face(fontSize)
+	return fontFamily.Face(fontSize, svg.ctx.Style.Fill.Color)
 }
 
 func (svg *svgParser) drawShape(tag string, attrs map[string]string) {
