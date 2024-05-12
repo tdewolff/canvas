@@ -356,6 +356,9 @@ func (svg *svgParser) parseAttributes(l *xml.Lexer) (xml.TokenType, []string, ma
 			break
 		}
 		val := l.AttrVal()
+		if len(val) < 2 {
+			break
+		}
 		val = val[1 : len(val)-1]
 		attrNames = append(attrNames, string(l.Text()))
 		attrs[string(l.Text())] = string(val)
