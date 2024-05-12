@@ -103,7 +103,6 @@ func (svg *svgParser) init(width, height float64, viewbox [4]float64) {
 	if 0.0 < (viewbox[2]-viewbox[0]) && 0.0 < (viewbox[3]-viewbox[1]) {
 		m := Identity.Scale(width/(viewbox[2]-viewbox[0]), height/(viewbox[3]-viewbox[1])).Translate(-viewbox[0], -viewbox[1])
 		svg.ctx.SetView(m)
-		svg.ctx.SetCoordView(m)
 	}
 	svg.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, svgDefaultState.strokeMiterLimit})
 	svg.state = svgDefaultState
@@ -761,7 +760,8 @@ func (svg *svgParser) setAttribute(key, val string) {
 			miter.Limit = svg.state.strokeMiterLimit
 		}
 	case "transform":
-		svg.ctx.ComposeView(svg.parseTransform(val))
+		m := svg.parseTransform(val)
+		svg.ctx.ComposeView(m)
 	case "text-anchor":
 		svg.state.textAnchor = val
 	case "font-family":
