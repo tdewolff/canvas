@@ -26,17 +26,7 @@ Please issue bug reports or feature requests to help this library mature! All he
 
 ## Recent changes
 
-- `Context` view and coordinate view have been altered. `View` now doesn't affect the coordinate view/system. To achieve the same as before, replace `ctx.SetView(m)` by `ctx.SetView(m); ctx.SetCoordView(m)`. The change makes coordinate systems more intuitive when using in combination with views, the given coordinate reflects the coordinate where it is drawn irrespective of the view.
-- `Flatten()`, `Stroke()`, and `Offset()` now require an additional `tolerance` variable, which used to be set by the `Tolerance` parameter with a default value of `0.01`. To get the original behaviour, use `Flatten(0.01)`, `Stroke(width, capper, joiner, 0.01)`, and `Offset(width, fillRule, 0.01)`.
-- `Interior()` is renamed to `Fills()`
-- `ParseSVG` and `MustParseSVG` are now `ParseSVGPath` and `MustParseSVGPath` to avoid confusion that it parses entire SVGs
-- Instead of `MiterClipJoin(limit)` use `MiterClipJoiner{nil, limit}` or `MiterClipJoin` to use the default limit of `4.0`, same for `ArcsClipJoin`
-- `Path.Segments` has been deprecated, please use `Path.Scanner`
-- `*LocalFont` have been deprecated, please use `*SystemFont`
-- `RichText.SetFaceSpan` has been deprecated
-- `RichText.Add` has been deprecated, please use `RichText.WriteFace`
-- `RichText.Add*` have been deprecated, please use `RichText.Write*`
-- `Path.Complex` has been renamed as `Path.HasSubpaths`
+- <del>`Context` view and coordinate view have been altered. `View` now doesn't affect the coordinate view/system. To achieve the same as before, replace `ctx.SetView(m)` by `ctx.SetView(m); ctx.SetCoordView(m)`. The change makes coordinate systems more intuitive when using in combination with views, the given coordinate reflects the coordinate where it is drawn irrespective of the view.</del> This has been reverted, the coordinate view is first performed to the coordinate, and then the view applies as a affine transformation matrix for all objects (including their coordinates). This less error prone (as evidenced by recents bugs in ParseSVG). If you previously used `ctx.SetCoordView(m); ctx.SetView(m)`, now only the latter is needed. Otherwise, you may need to update your coordinates when using `ctx.SetView(m)`.
 
 ## Features
 

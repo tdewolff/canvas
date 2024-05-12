@@ -264,33 +264,37 @@ func (c *Context) Pop() {
 	c.stack = c.stack[:len(c.stack)-1]
 }
 
-// CoordView returns the current affine transformation matrix through which all operation coordinates will be transformed.
-func (c *Context) CoordView() Matrix {
-	m := Identity
+func (c *Context) coordSystemView() Matrix {
+	// a function since renderer's width/height may change
 	switch c.coordSystem {
 	case CartesianII:
-		m = m.ReflectXAbout(c.Width() / 2.0)
+		return Identity.ReflectXAbout(c.Width() / 2.0)
 	case CartesianIII:
-		m = m.ReflectXAbout(c.Width() / 2.0).ReflectYAbout(c.Height() / 2.0)
+		return Identity.ReflectXAbout(c.Width() / 2.0).ReflectYAbout(c.Height() / 2.0)
 	case CartesianIV:
-		m = m.ReflectYAbout(c.Height() / 2.0)
+		return Identity.ReflectYAbout(c.Height() / 2.0)
 	}
-	return m.Mul(c.coordView)
+	return Identity
 }
 
-// SetCoordView sets the current affine transformation matrix through which all operation coordinates will be transformed. See `Matrix` for how transformations work.
+// SetCoordSystem sets the Cartesian coordinate system.
+func (c *Context) SetCoordSystem(coordSystem CoordSystem) {
+	c.coordSystem = coordSystem
+}
+
+// CoordView returns the current affine transformation matrix for coordinates.
+func (c *Context) CoordView() Matrix {
+	return c.coordView
+}
+
+// SetCoordView sets the current affine transformation matrix for coordinates. Coordinate transformation are applied before View transformations. See `Matrix` for how transformations work.
 func (c *Context) SetCoordView(coordView Matrix) {
 	c.coordView = coordView
 }
 
-// SetCoordRect sets the current affine transformation matrix through which all operation coordinates will be transformed. It will transform coordinates from (0,0)--(width,height) to the target `rect`.
+// SetCoordRect sets the current affine transformation matrix for coordinates. Coordinate transformation are applied before View transformations. It will transform coordinates from (0,0)--(width,height) to the target `rect`.
 func (c *Context) SetCoordRect(rect Rect, width, height float64) {
 	c.coordView = Identity.Translate(rect.X, rect.Y).Scale(rect.W/width, rect.H/height)
-}
-
-// SetCoordSystem sets the current affine transformation matrix through which all operation coordinates will be transformed as a Cartesian coordinate system.
-func (c *Context) SetCoordSystem(coordSystem CoordSystem) {
-	c.coordSystem = coordSystem
 }
 
 // View returns the current affine transformation matrix through which all operations will be transformed.
@@ -542,19 +546,6 @@ func (c *Context) FillStroke() {
 	c.path = &Path{}
 }
 
-func (c *Context) coord(x, y float64) Point {
-	m := Identity
-	switch c.coordSystem {
-	case CartesianII:
-		m = m.ReflectXAbout(c.Width() / 2.0)
-	case CartesianIII:
-		m = m.ReflectXAbout(c.Width() / 2.0).ReflectYAbout(c.Height() / 2.0)
-	case CartesianIV:
-		m = m.ReflectYAbout(c.Height() / 2.0)
-	}
-	return m.Mul(c.coordView).Dot(Point{x, y})
-}
-
 // FitImage fits an image to a rectangle using different fit strategies.
 func (c *Context) FitImage(img image.Image, rect Rect, fit ImageFit) {
 	if img.Bounds().Size().Eq(image.Point{}) || rect.W == 0 || rect.H == 0 {
@@ -601,15 +592,14 @@ func (c *Context) FitImage(img image.Image, rect Rect, fit ImageFit) {
 		// ImageFill
 	}
 
-	coord := c.coord(x, y)
-	m := Identity.Translate(coord.X, coord.Y)
-	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
-		m = m.ReflectY()
-	}
-	if c.coordSystem == CartesianII || c.coordSystem == CartesianIII {
-		m = m.ReflectX()
-	}
-	m = m.Mul(c.view).Scale(1.0/xres, 1.0/yres)
+	// get view
+	coord := c.coordView.Dot(Point{x, y})
+	m := c.coordSystemView().Mul(c.view).Translate(coord.X, coord.Y)
+
+	// set resolution
+	m = m.Scale(1.0/xres, 1.0/yres)
+
+	// set origin of image closest to the image's origin (ie. top-left for CartesianIV)
 	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
 		m = m.ReflectYAbout(float64(img.Bounds().Size().Y) / 2.0)
 	}
@@ -625,38 +615,23 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 		return
 	}
 
-	// apply coordinate view to fill/stroke gradients/patterns
-	m := Identity
+	// TODO: apply coordinate view to fill/stroke gradients/patterns
 	style := c.Style
-	switch c.coordSystem {
-	case CartesianII:
-		m = m.ReflectXAbout(c.Width() / 2.0)
-	case CartesianIII:
-		m = m.ReflectXAbout(c.Width() / 2.0).ReflectYAbout(c.Height() / 2.0)
-	case CartesianIV:
-		m = m.ReflectYAbout(c.Height() / 2.0)
-	}
-	if style.Fill.IsPattern() {
-		style.Fill.Pattern = style.Fill.Pattern.SetView(m)
-	} else if style.Fill.IsGradient() {
-		style.Fill.Gradient = style.Fill.Gradient.SetView(m)
-	}
-	if style.Stroke.IsPattern() {
-		style.Stroke.Pattern = style.Stroke.Pattern.SetView(m)
-	} else if style.Stroke.IsGradient() {
-		style.Stroke.Gradient = style.Stroke.Gradient.SetView(m)
-	}
+	m := c.coordSystemView()
+	//if style.Fill.IsPattern() {
+	//	style.Fill.Pattern = style.Fill.Pattern.SetView(m)
+	//} else if style.Fill.IsGradient() {
+	//	style.Fill.Gradient = style.Fill.Gradient.SetView(m)
+	//}
+	//if style.Stroke.IsPattern() {
+	//	style.Stroke.Pattern = style.Stroke.Pattern.SetView(m)
+	//} else if style.Stroke.IsGradient() {
+	//	style.Stroke.Gradient = style.Stroke.Gradient.SetView(m)
+	//}
 
-	// get view matrix
-	coord := c.coord(x, y)
-	m = Identity.Translate(coord.X, coord.Y)
-	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
-		m = m.ReflectY()
-	}
-	if c.coordSystem == CartesianII || c.coordSystem == CartesianIII {
-		m = m.ReflectX()
-	}
-	m = m.Mul(c.view)
+	// get view
+	coord := c.coordView.Dot(Point{x, y})
+	m = m.Mul(c.view).Translate(coord.X, coord.Y)
 
 	dashes := style.Dashes
 	for _, path := range paths {
@@ -675,15 +650,11 @@ func (c *Context) DrawText(x, y float64, text *Text) {
 		return
 	}
 
-	coord := c.coord(x, y)
-	m := Identity.Translate(coord.X, coord.Y)
-	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
-		m = m.ReflectY()
-	}
-	if c.coordSystem == CartesianII || c.coordSystem == CartesianIII {
-		m = m.ReflectX()
-	}
-	m = m.Mul(c.view)
+	// get view
+	coord := c.coordView.Dot(Point{x, y})
+	m := c.coordSystemView().Mul(c.view).Translate(coord.X, coord.Y)
+
+	// keep textbox origin at the top-left
 	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
 		m = m.ReflectY()
 	}
@@ -699,15 +670,14 @@ func (c *Context) DrawImage(x, y float64, img image.Image, resolution Resolution
 		return
 	}
 
-	coord := c.coord(x, y)
-	m := Identity.Translate(coord.X, coord.Y)
-	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
-		m = m.ReflectY()
-	}
-	if c.coordSystem == CartesianII || c.coordSystem == CartesianIII {
-		m = m.ReflectX()
-	}
-	m = m.Mul(c.view).Scale(1.0/resolution.DPMM(), 1.0/resolution.DPMM())
+	// get view
+	coord := c.coordView.Dot(Point{x, y})
+	m := c.coordSystemView().Mul(c.view).Translate(coord.X, coord.Y)
+
+	// set resolution
+	m = m.Scale(1.0/resolution.DPMM(), 1.0/resolution.DPMM())
+
+	// set origin of image closest to the image's origin (ie. top-left for CartesianIV)
 	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
 		m = m.ReflectYAbout(float64(img.Bounds().Size().Y) / 2.0)
 	}

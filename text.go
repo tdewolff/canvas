@@ -1195,7 +1195,7 @@ func (t *Text) WalkSpans(callback func(float64, float64, TextSpan)) {
 	}
 }
 
-// RenderAsPath renders the text and its decorations converted to paths, calling r.RenderPath.
+// RenderAsPath renders the text and its decorations converted to paths, calling r.RenderPath on the renderer. Note that text lines are drawn downwards starting at the origin, that is along negative Y. The origin is thus the top-left corner of the text box.
 func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
 	t.WalkDecorations(func(paint Paint, p *Path) {
 		style := DefaultStyle

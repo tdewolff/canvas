@@ -49,9 +49,6 @@ func TestCanvas(t *testing.T) {
 	test.Float(t, c.W, 60.0) // img upper bound - (path lower bound - path half stroke width) + margin
 	test.Float(t, c.H, 94.0) // path bounds + path stroke width + margin
 
-	//buf := &bytes.Buffer{}
-	//c.WriteSVG(buf)
-	//ioutil.WriteFile("test/canvas.svg", buf.Bytes(), 0644)
 	//s := regexp.MustCompile(`base64,.+'`).ReplaceAllString(buf.String(), "base64,'") // remove embedded font
 	//test.String(t, s, `<svg version="1.1" width="60" height="93" viewBox="0 0 60 93" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M14 86.5V66.5Q4 56.5 14 46.5C4 46.5 4 26.5 14 26.5A5 10 0 0114 6.5z" style="fill:#f00;stroke:#808080;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:2 3 4;stroke-dashoffset:-1"/><style>`+"\n"+`@font-face{font-family:'dejavu-serif';src:url('data:font/truetype;base64,');}`+"\n"+`</style><text transform="translate(34,86.5) rotate(-90) scale(2,1)" style="font: italic 700 3.5277778px dejavu-serif;fill:#008000"><tspan x="0" y="0">Text</tspan></text><image transform="translate(34,66.5) rotate(-90) scale(20,10)" width="2" height="2" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAGElEQVR4nGJiYGD4z8DAwNAAIgABAAD//wygAYJr2xzBAAAAAElFTkSuQmCC"/></svg>`)
 
