@@ -844,7 +844,18 @@ func (svg *svgParser) drawShape(tag string, attrs map[string]string) {
 		y := svg.parseDimension(attrs["y"], svg.height)
 		width := svg.parseDimension(attrs["width"], svg.width)
 		height := svg.parseDimension(attrs["height"], svg.height)
-		svg.ctx.DrawPath(x, y, Rectangle(width, height))
+		if attrs["rx"] == "" && attrs["ry"] == "" {
+			svg.ctx.DrawPath(x, y, Rectangle(width, height))
+		} else {
+			// TODO: handle both rx and ry
+			var r float64
+			if attrs["ry"] == "" {
+				r = svg.parseDimension(attrs["rx"], svg.width)
+			} else {
+				r = svg.parseDimension(attrs["ry"], svg.height)
+			}
+			svg.ctx.DrawPath(x, y, RoundedRectangle(width, height, r))
+		}
 	case "text":
 		svg.state.textX = svg.parseDimension(attrs["x"], svg.width)
 		svg.state.textY = svg.parseDimension(attrs["y"], svg.height)
