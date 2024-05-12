@@ -368,6 +368,13 @@ func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 			skipNext = r == '\r' && j+1 < len(s) && s[j+1] == '\n'
 		}
 	}
+	for _, line := range t.lines {
+		if 0 < len(line.spans) {
+			last := line.spans[len(line.spans)-1]
+			t.Width = math.Max(t.Width, last.X+last.Width)
+		}
+	}
+	t.Height = y - spacing
 	return t
 }
 
@@ -690,8 +697,6 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		fonts:           map[*Font]bool{},
 		WritingMode:     rt.mode,
 		TextOrientation: rt.orient,
-		Width:           width,
-		Height:          height,
 		Text:            log,
 		Overflows:       overflows,
 	}
@@ -920,6 +925,20 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			t.lines[j].y = height - t.lines[j].y
 		}
 	}
+
+	if width == 0.0 {
+		for _, line := range t.lines {
+			if 0 < len(line.spans) {
+				last := line.spans[len(line.spans)-1]
+				t.Width = math.Max(t.Width, last.X+last.Width)
+			}
+		}
+	}
+	if height == 0.0 {
+		height = y
+	}
+	t.Width = width
+	t.Height = height
 	return t
 }
 
