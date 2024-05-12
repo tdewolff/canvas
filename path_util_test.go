@@ -51,6 +51,9 @@ func TestEllipseToCenter(t *testing.T) {
 		// precision issues
 		{8.2, 18.0, 0.2, 0.2, 0.0, false, true, 7.8, 18.0, 8.0, 18.0, 0.0, math.Pi},
 		{7.8, 18.0, 0.2, 0.2, 0.0, false, true, 8.2, 18.0, 8.0, 18.0, math.Pi, 2.0 * math.Pi},
+
+		// bugs
+		{-1.0 / math.Sqrt(2), 0.0, 1.0, 1.0, 0.0, false, false, 1.0 / math.Sqrt(2.0), 0.0, 0.0, -1.0 / math.Sqrt(2.0), 3.0 / 4.0 * math.Pi, 1.0 / 4.0 * math.Pi},
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("(%g,%g) %g %g %g %v %v (%g,%g)", tt.x1, tt.y1, tt.rx, tt.ry, tt.phi, tt.large, tt.sweep, tt.x2, tt.y2), func(t *testing.T) {

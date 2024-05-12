@@ -1133,7 +1133,7 @@ func (p *Path) Transform(m Matrix) *Path {
 			ry := p.d[i+2]
 			phi := p.d[i+3]
 			large, sweep := toArcFlags(p.d[i+4])
-			end := m.Dot(Point{p.d[i+5], p.d[i+6]})
+			end := Point{p.d[i+5], p.d[i+6]}
 
 			// For ellipses written as the conic section equation in matrix form, we have:
 			// [x, y] E [x; y] = 0, with E = [1/rx^2, 0; 0, 1/ry^2]
@@ -1164,6 +1164,8 @@ func (p *Path) Transform(m Matrix) *Path {
 			if xscale*yscale < 0.0 { // flip x or y axis needs flipping of the sweep
 				sweep = !sweep
 			}
+			end = m.Dot(end)
+
 			p.d[i+1] = rx
 			p.d[i+2] = ry
 			p.d[i+3] = phi

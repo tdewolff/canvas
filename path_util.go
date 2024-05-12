@@ -65,7 +65,7 @@ func ellipseLength(rx, ry, theta1, theta2 float64) float64 {
 func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 float64) (float64, float64, float64, float64) {
 	if Equal(x1, x2) && Equal(y1, y2) {
 		return x1, y1, 0.0, 0.0
-	} else if Equal(y1, y2) && Equal(phi, 0.0) {
+	} else if Equal(math.Abs(x2-x1), rx) && Equal(y1, y2) && Equal(phi, 0.0) {
 		// common case since circles are defined as two arcs from (+dx,0) to (-dx,0) and back
 		cx, cy := x1+(x2-x1)/2.0, y1
 		theta := 0.0
@@ -358,17 +358,22 @@ func flattenEllipticArc(start Point, rx, ry, phi float64, large, sweep bool, end
 		n := math.Ceil((dtheta - thetam*2.0) / (thetat * 2.0))
 
 		// evenly space out points along arc
-		// also adjust distance from arc to lower total deviation area
 		ratio := dtheta / (thetam*2.0 + thetat*2.0*n)
 		thetam *= ratio
 		thetat *= ratio
+
+		// adjust distance from arc to lower total deviation area, add points on the outer circle
+		// of the tolerance since the middle of the line segment touches the inner circle and thus
+		// even out. Ratio < 1 is when the line segments are shorter (and thus not touch the inner
+		// tolerance circle).
+		r += ratio * tolerance
 
 		p := &Path{}
 		p.MoveTo(start.X, start.Y)
 		theta := thetam + thetat
 		for i := 0; i < int(n); i++ {
 			t := theta0 + math.Copysign(theta, theta1-theta0)
-			pos := PolarPoint(t, r+ratio*tolerance).Add(Point{cx, cy})
+			pos := PolarPoint(t, r).Add(Point{cx, cy})
 			p.LineTo(pos.X, pos.Y)
 			theta += 2.0 * thetat
 		}
