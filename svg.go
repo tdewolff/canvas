@@ -792,7 +792,7 @@ func (svg *svgParser) getFontFace() *FontFace {
 		}
 		svg.fonts[svg.state.fontFamily] = fontFamily
 	}
-	fontSize := svg.state.fontSize * 72.0 / 25.4 // pt/mm
+	fontSize := svg.state.fontSize * ptPerMm
 	return fontFamily.Face(fontSize, svg.ctx.Style.Fill.Color)
 }
 
