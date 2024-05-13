@@ -836,14 +836,19 @@ func (c *Canvas) RenderViewTo(r Renderer, view Matrix) {
 // Writer can write a canvas to a writer.
 type Writer func(w io.Writer, c *Canvas) error
 
-// WriteFile writes the canvas to a file named by filename using the given writer.
-func (c *Canvas) WriteFile(filename string, w Writer) error {
+// Write writes the canvas to an io.Writer using the given writer. See renderers/ for an overview of implementations of canvas.Writer.
+func (c *Canvas) Write(w io.Writer, writer Writer) error {
+	return writer(w, c)
+}
+
+// WriteFile writes the canvas to a file using the given writer. See renderers/ for an overview of implementations of canvas.Writer.
+func (c *Canvas) WriteFile(filename string, writer Writer) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
 
-	if err = w(f, c); err != nil {
+	if err = writer(f, c); err != nil {
 		f.Close()
 		return err
 	}
