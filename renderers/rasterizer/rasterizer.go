@@ -179,7 +179,7 @@ func (r *Rasterizer) RenderText(text *canvas.Text, m canvas.Matrix) {
 func (r *Rasterizer) RenderImage(img image.Image, m canvas.Matrix) {
 	// add transparent margin to image for smooth borders when rotating
 	// TODO: optimize when transformation is only translation or stretch (if optimizing, dont overwrite original img when gamma correcting)
-	margin := 4
+	margin := 0 // TODO: margin makes stretched image blurry, how can we make edges smoother after rotation without affecting stretching?
 	size := img.Bounds().Size()
 	sp := img.Bounds().Min // starting point
 	img2 := image.NewRGBA(image.Rect(0, 0, size.X+margin*2, size.Y+margin*2))
