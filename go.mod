@@ -6,12 +6,14 @@ require (
 	fyne.io/fyne/v2 v2.4.1
 	gioui.org v0.3.1
 	github.com/ByteArena/poly2tri-go v0.0.0-20170716161910-d102ad91854f
+	github.com/Kagami/go-avif v0.1.0
 	github.com/benoitkugler/textprocessing v0.0.3
 	github.com/go-fonts/latin-modern v0.3.1
 	github.com/go-gl/gl v0.0.0-20231021071112-07e5d0ea2e71
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20231031225837-d1c54e5847d0
 	github.com/go-text/typesetting v0.0.0-20231013144250-6cc35dbfae7d
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
+	github.com/kolesa-team/go-webp v1.0.4
 	github.com/paulmach/orb v0.10.0
 	github.com/paulmach/osm v0.7.1
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
