@@ -18,13 +18,13 @@ require (
 	github.com/paulmach/osm v0.7.1
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/tdewolff/argp v0.0.0-20240307141015-960de61a6aa8
-	github.com/tdewolff/font v0.0.0-20240417221047-e5855237f87b
+	github.com/tdewolff/font v0.0.0-20240517133251-c96fa5abd1d4
 	github.com/tdewolff/minify/v2 v2.20.5
-	github.com/tdewolff/parse/v2 v2.7.3
+	github.com/tdewolff/parse/v2 v2.7.14
 	github.com/tdewolff/test v1.0.11-0.20240106005702-7de5f7df4739
 	github.com/wcharczuk/go-chart/v2 v2.1.1
-	golang.org/x/image v0.15.0
-	golang.org/x/text v0.14.0
+	golang.org/x/image v0.16.0
+	golang.org/x/text v0.15.0
 	gonum.org/v1/plot v0.14.0
 )
 
