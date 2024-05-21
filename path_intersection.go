@@ -152,6 +152,8 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 	// among path manipulation libraries).
 	// Additionally, this ensures that the path X-monotone (which should be preserved if in the
 	// future we add support for quad/cube intersections).
+	// TODO: can we delay XMonotone until after pathIntersections to avoid processing longer paths?
+	// TODO: can we undo XMonotone at the end so we don't end up with longer paths?
 	quad := func(p0, p1, p2 Point) *Path {
 		return flattenQuadraticBezier(p0, p1, p2, Tolerance)
 	}

@@ -842,12 +842,22 @@ func TestSelfIntersections(t *testing.T) {
 		p  string
 		zs []PathIntersection
 	}{
-		//{"L10 10L10 0L0 10z", Intersections{ {Point{5.0, 5.0}, 1, 3, 0.5, 0.5, 0.25 * math.Pi, 0.75 * math.Pi, BintoA, NoParallel, false},
-		//}},
+		{"L10 10L10 0L0 10z", []PathIntersection{
+			{Point{5.0, 5.0}, 1, 0.5, 0.25 * math.Pi, false, false, false},
+			{Point{5.0, 5.0}, 3, 0.5, 0.75 * math.Pi, true, false, false},
+		}},
 
 		// parallel segment
 		{"L10 0L5 0L15 0", []PathIntersection{
 			{Point{5.0, 0.0}, 1, 0.5, 0.0, false, true, false},
+			{Point{10.0, 0.0}, 3, 0.5, 0.0, false, true, false},
+		}},
+		{"L-5 0A5 5 0 0 1 5 0A5 5 0 0 1 -5 0z", []PathIntersection{
+			{Point{5.0, 0.0}, 1, 0.5, 0.0, false, true, false},
+			{Point{10.0, 0.0}, 3, 0.5, 0.0, false, true, false},
+		}},
+		{"L-5 0A5 5 0 0 1 5 0A5 5 0 0 1 -5 0L0 0L0 1L1 0L0 -1z", []PathIntersection{
+			{Point{0.0, 0.0}, 1, 0.0, math.Pi, false, true, false},
 			{Point{10.0, 0.0}, 3, 0.5, 0.0, false, true, false},
 		}},
 
