@@ -221,9 +221,8 @@ func FindSystemFont(name string, style FontStyle) (string, bool) {
 	if systemFonts.SystemFonts == nil {
 		systemFonts.SystemFonts, _ = font.FindSystemFonts(font.DefaultFontDirs())
 	}
-	systemFonts.Unlock()
-
 	font, ok := systemFonts.Match(name, font.ParseStyleCSS(style.CSS(), style.Italic()))
+	systemFonts.Unlock()
 	return font.Filename, ok
 }
 
