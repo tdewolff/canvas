@@ -128,6 +128,14 @@ const (
 	pdfFilterFlate   pdfFilter = "FlateDecode"
 )
 
+func pdfValContinuesName(val any) bool {
+	switch val.(type) {
+	case string, pdfName, pdfFilter, pdfArray, pdfDict, pdfStream:
+		return false
+	}
+	return true
+}
+
 func (w *pdfWriter) writeVal(i interface{}) {
 	switch v := i.(type) {
 	case bool:
@@ -159,16 +167,20 @@ func (w *pdfWriter) writeVal(i interface{}) {
 		}
 		w.write("]")
 	case pdfDict:
-		w.write("<< ")
+		w.write("<<")
 		if val, ok := v["Type"]; ok {
-			w.write("/Type ")
+			w.write("/Type")
+			if pdfValContinuesName(val) {
+				w.write(" ")
+			}
 			w.writeVal(val)
-			w.write(" ")
 		}
 		if val, ok := v["Subtype"]; ok {
-			w.write("/Subtype ")
+			w.write("/Subtype")
+			if pdfValContinuesName(val) {
+				w.write(" ")
+			}
 			w.writeVal(val)
-			w.write(" ")
 		}
 		keys := []string{}
 		for key := range v {
@@ -179,9 +191,10 @@ func (w *pdfWriter) writeVal(i interface{}) {
 		sort.Strings(keys)
 		for _, key := range keys {
 			w.writeVal(pdfName(key))
-			w.write(" ")
+			if pdfValContinuesName(v[pdfName(key)]) {
+				w.write(" ")
+			}
 			w.writeVal(v[pdfName(key)])
-			w.write(" ")
 		}
 		w.write(">>")
 	case pdfStream:
@@ -219,7 +232,7 @@ func (w *pdfWriter) writeVal(i interface{}) {
 
 		v.dict["Length"] = len(b)
 		w.writeVal(v.dict)
-		w.write(" stream\n")
+		w.write("stream\n")
 		w.writeBytes(b)
 		w.write("\nendstream")
 	default:
@@ -229,9 +242,9 @@ func (w *pdfWriter) writeVal(i interface{}) {
 
 func (w *pdfWriter) writeObject(val interface{}) pdfRef {
 	w.objOffsets = append(w.objOffsets, w.pos)
-	w.write("%v 0 obj\n", len(w.objOffsets))
+	w.write("%v 0 obj", len(w.objOffsets))
 	w.writeVal(val)
-	w.write("\nendobj\n")
+	w.write("endobj\n")
 	return pdfRef(len(w.objOffsets))
 }
 
@@ -517,9 +530,9 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 	}
 
 	w.objOffsets[ref-1] = w.pos
-	w.write("%v 0 obj\n", ref)
+	w.write("%v 0 obj", ref)
 	w.writeVal(dict)
-	w.write("\nendobj\n")
+	w.write("endobj\n")
 }
 
 func (w *pdfWriter) writeFonts(fontMap map[*canvas.Font]pdfRef, vertical bool) {
@@ -556,13 +569,13 @@ func (w *pdfWriter) Close() error {
 
 	// document catalog
 	w.objOffsets[0] = w.pos
-	w.write("%v 0 obj\n", 1)
+	w.write("%v 0 obj", 1)
 	w.writeVal(pdfDict{
 		"Type":  pdfName("Catalog"),
 		"Pages": pdfRef(3),
 		// TODO: add metadata?
 	})
-	w.write("\nendobj\n")
+	w.write("endobj\n")
 
 	// metadata
 	info := pdfDict{
@@ -586,19 +599,19 @@ func (w *pdfWriter) Close() error {
 	}
 
 	w.objOffsets[1] = w.pos
-	w.write("%v 0 obj\n", 2)
+	w.write("%v 0 obj", 2)
 	w.writeVal(info)
-	w.write("\nendobj\n")
+	w.write("endobj\n")
 
 	// page tree
 	w.objOffsets[2] = w.pos
-	w.write("%v 0 obj\n", 3)
+	w.write("%v 0 obj", 3)
 	w.writeVal(pdfDict{
 		"Type":  pdfName("Pages"),
 		"Kids":  pdfArray(kids),
 		"Count": len(kids),
 	})
-	w.write("\nendobj\n")
+	w.write("endobj\n")
 
 	xrefOffset := w.pos
 	w.write("xref\n0 %d\n0000000000 65535 f \n", len(w.objOffsets)+1)
