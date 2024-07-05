@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/zlib"
 	"encoding/ascii85"
-	"encoding/binary"
 	"fmt"
 	"image"
 	"io"
@@ -17,6 +16,7 @@ import (
 	"github.com/tdewolff/canvas"
 	canvasText "github.com/tdewolff/canvas/text"
 	canvasFont "github.com/tdewolff/font"
+	"golang.org/x/text/encoding/charmap"
 )
 
 // TODO: Invalid graphics transparency, Group has a transparency S entry or the S entry is null
@@ -34,6 +34,7 @@ type pdfWriter struct {
 	fontSubset map[*canvas.Font]*canvas.FontSubsetter
 	fontsH     map[*canvas.Font]pdfRef
 	fontsV     map[*canvas.Font]pdfRef
+	fontsStd   map[*canvas.Font]pdfRef
 	compress   bool
 	subset     bool
 	title      string
@@ -50,6 +51,7 @@ func newPDFWriter(writer io.Writer) *pdfWriter {
 		fontSubset: map[*canvas.Font]*canvas.FontSubsetter{},
 		fontsH:     map[*canvas.Font]pdfRef{},
 		fontsV:     map[*canvas.Font]pdfRef{},
+		fontsStd:   map[*canvas.Font]pdfRef{},
 		compress:   true,
 		subset:     true,
 	}
@@ -233,19 +235,79 @@ func (w *pdfWriter) writeObject(val interface{}) pdfRef {
 	return pdfRef(len(w.objOffsets))
 }
 
+func standardFontName(font *canvas.Font) string {
+	switch strings.ToLower(font.Name()) {
+	case "courier":
+		if font.Style() == canvas.FontRegular {
+			return "Courier"
+		} else if font.Style() == canvas.FontBold {
+			return "Courier-Bold"
+		} else if font.Style() == canvas.FontItalic {
+			return "Courier-Oblique"
+		} else if font.Style() == canvas.FontBold|canvas.FontItalic {
+			return "Courier-BoldOblique"
+		}
+	case "dingbats":
+		if font.Style() == canvas.FontRegular {
+			return "ZapfDingbats"
+		}
+	case "helvetica":
+		if font.Style() == canvas.FontRegular {
+			return "Helvetica"
+		} else if font.Style() == canvas.FontBold {
+			return "Helvetica-Bold"
+		} else if font.Style() == canvas.FontItalic {
+			return "Helvetica-Oblique"
+		} else if font.Style() == canvas.FontBold|canvas.FontItalic {
+			return "Helvetica-BoldOblique"
+		}
+	case "symbol":
+		if font.Style() == canvas.FontRegular {
+			return "Symbol"
+		}
+	case "times":
+		if font.Style() == canvas.FontRegular {
+			return "Times-Roman"
+		} else if font.Style() == canvas.FontBold {
+			return "Times-Bold"
+		} else if font.Style() == canvas.FontItalic {
+			return "Times-Italic"
+		} else if font.Style() == canvas.FontBold|canvas.FontItalic {
+			return "Times-BoldItalic"
+		}
+	}
+	return ""
+}
+
 func (w *pdfWriter) getFont(font *canvas.Font, vertical bool) pdfRef {
+	if standardFont := standardFontName(font); standardFont != "" {
+		// handle 14 embedded standard fonts in PDF if name and style matches
+		if ref, ok := w.fontsStd[font]; ok {
+			return ref
+		}
+
+		dict := pdfDict{
+			"Type":     pdfName("Font"),
+			"Subtype":  pdfName("Type1"),
+			"BaseFont": pdfName(standardFont),
+			"Encoding": pdfName("WinAnsiEncoding"),
+		}
+		ref := w.writeObject(dict)
+		w.fontsStd[font] = ref
+		// don't set fontSubset
+		return ref
+	}
+
 	fonts := w.fontsH
 	if vertical {
 		fonts = w.fontsV
 	}
-
 	if ref, ok := fonts[font]; ok {
 		return ref
 	}
 	w.objOffsets = append(w.objOffsets, 0)
 	ref := pdfRef(len(w.objOffsets))
 	fonts[font] = ref
-
 	w.fontSubset[font] = canvas.NewFontSubsetter()
 	return ref
 }
@@ -262,8 +324,9 @@ func (w *pdfWriter) writeFont(ref pdfRef, font *canvas.Font, vertical bool) {
 		}
 		sfntSubset, err := sfnt.Subset(glyphIDs, canvasFont.SubsetOptions{Tables: canvasFont.KeepPDFTables})
 		if err == nil {
-			// TODO: report error?
 			sfnt = sfntSubset
+		} else {
+			fmt.Println("WARNING: font subsetting failed:", err)
 		}
 	}
 	fontProgram := sfnt.Write()
@@ -908,20 +971,61 @@ func (w *pdfPageWriter) WriteText(mode canvas.WritingMode, TJ ...interface{}) {
 			fmt.Fprintf(w, " (")
 		}
 		subset := w.pdf.fontSubset[w.font]
-		for _, glyph := range glyphs {
-			glyphID := subset.Get(glyph.ID)
-			for _, c := range []uint8{uint8((glyphID & 0xff00) >> 8), uint8(glyphID & 0x00ff)} {
+		if subset == nil {
+			for _, glyph := range glyphs {
+				c, ok := charmap.Windows1252.EncodeRune(glyph.Text)
+				if !ok {
+					if '\u2000' <= glyph.Text && glyph.Text <= '\u200A' {
+						c = ' '
+					}
+				}
 				if c == '\n' {
-					binary.Write(w, binary.BigEndian, uint8('\\'))
-					binary.Write(w, binary.BigEndian, uint8('n'))
+					w.WriteByte('\\')
+					w.WriteByte('n')
 				} else if c == '\r' {
-					binary.Write(w, binary.BigEndian, uint8('\\'))
-					binary.Write(w, binary.BigEndian, uint8('r'))
+					w.WriteByte('\\')
+					w.WriteByte('r')
+				} else if c == '\t' {
+					w.WriteByte('\\')
+					w.WriteByte('t')
+				} else if c == '\b' {
+					w.WriteByte('\\')
+					w.WriteByte('b')
+				} else if c == '\f' {
+					w.WriteByte('\\')
+					w.WriteByte('f')
 				} else if c == '\\' || c == '(' || c == ')' {
-					binary.Write(w, binary.BigEndian, uint8('\\'))
-					binary.Write(w, binary.BigEndian, c)
+					w.WriteByte('\\')
+					w.WriteByte(c)
 				} else {
-					binary.Write(w, binary.BigEndian, c)
+					w.WriteByte(c)
+				}
+			}
+		} else {
+			for _, glyph := range glyphs {
+				glyphID := subset.Get(glyph.ID)
+				for _, c := range []uint8{uint8((glyphID & 0xff00) >> 8), uint8(glyphID & 0x00ff)} {
+					if c == '\n' {
+						w.WriteByte('\\')
+						w.WriteByte('n')
+					} else if c == '\r' {
+						w.WriteByte('\\')
+						w.WriteByte('r')
+					} else if c == '\t' {
+						w.WriteByte('\\')
+						w.WriteByte('t')
+					} else if c == '\b' {
+						w.WriteByte('\\')
+						w.WriteByte('b')
+					} else if c == '\f' {
+						w.WriteByte('\\')
+						w.WriteByte('f')
+					} else if c == '\\' || c == '(' || c == ')' {
+						w.WriteByte('\\')
+						w.WriteByte(c)
+					} else {
+						w.WriteByte(c)
+					}
 				}
 			}
 		}
