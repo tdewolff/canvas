@@ -115,7 +115,7 @@ func (RoundJoiner) String() string {
 
 // MiterJoin connects two path elements by extending the ends of the paths as lines until they meet. If this point is further than the limit, this will result in a bevel join (MiterJoin) or they will meet at the limit (MiterClipJoin).
 var MiterJoin Joiner = MiterJoiner{BevelJoin, 4.0}
-var MiterClipJoin Joiner = MiterJoiner{nil, 4.0}
+var MiterClipJoin Joiner = MiterJoiner{nil, 4.0} // TODO: should extend limit*halfwidth before bevel
 
 // MiterJoiner is a miter joiner.
 type MiterJoiner struct {
@@ -129,7 +129,6 @@ func (j MiterJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point
 		BevelJoin.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)
 		return
 	}
-	limit := math.Max(j.Limit, 1.001) // otherwise nearly linear joins will also get clipped
 
 	cw := 0.0 <= n0.Rot90CW().Dot(n1)
 	hw := halfWidth
@@ -137,8 +136,11 @@ func (j MiterJoiner) Join(rhs, lhs *Path, halfWidth float64, pivot, n0, n1 Point
 		hw = -hw // used to calculate |R|, when running CW then n0 and n1 point the other way, so the sign of r0 and r1 is negated
 	}
 
-	theta := n0.AngleBetween(n1) / 2.0
-	d := hw / math.Cos(theta) // half the miter length
+	// note that cos(theta) below refers to sin(theta/2) in the documentation of stroke-miterlimit
+	// in https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/stroke-miterlimit
+	theta := n0.AngleBetween(n1) / 2.0 // half the angle between normals
+	d := hw / math.Cos(theta)          // half the miter length
+	limit := math.Max(j.Limit, 1.001)  // otherwise nearly linear joins will also get clipped
 	clip := !math.IsNaN(limit) && limit*halfWidth < math.Abs(d)
 	if clip && j.GapJoiner != nil {
 		j.GapJoiner.Join(rhs, lhs, halfWidth, pivot, n0, n1, r0, r1)

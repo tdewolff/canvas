@@ -247,8 +247,8 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 				}
 			} else if miter, ok := style.StrokeJoiner.(canvas.MiterJoiner); ok && !math.IsNaN(miter.Limit) {
 				// a miter line join is the default
-				if !canvas.Equal(miter.Limit*2.0/style.StrokeWidth, 4.0) {
-					fmt.Fprintf(b, ";stroke-miterlimit:%v", dec(miter.Limit*2.0/style.StrokeWidth))
+				if !canvas.Equal(miter.Limit, 4.0) {
+					fmt.Fprintf(b, ";stroke-miterlimit:%v", dec(miter.Limit))
 				}
 			} else {
 				panic("SVG: line join not support")
