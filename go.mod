@@ -17,18 +17,19 @@ require (
 	github.com/paulmach/orb v0.10.0
 	github.com/paulmach/osm v0.7.1
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
-	github.com/tdewolff/argp v0.0.0-20240307141015-960de61a6aa8
-	github.com/tdewolff/font v0.0.0-20240517133251-c96fa5abd1d4
+	github.com/tdewolff/argp v0.0.0-20240622014751-a1d21f2fce51
+	github.com/tdewolff/font v0.0.0-20240728193914-9dc6e3441d03
 	github.com/tdewolff/minify/v2 v2.20.5
-	github.com/tdewolff/parse/v2 v2.7.14
+	github.com/tdewolff/parse/v2 v2.7.15
 	github.com/tdewolff/test v1.0.11-0.20240106005702-7de5f7df4739
 	github.com/wcharczuk/go-chart/v2 v2.1.1
-	golang.org/x/image v0.16.0
-	golang.org/x/text v0.15.0
+	golang.org/x/image v0.18.0
+	golang.org/x/text v0.16.0
 	gonum.org/v1/plot v0.14.0
 )
 
 require (
+	filippo.io/edwards25519 v1.1.0 // indirect
 	fyne.io/systray v1.10.1-0.20230722100817-88df1e0ffa9a // indirect
 	gioui.org/shader v1.0.8 // indirect
 	git.sr.ht/~sbinet/gg v0.5.0 // indirect
@@ -45,11 +46,11 @@ require (
 	github.com/go-fonts/liberation v0.3.1 // indirect
 	github.com/go-latex/latex v0.0.0-20230307184459-12ec69307ad9 // indirect
 	github.com/go-pdf/fpdf v0.9.0 // indirect
-	github.com/go-sql-driver/mysql v1.7.1 // indirect
+	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/go-text/render v0.0.0-20230619120952-35bccb6164b8 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
-	github.com/jmoiron/sqlx v1.3.5 // indirect
+	github.com/jmoiron/sqlx v1.4.0 // indirect
 	github.com/jsummers/gobmp v0.0.0-20230614200233-a9de23ed2e25 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
