@@ -541,9 +541,9 @@ func pathIntersections(p, q *Path, withTangents, withParallelTangents bool) ([]P
 					closedP: closedP,
 					closedQ: closedQ,
 				})
-				for i, z := range zs {
-					fmt.Println(z, segsP[i], segsQ[i])
-				}
+				//for i, z := range zs {
+				//	fmt.Println(z, segsP[i], segsQ[i])
+				//}
 
 				// Remove degenerate tangent intersections at segment endpoint:
 				// - Intersection at endpoints for P and Q: 4 degenerate intersections
@@ -618,14 +618,14 @@ func pathIntersections(p, q *Path, withTangents, withParallelTangents bool) ([]P
 						}
 
 						if parallelEnding := z.Aligned() || endQ && zs[i+1].AntiAligned() || !endQ && z.AntiAligned(); parallelEnding {
-							fmt.Println("parallelEnding", n)
+							//fmt.Println("parallelEnding", n)
 							// found end of parallel as it wraps around path end, skip until start
 							continue
 						}
 
 						reversed := endQ && zs[i+n-2].AntiAligned() || !endQ && zs[i+n-1].AntiAligned()
 						parallelStart := zs[i+n-1].Aligned() || reversed
-						fmt.Println("parallelStart", parallelStart)
+						//fmt.Println("parallelStart", parallelStart)
 						if !parallelStart || self {
 							// intersection at segment endpoint of one or both paths
 							// (thetaP0,thetaP1) is the LHS angle range for Q
