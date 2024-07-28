@@ -387,10 +387,11 @@ func (svg *svgParser) parseTag(l *xml.Lexer) *svgTag {
 		} else if tt == xml.StartTagToken {
 			var attrNames []string
 			var attrs map[string]string
+			name := string(data[1:])
 			tt, attrNames, attrs = svg.parseAttributes(l)
 			tag := &svgTag{
 				parent:    parent,
-				name:      string(data[1:]),
+				name:      name,
 				attrNames: attrNames,
 				attrs:     attrs,
 			}
@@ -407,6 +408,19 @@ func (svg *svgParser) parseTag(l *xml.Lexer) *svgTag {
 				}
 			} else {
 				parent = tag
+			}
+
+			// Handle <style> being nested in <defs>. Adobe Illustrator
+			// does this, for example.
+			if name == "style" {
+				tt, data = l.Next()
+				if tt == xml.TextToken {
+					svg.parseStyle(data)
+					tt, data = l.Next()
+				} else {
+					svg.err = parse.NewErrorLexer(svg.z, "Bad style tag")
+				}
+				break
 			}
 		} else if tt == xml.EndTagToken {
 			if parent == nil {
