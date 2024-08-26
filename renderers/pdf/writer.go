@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf16"
 
 	"github.com/tdewolff/canvas"
 	canvasText "github.com/tdewolff/canvas/text"
@@ -582,20 +583,44 @@ func (w *pdfWriter) Close() error {
 		"Producer":     "tdewolff/canvas",
 		"CreationDate": time.Now().Format("D:20060102150405Z0700"),
 	}
+
+	encode := func(s string) string {
+		// TODO: make clean
+		ascii := true
+		for _, r := range s {
+			if 0x80 <= r {
+				ascii = false
+				break
+			}
+		}
+		if ascii {
+			return s
+		}
+
+		rs := utf16.Encode([]rune(s))
+		b := make([]byte, 2+2*len(rs))
+		b[0] = 254
+		b[1] = 255
+		for i, r := range rs {
+			b[2+2*i+0] = byte(r >> 8)
+			b[2+2*i+1] = byte(r & 0x00FF)
+		}
+		return string(b)
+	}
 	if w.title != "" {
-		info["Title"] = w.title
+		info["Title"] = encode(w.title)
 	}
 	if w.subject != "" {
-		info["Subject"] = w.subject
+		info["Subject"] = encode(w.subject)
 	}
 	if w.keywords != "" {
-		info["Keywords"] = w.keywords
+		info["Keywords"] = encode(w.keywords)
 	}
 	if w.author != "" {
-		info["Author"] = w.author
+		info["Author"] = encode(w.author)
 	}
 	if w.creator != "" {
-		info["Creator"] = w.creator
+		info["Creator"] = encode(w.creator)
 	}
 
 	w.objOffsets[1] = w.pos
