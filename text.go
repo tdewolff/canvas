@@ -488,7 +488,7 @@ func (rt *RichText) WriteFace(face *FontFace, text string) {
 // WriteCanvas writes an inline canvas object.
 func (rt *RichText) WriteCanvas(c *Canvas, valign VerticalAlign) {
 	width, height := c.Size()
-	rt.WriteRune('\uFFFC') // object replacement character
+	rt.WriteRune(text.ObjectRune) // replaced by object
 	rt.objects = append(rt.objects, TextSpanObject{
 		Canvas: c,
 		Width:  width,
@@ -571,7 +571,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	embeddingLevels := text.EmbeddingLevels(logRunes)
 
 	// itemize string by font face and script
-	// this also splits on embedding level boundaries and runs of U+FFFC (object replacement)
+	// this also splits on embedding level boundaries and runs of ObjectRune (replaced by object)
 	i := 0       // index into logRunes
 	curFace := 0 // index into rt.faces
 	runs := []textRun{}
@@ -608,7 +608,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			glyphRun[i].Size = run.Face.Size
 			glyphRun[i].Script = run.Script
 			glyphRun[i].Cluster += clusterOffset
-			if glyph.Text == '\uFFFC' {
+			if glyph.Text == text.ObjectRune {
 				// path/image objects
 				obj := rt.objects[objectOffset]
 				ppem := float64(run.Face.Font.SFNT.Head.UnitsPerEm)
@@ -806,7 +806,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 				var w float64
 				var objects []TextSpanObject
-				if glyphs[a].Text == '\uFFFC' {
+				if glyphs[a].Text == text.ObjectRune {
 					// path/image objects
 					n := b - a
 					objects = make([]TextSpanObject, n)

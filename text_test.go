@@ -127,6 +127,10 @@ func TestRichText(t *testing.T) {
 	//rt.WriteString("\u200bmm")
 	//text = rt.ToText(20.0, 50.0, Left, Top, 0.0, 0.0) // wrap at space
 	//test.T(t, len(text.lines), 1)
+
+	rt = NewRichText(face)
+	rt.WriteString("\uFFFC")
+	rt.ToText(10.0, 10.0, Left, Top, 0.0, 0.0)
 }
 
 func TestRichText2(t *testing.T) {
