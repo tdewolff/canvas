@@ -264,7 +264,7 @@ func (c *Context) Pop() {
 	c.stack = c.stack[:len(c.stack)-1]
 }
 
-func (c *Context) coordSystemView() Matrix {
+func (c *Context) CoordSystemView() Matrix {
 	// a function since renderer's width/height may change
 	switch c.coordSystem {
 	case CartesianII:
@@ -594,7 +594,7 @@ func (c *Context) FitImage(img image.Image, rect Rect, fit ImageFit) {
 
 	// get view
 	coord := c.coordView.Dot(Point{x, y})
-	m := c.coordSystemView().Mul(c.view).Translate(coord.X, coord.Y)
+	m := c.CoordSystemView().Mul(c.view).Translate(coord.X, coord.Y)
 
 	// set resolution
 	m = m.Scale(1.0/xres, 1.0/yres)
@@ -617,7 +617,7 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 
 	// TODO: apply coordinate view to fill/stroke gradients/patterns
 	style := c.Style
-	m := c.coordSystemView()
+	m := c.CoordSystemView()
 	//if style.Fill.IsPattern() {
 	//	style.Fill.Pattern = style.Fill.Pattern.SetView(m)
 	//} else if style.Fill.IsGradient() {
@@ -652,7 +652,7 @@ func (c *Context) DrawText(x, y float64, text *Text) {
 
 	// get view
 	coord := c.coordView.Dot(Point{x, y})
-	m := c.coordSystemView().Mul(c.view).Translate(coord.X, coord.Y)
+	m := c.CoordSystemView().Mul(c.view).Translate(coord.X, coord.Y)
 
 	// keep textbox origin at the top-left
 	if c.coordSystem == CartesianIII || c.coordSystem == CartesianIV {
@@ -672,7 +672,7 @@ func (c *Context) DrawImage(x, y float64, img image.Image, resolution Resolution
 
 	// get view
 	coord := c.coordView.Dot(Point{x, y})
-	m := c.coordSystemView().Mul(c.view).Translate(coord.X, coord.Y)
+	m := c.CoordSystemView().Mul(c.view).Translate(coord.X, coord.Y)
 
 	// set resolution
 	m = m.Scale(1.0/resolution.DPMM(), 1.0/resolution.DPMM())
