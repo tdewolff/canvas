@@ -6,6 +6,7 @@ import (
 	"encoding/ascii85"
 	"fmt"
 	"image"
+	"image/jpeg"
 	"io"
 	"math"
 	"reflect"
@@ -36,6 +37,7 @@ type pdfWriter struct {
 	fontsH     map[*canvas.Font]pdfRef
 	fontsV     map[*canvas.Font]pdfRef
 	fontsStd   map[*canvas.Font]pdfRef
+	images     map[image.Image]pdfRef
 	compress   bool
 	subset     bool
 	title      string
@@ -53,6 +55,7 @@ func newPDFWriter(writer io.Writer) *pdfWriter {
 		fontsH:     map[*canvas.Font]pdfRef{},
 		fontsV:     map[*canvas.Font]pdfRef{},
 		fontsStd:   map[*canvas.Font]pdfRef{},
+		images:     map[image.Image]pdfRef{},
 		compress:   true,
 		subset:     true,
 	}
@@ -127,6 +130,7 @@ type pdfStream struct {
 const (
 	pdfFilterASCII85 pdfFilter = "ASCII85Decode"
 	pdfFilterFlate   pdfFilter = "FlateDecode"
+	pdfFilterDCT     pdfFilter = "DCTDecode"
 )
 
 func pdfValContinuesName(val any) bool {
@@ -223,12 +227,15 @@ func (w *pdfWriter) writeVal(i interface{}) {
 				w.Write(b)
 				w.Close()
 				fmt.Fprintf(&b2, "~>")
+				b = b2.Bytes()
 			case pdfFilterFlate:
 				w := zlib.NewWriter(&b2)
 				w.Write(b)
 				w.Close()
+				b = b2.Bytes()
+			default:
+				// assume already in the right format
 			}
-			b = b2.Bytes()
 		}
 
 		v.dict["Length"] = len(b)
@@ -1149,30 +1156,66 @@ func (w *pdfPageWriter) DrawImage(img image.Image, enc canvas.ImageEncoding, m c
 	fmt.Fprintf(w, " q %v %v %v %v re W n", dec(outerRect.X), dec(outerRect.Y), dec(outerRect.W), dec(outerRect.H))
 	fmt.Fprintf(w, " %v %v m %v %v l %v %v l %v %v l h W n", dec(bl.X), dec(bl.Y), dec(tl.X), dec(tl.Y), dec(tr.X), dec(tr.Y), dec(br.X), dec(br.Y))
 
-	name := w.embedImage(img, enc)
+	ref := w.embedImage(img, enc)
+	if _, ok := w.resources["XObject"]; !ok {
+		w.resources["XObject"] = pdfDict{}
+	}
+	name := pdfName(fmt.Sprintf("Im%d", len(w.resources["XObject"].(pdfDict))))
+	w.resources["XObject"].(pdfDict)[name] = ref
+
 	m = m.Scale(float64(size.X), float64(size.Y))
 	w.SetAlpha(1.0)
 	fmt.Fprintf(w, " %v %v %v %v %v %v cm /%v Do Q", dec(m[0][0]), dec(m[1][0]), dec(m[0][1]), dec(m[1][1]), dec(m[0][2]), dec(m[1][2]), name)
 }
 
-func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pdfName {
+func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pdfRef {
+	if ref, ok := w.pdf.images[img]; ok {
+		return ref
+	}
+
+	var filter pdfFilter
+	var stream []byte
+	var streamMask []byte
+	var hasMask bool
+
 	size := img.Bounds().Size()
-	sp := img.Bounds().Min // starting point
-	b := make([]byte, size.X*size.Y*3)
-	bMask := make([]byte, size.X*size.Y)
-	hasMask := false
-	for y := 0; y < size.Y; y++ {
-		for x := 0; x < size.X; x++ {
-			i := (y*size.X + x) * 3
-			R, G, B, A := img.At(sp.X+x, sp.Y+y).RGBA()
-			if A != 0 {
-				b[i+0] = byte((R * 65535 / A) >> 8)
-				b[i+1] = byte((G * 65535 / A) >> 8)
-				b[i+2] = byte((B * 65535 / A) >> 8)
-				bMask[y*size.X+x] = byte(A >> 8)
+	if enc == canvas.Lossy {
+		filter = pdfFilterDCT
+		sp := img.Bounds().Min // starting point
+		streamMask = make([]byte, size.X*size.Y)
+		for y := 0; y < size.Y; y++ {
+			for x := 0; x < size.X; x++ {
+				_, _, _, A := img.At(sp.X+x, sp.Y+y).RGBA()
+				if A != 0 {
+					streamMask[y*size.X+x] = byte(A >> 8)
+				}
+				if A>>8 != 255 {
+					hasMask = true
+				}
 			}
-			if A>>8 != 255 {
-				hasMask = true
+		}
+
+		var buf bytes.Buffer
+		_ = jpeg.Encode(&buf, img, nil)
+		stream = buf.Bytes()
+	} else {
+		filter = pdfFilterFlate
+		sp := img.Bounds().Min // starting point
+		stream = make([]byte, size.X*size.Y*3)
+		streamMask = make([]byte, size.X*size.Y)
+		for y := 0; y < size.Y; y++ {
+			for x := 0; x < size.X; x++ {
+				i := (y*size.X + x) * 3
+				R, G, B, A := img.At(sp.X+x, sp.Y+y).RGBA()
+				if A != 0 {
+					stream[i+0] = byte((R * 65535 / A) >> 8)
+					stream[i+1] = byte((G * 65535 / A) >> 8)
+					stream[i+2] = byte((B * 65535 / A) >> 8)
+					streamMask[y*size.X+x] = byte(A >> 8)
+				}
+				if A>>8 != 255 {
+					hasMask = true
+				}
 			}
 		}
 	}
@@ -1185,7 +1228,7 @@ func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pd
 		"ColorSpace":       pdfName("DeviceRGB"),
 		"BitsPerComponent": 8,
 		"Interpolate":      true,
-		"Filter":           pdfFilterFlate,
+		"Filter":           filter,
 	}
 
 	if hasMask {
@@ -1200,22 +1243,16 @@ func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pd
 				"Interpolate":      true,
 				"Filter":           pdfFilterFlate,
 			},
-			stream: bMask,
+			stream: streamMask,
 		})
 	}
 
-	// TODO: (PDF) implement JPXFilter for lossy image compression
 	ref := w.pdf.writeObject(pdfStream{
 		dict:   dict,
-		stream: b,
+		stream: stream,
 	})
-
-	if _, ok := w.resources["XObject"]; !ok {
-		w.resources["XObject"] = pdfDict{}
-	}
-	name := pdfName(fmt.Sprintf("Im%d", len(w.resources["XObject"].(pdfDict))))
-	w.resources["XObject"].(pdfDict)[name] = ref
-	return name
+	w.pdf.images[img] = ref
+	return ref
 }
 
 func (w *pdfPageWriter) getOpacityGS(a float64) pdfName {
