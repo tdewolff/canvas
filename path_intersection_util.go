@@ -754,14 +754,12 @@ type intersectionPathSort struct {
 	closedP, closedQ bool
 }
 
-func (a intersectionPathSort) pos(seg int, t float64, length int, closed bool) float64 {
-	if Equal(t, 1.0) {
-		if closed && seg == length-1 {
-			seg = 0 // intersection at path's end into first segment (MoveTo)
-		}
-		return float64(seg) + t - 0.5*Epsilon
+func (a intersectionPathSort) pos(seg int, t float64, length int, closed bool) (float64, bool) {
+	end := Equal(t, 1.0)
+	if end && closed && seg == length-1 {
+		seg = 0 // intersection at path's end into first segment (MoveTo)
 	}
-	return float64(seg) + t
+	return float64(seg) + t, end
 }
 
 func (a intersectionPathSort) Len() int {
@@ -779,12 +777,26 @@ func (a intersectionPathSort) Less(i, j int) bool {
 	// - P may have multiple intersection, sort by P
 	// - Q may intersect P twice in the same point, when at end points this will generate 4-degenerate intersections twice. We want them to be sorted per intersection on Q (thus sort by Q)
 	// - Intersections at endpoints for P and Q will generate 4-degenerate intersections, to sort in order we subtract 0.5*Epsilon when at the end (T=1). Wrap intersection at the path's end to the start
-	posPi := a.pos(a.segsP[i], a.zs[i].T[0], a.lenP, a.closedP)
-	posPj := a.pos(a.segsP[j], a.zs[j].T[0], a.lenP, a.closedP)
+	posPi, endPi := a.pos(a.segsP[i], a.zs[i].T[0], a.lenP, a.closedP)
+	posPj, endPj := a.pos(a.segsP[j], a.zs[j].T[0], a.lenP, a.closedP)
 	if Equal(posPi, posPj) { // equality holds within +-Epsilon
-		posQi := a.pos(a.segsQ[i], a.zs[i].T[1], a.lenQ, a.closedQ)
-		posQj := a.pos(a.segsQ[j], a.zs[j].T[1], a.lenQ, a.closedQ)
-		return posPi+posQi/float64(a.lenQ) < posPj+posQj/float64(a.lenQ)
+		if endPi && !endPj {
+			return true
+		} else if !endPi && endPj {
+			return false
+		}
+
+		posQi, endQi := a.pos(a.segsQ[i], a.zs[i].T[1], a.lenQ, a.closedQ)
+		posQj, endQj := a.pos(a.segsQ[j], a.zs[j].T[1], a.lenQ, a.closedQ)
+		if Equal(posQi, posQj) {
+			if endQi && !endQj {
+				return true
+			} else if !endQi && endQj {
+				return false
+			}
+			return false
+		}
+		return posQi < posQj
 	}
 	return posPi < posPj
 }
