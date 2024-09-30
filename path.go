@@ -748,6 +748,12 @@ func (p *Path) Fills(x, y float64, fillRule FillRule) bool {
 
 // InteriorPoint returns a point on the interior of the path. The path should be a non-complex non-self-intersecting path (i.e. settled with no subpaths). It uses the first subpath if there are multiple and returns the start position on open paths.
 func (p *Path) InteriorPoint() Point {
+	if p.Empty() {
+		if len(p.d) == 0 {
+			return Point{}
+		}
+		return p.StartPos()
+	}
 	p = p.Split()[0]
 	if !p.Closed() {
 		return p.StartPos()
@@ -758,6 +764,10 @@ func (p *Path) InteriorPoint() Point {
 	bounds := p.Bounds()
 	pos := Point{bounds.X, bounds.Y + bounds.H/2.0}
 	zs := p.RayIntersections(pos.X, pos.Y)
+	if len(zs) < 2 {
+		// may happen for malformed path, such as a closed path with only Mz, or colinear MLz
+		return p.StartPos()
+	}
 
 	i := 0
 	if Equal(zs[i].T, 0.0) || Equal(zs[i].T, 1.0) {

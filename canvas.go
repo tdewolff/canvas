@@ -767,7 +767,7 @@ func (c *Canvas) Transform(m Matrix) {
 	}
 }
 
-// Clip sets the canvas are to the given rectangle.
+// Clip sets the canvas to the given rectangle.
 func (c *Canvas) Clip(rect Rect) {
 	c.Transform(Identity.Translate(-rect.X, -rect.Y))
 	c.W = rect.W
