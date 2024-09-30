@@ -91,6 +91,11 @@ type Path struct {
 	// TODO: optimization: cache bounds and path len until changes (clearCache()), set bounds directly for predefined shapes
 }
 
+// NewPathFromData returns a new path using the raw data.
+func NewPathFromData(d []float64) *Path {
+	return &Path{d}
+}
+
 // Data returns the raw path data.
 func (p *Path) Data() []float64 {
 	return p.d
