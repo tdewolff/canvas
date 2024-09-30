@@ -175,9 +175,6 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 	//for i, z := range zp {
 	//	fmt.Println(i, z)
 	//}
-	//for i := range zp {
-	//	fmt.Println(i, zp[i])
-	//}
 
 	// sort zq and keep indices between pseudo-vertices
 	pair := make([]int, len(zp))
@@ -254,8 +251,8 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 			}
 			j1++
 		}
-		hasIntersections := j0 != j1
 
+		hasIntersections := j0 != j1
 		if !hasIntersections {
 			// use unflattened path when subpath has no intersections, but make sure it is XMonotone
 			pi = psOrig[i].XMonotone()
@@ -465,6 +462,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		return &Path{}
 	}
 
+	// TODO: if commented may result in infinite loops
 	// remove self-intersections within each path and make filling paths CCW
 	p = p.Settle(NonZero) // TODO: where to get fillrule from?
 	q = q.Settle(NonZero)

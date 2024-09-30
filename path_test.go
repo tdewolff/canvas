@@ -271,7 +271,7 @@ func TestPathInteriorPoint(t *testing.T) {
 		{"", Point{}},
 		{"M0 5", Point{0.0, 5.0}},
 		{"M0 5z", Point{}},
-		{"M0 -0.05L1.05 -0.05z", Point{}},
+		{"M0 -0.05L1.05 -0.05z", Point{0.525, -0.05}},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p), func(t *testing.T) {

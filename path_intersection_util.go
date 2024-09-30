@@ -599,39 +599,27 @@ func pathIntersections(p, q *Path, withTangents, withParallelTangents bool) ([]P
 						} else if endpointP || endpointQ {
 							n = 2
 						}
-						if len(zs) < i+n {
-							// TODO: remove
-							if self {
-								fmt.Printf("Path: len=%d data=%v\n", p.Len(), p)
-							} else {
-								fmt.Printf("Path P: len=%d data=%v\n", p.Len(), p)
-								fmt.Printf("Path Q: len=%d data=%v\n", q.Len(), q)
-							}
-							for i, z := range zs {
-								fmt.Printf("Intersection %d: seg=(%d,%d) t=(%v,%v) pos=(%v,%v) dir=(%v°,%v°)", i, segsP[i], segsQ[i], numEps(z.T[0]), numEps(z.T[1]), numEps(z.X), numEps(z.Y), numEps(z.Dir[0]*180.0/math.Pi), numEps(z.Dir[1]*180.0/math.Pi))
-								if z.Tangent {
-									fmt.Printf(" tangent")
-								}
-								fmt.Printf("\n")
-							}
-							panic("Bug found in path intersection code, please report on GitHub at https://github.com/tdewolff/canvas/issues with the path or paths that caused this panic.")
-						}
 
-						if parallelEnding := z.Aligned() || endQ && zs[i+1].AntiAligned() || !endQ && z.AntiAligned(); parallelEnding {
-							//fmt.Println("parallelEnding", n)
+						if parallelEnding := z.Aligned() || endQ && zs[i+1].AntiAligned() || !endQ && z.AntiAligned() || self && startP; parallelEnding {
 							// found end of parallel as it wraps around path end, skip until start
+							if self && startP {
+								n /= 2
+							}
 							continue
 						}
 
-						reversed := endQ && zs[i+n-2].AntiAligned() || !endQ && zs[i+n-1].AntiAligned()
-						parallelStart := zs[i+n-1].Aligned() || reversed
-						//fmt.Println("parallelStart", parallelStart)
+						reversedParallel := endQ && zs[(i+n-2)%len(zs)].AntiAligned() || !endQ && zs[(i+n-1)%len(zs)].AntiAligned()
+						parallelStart := zs[(i+n-1)%len(zs)].Aligned() || reversedParallel
 						if !parallelStart || self {
 							// intersection at segment endpoint of one or both paths
-							// (thetaP0,thetaP1) is the LHS angle range for Q
+							// (angleQi,angleQo) is the LHS angle range for Q
 							// PintoQ is the incoming and outgoing direction of P into LHS of Q
-							j := i + n - 1
+							j := (i + n - 1) % len(zs)
 							zi, zo := z, zs[j]
+							if self && j == 1 {
+								// wrap over path end, swap P and Q
+								zi = zs[i+1]
+							}
 							angleQo := zo.Dir[1]
 							angleQi := angleQo + angleNorm(zi.Dir[1]+math.Pi-angleQo)
 							PinQi := angleBetweenExclusive(zi.Dir[0]+math.Pi, angleQo, angleQi)
@@ -704,7 +692,7 @@ func pathIntersections(p, q *Path, withTangents, withParallelTangents bool) ([]P
 									Into:    (withParallelTangents || !tangent) && PinQo,
 									Tangent: tangent,
 								})
-								if !reversed {
+								if !reversedParallel {
 									zq = append(zq, PathIntersection{
 										Point:    zi.Point,
 										Seg:      offsetQ + segsQ[ji],
