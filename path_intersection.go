@@ -11,7 +11,7 @@ Paths are cut at the intersections between P and Q. The intersections are put in
 
 Functions:
  - LineLine, LineQuad, LineCube, LineEllipse: find intersections between segments (line is A, the other is B) and record coordinate, position along segment A and B in the range of [0,1], direction of segment A and B at intersection, and whether the intersection is secant (crossing) or tangent (touching).
- - appendSegment, rayIntersections, selfCollisions, collisions: find intersections between paths and record segment index, and for collisions also record kind (AintoB or BintoA), parallel (No-/A-/B-/ABParallel).
+ - appendSegment, rayIntersections, selfCollisions, collisions: find intersections between paths and record segment index, and for collisions also record kind (AintoB or BintoA), overlapping (No-/A-/B-/ABOverlapping).
  - cutPathSegment: cut segment at position [0,1]
  - intersectionNodes: cut path at the intersections and connect as two doubly-linked lists, one along path A and one along path B, recording the path from one node to the other. Handles parallel parts as well.
  - cut: cut path at the intersections
@@ -480,8 +480,8 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 		q = q.Append(qs[i])
 	}
 
-	// find all intersections (incl. parallel-tangent but not point-tangent) between p and q
-	zp, zq := pathIntersections(p, q, false, true)
+	// find all intersections (incl. overlapping-tangent but not point-tangent) between p and q
+	zp, zq := pathIntersections(p, q, false, false) //true)
 
 	// split open subpaths from p
 	j := 0      // index into zp
@@ -660,16 +660,16 @@ func booleanIntersections(op pathOp, zs []PathIntersectionNode) *Path {
 			}
 
 			// don't start on parallel tangent intersection (ie. not crossing)
-			parallelTangent := z0.ParallelTangent(onP, forwardP, forwardQ)
-			if parallelTangent {
+			overlappingTangent := z0.OverlappingTangent(onP, forwardP, forwardQ)
+			if overlappingTangent {
 				continue
 			}
 
 			for z := &z0; ; {
 				visited[z.i][k] = true
-				if z.i != z0.i && z.x != nil && (forwardP == forwardQ) != z.ParallelReversed {
-					// parallel lines for crossing intersections
-					// only show when not changing forwardness, or when parallel in reverse order
+				if z.i != z0.i && z.x != nil && (forwardP == forwardQ) != z.Backwards {
+					// overlapping paths for crossing intersections
+					// only show when not changing forwardness, or when overlapping backwards
 					if forwardP {
 						r = r.Join(z.x)
 					} else {
@@ -699,14 +699,22 @@ func booleanIntersections(op pathOp, zs []PathIntersectionNode) *Path {
 					break
 				}
 				onP = !onP
-				if parallelTangent {
+				if overlappingTangent {
 					// no-op
 				} else if onP {
 					forwardP = invertP[k] == z.PintoQ
 				} else {
 					forwardQ = invertQ[k] == z.PintoQ
 				}
-				parallelTangent = z.ParallelTangent(onP, forwardP, forwardQ)
+				overlappingTangent = z.OverlappingTangent(onP, forwardP, forwardQ)
+			}
+			if z0.x != nil && (forwardP == forwardQ) != z0.Backwards {
+				// TODO: test
+				if forwardP {
+					r = r.Join(z0.x)
+				} else {
+					r = r.Join(z0.x.Reverse())
+				}
 			}
 			r.Close()
 			r.optimizeClose()
