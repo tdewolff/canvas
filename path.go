@@ -666,7 +666,7 @@ func windings(zs []PathIntersection) (int, bool) {
 		if Equal(z.T, 0.0) || Equal(z.T, 1.0) {
 			d /= 2.0 // count half to not count twice
 		}
-		if !z.Parallel {
+		if !z.Overlapping {
 			if z.Into {
 				d = -d // path goes downwards
 			}
@@ -714,7 +714,7 @@ func (p *Path) Crossings(x, y float64) (int, bool) {
 		for _, z := range pi.RayIntersections(x, y) {
 			if z.Tangent {
 				boundary = true
-			} else if !z.Parallel {
+			} else if !z.Overlapping {
 				if Equal(z.T, 0.0) || Equal(z.T, 1.0) {
 					ni += 0.5
 				} else {
@@ -771,9 +771,9 @@ func (p *Path) InteriorPoint() Point {
 
 	i := 0
 	if Equal(zs[i].T, 0.0) || Equal(zs[i].T, 1.0) {
-		if zs[i].Parallel || zs[i+1].Parallel {
+		if zs[i].Overlapping || zs[i+1].Overlapping {
 			i += 3
-			for i+1 < len(zs) && zs[i-1].Parallel && zs[i].Parallel {
+			for i+1 < len(zs) && zs[i-1].Overlapping && zs[i].Overlapping {
 				i += 2
 			}
 		} else {

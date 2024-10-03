@@ -122,8 +122,6 @@ type nodeItem struct {
 // Settle simplifies a path by removing all self-intersections and overlapping parts. Open paths are not handled and returned as-is. The returned subpaths are oriented counter clock-wise when filled and clock-wise for holes. This means that the result is agnostic to the winding rule used for drawing. The result will only contain point-tangent intersections, but not parallel-tangent intersections or regular intersections.
 // See L. Subramaniam, "Partition of a non-simple polygon into simple pologons", 2003
 func (p *Path) Settle(fillRule FillRule) *Path {
-	// TODO: handle tangent intersections, which should divide into inner/disjoint rings
-	// TODO: handle and remove parallel parts
 	// TODO: for EvenOdd, output filled polygons only, not fill-rings and hole-rings
 	if p.Empty() {
 		return p
@@ -169,6 +167,8 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 	p = p.replace(nil, quad, cube, arc)
 
 	// zp is an list of even length where each ith intersections is a pseudo-vertex of the ith+len/2
+	// TODO: handle tangent intersections, which should divide into inner/disjoint rings
+	// TODO: handle and remove parallel parts
 	zp, zq := pathIntersections(p, nil, false, false)
 	psOrig := ps
 	ps = p.Split()
@@ -536,7 +536,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 				}
 				for k := 1; k < len(pss); k++ {
 					inside := zp[j+k-1].Into
-					if !zp[j+k-1].Parallel && (op == pathOpOr || inside && op == pathOpAnd || !inside && (op == pathOpXor || op == pathOpNot)) {
+					if !zp[j+k-1].Overlapping && (op == pathOpOr || inside && op == pathOpAnd || !inside && (op == pathOpXor || op == pathOpNot)) {
 						Ropen = Ropen.Append(pss[k])
 					}
 				}
@@ -748,7 +748,7 @@ func (p *Path) Collisions(q *Path) ([]PathIntersection, []PathIntersection) {
 	if !p.Flat() {
 		q = q.Flatten(Tolerance)
 	}
-	return pathIntersections(p, q, true, false)
+	return pathIntersections(p, q, true, true)
 }
 
 // SelfIntersects returns true if path p self-intersect.
@@ -817,13 +817,13 @@ func (p *Path) RayIntersections(x, y float64) []PathIntersection {
 		}
 		for _, z := range zs {
 			Z := PathIntersection{
-				Point:    z.Point,
-				Seg:      seg,
-				T:        z.T[1],
-				Dir:      z.Dir[1],
-				Tangent:  Equal(z.T[0], 0.0),
-				Parallel: z.Aligned() || z.AntiAligned(),
-				Into:     z.Into(),
+				Point:       z.Point,
+				Seg:         seg,
+				T:           z.T[1],
+				Dir:         z.Dir[1],
+				Tangent:     Equal(z.T[0], 0.0),
+				Into:        z.Into(),
+				Overlapping: z.Aligned() || z.AntiAligned(),
 			}
 
 			if cmd == CloseCmd && Equal(z.T[1], 1.0) {
