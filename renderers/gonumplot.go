@@ -51,7 +51,7 @@ func (r *GonumPlot) SetLineWidth(length vg.Length) {
 //
 // The initial dash pattern is a solid line.
 func (r *GonumPlot) SetLineDash(pattern []vg.Length, offset vg.Length) {
-	array := make([]float64, len(pattern))
+	array := make([]float64, 0, len(pattern))
 	for _, dash := range pattern {
 		array = append(array, float64(dash*mmPerPt))
 	}
