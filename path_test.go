@@ -170,10 +170,6 @@ func TestPathCrossingsWindings(t *testing.T) {
 		windings  int
 		boundary  bool
 	}{
-		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", Point{1.0, 1.0}, 1, 1, false},
-		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", Point{3.0, 3.0}, 2, 2, false},
-		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", Point{3.0, 3.0}, 2, 0, false},
-
 		// within bbox of segment
 		{"L10 10", Point{2.0, 5.0}, 1, 1, false},
 		{"L-10 10", Point{-2.0, 5.0}, 0, 0, false},
@@ -183,6 +179,8 @@ func TestPathCrossingsWindings(t *testing.T) {
 		{"C-10 0 -10 10 0 10", Point{-2.0, 5.0}, 0, 0, false},
 		{"A5 5 0 0 1 0 10", Point{2.0, 5.0}, 1, 1, false},
 		{"A5 5 0 0 0 0 10", Point{-2.0, 5.0}, 0, 0, false},
+		{"L10 0L10 10L0 10z", Point{5.0, 5.0}, 1, 1, false},  // mid
+		{"L0 10L10 10L10 0z", Point{5.0, 5.0}, 1, -1, false}, // mid
 
 		// on boundary
 		{"L10 0L10 10L0 10z", Point{0.0, 5.0}, 1, 0, true},   // left
@@ -193,51 +191,63 @@ func TestPathCrossingsWindings(t *testing.T) {
 		{"L10 0L10 10L0 10z", Point{0.0, 10.0}, 0, 0, true},  // top-left
 		{"L10 0L10 10L0 10z", Point{5.0, 10.0}, 0, 0, true},  // top
 		{"L10 0L10 10L0 10z", Point{10.0, 10.0}, 0, 0, true}, // top-right
-		{"L0 10L10 10L10 0z", Point{0.0, 5.0}, 1, 0, true},
-		{"L0 10L10 10L10 0z", Point{10.0, 5.0}, 0, 0, true},
-		{"L0 10L10 10L10 0z", Point{0.0, 0.0}, 0, 0, true},
-		{"L0 10L10 10L10 0z", Point{5.0, 0.0}, 0, 0, true},
-		{"L0 10L10 10L10 0z", Point{10.0, 0.0}, 0, 0, true},
-		{"L0 10L10 10L10 0z", Point{0.0, 10.0}, 0, 0, true},
-		{"L0 10L10 10L10 0z", Point{5.0, 10.0}, 0, 0, true},
-		{"L0 10L10 10L10 0z", Point{10.0, 10.0}, 0, 0, true},
+		{"L0 10L10 10L10 0z", Point{0.0, 5.0}, 1, 0, true},   // left
+		{"L0 10L10 10L10 0z", Point{10.0, 5.0}, 0, 0, true},  // right
+		{"L0 10L10 10L10 0z", Point{0.0, 0.0}, 0, 0, true},   // bottom-left
+		{"L0 10L10 10L10 0z", Point{5.0, 0.0}, 0, 0, true},   // bottom
+		{"L0 10L10 10L10 0z", Point{10.0, 0.0}, 0, 0, true},  // bottom-right
+		{"L0 10L10 10L10 0z", Point{0.0, 10.0}, 0, 0, true},  // top-left
+		{"L0 10L10 10L10 0z", Point{5.0, 10.0}, 0, 0, true},  // top
+		{"L0 10L10 10L10 0z", Point{10.0, 10.0}, 0, 0, true}, // top-right
 
 		// outside
-		{"L10 0L10 10L0 10z", Point{-1.0, 0.0}, 0, 0, false},
-		{"L10 0L10 10L0 10z", Point{-1.0, 5.0}, 2, 0, false},
-		{"L10 0L10 10L0 10z", Point{-1.0, 10.0}, 0, 0, false},
-		{"L10 0L10 10L0 10z", Point{11.0, 0.0}, 0, 0, false},
-		{"L10 0L10 10L0 10z", Point{11.0, 5.0}, 0, 0, false},
-		{"L10 0L10 10L0 10z", Point{11.0, 10.0}, 0, 0, false},
-		{"L0 10L10 10L10 0z", Point{-1.0, 0.0}, 0, 0, false},
-		{"L0 10L10 10L10 0z", Point{-1.0, 5.0}, 2, 0, false},
-		{"L0 10L10 10L10 0z", Point{-1.0, 10.0}, 0, 0, false},
-		{"L0 10L10 10L10 0z", Point{11.0, 0.0}, 0, 0, false},
-		{"L0 10L10 10L10 0z", Point{11.0, 5.0}, 0, 0, false},
-		{"L0 10L10 10L10 0z", Point{11.0, 10.0}, 0, 0, false},
+		{"L10 0L10 10L0 10z", Point{-1.0, 0.0}, 0, 0, false},    // bottom-left
+		{"L10 0L10 10L0 10z", Point{-1.0, 5.0}, 2, 0, false},    // left
+		{"L10 0L10 10L0 10z", Point{-1.0, 10.0}, 0, 0, false},   // top-left
+		{"L10 0L10 10L0 10z", Point{11.0, 0.0}, 0, 0, false},    // bottom-right
+		{"L10 0L10 10L0 10z", Point{11.0, 5.0}, 0, 0, false},    // right
+		{"L10 0L10 10L0 10z", Point{11.0, 10.0}, 0, 0, false},   // top-right
+		{"L0 10L10 10L10 0z", Point{-1.0, 0.0}, 0, 0, false},    // bottom-left
+		{"L0 10L10 10L10 0z", Point{-1.0, 5.0}, 2, 0, false},    // left
+		{"L0 10L10 10L10 0z", Point{-1.0, 10.0}, 0, 0, false},   // top-left
+		{"L0 10L10 10L10 0z", Point{11.0, 0.0}, 0, 0, false},    // bottom-right
+		{"L0 10L10 10L10 0z", Point{11.0, 5.0}, 0, 0, false},    // right
+		{"L0 10L10 10L10 0z", Point{11.0, 10.0}, 0, 0, false},   // top-right
+		{"L10 0L10 10L0 10L1 5z", Point{0.0, 5.0}, 2, 0, false}, // left over endpoints
 
 		// subpath
+		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", Point{1.0, 1.0}, 1, 1, false},
+		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", Point{3.0, 3.0}, 2, 2, false},
+		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", Point{3.0, 3.0}, 2, 0, false},
 		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", Point{0.0, 0.0}, 0, 0, true},
 		{"L10 0L10 10L0 10zM2 2L2 8L8 8L8 2z", Point{2.0, 2.0}, 1, 1, true},
 		{"L10 0L10 10L0 10zM2 2L8 2L8 8L2 8z", Point{2.0, 2.0}, 1, 1, true},
+		{"L10 0L10 10L0 10zM5 5L15 5L15 15L5 15z", Point{7.5, 5.0}, 1, 1, true},
 
 		// on segment end
-		{"L5 -5L10 0L5 5z", Point{5.0, 0.0}, 1, 1, false},
-		{"L5 -5L10 0L5 5z", Point{0.0, 0.0}, 1, 0, true},
-		{"L5 -5L10 0L5 5z", Point{10.0, 0.0}, 0, 0, true},
-		{"L5 -5L10 0L5 5z", Point{5.0, -5.0}, 0, 0, true},
-		{"L5 -5L10 0L5 5z", Point{5.0, 5.0}, 0, 0, true},
-		{"L5 5L10 0L5 -5z", Point{5.0, 0.0}, 1, -1, false},
-		{"L5 5L10 0L5 -5z", Point{0.0, 0.0}, 1, 0, true},
-		{"L5 5L10 0L5 -5z", Point{10.0, 0.0}, 0, 0, true},
-		{"L5 5L10 0L5 -5z", Point{5.0, 5.0}, 0, 0, true},
-		{"L5 5L10 0L5 -5z", Point{5.0, -5.0}, 0, 0, true},
-		{"M10 0A5 5 0 0 0 0 0A5 5 0 0 0 10 0z", Point{5.0, 0.0}, 1, -1, false},
-		{"M10 0A5 5 0 0 0 0 0A5 5 0 0 0 10 0z", Point{0.0, 0.0}, 1, 0, true},
-		{"M10 0A5 5 0 0 0 0 0A5 5 0 0 0 10 0z", Point{10.0, 0.0}, 0, 0, true},
-		{"M10 0A5 5 0 0 1 0 0A5 5 0 0 1 10 0z", Point{5.0, 0.0}, 1, 1, false},
-		{"M10 0A5 5 0 0 1 0 0A5 5 0 0 1 10 0z", Point{0.0, 0.0}, 1, 0, true},
-		{"M10 0A5 5 0 0 1 0 0A5 5 0 0 1 10 0z", Point{10.0, 0.0}, 0, 0, true},
+		{"L5 -5L10 0L5 5z", Point{5.0, 0.0}, 1, 1, false},                      // mid
+		{"L5 -5L10 0L5 5z", Point{0.0, 0.0}, 1, 0, true},                       // left
+		{"L5 -5L10 0L5 5z", Point{10.0, 0.0}, 0, 0, true},                      // right
+		{"L5 -5L10 0L5 5z", Point{5.0, 5.0}, 0, 0, true},                       // top
+		{"L5 -5L10 0L5 5z", Point{5.0, -5.0}, 0, 0, true},                      // bottom
+		{"L5 5L10 0L5 -5z", Point{5.0, 0.0}, 1, -1, false},                     // mid
+		{"L5 5L10 0L5 -5z", Point{0.0, 0.0}, 1, 0, true},                       // left
+		{"L5 5L10 0L5 -5z", Point{10.0, 0.0}, 0, 0, true},                      // right
+		{"L5 5L10 0L5 -5z", Point{5.0, 5.0}, 0, 0, true},                       // top
+		{"L5 5L10 0L5 -5z", Point{5.0, -5.0}, 0, 0, true},                      // bottom
+		{"M10 0A5 5 0 0 0 0 0A5 5 0 0 0 10 0z", Point{5.0, 0.0}, 1, -1, false}, // mid
+		{"M10 0A5 5 0 0 0 0 0A5 5 0 0 0 10 0z", Point{0.0, 0.0}, 1, 0, true},   // left
+		{"M10 0A5 5 0 0 0 0 0A5 5 0 0 0 10 0z", Point{10.0, 0.0}, 0, 0, true},  // right
+		{"M10 0A5 5 0 0 1 0 0A5 5 0 0 1 10 0z", Point{5.0, 0.0}, 1, 1, false},  // mid
+		{"M10 0A5 5 0 0 1 0 0A5 5 0 0 1 10 0z", Point{0.0, 0.0}, 1, 0, true},   // left
+		{"M10 0A5 5 0 0 1 0 0A5 5 0 0 1 10 0z", Point{10.0, 0.0}, 0, 0, true},  // right
+
+		// cross twice
+		{"L10 10L10 -10L-10 10L-10 -10z", Point{0.0, 0.0}, 1, 0, true},
+		{"L10 10L10 -10L-10 10L-10 -10z", Point{-1.0, 0.0}, 3, 1, false},
+		{"L10 10L10 -10L-10 10L20 40L20 -40L-10 -10z", Point{0.0, 0.0}, 2, 0, true},
+		{"L10 10L10 -10L-10 10L20 40L20 -40L-10 -10z", Point{1.0, 0.0}, 2, -2, false},
+		{"L10 10L10 -10L-10 10L20 40L20 -40L-10 -10z", Point{-1.0, 0.0}, 4, 0, false},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, " at ", tt.pos), func(t *testing.T) {

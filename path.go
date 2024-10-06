@@ -657,35 +657,74 @@ func (p *Path) simplifyToCoords() []Point {
 	return coords
 }
 
-// windings counts intersections of ray with path. Paths that cross downwards are negative and upwards are positive. Don't count intersections on the boundary.
-func windings(zs []PathIntersection) (int, bool) {
-	n := 0.0
-	boundary := false
-	for _, z := range zs {
-		d := 1.0
-		if Equal(z.T, 0.0) || Equal(z.T, 1.0) {
-			d /= 2.0 // count half to not count twice
-		}
-		if !z.Overlapping {
-			if z.Into {
-				d = -d // path goes downwards
-			}
-		} else {
-			// Horizontal boundary, parallels give two intersections. Bend downwards virtually to create intersections that cancel out.
-			if Equal(z.T, 0.0) {
-				d = -d
-			} else if !Equal(z.T, 1.0) {
-				d = 0.0
-			}
-		}
+// windings counts intersections of ray with path. Paths that cross downwards are negative and upwards are positive. It returns the windings excluding the start position and the windings of the start position itself. If the windings of the start position is not zero, the start position is on a boundary.
+func windings(zs []PathIntersection) (int, int) {
+	// There are four particular situations to be aware of. Whenever the path is horizontal it
+	// will be parallel to the ray, and usually overlapping. Either we have:
+	// - a starting point to the left of the overlapping section: ignore the overlapping
+	//   intersections so that it appears as a regular intersection, albeit at the endpoints
+	//   of two segments, which may either cancel out to zero (top or bottom edge) or add up to
+	//   1 or -1 if the path goes upwards or downwards respectively before/after the overlap.
+	// - a starting point on the left-hand corner of an overlapping section: ignore if either
+	//   intersection of an endpoint pair (t=0,t=1) is overlapping, but count for nb upon
+	//   leaving the overlap.
+	// - a starting point in the middle of an overlapping section: same as above
+	// - a starting point on the right-hand corner of an overlapping section: intersections are
+	//   tangent and thus already ignored for n, but for nb we should ignore the intersection with
+	//   a 0/180 degree direction, and count the other
 
-		if z.Tangent {
-			boundary = true
+	n := 0  // regular windings
+	nb := 0 // boundary windings
+	for i := 0; i < len(zs); i++ {
+		z := zs[i]
+		if z.T != 0.0 && z.T != 1.0 {
+			// 1-fold degenerate intersection
+			d := 1
+			if z.Into {
+				d = -1 // downwards
+			}
+
+			// Crossing intersection (path goes upwards or downwards at intersections)
+			if !z.Tangent && !z.Overlapping {
+				n += d
+			} else if !z.Overlapping {
+				nb += d
+			}
 		} else {
-			n += d
+			// 2-fold degenerate intersection
+			overlapping := z.Overlapping || zs[i+1].Overlapping
+			if !z.Tangent && !overlapping {
+				if z.Into == zs[i+1].Into {
+					// Crossing intersection at two endpoints (path goes upwards or downwards at
+					// intersections)
+					if z.Into {
+						n += -1 // downwards
+					} else {
+						n += 1 // upwards
+					}
+				}
+			} else if overlapping && z.Tangent {
+				// ignore tangents (left-hand side or middle of overlapping section), but count
+				// right-hand side doubly
+			} else {
+				if angleEqual(z.Dir, 0.0) || angleEqual(z.Dir, math.Pi) {
+					// swap if first is the end of an overlap
+					z = zs[i+1]
+				}
+				if z.Into {
+					nb += -1 // downwards
+				} else {
+					nb += 1 // upwards
+				}
+			}
+			i++
 		}
 	}
-	return int(n), boundary // n is integer
+	//for i := range zs {
+	//	fmt.Println(i, zs[i])
+	//}
+	//fmt.Println(n, nb)
+	return n, nb
 }
 
 // Windings returns the number of windings at the given point, i.e. the sum of windings for each time a ray from (x,y) towards (∞,y) intersects the path. Counter clock-wise intersections count as positive, while clock-wise intersections count as negative. Additionally, it returns whether the point is on a path's boundary (which counts as being on the exterior).
@@ -694,8 +733,13 @@ func (p *Path) Windings(x, y float64) (int, bool) {
 	boundary := false
 	for _, pi := range p.Split() {
 		zs := pi.RayIntersections(x, y)
-		ni, boundaryi := windings(zs)
-		if boundaryi {
+		if ni, nb := windings(zs); nb != 0 {
+			// on the boundary
+			//if (ni % 2) != 0 {
+			//	// on the left-hand side, add nb to ni so that ni is the number of windings
+			//	// on the exterior of the path
+			//	ni += nb
+			//}
 			boundary = true
 		} else {
 			n += ni
@@ -704,7 +748,7 @@ func (p *Path) Windings(x, y float64) (int, bool) {
 	return n, boundary
 }
 
-// Crossings returns the number of crossings wiht the path from the given point outwards, i.e. the number of times a ray from (x,y) towards (∞,y) intersects the path. Additionally, it returns whether the point is on a path's boundary (which does not count towards the number of crossings).
+// Crossings returns the number of crossings with the path from the given point outwards, i.e. the number of times a ray from (x,y) towards (∞,y) intersects the path. Additionally, it returns whether the point is on a path's boundary (which does not count towards the number of crossings).
 func (p *Path) Crossings(x, y float64) (int, bool) {
 	n := 0
 	boundary := false
@@ -715,12 +759,12 @@ func (p *Path) Crossings(x, y float64) (int, bool) {
 			if z.Tangent {
 				boundary = true
 			} else if !z.Overlapping {
-				if Equal(z.T, 0.0) || Equal(z.T, 1.0) {
+				if z.T == 0.0 || z.T == 1.0 {
 					ni += 0.5
 				} else {
 					ni += 1.0
 				}
-			} else if Equal(z.T, 0.0) || Equal(z.T, 1.0) {
+			} else if z.T == 0.0 || z.T == 1.0 {
 				ni -= 0.5
 			}
 		}
@@ -770,7 +814,7 @@ func (p *Path) InteriorPoint() Point {
 	}
 
 	i := 0
-	if Equal(zs[i].T, 0.0) || Equal(zs[i].T, 1.0) {
+	if zs[i].T == 0.0 || zs[i].T == 1.0 {
 		if zs[i].Overlapping || zs[i+1].Overlapping {
 			i += 3
 			for i+1 < len(zs) && zs[i-1].Overlapping && zs[i].Overlapping {
@@ -854,7 +898,7 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 
 				// windings start outside (or on boundary, same result) of the subpath
 				// windings==0 it is outside, otherwise it is inside/encapsulates the current path
-				if n2, boundary := windings(zs2); !boundary && n2 != 0 {
+				if n2, nb := windings(zs2); nb == 0 && n2 != 0 {
 					// if subpath has smaller area it inside, remove its intersections
 					area2, area2Exact := PolylineFromPathCoords(ps[subpath]).Area(), math.NaN()
 					if area == area2 || area == 0 || area2 == 0 {
@@ -877,8 +921,8 @@ func (p *Path) Filling(fillRule FillRule) []bool {
 			}
 		}
 
-		n, boundary := windings(zs)
-		if boundary {
+		n, nb := windings(zs)
+		if nb != 0 {
 			// happens only when the current subpath goes up and down at the InteriorPoint
 			// or for open subpaths, count as if we we're inside the two edges
 			n = 1
@@ -1255,8 +1299,7 @@ func (p *Path) replace(
 	cube func(Point, Point, Point, Point) *Path,
 	arc func(Point, float64, float64, float64, bool, bool, Point) *Path,
 ) *Path {
-	p = p.Copy()
-
+	copied := false
 	var start, end Point
 	for i := 0; i < len(p.d); {
 		var q *Path
@@ -1293,6 +1336,11 @@ func (p *Path) replace(
 		}
 
 		if q != nil {
+			if !copied {
+				p = p.Copy()
+				copied = true
+			}
+
 			r := &Path{append([]float64{MoveToCmd, end.X, end.Y, MoveToCmd}, p.d[i+cmdLen(cmd):]...)}
 
 			p.d = p.d[: i : i+cmdLen(cmd)] // make sure not to overwrite the rest of the path

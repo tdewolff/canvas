@@ -4,6 +4,43 @@ import (
 	"math"
 )
 
+func snap(v, d float64) float64 {
+	f := math.Mod(v+0.5*d, d)
+	return v - f
+}
+
+// Gridsnap snaps all vertices to a grid with the given spacing. This will significantly reduce numerical issues e.g. for path boolean operations.
+func (p *Path) Gridsnap(spacing float64) *Path {
+	p = p.Copy()
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		switch cmd {
+		case MoveToCmd, LineToCmd, CloseCmd:
+			p.d[i+1] = snap(p.d[i+1], spacing)
+			p.d[i+2] = snap(p.d[i+2], spacing)
+		case QuadToCmd:
+			p.d[i+1] = snap(p.d[i+1], spacing)
+			p.d[i+2] = snap(p.d[i+2], spacing)
+			p.d[i+3] = snap(p.d[i+3], spacing)
+			p.d[i+4] = snap(p.d[i+4], spacing)
+		case CubeToCmd:
+			p.d[i+1] = snap(p.d[i+1], spacing)
+			p.d[i+2] = snap(p.d[i+2], spacing)
+			p.d[i+3] = snap(p.d[i+3], spacing)
+			p.d[i+4] = snap(p.d[i+4], spacing)
+			p.d[i+6] = snap(p.d[i+6], spacing)
+			p.d[i+7] = snap(p.d[i+7], spacing)
+		case ArcToCmd:
+			p.d[i+1] = snap(p.d[i+1], spacing)
+			p.d[i+2] = snap(p.d[i+2], spacing)
+			p.d[i+6] = snap(p.d[i+6], spacing)
+			p.d[i+7] = snap(p.d[i+7], spacing)
+		}
+		i += cmdLen(cmd)
+	}
+	return p
+}
+
 // Decimate decimates the path using the Visvalingam-Whyatt algorithm. Assuming path is flat and has no subpaths.
 func (p *Path) Decimate(tolerance float64) *Path {
 	q := &Path{}

@@ -60,50 +60,50 @@ func TestIntersectionLineLine(t *testing.T) {
 	}{
 		// secant
 		{"M2 0L2 3", "M1 2L3 2", Intersections{
-			{Point{2.0, 2.0}, [2]float64{2.0 / 3.0, 0.5}, [2]float64{0.5 * math.Pi, 0.0}, false},
+			{Point{2.0, 2.0}, [2]float64{2.0 / 3.0, 0.5}, [2]float64{0.5 * math.Pi, 0.0}, false, false},
 		}},
 
 		// tangent
 		{"M2 0L2 3", "M2 2L3 2", Intersections{
-			{Point{2.0, 2.0}, [2]float64{2.0 / 3.0, 0.0}, [2]float64{0.5 * math.Pi, 0.0}, true},
+			{Point{2.0, 2.0}, [2]float64{2.0 / 3.0, 0.0}, [2]float64{0.5 * math.Pi, 0.0}, true, false},
 		}},
 		{"M2 0L2 2", "M2 2L3 2", Intersections{
-			{Point{2.0, 2.0}, [2]float64{1.0, 0.0}, [2]float64{0.5 * math.Pi, 0.0}, true},
+			{Point{2.0, 2.0}, [2]float64{1.0, 0.0}, [2]float64{0.5 * math.Pi, 0.0}, true, false},
 		}},
 		{"L2 2", "M0 4L2 2", Intersections{
-			{Point{2.0, 2.0}, [2]float64{1.0, 1.0}, [2]float64{0.25 * math.Pi, 1.75 * math.Pi}, true},
+			{Point{2.0, 2.0}, [2]float64{1.0, 1.0}, [2]float64{0.25 * math.Pi, 1.75 * math.Pi}, true, false},
 		}},
 		{"L10 5", "M0 10L10 5", Intersections{
-			{Point{10.0, 5.0}, [2]float64{1.0, 1.0}, [2]float64{Point{2.0, 1.0}.Angle(), Point{2.0, -1.0}.Angle()}, true},
+			{Point{10.0, 5.0}, [2]float64{1.0, 1.0}, [2]float64{Point{2.0, 1.0}.Angle(), Point{2.0, -1.0}.Angle()}, true, false},
 		}},
 		{"M10 5L20 10", "M10 5L20 0", Intersections{
-			{Point{10.0, 5.0}, [2]float64{0.0, 0.0}, [2]float64{Point{2.0, 1.0}.Angle(), Point{2.0, -1.0}.Angle()}, true},
+			{Point{10.0, 5.0}, [2]float64{0.0, 0.0}, [2]float64{Point{2.0, 1.0}.Angle(), Point{2.0, -1.0}.Angle()}, true, false},
 		}},
 
 		// parallel
 		{"L2 2", "L2 2", Intersections{
-			{Point{0.0, 0.0}, [2]float64{0.0, 0.0}, [2]float64{0.25 * math.Pi, 0.25 * math.Pi}, true},
-			{Point{2.0, 2.0}, [2]float64{1.0, 1.0}, [2]float64{0.25 * math.Pi, 0.25 * math.Pi}, true},
+			{Point{0.0, 0.0}, [2]float64{0.0, 0.0}, [2]float64{0.25 * math.Pi, 0.25 * math.Pi}, true, true},
+			{Point{2.0, 2.0}, [2]float64{1.0, 1.0}, [2]float64{0.25 * math.Pi, 0.25 * math.Pi}, true, true},
 		}},
 		{"L2 2", "M2 2L0 0", Intersections{
-			{Point{0.0, 0.0}, [2]float64{0.0, 1.0}, [2]float64{0.25 * math.Pi, 1.25 * math.Pi}, true},
-			{Point{2.0, 2.0}, [2]float64{1.0, 0.0}, [2]float64{0.25 * math.Pi, 1.25 * math.Pi}, true},
+			{Point{0.0, 0.0}, [2]float64{0.0, 1.0}, [2]float64{0.25 * math.Pi, 1.25 * math.Pi}, true, true},
+			{Point{2.0, 2.0}, [2]float64{1.0, 0.0}, [2]float64{0.25 * math.Pi, 1.25 * math.Pi}, true, true},
 		}},
 		{"L2 2", "M3 3L5 5", Intersections{}},
 		{"L2 2", "M-1 1L1 3", Intersections{}},
 		{"L2 2", "M2 2L4 4", Intersections{
-			{Point{2.0, 2.0}, [2]float64{1.0, 0.0}, [2]float64{0.25 * math.Pi, 0.25 * math.Pi}, true},
+			{Point{2.0, 2.0}, [2]float64{1.0, 0.0}, [2]float64{0.25 * math.Pi, 0.25 * math.Pi}, true, false},
 		}},
 		{"L2 2", "M-2 -2L0 0", Intersections{
-			{Point{0.0, 0.0}, [2]float64{0.0, 1.0}, [2]float64{0.25 * math.Pi, 0.25 * math.Pi}, true},
+			{Point{0.0, 0.0}, [2]float64{0.0, 1.0}, [2]float64{0.25 * math.Pi, 0.25 * math.Pi}, true, false},
 		}},
 		{"L4 4", "M2 2L6 6", Intersections{
-			{Point{2.0, 2.0}, [2]float64{0.5, 0.0}, [2]float64{0.25 * math.Pi, 0.25 * math.Pi}, true},
-			{Point{4.0, 4.0}, [2]float64{1.0, 0.5}, [2]float64{0.25 * math.Pi, 0.25 * math.Pi}, true},
+			{Point{2.0, 2.0}, [2]float64{0.5, 0.0}, [2]float64{0.25 * math.Pi, 0.25 * math.Pi}, true, true},
+			{Point{4.0, 4.0}, [2]float64{1.0, 0.5}, [2]float64{0.25 * math.Pi, 0.25 * math.Pi}, true, true},
 		}},
 		{"L4 4", "M-2 -2L2 2", Intersections{
-			{Point{0.0, 0.0}, [2]float64{0.0, 0.5}, [2]float64{0.25 * math.Pi, 0.25 * math.Pi}, true},
-			{Point{2.0, 2.0}, [2]float64{0.5, 1.0}, [2]float64{0.25 * math.Pi, 0.25 * math.Pi}, true},
+			{Point{0.0, 0.0}, [2]float64{0.0, 0.5}, [2]float64{0.25 * math.Pi, 0.25 * math.Pi}, true, true},
+			{Point{2.0, 2.0}, [2]float64{0.5, 1.0}, [2]float64{0.25 * math.Pi, 0.25 * math.Pi}, true, true},
 		}},
 
 		// none
@@ -112,19 +112,21 @@ func TestIntersectionLineLine(t *testing.T) {
 
 		// bugs
 		{"M21.590990257669734 18.40900974233027L22.651650429449557 17.348349570550447", "M21.23743686707646 18.762563132923542L21.590990257669738 18.409009742330266", Intersections{
-			{Point{21.590990257669734, 18.40900974233027}, [2]float64{0.0, 1.0}, [2]float64{1.75 * math.Pi, 1.75 * math.Pi}, true},
+			{Point{21.590990257669734, 18.40900974233027}, [2]float64{0.0, 1.0}, [2]float64{1.75 * math.Pi, 1.75 * math.Pi}, true, false},
 		}},
 		{"M-0.1997406229376793 296.9999999925494L-0.1997406229376793 158.88740153238177", "M-0.1997406229376793 158.88740153238177L-0.19974062293732664 158.8874019079834", Intersections{
-			{Point{-0.1997406229376793, 158.88740153238177}, [2]float64{1.0, 0.0}, [2]float64{1.5 * math.Pi, 89.9999462 * math.Pi / 180.0}, true},
+			{Point{-0.1997406229376793, 158.88740153238177}, [2]float64{1.0, 0.0}, [2]float64{1.5 * math.Pi, 89.9999462 * math.Pi / 180.0}, true, true},
+			{Point{-0.1997406229376793, 158.8874019079834}, [2]float64{0.9999999973, 1.0}, [2]float64{1.5 * math.Pi, 89.9999462 * math.Pi / 180.0}, true, true},
 		}}, // #287
 		{"M-0.1997406229376793 296.9999999925494L-0.1997406229376793 158.88740153238177", "M-0.19974062293732664 158.8874019079834L-0.19999999999964735 20.77454766193328", Intersections{
-			{Point{-0.1997406229376793, 158.88740172019808}, [2]float64{0.9999999986, 1.359651238e-09}, [2]float64{270.0 * math.Pi / 180.0, 269.9998924 * math.Pi / 180.0}, false},
+			{Point{-0.1997406229376793, 158.88740172019808}, [2]float64{0.9999999986, 1.359651238e-09}, [2]float64{270.0 * math.Pi / 180.0, 269.9998924 * math.Pi / 180.0}, false, false},
 		}}, // #287
 		{"M-0.1997406229376793 158.88740153238177L-0.19974062293732664 158.8874019079834", "M-0.19974062293732664 158.8874019079834L-0.19999999999964735 20.77454766193328", Intersections{
-			{Point{-0.19974062293732664, 158.8874019079834}, [2]float64{1.0, 0.0}, [2]float64{89.9999462 * math.Pi / 180.0, 269.9998924 * math.Pi / 180.0}, true},
+			{Point{-0.19974062293732664, 158.88740153238177}, [2]float64{0.0, 2.72e-9}, [2]float64{89.9999462 * math.Pi / 180.0, 269.9998924 * math.Pi / 180.0}, true, true},
+			{Point{-0.19974062293732664, 158.8874019079834}, [2]float64{1.0, 0.0}, [2]float64{89.9999462 * math.Pi / 180.0, 269.9998924 * math.Pi / 180.0}, true, true},
 		}}, // #287
 		{"M162.43449681368278 -9.999996185876771L162.43449681368278 -9.99998551284069", "M162.43449681368278 -9.999985512840682L162.2344968136828 -9.99998551284069", Intersections{
-			{Point{162.43449681368278, -9.99998551284069}, [2]float64{1.0, 0.0}, [2]float64{0.5 * math.Pi, math.Pi}, true},
+			{Point{162.43449681368278, -9.99998551284069}, [2]float64{1.0, 0.0}, [2]float64{0.5 * math.Pi, math.Pi}, true, false},
 		}}, // #287
 	}
 	for _, tt := range tts {
@@ -147,16 +149,16 @@ func TestIntersectionLineQuad(t *testing.T) {
 	}{
 		// secant
 		{"M0 5L10 5", "Q10 5 0 10", Intersections{
-			{Point{5.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{0.0, 0.5 * math.Pi}, false},
+			{Point{5.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{0.0, 0.5 * math.Pi}, false, false},
 		}},
 
 		// tangent
 		{"L0 10", "Q10 5 0 10", Intersections{
-			{Point{0.0, 0.0}, [2]float64{0.0, 0.0}, [2]float64{0.5 * math.Pi, Point{2.0, 1.0}.Angle()}, true},
-			{Point{0.0, 10.0}, [2]float64{1.0, 1.0}, [2]float64{0.5 * math.Pi, Point{-2.0, 1.0}.Angle()}, true},
+			{Point{0.0, 0.0}, [2]float64{0.0, 0.0}, [2]float64{0.5 * math.Pi, Point{2.0, 1.0}.Angle()}, true, false},
+			{Point{0.0, 10.0}, [2]float64{1.0, 1.0}, [2]float64{0.5 * math.Pi, Point{-2.0, 1.0}.Angle()}, true, false},
 		}},
 		{"M5 0L5 10", "Q10 5 0 10", Intersections{
-			{Point{5.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true},
+			{Point{5.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true, false},
 		}},
 
 		// none
@@ -186,27 +188,27 @@ func TestIntersectionLineCube(t *testing.T) {
 	}{
 		// secant
 		{"M0 5L10 5", "C8 0 8 10 0 10", Intersections{
-			{Point{6.0, 5.0}, [2]float64{0.6, 0.5}, [2]float64{0.0, 0.5 * math.Pi}, false},
+			{Point{6.0, 5.0}, [2]float64{0.6, 0.5}, [2]float64{0.0, 0.5 * math.Pi}, false, false},
 		}},
 		{"M0 1L1 1", "C0 2 1 0 1 2", Intersections{ // parallel at intersection
-			{Point{0.5, 1.0}, [2]float64{0.5, 0.5}, [2]float64{0.0, 0.0}, false},
+			{Point{0.5, 1.0}, [2]float64{0.5, 0.5}, [2]float64{0.0, 0.0}, false, false},
 		}},
 		{"M0 1L1 1", "M0 2C0 0 1 2 1 0", Intersections{ // parallel at intersection
-			{Point{0.5, 1.0}, [2]float64{0.5, 0.5}, [2]float64{0.0, 0.0}, false},
+			{Point{0.5, 1.0}, [2]float64{0.5, 0.5}, [2]float64{0.0, 0.0}, false, false},
 		}},
 		{"M0 1L1 1", "C0 3 1 -1 1 2", Intersections{ // three intersections
-			{Point{0.0791512117, 1.0}, [2]float64{0.0791512117, 0.1726731646}, [2]float64{0.0, 74.05460410 / 180.0 * math.Pi}, false},
-			{Point{0.5, 1.0}, [2]float64{0.5, 0.5}, [2]float64{0.0, 315 / 180.0 * math.Pi}, false},
-			{Point{0.9208487883, 1.0}, [2]float64{0.9208487883, 0.8273268354}, [2]float64{0.0, 74.05460410 / 180.0 * math.Pi}, false},
+			{Point{0.0791512117, 1.0}, [2]float64{0.0791512117, 0.1726731646}, [2]float64{0.0, 74.05460410 / 180.0 * math.Pi}, false, false},
+			{Point{0.5, 1.0}, [2]float64{0.5, 0.5}, [2]float64{0.0, 315 / 180.0 * math.Pi}, false, false},
+			{Point{0.9208487883, 1.0}, [2]float64{0.9208487883, 0.8273268354}, [2]float64{0.0, 74.05460410 / 180.0 * math.Pi}, false, false},
 		}},
 
 		// tangent
 		{"L0 10", "C8 0 8 10 0 10", Intersections{
-			{Point{0.0, 0.0}, [2]float64{0.0, 0.0}, [2]float64{0.5 * math.Pi, 0.0}, true},
-			{Point{0.0, 10.0}, [2]float64{1.0, 1.0}, [2]float64{0.5 * math.Pi, math.Pi}, true},
+			{Point{0.0, 0.0}, [2]float64{0.0, 0.0}, [2]float64{0.5 * math.Pi, 0.0}, true, false},
+			{Point{0.0, 10.0}, [2]float64{1.0, 1.0}, [2]float64{0.5 * math.Pi, math.Pi}, true, false},
 		}},
 		{"M6 0L6 10", "C8 0 8 10 0 10", Intersections{
-			{Point{6.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true},
+			{Point{6.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true, false},
 		}},
 
 		// none
@@ -236,44 +238,44 @@ func TestIntersectionLineEllipse(t *testing.T) {
 	}{
 		// secant
 		{"M0 5L10 5", "A5 5 0 0 1 0 10", Intersections{
-			{Point{5.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{0.0, 0.5 * math.Pi}, false},
+			{Point{5.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{0.0, 0.5 * math.Pi}, false, false},
 		}},
 		{"M0 5L10 5", "A5 5 0 1 1 0 10", Intersections{
-			{Point{5.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{0.0, 0.5 * math.Pi}, false},
+			{Point{5.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{0.0, 0.5 * math.Pi}, false, false},
 		}},
 		{"M0 5L-10 5", "A5 5 0 0 0 0 10", Intersections{
-			{Point{-5.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{math.Pi, 0.5 * math.Pi}, false},
+			{Point{-5.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{math.Pi, 0.5 * math.Pi}, false, false},
 		}},
 		{"M-5 0L-5 -10", "A5 5 0 0 0 -10 0", Intersections{
-			{Point{-5.0, -5.0}, [2]float64{0.5, 0.5}, [2]float64{1.5 * math.Pi, math.Pi}, false},
+			{Point{-5.0, -5.0}, [2]float64{0.5, 0.5}, [2]float64{1.5 * math.Pi, math.Pi}, false, false},
 		}},
 		{"M0 10L10 10", "A10 5 90 0 1 0 20", Intersections{
-			{Point{5.0, 10.0}, [2]float64{0.5, 0.5}, [2]float64{0.0, 0.5 * math.Pi}, false},
+			{Point{5.0, 10.0}, [2]float64{0.5, 0.5}, [2]float64{0.0, 0.5 * math.Pi}, false, false},
 		}},
 
 		// tangent
 		{"M-5 0L-15 0", "A5 5 0 0 0 -10 0", Intersections{
-			{Point{-10.0, 0.0}, [2]float64{0.5, 1.0}, [2]float64{math.Pi, 0.5 * math.Pi}, true},
+			{Point{-10.0, 0.0}, [2]float64{0.5, 1.0}, [2]float64{math.Pi, 0.5 * math.Pi}, true, false},
 		}},
 		{"M-5 0L-15 0", "A5 5 0 0 1 -10 0", Intersections{
-			{Point{-10.0, 0.0}, [2]float64{0.5, 1.0}, [2]float64{math.Pi, 1.5 * math.Pi}, true},
+			{Point{-10.0, 0.0}, [2]float64{0.5, 1.0}, [2]float64{math.Pi, 1.5 * math.Pi}, true, false},
 		}},
 		{"L0 10", "A10 5 0 0 1 0 10", Intersections{
-			{Point{0.0, 0.0}, [2]float64{0.0, 0.0}, [2]float64{0.5 * math.Pi, 0.0}, true},
-			{Point{0.0, 10.0}, [2]float64{1.0, 1.0}, [2]float64{0.5 * math.Pi, math.Pi}, true},
+			{Point{0.0, 0.0}, [2]float64{0.0, 0.0}, [2]float64{0.5 * math.Pi, 0.0}, true, false},
+			{Point{0.0, 10.0}, [2]float64{1.0, 1.0}, [2]float64{0.5 * math.Pi, math.Pi}, true, false},
 		}},
 		{"M5 0L5 10", "A5 5 0 0 1 0 10", Intersections{
-			{Point{5.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true},
+			{Point{5.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true, false},
 		}},
 		{"M-5 0L-5 10", "A5 5 0 0 0 0 10", Intersections{
-			{Point{-5.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true},
+			{Point{-5.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true, false},
 		}},
 		{"M5 0L5 20", "A10 5 90 0 1 0 20", Intersections{
-			{Point{5.0, 10.0}, [2]float64{0.5, 0.5}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true},
+			{Point{5.0, 10.0}, [2]float64{0.5, 0.5}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true, false},
 		}},
 		{"M4 3L0 3", "M2 3A1 1 0 0 0 4 3", Intersections{
-			{Point{4.0, 3.0}, [2]float64{0.0, 1.0}, [2]float64{math.Pi, 1.5 * math.Pi}, true},
-			{Point{2.0, 3.0}, [2]float64{0.5, 0.0}, [2]float64{math.Pi, 0.5 * math.Pi}, true},
+			{Point{4.0, 3.0}, [2]float64{0.0, 1.0}, [2]float64{math.Pi, 1.5 * math.Pi}, true, false},
+			{Point{2.0, 3.0}, [2]float64{0.5, 0.0}, [2]float64{math.Pi, 0.5 * math.Pi}, true, false},
 		}},
 
 		// none
@@ -283,22 +285,22 @@ func TestIntersectionLineEllipse(t *testing.T) {
 
 		// bugs
 		{"M0 -0.7L1 -0.7", "M-0.7 0A0.7 0.7 0 0 1 0.7 0", Intersections{
-			{Point{0.0, -0.7}, [2]float64{0.0, 0.5}, [2]float64{0.0, 0.0}, true},
+			{Point{0.0, -0.7}, [2]float64{0.0, 0.5}, [2]float64{0.0, 0.0}, true, false},
 		}}, // #200, at intersection the arc angle is deviated towards positive angle
 		{"M30.23402723090112,37.620459766287226L30.170131507649785,37.66143576791836", "M30.242341004748596 37.609669236818846A0.8700000000000001 0.8700000000000001 0 0 1 28.82999999999447 36.9294", Intersections{
-			{Point{30.170131507649785, 37.66143576791836}, [2]float64{1.0, 0.04553266140095003}, [2]float64{2.571361371137828, 2.570702752627385}, true}, // TODO
+			{Point{30.170131507649785, 37.66143576791836}, [2]float64{1.0, 0.04553266140095003}, [2]float64{2.571361371137828, 2.570702752627385}, true, false}, // TODO
 		}}, // #280
 		{"M30.23402723090112,37.620459766287226L30.170131507649785,37.66143576791836", "M30.170131507649785 37.66143576791836A0.8700000000002787 0.8700000000002787 0 0 1 28.82999999999447 36.92939999999941", Intersections{
-			{Point{30.170131507649785, 37.66143576791836}, [2]float64{1.0, 0.0}, [2]float64{2.571361371137828, 2.570702753023132}, true},
+			{Point{30.170131507649785, 37.66143576791836}, [2]float64{1.0, 0.0}, [2]float64{2.571361371137828, 2.570702753023132}, true, false},
 		}}, // #280
 		{"M18.28586369751671 1.9033410129748447L18.285524146153797 1.9012793871179001", "M18.285524146153797 1.9012793871179001A0.09877777777777778 0.09877777777777778 0 0 0 18.188037109374996 1.8184178602430556", Intersections{
-			{Point{18.285524146153797, 1.9012793871179001}, [2]float64{1.0, 0}, [2]float64{4.549153676432458, 4.550551548951796}, true},
+			{Point{18.285524146153797, 1.9012793871179001}, [2]float64{1.0, 0}, [2]float64{4.549153676432458, 4.550551548951796}, true, false},
 		}}, // in preview
 		{"M32761.5,32383.691L32761.52,32383.691", "M31511.49999999751,33633.691 A1250 1250 0 0 1 32761.50000000074,32383.691", Intersections{
-			{Point{32761.5, 32383.691}, [2]float64{0.0, 1.0}, [2]float64{0.0, 0.0}, true},
+			{Point{32761.5, 32383.691}, [2]float64{0.0, 1.0}, [2]float64{0.0, 0.0}, true, false},
 		}}, // #293
 		{"M73643.30051730774,34889.01290159931L73639.44503270132,34889.13797316706", "M73639.44503270132,34889.13797316706A1250 1250 0 0 1 73599.5139303418 34889.76998615123", Intersections{
-			{Point{73639.44503270132, 34889.13797316706}, [2]float64{1.0, 0.0}, [2]float64{3.109164117290831, 3.1097912676269237}, true},
+			{Point{73639.44503270132, 34889.13797316706}, [2]float64{1.0, 0.0}, [2]float64{3.109164117290831, 3.1097912676269237}, true, false},
 		}}, // #293
 	}
 	origEpsilon := Epsilon
@@ -329,41 +331,41 @@ func TestIntersectionEllipseEllipse(t *testing.T) {
 	}{
 		// secant
 		{"M5 0A5 5 0 0 1 -5 0", "M-10 -5A10 10 0 0 1 -10 15", Intersections{
-			{Point{0.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{math.Pi, 0.5 * math.Pi}, false},
+			{Point{0.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{math.Pi, 0.5 * math.Pi}, false, false},
 		}},
 
 		// tangent
 		{"A5 5 0 0 1 0 10", "M10 0A5 5 0 0 0 10 10", Intersections{
-			{Point{5.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true},
+			{Point{5.0, 5.0}, [2]float64{0.5, 0.5}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true, false},
 		}},
 
-		// fully parallel
+		// fully same
 		{"A5 5 0 0 1 0 10", "A5 5 0 0 1 0 10", Intersections{
-			{Point{0.0, 0.0}, [2]float64{0.0, 0.0}, [2]float64{0.0, 0.0}, true},
-			{Point{0.0, 10.0}, [2]float64{1.0, 1.0}, [2]float64{math.Pi, math.Pi}, true},
+			{Point{0.0, 0.0}, [2]float64{0.0, 0.0}, [2]float64{0.0, 0.0}, true, true},
+			{Point{0.0, 10.0}, [2]float64{1.0, 1.0}, [2]float64{math.Pi, math.Pi}, true, true},
 		}},
 		{"A5 5 0 0 1 0 10", "M0 10A5 5 0 0 0 0 0", Intersections{
-			{Point{0.0, 0.0}, [2]float64{0.0, 1.0}, [2]float64{0.0, math.Pi}, true},
-			{Point{0.0, 10.0}, [2]float64{1.0, 0.0}, [2]float64{math.Pi, 0.0}, true},
+			{Point{0.0, 0.0}, [2]float64{0.0, 1.0}, [2]float64{0.0, math.Pi}, true, true},
+			{Point{0.0, 10.0}, [2]float64{1.0, 0.0}, [2]float64{math.Pi, 0.0}, true, true},
 		}},
 
-		// partly parallel
+		// partly same
 		{"A5 5 0 0 1 0 10", "A5 5 0 0 1 5 5", Intersections{
-			{Point{0.0, 0.0}, [2]float64{0.0, 0.0}, [2]float64{0.0, 0.0}, true},
-			{Point{5.0, 5.0}, [2]float64{0.5, 1.0}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true},
+			{Point{0.0, 0.0}, [2]float64{0.0, 0.0}, [2]float64{0.0, 0.0}, true, true},
+			{Point{5.0, 5.0}, [2]float64{0.5, 1.0}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true, true},
 		}},
 		{"A5 5 0 0 1 0 10", "M5 5A5 5 0 0 1 0 10", Intersections{
-			{Point{5.0, 5.0}, [2]float64{0.5, 0.0}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true},
-			{Point{0.0, 10.0}, [2]float64{1.0, 1.0}, [2]float64{math.Pi, math.Pi}, true},
+			{Point{5.0, 5.0}, [2]float64{0.5, 0.0}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true, true},
+			{Point{0.0, 10.0}, [2]float64{1.0, 1.0}, [2]float64{math.Pi, math.Pi}, true, true},
 		}},
 		{"A5 5 0 0 1 0 10", "M5 5A5 5 0 0 1 -5 5", Intersections{
-			{Point{5.0, 5.0}, [2]float64{0.5, 0.0}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true},
-			{Point{0.0, 10.0}, [2]float64{1.0, 0.5}, [2]float64{math.Pi, math.Pi}, true},
+			{Point{5.0, 5.0}, [2]float64{0.5, 0.0}, [2]float64{0.5 * math.Pi, 0.5 * math.Pi}, true, true},
+			{Point{0.0, 10.0}, [2]float64{1.0, 0.5}, [2]float64{math.Pi, math.Pi}, true, true},
 		}},
 
 		{"M30.170131507649785 37.66143576791836A0.8700000000002787 0.8700000000002787 0 0 1 28.82999999999447 36.92939999999941", "M30.242341004748596 37.609669236818846A0.8700000000000001 0.8700000000000001 0 0 1 28.82999999999447 36.9294", Intersections{
-			{Point{30.170131507649785, 37.66143576791836}, [2]float64{0.0, 0.0455326614}, [2]float64{2.5707027528269983, 2.5707027528269983}, true},
-			{Point{28.82999999999447, 36.92939999999941}, [2]float64{1.0, 1.0}, [2]float64{1.5 * math.Pi, 1.5 * math.Pi}, true},
+			{Point{30.170131507649785, 37.66143576791836}, [2]float64{0.0, 0.0455326614}, [2]float64{2.5707027528269983, 2.5707027528269983}, true, true},
+			{Point{28.82999999999447, 36.92939999999941}, [2]float64{1.0, 1.0}, [2]float64{1.5 * math.Pi, 1.5 * math.Pi}, true, true},
 		}}, // #280
 	}
 	origEpsilon := Epsilon
@@ -537,7 +539,7 @@ func TestIntersections(t *testing.T) {
 			{Point{5.0, 1.00828530}, 26, 0.5, 0.0, true, false, false},
 		}},
 
-		// touches / parallel
+		// touches / same
 		{"L2 0L2 2L0 2z", "M2 0L4 0L4 2L2 2z", []PathIntersection{
 			{Point{2.0, 0.0}, 2, 0.0, 0.5 * math.Pi, false, true, true},
 			{Point{2.0, 2.0}, 3, 0.0, math.Pi, false, true, false},
@@ -553,11 +555,11 @@ func TestIntersections(t *testing.T) {
 			{Point{2.0, 2.0}, 2, 0.0, 0.0, false, true, false},
 		}},
 		{"M2 0L4 0L4 2L2 2z", "L2 0L2 2L0 2z", []PathIntersection{
-			{Point{2.0, 2.0}, 4, 0.0, 1.5 * math.Pi, false, true, true},
 			{Point{2.0, 0.0}, 1, 0.0, 0.0, false, true, false},
+			{Point{2.0, 2.0}, 4, 0.0, 1.5 * math.Pi, false, true, true},
 		}, []PathIntersection{
-			{Point{2.0, 2.0}, 3, 0.0, math.Pi, false, true, false},
 			{Point{2.0, 0.0}, 2, 0.0, 0.5 * math.Pi, false, true, true},
+			{Point{2.0, 2.0}, 3, 0.0, math.Pi, false, true, false},
 		}},
 		{"L2 0L2 2L0 2z", "M2 1L4 1L4 3L2 3z", []PathIntersection{
 			{Point{2.0, 1.0}, 2, 0.5, 0.5 * math.Pi, false, true, true},
@@ -673,18 +675,18 @@ func TestIntersections(t *testing.T) {
 			{Point{1.0, 0.0}, 1, 0.0, math.Pi, false, true, false},
 		}},
 		{"M1 0L3 0L3 4L1 4z", "M1 0L2 0L1 1z", []PathIntersection{
-			{Point{1.0, 1.0}, 4, 0.75, 1.5 * math.Pi, false, true, true},
 			{Point{2.0, 0.0}, 1, 0.5, 0.0, false, true, false},
+			{Point{1.0, 1.0}, 4, 0.75, 1.5 * math.Pi, false, true, true},
 		}, []PathIntersection{
-			{Point{1.0, 1.0}, 3, 0.0, 1.5 * math.Pi, true, true, true},
 			{Point{2.0, 0.0}, 2, 0.0, 0.75 * math.Pi, true, true, false},
+			{Point{1.0, 1.0}, 3, 0.0, 1.5 * math.Pi, true, true, true},
 		}},
 		{"M1 0L3 0L3 4L1 4z", "M1 0L1 1L2 0z", []PathIntersection{
-			{Point{1.0, 1.0}, 4, 0.75, 1.5 * math.Pi, true, true, true},
 			{Point{2.0, 0.0}, 1, 0.5, 0.0, true, true, false},
+			{Point{1.0, 1.0}, 4, 0.75, 1.5 * math.Pi, true, true, true},
 		}, []PathIntersection{
-			{Point{1.0, 1.0}, 2, 0.0, 1.75 * math.Pi, true, true, false},
 			{Point{2.0, 0.0}, 3, 0.0, math.Pi, true, true, true},
+			{Point{1.0, 1.0}, 2, 0.0, 1.75 * math.Pi, true, true, false},
 		}},
 		{"M1 0L3 0L3 4L1 4z", "M1 0L2 1L0 1z", []PathIntersection{
 			{Point{1.0, 0.0}, 1, 0.0, 0.0, false, false, false},
@@ -694,7 +696,7 @@ func TestIntersections(t *testing.T) {
 			{Point{1.0, 1.0}, 2, 0.5, math.Pi, false, false, false},
 		}},
 
-		// intersection with parallel lines
+		// intersection with overlapping lines
 		{"L0 15", "M5 0L0 5L0 10L5 15", []PathIntersection{
 			{Point{0.0, 5.0}, 1, 1.0 / 3.0, 0.5 * math.Pi, true, true, true},
 			{Point{0.0, 10.0}, 1, 2.0 / 3.0, 0.5 * math.Pi, true, true, false},
@@ -845,10 +847,10 @@ func TestSelfIntersections(t *testing.T) {
 
 		// intersection
 		{"M2 1L0 0L0 2L2 1L1 0L1 2z", []PathIntersection{
-			{Point{2.0, 1.0}, 1, 0.0, 206.5650511771 * math.Pi / 180.0, true, true, false},
+			{Point{2.0, 1.0}, 1, 0.0, 206.5650511771 * math.Pi / 180.0, false, false, false},
 			{Point{1.0, 0.5}, 1, 0.5, 206.5650511771 * math.Pi / 180.0, true, false, false},
 			{Point{1.0, 1.5}, 3, 0.5, 333.4349488229 * math.Pi / 180.0, false, false, false},
-			{Point{2.0, 1.0}, 4, 0.0, 1.25 * math.Pi, false, true, false},
+			{Point{2.0, 1.0}, 4, 0.0, 1.25 * math.Pi, true, false, false},
 			{Point{1.0, 0.5}, 5, 0.25, 0.5 * math.Pi, false, false, false},
 			{Point{1.0, 1.5}, 5, 0.75, 0.5 * math.Pi, true, false, false},
 		}},
@@ -858,9 +860,25 @@ func TestSelfIntersections(t *testing.T) {
 			{Point{5.0, 0.0}, 1, 0.5, 0.0, false, true, true},
 			{Point{10.0, 0.0}, 3, 0.5, 0.0, false, true, true},
 		}},
+		{"L10 0L0 0L15 0", []PathIntersection{
+			{Point{0.0, 0.0}, 1, 0.5, 0.0, false, true, true},
+			{Point{10.0, 0.0}, 3, 0.5, 0.0, false, true, true},
+		}},
 		{"L10 0L15 5L20 10L15 5L10 0L0 5", []PathIntersection{
 			{Point{10.0, 0.0}, 1, 0.0, 0.0, true, true, true},
 			{Point{10.0, 0.0}, 6, 0.0, 0.0, true, true, true},
+		}},
+		{"L15 0L15 10L5 10L5 0L10 0L10 5L0 5z", []PathIntersection{
+			{Point{5.0, 0.0}, 1, 0.5, 0.0, false, true, true},
+			{Point{10.0, 0.0}, 3, 0.5, 0.0, false, true, true},
+		}},
+		{"L15 0L15 10L0 10L0 0L10 0L10 5L-5 5L-5 0z", []PathIntersection{
+			{Point{0.0, 0.0}, 1, 0.5, 0.0, false, true, true},
+			{Point{10.0, 0.0}, 3, 0.5, 0.0, false, true, true},
+		}},
+		{"L15 0L15 10L0 10L0 0L10 0L10 5L0 5z", []PathIntersection{
+			{Point{0.0, 5.0}, 1, 0.5, 0.0, false, true, true},
+			{Point{10.0, 0.0}, 3, 0.5, 0.0, false, true, true},
 		}},
 		{"L-5 0A5 5 0 0 1 5 0A5 5 0 0 1 -5 0z", []PathIntersection{
 			{Point{5.0, 0.0}, 1, 0.5, 0.0, false, true, true},
@@ -1084,6 +1102,10 @@ func TestPathAnd(t *testing.T) {
 		{"L5 0L5 1L7 -1", "L10 0L10 10L0 10z", "L5 0L5 1L6 0"},        // touch with parallel
 		{"L5 0L5 -1L7 1", "L10 0L10 10L0 10z", "M6 0L7 1"},            // touch with parallel
 
+		// P intersects Q twice in the same point
+		{"L0 -20L20 -20L20 20L0 20z", "L10 10L10 -10L-10 10L-10 -10z", "L10 -10L10 10z"},
+		{"L20 0L20 20L-20 20L-20 0z", "L10 10L10 -10L-10 10L-10 -10z", ""}, // TODO
+
 		// bugs
 		//{"M23 15L24 15L24 16L23 16zM23.4 14L24.4 14L24.4 15L23.4 15z", "M15 16A1 1 0 0 1 16 15L24 15A1 1 0 0 1 25 16L25 24A1 1 0 0 1 24 25L16 25A1 1 0 0 1 15 24z", "M23 15L24 15L24 16L23 16z"},
 		//{"M23 15L24 15L24 16L23 16zM24 15.4L25 15.4L25 16.4L24 16.4z", "M14 14L24 14L24 24L14 24z", "M23 15L24 15L24 16L23 16z"},
@@ -1136,6 +1158,10 @@ func TestPathOr(t *testing.T) {
 		{"L1 0L1 1L0 1z", "L2 0L2 1L0 1z", "M2 0L2 1L0 1L0 0z"},
 		{"L3 0L3 1L0 1z", "M1 0L2 0L2 1L1 1z", "M3 0L3 1L0 1L0 0z"},
 		{"L2 0L2 2L0 2z", "L1 0L1 1L0 1z", "M2 0L2 2L0 2L0 0z"},
+		{"M2 0L2 2L0 2L0 0z", "M2 0L4 0L4 2L0 2L0 0z", "M4 0L4 2L0 2L0 0z"},
+		{"M2 2L0 2L0 0L2 0z", "M2 0L4 0L4 2L0 2L0 0z", "M4 0L4 2L0 2L0 0z"},
+		{"M2 0L2 1L0 1L0 0z", "M1 0L3 0L3 1L1 1z", "M3 0L3 1L0 1L0 0z"},
+		{"M2 1L0 1L0 0L2 0z", "M1 0L3 0L3 1L1 1z", "M0 1L0 0L3 0L3 1z"},
 
 		// fully parallel
 		{"L10 0L10 5L7.5 7.5L5 5L2.5 7.5L5 10L7.5 7.5L10 10L10 15L0 15z", "M7.5 7.5L5 10L2.5 7.5L5 5z", "M7.5 7.5L10 10L10 15L0 15L0 0L10 0L10 5z"},

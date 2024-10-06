@@ -47,7 +47,7 @@ func leftmostWindings(subpath int, ps []*Path, x, y float64) int {
 	//ccw := true
 	var angle0, angle1 float64 // as this is the left-most point, must be in [-0.5*PI,0.5*PI]
 	angle0 = angleNorm(zs[0].Dir + math.Pi)
-	if Equal(zs[0].T, 1.0) {
+	if zs[0].T == 1.0 {
 		angle1 = zs[1].Dir
 	} else {
 		angle1 = zs[0].Dir
@@ -66,13 +66,13 @@ func leftmostWindings(subpath int, ps []*Path, x, y float64) int {
 		}
 
 		zs := ps[i].RayIntersections(x, y)
-		ni, tangenti := windings(zs)
-		if !tangenti {
+		ni, nb := windings(zs) // TODO: remove angles and use boundary n
+		if nb == 0 {
 			n += ni
 		} else {
 			//var in0, in1 bool
 			in0 := angleBetweenExclusive(zs[0].Dir+math.Pi, angle1, angle0)
-			//if Equal(zs[0].T, 1.0) {
+			//if zs[0].T== 1.0 {
 			//	in1 = angleBetweenExclusive(zs[1].Dir, angle1, angle0)
 			//} else {
 			//	in1 = angleBetweenExclusive(zs[0].Dir, angle1, angle0)
@@ -122,6 +122,7 @@ type nodeItem struct {
 // Settle simplifies a path by removing all self-intersections and overlapping parts. Open paths are not handled and returned as-is. The returned subpaths are oriented counter clock-wise when filled and clock-wise for holes. This means that the result is agnostic to the winding rule used for drawing. The result will only contain point-tangent intersections, but not parallel-tangent intersections or regular intersections.
 // See L. Subramaniam, "Partition of a non-simple polygon into simple pologons", 2003
 func (p *Path) Settle(fillRule FillRule) *Path {
+	return p
 	// TODO: for EvenOdd, output filled polygons only, not fill-rings and hole-rings
 	if p.Empty() {
 		return p
@@ -464,8 +465,8 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 
 	// TODO: if commented may result in infinite loops
 	// remove self-intersections within each path and make filling paths CCW
-	p = p.Settle(NonZero) // TODO: where to get fillrule from?
-	q = q.Settle(NonZero)
+	//p = p.Settle(NonZero) // TODO: where to get fillrule from?
+	//q = q.Settle(NonZero)
 
 	ps, qs := p.Split(), q.Split()
 
@@ -481,7 +482,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 	}
 
 	// find all intersections (incl. overlapping-tangent but not point-tangent) between p and q
-	zp, zq := pathIntersections(p, q, false, false) //true)
+	zp, zq := pathIntersections(p, q, false, true)
 
 	// split open subpaths from p
 	j := 0      // index into zp
@@ -550,7 +551,7 @@ func boolean(p *Path, op pathOp, q *Path) *Path {
 	}
 
 	// handle intersecting subpaths
-	zs := pathIntersectionNodes(p, q, zp, zq)
+	zs := pathIntersectionNodes(p, q, zp, zq, NonZero)
 	R := booleanIntersections(op, zs)
 
 	// handle the remaining subpaths that are non-intersecting but possibly overlapping, either one containing the other or by being equal
@@ -666,6 +667,7 @@ func booleanIntersections(op pathOp, zs []PathIntersectionNode) *Path {
 			}
 
 			for z := &z0; ; {
+				//fmt.Println(z, onP, forwardP, forwardQ, z.p, "--", z.q)
 				visited[z.i][k] = true
 				if z.i != z0.i && z.x != nil && (forwardP == forwardQ) != z.Backwards {
 					// overlapping paths for crossing intersections
@@ -709,6 +711,7 @@ func booleanIntersections(op pathOp, zs []PathIntersectionNode) *Path {
 				overlappingTangent = z.OverlappingTangent(onP, forwardP, forwardQ)
 			}
 			if z0.x != nil && (forwardP == forwardQ) != z0.Backwards {
+				fmt.Println("END IN OVERLAP")
 				// TODO: test
 				if forwardP {
 					r = r.Join(z0.x)
@@ -829,12 +832,12 @@ func (p *Path) RayIntersections(x, y float64) []PathIntersection {
 				Seg:         seg,
 				T:           z.T[1],
 				Dir:         z.Dir[1],
-				Tangent:     Equal(z.T[0], 0.0),
+				Tangent:     z.T[0] == 0.0,
 				Into:        z.Into(),
-				Overlapping: z.Aligned() || z.AntiAligned(),
+				Overlapping: z.Same,
 			}
 
-			if cmd == CloseCmd && Equal(z.T[1], 1.0) {
+			if cmd == CloseCmd && z.T[1] == 1.0 {
 				// sort at subpath's end as first
 				Zs = append(Zs[:k0], append([]PathIntersection{Z}, Zs[k0:]...)...)
 			} else {
@@ -846,6 +849,9 @@ func (p *Path) RayIntersections(x, y float64) []PathIntersection {
 		seg++
 	}
 	sort.SliceStable(Zs, func(i, j int) bool {
+		if Equal(Zs[i].X, Zs[j].X) {
+			return false
+		}
 		return Zs[i].X < Zs[j].X
 	})
 	return Zs
