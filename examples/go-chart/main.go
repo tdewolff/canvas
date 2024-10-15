@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -15,7 +14,7 @@ import (
 func main() {
 	xv, yv := xvalues(), yvalues()
 
-	dejavu, err := ioutil.ReadFile("../../resources/DejaVuSerif.ttf")
+	dejavu, err := os.ReadFile("../../resources/DejaVuSerif.ttf")
 	if err != nil {
 		panic(err)
 	}

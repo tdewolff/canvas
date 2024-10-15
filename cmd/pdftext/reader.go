@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 
 	"github.com/tdewolff/parse/v2/strconv"
 )
@@ -31,7 +30,7 @@ type pdfReader struct {
 }
 
 func NewPDFReader(reader io.Reader, password string) (*pdfReader, error) {
-	data, err := ioutil.ReadAll(reader)
+	data, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	} else if len(data) < 8 || !bytes.Equal(data[:7], []byte("%PDF-1.")) || data[7] < '0' || '7' < data[7] {

@@ -55,13 +55,13 @@ func TestCanvas(t *testing.T) {
 	//buf.Reset()
 	//pdfCompress = false
 	//c.WritePDF(buf)
-	//ioutil.WriteFile("test/canvas.pdf", buf.Bytes(), 0644)
+	//os.WriteFile("test/canvas.pdf", buf.Bytes(), 0644)
 	//s = regexp.MustCompile(`stream\nx(.|\n)+\nendstream\n`).ReplaceAllString(buf.String(), "stream\n\nendstream\n") // remove embedded font
 	//test.String(t, s, "%PDF-1.7\n1 0 obj\n<< /Subtype /TrueType /Filter /FlateDecode /Length 215980 >> stream\n\nendstream\nendobj\n5 0 obj\n<< /Type /Page /Contents 4 0 R /Group << /Type /Group /CS /DeviceRGB /I true /S /Transparency >> /MediaBox [0 0 60 93] /Parent 5 0 R /Resources << /Font << /F0 2 0 R >> /XObject << /Im0 3 0 R >> >> >>\nendobj\n6 0 obj\n<< /Type /Pages /Count 1 /Kids [5 0 R] >>\nendobj\n7 0 obj\n<< /Type /Catalog /Pages 6 0 R >>\nendobj\nxref\n0 8\n0000000000 65535 f\n0000000009 00000 n\n0000216083 00000 n\n0000227285 00000 n\n0000227491 00000 n\n0000227888 00000 n\n0000228104 00000 n\n0000228161 00000 n\ntrailer\n<< /Root 7 0 R /Size 7 >>\nstarxref\n228210\n%%EOF")
 
 	//buf.Reset()
 	//c.WriteEPS(buf)
-	//ioutil.WriteFile("test/canvas.eps", buf.Bytes(), 0644)
+	//os.WriteFile("test/canvas.eps", buf.Bytes(), 0644)
 	// TODO: test EPS when fully supported
 }
 

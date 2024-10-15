@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"image/color"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,7 +16,7 @@ func loadFont(name string, style FontStyle) ([]byte, error) {
 	if !ok {
 		return nil, fmt.Errorf("failed to find font '%s'", name)
 	}
-	return ioutil.ReadFile(filename)
+	return os.ReadFile(filename)
 }
 
 // DrawPreview draws the canvas's preview to a Context.
@@ -40,7 +39,7 @@ func DrawPreview(ctx *Context) error {
 	if err != nil {
 		return err
 	}
-	lenna, err := ioutil.ReadFile(filepath.Join(root, "resources/lenna.png"))
+	lenna, err := os.ReadFile(filepath.Join(root, "resources/lenna.png"))
 	if err != nil {
 		return err
 	}
