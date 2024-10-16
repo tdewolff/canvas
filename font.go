@@ -327,7 +327,6 @@ func (f *Font) SetVariations(variations string) {
 
 // SetFeatures sets the font features (not yet supported).
 func (f *Font) SetFeatures(features string) {
-	// TODO: support font features
 	f.features = features
 }
 
