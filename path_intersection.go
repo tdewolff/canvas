@@ -66,8 +66,8 @@ func leftmostWindings(subpath int, ps []*Path, x, y float64) int {
 		}
 
 		zs := ps[i].RayIntersections(x, y)
-		ni, nb := windings(zs) // TODO: remove angles and use boundary n
-		if nb == 0 {
+		ni, boundary := windings(zs) // TODO: remove angles and use boundary n
+		if !boundary {
 			n += ni
 		} else {
 			//var in0, in1 bool
