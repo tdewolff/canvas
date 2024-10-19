@@ -393,6 +393,24 @@ func TestIntersectionEllipseEllipse(t *testing.T) {
 	Epsilon = origEpsilon
 }
 
+func TestBentleyOttmann(t *testing.T) {
+	var tts = []struct {
+		op   pathOp
+		p, q string
+	}{
+		{opAND, "L10 0L5 10z", "M1 5L11 5L6 15z"},
+		{opOR, "L10 0L5 10z", "M1 5L11 5L6 15z"},
+	}
+	for _, tt := range tts {
+		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
+			p := MustParseSVGPath(tt.p)
+			q := MustParseSVGPath(tt.q)
+
+			_ = bentleyOttmann(p, q, tt.op, NonZero)
+		})
+	}
+}
+
 func TestIntersections(t *testing.T) {
 	var tts = []struct {
 		p, q   string
