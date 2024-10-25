@@ -404,10 +404,10 @@ func (r Rect) Contains(p Point) bool {
 func (r Rect) Overlaps(q Rect) bool {
 	if r.W == 0.0 || r.H == 0.0 || q.W == 0.0 || q.H == 0.0 {
 		return false
-	} else if q.X+q.W <= r.X || r.X+r.W <= q.X {
+	} else if q.X+q.W < r.X || Equal(q.X+q.W, r.X) || r.X+r.W < q.X || Equal(r.X+r.W, q.X) {
 		// left or right
 		return false
-	} else if q.Y+q.H <= r.Y || r.Y+r.H <= q.Y {
+	} else if q.Y+q.H < r.Y || Equal(q.Y+q.H, r.Y) || r.Y+r.H < q.Y || Equal(r.Y+r.H, q.Y) {
 		// below or above
 		return false
 	}
