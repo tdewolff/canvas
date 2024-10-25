@@ -49,12 +49,13 @@ type SweepPoint struct {
 	vertical   bool        // segment is vertical
 	other      *SweepPoint // pointer to the other endpoint of the segment
 
-	node      *SweepNode  // used for fast accessing node in O(1) (instead of Find in O(log n))
-	equal     *SweepPoint // pointer to other segment that is equal (overlapping), can be nil
-	clipping  bool
-	windings  int // windings of the other polygon
-	index     int // index into result array
-	processed bool
+	node         *SweepNode  // used for fast accessing node in O(1) (instead of Find in O(log n))
+	equal        *SweepPoint // pointer to other segment that is equal (overlapping), can be nil
+	clipping     bool
+	windings     int // windings of the other polygon
+	selfWindings int // windings with itself
+	index        int // index into result array
+	processed    bool
 }
 
 func (s SweepPoint) Left() Point {
@@ -669,7 +670,6 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]bool, zs In
 
 		// find all intersections between segment pair
 		zs = intersectionLineLine(zs[:0], a.Start(), a.End(), b.Start(), b.End())
-		fmt.Println("X", a, b, "--", zs)
 		if len(zs) == 0 {
 			handled[SweepPointPair{a, b}] = true
 			return
@@ -761,17 +761,17 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]bool, zs In
 func (n *SweepNode) computeSweepFields() {
 	// n is left
 	first := true
-	selfWindings := 0
-
 	cur := n
-	cur.windings = 0
-	if nNext := n.Next(); nNext != nil && !cur.clipping && cur.Point.Equals(nNext.Point) && cur.other.Point.Equals(nNext.other.Point) {
+	cur.windings, cur.selfWindings = 0, 0 // might have been set previously if split up
+	if nNext := n.Next(); nNext != nil && !cur.clipping && nNext.clipping && cur.Point.Equals(nNext.Point) && cur.other.Point.Equals(nNext.other.Point) {
 		// equal segment, this happens when P starts to the left of Q, and thus the intersection
 		// of P at the start of Q was inserted into the queue while handling the parallel
 		// segment of Q, and is thus the only instance where we check for an equal segment in Q
 		// using P, thus we need to look up/Next (not down/Prev).
 		cur.equal = nNext.SweepPoint
 		cur.equal.equal = cur.SweepPoint
+		cur.other.equal = nNext.other
+		cur.other.equal.equal = cur.other
 		first = false
 	}
 	for {
@@ -780,15 +780,17 @@ func (n *SweepNode) computeSweepFields() {
 			break
 		} else if cur.clipping == n.clipping {
 			if n.increasing {
-				selfWindings++
+				cur.selfWindings++
 			} else {
-				selfWindings--
+				cur.selfWindings--
 			}
 			continue
 		} else if first && cur.clipping && cur.Point.Equals(n.Point) && cur.other.Point.Equals(n.other.Point) {
 			// equal segment
 			cur.equal = n.SweepPoint
 			cur.equal.equal = cur.SweepPoint
+			cur.other.equal = n.other
+			cur.other.equal.equal = cur.other
 		} else if n.vertical {
 			continue
 		}
@@ -816,16 +818,13 @@ func (n *SweepNode) computeSweepFields() {
 	//     clip.windings=odd, subj.windings=even, selfWindings=even
 	//     add clip's winding to subj.windings
 	if cur.equal != nil {
-		fmt.Println("equal", cur, cur.equal, "clip.windings", cur.windings, "subj.windings", cur.equal.windings, "selfWindings", selfWindings)
-	}
-	if cur.equal != nil {
 		clip, subj := cur.SweepPoint, cur.equal
 		if !cur.clipping {
 			clip, subj = subj, clip
 		}
+
 		outside := (clip.windings%2 == 0) == (subj.windings%2 == 0)
-		//fmt.Println("correct:", clip, clip.windings, "x", subj, subj.windings, "outside", outside)
-		if outside && selfWindings%2 != 0 || !outside && subj.windings%2 == 0 {
+		if outside && cur.selfWindings%2 != 0 || !outside && subj.windings%2 == 0 {
 			// add clip's winding to subj
 			if clip.increasing {
 				subj.windings++
@@ -834,7 +833,7 @@ func (n *SweepNode) computeSweepFields() {
 			}
 			subj.other.windings = subj.windings
 		}
-		if outside && selfWindings%2 != 0 || !outside && clip.windings%2 == 0 {
+		if outside && cur.selfWindings%2 != 0 || !outside && clip.windings%2 == 0 {
 			// remove subj's winding from clip
 			if subj.increasing {
 				clip.windings--
@@ -842,9 +841,8 @@ func (n *SweepNode) computeSweepFields() {
 				clip.windings++
 			}
 		}
-		//fmt.Println("        ", clip, clip.windings, "x", subj, subj.windings)
 	}
-	cur.other.windings = cur.windings
+	cur.other.windings, cur.other.selfWindings = cur.windings, cur.selfWindings
 }
 
 func (p *SweepPoint) InResult(op pathOp, fillRule FillRule) bool {
@@ -913,7 +911,6 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 			if pBounds[i].Overlaps(qBounds[j]) {
 				pOverlaps[i] = true
 				qOverlaps[j] = true
-				break
 			}
 		}
 		if !pOverlaps[i] && (op == opOR || op == opXOR || op == opNOT) {
@@ -934,16 +931,21 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 	queue := &SweepEvents{}
 	for i := range ps {
 		if pOverlaps[i] {
+			// implicitly close all subpaths on P
+			// TODO: remove and support open paths only on P
+			if !ps[i].Closed() {
+				ps[i].Close()
+			}
 			queue.AddPathEndpoints(ps[i], false)
 		}
 	}
-	for j := range qs {
-		if qOverlaps[j] {
+	for i := range qs {
+		if qOverlaps[i] {
 			// implicitly close all subpaths on Q
-			if !qs[j].Closed() {
-				qs[j].Close()
+			if !qs[i].Closed() {
+				qs[i].Close()
 			}
-			queue.AddPathEndpoints(qs[j], true)
+			queue.AddPathEndpoints(qs[i], true)
 		}
 	}
 	queue.Init() // sort from left to right
@@ -959,17 +961,18 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 		fmt.Println("---")
 		events := queue.Pop()
 		for _, event := range events {
+			fmt.Println(event)
 			// TODO: skip or stop depending on operation if we're to the left/right of subject/clipping polygon
 			if event.left {
 				// add segment to sweep status
 				n := status.Insert(event)
-				n.computeSweepFields()
 				if prev := n.Prev(); prev != nil {
 					addIntersections(queue, handled, zs, prev.SweepPoint, n.SweepPoint)
 				}
 				if next := n.Next(); next != nil {
 					addIntersections(queue, handled, zs, n.SweepPoint, next.SweepPoint)
 				}
+				n.computeSweepFields() // after addIntersections as it may make segments equal
 			} else {
 				// remove segment from sweep status
 				n := event.other.node
@@ -998,8 +1001,8 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 	var pos Point
 	var result [][]*SweepPoint // put segments at the same position together
 	for _, event := range preResult {
-		fmt.Println(len(result), event, event.windings, event.InResult(op, fillRule))
 		if event.InResult(op, fillRule) {
+			fmt.Println(len(result), event, event.selfWindings)
 			if len(result) == 0 || !event.Point.Equals(pos) {
 				result = append(result, []*SweepPoint{event})
 				pos = event.Point
@@ -1016,8 +1019,11 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 					continue
 				}
 
-				R.MoveTo(cur.X, cur.Y)
-				fmt.Println(cur.index)
+				selfWindings := cur.selfWindings // windings with self on left-most point
+				fmt.Println("windings", cur, cur.windings, cur.selfWindings)
+
+				r := &Path{}
+				r.MoveTo(cur.X, cur.Y)
 				cur.processed = true
 				cur.other.processed = true
 				if cur.equal != nil {
@@ -1047,7 +1053,7 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 					}
 					cur = next
 
-					R.LineTo(cur.X, cur.Y)
+					r.LineTo(cur.X, cur.Y)
 					cur.processed = true
 					cur.other.processed = true
 					if cur.equal != nil {
@@ -1055,7 +1061,15 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 						cur.equal.other.processed = true
 					}
 				}
-				R.Close()
+				r.Close()
+
+				fmt.Println("windings", cur, cur.windings, cur.selfWindings)
+				if selfWindings%2 == 1 {
+					// orient holes clockwise
+					fmt.Println(r)
+					r = r.Reverse()
+				}
+				R = R.Append(r)
 			}
 		}
 	}
