@@ -1082,6 +1082,16 @@ func TestBentleyOttmannSortH(t *testing.T) {
 		// vertical overlap
 		{boSP(Point{0, 0}, Point{0, 10}, false), boSP(Point{0, 0}, Point{0, 10}, true), -1},
 		{boSP(Point{0, 0}, Point{0, 10}, true), boSP(Point{0, 0}, Point{0, 10}, false), 1},
+		{boSP(Point{0, 10}, Point{0, 0}, false), boSP(Point{0, 10}, Point{0, 0}, true), -1},
+		{boSP(Point{0, 10}, Point{0, 0}, true), boSP(Point{0, 10}, Point{0, 0}, false), 1},
+
+		// CCW order for left and right endpoints
+		{boSP(Point{0, 0}, Point{-1, 10}, false), boSP(Point{0, 0}, Point{-10, 0}, false), -1},
+		{boSP(Point{0, 0}, Point{-10, 0}, false), boSP(Point{0, 0}, Point{0, -10}, false), -1},
+		{boSP(Point{0, 0}, Point{0, -10}, false), boSP(Point{0, 0}, Point{1, -10}, false), -1},
+		{boSP(Point{0, 0}, Point{1, -10}, false), boSP(Point{0, 0}, Point{10, 0}, false), -1},
+		{boSP(Point{0, 0}, Point{10, 0}, false), boSP(Point{0, 0}, Point{0, 10}, false), -1},
+		{boSP(Point{0, 0}, Point{10, 0}, false), boSP(Point{0, 0}, Point{-1, 10}, false), 1},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.a, "x", tt.b), func(t *testing.T) {
@@ -1193,7 +1203,7 @@ func TestPathAnd(t *testing.T) {
 		{"M1 0L2 0L2 1L1 1zM0 -1L1 -1L1 -0.1L0.4 0.5L1 1.1L1 2L0 2z", "M0 -1L1 -1L1 2L0 2z", "M0 -1L1 -1L1 -0.1L0.4 0.5L1 1.1L1 2L0 2z"},
 		{"M1 0L2 0L2 1L1 1zM0 -1L1 -1L1 0L0.5 0.5L1 1L1 2L0 2z", "M0 -1L1 -1L1 2L0 2z", "M0 -1L1 -1L1 0L0.5 0.5L1 1L1 2L0 2z"},
 		{"M1 0L2 0L2 1L1 1zM0 -1L1 -1L1 0.1L0.6 0.5L1 0.9L1 2L0 2z", "M0 -1L1 -1L1 2L0 2z", "M0 -1L1 -1L1 0.1L0.6 0.5L1 0.9L1 2L0 2z"},
-		{"L1 0L1.1 0.5L1 1L0 1zM2 -1L2 2L1 2L1 1L1.5 0.5L1 0L1 -1z", "M2 -1L2 2L1 2L1 -1z", "M1 -1L2 -1L2 2L1 2zM1 0L1.1 0.5L1 1L1.5 0.5z"},
+		{"L1 0L1.1 0.5L1 1L0 1zM2 -1L2 2L1 2L1 1L1.5 0.5L1 0L1 -1z", "M2 -1L2 2L1 2L1 -1z", "M1 -1L2 -1L2 2L1 2L1 1L1.5 0.5L1 0zM1 0L1.1 0.5L1 1z"},
 		{"L1 0L0.9 0.5L1 1L0 1zM2 -1L2 2L1 2L1 1L1.5 0.5L1 0L1 -1z", "M2 -1L2 2L1 2L1 -1z", "M1 -1L2 -1L2 2L1 2L1 1L1.5 0.5L1 0z"},
 
 		// subpaths
@@ -1332,10 +1342,10 @@ func TestPathXor(t *testing.T) {
 		r    string
 	}{
 		// overlap
-		{"L10 0L5 10z", "M0 5L10 5L5 15z", "L10 0L7.5 5L10 5L5 15L0 5L2.5 5zM2.5 5L5 10L7.5 5z"},
-		{"L10 0L5 10z", "M0 5L5 15L10 5z", "L10 0L7.5 5L10 5L5 15L0 5L2.5 5zM2.5 5L5 10L7.5 5z"},
-		{"L5 10L10 0z", "M0 5L10 5L5 15z", "L10 0L7.5 5L10 5L5 15L0 5L2.5 5zM2.5 5L5 10L7.5 5z"},
-		{"L5 10L10 0z", "M0 5L5 15L10 5z", "L10 0L7.5 5L10 5L5 15L0 5L2.5 5zM2.5 5L5 10L7.5 5z"},
+		{"L10 0L5 10z", "M0 5L10 5L5 15z", "L10 0L7.5 5L2.5 5zM0 5L2.5 5L5 10L7.5 5L10 5L5 15z"},
+		{"L10 0L5 10z", "M0 5L5 15L10 5z", "L10 0L7.5 5L2.5 5zM0 5L2.5 5L5 10L7.5 5L10 5L5 15z"},
+		{"L5 10L10 0z", "M0 5L10 5L5 15z", "L10 0L7.5 5L2.5 5zM0 5L2.5 5L5 10L7.5 5L10 5L5 15z"},
+		{"L5 10L10 0z", "M0 5L5 15L10 5z", "L10 0L7.5 5L2.5 5zM0 5L2.5 5L5 10L7.5 5L10 5L5 15z"},
 		//{"M0 1L4 1L4 3L0 3z", "M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", "M4 3A1 1 0 0 0 2 3L0 3L0 1L4 1zM4 3A1 1 0 0 1 2 3z"}, // TODO
 
 		// touching edges
@@ -1343,7 +1353,7 @@ func TestPathXor(t *testing.T) {
 		{"L2 0L2 2L0 2z", "M2 1L4 1L4 3L2 3z", "L2 0L2 1L4 1L4 3L2 3L2 2L0 2z"},
 
 		// no overlap
-		{"L10 0L5 10z", "M0 10L10 10L5 20z", "L10 0L5 10L10 10L5 20L0 10L5 10z"},
+		{"L10 0L5 10z", "M0 10L10 10L5 20z", "L10 0L5 10zM0 10L10 10L5 20z"},
 
 		// containment
 		{"L10 0L5 10z", "M2 2L8 2L5 8z", "L10 0L5 10zM2 2L5 8L8 2z"},
@@ -1361,20 +1371,20 @@ func TestPathXor(t *testing.T) {
 		{"L1 0L1 1L0 1z", "L2 0L2 1L0 1z", "M1 0L2 0L2 1L1 1z"},
 		{"L3 0L3 1L0 1z", "M1 0L2 0L2 1L1 1z", "L1 0L1 0L1 1L0 1zM2 0L3 0L3 1L2 1z"},
 		{"L2 0L2 2L0 2z", "L1 0L1 1L0 1z", "M0 1L1 1L1 0L2 0L2 2L0 2z"},
-		{"L2 0L0 2z", "L2 2L0 2z", "L2 0L1 1L2 2L0 2L1 1z"},
+		{"L2 0L0 2z", "L2 2L0 2z", "L2 0L1 1zM0 2L1 1L2 2z"},
 
 		// figure 10 from Martinez et al.
 		{"L3 0L3 3L0 3z", "M1 2L2 2L2 3L1 3z", "L3 0L3 3L2 3L2 2L1 2L1 3L0 3z"},
 		{"L3 0L3 3L0 3z", "M1 3L2 3L2 4L1 4z", "L3 0L3 3L2 3L2 4L1 4L1 3L0 3z"},
 
 		// subpaths
-		{"M1 0L3 0L3 4L1 4z", "M0 1L4 1L4 3L0 3zM2 2L2 5L5 5L5 2z", "M3 1L1 1L1 0L3 0zM3 1L4 1L4 2L3 2zM3 2L3 3L2 3L2 4L1 4L1 3L2 3L2 2zM3 3L4 3L4 2L5 2L5 5L2 5L2 4L3 4zM1 3L0 3L0 1L1 1z"}, // different winding
-		{"L2 0L2 1L0 1zM0 2L2 2L2 3L0 3z", "M1 0L3 0L3 1L1 1zM1 2L3 2L3 3L1 3z", "L1 0L1 1L0 1zM0 2L1 2L1 3L0 3zM2 0L3 0L3 1L2 1zM2 2L3 2L3 3L2 3z"},                                         // two overlapping
-		{"L2 0L2 1L0 1zM0 2L2 2L2 3L0 3z", "M1 0L3 0L3 1L1 1zM0 2L2 2L2 3L0 3z", "L1 0L1 1L0 1zM2 0L3 0L3 1L2 1z"},                                                                           // one overlapping, one equal
-		{"L2 0L2 1L0 1zM0 2L2 2L2 3L0 3z", "M1 0L3 0L3 1L1 1zM0.1 2.1L1.9 2.1L1.9 2.9L0.1 2.9z", "L1 0L1 1L0 1zM0 2L2 2L2 3L0 3zM0.1 2.1L0.1 2.9L1.9 2.9L1.9 2.1zM2 0L3 0L3 1L2 1z"},         // one overlapping, one inside the other
-		{"L2 0L2 1L0 1zM0 2L2 2L2 3L0 3z", "M1 0L3 0L3 1L1 1zM2 2L4 2L4 3L2 3z", "L1 0L1 1L0 1zM0 2L4 2L4 3L0 3zM2 0L3 0L3 1L2 1z"},                                                          // one overlapping, the others separate
-		{"L7 0L7 4L0 4z", "M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z", "L7 0L7 4L0 4zM1 1L1 3L3 3L3 1zM4 1L4 3L6 3L6 1z"},                                                                           // two inside the same
-		{"M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z", "L7 0L7 4L0 4z", "L7 0L7 4L0 4zM1 1L1 3L3 3L3 1zM4 1L4 3L6 3L6 1z"},                                                                           // two inside the same
+		{"M1 0L3 0L3 4L1 4z", "M0 1L4 1L4 3L0 3zM2 2L2 5L5 5L5 2z", "M0 1L1 1L1 3.0000000000000004L0 3zM1 0L3 0L3 1L1 1zM1 3.0000000000000004L2 3L2 4L1 4zM2 2L3 2L3 3L2 3zM2 4L3 4L3 3L4 3L4 2L5 2L5 5L2 5zM3 1L4 1L4 2L3 2z"}, // different winding
+		{"L2 0L2 1L0 1zM0 2L2 2L2 3L0 3z", "M1 0L3 0L3 1L1 1zM1 2L3 2L3 3L1 3z", "L1 0L1 1L0 1zM0 2L1 2L1 3L0 3zM2 0L3 0L3 1L2 1zM2 2L3 2L3 3L2 3z"},                                                                            // two overlapping
+		{"L2 0L2 1L0 1zM0 2L2 2L2 3L0 3z", "M1 0L3 0L3 1L1 1zM0 2L2 2L2 3L0 3z", "L1 0L1 1L0 1zM2 0L3 0L3 1L2 1z"},                                                                                                              // one overlapping, one equal
+		{"L2 0L2 1L0 1zM0 2L2 2L2 3L0 3z", "M1 0L3 0L3 1L1 1zM0.1 2.1L1.9 2.1L1.9 2.9L0.1 2.9z", "L1 0L1 1L0 1zM0 2L2 2L2 3L0 3zM0.1 2.1L0.1 2.9L1.9 2.9L1.9 2.1zM2 0L3 0L3 1L2 1z"},                                            // one overlapping, one inside the other
+		{"L2 0L2 1L0 1zM0 2L2 2L2 3L0 3z", "M1 0L3 0L3 1L1 1zM2 2L4 2L4 3L2 3z", "L1 0L1 1L0 1zM0 2L4 2L4 3L0 3zM2 0L3 0L3 1L2 1z"},                                                                                             // one overlapping, the others separate
+		{"L7 0L7 4L0 4z", "M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z", "L7 0L7 4L0 4zM1 1L1 3L3 3L3 1zM4 1L4 3L6 3L6 1z"},                                                                                                              // two inside the same
+		{"M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z", "L7 0L7 4L0 4z", "L7 0L7 4L0 4zM1 1L1 3L3 3L3 1zM4 1L4 3L6 3L6 1z"},                                                                                                              // two inside the same
 
 		// open TODO
 		//{"M5 1L5 9", "L10 0L10 10L0 10z", "L10 0L10 10L0 10z"},                             // in
@@ -1462,7 +1472,7 @@ func TestPathNot(t *testing.T) {
 
 		// subpaths
 		{"M1 0L3 0L3 4L1 4z", "M0 1L4 1L4 3L0 3zM2 2L2 5L5 5L5 2z", "M1 0L3 0L3 1L1 1zM1 3L2 3L2 4L1 4zM2 2L3 2L3 3L2 3z"},                                          // different winding
-		{"M0 1L4 1L4 3L0 3zM2 2L2 5L5 5L5 2z", "M1 0L3 0L3 4L1 4z", "M3 2L3 1L4 1L4 2zM1 3L0 3L0 1L1 1zM2 4L3 4L3 3L4 3L4 2L5 2L5 5L2 5z"},                          // different winding
+		{"M0 1L4 1L4 3L0 3zM2 2L2 5L5 5L5 2z", "M1 0L3 0L3 4L1 4z", "M0 1L1 1L1 3L0 3zM2 4L3 4L3 3L4 3L4 2L5 2L5 5L2 5zM3 1L4 1L4 2L3 2z"},                          // different winding
 		{"L2 0L2 1L0 1zM0 2L2 2L2 3L0 3z", "M1 0L3 0L3 1L1 1zM1 2L3 2L3 3L1 3z", "L1 0L1 1L0 1zM0 2L1 2L1 3L0 3z"},                                                  // two overlapping
 		{"L2 0L2 1L0 1zM0 2L2 2L2 3L0 3z", "M1 0L3 0L3 1L1 1zM0 2L2 2L2 3L0 3z", "L1 0L1 1L0 1z"},                                                                   // one overlapping, one equal
 		{"L2 0L2 1L0 1zM0 2L2 2L2 3L0 3z", "M1 0L3 0L3 1L1 1zM0.1 2.1L1.9 2.1L1.9 2.9L0.1 2.9z", "L1 0L1 1L0 1zM0 2L2 2L2 3L0 3zM0.1 2.1L0.1 2.9L1.9 2.9L1.9 2.1z"}, // one overlapping, one inside the other
