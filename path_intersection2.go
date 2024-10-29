@@ -56,11 +56,12 @@ type SweepPoint struct {
 	node *SweepNode // used for fast accessing btree node in O(1) (instead of Find in O(log n))
 
 	// computing sweep fields
-	//equal         *SweepPoint // pointer to other segment that is equal (overlapping), can be nil
-	windings      int         // windings of the same polygon (excluding this segment)
-	otherWindings int         // windings of the other polygon
-	inResult      bool        // in the final result polygon
-	prevInResult  *SweepPoint // previous (downwards) segment that is in the final result polygon
+	overlaps       bool        // overlaps with previous segment in sweep status
+	windings       int         // windings of the same polygon (excluding this segment)
+	otherWindings  int         // windings of the other polygon
+	inResult       bool        // in the final result polygon
+	prevInResult   *SweepPoint // previous (downwards) segment that is in the final result polygon
+	resultWindings int         // windings of the resulting polygon
 
 	// building the polygon
 	index     int // index into result array
@@ -584,6 +585,7 @@ func (a *SweepPoint) LessH(b *SweepPoint) bool {
 func (a *SweepPoint) compareOverlapsV(b *SweepPoint) int {
 	// compare segments vertically that overlap (ie. are the same)
 	if a.clipping != b.clipping {
+		// for equal segments, clipping path is virtually to the top-right of subject path
 		if b.clipping {
 			return -1
 		} else {
@@ -778,16 +780,24 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]bool, zs In
 }
 
 func (cur *SweepNode) computeSweepFields(op pathOp, fillRule FillRule) {
+	//fmt.Println("---", cur)
 	// cur is left-endpoint
 	var overlapping *SweepPoint
+	if next := cur.Next(); next != nil {
+		if next.vertical {
+			//fmt.Print("  VERTICAL")
+		}
+		//fmt.Println("  next", next, next.vertical)
+	}
 	if !cur.clipping {
+		// check for equal/overlapping segment
 		if next := cur.Next(); next != nil && next.clipping && cur.Point.Equals(next.Point) && cur.other.Point.Equals(next.other.Point) {
-			// equal segment, this happens when P starts to the left of Q, and thus the intersection
+			// this happens when P starts to the left of Q, and thus the intersection
 			// of P at the start of Q was inserted into the queue while handling the parallel
 			// segment of Q, and is thus the only instance where we check for an equal segment in Q
 			// using P, thus we need to look up/Next (not down/Prev).
-			//overlapping = next.SweepPoint
-			fmt.Println("OVERLAPS NEXT")
+			//fmt.Println("!!! OVERLAPS NEXT")
+			overlapping = next.SweepPoint
 		}
 	}
 
@@ -795,19 +805,44 @@ func (cur *SweepNode) computeSweepFields(op pathOp, fillRule FillRule) {
 	cur.windings, cur.otherWindings = 0, 0
 	cur.inResult, cur.prevInResult = false, nil
 
-	fmt.Println("  cur", cur, cur.vertical)
+	if cur.vertical {
+		//fmt.Print("  VERTICAL")
+	}
+	//fmt.Println("  cur", cur, cur.vertical)
 	if prev := cur.Prev(); prev != nil {
-		if cur.clipping && cur.Point.Equals(prev.Point) && cur.other.Point.Equals(prev.other.Point) {
-			// equal segment
-			overlapping = prev.SweepPoint
-		}
-		//for prev != nil && prev.vertical { // || cur.vertical && Equal(cur.X, prev.X)) {
-		//	prev = prev.Prev()
-		//}
-		if prev != nil {
-			fmt.Println("  prev", prev, prev.vertical, "windings", prev.windings, prev.otherWindings)
+		// check for equal/overlapping segment
+		if cur.Point.Equals(prev.Point) && cur.other.Point.Equals(prev.other.Point) {
 			if cur.clipping == prev.clipping {
-				cur.windings = prev.windings
+				//fmt.Println("!!! OVERLAPPING TODO")
+			} else if cur.clipping {
+				overlapping = prev.SweepPoint
+			} else {
+				fmt.Println("!!! OVERLAPPING BUT cur is subject")
+			}
+		}
+
+		// skip vertical segments, but we must correct for vertical self windings
+		verticalSelfWindings := 0
+		for prev.vertical {
+			if cur.clipping == prev.clipping && cur.Point.Equals(prev.Point) && cur.other.Point.Equals(prev.other.Point) {
+				if prev.increasing {
+					verticalSelfWindings++
+				} else {
+					verticalSelfWindings--
+				}
+			}
+			prev = prev.Prev()
+			if prev == nil {
+				break
+			}
+		}
+		if prev != nil {
+			if prev.vertical {
+				//fmt.Print("  VERTICAL")
+			}
+			//fmt.Println("  prev", prev, prev.vertical, "windings", prev.windings, prev.otherWindings)
+			if cur.clipping == prev.clipping {
+				cur.windings = verticalSelfWindings + prev.windings
 				cur.otherWindings = prev.otherWindings
 				if prev.increasing {
 					cur.windings++
@@ -828,73 +863,191 @@ func (cur *SweepNode) computeSweepFields(op pathOp, fillRule FillRule) {
 			if !prev.inResult || prev.vertical {
 				cur.prevInResult = prev.prevInResult
 			}
-		} else if cur.windings != 0 {
-			fmt.Println("WINDINGS NOT ZERO")
 		}
 	}
 
 	// prevent duplicate edges when overlapping
 	if overlapping == nil {
 		cur.inResult = cur.InResult(op, fillRule)
+		//fmt.Println("  =", cur.windings, cur.otherWindings, cur.inResult)
 	} else {
-		subj, clip := overlapping, cur.SweepPoint
-		if !cur.clipping {
-			subj, clip = cur.SweepPoint, overlapping
-		}
-
-		fmt.Println("subj", subj, subj.otherWindings, "clip", clip, clip.otherWindings)
-		//if !cur.vertical {
-		// note that clipping polygon is ordered as "higher", correct windings for both edges
-		// there are four cases:
-		// - clipping is outside and against the top of subject:
-		//     clip.windings=even, subj.windings=even
-		//     no-op
-		// - clipping is outside and against the bottom of subject:
-		//     clip.windings=odd, subj.windings=odd
-		//     add clip's winding to subj.windings, remove subj's winding from clip.windings
-		// - clipping is inside and against the top of subject:
-		//     clip.windings=even, subj.windings=odd
-		//     remove subj's winding from clip.windings
-		// - clipping is inside and against the bottom of subject:
-		//     clip.windings=odd, subj.windings=even
-		//     add clip's winding to subj.windings
-		addToSubj, subFromClip := clip.otherWindings%2 != 0, subj.otherWindings%2 != 0
-		if addToSubj {
-			// add clip's winding to subj
-			if clip.increasing {
-				subj.otherWindings++
-			} else {
-				subj.otherWindings--
-			}
-			subj.other.otherWindings = subj.otherWindings
-		}
-		if subFromClip {
-			// remove subj's winding from clip
-			if subj.increasing {
-				clip.otherWindings--
-			} else {
-				clip.otherWindings++
-			}
-		}
-		//	}
-
-		fmt.Println("  overlap windings", subj.otherWindings, clip.otherWindings, "clipping", subj.clipping, clip.clipping)
+		// Careful with overlapping sections. The sorting order dictates that the clipping path
+		// is (virtually) to the top-right of the subject path. Correct in these four cases:
+		// - Clipping path is towards the top and subject path is towards the bottom:
+		//   clip.windings=even, subj.windings=odd
+		//     => no-op
+		// - Clipping path is towards the top and subject path is towards the top:
+		//   clip.windings=even, subj.windings=even
+		//     => clip: remove winding from subj segment
+		// - Clipping path is towards the bottom and subject path is towards the top:
+		//   clip.windings=odd, subj.windings=even
+		//     => subj: add winding from clip segment
+		//     => clip: remove winding from subj segment
+		// - Clipping path is towards the bottom and subject path is towards the bottom:
+		//   clip.windings=odd, subj.windings=odd
+		//     => clip: remove winding from subj segment
 		//
-		switch op {
-		case opAND, opOR:
-			// include edges when overlap on interior of polygons
-			subj.inResult = fillRule.Fills(subj.otherWindings)
-		case opNOT:
-			// include edges when overlap on exterior of polygons
-			subj.inResult = !fillRule.Fills(subj.otherWindings)
-		case opXOR:
-			subj.inResult = false
+		// For vertical segments we have:
+		// - Clipping path is towards the right and subject path is towards the left:
+		//   clip.windings=odd, subj.windings=even
+		//     => subj: add winding from clip segment
+		//     => clip: remove winding from subj segment
+		// - Clipping path is towards the right and subject path is towards the right:
+		//   clip.windings=odd, subj.windings=odd
+		//     => clip: remove winding from subj segment
+		// - Clipping path is towards the left and subject path is towards the right:
+		//   clip.windings=even, subj.windings=odd
+		//     => no-op
+		// - Clipping path is towards the left and subject path is towards the left:
+		//   clip.windings=even, subj.windings=even
+		//     => clip: remove winding from subj segment
+
+		subj, clip := overlapping, cur.SweepPoint
+		if subj.clipping {
+			subj, clip = clip, subj // happens when Next is overlapping
+		}
+		if subj.clipping {
+			fmt.Println("!!! subj IS CLIPPING")
+		}
+		if !clip.clipping {
+			fmt.Println("!!! clip IS SUBJECT")
+		}
+		//subjOtherWindings := subj.otherWindings
+		//clipOtherWindings := clip.otherWindings
+		//if subj.windings%2 == 0 && clip.windings%2 != 0 {
+		//	// add clip winding to subj
+		//	fmt.Println("  add clip winding to subj")
+		//	if clip.increasing {
+		//		subjOtherWindings++
+		//	} else {
+		//		subjOtherWindings--
+		//	}
+		//}
+
+		//if subj.windings%2 == 0 || clip.windings%2 != 0 {
+		//	// remove subj winding from clip
+		//	fmt.Println("  remove subj winding from clip")
+		//	if subj.increasing {
+		//		clip.otherWindings--
+		//	} else {
+		//		clip.otherWindings++
+		//	}
+		//}
+		//cur.overlaps = true
+
+		//fmt.Println("+++", subj.windings, clip.windings)
+		if (subj.windings%2 != 0) == (clip.windings%2 != 0) {
+			// same transition, polygons overlap
+			// both are filling to the left/right/top/bottom of the current edge
+			subj.inResult = op == opAND || op == opOR
+		} else {
+			// different transition, polygons do not overlap but merely touch
+			// both are filling on opposite sides of the current edge
+			subj.inResult = op == opNOT
 		}
 		subj.other.inResult = subj.inResult
+
 		// clip.inResult is false to prevent duplicate edge
+		if clip.inResult {
+			//fmt.Println("!!! CLIP IS ALREADY IN RESULT")
+			clip.inResult, clip.other.inResult = false, false
+		}
+
+		//if fillRule.Fills(subjOtherWindings) == fillRule.Fills(clipOtherWindings) {
+		//	// same transition
+		//	subj.inResult = op == opAND || op == opOR
+		//} else {
+		//	// different transitions
+		//	subj.inResult = op == opNOT
+		//}
+		//fmt.Println("  =", cur.windings, cur.otherWindings, subj.inResult, clip.inResult)
+
+		// Note that clipping polygon is ordered as "higher", correct windings for both edges.
+		// There are four cases:
+		// - Clipping is outside and against the top of subject:
+		//     clip.otherWindings=even, subj.otherWindings=even
+		//     no-op
+		// - Clipping is outside and against the bottom of subject:
+		//     clip.otherWindings=odd, subj.otherWindings=odd
+		//     Add winding of clip's segment to subj.otherWindings
+		//     Remove winding of subj's segment from clip.otherWindings
+		// - Clipping is inside and against the top of subject:
+		//     clip.otherWindings=even, subj.otherWindings=odd
+		//     Remove winding of subj's segment from clip.otherWindings
+		// - Clipping is inside and against the bottom of subject:
+		//     clip.otherWindings=odd, subj.otherWindings=even
+		//     Add winding of clip's segment to subj.otherWindings
+		//
+		// However, note that if segments are vertical, the left side of a polygon is considered
+		// inside and the right side as outside itself. There are again four cases:
+		// - Clipping is outside and against the right of subject:
+		// - Clipping is outside and against the left of subject:
+		// - Clipping is inside and against the right of subject:
+		// - Clipping is inside and against the left of subject:
+
+		//if cur.clipping == overlapping.clipping {
+		//	fmt.Println("  BOTH ARE SUBJECT OR CLIPPING")
+		//}
+
+		//subj, clip := overlapping, cur.SweepPoint
+		//if !cur.clipping {
+		//	fmt.Println("  SWAP")
+		//	subj, clip = cur.SweepPoint, overlapping
+		//}
+
+		//fmt.Println("  =?", cur.windings, cur.otherWindings, cur.inResult)
+		//fmt.Println("  subj", subj, subj.windings, subj.otherWindings, "clip", clip, clip.windings, clip.otherWindings)
+
+		//inSubj, inClip := clip.otherWindings%2 != 0, subj.otherWindings%2 != 0
+		//if cur.vertical {
+		//	fmt.Println("  VERTICAL EQUALS", inSubj, inClip)
+		//	if inSubj == inClip {
+		//		// same transition
+		//		subj.inResult = op == opAND || op == opOR
+		//	} else {
+		//		// different transitions
+		//		subj.inResult = op == opNOT
+		//	}
+		//} else {
+		//	if inSubj {
+		//		// add clip's winding to subj
+		//		if clip.increasing {
+		//			subj.otherWindings++
+		//		} else {
+		//			subj.otherWindings--
+		//		}
+		//		subj.other.otherWindings = subj.otherWindings
+		//	}
+		//	if inClip {
+		//		// remove subj's winding from clip
+		//		if subj.increasing {
+		//			clip.otherWindings--
+		//		} else {
+		//			clip.otherWindings++
+		//		}
+		//	}
+
+		//	fmt.Println("  overlap windings", subj.otherWindings, clip.otherWindings, "clipping", subj.clipping, clip.clipping)
+		//	//
+		//	switch op {
+		//	case opAND, opOR:
+		//		// include edges when overlap on interior of polygons
+		//		subj.inResult = fillRule.Fills(subj.otherWindings)
+		//	case opNOT:
+		//		// include edges when overlap on exterior of polygons
+		//		subj.inResult = !fillRule.Fills(subj.otherWindings)
+		//	case opXOR:
+		//		subj.inResult = false
+		//	}
+		//}
+
+		//subj.other.inResult = subj.inResult
+		//// clip.inResult is false to prevent duplicate edge
+		//if clip.inResult {
+		//	fmt.Println("CLIP IS ALREADY IN RESULT")
+		//}
 	}
 
-	fmt.Println(" ", cur.otherWindings, cur.inResult)
 	//cur.other.windings = cur.windings
 	//cur.other.otherWindings = cur.otherWindings
 	cur.other.inResult = cur.inResult
@@ -1123,7 +1276,7 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 		events := queue.Pop()
 		for _, event := range events {
 			// TODO: skip or stop depending on operation if we're to the left/right of subject/clipping polygon
-			fmt.Println("---", event)
+			//fmt.Println("---", event)
 			if event.left {
 				// add segment to sweep status
 				n := status.Insert(event)
@@ -1169,7 +1322,9 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 		if event.inResult {
 			// inResult may be set false afterwards due to overlapping edges, we check again
 			// when building the polygon
-			fmt.Println("  add", event, "windings", event.otherWindings, "other", event.other, event.other.inResult)
+			if event.left {
+				//fmt.Println("add", event, "windings", event.windings, event.otherWindings, "; other", event.other, event.other.inResult)
+			}
 			if len(result) == 0 || !event.Point.Equals(result[len(result)-1][0].Point) {
 				result = append(result, []*SweepPoint{event})
 			} else {
@@ -1177,9 +1332,15 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 			}
 			event.index = len(result) - 1
 		} else {
-			fmt.Println("  rem", event, "windings", event.otherWindings)
+			if event.left {
+				//fmt.Println("rem", event, "windings", event.windings, event.otherWindings)
+			}
+		}
+		if event.left && event.inResult != event.other.inResult {
+			fmt.Println("INRESULT DIFFERENT LEFT-RIGHT")
 		}
 	}
+	//fmt.Println()
 
 	// build resulting polygons
 	for _, nodes := range result {
@@ -1188,19 +1349,20 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 				continue
 			}
 
-			depth := 0
+			windings := 0
 			if cur.prevInResult != nil {
-				depth = cur.prevInResult.depth + 1
+				//fmt.Println("  cur", cur, "prevInResult", cur.prevInResult)
+				windings = cur.prevInResult.resultWindings
 			}
 
 			r := &Path{}
 			r.MoveTo(cur.X, cur.Y)
+			cur.resultWindings = windings + 1 // always increasing
+			if !cur.left {
+				fmt.Println("!!! FIRST NODE NOT LEFT", cur)
+			}
+			cur.other.resultWindings = cur.resultWindings
 			cur.processed, cur.other.processed = true, true
-			cur.depth, cur.other.depth = depth, depth
-			//if cur.equal != nil {
-			//	cur.equal.processed, cur.equal.other.processed = true, true
-			//	cur.equal.depth, cur.equal.other.depth = depth, depth
-			//}
 			for {
 				// find segments starting from other endpoint, find the other segment amongst
 				// them, the next segment should be the next going CCW
@@ -1229,17 +1391,18 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 				cur = next
 
 				r.LineTo(cur.X, cur.Y)
+				cur.resultWindings = windings
+				if cur.left {
+					// we go to the right/top
+					cur.resultWindings++
+				}
+				cur.other.resultWindings = cur.resultWindings
 				cur.processed, cur.other.processed = true, true
-				cur.depth, cur.other.depth = depth, depth
-				//	if cur.equal != nil {
-				//		cur.equal.processed, cur.equal.other.processed = true, true
-				//		cur.equal.depth, cur.equal.other.depth = depth, depth
-				//	}
 			}
 			r.Close()
-			fmt.Println("depth", depth, r)
+			//fmt.Println("path", windings, r)
 
-			if depth%2 == 1 {
+			if windings%2 != 0 {
 				// orient holes clockwise
 				r = r.Reverse()
 			}
