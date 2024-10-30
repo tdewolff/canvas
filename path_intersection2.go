@@ -796,24 +796,18 @@ func (cur *SweepNode) computeSweepFields(op pathOp, fillRule FillRule) {
 			overlapping = prev.SweepPoint
 		}
 
-		// skip vertical segments, but we must correct for vertical self windings
-		verticalSelfWindings := 0
-		for prev.vertical {
-			if cur.clipping == prev.clipping && cur.Point.Equals(prev.Point) && cur.other.Point.Equals(prev.other.Point) {
-				if prev.increasing {
-					verticalSelfWindings++
-				} else {
-					verticalSelfWindings--
+		// skip vertical segments
+		if !cur.vertical {
+			for prev.vertical {
+				prev = prev.Prev()
+				if prev == nil {
+					break
 				}
-			}
-			prev = prev.Prev()
-			if prev == nil {
-				break
 			}
 		}
 		if prev != nil {
 			if cur.clipping == prev.clipping {
-				cur.windings = verticalSelfWindings + prev.windings
+				cur.windings = prev.windings
 				cur.otherWindings = prev.otherWindings
 				if prev.increasing {
 					cur.windings++
@@ -856,10 +850,8 @@ func (cur *SweepNode) computeSweepFields(op pathOp, fillRule FillRule) {
 		}
 		subj.other.inResult = subj.inResult
 
-		// clip.inResult is false to prevent duplicate edge
-		if clip.inResult {
-			clip.inResult, clip.other.inResult = false, false
-		}
+		// clip.inResult to false to prevent duplicate edge
+		clip.inResult, clip.other.inResult = false, false
 	}
 	cur.other.inResult = cur.inResult
 }
