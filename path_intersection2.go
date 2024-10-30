@@ -4,23 +4,27 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 )
 
-func (p *Path) Settle(fillRule FillRule) *Path {
-	// TODO
-	return p
-}
-
 type pathOp int
 
 const (
-	opAND pathOp = iota
+	opSettle pathOp = iota
+	opAND
 	opOR
 	opNOT
 	opXOR
 )
+
+// Settle returns the "settled" path, that is, all self-intersections are removed and all
+// windings are resolved. It returns a non-self-intersecting path of CCW oriented polygons
+// that are filling and CW oriented polygons that are holes. Path p is implicitly closed.
+func (p *Path) Settle(fillRule FillRule) *Path {
+	return bentleyOttmann(p, nil, opSettle, fillRule)
+}
 
 // And returns the boolean path operation of path p and q. Path q is implicitly closed.
 func (p *Path) And(q *Path) *Path {
@@ -775,9 +779,9 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]bool, zs In
 func (cur *SweepNode) computeSweepFields(op pathOp, fillRule FillRule) {
 	// cur is left-endpoint
 	var overlapping *SweepPoint
-	if !cur.clipping {
+	if !cur.clipping || op == opSettle {
 		// check for equal/overlapping segment
-		if next := cur.Next(); next != nil && next.clipping && cur.Point.Equals(next.Point) && cur.other.Point.Equals(next.other.Point) {
+		if next := cur.Next(); next != nil && (next.clipping || op == opSettle) && cur.Point.Equals(next.Point) && cur.other.Point.Equals(next.other.Point) {
 			// this happens when P starts to the left of Q, and thus the intersection
 			// of P at the start of Q was inserted into the queue while handling the parallel
 			// segment of Q, and is thus the only instance where we check for an equal segment in Q
@@ -792,7 +796,7 @@ func (cur *SweepNode) computeSweepFields(op pathOp, fillRule FillRule) {
 
 	if prev := cur.Prev(); prev != nil {
 		// check for equal/overlapping segment
-		if cur.clipping && !prev.clipping && cur.Point.Equals(prev.Point) && cur.other.Point.Equals(prev.other.Point) {
+		if (cur.clipping && !prev.clipping || op == opSettle) && cur.Point.Equals(prev.Point) && cur.other.Point.Equals(prev.other.Point) {
 			overlapping = prev.SweepPoint
 		}
 
@@ -839,7 +843,21 @@ func (cur *SweepNode) computeSweepFields(op pathOp, fillRule FillRule) {
 		if subj.clipping {
 			subj, clip = clip, subj // happens when Next is overlapping
 		}
-		if (subj.windings%2 != 0) == (clip.windings%2 != 0) {
+		if op == opSettle {
+			windingsBelow, windingsAbove := subj.windings, subj.windings
+			if subj.increasing {
+				windingsAbove++
+			} else {
+				windingsAbove--
+			}
+			if clip.increasing {
+				windingsAbove++
+			} else {
+				windingsAbove--
+			}
+			subj.inResult = fillRule.Fills(windingsBelow) != fillRule.Fills(windingsAbove)
+
+		} else if (subj.windings%2 != 0) == (clip.windings%2 != 0) {
 			// same transition, polygons overlap
 			// both are filling to the left/right/top/bottom of the current edge
 			subj.inResult = op == opAND || op == opOR
@@ -858,6 +876,15 @@ func (cur *SweepNode) computeSweepFields(op pathOp, fillRule FillRule) {
 
 func (s *SweepPoint) InResult(op pathOp, fillRule FillRule) bool {
 	switch op {
+	case opSettle:
+		// all edges that change fill
+		windingsBelow, windingsAbove := s.windings, s.windings
+		if s.increasing {
+			windingsAbove++
+		} else {
+			windingsAbove--
+		}
+		return fillRule.Fills(windingsBelow) != fillRule.Fills(windingsAbove)
 	case opAND:
 		// all edges inside the other
 		return fillRule.Fills(s.otherWindings)
@@ -883,15 +910,17 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 	//   Engineering Software 64, p. 11-19, 2013, DOI: 10.1016/j.advengsoft.2013.04.004
 
 	// return in case of one path is empty
-	if q.Empty() {
+	if op == opSettle {
+		q = nil
+	} else if q.Empty() {
 		if op == opAND {
 			return &Path{}
 		}
-		return p
+		return p.Settle(fillRule)
 	}
 	if p.Empty() {
-		if op == opOR || op == opXOR {
-			return q
+		if q != nil && (op == opOR || op == opXOR) {
+			return q.Settle(fillRule)
 		}
 		return &Path{}
 	}
@@ -902,37 +931,43 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 	//p = p.XMonotone()
 	//q = q.XMonotone()
 	p = p.Flatten(Tolerance)
-	q = q.Flatten(Tolerance)
+	if q != nil {
+		q = q.Flatten(Tolerance)
+	}
 
 	// check for path bounding boxes to overlap
 	R := &Path{}
-	ps, qs := p.Split(), q.Split()
-	pBounds := make([]Rect, len(ps))
-	qBounds := make([]Rect, len(qs))
-	for i := range ps {
-		pBounds[i] = ps[i].FastBounds()
-	}
-	for i := range qs {
-		qBounds[i] = qs[i].FastBounds()
-	}
-	pOverlaps := make([]bool, len(ps))
-	qOverlaps := make([]bool, len(qs))
-	for i := range ps {
-		for j := range qs {
-			if pBounds[i].Touches(qBounds[j]) {
-				pOverlaps[i] = true
-				qOverlaps[j] = true
+	ps, qs := p.Split(), []*Path{}
+	var pOverlaps, qOverlaps []bool
+	if q != nil {
+		qs = q.Split()
+		pBounds := make([]Rect, len(ps))
+		qBounds := make([]Rect, len(qs))
+		for i := range ps {
+			pBounds[i] = ps[i].FastBounds()
+		}
+		for i := range qs {
+			qBounds[i] = qs[i].FastBounds()
+		}
+		pOverlaps = make([]bool, len(ps))
+		qOverlaps = make([]bool, len(qs))
+		for i := range ps {
+			for j := range qs {
+				if pBounds[i].Touches(qBounds[j]) {
+					pOverlaps[i] = true
+					qOverlaps[j] = true
+				}
+			}
+			if !pOverlaps[i] && (op == opOR || op == opXOR || op == opNOT) {
+				// path bounding boxes do not overlap, thus no intersections
+				R = R.Append(p.Settle(fillRule))
 			}
 		}
-		if !pOverlaps[i] && (op == opOR || op == opXOR || op == opNOT) {
-			// path bounding boxes do not overlap, thus no intersections
-			R = R.Append(p)
-		}
-	}
-	for j := range qs {
-		if !qOverlaps[j] && (op == opOR || op == opXOR) {
-			// path bounding boxes do not overlap, thus no intersections
-			R = R.Append(q)
+		for j := range qs {
+			if !qOverlaps[j] && (op == opOR || op == opXOR) {
+				// path bounding boxes do not overlap, thus no intersections
+				R = R.Append(q.Settle(fillRule))
+			}
 		}
 	}
 
@@ -942,7 +977,7 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 	pSeg, qSeg := 0, 0
 	queue := &SweepEvents{}
 	for i := range ps {
-		if pOverlaps[i] {
+		if q == nil || pOverlaps[i] {
 			// implicitly close all subpaths on P
 			// TODO: remove and support open paths only on P
 			if !ps[i].Closed() {
@@ -951,13 +986,15 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 			pSeg = queue.AddPathEndpoints(ps[i], pSeg, false)
 		}
 	}
-	for i := range qs {
-		if qOverlaps[i] {
-			// implicitly close all subpaths on Q
-			if !qs[i].Closed() {
-				qs[i].Close()
+	if q != nil {
+		for i := range qs {
+			if qOverlaps[i] {
+				// implicitly close all subpaths on Q
+				if !qs[i].Closed() {
+					qs[i].Close()
+				}
+				qSeg = queue.AddPathEndpoints(qs[i], qSeg, true)
 			}
-			qSeg = queue.AddPathEndpoints(qs[i], qSeg, true)
 		}
 	}
 	queue.Init() // sort from left to right
@@ -1001,6 +1038,12 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 		}
 	}
 
+	// reorder preResult, this may be required when addIntersections adds new intersections
+	// that may need to ordered before the event causing the intersection (e.g. a right-endpoint).
+	// TODO: surely this could be improved by detecting when this happens and only sort a limited
+	//       set of events?
+	sort.Slice(preResult, SweepEvents(preResult).Less)
+
 	// build result array
 	var result [][]*SweepPoint // put segments at the same position together
 	for _, event := range preResult {
@@ -1029,11 +1072,11 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 				windings = cur.prevInResult.resultWindings
 			}
 
+			first := cur
 			r := &Path{}
 			r.MoveTo(cur.X, cur.Y)
 			cur.resultWindings = windings + 1 // always increasing
 			cur.other.resultWindings = cur.resultWindings
-			cur.processed, cur.other.processed = true, true
 			for {
 				// find segments starting from other endpoint, find the other segment amongst
 				// them, the next segment should be the next going CCW
@@ -1060,7 +1103,10 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 						break
 					}
 				}
-				if next == nil {
+				if next == first {
+					first.processed, first.other.processed = true, true
+					break
+				} else if next == nil {
 					break // contour is done
 				}
 				cur = next
