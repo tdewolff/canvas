@@ -493,6 +493,8 @@ func (p *Path) offset(halfWidth float64, cr Capper, jr Joiner, strokeOpen bool, 
 	for i, cur := range states {
 		switch cur.cmd {
 		case LineToCmd:
+			// TODO: remove common case of self-intersection for inner bends? removes pressure from
+			//       Path.Settle
 			rEnd := cur.p1.Add(cur.n1)
 			lEnd := cur.p1.Sub(cur.n1)
 			rhs.LineTo(rEnd.X, rEnd.Y)

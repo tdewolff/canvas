@@ -42,6 +42,20 @@ func (fillRule FillRule) Fills(windings int) bool {
 	return false
 }
 
+func (fillRule FillRule) String() string {
+	switch fillRule {
+	case NonZero:
+		return "NonZero"
+	case EvenOdd:
+		return "EvenOdd"
+	case Positive:
+		return "Positive"
+	case Negative:
+		return "Negative"
+	}
+	return fmt.Sprintf("FillRule(%d)", fillRule)
+}
+
 // Command values as powers of 2 so that the float64 representation is exact
 // TODO: make CloseCmd a LineTo + CloseCmd, where CloseCmd is only a command value, no coordinates
 const (
@@ -104,7 +118,7 @@ func (p *Path) Data() []float64 {
 
 // Empty returns true if p is an empty path or consists of only MoveTos and Closes.
 func (p *Path) Empty() bool {
-	return len(p.d) <= cmdLen(MoveToCmd)
+	return p == nil || len(p.d) <= cmdLen(MoveToCmd)
 }
 
 // Equals returns true if p and q are equal within tolerance Epsilon.
@@ -659,7 +673,7 @@ func (p *Path) simplifyToCoords() []Point {
 }
 
 // windings counts intersections of ray with path. Paths that cross downwards are negative and upwards are positive. It returns the windings excluding the start position and the windings of the start position itself. If the windings of the start position is not zero, the start position is on a boundary.
-func windings(zs []PathIntersection) (int, bool) {
+func windings(zs []Intersection) (int, bool) {
 	// There are four particular situations to be aware of. Whenever the path is horizontal it
 	// will be parallel to the ray, and usually overlapping. Either we have:
 	// - a starting point to the left of the overlapping section: ignore the overlapping
@@ -678,23 +692,28 @@ func windings(zs []PathIntersection) (int, bool) {
 	boundary := false
 	for i := 0; i < len(zs); i++ {
 		z := zs[i]
-		if z.Tangent {
+		if z.T[0] == 0.0 {
 			boundary = true
 			continue
 		}
 
 		d := 1
-		if z.Into {
+		if z.Into() {
 			d = -1 // downwards
 		}
-		if z.T != 0.0 && z.T != 1.0 {
-			if !z.Tangent && !z.Overlapping {
+		if z.T[1] != 0.0 && z.T[1] != 1.0 {
+			if !z.Same {
 				n += d
 			}
 		} else {
-			overlapping := z.Overlapping || zs[i+1].Overlapping
-			if !z.Tangent && !overlapping {
-				if z.Into == zs[i+1].Into {
+			if i+1 == len(zs) {
+				for i, z := range zs {
+					fmt.Println(i, z)
+				}
+			}
+			same := z.Same || zs[i+1].Same
+			if !same {
+				if z.Into() == zs[i+1].Into() {
 					n += d
 				}
 			}
@@ -727,15 +746,15 @@ func (p *Path) Crossings(x, y float64) (int, bool) {
 		// Count intersections of ray with path. Count half an intersection on boundaries.
 		ni := 0.0
 		for _, z := range pi.RayIntersections(x, y) {
-			if z.Tangent {
+			if z.T[0] == 0.0 {
 				boundary = true
-			} else if !z.Overlapping {
-				if z.T == 0.0 || z.T == 1.0 {
+			} else if !z.Same {
+				if z.T[1] == 0.0 || z.T[1] == 1.0 {
 					ni += 0.5
 				} else {
 					ni += 1.0
 				}
-			} else if z.T == 0.0 || z.T == 1.0 {
+			} else if z.T[1] == 0.0 || z.T[1] == 1.0 {
 				ni -= 0.5
 			}
 		}
@@ -744,179 +763,95 @@ func (p *Path) Crossings(x, y float64) (int, bool) {
 	return n, boundary
 }
 
-// Contains returns whether the path contains the point (x,y) in any of its subpaths.
-func (p *Path) Contains(x, y float64) bool {
-	for _, pi := range p.Split() {
-		n, _ := pi.Windings(x, y)
-		if n%2 == 1 {
-			return true
-		}
-	}
-	return false
-}
-
-// Fills returns whether the point (x,y) is filled by the path. This depends on the FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with the path. When the point is on the boundary it is considered to be exterior.
-func (p *Path) Fills(x, y float64, fillRule FillRule) bool {
+// Contains returns whether the point (x,y) is contained/filled by the path. This depends on the
+// FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with
+// the path. When the point is on the boundary it is considered to be on the path's exterior.
+func (p *Path) Contains(x, y float64, fillRule FillRule) bool {
 	n, _ := p.Windings(x, y)
-	return fillRule == NonZero && n != 0 || n%2 != 0
+	return fillRule.Fills(n)
 }
 
-// InteriorPoint returns a point on the interior of the path. The path should be a non-complex non-self-intersecting path (i.e. settled with no subpaths). It uses the first subpath if there are multiple and returns the start position on open paths.
-func (p *Path) InteriorPoint() Point {
-	if p.Empty() {
-		if len(p.d) == 0 {
-			return Point{}
-		}
-		return p.StartPos()
-	}
-	p = p.Split()[0]
-	if !p.Closed() {
-		return p.StartPos()
+// CCW returns true when the path is counter clockwise oriented at its bottom-right-most
+// coordinate. It is most useful when knowing that the path does not self-intersect as it will
+// tell you if the entire path is CCW or not. It will only return the result for the first subpath.
+// It will return true for an empty path or a straight line.
+func (p *Path) CCW() bool {
+	if len(p.d) <= 4 || (p.d[4] == LineToCmd || p.d[4] == CloseCmd) && len(p.d) <= 4+cmdLen(p.d[4]) {
+		// empty path or single straight segment
+		return true
 	}
 
-	// get a point on the left of the path and trace a ray to the right
-	// select the middle between an intersection into p and out of p
-	bounds := p.Bounds()
-	pos := Point{bounds.X, bounds.Y + bounds.H/2.0}
-	zs := p.RayIntersections(pos.X, pos.Y)
-	if len(zs) < 2 {
-		// may happen for malformed path, such as a closed path with only Mz, or colinear MLz
-		return p.StartPos()
+	p = p.XMonotone()
+
+	// pick bottom-right-most coordinate of subpath, as we know its left-hand side is filling
+	k, kMax := 4, len(p.d)
+	if p.d[kMax-1] == CloseCmd {
+		kMax -= cmdLen(CloseCmd)
+	}
+	for i := 4; i < len(p.d); {
+		cmd := p.d[i]
+		if cmd == MoveToCmd {
+			// only handle first subpath
+			kMax = i
+			break
+		}
+		i += cmdLen(cmd)
+		if x, y := p.d[i-3], p.d[i-2]; p.d[k-3] < x || Equal(p.d[k-3], x) && y < p.d[k-2] {
+			k = i
+		}
 	}
 
-	i := 0
-	if zs[i].T == 0.0 || zs[i].T == 1.0 {
-		if zs[i].Overlapping || zs[i+1].Overlapping {
-			i += 3
-			for i+1 < len(zs) && zs[i-1].Overlapping && zs[i].Overlapping {
-				i += 2
-			}
-		} else {
-			i++
-		}
-		if len(zs) <= i+1 {
-			// all parallel
-			pos.X += bounds.W / 2.0
-			return pos
-		}
+	// TODO: keep going forward/backwards for k and kPrev until both are not equally oriented
+	// get coordinates of previous and next segments
+	var kPrev int
+	if k == 4 {
+		kPrev = kMax - cmdLen(p.d[kMax-1])
+	} else {
+		kPrev = k - cmdLen(p.d[k-1])
 	}
-	return zs[i].Point.Interpolate(zs[i+1].Point, 0.5)
+
+	var angleNext float64
+	anglePrev := angleNorm(p.direction(kPrev, 1.0).Angle() + math.Pi)
+	if k == kMax {
+		// use implicit close command
+		angleNext = Point{p.d[1], p.d[2]}.Sub(Point{p.d[k-3], p.d[k-2]}).Angle()
+	} else {
+		angleNext = p.direction(k, 0.0).Angle()
+	}
+	return (angleNext - anglePrev) < 0.0
 }
 
-// Filling returns whether each subpath gets filled or not. Whether a path is filled depends on the FillRule and whether it negates another path. If a subpath is not closed, it is implicitly assumed to be closed. Subpaths must not self-intersect, use Settle to remove self-intersections.
+// Filling returns whether each subpath gets filled or not. Whether a path is filled depends on
+// the FillRule and whether it negates another path. If a subpath is not closed, it is implicitly
+// assumed to be closed.
 func (p *Path) Filling(fillRule FillRule) []bool {
-	// TODO: can be simplified assuming XMonotone and getting the left-most coordinate
 	ps := p.Split()
-	index := newSubpathIndexerSubpaths(ps)
 	filling := make([]bool, len(ps))
 	for i, pi := range ps {
-		pos := pi.InteriorPoint()              // get point inside subpath
-		zs := p.RayIntersections(pos.X, pos.Y) // get all intersections outwards
-
-		// interior point may be inside another subpath
-		// remove intersections until we find the one that leaves the current subpath
-		coincides := false
-		for {
-			j := 1
-			isSelf := index.in(i, zs[0].Seg)
-			coincides = !isSelf
-			for j < len(zs) && Equal(zs[j].X, zs[0].X) {
-				if index.in(i, zs[j].Seg) {
-					isSelf = true
-				} else {
-					coincides = true
-				}
-				j++
-			}
-			if isSelf {
-				break
-			}
-			zs = zs[j:]
+		// get current subpath's winding
+		n := 0
+		if pi.CCW() {
+			n++
+		} else {
+			n--
 		}
 
-		// when another subpath happens to intersect at the same position with the ray,
-		// we assume that subpaths don't intersect (only touch) so that it either:
-		// is inside the current subpath, encapsulates it, or is on the outside towards the right
-		if coincides {
-			// find the touching subpaths
-			subpaths := []int{i}
-			for _, z := range zs {
-				if !Equal(z.X, zs[0].X) {
-					break
-				}
-				found := false
-				subpath := index.get(z.Seg)
-				for k := 0; k < len(subpaths); k++ {
-					if subpaths[k] == subpath {
-						found = true
-						break
-					}
-				}
-				if !found {
-					subpaths = append(subpaths, subpath)
-				}
+		// sum windings from other subpaths
+		pos := Point{pi.d[1], pi.d[2]}
+		for j, pj := range ps {
+			if i == j {
+				continue
 			}
-
-			// check if the path bends to the left (inside) or encapsulates or right (outside)
-			area, areaExact := PolylineFromPathCoords(pi).Area(), math.NaN()
-			for _, subpath := range subpaths[1:] {
-				zs2 := []PathIntersection{}
-				for _, z := range zs {
-					if index.get(z.Seg) == subpath {
-						zs2 = append(zs2, z)
-					}
-				}
-
-				// windings start outside (or on boundary, same result) of the subpath
-				// windings==0 it is outside, otherwise it is inside/encapsulates the current path
-				if n2, boundary := windings(zs2); !boundary && n2 != 0 {
-					// if subpath has smaller area it inside, remove its intersections
-					area2, area2Exact := PolylineFromPathCoords(ps[subpath]).Area(), math.NaN()
-					if area == area2 || area == 0 || area2 == 0 {
-						// calculate exact area when coordinate area is equal
-						area2Exact = PolylineFromPath(ps[subpath]).Area()
-						if math.IsNaN(areaExact) {
-							areaExact = PolylineFromPath(pi).Area()
-						}
-						area2 = area // when area/area2==0
-					}
-					if area2 < area || area2Exact < areaExact {
-						for j := 0; j < len(zs) && Equal(zs[j].X, zs[0].X); j++ {
-							if index.get(zs[j].Seg) == subpath {
-								zs = append(zs[:j], zs[j+1:]...)
-								j--
-							}
-						}
-					}
-				}
+			zs := pj.RayIntersections(pos.X, pos.Y)
+			if ni, boundaryi := windings(zs); !boundaryi {
+				n += ni
+			} else {
+				// on the boundary, check if around the interior or exterior of pos
 			}
 		}
-
-		n, boundary := windings(zs)
-		if boundary {
-			// happens only when the current subpath goes up and down at the InteriorPoint
-			// or for open subpaths, count as if we we're inside the two edges
-			n = 1
-		}
-		filling[i] = fillRule == NonZero && n != 0 || n%2 != 0
+		filling[i] = fillRule.Fills(n)
 	}
 	return filling
-}
-
-// CCW returns true when the path has (mostly) a counter clockwise direction. It implictly closes open paths and will return true for a empty or straight line.
-func (p *Path) CCW() bool {
-	// Shoelace formula
-	area := 0.0
-	for _, pi := range p.Split() {
-		coords := pi.simplifyToCoords()
-		if !pi.Closed() {
-			coords = append(coords, coords[0])
-		}
-		for i := 1; i < len(coords); i++ {
-			area += (coords[i-1].X - coords[i].X) * (coords[i-1].Y + coords[i].Y)
-		}
-	}
-	return 0.0 <= area
 }
 
 // FastBounds returns the maximum bounding box rectangle of the path. It is quicker than Bounds.

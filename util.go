@@ -414,6 +414,18 @@ func (r Rect) Overlaps(q Rect) bool {
 	return true
 }
 
+// Touches returns true if both rectangles touch (or overlap).
+func (r Rect) Touches(q Rect) bool {
+	if q.X+q.W < r.X && !Equal(q.X+q.W, r.X) || r.X+r.W < q.X && !Equal(r.X+r.W, q.X) {
+		// left or right
+		return false
+	} else if q.Y+q.H < r.Y && !Equal(q.Y+q.H, r.Y) || r.Y+r.H < q.Y && !Equal(r.Y+r.H, q.Y) {
+		// below or above
+		return false
+	}
+	return true
+}
+
 // ToPath converts the rectangle to a path.
 func (r Rect) ToPath() *Path {
 	return Rectangle(r.W, r.H).Translate(r.X, r.Y)
