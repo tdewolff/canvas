@@ -10,7 +10,7 @@ var font *canvas.FontFamily
 // Shapes from http://assets.paperjs.org/boolean/
 func main() {
 	font = canvas.NewFontFamily("latin")
-	if err := font.LoadSystemFont("serif", canvas.FontRegular); err != nil {
+	if err := font.LoadSystemFont("DejaVu Serif, serif", canvas.FontRegular); err != nil {
 		panic(err)
 	}
 

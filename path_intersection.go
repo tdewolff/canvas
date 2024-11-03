@@ -293,10 +293,7 @@ func (q *SweepEvents) Remove(item *SweepPoint) {
 
 	n := len(*q) - 1
 	if index == -1 {
-		//fmt.Println(item)
-		//fmt.Println(q)
-		//panic("Item not in queue")
-		return
+		panic("Item not in queue")
 	} else if index < n {
 		q.Swap(index, n)
 		q.down(index, n)
@@ -1057,13 +1054,13 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 			}
 			if !pOverlaps[i] && (op == opOR || op == opXOR || op == opNOT) {
 				// path bounding boxes do not overlap, thus no intersections
-				R = R.Append(p.Settle(fillRule))
+				R = R.Append(ps[i].Settle(fillRule))
 			}
 		}
 		for j := range qs {
 			if !qOverlaps[j] && (op == opOR || op == opXOR) {
 				// path bounding boxes do not overlap, thus no intersections
-				R = R.Append(q.Settle(fillRule))
+				R = R.Append(qs[j].Settle(fillRule))
 			}
 		}
 	}
@@ -1242,9 +1239,6 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 			if windings%2 != 0 {
 				// orient holes clockwise
 				r = r.Reverse()
-			}
-			if r.Empty() {
-				fmt.Println("RESULT PATH IS EMPTY")
 			}
 			R = R.Append(r)
 		}
