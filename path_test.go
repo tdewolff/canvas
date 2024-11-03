@@ -312,9 +312,9 @@ func TestPathFilling(t *testing.T) {
 		{"L10 10L0 20zM2 4L10 10L2 16z", []bool{true, false}, EvenOdd}, // inside
 		{"L10 10L0 20zM2 4L2 16L10 10z", []bool{true, false}, NonZero}, // inside
 		{"L10 10L0 20zM2 4L2 16L10 10z", []bool{true, false}, EvenOdd}, // inside
-		//{"L10 10L0 20zM2 2L2 18L10 10z", []bool{true, false}, NonZero},    // inside
+		//{"L10 10L0 20zM2 2L2 18L10 10z", []bool{true, false}, NonZero},    // inside // TODO
 		{"L10 10L0 20zM-1 -2L-1 22L10 10z", []bool{false, true}, NonZero}, // encapsulates
-		//{"L10 10L0 20zM-2 -2L-2 22L10 10z", []bool{false, true}, NonZero}, // encapsulates
+		//{"L10 10L0 20zM-2 -2L-2 22L10 10z", []bool{false, true}, NonZero}, // encapsulates // TODO
 		{"L10 10L0 20zM20 0L10 10L20 20z", []bool{true, true}, NonZero}, // outside
 		{"L10 10zM2 2L8 8z", []bool{true, true}, NonZero},               // zero-area overlap
 		{"L10 10zM10 0L5 5L20 10z", []bool{true, true}, NonZero},        // outside
@@ -322,8 +322,8 @@ func TestPathFilling(t *testing.T) {
 		// equal
 		{"L10 -10L20 0L10 10zL10 -10L20 0L10 10z", []bool{true, true}, NonZero},
 		{"L10 -10L20 0L10 10zA10 10 0 0 1 20 0A10 10 0 0 1 0 0z", []bool{true, true}, NonZero},
-		//{"L10 -10L20 0L10 10zA10 10 0 0 0 20 0A10 10 0 0 0 0 0z", []bool{false, true}, NonZero},
-		//{"L10 -10L20 0L10 10zQ10 0 10 10Q10 0 20 0Q10 0 10 -10Q10 0 0 0z", []bool{true, false}, NonZero},
+		//{"L10 -10L20 0L10 10zA10 10 0 0 0 20 0A10 10 0 0 0 0 0z", []bool{false, true}, NonZero}, // TODO
+		//{"L10 -10L20 0L10 10zQ10 0 10 10Q10 0 20 0Q10 0 10 -10Q10 0 0 0z", []bool{true, false}, NonZero}, // TODO
 
 		// open
 		{"L10 10L0 20", []bool{true}, NonZero},

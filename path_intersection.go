@@ -130,16 +130,17 @@ func (p *Path) Not(q *Path) *Path {
 
 type SweepPoint struct {
 	// initial data
-	Point                  // position of this endpoint
-	other      *SweepPoint // pointer to the other endpoint of the segment
-	clipping   bool        // is clipping polygon (otherwise is subject polygon)
-	segment    int         // segment index to distinguish self-overlapping segments
-	left       bool        // point is left-end of segment
-	increasing bool        // segment goes left to right (or bottom to top for vertical segments)
-	vertical   bool        // segment is vertical
+	Point                    // position of this endpoint
+	other        *SweepPoint // pointer to the other endpoint of the segment
+	clipping     bool        // is clipping polygon (otherwise is subject polygon)
+	segment      int         // segment index to distinguish self-overlapping segments
+	left         bool        // point is left-end of segment
+	selfWindings int         // positive if segment goes left-right (or bottom-top when vertical)
+	vertical     bool        // segment is vertical
 
 	// processing the queue
-	node *SweepNode // used for fast accessing btree node in O(1) (instead of Find in O(log n))
+	node              *SweepNode // used for fast accessing btree node in O(1) (instead of Find in O(log n))
+	otherSelfWindings int        // used when merging overlapping segments
 
 	// computing sweep fields
 	windings      int         // windings of the same polygon (excluding this segment)
@@ -151,6 +152,10 @@ type SweepPoint struct {
 	index          int // index into result array
 	processed      bool
 	resultWindings int // windings of the resulting polygon
+}
+
+func (s SweepPoint) Increasing() bool {
+	return 0 < s.selfWindings
 }
 
 func (s SweepPoint) Left() Point {
@@ -168,14 +173,14 @@ func (s SweepPoint) Right() Point {
 }
 
 func (s SweepPoint) Start() Point {
-	if s.left == s.increasing {
+	if s.left == s.Increasing() {
 		return s.Point
 	}
 	return s.other.Point
 }
 
 func (s SweepPoint) End() Point {
-	if s.left == s.increasing {
+	if s.left == s.Increasing() {
 		return s.other.Point
 	}
 	return s.Point
@@ -223,21 +228,25 @@ func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
 		if vertical {
 			increasing = start.Y < end.Y
 		}
+		selfWindings := 1
+		if !increasing {
+			selfWindings = -1
+		}
 		a := &SweepPoint{
-			Point:      start,
-			clipping:   clipping,
-			segment:    seg,
-			left:       increasing,
-			increasing: increasing,
-			vertical:   vertical,
+			Point:        start,
+			clipping:     clipping,
+			segment:      seg,
+			left:         increasing,
+			selfWindings: selfWindings,
+			vertical:     vertical,
 		}
 		b := &SweepPoint{
-			Point:      end,
-			clipping:   clipping,
-			segment:    seg,
-			left:       !increasing,
-			increasing: increasing,
-			vertical:   vertical,
+			Point:        end,
+			clipping:     clipping,
+			segment:      seg,
+			left:         !increasing,
+			selfWindings: selfWindings,
+			vertical:     vertical,
 		}
 		a.other = b
 		b.other = a
@@ -258,14 +267,41 @@ func (q *SweepEvents) Push(item *SweepPoint) {
 	q.up(len(*q) - 1)
 }
 
-func (q *SweepEvents) Pop() []*SweepPoint {
+func (q *SweepEvents) Top() *SweepPoint {
+	return (*q)[0]
+}
+
+func (q *SweepEvents) Pop() *SweepPoint {
 	n := len(*q) - 1
 	q.Swap(0, n)
 	q.down(0, n)
 
-	items := (*q)[n:]
+	items := (*q)[n]
 	*q = (*q)[:n]
 	return items
+}
+
+func (q *SweepEvents) Remove(item *SweepPoint) {
+	// TODO: make O(log n)
+	index := -1
+	for i := range *q {
+		if (*q)[i] == item {
+			index = i
+			break
+		}
+	}
+
+	n := len(*q) - 1
+	if index == -1 {
+		//fmt.Println(item)
+		//fmt.Println(q)
+		//panic("Item not in queue")
+		return
+	} else if index < n {
+		q.Swap(index, n)
+		q.down(index, n)
+	}
+	*q = (*q)[:n]
 }
 
 // from container/heap
@@ -576,41 +612,56 @@ func (s *SweepStatus) Find(item *SweepPoint) *SweepNode {
 	return nil
 }
 
+func (s *SweepStatus) FindPrevNext(item *SweepPoint) (*SweepNode, *SweepNode) {
+	if s.root == nil {
+		return nil, nil
+	}
+
+	n, cmp := s.find(item)
+	if cmp < 0 {
+		return n.Prev(), n
+	} else if 0 < cmp {
+		return n, n.Next()
+	} else {
+		return n.Prev(), n.Next()
+	}
+}
+
 func (s *SweepStatus) Insert(item *SweepPoint) *SweepNode {
 	if s.root == nil {
 		s.root = s.newNode(item)
 		return s.root
-	} else {
-		rebalance := false
-		n, cmp := s.find(item)
-		if cmp < 0 {
-			// lower
-			n.left = s.newNode(item)
-			n.left.parent = n
-			rebalance = n.right == nil
-			n = n.left
-		} else if 0 < cmp {
-			// higher
-			n.right = s.newNode(item)
-			n.right.parent = n
-			rebalance = n.left == nil
-			n = n.right
-		} else {
-			// equal, replace
-			n.SweepPoint.node = nil
-			n.SweepPoint = item
-			n.SweepPoint.node = n
-			return n
-		}
+	}
 
-		if rebalance {
-			n.height++
-			if n.parent != nil {
-				s.rebalance(n.parent)
-			}
-		}
+	rebalance := false
+	n, cmp := s.find(item)
+	if cmp < 0 {
+		// lower
+		n.left = s.newNode(item)
+		n.left.parent = n
+		rebalance = n.right == nil
+		n = n.left
+	} else if 0 < cmp {
+		// higher
+		n.right = s.newNode(item)
+		n.right.parent = n
+		rebalance = n.left == nil
+		n = n.right
+	} else {
+		// equal, replace
+		n.SweepPoint.node = nil
+		n.SweepPoint = item
+		n.SweepPoint.node = n
 		return n
 	}
+
+	if rebalance {
+		n.height++
+		if n.parent != nil {
+			s.rebalance(n.parent)
+		}
+	}
+	return n
 }
 
 func (s *SweepStatus) Remove(n *SweepNode) {
@@ -765,124 +816,131 @@ type SweepPointPair struct {
 	a, b *SweepPoint
 }
 
-func addIntersections(queue *SweepEvents, handled map[SweepPointPair]bool, zs Intersections, a, b *SweepPoint) {
-	// a and b are always left-endpoints
-	if !handled[SweepPointPair{a, b}] && !handled[SweepPointPair{b, a}] {
+func addIntersections(queue *SweepEvents, handled map[SweepPointPair]bool, zs Intersections, a, b *SweepPoint) bool {
+	// a and b are always left-endpoints and a is below b
+	if handled[SweepPointPair{a, b}] || handled[SweepPointPair{b, a}] {
+		return false
+	}
 
-		// find all intersections between segment pair
-		zs = intersectionLineLine(zs[:0], a.Start(), a.End(), b.Start(), b.End())
-		if len(zs) == 0 {
+	// find all intersections between segment pair
+	// this returns either no intersections, or one or more secant/tangent intersections,
+	// or exactly two "same" intersections which occurs when the segments overlap.
+	zs = intersectionLineLine(zs[:0], a.Start(), a.End(), b.Start(), b.End())
+	if len(zs) == 0 {
+		handled[SweepPointPair{a, b}] = true
+		return false
+	}
+
+	// sort intersections from left to right
+	aSign := 1
+	if !a.Increasing() {
+		aSign = -1
+	}
+	slices.SortFunc(zs, func(a, b Intersection) int {
+		if a.T[0] < b.T[0] {
+			return -aSign
+		} else if b.T[0] < a.T[0] {
+			return aSign
+		}
+		return 0
+	})
+
+	// handle a
+	aLefts := []*SweepPoint{a}
+	aPrevLeft, aLastRight := a, a.other
+	for _, z := range zs {
+		if z.T[0] == 0.0 || z.T[0] == 1.0 {
+			// ignore tangent intersections at the endpoints
+			continue
+		}
+
+		// split segment at intersection
+		aRight, aLeft := *a.other, *a
+		aRight.Point = z.Point
+		aLeft.Point = z.Point
+
+		// update references
+		aPrevLeft.other, aRight.other = &aRight, aPrevLeft
+		aPrevLeft = &aLeft
+
+		// add to queue
+		queue.Push(&aRight)
+		queue.Push(&aLeft)
+		aLefts = append(aLefts, &aLeft)
+	}
+	aPrevLeft.other, aLastRight.other = aLastRight, aPrevLeft
+
+	// handle b
+	bLefts := []*SweepPoint{b}
+	bPrevLeft, bLastRight := b, b.other
+	for _, z := range zs {
+		if z.T[1] == 0.0 || z.T[1] == 1.0 {
+			// ignore tangent intersections at the endpoints
+			continue
+		}
+
+		// split segment at intersection
+		bRight, bLeft := *b.other, *b
+		bRight.Point = z.Point
+		bLeft.Point = z.Point
+
+		// update references
+		bPrevLeft.other, bRight.other = &bRight, bPrevLeft
+		bPrevLeft = &bLeft
+
+		// add to queue
+		queue.Push(&bRight)
+		queue.Push(&bLeft)
+		bLefts = append(bLefts, &bLeft)
+	}
+	bPrevLeft.other, bLastRight.other = bLastRight, bPrevLeft
+
+	if zs[0].Same {
+		// Handle overlapping paths. Since we just split both segments above, we first find the
+		// segments that overlap. We then transfer all selfWindings and otherSelfWindings to the
+		// segment above and remove the segment below from the result.
+		overlapBelow, overlapAbove := aLefts[0], bLefts[0]
+		if zs[0].T[0] != 0.0 && zs[0].T[0] != 1.0 {
+			// b starts to the right of a
+			overlapBelow = aLefts[1]
+		} else if zs[0].T[1] != 0.0 && zs[0].T[1] != 1.0 {
+			// b starts to the left of a
+			overlapAbove = bLefts[1]
+		}
+		if a.clipping == b.clipping {
+			overlapAbove.selfWindings += overlapBelow.selfWindings
+			overlapAbove.otherSelfWindings += overlapBelow.otherSelfWindings
+		} else {
+			overlapAbove.selfWindings += overlapBelow.otherSelfWindings
+			overlapAbove.otherSelfWindings += overlapBelow.selfWindings
+		}
+		overlapBelow.selfWindings, overlapBelow.otherSelfWindings = 0, 0
+		overlapBelow.inResult, overlapBelow.other.inResult = false, false
+	}
+
+	for _, a := range aLefts {
+		for _, b := range bLefts {
 			handled[SweepPointPair{a, b}] = true
-			return
-		}
-
-		// sort intersections from left to right and add to queue
-		// handle a
-		aSign := 1
-		if !a.increasing {
-			aSign = -1
-		}
-		slices.SortFunc(zs, func(a, b Intersection) int {
-			if a.T[0] < b.T[0] {
-				return -aSign
-			} else if b.T[0] < a.T[0] {
-				return aSign
-			}
-			return 0
-		})
-		aLefts := []*SweepPoint{a}
-		aPrevLeft, aLastRight := a, a.other
-		for _, z := range zs {
-			if z.T[0] == 0.0 || z.T[0] == 1.0 {
-				// ignore tangent intersections at the endpoints
-				continue
-			}
-
-			// split segment at intersection
-			aRight, aLeft := *a.other, *a
-			aRight.Point = z.Point
-			aLeft.Point = z.Point
-
-			// update references
-			aPrevLeft.other, aRight.other = &aRight, aPrevLeft
-			aPrevLeft = &aLeft
-
-			// add to queue
-			queue.Push(&aRight)
-			queue.Push(&aLeft)
-			aLefts = append(aLefts, &aLeft)
-		}
-		aPrevLeft.other, aLastRight.other = aLastRight, aPrevLeft
-
-		// handle b
-		bSign := 1
-		if !b.increasing {
-			bSign = -1
-		}
-		slices.SortFunc(zs, func(a, b Intersection) int {
-			if a.T[1] < b.T[1] {
-				return -bSign
-			} else if b.T[1] < a.T[1] {
-				return bSign
-			}
-			return 0
-		})
-		bLefts := []*SweepPoint{b}
-		bPrevLeft, bLastRight := b, b.other
-		for _, z := range zs {
-			if z.T[1] == 0.0 || z.T[1] == 1.0 {
-				// ignore tangent intersections at the endpoints
-				continue
-			}
-
-			// split segment at intersection
-			bRight, bLeft := *b.other, *b
-			bRight.Point = z.Point
-			bLeft.Point = z.Point
-
-			// update references
-			bPrevLeft.other, bRight.other = &bRight, bPrevLeft
-			bPrevLeft = &bLeft
-
-			// add to queue
-			queue.Push(&bRight)
-			queue.Push(&bLeft)
-			bLefts = append(bLefts, &bLeft)
-		}
-		bPrevLeft.other, bLastRight.other = bLastRight, bPrevLeft
-
-		for _, a := range aLefts {
-			for _, b := range bLefts {
-				handled[SweepPointPair{a, b}] = true
-			}
 		}
 	}
+	return 0 < len(aLefts) || 0 < len(bLefts)
+}
+
+func (a *SweepPoint) Overlaps(b *SweepPoint) bool {
+	// a is "CompareV==-1" to b (ie. below b) and crosses the vertical line at b.X
+	if a.vertical && b.vertical {
+		return true
+	}
+	return a.Point.Equals(b.Point) && a.other.Point.Equals(b.other.Point)
 }
 
 func (cur *SweepNode) computeSweepFields(op pathOp, fillRule FillRule) {
-	// cur is left-endpoint
-	var overlapping *SweepPoint
-	if !cur.clipping || op == opSettle {
-		// check for equal/overlapping segment
-		if next := cur.Next(); next != nil && (next.clipping || op == opSettle) && cur.Point.Equals(next.Point) && cur.other.Point.Equals(next.other.Point) {
-			// this happens when P starts to the left of Q, and thus the intersection
-			// of P at the start of Q was inserted into the queue while handling the parallel
-			// segment of Q, and is thus the only instance where we check for an equal segment in Q
-			// using P, thus we need to look up/Next (not down/Prev).
-			overlapping = next.SweepPoint
-		}
-	}
-
 	// may have been copied when intersected
 	cur.windings, cur.otherWindings = 0, 0
 	cur.inResult, cur.prevInResult = false, nil
 
+	// cur is left-endpoint
 	if prev := cur.Prev(); prev != nil {
-		// check for equal/overlapping segment
-		if (cur.clipping && !prev.clipping || op == opSettle) && cur.Point.Equals(prev.Point) && cur.other.Point.Equals(prev.other.Point) {
-			overlapping = prev.SweepPoint
-		}
-
 		// skip vertical segments
 		if !cur.vertical {
 			for prev.vertical {
@@ -894,21 +952,11 @@ func (cur *SweepNode) computeSweepFields(op pathOp, fillRule FillRule) {
 		}
 		if prev != nil {
 			if cur.clipping == prev.clipping {
-				cur.windings = prev.windings
-				cur.otherWindings = prev.otherWindings
-				if prev.increasing {
-					cur.windings++
-				} else {
-					cur.windings--
-				}
+				cur.windings = prev.windings + prev.selfWindings
+				cur.otherWindings = prev.otherWindings + prev.otherSelfWindings
 			} else {
-				cur.windings = prev.otherWindings
-				cur.otherWindings = prev.windings
-				if prev.increasing {
-					cur.otherWindings++
-				} else {
-					cur.otherWindings--
-				}
+				cur.windings = prev.otherWindings + prev.otherSelfWindings
+				cur.otherWindings = prev.windings + prev.selfWindings
 			}
 
 			cur.prevInResult = prev.SweepPoint
@@ -917,71 +965,36 @@ func (cur *SweepNode) computeSweepFields(op pathOp, fillRule FillRule) {
 			}
 		}
 	}
-
-	// prevent duplicate edges when overlapping
-	if overlapping == nil {
-		cur.inResult = cur.InResult(op, fillRule)
-	} else {
-		subj, clip := overlapping, cur.SweepPoint
-		if subj.clipping {
-			subj, clip = clip, subj // happens when Next is overlapping
-		}
-		if op == opSettle {
-			windingsBelow, windingsAbove := subj.windings, subj.windings
-			if subj.increasing {
-				windingsAbove++
-			} else {
-				windingsAbove--
-			}
-			if clip.increasing {
-				windingsAbove++
-			} else {
-				windingsAbove--
-			}
-			subj.inResult = fillRule.Fills(windingsBelow) != fillRule.Fills(windingsAbove)
-
-		} else if (subj.windings%2 != 0) == (clip.windings%2 != 0) {
-			// same transition, polygons overlap
-			// both are filling to the left/right/top/bottom of the current edge
-			subj.inResult = op == opAND || op == opOR
-		} else {
-			// different transition, polygons do not overlap but merely touch
-			// both are filling on opposite sides of the current edge
-			subj.inResult = op == opNOT
-		}
-		subj.other.inResult = subj.inResult
-
-		// clip.inResult to false to prevent duplicate edge
-		clip.inResult, clip.other.inResult = false, false
-	}
+	cur.inResult = cur.InResult(op, fillRule)
 	cur.other.inResult = cur.inResult
 }
 
 func (s *SweepPoint) InResult(op pathOp, fillRule FillRule) bool {
+	lowerWindings, lowerOtherWindings := s.windings, s.otherWindings
+	upperWindings, upperOtherWindings := s.windings+s.selfWindings, s.otherWindings+s.otherSelfWindings
+
+	// lower/upper windings refers to subject path, otherWindings to clipping path
+	var belowFills, aboveFills bool
 	switch op {
 	case opSettle:
-		// all edges that change fill
-		windingsBelow, windingsAbove := s.windings, s.windings
-		if s.increasing {
-			windingsAbove++
-		} else {
-			windingsAbove--
-		}
-		return fillRule.Fills(windingsBelow) != fillRule.Fills(windingsAbove)
+		belowFills = fillRule.Fills(lowerWindings)
+		aboveFills = fillRule.Fills(upperWindings)
 	case opAND:
-		// all edges inside the other
-		return fillRule.Fills(s.otherWindings)
+		belowFills = fillRule.Fills(lowerWindings) && fillRule.Fills(lowerOtherWindings)
+		aboveFills = fillRule.Fills(upperWindings) && fillRule.Fills(upperOtherWindings)
 	case opOR:
-		// all edges outside the other
-		return !fillRule.Fills(s.otherWindings)
+		belowFills = fillRule.Fills(lowerWindings) || fillRule.Fills(lowerOtherWindings)
+		aboveFills = fillRule.Fills(upperWindings) || fillRule.Fills(upperOtherWindings)
 	case opNOT:
-		// all edges outside the clipping and inside the subject
-		return s.clipping == fillRule.Fills(s.otherWindings)
+		belowFills = fillRule.Fills(lowerWindings) != s.clipping && fillRule.Fills(lowerOtherWindings) == s.clipping
+		aboveFills = fillRule.Fills(upperWindings) != s.clipping && fillRule.Fills(upperOtherWindings) == s.clipping
 	case opXOR:
-		// all edges
-		return true
+		belowFills = fillRule.Fills(lowerWindings) != fillRule.Fills(lowerOtherWindings)
+		aboveFills = fillRule.Fills(upperWindings) != fillRule.Fills(upperOtherWindings)
 	}
-	return false
+
+	// only keep edge if there is a change in filling between both sides
+	return belowFills != aboveFills
 }
 
 func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
@@ -1089,37 +1102,57 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 	status := NewSweepStatus()           // contains only left events
 	handled := map[SweepPointPair]bool{} // prevent testing for intersections more than once
 	for 0 < len(*queue) {
-		// pop the next left-most endpoint from the queue
-		events := queue.Pop()
-		for _, event := range events {
-			// TODO: skip or stop depending on operation if we're to the left/right of subject/clipping polygon
-			if event.left {
-				// add segment to sweep status
-				n := status.Insert(event)
-				if prev := n.Prev(); prev != nil {
-					addIntersections(queue, handled, zs, prev.SweepPoint, n.SweepPoint)
-				}
-				if next := n.Next(); next != nil {
-					addIntersections(queue, handled, zs, n.SweepPoint, next.SweepPoint)
-				}
+		// TODO: skip or stop depending on operation if we're to the left/right of subject/clipping polygon
 
-				// compute fields after addIntersections as it may make segments equal
-				n.computeSweepFields(op, fillRule)
-			} else {
-				// remove segment from sweep status
-				n := event.other.node
-				if n == nil {
-					continue
-				}
-				prev := n.Prev()
-				next := n.Next()
-				if prev != nil && next != nil {
-					addIntersections(queue, handled, zs, prev.SweepPoint, next.SweepPoint)
-				}
-				status.Remove(n) // TODO: this shouldn't touch SweepPoint inside the nodes
+		// We slightly divert from the original Bentley-Ottmann and paper implementation. First
+		// we find the top element in queue but do not pop it off yet. If it is a right-event, pop
+		// from queue and proceed as usual, but if it's a left-event we first check (and add) all
+		// surrounding intersections to the queue. This may change the order from which we should
+		// pop off the queue, since intersections may create right-events, or new left-events that
+		// are lower (by CompareV). If no intersections are found, pop off the queue and proceed
+		// as usual.
+
+		// get the next left-most endpoint from the queue
+		event := queue.Top()
+		if event.left {
+			// add intersections to queue
+			intersects := false
+			prev, next := status.FindPrevNext(event)
+			if prev != nil {
+				intersects = addIntersections(queue, handled, zs, prev.SweepPoint, event)
 			}
-			preResult = append(preResult, event)
+			if next != nil {
+				intersects = intersects || addIntersections(queue, handled, zs, event, next.SweepPoint)
+			}
+			if intersects {
+				// check if the queue order was changed, note that if the order wasn't changed, we
+				// won't find new intersections since we prevent double checking with `handled`.
+				continue
+			}
+			queue.Pop()
+
+			// add event to sweep status
+			n := status.Insert(event) // implement InsertAfter with O(1)
+
+			// compute sweep fields after adding intersections as that may create overlapping
+			// segments. Also note that events may have already been computed if it was intersected
+			n.computeSweepFields(op, fillRule)
+		} else {
+			queue.Pop()
+
+			// remove segment from sweep status
+			n := event.other.node
+			if n == nil {
+				continue
+			}
+			prev := n.Prev()
+			next := n.Next()
+			if prev != nil && next != nil {
+				addIntersections(queue, handled, zs, prev.SweepPoint, next.SweepPoint)
+			}
+			status.Remove(n) // TODO: this shouldn't touch SweepPoint inside the nodes
 		}
+		preResult = append(preResult, event)
 	}
 
 	// reorder preResult, this may be required when addIntersections adds new intersections

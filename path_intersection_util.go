@@ -173,7 +173,7 @@ func intersectionLineLine(zs Intersections, a0, a1, b0, b1 Point) Intersections 
 	if Equal(div, 0.0) {
 		// parallel
 		if Equal(b0.Sub(a0).PerpDot(db), 0.0) {
-			// same, rotate to x-axis
+			// overlap, rotate to x-axis
 			a := a0.Rot(-anglea, Point{}).X
 			b := a1.Rot(-anglea, Point{}).X
 			c := b0.Rot(-anglea, Point{}).X

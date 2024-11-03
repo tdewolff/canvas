@@ -948,19 +948,23 @@ func boSP(a, b Point, clipping bool) *SweepPoint {
 	if vertical {
 		increasing = a.Y < b.Y
 	}
+	selfWindings := 1
+	if !increasing {
+		selfWindings = -1
+	}
 	A := &SweepPoint{
-		Point:      a,
-		left:       increasing,
-		increasing: increasing,
-		vertical:   vertical,
-		clipping:   clipping,
+		Point:        a,
+		left:         increasing,
+		selfWindings: selfWindings,
+		vertical:     vertical,
+		clipping:     clipping,
 	}
 	B := &SweepPoint{
-		Point:      b,
-		left:       !increasing,
-		increasing: increasing,
-		vertical:   vertical,
-		clipping:   clipping,
+		Point:        b,
+		left:         !increasing,
+		selfWindings: selfWindings,
+		vertical:     vertical,
+		clipping:     clipping,
 	}
 	A.other = B
 	B.other = A
@@ -1142,7 +1146,7 @@ func TestPathSettle(t *testing.T) {
 		{Negative, "M2 1L0 0L0 2L2 1L1 0L1 2z", "L1 0.5L1 0L2 1L1 2L1 1.5L0 2z"},
 		{Positive, "M0 -1L10 -1L10 1L5 1L5 -1L10 -1L10 1L0 1z", "M0 -1L10 -1L10 1L0 1z"},
 		{Positive, "L2 0L1 0L3 0L1.5 1z", "L3 0L1.5 1z"},
-		{Positive, "M0.346107634210633 0.2871967618163768L0.3626348519907416 0.28892214962920265L0.3626062868506122 0.28891875151562996L0.3796118521641162 0.2911902442838161L0.3880491429729769 0.2909157121602171L0.38726252832823393 0.2905730077076176L0 1z", ""},
+		{Positive, "M0.346107634210633 0.2871967618163768L0.3626348519907416 0.28892214962920265L0.3626062868506122 0.28891875151562996L0.3796118521641162 0.2911902442838161L0.3880491429729769 0.2909157121602171L0.38726252832823393 0.2905730077076176L0 1z", "M0 1L0.346107634210633 0.2871967618163768L0.3626205449801476 0.288920656023803L0.3796118521641162 0.2911902442838161L0.38705784530033016 0.2909479669516372z"},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p), func(t *testing.T) {
@@ -1238,8 +1242,8 @@ func TestPathAnd(t *testing.T) {
 		// P intersects Q twice in the same point
 		{"L0 -20L20 -20L20 20L0 20z", "L10 10L10 -10L-10 10L-10 -10z", "L10 -10L10 10z"},
 		{"L20 0L20 20L-20 20L-20 0z", "L10 10L10 -10L-10 10L-10 -10z", "M-10 0L0 0L-10 10zM0 0L10 0L10 10z"},
-		{"M-5 -5L0 -5L0 5L-5 5z", "L10 0L10 10L-10 10L-10 0L10 0L10 -10L-10 -10L-10 0z", "M-5 -5L0 -5L0 0L-5 0zM-5 0L0 0L0 5L-5 5z"},
-		{"M-5 -5L0 -5L0 5L-5 5z", "L-10 0L-10 10L10 10L10 0L-10 0L-10 -10L10 -10L10 0z", "M-5 -5L0 -5L0 0L-5 0zM-5 0L0 0L0 5L-5 5z"},
+		{"M-5 -5L0 -5L0 5L-5 5z", "L10 0L10 10L-10 10L-10 0L10 0L10 -10L-10 -10L-10 0z", "M-5 -5L0 -5L0 5L-5 5z"},
+		{"M-5 -5L0 -5L0 5L-5 5z", "L-10 0L-10 10L10 10L10 0L-10 0L-10 -10L10 -10L10 0z", "M-5 -5L0 -5L0 5L-5 5z"},
 		{"L20 0L20 20L0 20z", "L10 0L10 10L-10 10L-10 0L10 0L10 -10L-10 -10L-10 0z", "L10 0L10 10L0 10z"},
 
 		// similar to holes and islands 4
