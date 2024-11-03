@@ -8,10 +8,10 @@ import (
 	"os"
 	"strings"
 
+	typesettingFont "github.com/go-text/typesetting/font"
+	"github.com/go-text/typesetting/font/opentype"
 	"github.com/go-text/typesetting/harfbuzz"
 	"github.com/go-text/typesetting/language"
-	fontapi "github.com/go-text/typesetting/opentype/api/font"
-	"github.com/go-text/typesetting/opentype/loader"
 	"github.com/tdewolff/font"
 )
 
@@ -22,16 +22,16 @@ type Shaper struct {
 
 // NewShaper returns a new text shaper.
 func NewShaper(b []byte, _ int) (Shaper, error) {
-	loader, err := loader.NewLoader(bytes.NewReader(b))
+	loader, err := opentype.NewLoader(bytes.NewReader(b))
 	if err != nil {
 		return Shaper{}, err
 	}
-	font, err := fontapi.NewFont(loader)
+	font, err := typesettingFont.NewFont(loader)
 	if err != nil {
 		return Shaper{}, err
 	}
 	return Shaper{
-		font: harfbuzz.NewFont(&fontapi.Face{Font: font}),
+		font: harfbuzz.NewFont(&typesettingFont.Face{Font: font}),
 	}, nil
 }
 

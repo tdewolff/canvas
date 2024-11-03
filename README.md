@@ -22,27 +22,25 @@ Whether this library is ready for production environments is up to your own judg
 
 Execution performance is actually really good, especially the rasterizer is highly optimized with ASM. See for example a comparison of an extreme case in https://github.com/tdewolff/canvas/issues/280#issuecomment-1995990038, where this library is at least twice as fast as existing solutions, and can handle bigger images than the likes of Inkscape and Cairo.
 
+The path intersection code and path boolean operation code is quite complete and fast, and more importantly has a time complexity of O(n log n). It may suffer from numerical precision which can be avoided using `Path.Gridsnap` beforehand.
+
 Please issue bug reports or feature requests to help this library mature! All help is appreciated. Also see [Wiki - Planning](https://github.com/tdewolff/canvas/wiki/Planning) for an inexhaustive list of ideas and TODOs.
-
-## Recent changes
-
-- <del>`Context` view and coordinate view have been altered. `View` now doesn't affect the coordinate view/system. To achieve the same as before, replace `ctx.SetView(m)` by `ctx.SetView(m); ctx.SetCoordView(m)`. The change makes coordinate systems more intuitive when using in combination with views, the given coordinate reflects the coordinate where it is drawn irrespective of the view.</del> This has been reverted, the coordinate view is first performed to the coordinate, and then the view applies as a affine transformation matrix for all objects (including their coordinates). This less error prone (as evidenced by recents bugs in ParseSVG). If you previously used `ctx.SetCoordView(m); ctx.SetView(m)`, now only the latter is needed. Otherwise, you may need to update your coordinates when using `ctx.SetView(m)`.
 
 ## Features
 
-- Path segment types: MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close
+- Path segment types: MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close (https://github.com/tdewolff/canvas/wiki/Paths)
 - Precise path flattening, stroking, and dashing for all segment type uing papers (see below)
 - Smooth spline generation through points for open and closed paths
-- Path boolean operations: AND, OR, XOR, NOT, Divide
+- Path boolean operations: AND, OR, XOR, NOT, Divide (https://github.com/tdewolff/canvas/wiki/Boolean-operations)
 - LaTeX to path conversion (native Go and CGO implementations available)
-- Font formats support
+- Font formats support (https://github.com/tdewolff/canvas/wiki/Fonts-&-Text)
 - - SFNT (such as TTF, OTF, WOFF, WOFF2, EOT) supporting TrueType, CFF, and CFF2 tables
 - HarfBuzz for text shaping (native Go and CGO implementations available)
 - FriBidi for text bidirectionality (native Go and CGO implementations available)
 - Donald Knuth's line breaking algorithm for text layout
 - sRGB compliance (use `SRGBColorSpace`, only available for rasterizer)
 - Font rendering with gamma correction of 1.43
-- Rendering targets
+- Rendering targets (https://github.com/tdewolff/canvas/wiki/Renderers)
 - - Raster images (PNG, GIF, JPEG, TIFF, BMP, WEBP)
 - - PDF
 - - SVG and SVGZ
@@ -130,6 +128,7 @@ This is a non-exhaustive list of library users I've come across. PRs are welcome
 - [S.H. Kim and Y.J. Ahn, An approximation of circular arcs by quartic Bezier curves, Computer-Aided Design 39 (2007, p. 490--493)](https://doi.org/10.1016/j.cad.2007.01.004)
 - D.E. Knuth and M.F. Plass, Breaking Paragraphs into Lines, Software: Practive and Experience 11 (1981), p. 1119--1184
 - L. Subramaniam, Partition of a non-simple polygon into simple pologons, 2003
+- [A simple algorithm for Boolean operations on polygons](https://doi.org/10.1016/j.advengsoft.2013.04.004)
 
 ## License
 
