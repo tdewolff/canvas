@@ -4,6 +4,9 @@ package text
 
 import (
 	"bytes"
+	"fmt"
+	"os"
+	"strings"
 
 	"github.com/go-text/typesetting/harfbuzz"
 	"github.com/go-text/typesetting/language"
@@ -52,7 +55,7 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	buf.Props.Script = language.Script(script)
 	buf.Props.Language = language.NewLanguage(lang)
 	buf.GuessSegmentProperties() // only sets direction, script, and language if unset
-	buf.Shape(s.font, nil)
+	buf.Shape(s.font, parseFeatures(features))
 
 	runeMap := make([]int, len(rtext)+1)
 	j := 0
@@ -75,6 +78,29 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 		glyphs[i].Text = rtext[info.Cluster]
 	}
 	return glyphs
+}
+
+func parseFeatures(input string) []harfbuzz.Feature {
+	if input == "" {
+		return nil
+	}
+
+	features := []harfbuzz.Feature{}
+	for _, part := range strings.Split(input, ",") {
+		if part == "" {
+			continue
+		}
+
+		feature, err := harfbuzz.ParseFeature(part)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error parsing feature '%s': %v\n", part, err)
+			continue
+		}
+
+		features = append(features, feature)
+	}
+
+	return features
 }
 
 func LookupScript(r rune) Script {

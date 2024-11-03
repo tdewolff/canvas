@@ -3,7 +3,6 @@ package canvas
 import (
 	"fmt"
 	"image/color"
-	"io/ioutil"
 	"log"
 	"math"
 	"os"
@@ -253,7 +252,7 @@ func LoadSystemFont(name string, style FontStyle) (*Font, error) {
 
 // LoadFontFile loads a font from a file.
 func LoadFontFile(filename string, style FontStyle) (*Font, error) {
-	b, err := ioutil.ReadFile(filename)
+	b, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load font file '%s': %w", filename, err)
 	}
@@ -262,7 +261,7 @@ func LoadFontFile(filename string, style FontStyle) (*Font, error) {
 
 // LoadFontCollection loads a font from a collection file and uses the font at the specified index.
 func LoadFontCollection(filename string, index int, style FontStyle) (*Font, error) {
-	b, err := ioutil.ReadFile(filename)
+	b, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load font file '%s': %w", filename, err)
 	}
@@ -328,7 +327,6 @@ func (f *Font) SetVariations(variations string) {
 
 // SetFeatures sets the font features (not yet supported).
 func (f *Font) SetFeatures(features string) {
-	// TODO: support font features
 	f.features = features
 }
 
