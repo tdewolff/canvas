@@ -2,16 +2,18 @@ module github.com/tdewolff/canvas
 
 go 1.22.0
 
+toolchain go1.23.2
+
 require (
 	fyne.io/fyne/v2 v2.4.1
-	gioui.org v0.3.1
+	gioui.org v0.7.1
 	github.com/ByteArena/poly2tri-go v0.0.0-20170716161910-d102ad91854f
 	github.com/Kagami/go-avif v0.1.0
 	github.com/benoitkugler/textprocessing v0.0.3
 	github.com/go-fonts/latin-modern v0.3.1
 	github.com/go-gl/gl v0.0.0-20231021071112-07e5d0ea2e71
-	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20231031225837-d1c54e5847d0
-	github.com/go-text/typesetting v0.0.0-20231013144250-6cc35dbfae7d
+	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20231223183121-56fa3ac82ce7
+	github.com/go-text/typesetting v0.1.2
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/kolesa-team/go-webp v1.0.4
 	github.com/paulmach/orb v0.10.0
@@ -67,10 +69,10 @@ require (
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/yuin/goldmark v1.6.0 // indirect
-	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
-	golang.org/x/exp/shiny v0.0.0-20231006140011-7918f672742d // indirect
-	golang.org/x/mobile v0.0.0-20231006135142-2b44d11868fe // indirect
+	golang.org/x/exp v0.0.0-20240707233637-46b078467d37 // indirect
+	golang.org/x/exp/shiny v0.0.0-20240707233637-46b078467d37 // indirect
+	golang.org/x/mobile v0.0.0-20231127183840-76ac6878050a // indirect
 	golang.org/x/net v0.24.0
-	golang.org/x/sys v0.19.0 // indirect
+	golang.org/x/sys v0.22.0 // indirect
 	star-tex.org/x/tex v0.4.0
 )
