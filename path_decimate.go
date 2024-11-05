@@ -11,34 +11,27 @@ func snap(v, d float64) float64 {
 
 // Gridsnap snaps all vertices to a grid with the given spacing. This will significantly reduce numerical issues e.g. for path boolean operations.
 func (p *Path) Gridsnap(spacing float64) *Path {
-	p = p.Copy()
+	q := &Path{d: make([]float64, 0, len(p.d))}
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
-		case MoveToCmd, LineToCmd, CloseCmd:
-			p.d[i+1] = snap(p.d[i+1], spacing)
-			p.d[i+2] = snap(p.d[i+2], spacing)
+		case MoveToCmd:
+			q.MoveTo(snap(p.d[i+1], spacing), snap(p.d[i+2], spacing))
+		case LineToCmd:
+			q.LineTo(snap(p.d[i+1], spacing), snap(p.d[i+2], spacing))
 		case QuadToCmd:
-			p.d[i+1] = snap(p.d[i+1], spacing)
-			p.d[i+2] = snap(p.d[i+2], spacing)
-			p.d[i+3] = snap(p.d[i+3], spacing)
-			p.d[i+4] = snap(p.d[i+4], spacing)
+			q.QuadTo(snap(p.d[i+1], spacing), snap(p.d[i+2], spacing), snap(p.d[i+3], spacing), snap(p.d[i+4], spacing))
 		case CubeToCmd:
-			p.d[i+1] = snap(p.d[i+1], spacing)
-			p.d[i+2] = snap(p.d[i+2], spacing)
-			p.d[i+3] = snap(p.d[i+3], spacing)
-			p.d[i+4] = snap(p.d[i+4], spacing)
-			p.d[i+6] = snap(p.d[i+6], spacing)
-			p.d[i+7] = snap(p.d[i+7], spacing)
+			q.CubeTo(snap(p.d[i+1], spacing), snap(p.d[i+2], spacing), snap(p.d[i+3], spacing), snap(p.d[i+4], spacing), snap(p.d[i+5], spacing), snap(p.d[i+6], spacing))
 		case ArcToCmd:
-			p.d[i+1] = snap(p.d[i+1], spacing)
-			p.d[i+2] = snap(p.d[i+2], spacing)
-			p.d[i+6] = snap(p.d[i+6], spacing)
-			p.d[i+7] = snap(p.d[i+7], spacing)
+			large, sweep := toArcFlags(p.d[i+4])
+			q.ArcTo(p.d[i+1], p.d[i+2], p.d[i+3], large, sweep, snap(p.d[i+5], spacing), snap(p.d[i+6], spacing))
+		case CloseCmd:
+			q.d = append(q.d, CloseCmd, snap(p.d[i+1], spacing), snap(p.d[i+2], spacing), CloseCmd)
 		}
 		i += cmdLen(cmd)
 	}
-	return p
+	return q
 }
 
 // Decimate decimates the path using the Visvalingam-Whyatt algorithm. Assuming path is flat and has no subpaths.
