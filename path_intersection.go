@@ -813,6 +813,22 @@ type SweepPointPair struct {
 	a, b *SweepPoint
 }
 
+func compareIntersections(a, b Intersection) int {
+	if Equal(a.X, b.X) {
+		if Equal(a.Y, b.Y) {
+			return 0
+		} else if a.Y < b.Y {
+			return -1
+		} else {
+			return 1
+		}
+	} else if a.X < b.X {
+		return -1
+	} else {
+		return 1
+	}
+}
+
 func addIntersections(queue *SweepEvents, handled map[SweepPointPair]bool, zs Intersections, a, b *SweepPoint) bool {
 	// a and b are always left-endpoints and a is below b
 	if handled[SweepPointPair{a, b}] || handled[SweepPointPair{b, a}] {
@@ -823,24 +839,25 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]bool, zs In
 	// this returns either no intersections, or one or more secant/tangent intersections,
 	// or exactly two "same" intersections which occurs when the segments overlap.
 	zs = intersectionLineLine(zs[:0], a.Start(), a.End(), b.Start(), b.End())
+
+	// clean up intersections outside one of the segments, this may happen for nearly parallel
+	// lines for example
+	for i := 0; i < len(zs); i++ {
+		if z := zs[i]; !a.vertical && !Interval(z.X, a.X, a.other.X) || a.vertical && !Interval(z.Y, a.Y, a.other.Y) || !b.vertical && !Interval(z.X, b.X, b.other.X) || b.vertical && !Interval(z.Y, b.Y, b.other.Y) { //z.X < a.X || z.X < b.X || a.other.X < z.X || b.other.X < z.X {
+			fmt.Println("WARNING: removing intersection", zs[i], "between", a, b)
+			zs = append(zs[:i], zs[i+1:]...)
+			i--
+		}
+	}
+
+	// no (valid) intersections
 	if len(zs) == 0 {
 		handled[SweepPointPair{a, b}] = true
 		return false
 	}
 
 	// sort intersections from left to right
-	aSign := 1
-	if !a.Increasing() {
-		aSign = -1
-	}
-	slices.SortFunc(zs, func(a, b Intersection) int {
-		if a.T[0] < b.T[0] {
-			return -aSign
-		} else if b.T[0] < a.T[0] {
-			return aSign
-		}
-		return 0
-	})
+	slices.SortFunc(zs, compareIntersections)
 
 	// handle a
 	aLefts := []*SweepPoint{a}
@@ -1166,6 +1183,9 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 			// inResult may be set false afterwards due to overlapping edges, we check again
 			// when building the polygon
 			if len(result) == 0 || !event.Point.Equals(result[len(result)-1][0].Point) {
+				if 0 < len(result) && len(result[len(result)-1]) == 1 {
+					fmt.Println("WARNING: single segment endpoint at position", result[len(result)-1])
+				}
 				result = append(result, []*SweepPoint{event})
 			} else {
 				result[len(result)-1] = append(result[len(result)-1], event)
@@ -1217,11 +1237,11 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 						break
 					}
 				}
-				if next == first {
+				if next == nil {
+					break // contour is done
+				} else if next == first {
 					first.processed, first.other.processed = true, true
 					break
-				} else if next == nil {
-					break // contour is done
 				}
 				cur = next
 
