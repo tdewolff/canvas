@@ -274,6 +274,9 @@ func TestPathCCW(t *testing.T) {
 		{"C0 1 1 1 1 0", false},
 		{"A1 1 0 0 1 2 0", true},
 		{"A1 1 0 0 0 2 0", false},
+
+		// bugs
+		{"M0.31191406250000003 0.9650390625L0.3083984375 0.9724609375L0.3013671875 0.9724609375L0.29824218750000003 0.9646484375z", true},
 	}
 	for _, tt := range tts {
 		t.Run(tt.p, func(t *testing.T) {
