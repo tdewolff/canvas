@@ -879,10 +879,13 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]bool, zs In
 
 		// add to queue
 		queue.Push(&aRight)
-		queue.Push(&aLeft)
 		aLefts = append(aLefts, &aLeft)
 	}
 	aPrevLeft.other, aLastRight.other = aLastRight, aPrevLeft
+	for _, aLeft := range aLefts[1:] {
+		// add to queue
+		queue.Push(aLeft)
+	}
 
 	// handle b
 	bLefts := []*SweepPoint{b}
@@ -904,10 +907,13 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]bool, zs In
 
 		// add to queue
 		queue.Push(&bRight)
-		queue.Push(&bLeft)
 		bLefts = append(bLefts, &bLeft)
 	}
 	bPrevLeft.other, bLastRight.other = bLastRight, bPrevLeft
+	for _, bLeft := range bLefts[1:] {
+		// add to queue
+		queue.Push(bLeft)
+	}
 
 	if zs[0].Same {
 		// Handle overlapping paths. Since we just split both segments above, we first find the
