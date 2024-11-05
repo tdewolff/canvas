@@ -815,7 +815,7 @@ func (p *Path) CCW() bool {
 	// get coordinates of previous and next segments
 	var kPrev int
 	if k == 4 {
-		kPrev = kMax - cmdLen(p.d[kMax-1])
+		kPrev = kMax
 	} else {
 		kPrev = k - cmdLen(p.d[k-1])
 	}
