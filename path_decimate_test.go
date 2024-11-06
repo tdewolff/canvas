@@ -35,3 +35,25 @@ func TestDecimate(t *testing.T) {
 		})
 	}
 }
+
+func TestClip(t *testing.T) {
+	tests := []struct {
+		p string
+		r string
+	}{
+		{"M-5 5L5 5L5 15L-5 15z", "M-5 5L5 5L5 15L-5 15z"},
+		{"M1 5L9 5L9 15L1 15z", "M1 5L9 5L9 15L1 15z"},
+		{"M1 5L9 5L9 15L5 20L1 15z", "M1 5L9 5L9 15L1 15z"},
+		{"M-5 5L9 5L9 15L5 20L-5 15z", "M-5 5L9 5L9 15L-5 15z"},
+		{"M-5 15L-5 5L9 5L9 15L5 20z", "M-5 5L9 5L9 15L-5 15z"},
+	}
+
+	rect := Rect{0, 0, 10, 10}
+	for _, tt := range tests {
+		t.Run(tt.p, func(t *testing.T) {
+			p := MustParseSVGPath(tt.p)
+			r := MustParseSVGPath(tt.r)
+			test.T(t, p.Clip(rect.X0, rect.Y0, rect.X1, rect.Y1), r)
+		})
+	}
+}

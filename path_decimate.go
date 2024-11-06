@@ -111,3 +111,166 @@ Loop:
 	}
 	return q
 }
+
+// Clip removes all segments that are completely outside the given clipping rectangle. To ensure that the removal doesn't cause a segment to cross the rectangle from the outside, it keeps points that cross at least two lines to infinity along the rectangle's edges. This is much quicker (along O(n)) than using p.And(canvas.Rectangle(x1-x0, y1-y0).Translate(x0, y0)) (which is O(n log n)).
+func (p *Path) Clip(x0, y0, x1, y1 float64) *Path {
+	if x1 < x0 {
+		x0, x1 = x1, x0
+	}
+	if y1 < y0 {
+		y0, y1 = y1, y0
+	}
+	rect := Rect{x0, y0, x1, y1}
+
+	first, start := Point{}, Point{}
+	startIn := false
+	pendingMoveTo := true
+	q := &Path{d: make([]float64, 0, len(p.d))}
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		i += cmdLen(cmd)
+
+		end := Point{p.d[i-3], p.d[i-2]}
+		endIn := rect.TouchesPoint(end)
+		crossesTwoEdges := false
+		if !startIn && !endIn {
+			var prev Point
+			if 0 < len(q.d) {
+				prev = Point{q.d[len(q.d)-3], q.d[len(q.d)-2]}
+			}
+			quadPrevX, quadNextX := 1, 1
+			quadPrevY, quadNextY := 1, 1
+			if prev.X < rect.X0 {
+				quadPrevX = 0
+			} else if rect.X1 < prev.X {
+				quadPrevX = 2
+			}
+			if end.X < rect.X0 {
+				quadNextX = 0
+			} else if rect.X1 < end.X {
+				quadNextX = 2
+			}
+			if prev.Y < rect.Y0 {
+				quadPrevY = 0
+			} else if rect.Y1 < prev.Y {
+				quadPrevY = 2
+			}
+			if end.Y < rect.Y0 {
+				quadNextY = 0
+			} else if rect.Y1 < end.Y {
+				quadNextY = 2
+			}
+			crossesX := quadNextX - quadPrevX
+			if crossesX < 0 {
+				crossesX = -crossesX
+			}
+			crossesY := quadNextY - quadPrevY
+			if crossesY < 0 {
+				crossesY = -crossesY
+			}
+			crossesTwoEdges = 1 < (crossesX + crossesY)
+		}
+
+		if cmd == MoveToCmd {
+			if endIn {
+				q.MoveTo(end.X, end.Y)
+				pendingMoveTo = false
+				first = end
+			} else {
+				pendingMoveTo = true
+			}
+		} else {
+			if crossesTwoEdges || !startIn && endIn {
+				if pendingMoveTo {
+					q.MoveTo(start.X, start.Y)
+					pendingMoveTo = false
+					first = start
+				} else {
+					q.LineTo(start.X, start.Y)
+				}
+			}
+			if cmd == LineToCmd && (startIn || endIn) {
+				if pendingMoveTo {
+					q.MoveTo(start.X, start.Y)
+					pendingMoveTo = false
+					first = start
+				}
+				q.LineTo(end.X, end.Y)
+			} else if cmd == QuadToCmd {
+				cp := Point{p.d[i-5], p.d[i-4]}
+				if startIn || endIn || rect.TouchesPoint(cp) {
+					if pendingMoveTo {
+						q.MoveTo(start.X, start.Y)
+						pendingMoveTo = false
+						first = start
+					}
+					q.QuadTo(cp.X, cp.Y, end.X, end.Y)
+				}
+			} else if cmd == CubeToCmd {
+				cp0 := Point{p.d[i-7], p.d[i-6]}
+				cp1 := Point{p.d[i-5], p.d[i-4]}
+				if startIn || endIn || rect.TouchesPoint(cp0) || rect.TouchesPoint(cp1) {
+					if pendingMoveTo {
+						q.MoveTo(start.X, start.Y)
+						pendingMoveTo = false
+						first = start
+					}
+					q.CubeTo(cp0.X, cp0.Y, cp1.X, cp1.Y, end.X, end.Y)
+				}
+			} else if cmd == ArcToCmd {
+				touches := startIn || endIn
+				rx, ry, phi := p.d[i-7], p.d[i-6], p.d[i-5]
+				large, sweep := toArcFlags(p.d[i-4])
+				if !touches {
+					cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
+
+					// find the four extremes (top, bottom, left, right) and apply those who are between theta1 and theta2
+					// x(theta) = cx + rx*cos(theta)*cos(phi) - ry*sin(theta)*sin(phi)
+					// y(theta) = cy + rx*cos(theta)*sin(phi) + ry*sin(theta)*cos(phi)
+					// be aware that positive rotation appears clockwise in SVGs (non-Cartesian coordinate system)
+					// we can now find the angles of the extremes
+
+					sinphi, cosphi := math.Sincos(phi)
+					thetaRight := math.Atan2(-ry*sinphi, rx*cosphi)
+					thetaTop := math.Atan2(rx*cosphi, ry*sinphi)
+					thetaLeft := thetaRight + math.Pi
+					thetaBottom := thetaTop + math.Pi
+
+					dx := math.Sqrt(rx*rx*cosphi*cosphi + ry*ry*sinphi*sinphi)
+					dy := math.Sqrt(rx*rx*sinphi*sinphi + ry*ry*cosphi*cosphi)
+					if angleBetween(thetaLeft, theta0, theta1) {
+						touches = touches || rect.TouchesPoint(Point{cx - dx, cy})
+					}
+					if angleBetween(thetaRight, theta0, theta1) {
+						touches = touches || rect.TouchesPoint(Point{cx + dx, cy})
+					}
+					if angleBetween(thetaBottom, theta0, theta1) {
+						touches = touches || rect.TouchesPoint(Point{cx, cy - dy})
+					}
+					if angleBetween(thetaTop, theta0, theta1) {
+						touches = touches || rect.TouchesPoint(Point{cx, cy + dy})
+					}
+				}
+				if touches {
+					if pendingMoveTo {
+						q.MoveTo(start.X, start.Y)
+						pendingMoveTo = false
+						first = start
+					}
+					q.ArcTo(rx, ry, phi, large, sweep, end.X, end.Y)
+				}
+			} else if cmd == CloseCmd {
+				if !end.Equals(first) {
+					q.LineTo(end.X, end.Y)
+				}
+				if !pendingMoveTo {
+					q.d = append(q.d, CloseCmd, first.X, first.Y, CloseCmd)
+				}
+				pendingMoveTo = true
+			}
+		}
+		start = end
+		startIn = endIn
+	}
+	return q
+}
