@@ -294,7 +294,7 @@ func (c *Context) SetCoordView(coordView Matrix) {
 
 // SetCoordRect sets the current affine transformation matrix for coordinates. Coordinate transformation are applied before View transformations. It will transform coordinates from (0,0)--(width,height) to the target `rect`.
 func (c *Context) SetCoordRect(rect Rect, width, height float64) {
-	c.coordView = Identity.Translate(rect.X, rect.Y).Scale(rect.W/width, rect.H/height)
+	c.coordView = Identity.Translate(rect.X0, rect.Y0).Scale(rect.W()/width, rect.H()/height)
 }
 
 // View returns the current affine transformation matrix through which all operations will be transformed.
@@ -548,33 +548,33 @@ func (c *Context) FillStroke() {
 
 // FitImage fits an image to a rectangle using different fit strategies.
 func (c *Context) FitImage(img image.Image, rect Rect, fit ImageFit) {
-	if img.Bounds().Size().Eq(image.Point{}) || rect.W == 0 || rect.H == 0 {
+	if img.Bounds().Size().Eq(image.Point{}) || rect.Empty() {
 		return
 	}
 
 	width := float64(img.Bounds().Max.X - img.Bounds().Min.X)
 	height := float64(img.Bounds().Max.Y - img.Bounds().Min.Y)
 
-	x, y := rect.X, rect.Y // offset to draw image
-	xres := width / rect.W
-	yres := height / rect.H
+	x, y := rect.X0, rect.Y0 // offset to draw image
+	xres := width / rect.W()
+	yres := height / rect.H()
 	switch fit {
 	case ImageContain:
 		if xres < yres {
-			x += (rect.W - width/yres) / 2.0
+			x += (rect.W() - width/yres) / 2.0
 			xres = yres
 		} else {
-			y += (rect.H - height/xres) / 2.0
+			y += (rect.H() - height/xres) / 2.0
 			yres = xres
 		}
 	case ImageCover:
 		var dx, dy int // offset to crop image
 		if xres < yres {
-			dy = int((height-rect.H*xres)/2.0 + 0.5)
-			yres = (height - float64(2*dy)) / rect.H
+			dy = int((height-rect.H()*xres)/2.0 + 0.5)
+			yres = (height - float64(2*dy)) / rect.H()
 		} else {
-			dx = int((width-rect.W*yres)/2.0 + 0.5)
-			xres = (width - float64(2*dx)) / rect.W
+			dx = int((width-rect.W()*yres)/2.0 + 0.5)
+			xres = (width - float64(2*dx)) / rect.W()
 		}
 		if subimg, ok := img.(interface {
 			SubImage(image.Rectangle) image.Image
@@ -769,9 +769,9 @@ func (c *Canvas) Transform(m Matrix) {
 
 // Clip sets the canvas to the given rectangle.
 func (c *Canvas) Clip(rect Rect) {
-	c.Transform(Identity.Translate(-rect.X, -rect.Y))
-	c.W = rect.W
-	c.H = rect.H
+	c.Transform(Identity.Translate(-rect.X0, -rect.Y0))
+	c.W = rect.W()
+	c.H = rect.H()
 }
 
 // Fit shrinks the canvas' size that so all elements fit with a given margin in millimeters.
@@ -784,10 +784,11 @@ func (c *Canvas) Fit(margin float64) {
 			if l.path != nil {
 				bounds = l.path.Bounds()
 				if l.style.HasStroke() {
-					bounds.X -= l.style.StrokeWidth / 2.0
-					bounds.Y -= l.style.StrokeWidth / 2.0
-					bounds.W += l.style.StrokeWidth
-					bounds.H += l.style.StrokeWidth
+					hw := l.style.StrokeWidth / 2.0
+					bounds.X0 -= hw
+					bounds.Y0 -= hw
+					bounds.X1 += hw
+					bounds.Y1 += hw
 				}
 			} else if l.text != nil {
 				bounds = l.text.Bounds()
@@ -799,10 +800,10 @@ func (c *Canvas) Fit(margin float64) {
 			rect = rect.Add(bounds)
 		}
 	}
-	rect.X -= margin
-	rect.Y -= margin
-	rect.W += 2.0 * margin
-	rect.H += 2.0 * margin
+	rect.X0 -= margin
+	rect.Y0 -= margin
+	rect.X1 += margin
+	rect.Y1 += margin
 	c.Clip(rect)
 }
 

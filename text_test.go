@@ -171,10 +171,10 @@ func TestTextBounds(t *testing.T) {
 	test.Float(t, descent, face12.Metrics().LineHeight)
 
 	bounds := text.Bounds()
-	test.Float(t, bounds.X, 0.0)
-	test.Float(t, bounds.Y, -(1901+483)*1.5)
-	test.Float(t, bounds.W, face8.TextWidth("test")+face12.TextWidth("test"))
-	test.Float(t, bounds.H, (1901+483)*1.5)
+	test.Float(t, bounds.X0, 0.0)
+	test.Float(t, bounds.Y0, -(1901+483)*1.5)
+	test.Float(t, bounds.W(), face8.TextWidth("test")+face12.TextWidth("test"))
+	test.Float(t, bounds.H(), (1901+483)*1.5)
 
 	//bounds = text.OutlineBounds()
 	//test.Float(t, bounds.X, 0.0)

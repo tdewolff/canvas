@@ -486,16 +486,16 @@ func (svg *svgParser) parseDefs(l *xml.Lexer) {
 				rect := layer.path.FastBounds()
 				x1t, y1t, x2t, y2t := x1, y1, x2, y2
 				if x1p {
-					x1t = (rect.X + rect.W*x1t) * 25.4 / 96.0
+					x1t = (rect.X0 + rect.W()*x1t) * 25.4 / 96.0
 				}
 				if y1p {
-					y1t = (rect.Y + rect.H*y1t) * 25.4 / 96.0
+					y1t = (rect.Y0 + rect.H()*y1t) * 25.4 / 96.0
 				}
 				if x2p {
-					x2t = (rect.X + rect.W*x2t) * 25.4 / 96.0
+					x2t = (rect.X0 + rect.W()*x2t) * 25.4 / 96.0
 				}
 				if y2p {
-					y2t = (rect.Y + rect.H*y2t) * 25.4 / 96.0
+					y2t = (rect.Y0 + rect.H()*y2t) * 25.4 / 96.0
 				}
 				linearGradient := NewLinearGradient(Point{x1t, y1t}, Point{x2t, y2t})
 				linearGradient.Stops = stops

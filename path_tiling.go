@@ -39,10 +39,10 @@ func TileRectangle(cell Matrix, dst, src Rect) []Matrix {
 	// find extremes along cell axes
 	invCell := cell.Inv()
 	points := []Point{
-		invCell.Dot(Point{dst.X, dst.Y}),
-		invCell.Dot(Point{dst.X + dst.W, dst.Y}),
-		invCell.Dot(Point{dst.X + dst.W, dst.Y + dst.H}),
-		invCell.Dot(Point{dst.X, dst.Y + dst.H}),
+		invCell.Dot(Point{dst.X0, dst.Y0}),
+		invCell.Dot(Point{dst.X1, dst.Y0}),
+		invCell.Dot(Point{dst.X1, dst.Y1}),
+		invCell.Dot(Point{dst.X0, dst.Y1}),
 	}
 	x0, x1 := points[0].X, points[0].X
 	y0, y1 := points[0].Y, points[0].Y
@@ -55,10 +55,10 @@ func TileRectangle(cell Matrix, dst, src Rect) []Matrix {
 
 	// add/subtract when overflowing/underflowing cell
 	cellBounds := src.Transform(invCell)
-	x0 -= cellBounds.X + cellBounds.W - 1.0
-	y0 -= cellBounds.Y + cellBounds.H - 1.0
-	x1 -= cellBounds.X
-	y1 -= cellBounds.Y
+	x0 -= cellBounds.X1 - 1.0
+	y0 -= cellBounds.Y1 - 1.0
+	x1 -= cellBounds.X0
+	y1 -= cellBounds.Y0
 
 	// collect all positions
 	cells := []Matrix{}

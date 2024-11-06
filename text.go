@@ -502,7 +502,7 @@ func (rt *RichText) WritePath(path *Path, col color.RGBA, valign VerticalAlign) 
 	style := DefaultStyle
 	style.Fill.Color = col
 	bounds := path.Bounds()
-	c := New(bounds.X+bounds.W, bounds.Y+bounds.H)
+	c := New(bounds.X1, bounds.Y1)
 	c.RenderPath(path, style, Identity)
 	rt.WriteCanvas(c, valign)
 }
@@ -988,7 +988,8 @@ func (t *Text) Bounds() Rect {
 	for _, line := range t.lines {
 		for _, span := range line.spans {
 			// TODO: vertical text
-			rect = rect.Add(Rect{span.X, -line.y - span.Face.Metrics().Descent, span.Width, span.Face.Metrics().Ascent + span.Face.Metrics().Descent})
+			x, y := span.X, -line.y-span.Face.Metrics().Descent
+			rect = rect.Add(Rect{x, y, x + span.Width, y + span.Face.Metrics().Ascent + span.Face.Metrics().Descent})
 		}
 	}
 	return rect

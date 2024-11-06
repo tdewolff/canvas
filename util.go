@@ -343,71 +343,91 @@ func (p Point) String() string {
 
 // Rect is a rectangle in 2D defined by a position and its width and height.
 type Rect struct {
-	// TODO: better with X0,Y0,X1,Y1
-	X, Y, W, H float64
+	X0, Y0, X1, Y1 float64
+}
+
+func (r Rect) Empty() bool {
+	return Equal(r.W(), 0.0) || Equal(r.H(), 0.0)
+}
+
+// W returns the width of the rectangle.
+func (r Rect) W() float64 {
+	return r.X1 - r.X0
+}
+
+// H returns the height of the rectangle.
+func (r Rect) H() float64 {
+	return r.Y1 - r.Y0
 }
 
 // Equals returns true if rectangles are equal with tolerance Epsilon.
 func (r Rect) Equals(q Rect) bool {
-	return Equal(r.X, q.X) && Equal(r.Y, q.Y) && Equal(r.W, q.W) && Equal(r.H, q.H)
+	return Equal(r.X0, q.X0) && Equal(r.X1, q.X1) && Equal(r.Y0, q.Y0) && Equal(r.Y1, q.Y1)
 }
 
 // Move translates the rect.
 func (r Rect) Move(p Point) Rect {
-	r.X += p.X
-	r.Y += p.Y
+	r.X0 += p.X
+	r.Y0 += p.Y
+	r.X1 += p.X
+	r.Y1 += p.Y
 	return r
 }
 
 // Add returns a rect that encompasses both the current rect and the given rect.
 func (r Rect) Add(q Rect) Rect {
-	if q.W == 0.0 || q.H == 0.0 {
-		return r
-	} else if r.W == 0.0 || r.H == 0.0 {
+	if r.Empty() {
 		return q
+	} else if q.Empty() {
+		return r
 	}
-	x0 := math.Min(r.X, q.X)
-	y0 := math.Min(r.Y, q.Y)
-	x1 := math.Max(r.X+r.W, q.X+q.W)
-	y1 := math.Max(r.Y+r.H, q.Y+q.H)
-	return Rect{x0, y0, x1 - x0, y1 - y0}
+	x0 := math.Min(r.X0, q.X0)
+	y0 := math.Min(r.Y0, q.Y0)
+	x1 := math.Max(r.X1, q.X1)
+	y1 := math.Max(r.Y1, q.Y1)
+	return Rect{x0, y0, x1, y1}
 }
 
 // AddPoint returns a rect that encompasses both the current rect and the given point.
 func (r Rect) AddPoint(p Point) Rect {
-	x0 := math.Min(r.X, p.X)
-	y0 := math.Min(r.Y, p.Y)
-	x1 := math.Max(r.X+r.W, p.X)
-	y1 := math.Max(r.Y+r.H, p.Y)
-	return Rect{x0, y0, x1 - x0, y1 - y0}
+	x0 := math.Min(r.X0, p.X)
+	y0 := math.Min(r.Y0, p.Y)
+	x1 := math.Max(r.X1, p.X)
+	y1 := math.Max(r.Y1, p.Y)
+	return Rect{x0, y0, x1, y1}
 }
 
 // Transform transforms the rectangle by affine transformation matrix m and returns the new bounds of that rectangle.
 func (r Rect) Transform(m Matrix) Rect {
-	p0 := m.Dot(Point{r.X, r.Y})
-	p1 := m.Dot(Point{r.X + r.W, r.Y})
-	p2 := m.Dot(Point{r.X + r.W, r.Y + r.H})
-	p3 := m.Dot(Point{r.X, r.Y + r.H})
-	xmin := math.Min(p0.X, math.Min(p1.X, math.Min(p2.X, p3.X)))
-	xmax := math.Max(p0.X, math.Max(p1.X, math.Max(p2.X, p3.X)))
-	ymin := math.Min(p0.Y, math.Min(p1.Y, math.Min(p2.Y, p3.Y)))
-	ymax := math.Max(p0.Y, math.Max(p1.Y, math.Max(p2.Y, p3.Y)))
-	return Rect{xmin, ymin, xmax - xmin, ymax - ymin}
+	p0 := m.Dot(Point{r.X0, r.Y0})
+	p1 := m.Dot(Point{r.X1, r.Y0})
+	p2 := m.Dot(Point{r.X1, r.Y1})
+	p3 := m.Dot(Point{r.X0, r.Y1})
+	x0 := math.Min(p0.X, math.Min(p1.X, math.Min(p2.X, p3.X)))
+	y0 := math.Min(p0.Y, math.Min(p1.Y, math.Min(p2.Y, p3.Y)))
+	x1 := math.Max(p0.X, math.Max(p1.X, math.Max(p2.X, p3.X)))
+	y1 := math.Max(p0.Y, math.Max(p1.Y, math.Max(p2.Y, p3.Y)))
+	return Rect{x0, y0, x1, y1}
 }
 
 // Contains returns true if the rectangles contains a point, not if it touches an edge.
 func (r Rect) Contains(p Point) bool {
-	return r.X < p.X && p.X < r.X+r.W && r.Y < p.Y && p.Y < r.Y+r.H
+	if p.X < r.X0 || Equal(p.X, r.X0) || r.X1 < p.X || Equal(p.X, r.X1) {
+		// left or right
+		return false
+	} else if p.Y < r.Y0 || Equal(p.Y, r.Y0) || r.Y1 < p.Y || Equal(p.Y, r.Y1) {
+		// below or above
+		return false
+	}
+	return true
 }
 
 // Overlaps returns true if both rectangles overlap.
 func (r Rect) Overlaps(q Rect) bool {
-	if r.W == 0.0 || r.H == 0.0 || q.W == 0.0 || q.H == 0.0 {
-		return false
-	} else if q.X+q.W < r.X || Equal(q.X+q.W, r.X) || r.X+r.W < q.X || Equal(r.X+r.W, q.X) {
+	if q.X1 < r.X0 || Equal(q.X1, r.X0) || r.X1 < q.X0 || Equal(r.X1, q.X0) {
 		// left or right
 		return false
-	} else if q.Y+q.H < r.Y || Equal(q.Y+q.H, r.Y) || r.Y+r.H < q.Y || Equal(r.Y+r.H, q.Y) {
+	} else if q.Y1 < r.Y0 || Equal(q.Y1, r.Y0) || r.Y1 < q.Y0 || Equal(r.Y1, q.Y0) {
 		// below or above
 		return false
 	}
@@ -416,10 +436,10 @@ func (r Rect) Overlaps(q Rect) bool {
 
 // Touches returns true if both rectangles touch (or overlap).
 func (r Rect) Touches(q Rect) bool {
-	if q.X+q.W < r.X && !Equal(q.X+q.W, r.X) || r.X+r.W < q.X && !Equal(r.X+r.W, q.X) {
+	if q.X1 < r.X0 && !Equal(q.X1, r.X0) || r.X1 < q.X0 && !Equal(r.X1, q.X0) {
 		// left or right
 		return false
-	} else if q.Y+q.H < r.Y && !Equal(q.Y+q.H, r.Y) || r.Y+r.H < q.Y && !Equal(r.Y+r.H, q.Y) {
+	} else if q.Y1 < r.Y0 && !Equal(q.Y1, r.Y0) || r.Y1 < q.Y0 && !Equal(r.Y1, q.Y0) {
 		// below or above
 		return false
 	}
@@ -428,12 +448,12 @@ func (r Rect) Touches(q Rect) bool {
 
 // ToPath converts the rectangle to a path.
 func (r Rect) ToPath() *Path {
-	return Rectangle(r.W, r.H).Translate(r.X, r.Y)
+	return Rectangle(r.X1-r.X0, r.Y1-r.Y0).Translate(r.X0, r.Y0)
 }
 
 // String returns a string representation of r such as "(xmin,ymin)-(xmax,ymax)".
 func (r Rect) String() string {
-	return fmt.Sprintf("(%g,%g)-(%g,%g)", r.X, r.Y, r.X+r.W, r.Y+r.H)
+	return fmt.Sprintf("(%g,%g)-(%g,%g)", r.X0, r.Y0, r.X1, r.Y1)
 }
 
 ////////////////////////////////////////////////////////////////

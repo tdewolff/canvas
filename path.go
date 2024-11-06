@@ -913,7 +913,7 @@ func (p *Path) FastBounds() Rect {
 		i += cmdLen(cmd)
 		start = end
 	}
-	return Rect{xmin, ymin, xmax - xmin, ymax - ymin}
+	return Rect{xmin, ymin, xmax, ymax}
 }
 
 // Bounds returns the exact bounding box rectangle of the path.
@@ -1038,7 +1038,7 @@ func (p *Path) Bounds() Rect {
 		i += cmdLen(cmd)
 		start = end
 	}
-	return Rect{xmin, ymin, xmax - xmin, ymax - ymin}
+	return Rect{xmin, ymin, xmax, ymax}
 }
 
 // Length returns the length of the path in millimeters. The length is approximated for cubic Béziers.

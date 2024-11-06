@@ -103,10 +103,10 @@ func (p *HatchPattern) Tile(clip *Path) *Path {
 	// find extremes along cell axes
 	invCell := p.cell.Inv()
 	points := []Point{
-		invCell.Dot(Point{dst.X - p.Thickness, dst.Y - p.Thickness}),
-		invCell.Dot(Point{dst.X + dst.W + p.Thickness, dst.Y - p.Thickness}),
-		invCell.Dot(Point{dst.X + dst.W + p.Thickness, dst.Y + dst.H + p.Thickness}),
-		invCell.Dot(Point{dst.X - p.Thickness, dst.Y + dst.H + p.Thickness}),
+		invCell.Dot(Point{dst.X0 - p.Thickness, dst.Y0 - p.Thickness}),
+		invCell.Dot(Point{dst.X1 + p.Thickness, dst.Y0 - p.Thickness}),
+		invCell.Dot(Point{dst.X1 + p.Thickness, dst.Y1 + p.Thickness}),
+		invCell.Dot(Point{dst.X0 - p.Thickness, dst.Y1 + p.Thickness}),
 	}
 	x0, x1 := points[0].X, points[0].X
 	y0, y1 := points[0].Y, points[0].Y

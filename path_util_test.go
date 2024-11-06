@@ -539,5 +539,5 @@ func TestCubicBezierStroke(t *testing.T) {
 		})
 	}
 
-	test.T(t, strokeCubicBezier(Point{0, 0}, Point{30, 0}, Point{30, 10}, Point{25, 10}, 5.0, 0.01).Bounds(), Rect{0.0, -5.0, 32.4787516156, 20.0})
+	test.T(t, strokeCubicBezier(Point{0, 0}, Point{30, 0}, Point{30, 10}, Point{25, 10}, 5.0, 0.01).Bounds(), Rect{0.0, -5.0, 32.4787516156, 15.0})
 }
