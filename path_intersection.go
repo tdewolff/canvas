@@ -661,6 +661,50 @@ func (s *SweepStatus) Insert(item *SweepPoint) *SweepNode {
 	return n
 }
 
+func (s *SweepStatus) InsertAfter(n *SweepNode, item *SweepPoint) *SweepNode {
+	rebalance := false
+	if n == nil {
+		if s.root == nil {
+			s.root = s.newNode(item)
+			return s.root
+		}
+
+		// insert as left-most node in tree
+		n = s.root
+		for n.left != nil {
+			n = n.left
+		}
+		n.left = s.newNode(item)
+		n.left.parent = n
+		rebalance = n.right == nil
+		n = n.left
+	} else if n.right == nil {
+		// insert directly to the right of n
+		n.right = s.newNode(item)
+		n.right.parent = n
+		rebalance = n.left == nil
+		n = n.right
+	} else {
+		// insert next to n at a deeper level
+		n = n.right
+		for n.left != nil {
+			n = n.left
+		}
+		n.left = s.newNode(item)
+		n.left.parent = n
+		rebalance = n.right == nil
+		n = n.left
+	}
+
+	if rebalance {
+		n.height++
+		if n.parent != nil {
+			s.rebalance(n.parent)
+		}
+	}
+	return n
+}
+
 func (s *SweepStatus) Remove(n *SweepNode) {
 	var o *SweepNode
 	for {
@@ -1152,7 +1196,7 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 			queue.Pop()
 
 			// add event to sweep status
-			n := status.Insert(event) // implement InsertAfter with O(1)
+			n := status.InsertAfter(prev, event)
 
 			// compute sweep fields after adding intersections as that may create overlapping
 			// segments. Also note that events may have already been computed if it was intersected
