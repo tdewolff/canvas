@@ -69,7 +69,7 @@ var y = 290.0
 func drawTextAndMoveDown(c *canvas.Context, x float64, text *canvas.Text) {
 	c.DrawText(x, y, text)
 	const spacing = 5
-	y -= text.Bounds().H + spacing
+	y -= text.Bounds().H() + spacing
 }
 
 func drawDocument(c *canvas.Context) {

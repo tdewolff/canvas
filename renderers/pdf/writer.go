@@ -760,7 +760,7 @@ func (w *pdfPageWriter) AddURIAction(uri string, rect canvas.Rect) {
 		"Type":     pdfName("Annot"),
 		"Subtype":  pdfName("Link"),
 		"Border":   pdfArray{0, 0, 0},
-		"Rect":     pdfArray{rect.X * ptPerMm, rect.Y * ptPerMm, (rect.X + rect.W) * ptPerMm, (rect.Y + rect.H) * ptPerMm},
+		"Rect":     pdfArray{rect.X0 * ptPerMm, rect.Y0 * ptPerMm, rect.X1 * ptPerMm, rect.Y1 * ptPerMm},
 		"Contents": uri,
 		"A": pdfDict{
 			"S":   pdfName("URI"),
@@ -1153,7 +1153,7 @@ func (w *pdfPageWriter) DrawImage(img image.Image, enc canvas.ImageEncoding, m c
 	br := m.Dot(canvas.Point{float64(size.X), 0})
 	tl := m.Dot(canvas.Point{0, float64(size.Y)})
 	tr := m.Dot(canvas.Point{float64(size.X), float64(size.Y)})
-	fmt.Fprintf(w, " q %v %v %v %v re W n", dec(outerRect.X), dec(outerRect.Y), dec(outerRect.W), dec(outerRect.H))
+	fmt.Fprintf(w, " q %v %v %v %v re W n", dec(outerRect.X0), dec(outerRect.Y0), dec(outerRect.W()), dec(outerRect.H()))
 	fmt.Fprintf(w, " %v %v m %v %v l %v %v l %v %v l h W n", dec(bl.X), dec(bl.Y), dec(tl.X), dec(tl.Y), dec(tr.X), dec(tr.Y), dec(br.X), dec(br.Y))
 
 	ref := w.embedImage(img, enc)

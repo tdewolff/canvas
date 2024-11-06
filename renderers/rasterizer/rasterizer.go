@@ -91,10 +91,10 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 	origin := r.Bounds().Min
 	size := r.Bounds().Size()
 	dpmm := r.resolution.DPMM()
-	x := int(bounds.X*dpmm) - padding
-	y := size.Y - int((bounds.Y+bounds.H)*dpmm) - padding
-	w := int(bounds.W*dpmm) + 2*padding
-	h := int(bounds.H*dpmm) + 2*padding
+	x := int(bounds.X0*dpmm) - padding
+	y := size.Y - int((bounds.Y1)*dpmm) - padding
+	w := int(bounds.W()*dpmm) + 2*padding
+	h := int(bounds.H()*dpmm) + 2*padding
 	if (x+w <= origin.X || origin.X+size.X <= x) && (y+h <= origin.Y || origin.Y+size.Y <= y) {
 		return // outside canvas
 	}
