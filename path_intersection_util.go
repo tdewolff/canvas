@@ -173,7 +173,7 @@ func intersectionLineLine(zs Intersections, a0, a1, b0, b1 Point) Intersections 
 
 	// divide by length^2 since otherwise the perpdot between very small segments may be
 	// below Epsilon
-	if length := da.Length(); Equal(div/length/length, 0.0) {
+	if length := da.Length() * db.Length(); Equal(div/length, 0.0) {
 		// parallel
 		if Equal(b0.Sub(a0).PerpDot(db), 0.0) {
 			// overlap, rotate to x-axis
