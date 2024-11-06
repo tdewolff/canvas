@@ -92,7 +92,7 @@ This is a non-exhaustive list of library users I've come across. PRs are welcome
 - https://github.com/html2any/layout (flex layout)
 - https://github.com/iand/genster (family trees)
 - https://github.com/jansorg/marketplace-stats (reports for JetBrains marketplace)
-- https://github.com/kpym/marianne (French repulic logo)
+- https://github.com/kpym/marianne (French republic logo)
 - https://github.com/mrmelon54/favicon (Favicon generator)
 - https://github.com/namsor/go-qrcode (QR code encoder)
 - https://github.com/octohelm/gio-compose (UI component solution for Gio)
@@ -112,7 +112,7 @@ This is a non-exhaustive list of library users I've come across. PRs are welcome
 - [Numerically stable quadratic formula](https://math.stackexchange.com/questions/866331/numerically-stable-algorithm-for-solving-the-quadratic-equation-when-a-is-very/2007723#2007723)
 - [Quadratic Bézier length](https://malczak.linuxpl.com/blog/quadratic-bezier-curve-length/)
 - [Bézier spline through open path](https://www.particleincell.com/2012/bezier-splines/)
-- [Bézier spline through closed path](http://www.jacos.nl/jacos_html/spline/circular/index.html)
+- [Bézier spline through closed path](https://www.jacos.nl/jacos_html/spline/circular/index.html)
 - [Point inclusion in polygon test](https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html)
 
 #### My own
@@ -126,8 +126,8 @@ This is a non-exhaustive list of library users I've come across. PRs are welcome
 - [M. Goldapp, Approximation of circular arcs by cubic polynomials, Computer Aided Geometric Design 8 (1991), p. 227--238](https://doi.org/10.1016/0167-8396%2891%2990007-X)
 - [L. Maisonobe, Drawing and elliptical arc using polylines, quadratic or cubic Bézier curves (2003)](https://spaceroots.org/documents/ellipse/elliptical-arc.pdf)
 - [S.H. Kim and Y.J. Ahn, An approximation of circular arcs by quartic Bezier curves, Computer-Aided Design 39 (2007, p. 490--493)](https://doi.org/10.1016/j.cad.2007.01.004)
-- D.E. Knuth and M.F. Plass, Breaking Paragraphs into Lines, Software: Practive and Experience 11 (1981), p. 1119--1184
-- L. Subramaniam, Partition of a non-simple polygon into simple pologons, 2003
+- D.E. Knuth and M.F. Plass, Breaking Paragraphs into Lines, Software: Practice and Experience 11 (1981), p. 1119--1184
+- L. Subramaniam, Partition of a non-simple polygon into simple polygons, 2003
 - [A simple algorithm for Boolean operations on polygons](https://doi.org/10.1016/j.advengsoft.2013.04.004)
 
 ## License

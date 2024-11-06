@@ -155,7 +155,7 @@ func (p *Polyline) Smoothen() *Path {
 	var p1, p2 []Point
 	closed := p.Closed()
 	if closed {
-		// see http://www.jacos.nl/jacos_html/spline/circular/index.html
+		// see https://www.jacos.nl/jacos_html/spline/circular/index.html
 		n := len(K) - 1
 		p1 = make([]Point, n+1)
 		p2 = make([]Point, n)

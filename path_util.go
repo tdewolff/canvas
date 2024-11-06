@@ -84,7 +84,7 @@ func ellipseToCenter(x1, y1, rx, ry, phi float64, large, sweep bool, x2, y2 floa
 	x1p := cosphi*(x1-x2)/2.0 + sinphi*(y1-y2)/2.0
 	y1p := -sinphi*(x1-x2)/2.0 + cosphi*(y1-y2)/2.0
 
-	// check that radii are large enough to reduce rouding errors
+	// check that radii are large enough to reduce rounding errors
 	radiiCheck := x1p*x1p/rx/rx + y1p*y1p/ry/ry
 	if 1.0 < radiiCheck {
 		radiiScale := math.Sqrt(radiiCheck)
