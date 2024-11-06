@@ -410,8 +410,8 @@ func (r Rect) Transform(m Matrix) Rect {
 	return Rect{x0, y0, x1, y1}
 }
 
-// Contains returns true if the rectangles contains a point, not if it touches an edge.
-func (r Rect) Contains(p Point) bool {
+// ContainsPoint returns true if the rectangles contains a point, not if it touches an edge.
+func (r Rect) ContainsPoint(p Point) bool {
 	if p.X < r.X0 || Equal(p.X, r.X0) || r.X1 < p.X || Equal(p.X, r.X1) {
 		// left or right
 		return false
@@ -420,6 +420,11 @@ func (r Rect) Contains(p Point) bool {
 		return false
 	}
 	return true
+}
+
+// TouchesPoint returns true if the rectangles contains or touches a point.
+func (r Rect) TouchesPoint(p Point) bool {
+	return (r.X0 < p.X || Equal(p.X, r.X0)) && (p.X < r.X1 || Equal(p.X, r.X1)) && (r.Y0 < p.Y || Equal(p.Y, r.Y0)) && (p.Y < r.Y1 || Equal(p.Y, r.Y1))
 }
 
 // Overlaps returns true if both rectangles overlap.
