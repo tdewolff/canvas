@@ -67,17 +67,13 @@ const (
 	CloseCmd                // 32.0
 )
 
+var cmdLens = [6]int{4, 4, 6, 8, 8, 4}
+
 // cmdLen returns the number of values (float64s) the path command contains.
 func cmdLen(cmd float64) int {
-	switch cmd {
-	case MoveToCmd, LineToCmd, CloseCmd:
-		return 4
-	case QuadToCmd:
-		return 6
-	case CubeToCmd, ArcToCmd:
-		return 8
-	}
-	panic(fmt.Sprintf("unknown path command '%f'", cmd))
+	// extract only part of the exponent, this is 3 times faster than using a switch on cmd
+	n := uint8((math.Float64bits(cmd)&0x0FF0000000000000)>>52) + 1
+	return cmdLens[n]
 }
 
 // toArcFlags converts to the largeArc and sweep boolean flags given its value in the path.
@@ -109,6 +105,12 @@ type Path struct {
 // NewPathFromData returns a new path using the raw data.
 func NewPathFromData(d []float64) *Path {
 	return &Path{d}
+}
+
+// Reset clears the path but retains the same memory. This can be used in loops where you append
+// and process paths every iteration, and avoid new memory allocations.
+func (p *Path) Reset() {
+	p.d = p.d[:0]
 }
 
 // Data returns the raw path data.
@@ -448,10 +450,26 @@ func (p *Path) LineTo(x, y float64) {
 		if cmdLen(LineToCmd) < len(p.d) {
 			prevStart = Point{p.d[len(p.d)-cmdLen(LineToCmd)-3], p.d[len(p.d)-cmdLen(LineToCmd)-2]}
 		}
-		if Equal(end.Sub(start).AngleBetween(start.Sub(prevStart)), 0.0) {
-			p.d[len(p.d)-3] = x
-			p.d[len(p.d)-2] = y
-			return
+
+		// divide by length^2 since otherwise the perpdot between very small segments may be
+		// below Epsilon
+		da := start.Sub(prevStart)
+		db := end.Sub(start)
+		div := da.PerpDot(db)
+		if length := da.Length() * db.Length(); Equal(div/length, 0.0) {
+			// lines are parallel
+			extends := false
+			if da.Y < da.X {
+				extends = math.Signbit(da.X) == math.Signbit(db.X)
+			} else {
+				extends = math.Signbit(da.Y) == math.Signbit(db.Y)
+			}
+			if extends {
+				//if Equal(end.Sub(start).AngleBetween(start.Sub(prevStart)), 0.0) {
+				p.d[len(p.d)-3] = x
+				p.d[len(p.d)-2] = y
+				return
+			}
 		}
 	}
 
@@ -1075,9 +1093,8 @@ func (p *Path) Length() float64 {
 	return d
 }
 
-// Transform transforms the path by the given transformation matrix and returns a new path.
+// Transform transforms the path by the given transformation matrix and returns a new path. It modifies the path in-place.
 func (p *Path) Transform(m Matrix) *Path {
-	p = p.Copy()
 	_, _, _, xscale, yscale, _ := m.Decompose()
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
@@ -1294,7 +1311,7 @@ func (p *Path) Markers(first, mid, last *Path, align bool) []*Path {
 			if align {
 				m = m.Rotate(dir.Angle() * 180.0 / math.Pi)
 			}
-			markers = append(markers, q.Transform(m))
+			markers = append(markers, q.Copy().Transform(m))
 		}
 	}
 	return markers
@@ -1639,63 +1656,65 @@ func (p *Path) Dash(offset float64, d ...float64) *Path {
 
 // Reverse returns a new path that is the same path as p but in the reverse direction.
 func (p *Path) Reverse() *Path {
-	rp := &Path{}
 	if len(p.d) == 0 {
-		return rp
+		return p
 	}
 
 	end := Point{p.d[len(p.d)-3], p.d[len(p.d)-2]}
-	if !end.IsZero() {
-		rp.MoveTo(end.X, end.Y)
-	}
-	start := end
-	closed := false
+	q := &Path{d: make([]float64, 0, len(p.d))}
+	q.d = append(q.d, MoveToCmd, end.X, end.Y, MoveToCmd)
 
+	closed := false
+	first, start := end, end
 	for i := len(p.d); 0 < i; {
 		cmd := p.d[i-1]
 		i -= cmdLen(cmd)
 
 		end = Point{}
-		if i > 0 {
+		if 0 < i {
 			end = Point{p.d[i-3], p.d[i-2]}
 		}
 
 		switch cmd {
-		case CloseCmd:
-			if !start.Equals(end) {
-				rp.LineTo(end.X, end.Y)
-			}
-			closed = true
 		case MoveToCmd:
 			if closed {
-				rp.Close()
+				q.d = append(q.d, CloseCmd, first.X, first.Y, CloseCmd)
 				closed = false
 			}
-			if !end.IsZero() {
-				rp.MoveTo(end.X, end.Y)
+			if i != 0 {
+				q.d = append(q.d, MoveToCmd, end.X, end.Y, MoveToCmd)
+				first = end
 			}
+		case CloseCmd:
+			if !start.Equals(end) {
+				q.d = append(q.d, LineToCmd, end.X, end.Y, LineToCmd)
+			}
+			closed = true
 		case LineToCmd:
 			if closed && (i == 0 || p.d[i-1] == MoveToCmd) {
-				rp.Close()
+				q.d = append(q.d, CloseCmd, first.X, first.Y, CloseCmd)
 				closed = false
 			} else {
-				rp.LineTo(end.X, end.Y)
+				q.d = append(q.d, LineToCmd, end.X, end.Y, LineToCmd)
 			}
 		case QuadToCmd:
 			cx, cy := p.d[i+1], p.d[i+2]
-			rp.QuadTo(cx, cy, end.X, end.Y)
+			q.d = append(q.d, QuadToCmd, cx, cy, end.X, end.Y, QuadToCmd)
 		case CubeToCmd:
-			cx1, cy1 := p.d[i+3], p.d[i+4]
-			cx2, cy2 := p.d[i+1], p.d[i+2]
-			rp.CubeTo(cx1, cy1, cx2, cy2, end.X, end.Y)
+			cx1, cy1 := p.d[i+1], p.d[i+2]
+			cx2, cy2 := p.d[i+3], p.d[i+4]
+			q.d = append(q.d, CubeToCmd, cx2, cy2, cx1, cy1, end.X, end.Y, CubeToCmd)
 		case ArcToCmd:
 			rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
 			large, sweep := toArcFlags(p.d[i+4])
-			rp.ArcTo(rx, ry, phi*180.0/math.Pi, large, !sweep, end.X, end.Y)
+			q.d = append(q.d, ArcToCmd, rx, ry, phi, fromArcFlags(large, !sweep), end.X, end.Y, ArcToCmd)
 		}
 		start = end
 	}
-	return rp
+	if closed {
+		q.d = append(q.d, CloseCmd, first.X, first.Y, CloseCmd)
+	}
+	return q
 }
 
 // Segment is a path command.

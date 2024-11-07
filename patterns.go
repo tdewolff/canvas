@@ -173,10 +173,10 @@ func NewShapeHatch(ifill interface{}, shape *Path, distance, thickness float64) 
 		p := &Path{}
 		for y := math.Floor(y0/distance) * distance; y <= y1; y += 2.0 * d {
 			for x := math.Floor(x0/distance) * distance; x <= x1; x += distance {
-				p = p.Append(shape.Translate(x, y))
+				p = p.Append(shape.Copy().Translate(x, y))
 			}
 			for x := (math.Floor(x0/distance) + 0.5) * distance; x <= x1; x += distance {
-				p = p.Append(shape.Translate(x, y+d))
+				p = p.Append(shape.Copy().Translate(x, y+d))
 			}
 		}
 		return p

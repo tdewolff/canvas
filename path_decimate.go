@@ -5,33 +5,44 @@ import (
 )
 
 func snap(v, d float64) float64 {
-	f := math.Mod(v+0.5*d, d)
-	return v - f
+	return math.Round(v/d) * d
 }
 
-// Gridsnap snaps all vertices to a grid with the given spacing. This will significantly reduce numerical issues e.g. for path boolean operations.
+// Gridsnap snaps all vertices to a grid with the given spacing. This will significantly reduce numerical issues e.g. for path boolean operations. This operation is in-place.
 func (p *Path) Gridsnap(spacing float64) *Path {
-	q := &Path{d: make([]float64, 0, len(p.d))}
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
 		case MoveToCmd:
-			q.MoveTo(snap(p.d[i+1], spacing), snap(p.d[i+2], spacing))
+			p.d[i+1] = snap(p.d[i+1], spacing)
+			p.d[i+2] = snap(p.d[i+2], spacing)
 		case LineToCmd:
-			q.LineTo(snap(p.d[i+1], spacing), snap(p.d[i+2], spacing))
+			p.d[i+1] = snap(p.d[i+1], spacing)
+			p.d[i+2] = snap(p.d[i+2], spacing)
 		case QuadToCmd:
-			q.QuadTo(snap(p.d[i+1], spacing), snap(p.d[i+2], spacing), snap(p.d[i+3], spacing), snap(p.d[i+4], spacing))
+			p.d[i+1] = snap(p.d[i+1], spacing)
+			p.d[i+2] = snap(p.d[i+2], spacing)
+			p.d[i+3] = snap(p.d[i+3], spacing)
+			p.d[i+4] = snap(p.d[i+4], spacing)
 		case CubeToCmd:
-			q.CubeTo(snap(p.d[i+1], spacing), snap(p.d[i+2], spacing), snap(p.d[i+3], spacing), snap(p.d[i+4], spacing), snap(p.d[i+5], spacing), snap(p.d[i+6], spacing))
+			p.d[i+1] = snap(p.d[i+1], spacing)
+			p.d[i+2] = snap(p.d[i+2], spacing)
+			p.d[i+3] = snap(p.d[i+3], spacing)
+			p.d[i+4] = snap(p.d[i+4], spacing)
+			p.d[i+5] = snap(p.d[i+5], spacing)
+			p.d[i+6] = snap(p.d[i+6], spacing)
 		case ArcToCmd:
-			large, sweep := toArcFlags(p.d[i+4])
-			q.ArcTo(p.d[i+1], p.d[i+2], p.d[i+3], large, sweep, snap(p.d[i+5], spacing), snap(p.d[i+6], spacing))
+			p.d[i+1] = snap(p.d[i+1], spacing)
+			p.d[i+2] = snap(p.d[i+2], spacing)
+			p.d[i+5] = snap(p.d[i+5], spacing)
+			p.d[i+6] = snap(p.d[i+6], spacing)
 		case CloseCmd:
-			q.d = append(q.d, CloseCmd, snap(p.d[i+1], spacing), snap(p.d[i+2], spacing), CloseCmd)
+			p.d[i+1] = snap(p.d[i+1], spacing)
+			p.d[i+2] = snap(p.d[i+2], spacing)
 		}
 		i += cmdLen(cmd)
 	}
-	return q
+	return p
 }
 
 // Decimate decimates the path using the Visvalingam-Whyatt algorithm. Assuming path is flat and has no subpaths.
@@ -125,7 +136,7 @@ func (p *Path) Clip(x0, y0, x1, y1 float64) *Path {
 	first, start := Point{}, Point{}
 	startIn := false
 	pendingMoveTo := true
-	q := &Path{d: make([]float64, 0, len(p.d))}
+	q := &Path{d: p.d[:0]} // q is always smaller or equal to p
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		i += cmdLen(cmd)
@@ -173,7 +184,7 @@ func (p *Path) Clip(x0, y0, x1, y1 float64) *Path {
 
 		if cmd == MoveToCmd {
 			if endIn {
-				q.MoveTo(end.X, end.Y)
+				q.d = append(q.d, MoveToCmd, end.X, end.Y, MoveToCmd)
 				pendingMoveTo = false
 				first = end
 			} else {
@@ -182,7 +193,7 @@ func (p *Path) Clip(x0, y0, x1, y1 float64) *Path {
 		} else {
 			if crossesTwoEdges || !startIn && endIn {
 				if pendingMoveTo {
-					q.MoveTo(start.X, start.Y)
+					q.d = append(q.d, MoveToCmd, start.X, start.Y, MoveToCmd)
 					pendingMoveTo = false
 					first = start
 				} else {
@@ -191,31 +202,31 @@ func (p *Path) Clip(x0, y0, x1, y1 float64) *Path {
 			}
 			if cmd == LineToCmd && (startIn || endIn) {
 				if pendingMoveTo {
-					q.MoveTo(start.X, start.Y)
+					q.d = append(q.d, MoveToCmd, start.X, start.Y, MoveToCmd)
 					pendingMoveTo = false
 					first = start
 				}
-				q.LineTo(end.X, end.Y)
+				q.d = append(q.d, p.d[i-4:i]...)
 			} else if cmd == QuadToCmd {
 				cp := Point{p.d[i-5], p.d[i-4]}
 				if startIn || endIn || rect.TouchesPoint(cp) {
 					if pendingMoveTo {
-						q.MoveTo(start.X, start.Y)
+						q.d = append(q.d, MoveToCmd, start.X, start.Y, MoveToCmd)
 						pendingMoveTo = false
 						first = start
 					}
-					q.QuadTo(cp.X, cp.Y, end.X, end.Y)
+					q.d = append(q.d, p.d[i-6:i]...)
 				}
 			} else if cmd == CubeToCmd {
 				cp0 := Point{p.d[i-7], p.d[i-6]}
 				cp1 := Point{p.d[i-5], p.d[i-4]}
 				if startIn || endIn || rect.TouchesPoint(cp0) || rect.TouchesPoint(cp1) {
 					if pendingMoveTo {
-						q.MoveTo(start.X, start.Y)
+						q.d = append(q.d, MoveToCmd, start.X, start.Y, MoveToCmd)
 						pendingMoveTo = false
 						first = start
 					}
-					q.CubeTo(cp0.X, cp0.Y, cp1.X, cp1.Y, end.X, end.Y)
+					q.d = append(q.d, p.d[i-8:i]...)
 				}
 			} else if cmd == ArcToCmd {
 				touches := startIn || endIn
@@ -253,15 +264,15 @@ func (p *Path) Clip(x0, y0, x1, y1 float64) *Path {
 				}
 				if touches {
 					if pendingMoveTo {
-						q.MoveTo(start.X, start.Y)
+						q.d = append(q.d, MoveToCmd, start.X, start.Y, MoveToCmd)
 						pendingMoveTo = false
 						first = start
 					}
-					q.ArcTo(rx, ry, phi, large, sweep, end.X, end.Y)
+					q.d = append(q.d, p.d[i-8:i]...)
 				}
 			} else if cmd == CloseCmd {
 				if !end.Equals(first) {
-					q.LineTo(end.X, end.Y)
+					q.d = append(q.d, LineToCmd, end.X, end.Y, LineToCmd)
 				}
 				if !pendingMoveTo {
 					q.d = append(q.d, CloseCmd, first.X, first.Y, CloseCmd)

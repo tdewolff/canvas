@@ -280,9 +280,9 @@ func TileRectangle(cell Matrix, dst, src Rect) []Matrix {
 //		rev := (isometry[0][0] < 0.0) != (isometry[1][1] < 0.0)
 //		isometry = Identity.Mul(cell).Mul(isometry).Mul(invCell)
 //		if p.Closed() && rev {
-//			r = r.Append(p.Transform(isometry).Reverse())
+//			r = r.Append(p.Copy().Transform(isometry).Reverse())
 //		} else {
-//			r = r.Append(p.Transform(isometry))
+//			r = r.Append(p.Copy().Transform(isometry))
 //		}
 //	}
 //	return r
@@ -299,7 +299,7 @@ func (p *Path) Tile(clip *Path, cell Matrix) *Path {
 	r := &Path{}
 	for _, cell := range cells {
 		pos := cell.Dot(Origin)
-		r = r.Append(p.Translate(pos.X, pos.Y))
+		r = r.Append(p.Copy().Translate(pos.X, pos.Y))
 	}
 	return r.And(clip)
 }
