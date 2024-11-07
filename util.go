@@ -24,7 +24,7 @@ func Equal(a, b float64) bool {
 	// See https://floating-point-gui.de/errors/comparison/ and
 	// https://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
 	// for more information. To be blunt, the code below may not be appropriate for all cases,
-	// especially for small numbers. Since most comparions involve millimeter scale (the
+	// especially for small numbers. Since most comparisons involve millimeter scale (the
 	// coordinates in a canvas), this is probably OK. We should make sure that computations
 	// resulting in small numbers (below Epsilon) should be insignificant in their difference.
 	diff := math.Abs(a - b)

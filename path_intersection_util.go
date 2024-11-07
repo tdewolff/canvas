@@ -639,7 +639,7 @@ func intersectionEllipseEllipse(zs Intersections, c0, r0 Point, phi0, thetaStart
 // TODO: bezier-bezier intersection
 // TODO: bezier-ellipse intersection
 
-// For Bézier-Bézier interesections:
+// For Bézier-Bézier intersections:
 // see T.W. Sederberg, "Computer Aided Geometric Design", 2012
 // see T.W. Sederberg and T. Nishita, "Curve intersection using Bézier clipping", 1990
 // see T.W. Sederberg and S.R. Parry, "Comparison of three curve intersection algorithms", 1986
@@ -660,7 +660,7 @@ func intersectionRayLine(a0, a1, b0, b1 Point) (Point, bool) {
 	return Point{}, false
 }
 
-// http://mathworld.wolfram.com/Circle-LineIntersection.html
+// https://mathworld.wolfram.com/Circle-LineIntersection.html
 func intersectionRayCircle(l0, l1, c Point, r float64) (Point, Point, bool) {
 	d := l1.Sub(l0).Norm(1.0) // along line direction, anchored in l0, its length is 1
 	D := l0.Sub(c).PerpDot(d)
