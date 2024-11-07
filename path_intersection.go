@@ -84,12 +84,23 @@ const (
 	opXOR
 )
 
+var boPointPool *sync.Pool
+var boNodePool *sync.Pool
+var boInitPoolsOnce = sync.OnceFunc(func() {
+	boPointPool = &sync.Pool{New: func() any { return &SweepPoint{} }}
+	boNodePool = &sync.Pool{New: func() any { return &SweepNode{} }}
+})
+
 // Settle returns the "settled" path. It removes all self-intersections, orients all filling paths
 // CCW and all holes CW, and tries to split into subpaths if possible. Note that path p is
 // flattened unless q is already flat. Path q is implicitly closed. It runs in O((n + k) log n),
 // with n the sum of the number of segments, and k the number of intersections.
 func (p *Path) Settle(fillRule FillRule) *Path {
-	return bentleyOttmann(p, nil, opSettle, fillRule)
+	return bentleyOttmann(p.Split(), nil, opSettle, fillRule)
+}
+
+func (ps Paths) Settle(fillRule FillRule) *Path {
+	return bentleyOttmann(ps, nil, opSettle, fillRule)
 }
 
 // And returns the boolean path operation of path p AND q, i.e. the intersection of both. It
@@ -98,7 +109,11 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 // q is implicitly closed. It runs in O((n + k) log n), with n the sum of the number of segments,
 // and k the number of intersections.
 func (p *Path) And(q *Path) *Path {
-	return bentleyOttmann(p, q, opAND, NonZero)
+	return bentleyOttmann(p.Split(), q.Split(), opAND, NonZero)
+}
+
+func (ps Paths) And(qs Paths) *Path {
+	return bentleyOttmann(ps, qs, opAND, NonZero)
 }
 
 // Or returns the boolean path operation of path p OR q, i.e. the union of both. It
@@ -107,7 +122,7 @@ func (p *Path) And(q *Path) *Path {
 // q is implicitly closed. It runs in O((n + k) log n), with n the sum of the number of segments,
 // and k the number of intersections.
 func (p *Path) Or(q *Path) *Path {
-	return bentleyOttmann(p, q, opOR, NonZero)
+	return bentleyOttmann(p.Split(), q.Split(), opOR, NonZero)
 }
 
 // Xor returns the boolean path operation of path p XOR q, i.e. the symmetric difference of both.
@@ -116,7 +131,7 @@ func (p *Path) Or(q *Path) *Path {
 // q is implicitly closed. It runs in O((n + k) log n), with n the sum of the number of segments,
 // and k the number of intersections.
 func (p *Path) Xor(q *Path) *Path {
-	return bentleyOttmann(p, q, opXOR, NonZero)
+	return bentleyOttmann(p.Split(), q.Split(), opXOR, NonZero)
 }
 
 // Not returns the boolean path operation of path p NOT q, i.e. the difference of both.
@@ -125,7 +140,7 @@ func (p *Path) Xor(q *Path) *Path {
 // q is implicitly closed. It runs in O((n + k) log n), with n the sum of the number of segments,
 // and k the number of intersections.
 func (p *Path) Not(q *Path) *Path {
-	return bentleyOttmann(p, q, opNOT, NonZero)
+	return bentleyOttmann(p.Split(), q.Split(), opNOT, NonZero)
 }
 
 type SweepPoint struct {
@@ -232,7 +247,9 @@ func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
 		if !increasing {
 			selfWindings = -1
 		}
-		a := &SweepPoint{
+		a := boPointPool.Get().(*SweepPoint)
+		b := boPointPool.Get().(*SweepPoint)
+		*a = SweepPoint{
 			Point:        start,
 			clipping:     clipping,
 			segment:      seg,
@@ -240,7 +257,7 @@ func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
 			selfWindings: selfWindings,
 			vertical:     vertical,
 		}
-		b := &SweepPoint{
+		*b = SweepPoint{
 			Point:        end,
 			clipping:     clipping,
 			segment:      seg,
@@ -478,17 +495,10 @@ func (n *SweepNode) Print(w io.Writer, indent int) {
 // TODO: use AB tree with A=2 and B=16 instead of AVL, according to LEDA (S. Naber. Comparison of search-tree data structures in LEDA. Personal communication.) this was faster.
 type SweepStatus struct {
 	root *SweepNode
-	pool *sync.Pool
-}
-
-func NewSweepStatus() *SweepStatus {
-	return &SweepStatus{
-		pool: &sync.Pool{New: func() any { return &SweepNode{} }},
-	}
 }
 
 func (s *SweepStatus) newNode(item *SweepPoint) *SweepNode {
-	n := s.pool.Get().(*SweepNode)
+	n := boNodePool.Get().(*SweepNode)
 	n.parent = nil
 	n.left = nil
 	n.right = nil
@@ -501,7 +511,7 @@ func (s *SweepStatus) newNode(item *SweepPoint) *SweepNode {
 func (s *SweepStatus) returnNode(n *SweepNode) {
 	n.SweepPoint.node = nil
 	n.SweepPoint = nil // help the GC
-	s.pool.Put(n)
+	boNodePool.Put(n)
 }
 
 func (s *SweepStatus) find(item *SweepPoint) (*SweepNode, int) {
@@ -735,6 +745,16 @@ func (s *SweepStatus) Remove(n *SweepNode) {
 		n.SweepPoint.node, o.SweepPoint.node = n, o
 		n = o
 	}
+}
+
+func (s *SweepStatus) Clear() {
+	n := s.First()
+	for n != nil {
+		cur := n
+		n = n.Next()
+		boNodePool.Put(cur)
+	}
+	s.root = nil
 }
 
 func (a *SweepPoint) LessH(b *SweepPoint) bool {
@@ -1061,7 +1081,7 @@ func (s *SweepPoint) InResult(op pathOp, fillRule FillRule) bool {
 	return belowFills != aboveFills
 }
 
-func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
+func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 	// Implementation of the Bentley-Ottmann algorithm by reducing the complexity of finding
 	// intersections to O((n + k) log n), with n the number of segments and k the number of
 	// intersections. All special cases are handled by use of:
@@ -1070,18 +1090,20 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 	//   Engineering Software 64, p. 11-19, 2013, DOI: 10.1016/j.advengsoft.2013.04.004
 	// - https://github.com/verven/contourklip
 
+	boInitPoolsOnce() // use pools for SweepPoint and SweepNode to amortize repeated calls to BO
+
 	// return in case of one path is empty
 	if op == opSettle {
-		q = nil
-	} else if q.Empty() {
+		qs = nil
+	} else if qs.Empty() {
 		if op == opAND {
 			return &Path{}
 		}
-		return p.Settle(fillRule)
+		return ps.Settle(fillRule)
 	}
-	if p.Empty() {
-		if q != nil && (op == opOR || op == opXOR) {
-			return q.Settle(fillRule)
+	if ps.Empty() {
+		if qs != nil && (op == opOR || op == opXOR) {
+			return qs.Settle(fillRule)
 		}
 		return &Path{}
 	}
@@ -1091,17 +1113,33 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 	// TODO: handle Béziers and arc segments
 	//p = p.XMonotone()
 	//q = q.XMonotone()
-	p = p.Flatten(Tolerance)
-	if q != nil {
-		q = q.Flatten(Tolerance)
+	for i, iMax := 0, len(ps); i < iMax; i++ {
+		split := ps[i].Split()
+		if 1 < len(split) {
+			ps[i] = split[0]
+			ps = append(ps, split[1:]...)
+		}
+	}
+	for i, p := range ps {
+		ps[i] = p.Flatten(Tolerance)
+	}
+	if qs != nil {
+		for i, iMax := 0, len(qs); i < iMax; i++ {
+			split := qs[i].Split()
+			if 1 < len(split) {
+				qs[i] = split[0]
+				qs = append(qs, split[1:]...)
+			}
+		}
+		for i, q := range qs {
+			qs[i] = q.Flatten(Tolerance)
+		}
 	}
 
 	// check for path bounding boxes to overlap
 	R := &Path{}
-	ps, qs := p.Split(), []*Path{}
 	var pOverlaps, qOverlaps []bool
-	if q != nil {
-		qs = q.Split()
+	if qs != nil {
 		pBounds := make([]Rect, len(ps))
 		qBounds := make([]Rect, len(qs))
 		for i := range ps {
@@ -1138,7 +1176,7 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 	pSeg, qSeg := 0, 0
 	queue := &SweepEvents{}
 	for i := range ps {
-		if q == nil || pOverlaps[i] {
+		if qs == nil || pOverlaps[i] {
 			// implicitly close all subpaths on P
 			// TODO: remove and support open paths only on P
 			if !ps[i].Closed() {
@@ -1147,7 +1185,7 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 			pSeg = queue.AddPathEndpoints(ps[i], pSeg, false)
 		}
 	}
-	if q != nil {
+	if qs != nil {
 		for i := range qs {
 			if qOverlaps[i] {
 				// implicitly close all subpaths on Q
@@ -1161,9 +1199,9 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 	queue.Init() // sort from left to right
 
 	// construct sweep line status structure
-	var zs Intersections // reusable buffer
-	var preResult []*SweepPoint
-	status := NewSweepStatus()           // contains only left events
+	var zs Intersections                 // reusable buffer
+	var preResult []*SweepPoint          // TODO: remove in favor of keeping points in queue, implement queue.Clear() to put back all points in pool
+	status := &SweepStatus{}             // contains only left events
 	handled := map[SweepPointPair]bool{} // prevent testing for intersections more than once
 	for 0 < len(*queue) {
 		// TODO: skip or stop depending on operation if we're to the left/right of subject/clipping polygon
@@ -1218,6 +1256,7 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 		}
 		preResult = append(preResult, event)
 	}
+	status.Clear()
 
 	// reorder preResult, this may be required when addIntersections adds new intersections
 	// that may need to ordered before the event causing the intersection (e.g. a right-endpoint).
@@ -1257,8 +1296,8 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 			}
 
 			first := cur
-			r := &Path{}
-			r.MoveTo(cur.X, cur.Y)
+			indexR := len(R.d)
+			R.MoveTo(cur.X, cur.Y)
 			cur.resultWindings = windings + 1 // always increasing
 			cur.other.resultWindings = cur.resultWindings
 			for {
@@ -1295,7 +1334,7 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 				}
 				cur = next
 
-				r.LineTo(cur.X, cur.Y)
+				R.LineTo(cur.X, cur.Y)
 				cur.resultWindings = windings
 				if cur.left {
 					// we go to the right/top
@@ -1304,14 +1343,18 @@ func bentleyOttmann(p, q *Path, op pathOp, fillRule FillRule) *Path {
 				cur.other.resultWindings = cur.resultWindings
 				cur.processed, cur.other.processed = true, true
 			}
-			r.Close()
+			R.Close()
 
 			if windings%2 != 0 {
 				// orient holes clockwise
-				r = r.Reverse()
+				hole := (&Path{R.d[indexR:]}).Reverse()
+				R.d = append(R.d[:indexR], hole.d...)
 			}
-			R = R.Append(r)
 		}
+	}
+
+	for _, event := range preResult {
+		boPointPool.Put(event)
 	}
 	return R
 }

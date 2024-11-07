@@ -95,6 +95,17 @@ func fromArcFlags(large, sweep bool) float64 {
 	return f
 }
 
+type Paths []*Path
+
+func (ps Paths) Empty() bool {
+	for _, p := range ps {
+		if !p.Empty() {
+			return false
+		}
+	}
+	return true
+}
+
 // Path defines a vector path in 2D using a series of commands (MoveTo, LineTo, QuadTo, CubeTo, ArcTo and Close). Each command consists of a number of float64 values (depending on the command) that fully define the action. The first value is the command itself (as a float64). The last two values is the end point position of the pen after the action (x,y). QuadTo defined one control point (x,y) in between, CubeTo defines two control points, and ArcTo defines (rx,ry,phi,large+sweep) i.e. the radius in x and y, its rotation (in radians) and the large and sweep booleans in one float64.
 // Only valid commands are appended, so that LineTo has a non-zero length, QuadTo's and CubeTo's control point(s) don't (both) overlap with the start and end point, and ArcTo has non-zero radii and has non-zero length. For ArcTo we also make sure the angle is in the range [0, 2*PI) and we scale the radii up if they appear too small to fit the arc.
 type Path struct {
