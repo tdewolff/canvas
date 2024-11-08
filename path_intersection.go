@@ -873,9 +873,7 @@ func (a *SweepPoint) CompareV(b *SweepPoint) int {
 	}
 }
 
-type SweepPointPair struct {
-	a, b *SweepPoint
-}
+type SweepPointPair [2]*SweepPoint
 
 func compareIntersections(a, b Intersection) int {
 	if Equal(a.X, b.X) {
@@ -1199,7 +1197,8 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 	queue.Init() // sort from left to right
 
 	// construct sweep line status structure
-	var zs Intersections                 // reusable buffer
+	zs_ := [2]Intersection{}
+	zs := zs_[:]                         // reusable buffer
 	var preResult []*SweepPoint          // TODO: remove in favor of keeping points in queue, implement queue.Clear() to put back all points in pool
 	status := &SweepStatus{}             // contains only left events
 	handled := map[SweepPointPair]bool{} // prevent testing for intersections more than once
