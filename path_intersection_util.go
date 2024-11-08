@@ -9,7 +9,8 @@ import (
 // see https://github.com/w8r/bezier-intersect
 // see https://cs.nyu.edu/exact/doc/subdiv1.pdf
 
-// intersect for path segments a and b, starting at a0 and b0
+// intersect for path segments a and b, starting at a0 and b0. Note that all intersection functions
+// return upto two intersections.
 func intersectionSegment(zs Intersections, a0 Point, a []float64, b0 Point, b []float64) Intersections {
 	n := len(zs)
 	swapCurves := false

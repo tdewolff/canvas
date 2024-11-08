@@ -380,6 +380,42 @@ func (j ArcsJoiner) String() string {
 	return "Arcs"
 }
 
+func (p *Path) optimizeInnerBend(i int) {
+	// i is the index of the line segment in the inner bend connecting both edges
+	ai := i - cmdLen(p.d[i-1])
+	bi := i + cmdLen(p.d[i])
+	if ai == 0 {
+		return
+	}
+
+	a0 := Point{p.d[ai-3], p.d[ai-2]}
+	b0 := Point{p.d[bi-3], p.d[bi-2]}
+	if bi == len(p.d) {
+		// inner bend is at the path's start
+		bi = 4
+	}
+
+	// TODO: implement other segment combinations
+	zs_ := [2]Intersection{}
+	zs := zs_[:]
+	if (p.d[ai] == LineToCmd || p.d[ai] == CloseCmd) && (p.d[bi] == LineToCmd || p.d[bi] == CloseCmd) {
+		zs = intersectionSegment(zs[:0], a0, p.d[ai:ai+4], b0, p.d[bi:bi+4])
+		// TODO: check conditions for pathological cases
+		if len(zs) == 1 && zs[0].T[0] != 0.0 && zs[0].T[0] != 1.0 && zs[0].T[1] != 0.0 && zs[0].T[1] != 1.0 {
+			p.d[ai+1] = zs[0].X
+			p.d[ai+2] = zs[0].Y
+			if bi == 4 {
+				// inner bend is at the path's start
+				p.d = p.d[:i]
+				p.d[1] = zs[0].X
+				p.d[2] = zs[0].Y
+			} else {
+				p.d = append(p.d[:i], p.d[bi:]...)
+			}
+		}
+	}
+}
+
 type pathStrokeState struct {
 	cmd    float64
 	p0, p1 Point   // position of start and end
@@ -490,11 +526,10 @@ func (p *Path) offset(halfWidth float64, cr Capper, jr Joiner, strokeOpen bool, 
 	lStart := states[0].p0.Sub(states[0].n0)
 	rhs.MoveTo(rStart.X, rStart.Y)
 	lhs.MoveTo(lStart.X, lStart.Y)
+	rhsJoinIndex, lhsJoinIndex := -1, -1
 	for i, cur := range states {
 		switch cur.cmd {
 		case LineToCmd:
-			// TODO: remove common case of self-intersection for inner bends? removes pressure from
-			//       Path.Settle
 			rEnd := cur.p1.Add(cur.n1)
 			lEnd := cur.p1.Sub(cur.n1)
 			rhs.LineTo(rEnd.X, rEnd.Y)
@@ -521,16 +556,28 @@ func (p *Path) offset(halfWidth float64, cr Capper, jr Joiner, strokeOpen bool, 
 			lhs.ArcTo(lLambda*(cur.rx-dr), lLambda*(cur.ry-dr), cur.rot, cur.large, cur.sweep, lEnd.X, lEnd.Y)
 		}
 
+		// optimize inner bend
+		if 0 < i {
+			prev := states[i-1]
+			cw := 0.0 <= prev.n1.Rot90CW().Dot(cur.n0)
+			if cw && rhsJoinIndex != -1 {
+				rhs.optimizeInnerBend(rhsJoinIndex)
+			} else if !cw && lhsJoinIndex != -1 {
+				lhs.optimizeInnerBend(lhsJoinIndex)
+			}
+		}
+		rhsJoinIndex = -1
+		lhsJoinIndex = -1
+
 		// join the cur and next path segments
 		if i+1 < len(states) || closed {
-			var next pathStrokeState
+			next := states[0]
 			if i+1 < len(states) {
 				next = states[i+1]
-			} else {
-				next = states[0]
 			}
-
 			if !cur.n1.Equals(next.n0) {
+				rhsJoinIndex = len(rhs.d)
+				lhsJoinIndex = len(lhs.d)
 				jr.Join(rhs, lhs, halfWidth, cur.p1, cur.n1, next.n0, cur.r1, next.r0)
 			}
 		}
@@ -538,17 +585,29 @@ func (p *Path) offset(halfWidth float64, cr Capper, jr Joiner, strokeOpen bool, 
 
 	if closed {
 		rhs.Close()
-		rhs.optimizeClose()
 		lhs.Close()
+
+		// optimize inner bend
+		if 1 < len(states) {
+			cw := 0.0 <= states[len(states)-1].n1.Rot90CW().Dot(states[0].n0)
+			if cw && rhsJoinIndex != -1 {
+				rhs.optimizeInnerBend(rhsJoinIndex)
+			} else if !cw && lhsJoinIndex != -1 {
+				lhs.optimizeInnerBend(lhsJoinIndex)
+			}
+		}
+
+		rhs.optimizeClose()
 		lhs.optimizeClose()
 	} else if strokeOpen {
 		lhs = lhs.Reverse()
 		cr.Cap(rhs, halfWidth, states[len(states)-1].p1, states[len(states)-1].n1)
 		rhs = rhs.Join(lhs)
 		cr.Cap(rhs, halfWidth, states[0].p0, states[0].n0.Neg())
+		lhs = nil
+
 		rhs.Close()
 		rhs.optimizeClose()
-		lhs = nil
 	}
 	return rhs, lhs
 }

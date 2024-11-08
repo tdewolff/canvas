@@ -111,6 +111,7 @@ func (ps Paths) Empty() bool {
 type Path struct {
 	d []float64
 	// TODO: optimization: cache bounds and path len until changes (clearCache()), set bounds directly for predefined shapes
+	// TODO: cache index last MoveTo, cache if path is settled?
 }
 
 // NewPathFromData returns a new path using the raw data.

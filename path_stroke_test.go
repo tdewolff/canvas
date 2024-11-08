@@ -106,9 +106,10 @@ func TestPathOffset(t *testing.T) {
 		//{"L10 0L10 10L0 10", 1.0, "M0 -1L10 -1A1 1 0 0 1 11 0L11 10A1 1 0 0 1 10 11L0 11"},
 		//{"L10 0L10 10L0 10z", 1.0, "M10 -1A1 1 0 0 1 11 0L11 10A1 1 0 0 1 10 11L0 11A1 1 0 0 1 -1 10L-1 0A1 1 0 0 1 0 -1z"},
 		{"L10 0L10 10L0 10z", -1.0, "M1 1L9 1L9 9L1 9z"},
+		{"L10 0L5 0z", -1.0, ""},
 	}
-	for j, tt := range tts {
-		t.Run(fmt.Sprintf("%v", j), func(t *testing.T) {
+	for _, tt := range tts {
+		t.Run(fmt.Sprintf("%v/%v", tt.orig, tt.w), func(t *testing.T) {
 			offset := MustParseSVGPath(tt.orig).Offset(tt.w, NonZero, tolerance)
 			test.T(t, offset, MustParseSVGPath(tt.offset))
 		})
