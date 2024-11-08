@@ -38,6 +38,9 @@ func TestLinebreak(t *testing.T) {
 		{[]Item{Box(50.0), P, Box(40.0), P, Box(50.0), P, Box(40.0), P, Box(50.0)}, "7>3>0", []float64{0.0, 0.0, 0.0}},
 		{[]Item{Box(30.0), P, Box(30.0), P, Box(30.0), P, Box(60.0), G, P, g, Box(60.0)}, "8>5>0", []float64{0.0, 0.0, 0.0}},
 
+		// CJK
+		{[]Item{Box(21.0), P, Box(21.0), P, Box(21.0), P, Box(21.0), P, Box(21.0), P, Box(21.0), P, Box(21.0), P, Box(21.0), P, Box(21.0)}, "15>7>0", []float64{0.0, 0.0, 0.0}},
+
 		// line too long
 		{[]Item{Box(120.0), P, Box(100.0)}, "1>0", []float64{0.0, 0.0}},
 	}
