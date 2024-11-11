@@ -933,8 +933,11 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, z
 	// handle a
 	aLefts := []*SweepPoint{a}
 	aPrevLeft, aLastRight := a, a.other
-	for _, z := range zs {
+	for i, z := range zs {
 		if z.T[0] == 0.0 || z.T[0] == 1.0 {
+			// ignore tangent intersections at the endpoints
+			continue
+		} else if aPrevLeft.Point.Equals(z.Point) || i == len(zs)-1 && z.Point.Equals(aLastRight.Point) {
 			// ignore tangent intersections at the endpoints
 			continue
 		}
@@ -946,11 +949,11 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, z
 
 		// update references
 		aPrevLeft.other, aRight.other = &aRight, aPrevLeft
-		aPrevLeft = &aLeft
 
 		// add to queue
 		queue.Push(&aRight)
 		aLefts = append(aLefts, &aLeft)
+		aPrevLeft = &aLeft
 	}
 	aPrevLeft.other, aLastRight.other = aLastRight, aPrevLeft
 	for _, aLeft := range aLefts[1:] {
@@ -961,8 +964,11 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, z
 	// handle b
 	bLefts := []*SweepPoint{b}
 	bPrevLeft, bLastRight := b, b.other
-	for _, z := range zs {
+	for i, z := range zs {
 		if z.T[1] == 0.0 || z.T[1] == 1.0 {
+			// ignore tangent intersections at the endpoints
+			continue
+		} else if bPrevLeft.Point.Equals(z.Point) || i == len(zs)-1 && z.Point.Equals(bLastRight.Point) {
 			// ignore tangent intersections at the endpoints
 			continue
 		}
@@ -974,11 +980,11 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, z
 
 		// update references
 		bPrevLeft.other, bRight.other = &bRight, bPrevLeft
-		bPrevLeft = &bLeft
 
 		// add to queue
 		queue.Push(&bRight)
 		bLefts = append(bLefts, &bLeft)
+		bPrevLeft = &bLeft
 	}
 	bPrevLeft.other, bLastRight.other = bLastRight, bPrevLeft
 	for _, bLeft := range bLefts[1:] {
@@ -1254,6 +1260,10 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 			n := event.other.node
 			if n == nil {
 				continue
+			} else if n.SweepPoint == nil {
+				// this may happen if the left-endpoint is to the right of the right-endpoint for some reason
+				// usually due to a bug in the segment intersection code
+				fmt.Println("WARNING: other endpoint already removed, probably buggy intersection code")
 			}
 			prev := n.Prev()
 			next := n.Next()
