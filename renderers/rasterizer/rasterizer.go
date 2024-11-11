@@ -10,6 +10,8 @@ import (
 	"golang.org/x/image/vector"
 )
 
+// TODO: add ASM optimized version for NRGBA images, since those are much faster to write as PNG
+
 // Draw draws the canvas on a new image with given resolution (in dots-per-millimeter). Higher resolution will result in larger images.
 func Draw(c *canvas.Canvas, resolution canvas.Resolution, colorSpace canvas.ColorSpace) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, int(c.W*resolution.DPMM()+0.5), int(c.H*resolution.DPMM()+0.5)))
@@ -32,7 +34,7 @@ func New(width, height float64, resolution canvas.Resolution, colorSpace canvas.
 	return FromImage(img, resolution, colorSpace)
 }
 
-// FromImage returns a renderer that draws to an existing image. A resolution of 1.0 means that canvas coordinates in millimeters are a 1-to-1 relation to pixels. A higher resolution means that a smaller rectangle in the canvas space corresponds to the final rasterized image (eg. a resolution of 2.0 means that 10 mm from the origin becomes the 20th pixel).
+// FromImage returns a renderer that draws to an existing image. Resolution is in pixels per unit of canvas coordinates (millimeters). A higher resolution will give a larger and more detailed image.
 func FromImage(img draw.Image, resolution canvas.Resolution, colorSpace canvas.ColorSpace) *Rasterizer {
 	bounds := img.Bounds()
 	if bounds.Dx() == 0 || bounds.Dy() == 0 {
@@ -126,15 +128,18 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 			}
 		}
 
+		// TODO: reuse rasterizer and call Reset? It would require it to be the size of image
 		ras := vector.NewRasterizer(w, h)
 		fill = fill.Translate(-float64(x)/dpmm, -float64(size.Y-y-h)/dpmm)
 		fill.ToRasterizer(ras, r.resolution)
 		var src image.Image
 		if style.Fill.IsColor() {
-			src = image.NewUniform(r.colorSpace.ToLinear(style.Fill.Color))
+			c := r.colorSpace.ToLinear(style.Fill.Color)
+			src = image.NewUniform(r.Image.ColorModel().Convert(c))
 		} else if style.Fill.IsGradient() {
 			gradient := style.Fill.Gradient.SetColorSpace(r.colorSpace)
 			src = NewGradientImage(gradient, zp, size, r.resolution)
+			// TODO: convert to dst color model
 		} else if style.Fill.IsPattern() {
 			pattern := style.Fill.Pattern.SetColorSpace(r.colorSpace)
 			pattern.ClipTo(r, fill)
@@ -156,10 +161,12 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		stroke.ToRasterizer(ras, r.resolution)
 		var src image.Image
 		if style.Stroke.IsColor() {
-			src = image.NewUniform(r.colorSpace.ToLinear(style.Stroke.Color))
+			c := r.colorSpace.ToLinear(style.Stroke.Color)
+			src = image.NewUniform(r.Image.ColorModel().Convert(c))
 		} else if style.Stroke.IsGradient() {
 			gradient := style.Stroke.Gradient.SetColorSpace(r.colorSpace)
 			src = NewGradientImage(gradient, zp, size, r.resolution)
+			// TODO: convert to dst color model
 		} else if style.Stroke.IsPattern() {
 			pattern := style.Stroke.Pattern.SetColorSpace(r.colorSpace)
 			pattern.ClipTo(r, stroke)

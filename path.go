@@ -58,6 +58,7 @@ func (fillRule FillRule) String() string {
 
 // Command values as powers of 2 so that the float64 representation is exact
 // TODO: make CloseCmd a LineTo + CloseCmd, where CloseCmd is only a command value, no coordinates
+// TODO: optimize command memory layout in paths: we need three bits to represent each command, thus 6 to specify command going forward and going backward. The remaining 58 bits, or 28 per direction, should specify the index into Path.d of the end of the sequence of coordinates. MoveTo should have an index to the end of the subpath. Use math.Float64bits. For long flat paths this will reduce memory usage in half since besides all coordinates, the only overhead is: 64 bits first MoveTo, 64 bits end of MoveTo and start of LineTo, 64 bits end of LineTo and start of Close, 64 bits end of Close.
 const (
 	MoveToCmd = 1.0 << iota //  1.0
 	LineToCmd               //  2.0
@@ -207,8 +208,19 @@ func (p *Path) HasSubpaths() bool {
 
 // Copy returns a copy of p.
 func (p *Path) Copy() *Path {
-	q := &Path{}
-	q.d = append(q.d, p.d...)
+	q := &Path{d: make([]float64, len(p.d))}
+	copy(q.d, p.d)
+	return q
+}
+
+// CopyTo returns a copy of p, using the memory of path q.
+func (p *Path) CopyTo(q *Path) *Path {
+	if q == nil || len(q.d) < len(p.d) {
+		q.d = make([]float64, len(p.d))
+	} else {
+		q.d = q.d[:len(p.d)]
+	}
+	copy(q.d, p.d)
 	return q
 }
 
@@ -1331,6 +1343,9 @@ func (p *Path) Markers(first, mid, last *Path, align bool) []*Path {
 
 // Split splits the path into its independent subpaths. The path is split before each MoveTo command.
 func (p *Path) Split() []*Path {
+	if p == nil {
+		return nil
+	}
 	var i, j int
 	ps := []*Path{}
 	for j < len(p.d) {

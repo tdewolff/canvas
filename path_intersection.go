@@ -221,7 +221,14 @@ func (q SweepEvents) Swap(i, j int) {
 }
 
 func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
-	//open := !pi.Closed()
+	// TODO: change this if we allow non-flat paths
+	// allocate all memory at once to prevent multiple allocations/memmoves below
+	n := len(p.d) / 4
+	if cap(*q) < len(*q)+n {
+		q2 := make(SweepEvents, len(*q), len(*q)+n)
+		copy(q2, *q)
+		*q = q2
+	}
 	for i := 4; i < len(p.d); {
 		if p.d[i] != LineToCmd && p.d[i] != CloseCmd {
 			panic("non-flat paths not supported")
@@ -891,9 +898,11 @@ func compareIntersections(a, b Intersection) int {
 	}
 }
 
-func addIntersections(queue *SweepEvents, handled map[SweepPointPair]bool, zs Intersections, a, b *SweepPoint) bool {
+func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, zs Intersections, a, b *SweepPoint) bool {
 	// a and b are always left-endpoints and a is below b
-	if handled[SweepPointPair{a, b}] || handled[SweepPointPair{b, a}] {
+	if _, ok := handled[SweepPointPair{a, b}]; ok {
+		return false
+	} else if _, ok := handled[SweepPointPair{b, a}]; ok {
 		return false
 	}
 
@@ -914,7 +923,7 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]bool, zs In
 
 	// no (valid) intersections
 	if len(zs) == 0 {
-		handled[SweepPointPair{a, b}] = true
+		handled[SweepPointPair{a, b}] = struct{}{}
 		return false
 	}
 
@@ -1002,7 +1011,7 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]bool, zs In
 
 	for _, a := range aLefts {
 		for _, b := range bLefts {
-			handled[SweepPointPair{a, b}] = true
+			handled[SweepPointPair{a, b}] = struct{}{}
 		}
 	}
 	return 0 < len(aLefts) || 0 < len(bLefts)
@@ -1198,10 +1207,10 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 
 	// construct sweep line status structure
 	zs_ := [2]Intersection{}
-	zs := zs_[:]                         // reusable buffer
-	var preResult []*SweepPoint          // TODO: remove in favor of keeping points in queue, implement queue.Clear() to put back all points in pool
-	status := &SweepStatus{}             // contains only left events
-	handled := map[SweepPointPair]bool{} // prevent testing for intersections more than once
+	zs := zs_[:]                                                // reusable buffer
+	var preResult []*SweepPoint                                 // TODO: remove in favor of keeping points in queue, implement queue.Clear() to put back all points in pool
+	status := &SweepStatus{}                                    // contains only left events
+	handled := make(map[SweepPointPair]struct{}, len(*queue)*2) // prevent testing for intersections more than once, allocation length is an approximation
 	for 0 < len(*queue) {
 		// TODO: skip or stop depending on operation if we're to the left/right of subject/clipping polygon
 

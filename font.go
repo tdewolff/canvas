@@ -664,6 +664,7 @@ func (m FontMetrics) String() string {
 
 // Metrics returns the font metrics. See https://developer.apple.com/library/archive/documentation/TextFonts/Conceptual/CocoaTextArchitecture/Art/glyph_metrics_2x.png for an explanation of the different metrics.
 func (face *FontFace) Metrics() FontMetrics {
+	// TODO: use resolution
 	sfnt := face.Font.SFNT
 	ascender, descender, lineGap := sfnt.VerticalMetrics()
 	return FontMetrics{
