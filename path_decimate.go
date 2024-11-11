@@ -133,77 +133,57 @@ func (p *Path) Clip(x0, y0, x1, y1 float64) *Path {
 	}
 	rect := Rect{x0, y0, x1, y1}
 
-	first, start := Point{}, Point{}
 	startIn := false
 	pendingMoveTo := true
-	q := &Path{d: p.d[:0]} // q is always smaller or equal to p
+	first, start := Point{}, Point{}
+	var moveToIndex, firstInIndex int
+	q := &Path{} //d: p.d[:0]} // q is always smaller or equal to p
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		i += cmdLen(cmd)
 
 		end := Point{p.d[i-3], p.d[i-2]}
 		endIn := rect.TouchesPoint(end)
-		crossesTwoEdges := false
-		if !startIn && !endIn {
-			var prev Point
-			if 0 < len(q.d) {
-				prev = Point{q.d[len(q.d)-3], q.d[len(q.d)-2]}
-			}
-			quadPrevX, quadNextX := 1, 1
-			quadPrevY, quadNextY := 1, 1
-			if prev.X < rect.X0 {
-				quadPrevX = 0
-			} else if rect.X1 < prev.X {
-				quadPrevX = 2
-			}
-			if end.X < rect.X0 {
-				quadNextX = 0
-			} else if rect.X1 < end.X {
-				quadNextX = 2
-			}
-			if prev.Y < rect.Y0 {
-				quadPrevY = 0
-			} else if rect.Y1 < prev.Y {
-				quadPrevY = 2
-			}
-			if end.Y < rect.Y0 {
-				quadNextY = 0
-			} else if rect.Y1 < end.Y {
-				quadNextY = 2
-			}
-			crossesX := quadNextX - quadPrevX
-			if crossesX < 0 {
-				crossesX = -crossesX
-			}
-			crossesY := quadNextY - quadPrevY
-			if crossesY < 0 {
-				crossesY = -crossesY
-			}
-			crossesTwoEdges = 1 < (crossesX + crossesY)
+		crossesXY := false
+		if 0 < len(q.d) && !startIn && !endIn {
+			// check if between out last position on Q and the end of the current segment we cross
+			// lines along X0, X1, Y0, or Y1. If we cross both an X and Y boundary, the path may
+			// cross into the clipping rectangle, so we must include some points on the exterior
+			// of the clipping rectangle to prevent that.
+			prev := Point{q.d[len(q.d)-3], q.d[len(q.d)-2]}
+			crossesX0 := prev.X < rect.X0 && rect.X0 < end.X || rect.X0 < prev.X && end.X < rect.X0
+			crossesX1 := prev.X < rect.X1 && rect.X1 < end.X || rect.X1 < prev.X && end.X < rect.X1
+			crossesY0 := prev.Y < rect.Y0 && rect.Y0 < end.Y || rect.Y0 < prev.Y && end.Y < rect.Y0
+			crossesY1 := prev.Y < rect.Y1 && rect.Y1 < end.Y || rect.Y1 < prev.Y && end.Y < rect.Y1
+			crossesXY = (crossesX0 || crossesX1) && (crossesY0 || crossesY1)
 		}
 
 		if cmd == MoveToCmd {
 			if endIn {
 				q.d = append(q.d, MoveToCmd, end.X, end.Y, MoveToCmd)
 				pendingMoveTo = false
+				firstInIndex = i
 				first = end
 			} else {
 				pendingMoveTo = true
 			}
+			moveToIndex = i - cmdLen(MoveToCmd)
 		} else {
-			if crossesTwoEdges || !startIn && endIn {
+			if crossesXY || !startIn && endIn {
 				if pendingMoveTo {
 					q.d = append(q.d, MoveToCmd, start.X, start.Y, MoveToCmd)
 					pendingMoveTo = false
+					firstInIndex = i
 					first = start
 				} else {
-					q.LineTo(start.X, start.Y)
+					q.d = append(q.d, LineToCmd, start.X, start.Y, LineToCmd)
 				}
 			}
 			if cmd == LineToCmd && (startIn || endIn) {
 				if pendingMoveTo {
 					q.d = append(q.d, MoveToCmd, start.X, start.Y, MoveToCmd)
 					pendingMoveTo = false
+					firstInIndex = i
 					first = start
 				}
 				q.d = append(q.d, p.d[i-4:i]...)
@@ -213,6 +193,7 @@ func (p *Path) Clip(x0, y0, x1, y1 float64) *Path {
 					if pendingMoveTo {
 						q.d = append(q.d, MoveToCmd, start.X, start.Y, MoveToCmd)
 						pendingMoveTo = false
+						firstInIndex = i
 						first = start
 					}
 					q.d = append(q.d, p.d[i-6:i]...)
@@ -224,6 +205,7 @@ func (p *Path) Clip(x0, y0, x1, y1 float64) *Path {
 					if pendingMoveTo {
 						q.d = append(q.d, MoveToCmd, start.X, start.Y, MoveToCmd)
 						pendingMoveTo = false
+						firstInIndex = i
 						first = start
 					}
 					q.d = append(q.d, p.d[i-8:i]...)
@@ -266,15 +248,33 @@ func (p *Path) Clip(x0, y0, x1, y1 float64) *Path {
 					if pendingMoveTo {
 						q.d = append(q.d, MoveToCmd, start.X, start.Y, MoveToCmd)
 						pendingMoveTo = false
+						firstInIndex = i
 						first = start
 					}
 					q.d = append(q.d, p.d[i-8:i]...)
 				}
 			} else if cmd == CloseCmd {
-				if !end.Equals(first) {
-					q.d = append(q.d, LineToCmd, end.X, end.Y, LineToCmd)
-				}
 				if !pendingMoveTo {
+					// handle first part of the path which may cross boundaries
+					start = Point{p.d[moveToIndex+1], p.d[moveToIndex+2]}
+					for i := moveToIndex; ; {
+						cmd := p.d[i]
+						i += cmdLen(cmd)
+						if firstInIndex <= i {
+							break
+						}
+
+						end := Point{p.d[i-3], p.d[i-2]}
+						prev := Point{q.d[len(q.d)-3], q.d[len(q.d)-2]}
+						crossesX0 := prev.X < rect.X0 && rect.X0 < end.X || rect.X0 < prev.X && end.X < rect.X0
+						crossesX1 := prev.X < rect.X1 && rect.X1 < end.X || rect.X1 < prev.X && end.X < rect.X1
+						crossesY0 := prev.Y < rect.Y0 && rect.Y0 < end.Y || rect.Y0 < prev.Y && end.Y < rect.Y0
+						crossesY1 := prev.Y < rect.Y1 && rect.Y1 < end.Y || rect.Y1 < prev.Y && end.Y < rect.Y1
+						if (crossesX0 || crossesX1) && (crossesY0 || crossesY1) {
+							q.d = append(q.d, LineToCmd, start.X, start.Y, LineToCmd)
+						}
+						start = end
+					}
 					q.d = append(q.d, CloseCmd, first.X, first.Y, CloseCmd)
 				}
 				pendingMoveTo = true
