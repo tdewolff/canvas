@@ -374,6 +374,9 @@ func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 			t.Width = math.Max(t.Width, last.X+last.Width)
 		}
 	}
+	if halign == Center {
+		t.Width *= 2.0
+	}
 	t.Height = y - spacing
 	return t
 }

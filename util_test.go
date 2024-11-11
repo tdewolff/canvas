@@ -158,7 +158,7 @@ func TestPoint(t *testing.T) {
 
 func TestRect(t *testing.T) {
 	r := Rect{0, 0, 5, 5}
-	test.T(t, r.Move(Point{3, 3}), Rect{3, 3, 8, 8})
+	test.T(t, r.Translate(3, 3), Rect{3, 3, 8, 8})
 	test.T(t, r.Add(Rect{5, 5, 10, 10}), Rect{0, 0, 10, 10})
 	test.T(t, r.Add(Rect{5, 5, 5, 10}), r)
 	test.T(t, Rect{5, 5, 5, 10}.Add(r), r)

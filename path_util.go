@@ -794,7 +794,7 @@ func flattenSmoothCubicBezier(p *Path, p0, p1, p2, p3 Point, d, tolerance float6
 
 		// choose whichever is most curved, P2-P0 or P3-P0
 		t = math.Min(t2, t3)
-		if t >= 1.0 {
+		if 1.0 <= t {
 			break
 		}
 		_, _, _, _, p0, p1, p2, p3 = cubicBezierSplit(p0, p1, p2, p3, t)
@@ -873,6 +873,8 @@ func findInflectionPointRangeCubicBezier(p0, p1, p2, p3 Point, t, tolerance floa
 // or https://docs.rs/crate/lyon_bezier/0.4.1/source/src/flatten_cubic.rs
 // p0, p1, p2, p3 are the start points, two control points and the end points respectively. With flatness defined as the maximum error from the orinal curve, and d the half width of the curve used for stroking (positive is to the right).
 func strokeCubicBezier(p0, p1, p2, p3 Point, d, tolerance float64) *Path {
+	tolerance = math.Max(tolerance, Epsilon) // prevent infinite loop if user sets tolerance to zero
+
 	p := &Path{}
 	start := p0.Add(cubicBezierNormal(p0, p1, p2, p3, 0.0, d))
 	p.MoveTo(start.X, start.Y)
