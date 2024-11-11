@@ -70,7 +70,7 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 	bounds := canvas.Rect{}
 	var fill, stroke *canvas.Path
 	if style.HasFill() {
-		fill = path.Transform(m)
+		fill = path.Copy().Transform(m)
 		if !style.HasStroke() {
 			bounds = fill.Bounds()
 		}

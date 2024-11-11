@@ -203,7 +203,7 @@ func (r *TeX) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 	}
 
 	if style.HasFill() || style.HasStroke() && !strokeUnsupported {
-		r.writePath(path.Transform(m))
+		r.writePath(path.Copy().Transform(m))
 	}
 
 	if style.HasFill() {

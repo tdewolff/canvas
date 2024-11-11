@@ -115,7 +115,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 	//}
 
 	closed := false
-	data := path.Transform(m).ToPDF()
+	data := path.Copy().Transform(m).ToPDF()
 	if 1 < len(data) && data[len(data)-1] == 'h' {
 		data = data[:len(data)-2]
 		closed = true

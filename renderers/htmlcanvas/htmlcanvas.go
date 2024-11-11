@@ -87,7 +87,7 @@ func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 	}
 
 	if style.HasFill() || style.HasStroke() && !strokeUnsupported {
-		r.writePath(path.Transform(m).ReplaceArcs())
+		r.writePath(path.Copy().Transform(m).ReplaceArcs())
 	}
 
 	if style.HasFill() {

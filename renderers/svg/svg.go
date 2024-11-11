@@ -170,7 +170,7 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 	}
 
 	stroke := path
-	path = path.Transform(canvas.Identity.ReflectYAbout(r.height / 2.0).Mul(m))
+	path = path.Copy().Transform(canvas.Identity.ReflectYAbout(r.height / 2.0).Mul(m))
 	fmt.Fprintf(r.w, `<path d="%s`, path.ToSVG())
 
 	strokeUnsupported := false

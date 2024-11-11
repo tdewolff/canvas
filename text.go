@@ -1009,7 +1009,7 @@ func (t *Text) OutlineBounds() Rect {
 				panic(err)
 			}
 			spanBounds := p.Bounds()
-			spanBounds = spanBounds.Move(Point{span.X, -line.y})
+			spanBounds = spanBounds.Translate(span.X, -line.y)
 			r = r.Add(spanBounds)
 		}
 	}

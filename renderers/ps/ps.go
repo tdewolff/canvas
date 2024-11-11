@@ -199,7 +199,7 @@ func (r *PS) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) 
 
 	if style.HasFill() || style.HasStroke() && !strokeUnsupported {
 		r.w.Write([]byte("\n"))
-		r.w.Write([]byte(path.Transform(m).ToPS()))
+		r.w.Write([]byte(path.Copy().Transform(m).ToPS()))
 	}
 
 	if style.HasFill() {

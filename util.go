@@ -331,6 +331,11 @@ func (p Point) Norm(length float64) Point {
 	return Point{p.X / d * length, p.Y / d * length}
 }
 
+// Transform transforms the point by affine transformation matrix m.
+func (p Point) Transform(m Matrix) Point {
+	return m.Dot(p)
+}
+
 // Interpolate returns a point on PQ that is linearly interpolated by t in [0,1], i.e. t=0 returns P and t=1 returns Q.
 func (p Point) Interpolate(q Point, t float64) Point {
 	return Point{(1-t)*p.X + t*q.X, (1-t)*p.Y + t*q.Y}
@@ -367,12 +372,12 @@ func (r Rect) Equals(q Rect) bool {
 	return Equal(r.X0, q.X0) && Equal(r.X1, q.X1) && Equal(r.Y0, q.Y0) && Equal(r.Y1, q.Y1)
 }
 
-// Move translates the rect.
-func (r Rect) Move(p Point) Rect {
-	r.X0 += p.X
-	r.Y0 += p.Y
-	r.X1 += p.X
-	r.Y1 += p.Y
+// Translate translates the rect.
+func (r Rect) Translate(x, y float64) Rect {
+	r.X0 += x
+	r.Y0 += y
+	r.X1 += x
+	r.Y1 += y
 	return r
 }
 

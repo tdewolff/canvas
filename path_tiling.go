@@ -64,7 +64,8 @@ func TileRectangle(cell Matrix, dst, src Rect) []Matrix {
 	cells := []Matrix{}
 	for y := math.Floor(y0); y < y1; y += 1.0 {
 		for x := math.Floor(x0); x < x1; x += 1.0 {
-			if src.Move(cell.Dot(Point{x, y})).Overlaps(dst) {
+			p := cell.Dot(Point{x, y})
+			if src.Translate(p.X, p.Y).Overlaps(dst) {
 				cells = append(cells, cell.Translate(x, y))
 			}
 		}
