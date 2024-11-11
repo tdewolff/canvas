@@ -116,6 +116,11 @@ func angleBetweenExclusive(theta, lower, upper float64) bool {
 	return false
 }
 
+// snap "gridsnaps" the floating point to a grid of the given spacing
+func snap(val, spacing float64) float64 {
+	return math.Round(val/spacing) * spacing
+}
+
 ////////////////////////////////////////////////////////////////
 
 type numEps float64
@@ -339,6 +344,11 @@ func (p Point) Transform(m Matrix) Point {
 // Interpolate returns a point on PQ that is linearly interpolated by t in [0,1], i.e. t=0 returns P and t=1 returns Q.
 func (p Point) Interpolate(q Point, t float64) Point {
 	return Point{(1-t)*p.X + t*q.X, (1-t)*p.Y + t*q.Y}
+}
+
+// Gridsnap snaps point to a grid with the given spacing.
+func (p Point) Gridsnap(spacing float64) Point {
+	return Point{snap(p.X, spacing), snap(p.Y, spacing)}
 }
 
 // String returns the string representation of a point, such as "(x,y)".

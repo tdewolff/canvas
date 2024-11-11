@@ -4,10 +4,6 @@ import (
 	"math"
 )
 
-func snap(v, d float64) float64 {
-	return math.Round(v/d) * d
-}
-
 // Gridsnap snaps all vertices to a grid with the given spacing. This will significantly reduce numerical issues e.g. for path boolean operations. This operation is in-place.
 func (p *Path) Gridsnap(spacing float64) *Path {
 	for i := 0; i < len(p.d); {

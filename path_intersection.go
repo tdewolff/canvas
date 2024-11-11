@@ -914,6 +914,8 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, z
 	// clean up intersections outside one of the segments, this may happen for nearly parallel
 	// lines for example
 	for i := 0; i < len(zs); i++ {
+		zs[i].Point = zs[i].Point.Gridsnap(2.0 * Epsilon) // prevent numerical issues
+
 		if z := zs[i]; !a.vertical && !Interval(z.X, a.X, a.other.X) || a.vertical && !Interval(z.Y, a.Y, a.other.Y) || !b.vertical && !Interval(z.X, b.X, b.other.X) || b.vertical && !Interval(z.Y, b.Y, b.other.Y) { //z.X < a.X || z.X < b.X || a.other.X < z.X || b.other.X < z.X {
 			fmt.Println("WARNING: removing intersection", zs[i], "between", a, b)
 			zs = append(zs[:i], zs[i+1:]...)
@@ -1133,8 +1135,9 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 			ps = append(ps, split[1:]...)
 		}
 	}
-	for i, p := range ps {
-		ps[i] = p.Flatten(Tolerance)
+	for i := range ps {
+		ps[i] = ps[i].Flatten(Tolerance)
+		ps[i] = ps[i].Gridsnap(2.0 * Epsilon) // prevent numerical issues
 	}
 	if qs != nil {
 		for i, iMax := 0, len(qs); i < iMax; i++ {
@@ -1144,8 +1147,9 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				qs = append(qs, split[1:]...)
 			}
 		}
-		for i, q := range qs {
-			qs[i] = q.Flatten(Tolerance)
+		for i := range qs {
+			qs[i] = qs[i].Flatten(Tolerance)
+			qs[i] = qs[i].Gridsnap(2.0 * Epsilon) // prevent numerical issues
 		}
 	}
 
