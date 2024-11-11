@@ -404,6 +404,15 @@ func (r Rect) AddPoint(p Point) Rect {
 	return Rect{x0, y0, x1, y1}
 }
 
+// Expand expands the rectangle.
+func (r Rect) Expand(d float64) Rect {
+	r.X0 -= d
+	r.Y0 -= d
+	r.X1 += d
+	r.Y1 += d
+	return r
+}
+
 // Transform transforms the rectangle by affine transformation matrix m and returns the new bounds of that rectangle.
 func (r Rect) Transform(m Matrix) Rect {
 	p0 := m.Dot(Point{r.X0, r.Y0})
@@ -434,6 +443,18 @@ func (r Rect) TouchesPoint(p Point) bool {
 	return (r.X0 < p.X || Equal(p.X, r.X0)) && (p.X < r.X1 || Equal(p.X, r.X1)) && (r.Y0 < p.Y || Equal(p.Y, r.Y0)) && (p.Y < r.Y1 || Equal(p.Y, r.Y1))
 }
 
+// Contains returns true if r contains q.
+func (r Rect) Contains(q Rect) bool {
+	if q.X0 < r.X0 && !Equal(r.X0, q.X0) || r.X1 < q.X1 && !Equal(r.X1, q.X1) {
+		// left or right
+		return false
+	} else if q.Y0 < r.Y0 && !Equal(r.Y0, q.Y0) || r.Y1 < q.Y1 && !Equal(r.Y1, q.Y1) {
+		// below or above
+		return false
+	}
+	return true
+}
+
 // Overlaps returns true if both rectangles overlap.
 func (r Rect) Overlaps(q Rect) bool {
 	if q.X1 < r.X0 || Equal(q.X1, r.X0) || r.X1 < q.X0 || Equal(r.X1, q.X0) {
@@ -448,14 +469,32 @@ func (r Rect) Overlaps(q Rect) bool {
 
 // Touches returns true if both rectangles touch (or overlap).
 func (r Rect) Touches(q Rect) bool {
-	if q.X1 < r.X0 && !Equal(q.X1, r.X0) || r.X1 < q.X0 && !Equal(r.X1, q.X0) {
+	if q.X1 < r.X0 && !Equal(r.X0, q.X1) || r.X1 < q.X0 && !Equal(r.X1, q.X0) {
 		// left or right
 		return false
-	} else if q.Y1 < r.Y0 && !Equal(q.Y1, r.Y0) || r.Y1 < q.Y0 && !Equal(r.Y1, q.Y0) {
+	} else if q.Y1 < r.Y0 && !Equal(r.Y0, q.Y1) || r.Y1 < q.Y0 && !Equal(r.Y1, q.Y0) {
 		// below or above
 		return false
 	}
 	return true
+}
+
+// And returns the rectangle that is the overlap of both.
+func (r Rect) And(q Rect) Rect {
+	x0 := math.Max(r.X0, q.X0)
+	y0 := math.Max(r.Y0, q.Y0)
+	x1 := math.Min(r.X1, q.X1)
+	y1 := math.Min(r.Y1, q.Y1)
+	if x1 <= x0 || y1 <= y0 {
+		return Rect{}
+	}
+	return Rect{x0, y0, x1, y1}
+
+}
+
+// Area returns the area of the rectangle.
+func (r Rect) Area() float64 {
+	return (r.X1 - r.X0) * (r.Y1 - r.Y0)
 }
 
 // ToPath converts the rectangle to a path.
