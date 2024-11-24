@@ -73,9 +73,7 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 	var fill, stroke *canvas.Path
 	if style.HasFill() {
 		fill = path.Copy().Transform(m)
-		if !style.HasStroke() {
-			bounds = fill.Bounds()
-		}
+		bounds = fill.FastBounds()
 	}
 	if style.HasStroke() {
 		tolerance := canvas.PixelTolerance / r.resolution.DPMM()
@@ -85,7 +83,11 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		}
 		stroke = stroke.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner, tolerance)
 		stroke = stroke.Transform(m)
-		bounds = stroke.Bounds()
+		if style.HasFill() {
+			bounds = bounds.Add(stroke.FastBounds())
+		} else {
+			bounds = stroke.FastBounds()
+		}
 	}
 
 	padding := 2
