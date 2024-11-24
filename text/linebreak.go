@@ -665,7 +665,13 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 		} else if IsNewline(glyph.Text) {
 			// only add one penalty for \r\n
 			if glyph.Text != '\n' || i == 0 || glyphs[i-1].Text != '\r' {
-				items = append(items, Penalty(0.0, -Infinity, false))
+				if align == Centered {
+					items = append(items, Glue(0.0, stretchWidth, 0.0))
+					items = append(items, Penalty(0.0, -Infinity, false))
+				} else {
+					items = append(items, Glue(0.0, math.Inf(1.0), 0.0))
+					items = append(items, Penalty(0.0, -Infinity, true))
+				}
 			}
 			items[len(items)-1].Size++
 		} else if glyph.Text == '\u00AD' || glyph.Text == '\u200B' {
