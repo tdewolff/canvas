@@ -625,7 +625,8 @@ func (p *Path) Offset(w float64, fillRule FillRule, tolerance float64) *Path {
 	filling := p.Filling(fillRule)
 	for i, pi := range p.Split() {
 		r := &Path{}
-		ccw, closed := pi.CCW(), pi.Closed()
+		ccw := pi.CCW()
+		closed := pi.Closed()
 		rhs, lhs := pi.offset(w, ButtCap, RoundJoin, false, tolerance)
 		if !closed || (ccw != filling[i]) != positive {
 			r = rhs
@@ -634,11 +635,7 @@ func (p *Path) Offset(w float64, fillRule FillRule, tolerance float64) *Path {
 		}
 
 		if closed {
-			if ccw {
-				r = r.Settle(Positive)
-			} else {
-				r = r.Settle(Negative)
-			}
+			r = r.Settle(Positive)
 			if !filling[i] {
 				r = r.Reverse()
 			}
@@ -662,14 +659,8 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path 
 		rhs, lhs := pi.offset(halfWidth, cr, jr, true, tolerance)
 		if lhs != nil { // closed path
 			// inner path should go opposite direction to cancel the outer path
-			if pi.CCW() {
-				q = q.Append(rhs.Settle(Positive))
-				q = q.Append(lhs.Settle(Positive).Reverse())
-			} else {
-				// outer first, then inner
-				q = q.Append(lhs.Settle(Negative))
-				q = q.Append(rhs.Settle(Negative).Reverse())
-			}
+			q = q.Append(rhs.Settle(Positive))
+			q = q.Append(lhs.Settle(Positive).Reverse())
 		} else {
 			q = q.Append(rhs.Settle(Positive))
 		}

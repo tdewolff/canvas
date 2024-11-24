@@ -2215,8 +2215,8 @@ func (p *Path) ToPDF() string {
 // ToRasterizer rasterizes the path using the given rasterizer and resolution.
 func (p *Path) ToRasterizer(ras *vector.Rasterizer, resolution Resolution) {
 	dpmm := resolution.DPMM()
+	// TODO: smoothen path using Ramer-... inside flatten
 	p = p.Flatten(PixelTolerance / dpmm) // tolerance of 1/10 of a pixel
-	// TODO: smoothen path using Ramer-...
 
 	dy := float64(ras.Bounds().Size().Y)
 	for i := 0; i < len(p.d); {
@@ -2233,7 +2233,7 @@ func (p *Path) ToRasterizer(ras *vector.Rasterizer, resolution Resolution) {
 		}
 		i += cmdLen(cmd)
 	}
-	if 0 < len(p.d) && p.d[len(p.d)-1] != CloseCmd {
+	if !p.Closed() {
 		// implicitly close path
 		ras.ClosePath()
 	}
