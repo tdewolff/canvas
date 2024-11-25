@@ -659,8 +659,14 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path 
 		rhs, lhs := pi.offset(halfWidth, cr, jr, true, tolerance)
 		if lhs != nil { // closed path
 			// inner path should go opposite direction to cancel the outer path
-			q = q.Append(rhs.Settle(Positive))
-			q = q.Append(lhs.Settle(Positive).Reverse())
+			if pi.CCW() {
+				q = q.Append(rhs.Settle(Positive))
+				q = q.Append(lhs.Settle(Positive).Reverse())
+			} else {
+				// outer first, then inner
+				q = q.Append(lhs.Settle(Negative))
+				q = q.Append(rhs.Settle(Negative).Reverse())
+			}
 		} else {
 			q = q.Append(rhs.Settle(Positive))
 		}
