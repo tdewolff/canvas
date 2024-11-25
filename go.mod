@@ -19,7 +19,7 @@ require (
 	github.com/paulmach/osm v0.8.0
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/tdewolff/argp v0.0.0-20240625173203-87b04d5d3e52
-	github.com/tdewolff/font v0.0.0-20241125130148-1635d719282c
+	github.com/tdewolff/font v0.0.0-20241125190050-d899fdc808fc
 	github.com/tdewolff/minify/v2 v2.21.1
 	github.com/tdewolff/parse/v2 v2.7.19
 	github.com/tdewolff/test v1.0.11-0.20240106005702-7de5f7df4739
