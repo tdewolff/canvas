@@ -810,56 +810,58 @@ func (svg *svgParser) getFontFace() *FontFace {
 	return fontFamily.Face(fontSize, svg.ctx.Style.Fill.Color)
 }
 
-func (svg *svgParser) drawShape(tag string, attrs map[string]string) {
+func (svg *svgParser) toPath(tag string, attrs map[string]string) (x float64, y float64, path *Path) {
 	switch tag {
 	case "circle":
-		cx := svg.parseDimension(attrs["cx"], svg.width)
-		cy := svg.parseDimension(attrs["cy"], svg.height)
-		r := svg.parseDimension(attrs["r"], svg.diagonal)
-		svg.ctx.DrawPath(cx, cy, Circle(r))
+		x = svg.parseDimension(attrs["cx"], svg.width)
+		y = svg.parseDimension(attrs["cy"], svg.height)
+		path = Circle(
+			svg.parseDimension(attrs["r"], svg.diagonal),
+		)
 	case "ellipse":
-		cx := svg.parseDimension(attrs["cx"], svg.width)
-		cy := svg.parseDimension(attrs["cy"], svg.height)
-		rx := svg.parseDimension(attrs["rx"], svg.width)
-		ry := svg.parseDimension(attrs["ry"], svg.height)
-		svg.ctx.DrawPath(cx, cy, Ellipse(rx, ry))
+		x = svg.parseDimension(attrs["cx"], svg.width)
+		y = svg.parseDimension(attrs["cy"], svg.height)
+		path = Ellipse(
+			svg.parseDimension(attrs["rx"], svg.width),
+			svg.parseDimension(attrs["ry"], svg.height),
+		)
 	case "path":
-		p, err := ParseSVGPath(attrs["d"])
+		var err error
+		path, err = ParseSVGPath(attrs["d"])
 		if err != nil && svg.err == nil {
 			svg.err = parse.NewErrorLexer(svg.z, "bad path: %w", err)
 		}
-		svg.ctx.DrawPath(0, 0, p)
+		x, y = 0, 0
 	case "polygon", "polyline":
+		path = &Path{}
 		points := svg.parsePoints(attrs["points"])
-		p := &Path{}
 		for i := 0; i+1 < len(points); i += 2 {
 			if i == 0 {
-				p.MoveTo(points[0], points[1])
+				path.MoveTo(points[0], points[1])
 			} else {
-				p.LineTo(points[i], points[i+1])
+				path.LineTo(points[i], points[i+1])
 			}
 		}
 		if tag == "polygon" {
-			p.Close()
+			path.Close()
 		}
-		svg.ctx.DrawPath(0.0, 0.0, p)
+		x, y = 0, 0
 	case "line":
-		p := &Path{}
+		path = &Path{}
 		x1 := svg.parseDimension(attrs["x1"], svg.width)
 		y1 := svg.parseDimension(attrs["y1"], svg.height)
 		x2 := svg.parseDimension(attrs["x2"], svg.width)
 		y2 := svg.parseDimension(attrs["y2"], svg.height)
-
-		p.MoveTo(x1, y1)
-		p.LineTo(x2, y2)
-		svg.ctx.DrawPath(0.0, 0.0, p)
+		path.MoveTo(x1, y1)
+		path.LineTo(x2, y2)
 	case "rect":
-		x := svg.parseDimension(attrs["x"], svg.width)
-		y := svg.parseDimension(attrs["y"], svg.height)
+		path = &Path{}
+		x = svg.parseDimension(attrs["x"], svg.width)
+		y = svg.parseDimension(attrs["y"], svg.height)
 		width := svg.parseDimension(attrs["width"], svg.width)
 		height := svg.parseDimension(attrs["height"], svg.height)
 		if attrs["rx"] == "" && attrs["ry"] == "" {
-			svg.ctx.DrawPath(x, y, Rectangle(width, height))
+			path = Rectangle(width, height)
 		} else {
 			// TODO: handle both rx and ry
 			var r float64
@@ -868,19 +870,41 @@ func (svg *svgParser) drawShape(tag string, attrs map[string]string) {
 			} else {
 				r = svg.parseDimension(attrs["ry"], svg.height)
 			}
-			svg.ctx.DrawPath(x, y, RoundedRectangle(width, height, r))
+			path = RoundedRectangle(width, height, r)
 		}
 	case "text":
 		svg.state.textX = svg.parseDimension(attrs["x"], svg.width)
 		svg.state.textY = svg.parseDimension(attrs["y"], svg.height)
 	}
+
+	return
+}
+
+func (svg *svgParser) drawShape(tag string, attrs map[string]string) {
+	svg.ctx.DrawPath(svg.toPath(tag, attrs))
+}
+
+type SVGPath struct {
+	Tag string
+	X, Y float64
+	*Path
 }
 
 func ParseSVG(r io.Reader) (*Canvas, error) {
+	cvs, _, err := parseSVGFull(r)
+	return cvs, err
+}
+
+func ParseSVGWithPaths(r io.Reader) (*Canvas, []SVGPath, error) {
+	return parseSVGFull(r)
+}
+
+func parseSVGFull(r io.Reader) (*Canvas, []SVGPath, error) {
 	z := parse.NewInput(r)
 	defer z.Restore()
 
 	l := xml.NewLexer(z)
+	var paths []SVGPath
 	svg := svgParser{
 		z:          z,
 		defs:       map[string]svgDef{},
@@ -892,16 +916,16 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 		switch tt {
 		case xml.ErrorToken:
 			if l.Err() != io.EOF {
-				return svg.c, l.Err()
+				return svg.c, paths, l.Err()
 			} else if svg.err != nil {
-				return svg.c, svg.err
+				return svg.c, paths, svg.err
 			} else if svg.c == nil {
-				return svg.c, fmt.Errorf("expected SVG tag")
+				return svg.c, paths, fmt.Errorf("expected SVG tag")
 			}
 			if svg.c.W == 0.0 || svg.c.H == 0.0 {
 				svg.c.Fit(0.0)
 			}
-			return svg.c, nil
+			return svg.c, paths, nil
 		case xml.StartTagToken:
 			tag := string(data[1:])
 			tt, attrNames, attrs := svg.parseAttributes(l)
@@ -911,7 +935,7 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 				width, height, viewbox := svg.parseViewBox(attrs["width"], attrs["height"], attrs["viewBox"])
 				svg.init(width, height, viewbox)
 			} else if tag != "svg" && svg.c == nil {
-				return svg.c, fmt.Errorf("expected SVG tag")
+				return svg.c, paths, fmt.Errorf("expected SVG tag")
 			}
 
 			// handle special tags
@@ -921,7 +945,7 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 					svg.parseStyle(data)
 					tt, data = l.Next() // end token
 				} else {
-					return svg.c, fmt.Errorf("bad style tag")
+					return svg.c, paths, fmt.Errorf("bad style tag")
 				}
 				break
 			} else if tag == "defs" {
@@ -941,8 +965,17 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 			}
 			svg.setStyling(props)
 
-			// draw shapes such as circles, paths, etc.
-			svg.drawShape(tag, attrs)
+			pathX, pathY, path := svg.toPath(tag, attrs)
+			if path != nil {
+				// draw shapes such as circles, paths, etc.
+				svg.ctx.DrawPath(pathX, pathY, path)
+				paths = append(paths, SVGPath{
+					Tag: tag,
+					X: pathX,
+					Y: pathY,
+					Path: path,
+				})
+			}
 
 			// set linearGradient, markers, etc.
 			// these defs depend on the shape or size of the path
