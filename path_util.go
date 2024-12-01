@@ -336,7 +336,7 @@ func xmonotoneEllipticArc(start Point, rx, ry, phi float64, large, sweep bool, e
 		t += sign * dt
 
 		pos := EllipsePos(rx, ry, phi, cx, cy, t)
-		p.ArcTo(rx, ry, phi*180.0/math.Pi, large, sweep, pos.X, pos.Y)
+		p.ArcTo(rx, ry, phi*180.0/math.Pi, false, sweep, pos.X, pos.Y)
 		left = !left
 	}
 	return p
