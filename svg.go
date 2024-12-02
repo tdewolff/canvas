@@ -847,19 +847,19 @@ func (svg *svgParser) toPath(tag string, attrs map[string]string) (x float64, y 
 		}
 		x, y = 0, 0
 	case "line":
-		path = &Path{}
 		x1 := svg.parseDimension(attrs["x1"], svg.width)
 		y1 := svg.parseDimension(attrs["y1"], svg.height)
 		x2 := svg.parseDimension(attrs["x2"], svg.width)
 		y2 := svg.parseDimension(attrs["y2"], svg.height)
+		path = &Path{}
 		path.MoveTo(x1, y1)
 		path.LineTo(x2, y2)
 	case "rect":
-		path = &Path{}
 		x = svg.parseDimension(attrs["x"], svg.width)
 		y = svg.parseDimension(attrs["y"], svg.height)
 		width := svg.parseDimension(attrs["width"], svg.width)
 		height := svg.parseDimension(attrs["height"], svg.height)
+		path = &Path{}
 		if attrs["rx"] == "" && attrs["ry"] == "" {
 			path = Rectangle(width, height)
 		} else {
@@ -886,7 +886,6 @@ func (svg *svgParser) drawShape(tag string, attrs map[string]string) {
 
 type SVGPath struct {
 	Tag string
-	X, Y float64
 	*Path
 }
 
@@ -971,8 +970,6 @@ func parseSVGFull(r io.Reader) (*Canvas, []SVGPath, error) {
 				svg.ctx.DrawPath(pathX, pathY, path)
 				paths = append(paths, SVGPath{
 					Tag: tag,
-					X: pathX,
-					Y: pathY,
 					Path: path,
 				})
 			}
