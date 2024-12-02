@@ -341,116 +341,6 @@ func (p *Path) Coords() []Point {
 	return coords
 }
 
-// direction returns the direction of the path at the given index into Path.d and t in [0.0,1.0]. Path must not contain subpaths, and will return the path's starting direction when i points to a MoveToCmd, or the path's final direction when i points to a CloseCmd of zero-length.
-func (p *Path) direction(i int, t float64) Point {
-	last := len(p.d)
-	if p.d[last-1] == CloseCmd && (Point{p.d[last-cmdLen(CloseCmd)-3], p.d[last-cmdLen(CloseCmd)-2]}).Equals(Point{p.d[last-3], p.d[last-2]}) {
-		// point-closed
-		last -= cmdLen(CloseCmd)
-	}
-
-	if i == 0 {
-		// get path's starting direction when i points to MoveTo
-		i = 4
-		t = 0.0
-	} else if i < len(p.d) && i == last {
-		// get path's final direction when i points to zero-length Close
-		i -= cmdLen(p.d[i-1])
-		t = 1.0
-	}
-	if i < 0 || len(p.d) <= i || last < i+cmdLen(p.d[i]) {
-		return Point{}
-	}
-
-	cmd := p.d[i]
-	var start Point
-	if i == 0 {
-		start = Point{p.d[last-3], p.d[last-2]}
-	} else {
-		start = Point{p.d[i-3], p.d[i-2]}
-	}
-
-	i += cmdLen(cmd)
-	end := Point{p.d[i-3], p.d[i-2]}
-	switch cmd {
-	case LineToCmd, CloseCmd:
-		return end.Sub(start).Norm(1.0)
-	case QuadToCmd:
-		cp := Point{p.d[i-5], p.d[i-4]}
-		return quadraticBezierDeriv(start, cp, end, t).Norm(1.0)
-	case CubeToCmd:
-		cp1 := Point{p.d[i-7], p.d[i-6]}
-		cp2 := Point{p.d[i-5], p.d[i-4]}
-		return cubicBezierDeriv(start, cp1, cp2, end, t).Norm(1.0)
-	case ArcToCmd:
-		rx, ry, phi := p.d[i-7], p.d[i-6], p.d[i-5]
-		large, sweep := toArcFlags(p.d[i-4])
-		_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
-		theta := theta0 + t*(theta1-theta0)
-		return ellipseDeriv(rx, ry, phi, sweep, theta).Norm(1.0)
-	}
-	return Point{}
-}
-
-func (p *Path) Direction(seg int, t float64) Point {
-	if len(p.d) <= 4 {
-		return Point{}
-	}
-
-	curSeg := 0
-	iStart, iSeg, iEnd := 0, 0, 0
-	for i := 0; i < len(p.d); {
-		cmd := p.d[i]
-		if cmd == MoveToCmd {
-			if seg < curSeg {
-				pi := &Path{p.d[iStart:iEnd]}
-				return pi.direction(iSeg-iStart, t)
-			}
-			iStart = i
-		}
-		if seg == curSeg {
-			iSeg = i
-		}
-		i += cmdLen(cmd)
-	}
-	return Point{} // if segment doesn't exist
-}
-
-// CoordDirections returns the direction of the segment start/end points. It will return the average direction at the intersection of two end points, and for an open path it will simply return the direction of the start and end points of the path.
-func (p *Path) CoordDirections() []Point {
-	if len(p.d) <= 4 {
-		return []Point{{}}
-	}
-	last := len(p.d)
-	if p.d[last-1] == CloseCmd && (Point{p.d[last-cmdLen(CloseCmd)-3], p.d[last-cmdLen(CloseCmd)-2]}).Equals(Point{p.d[last-3], p.d[last-2]}) {
-		// point-closed
-		last -= cmdLen(CloseCmd)
-	}
-
-	dirs := []Point{}
-	var closed bool
-	var dirPrev Point
-	for i := 4; i < last; {
-		cmd := p.d[i]
-		dir := p.direction(i, 0.0)
-		if i == 0 {
-			dirs = append(dirs, dir)
-		} else {
-			dirs = append(dirs, dirPrev.Add(dir).Norm(1.0))
-		}
-		dirPrev = p.direction(i, 1.0)
-		closed = cmd == CloseCmd
-		i += cmdLen(cmd)
-	}
-	if closed {
-		dirs[0] = dirs[0].Add(dirPrev).Norm(1.0)
-		dirs = append(dirs, dirs[0])
-	} else {
-		dirs = append(dirs, dirPrev)
-	}
-	return dirs
-}
-
 ////////////////////////////////////////////////////////////////
 
 // MoveTo moves the path to (x,y) without connecting the path. It starts a new independent subpath. Multiple subpaths can be useful when negating parts of a previous path by overlapping it with a path in the opposite direction. The behaviour for overlapping paths depends on the FillRule.
@@ -722,6 +612,195 @@ func (p *Path) simplifyToCoords() []Point {
 		}
 	}
 	return coords
+}
+
+// direction returns the direction of the path at the given index into Path.d and t in [0.0,1.0]. Path must not contain subpaths, and will return the path's starting direction when i points to a MoveToCmd, or the path's final direction when i points to a CloseCmd of zero-length.
+func (p *Path) direction(i int, t float64) Point {
+	last := len(p.d)
+	if p.d[last-1] == CloseCmd && (Point{p.d[last-cmdLen(CloseCmd)-3], p.d[last-cmdLen(CloseCmd)-2]}).Equals(Point{p.d[last-3], p.d[last-2]}) {
+		// point-closed
+		last -= cmdLen(CloseCmd)
+	}
+
+	if i == 0 {
+		// get path's starting direction when i points to MoveTo
+		i = 4
+		t = 0.0
+	} else if i < len(p.d) && i == last {
+		// get path's final direction when i points to zero-length Close
+		i -= cmdLen(p.d[i-1])
+		t = 1.0
+	}
+	if i < 0 || len(p.d) <= i || last < i+cmdLen(p.d[i]) {
+		return Point{}
+	}
+
+	cmd := p.d[i]
+	var start Point
+	if i == 0 {
+		start = Point{p.d[last-3], p.d[last-2]}
+	} else {
+		start = Point{p.d[i-3], p.d[i-2]}
+	}
+
+	i += cmdLen(cmd)
+	end := Point{p.d[i-3], p.d[i-2]}
+	switch cmd {
+	case LineToCmd, CloseCmd:
+		return end.Sub(start).Norm(1.0)
+	case QuadToCmd:
+		cp := Point{p.d[i-5], p.d[i-4]}
+		fmt.Println(quadraticBezierCurvatureRadius(start, cp, end, t))
+		return quadraticBezierDeriv(start, cp, end, t).Norm(1.0)
+	case CubeToCmd:
+		cp1 := Point{p.d[i-7], p.d[i-6]}
+		cp2 := Point{p.d[i-5], p.d[i-4]}
+		return cubicBezierDeriv(start, cp1, cp2, end, t).Norm(1.0)
+	case ArcToCmd:
+		rx, ry, phi := p.d[i-7], p.d[i-6], p.d[i-5]
+		large, sweep := toArcFlags(p.d[i-4])
+		_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
+		theta := theta0 + t*(theta1-theta0)
+		fmt.Println(ellipseCurvatureRadius(rx, ry, sweep, theta))
+		return ellipseDeriv(rx, ry, phi, sweep, theta).Norm(1.0)
+	}
+	return Point{}
+}
+
+// Direction returns the direction of the path at the given segment and t in [0.0,1.0] along that path. The direction is a vector of unit length.
+func (p *Path) Direction(seg int, t float64) Point {
+	if len(p.d) <= 4 {
+		return Point{}
+	}
+
+	curSeg := 0
+	iStart, iSeg, iEnd := 0, 0, 0
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		if cmd == MoveToCmd {
+			if seg < curSeg {
+				pi := &Path{p.d[iStart:iEnd]}
+				return pi.direction(iSeg-iStart, t)
+			}
+			iStart = i
+		}
+		if seg == curSeg {
+			iSeg = i
+		}
+		i += cmdLen(cmd)
+	}
+	return Point{} // if segment doesn't exist
+}
+
+// CoordDirections returns the direction of the segment start/end points. It will return the average direction at the intersection of two end points, and for an open path it will simply return the direction of the start and end points of the path.
+func (p *Path) CoordDirections() []Point {
+	if len(p.d) <= 4 {
+		return []Point{{}}
+	}
+	last := len(p.d)
+	if p.d[last-1] == CloseCmd && (Point{p.d[last-cmdLen(CloseCmd)-3], p.d[last-cmdLen(CloseCmd)-2]}).Equals(Point{p.d[last-3], p.d[last-2]}) {
+		// point-closed
+		last -= cmdLen(CloseCmd)
+	}
+
+	dirs := []Point{}
+	var closed bool
+	var dirPrev Point
+	for i := 4; i < last; {
+		cmd := p.d[i]
+		dir := p.direction(i, 0.0)
+		if i == 0 {
+			dirs = append(dirs, dir)
+		} else {
+			dirs = append(dirs, dirPrev.Add(dir).Norm(1.0))
+		}
+		dirPrev = p.direction(i, 1.0)
+		closed = cmd == CloseCmd
+		i += cmdLen(cmd)
+	}
+	if closed {
+		dirs[0] = dirs[0].Add(dirPrev).Norm(1.0)
+		dirs = append(dirs, dirs[0])
+	} else {
+		dirs = append(dirs, dirPrev)
+	}
+	return dirs
+}
+
+// curvature returns the curvature radius of the path at the given index into Path.d and t in [0.0,1.0]. Path must not contain subpaths, and will return the path's starting curvature when i points to a MoveToCmd, or the path's final curvature when i points to a CloseCmd of zero-length.
+func (p *Path) curvature(i int, t float64) float64 {
+	last := len(p.d)
+	if p.d[last-1] == CloseCmd && (Point{p.d[last-cmdLen(CloseCmd)-3], p.d[last-cmdLen(CloseCmd)-2]}).Equals(Point{p.d[last-3], p.d[last-2]}) {
+		// point-closed
+		last -= cmdLen(CloseCmd)
+	}
+
+	if i == 0 {
+		// get path's starting direction when i points to MoveTo
+		i = 4
+		t = 0.0
+	} else if i < len(p.d) && i == last {
+		// get path's final direction when i points to zero-length Close
+		i -= cmdLen(p.d[i-1])
+		t = 1.0
+	}
+	if i < 0 || len(p.d) <= i || last < i+cmdLen(p.d[i]) {
+		return 0.0
+	}
+
+	cmd := p.d[i]
+	var start Point
+	if i == 0 {
+		start = Point{p.d[last-3], p.d[last-2]}
+	} else {
+		start = Point{p.d[i-3], p.d[i-2]}
+	}
+
+	i += cmdLen(cmd)
+	end := Point{p.d[i-3], p.d[i-2]}
+	switch cmd {
+	case LineToCmd, CloseCmd:
+		return math.Inf(1.0)
+	case QuadToCmd:
+		cp := Point{p.d[i-5], p.d[i-4]}
+		return quadraticBezierCurvatureRadius(start, cp, end, t)
+	case CubeToCmd:
+		cp1 := Point{p.d[i-7], p.d[i-6]}
+		cp2 := Point{p.d[i-5], p.d[i-4]}
+		return cubicBezierCurvatureRadius(start, cp1, cp2, end, t)
+	case ArcToCmd:
+		rx, ry, phi := p.d[i-7], p.d[i-6], p.d[i-5]
+		large, sweep := toArcFlags(p.d[i-4])
+		_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
+		theta := theta0 + t*(theta1-theta0)
+		return ellipseCurvatureRadius(rx, ry, sweep, theta)
+	}
+	return 0.0
+}
+
+// Curvature returns the curvature radius of the path at the given segment and t in [0.0,1.0] along that path. It is infinite for a straight line and zero for non-existing segments.
+func (p *Path) Curvature(seg int, t float64) float64 {
+	if len(p.d) <= 4 {
+		return 0.0
+	}
+
+	curSeg := 0
+	iStart, iSeg, iEnd := 0, 0, 0
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		if cmd == MoveToCmd {
+			if seg < curSeg {
+				pi := &Path{p.d[iStart:iEnd]}
+				return pi.curvature(iSeg-iStart, t)
+			}
+			iStart = i
+		}
+		if seg == curSeg {
+			iSeg = i
+		}
+		i += cmdLen(cmd)
+	}
+	return 0.0 // if segment doesn't exist
 }
 
 // windings counts intersections of ray with path. Paths that cross downwards are negative and upwards are positive. It returns the windings excluding the start position and the windings of the start position itself. If the windings of the start position is not zero, the start position is on a boundary.

@@ -451,6 +451,17 @@ func quadraticBezierDeriv2(p0, p1, p2 Point) Point {
 	return p0.Add(p1).Add(p2)
 }
 
+// negative when curve bends CW while following t
+func quadraticBezierCurvatureRadius(p0, p1, p2 Point, t float64) float64 {
+	dp := quadraticBezierDeriv(p0, p1, p2, t)
+	ddp := quadraticBezierDeriv2(p0, p1, p2)
+	a := dp.PerpDot(ddp) // negative when bending right ie. curve is CW at this point
+	if Equal(a, 0.0) {
+		return math.NaN()
+	}
+	return math.Pow(dp.X*dp.X+dp.Y*dp.Y, 1.5) / a
+}
+
 // return the normal at the right-side of the curve (when increasing t)
 //func quadraticBezierNormal(p0, p1, p2 Point, t, d float64) Point {
 //	if t == 0.0 {
