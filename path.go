@@ -650,7 +650,6 @@ func (p *Path) direction(i int, t float64) Point {
 		return end.Sub(start).Norm(1.0)
 	case QuadToCmd:
 		cp := Point{p.d[i-5], p.d[i-4]}
-		fmt.Println(quadraticBezierCurvatureRadius(start, cp, end, t))
 		return quadraticBezierDeriv(start, cp, end, t).Norm(1.0)
 	case CubeToCmd:
 		cp1 := Point{p.d[i-7], p.d[i-6]}
@@ -661,7 +660,6 @@ func (p *Path) direction(i int, t float64) Point {
 		large, sweep := toArcFlags(p.d[i-4])
 		_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
 		theta := theta0 + t*(theta1-theta0)
-		fmt.Println(ellipseCurvatureRadius(rx, ry, sweep, theta))
 		return ellipseDeriv(rx, ry, phi, sweep, theta).Norm(1.0)
 	}
 	return Point{}
@@ -727,7 +725,7 @@ func (p *Path) CoordDirections() []Point {
 	return dirs
 }
 
-// curvature returns the curvature radius of the path at the given index into Path.d and t in [0.0,1.0]. Path must not contain subpaths, and will return the path's starting curvature when i points to a MoveToCmd, or the path's final curvature when i points to a CloseCmd of zero-length.
+// curvature returns the curvature of the path at the given index into Path.d and t in [0.0,1.0]. Path must not contain subpaths, and will return the path's starting curvature when i points to a MoveToCmd, or the path's final curvature when i points to a CloseCmd of zero-length.
 func (p *Path) curvature(i int, t float64) float64 {
 	last := len(p.d)
 	if p.d[last-1] == CloseCmd && (Point{p.d[last-cmdLen(CloseCmd)-3], p.d[last-cmdLen(CloseCmd)-2]}).Equals(Point{p.d[last-3], p.d[last-2]}) {
@@ -760,25 +758,25 @@ func (p *Path) curvature(i int, t float64) float64 {
 	end := Point{p.d[i-3], p.d[i-2]}
 	switch cmd {
 	case LineToCmd, CloseCmd:
-		return math.Inf(1.0)
+		return 0.0
 	case QuadToCmd:
 		cp := Point{p.d[i-5], p.d[i-4]}
-		return quadraticBezierCurvatureRadius(start, cp, end, t)
+		return 1.0 / quadraticBezierCurvatureRadius(start, cp, end, t)
 	case CubeToCmd:
 		cp1 := Point{p.d[i-7], p.d[i-6]}
 		cp2 := Point{p.d[i-5], p.d[i-4]}
-		return cubicBezierCurvatureRadius(start, cp1, cp2, end, t)
+		return 1.0 / cubicBezierCurvatureRadius(start, cp1, cp2, end, t)
 	case ArcToCmd:
 		rx, ry, phi := p.d[i-7], p.d[i-6], p.d[i-5]
 		large, sweep := toArcFlags(p.d[i-4])
 		_, _, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
 		theta := theta0 + t*(theta1-theta0)
-		return ellipseCurvatureRadius(rx, ry, sweep, theta)
+		return 1.0 / ellipseCurvatureRadius(rx, ry, sweep, theta)
 	}
 	return 0.0
 }
 
-// Curvature returns the curvature radius of the path at the given segment and t in [0.0,1.0] along that path. It is infinite for a straight line and zero for non-existing segments.
+// Curvature returns the curvature of the path at the given segment and t in [0.0,1.0] along that path. It is zero for straight lines and for non-existing segments.
 func (p *Path) Curvature(seg int, t float64) float64 {
 	if len(p.d) <= 4 {
 		return 0.0
@@ -837,11 +835,6 @@ func windings(zs []Intersection) (int, bool) {
 				n += d
 			}
 		} else {
-			if i+1 == len(zs) {
-				for i, z := range zs {
-					fmt.Println(i, z)
-				}
-			}
 			same := z.Same || zs[i+1].Same
 			if !same {
 				if z.Into() == zs[i+1].Into() {
@@ -905,7 +898,8 @@ func (p *Path) Contains(x, y float64, fillRule FillRule) bool {
 // CCW returns true when the path is counter clockwise oriented at its bottom-right-most
 // coordinate. It is most useful when knowing that the path does not self-intersect as it will
 // tell you if the entire path is CCW or not. It will only return the result for the first subpath.
-// It will return true for an empty path or a straight line.
+// It will return true for an empty path or a straight line. It may not return a valid value when
+// the right-most point happens to be a (self-)overlapping segment.
 func (p *Path) CCW() bool {
 	if len(p.d) <= 4 || (p.d[4] == LineToCmd || p.d[4] == CloseCmd) && len(p.d) <= 4+cmdLen(p.d[4]) {
 		// empty path or single straight segment
@@ -932,7 +926,6 @@ func (p *Path) CCW() bool {
 		}
 	}
 
-	// TODO: keep going forward/backwards for k and kPrev until both are not equally oriented
 	// get coordinates of previous and next segments
 	var kPrev int
 	if k == 4 {
@@ -948,6 +941,22 @@ func (p *Path) CCW() bool {
 		angleNext = Point{p.d[1], p.d[2]}.Sub(Point{p.d[k-3], p.d[k-2]}).Angle()
 	} else {
 		angleNext = p.direction(k, 0.0).Angle()
+	}
+	if Equal(anglePrev, angleNext) {
+		// segments have the same direction at their right-most point
+		// one or both are not straight lines, check if curvature is different
+		var curvNext float64
+		curvPrev := -p.curvature(kPrev, 1.0)
+		if k == kMax {
+			// use implicit close command
+			curvNext = 0.0
+		} else {
+			curvNext = p.curvature(k, 0.0)
+		}
+		if !Equal(curvPrev, curvNext) {
+			// ccw if curvNext is smaller than curvPrev
+			return curvNext < curvPrev
+		}
 	}
 	return (angleNext - anglePrev) < 0.0
 }
