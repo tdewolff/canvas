@@ -336,7 +336,7 @@ func xmonotoneEllipticArc(start Point, rx, ry, phi float64, large, sweep bool, e
 		t += sign * dt
 
 		pos := EllipsePos(rx, ry, phi, cx, cy, t)
-		p.ArcTo(rx, ry, phi*180.0/math.Pi, large, sweep, pos.X, pos.Y)
+		p.ArcTo(rx, ry, phi*180.0/math.Pi, false, sweep, pos.X, pos.Y)
 		left = !left
 	}
 	return p
@@ -449,6 +449,17 @@ func quadraticBezierDeriv2(p0, p1, p2 Point) Point {
 	p1 = p1.Mul(-4.0)
 	p2 = p2.Mul(2.0)
 	return p0.Add(p1).Add(p2)
+}
+
+// negative when curve bends CW while following t
+func quadraticBezierCurvatureRadius(p0, p1, p2 Point, t float64) float64 {
+	dp := quadraticBezierDeriv(p0, p1, p2, t)
+	ddp := quadraticBezierDeriv2(p0, p1, p2)
+	a := dp.PerpDot(ddp) // negative when bending right ie. curve is CW at this point
+	if Equal(a, 0.0) {
+		return math.NaN()
+	}
+	return math.Pow(dp.X*dp.X+dp.Y*dp.Y, 1.5) / a
 }
 
 // return the normal at the right-side of the curve (when increasing t)

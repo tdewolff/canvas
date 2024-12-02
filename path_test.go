@@ -275,6 +275,13 @@ func TestPathCCW(t *testing.T) {
 		{"A1 1 0 0 1 2 0", true},
 		{"A1 1 0 0 0 2 0", false},
 
+		// parallel on right-most endpoint
+		//{"L10 0L5 0L2.5 5z", true}, // TODO: overlapping segments?
+		{"L0 5L5 5A5 5 0 0 1 0 0z", false},
+		{"Q0 5 5 5A5 5 0 0 1 0 0z", false},
+		{"M0 10L0 5L5 5A5 5 0 0 0 0 10z", true},
+		{"M0 10Q0 5 5 5A5 5 0 0 0 0 10z", true},
+
 		// bugs
 		{"M0.31191406250000003 0.9650390625L0.3083984375 0.9724609375L0.3013671875 0.9724609375L0.29824218750000003 0.9646484375z", true},
 	}
