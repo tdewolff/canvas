@@ -29,6 +29,8 @@ require (
 	gonum.org/v1/plot v0.15.0
 )
 
+replace github.com/tdewolff/canvas => github.com/Seanld/canvas v1.0.1
+
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	fyne.io/systray v1.11.0 // indirect
