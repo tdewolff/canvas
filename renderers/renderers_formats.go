@@ -8,8 +8,8 @@ import (
 
 	"github.com/Kagami/go-avif"
 	webp "github.com/kolesa-team/go-webp/encoder"
-	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/renderers/rasterizer"
+	"github.com/Seanld/canvas"
+	"github.com/Seanld/canvas/renderers/rasterizer"
 )
 
 func WebP(opts ...interface{}) canvas.Writer {

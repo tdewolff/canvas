@@ -5,8 +5,8 @@ import (
 	"math"
 	"sort"
 
-	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/renderers"
+	"github.com/Seanld/canvas"
+	"github.com/Seanld/canvas/renderers"
 )
 
 func hue(col color.RGBA) float64 {

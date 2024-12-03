@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/tdewolff/canvas/text"
+	"github.com/Seanld/canvas/text"
 	"github.com/tdewolff/font"
 )
 

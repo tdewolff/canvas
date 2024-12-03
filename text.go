@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/tdewolff/canvas/text"
+	"github.com/Seanld/canvas/text"
 	"github.com/tdewolff/font"
 )
 

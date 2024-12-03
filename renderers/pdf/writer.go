@@ -15,8 +15,8 @@ import (
 	"time"
 	"unicode/utf16"
 
-	"github.com/tdewolff/canvas"
-	canvasText "github.com/tdewolff/canvas/text"
+	"github.com/Seanld/canvas"
+	canvasText "github.com/Seanld/canvas/text"
 	canvasFont "github.com/tdewolff/font"
 	"golang.org/x/text/encoding/charmap"
 )

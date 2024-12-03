@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/tdewolff/canvas/text"
+	"github.com/Seanld/canvas/text"
 )
 
 func loadFont(name string, style FontStyle) ([]byte, error) {

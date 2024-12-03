@@ -5,7 +5,7 @@ package renderers
 import (
 	"fmt"
 
-	"github.com/tdewolff/canvas"
+	"github.com/Seanld/canvas"
 )
 
 // WebP returns a Webp writer that uses libwebp and accepts the following options: canvas.Resolution, canvas.Colorspace, github.com/kolesa-team/go-webp/encoder.*Options

@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
-	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/renderers/tex"
+	"github.com/Seanld/canvas"
+	"github.com/Seanld/canvas/renderers/tex"
 )
 
 func main() {

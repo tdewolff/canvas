@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
-	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/renderers/rasterizer"
+	"github.com/Seanld/canvas"
+	"github.com/Seanld/canvas/renderers/rasterizer"
 )
 
 // OpenGL is an open graphics library renderer.
