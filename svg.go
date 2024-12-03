@@ -831,7 +831,6 @@ func (svg *svgParser) toPath(tag string, attrs map[string]string) (x float64, y 
 		if err != nil && svg.err == nil {
 			svg.err = parse.NewErrorLexer(svg.z, "bad path: %w", err)
 		}
-		x, y = 0, 0
 	case "polygon", "polyline":
 		path = &Path{}
 		points := svg.parsePoints(attrs["points"])
@@ -845,7 +844,6 @@ func (svg *svgParser) toPath(tag string, attrs map[string]string) (x float64, y 
 		if tag == "polygon" {
 			path.Close()
 		}
-		x, y = 0, 0
 	case "line":
 		x1 := svg.parseDimension(attrs["x1"], svg.width)
 		y1 := svg.parseDimension(attrs["y1"], svg.height)
@@ -886,6 +884,7 @@ func (svg *svgParser) drawShape(tag string, attrs map[string]string) {
 
 type SVGPath struct {
 	Tag string
+	X, Y float64
 	*Path
 }
 
@@ -970,6 +969,8 @@ func parseSVGFull(r io.Reader) (*Canvas, []SVGPath, error) {
 				svg.ctx.DrawPath(pathX, pathY, path)
 				paths = append(paths, SVGPath{
 					Tag: tag,
+					X: pathX,
+					Y: pathY,
 					Path: path,
 				})
 			}
