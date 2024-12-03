@@ -884,6 +884,7 @@ func (svg *svgParser) drawShape(tag string, attrs map[string]string) {
 
 type SVGPath struct {
 	Tag string
+	Attrs map[string]string
 	X, Y float64
 	*Path
 }
@@ -967,8 +968,21 @@ func parseSVGFull(r io.Reader) (*Canvas, []SVGPath, error) {
 			if path != nil {
 				// draw shapes such as circles, paths, etc.
 				svg.ctx.DrawPath(pathX, pathY, path)
+
+				// Copy tag attributes map, excluding `d` which is where
+				// path data is stored. Since the path is already returned as
+				// `*Path`, there's not much point to returning `d`, and for
+				// large/many paths it can be wasteful of memory to return it.
+				attrsNoD := map[string]string{}
+				for key, value := range attrs {
+					if key != "d" {
+						attrsNoD[key] = value
+					}
+				}
+
 				paths = append(paths, SVGPath{
 					Tag: tag,
+					Attrs: attrsNoD,
 					X: pathX,
 					Y: pathY,
 					Path: path,
