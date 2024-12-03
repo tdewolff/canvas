@@ -1,4 +1,4 @@
-module github.com/tdewolff/canvas
+module github.com/Seanld/canvas
 
 go 1.22.0
 
