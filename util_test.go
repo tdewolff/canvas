@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"math/rand"
 	"testing"
 
 	"github.com/tdewolff/test"
@@ -367,4 +368,48 @@ func TestInvSpeedPolynomialApprox(t *testing.T) {
 	//test.Float(t, f(0.0), 0.0)
 	//test.That(t, math.Abs(f(40.051641)-2.0*math.Pi) < 0.01)
 	//test.That(t, math.Abs(f(10.3539)-math.Pi) < 1.0)
+}
+
+var equalValues []float64
+
+func genFloat64s(n int) []float64 {
+	v := make([]float64, n)
+	for i := 0; i < n; i++ {
+		v[i] = rand.Float64()
+	}
+	return v
+}
+
+func BenchmarkEqualAbs(b *testing.B) {
+	N := 1000
+	if equalValues == nil {
+		equalValues = genFloat64s(N)
+		b.ResetTimer()
+	}
+	a := 0.5
+	for i := 0; i < b.N; i++ {
+		for j := 0; j < N; j++ {
+			b := equalValues[j]
+			_ = math.Abs(a-b) <= Epsilon
+		}
+	}
+}
+
+func BenchmarkEqualIfElse(b *testing.B) {
+	N := 1000
+	if equalValues == nil {
+		equalValues = genFloat64s(N)
+		b.ResetTimer()
+	}
+	a := 0.5
+	for i := 0; i < b.N; i++ {
+		for j := 0; j < N; j++ {
+			b := equalValues[j]
+			if a < b {
+				_ = b-a <= Epsilon
+			} else {
+				_ = a-b <= Epsilon
+			}
+		}
+	}
 }

@@ -21,7 +21,12 @@ var Precision = 8
 
 // Equal returns true if a and b are equal within an absolute tolerance of Epsilon or within a relative tolerance of Epsilon (relative to the largest of the two).
 func Equal(a, b float64) bool {
-	return math.Abs(a-b) <= Epsilon // this is much quicker
+	// avoid math.Abs
+	if a < b {
+		return b-a <= Epsilon
+	}
+	return a-b <= Epsilon
+	//return math.Abs(a-b) <= Epsilon // this is much quicker
 
 	// See https://floating-point-gui.de/errors/comparison/ and
 	// https://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/

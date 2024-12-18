@@ -121,14 +121,16 @@ This is a non-exhaustive list of library users I've come across. PRs are welcome
 
 #### Papers
 
-- [M. Walter, A. Fournier, Approximate Arc Length Parametrization, Anais do IX SIBGRAPHI (1996), p. 143--150](https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf)
-- [T.F. Hain, et al., Fast, precise flattening of cubic Bézier path and offset curves, Computers & Graphics 29 (2005). p. 656--666](https://doi.org/10.1016/j.cag.2005.08.002)
-- [M. Goldapp, Approximation of circular arcs by cubic polynomials, Computer Aided Geometric Design 8 (1991), p. 227--238](https://doi.org/10.1016/0167-8396%2891%2990007-X)
-- [L. Maisonobe, Drawing and elliptical arc using polylines, quadratic or cubic Bézier curves (2003)](https://spaceroots.org/documents/ellipse/elliptical-arc.pdf)
-- [S.H. Kim and Y.J. Ahn, An approximation of circular arcs by quartic Bezier curves, Computer-Aided Design 39 (2007, p. 490--493)](https://doi.org/10.1016/j.cad.2007.01.004)
+- [M. Walter, A. Fournier, "Approximate Arc Length Parametrization", Anais do IX SIBGRAPHI (1996), p. 143--150](https://www.visgraf.impa.br/sibgrapi96/trabs/pdf/a14.pdf)
+- [T.F. Hain, et al., "Fast, precise flattening of cubic Bézier path and offset curves", Computers & Graphics 29 (2005). p. 656--666](https://doi.org/10.1016/j.cag.2005.08.002)
+- [M. Goldapp, "Approximation of circular arcs by cubic polynomials", Computer Aided Geometric Design 8 (1991), p. 227--238](https://doi.org/10.1016/0167-8396%2891%2990007-X)
+- [L. Maisonobe, "Drawing and elliptical arc using polylines, quadratic or cubic Bézier curves" (2003)](https://spaceroots.org/documents/ellipse/elliptical-arc.pdf)
+- [S.H. Kim and Y.J. Ahn, "An approximation of circular arcs by quartic Bezier curves", Computer-Aided Design 39 (2007, p. 490--493)](https://doi.org/10.1016/j.cad.2007.01.004)
 - D.E. Knuth and M.F. Plass, Breaking Paragraphs into Lines, Software: Practice and Experience 11 (1981), p. 1119--1184
 - L. Subramaniam, Partition of a non-simple polygon into simple polygons, 2003
-- [A simple algorithm for Boolean operations on polygons](https://doi.org/10.1016/j.advengsoft.2013.04.004)
+- [F. Martínez, et al., "A simple algorithm for Boolean operations on polygons"](https://doi.org/10.1016/j.advengsoft.2013.04.004)
+- [J.D. Hobby, "Practical segment intersection with ﬁnite precision output", Computational Geometry (1997)](https://doi.org/10.1016/S0925-7721%2899%2900021-8)
+- [J. Hershberger, "Stable snap rounding", Computational Geometry: Theory and Applications, 2013](https://doi.org/10.1016/j.comgeo.2012.02.011)
 
 ## License
 
