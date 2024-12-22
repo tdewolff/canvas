@@ -90,6 +90,7 @@ const (
 	//opDivide // TODO
 )
 
+var nn0, nn1 int
 var boPointPool *sync.Pool
 var boNodePool *sync.Pool
 var boInitPoolsOnce = sync.OnceFunc(func() {
@@ -178,35 +179,7 @@ type SweepPoint struct {
 	processed  bool // written to final path
 }
 
-func (s SweepPoint) Left() Point {
-	if s.left {
-		return s.Point
-	}
-	return s.other.Point
-}
-
-func (s SweepPoint) Right() Point {
-	if s.left {
-		return s.other.Point
-	}
-	return s.Point
-}
-
-func (s SweepPoint) Start() Point {
-	if s.left == s.increasing {
-		return s.Point
-	}
-	return s.other.Point
-}
-
-func (s SweepPoint) End() Point {
-	if s.left == s.increasing {
-		return s.other.Point
-	}
-	return s.Point
-}
-
-func (s SweepPoint) InterpolateY(x float64) float64 {
+func (s *SweepPoint) InterpolateY(x float64) float64 {
 	t := (x - s.X) / (s.other.X - s.X)
 	return s.Interpolate(s.other.Point, t).Y
 }
@@ -229,12 +202,21 @@ func (s *SweepPoint) ToleranceEdgeY(xLeft, xRight float64) (float64, float64) {
 	return y0, y1
 }
 
-func (s SweepPoint) String() string {
+func (s *SweepPoint) Reverse() {
+	s.left, s.other.left = !s.left, s.left
+	s.increasing, s.other.increasing = !s.increasing, !s.increasing
+}
+
+func (s *SweepPoint) String() string {
 	path := "P"
 	if s.clipping {
 		path = "Q"
 	}
-	return fmt.Sprintf("%s(%v−%v)", path, s.Point, s.other.Point)
+	arrow := "→"
+	if !s.left {
+		arrow = "←"
+	}
+	return fmt.Sprintf("%s(%v%v%v)", path, s.Point, arrow, s.other.Point)
 }
 
 // SweepEvents is a heap priority queue of sweep events.
@@ -284,6 +266,7 @@ func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
 		if vertical {
 			increasing = start.Y < end.Y
 		}
+		nn0 += 2
 		a := boPointPool.Get().(*SweepPoint)
 		b := boPointPool.Get().(*SweepPoint)
 		*a = SweepPoint{
@@ -378,8 +361,9 @@ func (q SweepEvents) Print(w io.Writer) {
 		q.down(0, n)
 		n--
 	}
+	width := int(math.Log10(float64(len(q)-1))) + 1
 	for k := len(q) - 1; 0 <= k; k-- {
-		fmt.Fprintln(w, len(q)-1-k, q[k])
+		fmt.Fprintf(w, "%*d %v\n", width, len(q)-1-k, q[k])
 	}
 	return
 }
@@ -498,15 +482,17 @@ func (a *SweepNode) rotateRight() *SweepNode {
 
 func (n *SweepNode) Print(w io.Writer, indent int) {
 	if n.right != nil {
+		fmt.Fprintf(w, "%v ↱", strings.Repeat("  ", indent))
 		n.right.Print(w, indent+1)
 	} else if n.left != nil {
-		fmt.Fprintf(w, "%vnil\n", strings.Repeat("  ", indent+1))
+		fmt.Fprintf(w, "%v ↱nil\n", strings.Repeat("  ", indent))
 	}
-	fmt.Fprintf(w, "%v%v\n", strings.Repeat("  ", indent), n.SweepPoint)
+	fmt.Fprintf(w, "%v\n", n.SweepPoint)
 	if n.left != nil {
+		fmt.Fprintf(w, "%v ↳", strings.Repeat("  ", indent))
 		n.left.Print(w, indent+1)
 	} else if n.right != nil {
-		fmt.Fprintf(w, "%vnil\n", strings.Repeat("  ", indent+1))
+		fmt.Fprintf(w, "%v ↳nil\n", strings.Repeat("  ", indent))
 	}
 }
 
@@ -516,6 +502,7 @@ type SweepStatus struct {
 }
 
 func (s *SweepStatus) newNode(item *SweepPoint) *SweepNode {
+	nn1++
 	n := boNodePool.Get().(*SweepNode)
 	n.parent = nil
 	n.left = nil
@@ -530,6 +517,7 @@ func (s *SweepStatus) returnNode(n *SweepNode) {
 	n.SweepPoint.node = nil
 	n.SweepPoint = nil // help the GC
 	boNodePool.Put(n)
+	nn1--
 }
 
 func (s *SweepStatus) find(item *SweepPoint) (*SweepNode, int) {
@@ -790,16 +778,16 @@ func (s *SweepStatus) Clear() {
 	for n != nil {
 		cur := n
 		n = n.Next()
-		boNodePool.Put(cur)
+		s.returnNode(cur)
 	}
 	s.root = nil
 }
 
 func (a *SweepPoint) LessH(b *SweepPoint) bool {
 	// used for sweep queue
-	if !Equal(a.X, b.X) {
+	if a.X != b.X {
 		return a.X < b.X // sort left to right
-	} else if !Equal(a.Y, b.Y) {
+	} else if a.Y != b.Y {
 		return a.Y < b.Y // then bottom to top
 	} else if a.left != b.left {
 		return b.left // handle right-endpoints before left-endpoints
@@ -839,7 +827,7 @@ func (a *SweepPoint) compareTangentsV(b *SweepPoint) int {
 		// a is vertical
 		if b.vertical {
 			// a and b are vertical
-			if Equal(a.Y, b.Y) {
+			if a.Y == b.Y {
 				return sign * a.compareOverlapsV(b)
 			} else if a.Y < b.Y {
 				return -1
@@ -855,7 +843,7 @@ func (a *SweepPoint) compareTangentsV(b *SweepPoint) int {
 
 	if a.left && a.other.X < b.other.X || !a.left && b.other.X < a.other.X {
 		by := b.InterpolateY(a.other.X) // b's y at a's other
-		if Equal(a.other.Y, by) {
+		if a.other.Y == by {
 			return sign * a.compareOverlapsV(b)
 		} else if a.other.Y < by {
 			return sign * -1
@@ -864,7 +852,7 @@ func (a *SweepPoint) compareTangentsV(b *SweepPoint) int {
 		}
 	} else {
 		ay := a.InterpolateY(b.other.X) // a's y at b's other
-		if Equal(ay, b.other.Y) {
+		if ay == b.other.Y {
 			return sign * a.compareOverlapsV(b)
 		} else if ay < b.other.Y {
 			return sign * -1
@@ -875,9 +863,10 @@ func (a *SweepPoint) compareTangentsV(b *SweepPoint) int {
 }
 
 func (a *SweepPoint) compareV(b *SweepPoint) int {
-	// compare segments vertically at a.X and b.X <= a.X
+	// compare segments vertically at a.X and b.X < a.X
+	// note that by may be infinite/large for fully/nearly vertical segments
 	by := b.InterpolateY(a.X) // b's y at a's left
-	if Equal(a.Y, by) {
+	if a.Y == by {
 		return a.compareTangentsV(b)
 	} else if a.Y < by {
 		return -1
@@ -888,9 +877,9 @@ func (a *SweepPoint) compareV(b *SweepPoint) int {
 
 func (a *SweepPoint) CompareV(b *SweepPoint) int {
 	// used for sweep status, a is the point to be inserted / found
-	if Equal(a.X, b.X) {
+	if a.X == b.X {
 		// left-point at same X
-		if Equal(a.Y, b.Y) {
+		if a.Y == b.Y {
 			// left-point the same
 			return a.compareTangentsV(b)
 		} else if a.Y < b.Y {
@@ -909,9 +898,9 @@ func (a *SweepPoint) CompareV(b *SweepPoint) int {
 
 type SweepPointPair [2]*SweepPoint
 
-func compareIntersections(a, b Intersection) int {
-	if Equal(a.X, b.X) {
-		if Equal(a.Y, b.Y) {
+func compareIntersections(a, b Point) int {
+	if a.X == b.X {
+		if a.Y == b.Y {
 			return 0
 		} else if a.Y < b.Y {
 			return -1
@@ -933,26 +922,16 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, a
 		return
 	}
 
+	if !a.left || !b.left {
+		fmt.Println("WARNING: a/b not left")
+	}
+
 	// find all intersections between segment pair
 	// this returns either no intersections, or one or more secant/tangent intersections,
 	// or exactly two "same" intersections which occurs when the segments overlap.
-	zs_ := [2]Intersection{}
+	zs_ := [2]Point{}
 	zs := zs_[:]
-	zs = intersectionLineLine(zs[:0], a.Start(), a.End(), b.Start(), b.End())
-
-	// snap intersections to grid to avoid numerical issues and clean up intersections outside
-	// one of the segments, this may happen for nearly parallel lines for example
-	for i, z := range zs {
-		if z.T[0] != 0.0 && z.T[0] != 1.0 && z.T[1] != 0.0 && z.T[1] != 1.0 {
-			if !a.vertical && (z.X < a.X || a.other.X < z.X) || a.vertical && (z.Y < a.Y || a.other.Y < z.Y) || !b.vertical && (z.X < b.X || b.other.X < z.X) || b.vertical && (z.Y < b.Y || b.other.Y < z.Y) {
-
-				fmt.Println("WARNING: superfluous: removing intersection", zs[i], "between", a, b)
-				zs = append(zs[:i], zs[i+1:]...)
-				i--
-			}
-			continue
-		}
-	}
+	zs = intersectionLineLineBentleyOttmann(zs[:0], a.Point, a.other.Point, b.Point, b.other.Point)
 
 	// no (valid) intersections
 	if len(zs) == 0 {
@@ -960,31 +939,87 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, a
 		return
 	}
 
+	// Non vertical but downward sloped segments may become vertical upon intersection due to
+	// floating point rounding and limited precision. We must make sure that the first segment
+	// after breaking up at the intersection remains as-is (its left-endpoint was already popped
+	// off the queue), but the second segment may become vertical and thus be reversed in direction
+
+	aMinY, aMaxY := a.Y, a.other.Y
+	if aMaxY < aMinY {
+		aMinY, aMaxY = aMaxY, aMinY
+	}
+	bMinY, bMaxY := b.Y, b.other.Y
+	if bMaxY < bMinY {
+		bMinY, bMaxY = bMaxY, bMinY
+	}
+	for _, z := range zs {
+		fmt.Println("INTERSECTION", a, b, "--", z)
+		if z.X < a.X {
+			fmt.Println("WARNING: ax0", a, b, "at", z)
+		} else if a.other.X < z.X {
+			fmt.Println("WARNING: ax1", a, b, "at", z)
+		} else if a.X != a.other.X && (z.X == a.X || z.X == a.other.X) && (z.Y != a.Y && z.Y != a.other.Y) {
+			fmt.Println("WARNING: ay", a, b, "at", z)
+		}
+		if z.X < b.X {
+			fmt.Println("WARNING: b", a, b, "at", z)
+		} else if b.other.X < z.X {
+			fmt.Println("WARNING: b.other", a, b, "at", z)
+		} else if b.X != b.other.X && (z.X == b.X || z.X == b.other.X) && (z.Y != b.Y && z.Y != b.other.Y) {
+			fmt.Println("WARNING: by", a, b, "at", z)
+		}
+
+		if z.Y < aMinY {
+			fmt.Println("WARNING: a2", a, b, "at", z)
+		} else if aMaxY < z.Y {
+			fmt.Println("WARNING: a2.other", a, b, "at", z)
+		}
+		if z.Y < bMinY {
+			fmt.Println("WARNING: b2", a, b, "at", z)
+		} else if bMaxY < z.Y {
+			fmt.Println("WARNING: b2.other", a, b, "at", z)
+		}
+	}
+
 	// sort intersections from left to right
-	slices.SortFunc(zs, compareIntersections)
+	if !slices.IsSortedFunc(zs, compareIntersections) {
+		fmt.Println("WARNING: intersections not sorted")
+		slices.SortFunc(zs, compareIntersections)
+	}
 
 	// handle a
-	aLefts := []*SweepPoint{a}
+	aLefts_ := [2]*SweepPoint{a, nil} // there is only one non-tangential intersection
+	aLefts := aLefts_[:]
 	aPrevLeft, aLastRight := a, a.other
 	for _, z := range zs {
-		if z.T[0] == 0.0 || z.T[0] == 1.0 {
+		if z == a.Point || z == aLastRight.Point {
 			// ignore tangent intersections at the endpoints
 			continue
 		}
 
 		// split segment at intersection
-		aRight, aLeft := *a.other, *a
-		aRight.Point = z.Point
-		aLeft.Point = z.Point
+		nn0 += 2
+		aRight := boPointPool.Get().(*SweepPoint)
+		aLeft := boPointPool.Get().(*SweepPoint)
+		*aRight, *aLeft = *a.other, *a
+		aRight.Point = z
+		aLeft.Point = z
 
 		// update references
-		aPrevLeft.other, aRight.other = &aRight, aPrevLeft
+		aPrevLeft.other, aRight.other = aRight, aPrevLeft
+
+		// reverse direction if necessary, see note above
+		if a.X < aLastRight.X && aLastRight.Y < a.Y && z.X == aLastRight.X {
+			fmt.Println("NOTE: REVERSING DIRECTION for", aLeft)
+			aLeft.Reverse()
+			aLeft.vertical = true
+		}
 
 		// add to queue
-		queue.Push(&aRight)
-		queue.Push(&aLeft)
-		aLefts = append(aLefts, &aLeft)
-		aPrevLeft = &aLeft
+		queue.Push(aRight)
+		queue.Push(aLeft)
+		aLefts = append(aLefts, aLeft)
+		aPrevLeft = aLeft
 	}
 	aPrevLeft.other, aLastRight.other = aLastRight, aPrevLeft
 
@@ -994,26 +1029,36 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, a
 	}
 	bPrevLeft, bLastRight := b, b.other
 	for _, z := range zs {
-		if z.T[1] == 0.0 || z.T[1] == 1.0 {
+		if z == b.Point || z == bLastRight.Point {
 			// ignore tangent intersections at the endpoints
 			continue
 		}
 
 		// split segment at intersection
-		bRight, bLeft := *b.other, *b
-		bRight.Point = z.Point
-		bLeft.Point = z.Point
+		nn0 += 2
+		bRight := boPointPool.Get().(*SweepPoint)
+		bLeft := boPointPool.Get().(*SweepPoint)
+		*bRight, *bLeft = *b.other, *b
+		bRight.Point = z
+		bLeft.Point = z
 
 		// update references
-		bPrevLeft.other, bRight.other = &bRight, bPrevLeft
+		bPrevLeft.other, bRight.other = bRight, bPrevLeft
+
+		// reverse direction if necessary, see note above
+		if b.X < bLastRight.X && bLastRight.Y < b.Y && z.X == bLastRight.X {
+			fmt.Println("NOTE: REVERSING DIRECTION for", bLeft)
+			bLeft.Reverse()
+			bLeft.vertical = true
+		}
 
 		// add to queue
-		queue.Push(&bRight)
-		queue.Push(&bLeft)
+		queue.Push(bRight)
+		queue.Push(bLeft)
 		for _, a := range aLefts {
-			handled[SweepPointPair{a, &bLeft}] = struct{}{}
+			handled[SweepPointPair{a, bLeft}] = struct{}{}
 		}
-		bPrevLeft = &bLeft
+		bPrevLeft = bLeft
 	}
 	bPrevLeft.other, bLastRight.other = bLastRight, bPrevLeft
 }
@@ -1072,14 +1117,22 @@ func (s *SweepPoint) InResult(op pathOp, fillRule FillRule) bool {
 }
 
 type toleranceSquare struct {
-	X, Y       float64       // snapped value
-	Events     []*SweepPoint // all events in this square
-	Prev, Next *SweepNode    // lowest and highest node within square (or outside if none cross)
+	X, Y   float64       // snapped value
+	Events []*SweepPoint // all events in this square
+
+	// reference node inside or near the square
+	// after breaking up segments, this is the previous node (ie. completely below the square)
+	Node *SweepNode
+
+	// lower and upper node crossing this square
+	Lower, Upper *SweepNode
 }
 
 type toleranceSquares []toleranceSquare
 
 func (squares *toleranceSquares) find(x, y float64) (int, bool) {
+	// find returns the index of the square at or above (x,y) (or len(squares) if above all)
+	// the bool indicates if the square exists, otherwise insert a new square at that index
 	for i := len(*squares) - 1; 0 <= i; i-- {
 		if (*squares)[i].X < x || (*squares)[i].Y < y {
 			return i + 1, false
@@ -1090,26 +1143,38 @@ func (squares *toleranceSquares) find(x, y float64) (int, bool) {
 	return 0, false
 }
 
-func (squares *toleranceSquares) Add(x float64, event *SweepPoint, prev *SweepNode) {
+func (squares *toleranceSquares) Add(x float64, event *SweepPoint, refNode *SweepNode) {
+	// refNode is always the node itself for left-endpoints, and otherwise the previous node (ie.
+	// the node below) of a right-endpoint, or the next (ie. above) node if the previous is nil.
+	// It may be inside or outside the right edge of the square. If outside, it is the first such
+	// segment going upwards/downwards from the square (and not just any segment).
 	y := snap(event.Y, BentleyOttmannEpsilon)
-	if low, ok := squares.find(x, y); !ok {
+	fmt.Println("set refNode", x, y, "=>", refNode)
+	if idx, ok := squares.find(x, y); !ok {
 		// create new tolerance square
 		square := toleranceSquare{
 			X:      x,
 			Y:      y,
-			Prev:   prev,
+			Node:   refNode,
 			Events: []*SweepPoint{event},
 		}
-		event.index = len(*squares)
-		*squares = append((*squares)[:low], append(toleranceSquares{square}, (*squares)[low:]...)...)
+		*squares = append((*squares)[:idx], append(toleranceSquares{square}, (*squares)[idx:]...)...)
 	} else {
 		// insert into existing tolerance square
-		if prev != nil && ((*squares)[low].Prev == nil || (*squares)[low].Prev.SweepPoint == nil) {
-			// replace lowest node if it has ended
-			(*squares)[low].Prev = prev
+		(*squares)[idx].Node = refNode
+		(*squares)[idx].Events = append((*squares)[idx].Events, event)
+	}
+
+	// (nearly) vertical segments may still be used as the reference segment for squares around
+	// in that case, replace with the new reference node (above or below that segment)
+	if !event.left {
+		orig := event.other.node
+		for i := len(*squares) - 1; 0 <= i && (*squares)[i].X == x; i-- {
+			if (*squares)[i].Node == orig {
+				(*squares)[i].Node = refNode
+				fmt.Println("upt refNode", (*squares)[i].X, (*squares)[i].Y, "=>", refNode)
+			}
 		}
-		event.index = low
-		(*squares)[low].Events = append((*squares)[low].Events, event)
 	}
 }
 
@@ -1119,21 +1184,25 @@ func (event *SweepPoint) breakupSegment(events *[]*SweepPoint, index int, x, y f
 		// segment starts or ends in tolerance square, don't break up
 		return
 	}
+	fmt.Println("BREAKUP", event, "at", x, y)
 
 	// original segment should be kept in-place to not alter the queue or status
-	eventR, eventL := *event.other, *event
-	eventR.X, eventR.Y = x, y
-	eventL.X, eventL.Y = x, y
-	eventL.other, event.other.other = event.other, &eventL
-	eventR.other, event.other = event, &eventR
-	eventR.index, eventL.index = index, index
+	nn0 += 2
+	right := boPointPool.Get().(*SweepPoint)
+	left := boPointPool.Get().(*SweepPoint)
+	*right, *left = *event.other, *event
+	right.X, right.Y = x, y
+	left.X, left.Y = x, y
+	left.other, event.other.other = event.other, left
+	right.other, event.other = event, right
+	right.index, left.index = index, index
 
 	if event.node != nil {
-		eventL.node.SweepPoint = &eventL
+		left.node.SweepPoint = left
 		event.node = nil
 	}
 
-	*events = append(*events, &eventR, &eventL)
+	*events = append(*events, right, left)
 }
 
 func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
@@ -1144,44 +1213,83 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 
 	// scan squares bottom to top
 	for i := n; i < len(squares); i++ {
-		square := squares[i]
+		square := &squares[i] // take address to make changes persistent
+
+		// be aware that a tolerance square is inclusive of the left and bottom edge
+		// and only the bottom-left corner
 		yTop, yBottom := square.Y+BentleyOttmannEpsilon/2.0, square.Y-BentleyOttmannEpsilon/2.0
 
-		// from reference node find the lower segment that enters the square from the left/bottom
-		if square.Prev != nil && square.Prev.SweepPoint != nil {
-			// reference node may not be the lowest segment in the square
-			for prev := square.Prev.Prev(); prev != nil; prev = prev.Prev() {
-				y0, y1 := prev.ToleranceEdgeY(x0, x1)
-				if yBottom <= y0 || yBottom < y1 { // exclusive for bottom-right corner
-					square.Prev = prev
-				} else {
-					break
+		// from reference node find the previous/lower/upper segments for this square
+		// the reference node may be any of the segments that cross the right-edge of the square,
+		// or the first segment below or above the right-edge of the square
+		if square.Node != nil {
+			if square.Node.SweepPoint == nil {
+				fmt.Println("WARNING: node.SweepPoint is nil for square", i, "--", x, square.Y)
+			}
+
+			y0, y1 := square.Node.ToleranceEdgeY(x0, x1)
+			below, above := y0 < yBottom && y1 <= yBottom, yTop <= y0 && yTop <= y1
+			if !below && !above {
+				// reference node is inside the square
+				square.Lower, square.Upper = square.Node, square.Node
+			}
+
+			// find upper node
+			if !above {
+				for next := square.Node.Next(); next != nil; next = next.Next() {
+					y0, y1 := next.ToleranceEdgeY(x0, x1)
+					if yTop <= y0 && yTop <= y1 {
+						break
+					}
+					square.Upper = next
+					if square.Lower == nil {
+						// this is set if the reference node is below the square
+						square.Lower = next
+					}
 				}
 			}
-		} else {
-			// there may be no segments (anymore)
-			squares[i].Prev, square.Prev = nil, nil
+
+			// find lower node and set reference node to the node completely below the square
+			if !below {
+				prev := square.Node.Prev()
+				for ; prev != nil; prev = prev.Prev() {
+					y0, y1 := prev.ToleranceEdgeY(x0, x1)
+					if y0 < yBottom && y1 <= yBottom { // exclusive for bottom-right corner
+						break
+					}
+					square.Lower = prev
+					if square.Upper == nil {
+						// this is set if the reference node is above the square
+						square.Upper = prev
+					}
+				}
+				square.Node = prev
+			}
 		}
+		fmt.Println("square", i, "--", x, square.Y, "--", square.Lower, square.Upper, "prev", square.Node)
 
 		// find all segments that cross the tolerance square upwards or horizontally
 		// first find all segments that extend to the right (they are in the sweepline status)
-		for next := square.Prev; next != nil; next = next.Next() {
-			y0, y1 := next.ToleranceEdgeY(x0, x1)
-			if y0 < yTop && yBottom < y1 {
-				next.breakupSegment(&squares[i].Events, i, x, square.Y)
-			} else if yTop <= y1 {
-				break
+		if square.Lower != nil {
+			for node := square.Lower; ; node = node.Next() {
+				y0, y1 := node.ToleranceEdgeY(x0, x1)
+				if y0 < yTop && yBottom < y1 {
+					node.breakupSegment(&squares[i].Events, i, x, square.Y)
+				}
+				if node == square.Upper {
+					break
+				}
 			}
-			square.Next = next
 		}
 
 		// then find other segments in the square below that may cross into this square
-		// these can only be right-endpoints in those squares
+		// these can only be right-endpoints in those squares and are downwards sloped
 		if n < i {
-			for k := len(squares[i-1].Events) - 1; 0 <= k; k-- {
-				if event := squares[i-1].Events[k]; !event.left && yBottom < event.other.Y {
-					_, y1 := event.ToleranceEdgeY(x0, x1)
-					if yBottom < y1 {
+			for _, event := range squares[i-1].Events {
+				if !event.left && yBottom <= event.other.Y {
+					// right-endpoint in square below with its left-endpoint above yBottom
+					y0, _ := event.ToleranceEdgeY(x0, x1)
+					if yBottom <= y0 {
 						event.breakupSegment(&squares[i].Events, i, x, square.Y)
 					}
 				}
@@ -1191,25 +1299,30 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 
 	// scan squares top to bottom
 	for i := len(squares) - 1; n <= i; i-- {
-		square := squares[i]
+		square := &squares[i]
 		yTop := square.Y + BentleyOttmannEpsilon/2.0
 
 		// find all segments that cross the tolerance square from above
-		for prev := square.Next; prev != nil; prev = prev.Prev() {
-			y0, _ := prev.ToleranceEdgeY(x0, x1)
-			if y0 < yTop {
-				break
+		if square.Upper != nil {
+			for node := square.Upper; ; node = node.Prev() {
+				y0, y1 := node.ToleranceEdgeY(x0, x1)
+				if yTop <= y0 && y1 < yTop {
+					node.breakupSegment(&squares[i].Events, i, x, square.Y)
+				}
+				if node == square.Lower {
+					break
+				}
 			}
-			prev.breakupSegment(&squares[i].Events, i, x, square.Y)
 		}
 
 		// then find other segments in the square above that may cross into this square
-		// these can only be right-endpoints in those squares
+		// these can only be right-endpoints in those squares and are upwards sloped
 		if i+1 < len(squares) {
-			for k := 0; k < len(squares[i+1].Events); k++ {
-				if event := squares[i+1].Events[k]; !event.left && event.other.Y < yTop {
-					_, y1 := event.ToleranceEdgeY(x0, x1)
-					if y1 < yTop {
+			for _, event := range squares[i+1].Events {
+				if !event.left && event.other.Y < yTop {
+					// right-endpoint in square above with its left-endpoint below yTop
+					y0, _ := event.ToleranceEdgeY(x0, x1)
+					if y0 < yTop {
 						event.breakupSegment(&squares[i].Events, i, x, square.Y)
 					}
 				}
@@ -1374,6 +1487,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 	// - Handle segments that are now overlapping for all right-endpoints.
 	// Note that we must be careful with vertical segments.
 
+	nn0, nn1 = 0, 0
 	boInitPoolsOnce() // use pools for SweepPoint and SweepNode to amortize repeated calls to BO
 
 	// return in case of one path is empty
@@ -1503,19 +1617,35 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 		// process all events of the current column
 		n := len(squares)
 		x := snap(queue.Top().X, BentleyOttmannEpsilon)
+		fmt.Println("----")
+		fmt.Println("X", x)
+		fmt.Println(queue)
 		for 0 < len(*queue) && snap(queue.Top().X, BentleyOttmannEpsilon) == x {
 			event := queue.Top()
+			fmt.Println()
+			fmt.Println("event:", event)
+			// TODO: breaking intersections into two right and two left endpoints is not the most
+			// efficient. We could keep an intersection-type event and simply swap the order of the
+			// segments in status (note there can be multiple segments crossing in one point). This
+			// would alleviate a 2*m*log(n) search in status to remove/add the segments (m number
+			// of intersections in one point, and n number of segments in status), and instead use
+			// an m/2 number of swap operations. This alleviates pressure on the CompareV method.
 			if !event.left {
 				queue.Pop()
 
 				n := event.other.node
 				if n == nil {
 					fmt.Println("WARNING: right-endpoint not part of status, probably buggy intersection code")
+					boPointPool.Put(event)
+					nn0--
 					continue
 				} else if n.SweepPoint == nil {
 					// this may happen if the left-endpoint is to the right of the right-endpoint for some reason
 					// usually due to a bug in the segment intersection code
 					fmt.Println("WARNING: other endpoint already removed, probably buggy intersection code")
+					fmt.Println(event)
+					boPointPool.Put(event)
+					nn0--
 					continue
 				}
 
@@ -1527,7 +1657,12 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				}
 
 				// add event to tolerance square
-				squares.Add(x, event, prev)
+				if prev != nil {
+					squares.Add(x, event, prev)
+				} else {
+					// next can be nil
+					squares.Add(x, event, next)
+				}
 
 				// remove event from sweep status
 				status.Remove(n)
@@ -1549,52 +1684,68 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				queue.Pop()
 
 				// add event to sweep status
-				status.InsertAfter(prev, event)
+				n := status.InsertAfter(prev, event)
 
 				// add event to tolerance square
-				// note that we must always add the previous node, as the current may be removed
-				squares.Add(x, event, prev)
+				squares.Add(x, event, n)
 			}
 		}
-
-		//for j := n; j < len(squares); j++ {
-		//	fmt.Println("square", j, x, squares[j].Y)
-		//	for i, event := range squares[j].Events {
-		//		fmt.Println("", i, event)
-		//	}
-		//}
+		fmt.Println("status:")
+		fmt.Println(status)
 
 		// find all crossing segments, break them up and snap to the grid
 		squares.breakupCrossingSegments(n, x)
 
 		for j := n; j < len(squares); j++ {
+			square := &squares[j] // take address to make changes persistent
+
 			// snap events to grid
 			// note that this may make segments overlapping from/to the left, we handle the former
 			// but ignore the latter. This may result in overlapping segments not strictly ordered
-			nodes = nodes[:0]
-			for i := 0; i < len(squares[j].Events); i++ {
-				event := squares[j].Events[i]
-				event.X, event.Y = x, squares[j].Y
+			// also note that a downwards sloped segment may become vertical
+			for i := 0; i < len(square.Events); i++ {
+				event := square.Events[i]
+				event.index = j
+				event.X, event.Y = x, square.Y
 
-				if event.Point == event.other.Point.Gridsnap(BentleyOttmannEpsilon) {
+				other := event.other.Point.Gridsnap(BentleyOttmannEpsilon)
+				if event.Point == other {
 					// remove collapsed segments
 					boPointPool.Put(event)
-					squares[j].Events = append(squares[j].Events[:i], squares[j].Events[i+1:]...)
+					nn0--
+					square.Events = append(square.Events[:i], square.Events[i+1:]...)
 					i--
-				} else if event.node != nil {
-					nodes = append(nodes, event.node)
+				} else if event.X == other.X {
+					fmt.Println("VERTICAL", event)
+					// segment is now vertical
+					if !event.left && event.Y < other.Y {
+						// downward sloped, reverse direction
+						event.Reverse()
+					}
+					event.vertical = true
 				}
 			}
+		}
 
+		// we must first snap all segments in this column before sorting
+		for _, square := range squares[n:] {
 			// reorder sweep status and events for result polygon
 			// note that the number of events/nodes is usually small
-			// TODO: improve efficiency by merging simultaneously?
-			sort.Sort(eventList(squares[j].Events))
+			// TODO: improve efficiency? could we sort events/status simultaneously?
+			nodes = nodes[:0]
+			if square.Lower != nil {
+				for n := square.Lower; ; n = n.Next() {
+					nodes = append(nodes, n)
+					if n == square.Upper {
+						break
+					}
+				}
+			}
 			sort.Sort(nodeList(nodes))
+			sort.Sort(eventList(square.Events))
 
 			// merge overlapping segments on right-endpoints
 			// note that order is reversed for right-endpoints
-			square := squares[j]
 			first := len(square.Events)
 			for i := len(square.Events) - 1; 0 <= i; i-- {
 				if event := square.Events[i]; event.left {
@@ -1613,10 +1764,13 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 					// vertical
 					if prev != nil {
 						// against last (right-extending) left-endpoint in square
+						// inside this square there are no crossing segments, they have been broken
+						// up and have their left-endpoints sorted
 						event.computeSweepFields(prev, op, fillRule)
 					} else {
 						// against first segment below square
-						event.computeSweepFields(square.Prev, op, fillRule)
+						// square.Node may be nil
+						event.computeSweepFields(square.Node, op, fillRule)
 					}
 				} else {
 					event.computeSweepFields(event.node.Prev(), op, fillRule)
@@ -1627,10 +1781,23 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 	}
 	status.Clear()
 
-	//for _, square := range squares {
-	//	for _, event := range square.Events {
-	//		if event.left {
-	//			fmt.Println(event, event.inResult, "--", event.windings, event.selfWindings, "/", event.otherWindings, event.otherSelfWindings)
+	for _, square := range squares {
+		for _, event := range square.Events {
+			if event.left {
+				fmt.Println(event, event.inResult, "--", event.windings, event.selfWindings, "/", event.otherWindings, event.otherSelfWindings, fmt.Sprintf("%p", event))
+			}
+		}
+	}
+
+	//for j := 0; j < len(squares); j++ {
+	//	first := true
+	//	for i, event := range squares[j].Events {
+	//		if event.inResult {
+	//			if first {
+	//				fmt.Println("square", j, squares[j].Y)
+	//				first = false
+	//			}
+	//			fmt.Println("", i, event.index, event)
 	//		}
 	//	}
 	//}
@@ -1670,6 +1837,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 						break
 					}
 				}
+
 				// find the next segment in CW order, this will make smaller subpaths
 				// instead one large path when multiple segments end at the same position
 				var next *SweepPoint
@@ -1685,9 +1853,9 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 					}
 				}
 				if next == nil {
+					fmt.Println("WARNING: next node for result polygon is nil, probably buggy intersection code")
 					break
 				} else if next == first {
-					first.processed, first.other.processed = true, true
 					break // contour is done
 				}
 				cur = next
@@ -1701,6 +1869,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				cur.other.resultWindings = cur.resultWindings
 				cur.processed, cur.other.processed = true, true
 			}
+			first.processed, first.other.processed = true, true
 			R.Close()
 
 			if windings%2 != 0 {
@@ -1712,7 +1881,11 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 
 		for _, event := range square.Events {
 			boPointPool.Put(event)
+			nn0--
 		}
+	}
+	if nn0 != 0 || nn1 != 0 {
+		fmt.Println("WARNING: pool count: points", nn0, "nodes", nn1)
 	}
 	return R
 }
