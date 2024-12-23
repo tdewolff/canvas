@@ -31,7 +31,7 @@ Please issue bug reports or feature requests to help this library mature! All he
 - Path segment types: MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close (https://github.com/tdewolff/canvas/wiki/Paths)
 - Precise path flattening, stroking, and dashing for all segment type uing papers (see below)
 - Smooth spline generation through points for open and closed paths
-- Path boolean operations: AND, OR, XOR, NOT, Divide (https://github.com/tdewolff/canvas/wiki/Boolean-operations)
+- Path boolean operations *(numerically stable!)*: AND, OR, XOR, NOT, Divide (https://github.com/tdewolff/canvas/wiki/Boolean-operations)
 - LaTeX to path conversion (native Go and CGO implementations available)
 - Font formats support (https://github.com/tdewolff/canvas/wiki/Fonts-&-Text)
 - - SFNT (such as TTF, OTF, WOFF, WOFF2, EOT) supporting TrueType, CFF, and CFF2 tables

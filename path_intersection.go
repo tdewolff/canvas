@@ -86,7 +86,7 @@ const (
 	opOR
 	opNOT
 	opXOR
-	//opDivide // TODO
+	//opDIV
 )
 
 var boPointPool *sync.Pool
@@ -104,6 +104,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 	return bentleyOttmann(p.Split(), nil, opSettle, fillRule)
 }
 
+// Settle is the same as Path.Settle, but faster if paths are already split.
 func (ps Paths) Settle(fillRule FillRule) *Path {
 	return bentleyOttmann(ps, nil, opSettle, fillRule)
 }
@@ -117,6 +118,7 @@ func (p *Path) And(q *Path) *Path {
 	return bentleyOttmann(p.Split(), q.Split(), opAND, NonZero)
 }
 
+// And is the same as Path.And, but faster if paths are already split.
 func (ps Paths) And(qs Paths) *Path {
 	return bentleyOttmann(ps, qs, opAND, NonZero)
 }
@@ -130,6 +132,11 @@ func (p *Path) Or(q *Path) *Path {
 	return bentleyOttmann(p.Split(), q.Split(), opOR, NonZero)
 }
 
+// Or is the same as Path.Or, but faster if paths are already split.
+func (ps Paths) Or(qs Paths) *Path {
+	return bentleyOttmann(ps, qs, opOR, NonZero)
+}
+
 // Xor returns the boolean path operation of path p XOR q, i.e. the symmetric difference of both.
 // It removes all self-intersections, orients all filling paths CCW and all holes CW, and tries to
 // split into subpaths if possible. Note that path p is flattened unless q is already flat. Path
@@ -137,6 +144,11 @@ func (p *Path) Or(q *Path) *Path {
 // and k the number of intersections.
 func (p *Path) Xor(q *Path) *Path {
 	return bentleyOttmann(p.Split(), q.Split(), opXOR, NonZero)
+}
+
+// Xor is the same as Path.Xor, but faster if paths are already split.
+func (ps Paths) Xor(qs Paths) *Path {
+	return bentleyOttmann(ps, qs, opXOR, NonZero)
 }
 
 // Not returns the boolean path operation of path p NOT q, i.e. the difference of both.
@@ -147,6 +159,25 @@ func (p *Path) Xor(q *Path) *Path {
 func (p *Path) Not(q *Path) *Path {
 	return bentleyOttmann(p.Split(), q.Split(), opNOT, NonZero)
 }
+
+// Not is the same as Path.Not, but faster if paths are already split.
+func (ps Paths) Not(qs Paths) *Path {
+	return bentleyOttmann(ps, qs, opNOT, NonZero)
+}
+
+// DivideBy returns the boolean path operation of path p DIV q, i.e. p divided by q.
+// It removes all self-intersections, orients all filling paths CCW and all holes CW, and tries to
+// split into subpaths if possible. Note that path p is flattened unless q is already flat. Path
+// q is implicitly closed. It runs in O((n + k) log n), with n the sum of the number of segments,
+// and k the number of intersections.
+//func (p *Path) DivideBy(q *Path) *Path {
+//	return bentleyOttmann(p.Split(), q.Split(), opDIV, NonZero)
+//}
+//
+//// DivideBy is the same as Path.DivideBy, but faster if paths are already split.
+//func (ps Paths) DivideBy(qs Paths) *Path {
+//	return bentleyOttmann(ps, qs, opDIV, NonZero)
+//}
 
 type SweepPoint struct {
 	// initial data
@@ -1173,7 +1204,7 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 
 		// from reference node find the previous/lower/upper segments for this square
 		// the reference node may be any of the segments that cross the right-edge of the square,
-		// or the first segment below or above the right-edge of the square
+		// or a segment below or above the right-edge of the square
 		if square.Node != nil {
 			y0, y1 := square.Node.ToleranceEdgeY(x0, x1)
 			below, above := y0 < yBottom && y1 <= yBottom, yTop <= y0 && yTop <= y1
@@ -1187,7 +1218,12 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 				for next := square.Node.Next(); next != nil; next = next.Next() {
 					y0, y1 := next.ToleranceEdgeY(x0, x1)
 					if yTop <= y0 && yTop <= y1 {
+						// above
 						break
+					} else if y0 < yBottom && y1 <= yBottom {
+						// below
+						square.Node = next
+						continue
 					}
 					square.Upper = next
 					if square.Lower == nil {
@@ -1203,7 +1239,12 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 				for ; prev != nil; prev = prev.Prev() {
 					y0, y1 := prev.ToleranceEdgeY(x0, x1)
 					if y0 < yBottom && y1 <= yBottom { // exclusive for bottom-right corner
+						// below
 						break
+					} else if yTop <= y0 && yTop <= y1 {
+						// above
+						square.Node = prev
+						continue
 					}
 					square.Lower = prev
 					if square.Upper == nil {
@@ -1215,14 +1256,11 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 			}
 		}
 
-		// find all segments that cross the tolerance square upwards or horizontally
+		// find all segments that cross the tolerance square
 		// first find all segments that extend to the right (they are in the sweepline status)
 		if square.Lower != nil {
 			for node := square.Lower; ; node = node.Next() {
-				y0, y1 := node.ToleranceEdgeY(x0, x1)
-				if y0 < yTop && yBottom < y1 {
-					node.breakupSegment(&squares[i].Events, i, x, square.Y)
-				}
+				node.breakupSegment(&squares[i].Events, i, x, square.Y)
 				if node == square.Upper {
 					break
 				}
@@ -1239,25 +1277,6 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 					if yBottom <= y0 {
 						event.breakupSegment(&squares[i].Events, i, x, square.Y)
 					}
-				}
-			}
-		}
-	}
-
-	// scan squares top to bottom
-	for i := len(squares) - 1; n <= i; i-- {
-		square := &squares[i]
-		yTop := square.Y + BentleyOttmannEpsilon/2.0
-
-		// find all segments that cross the tolerance square from above
-		if square.Upper != nil {
-			for node := square.Upper; ; node = node.Prev() {
-				y0, y1 := node.ToleranceEdgeY(x0, x1)
-				if yTop <= y0 && y1 < yTop {
-					node.breakupSegment(&squares[i].Events, i, x, square.Y)
-				}
-				if node == square.Lower {
-					break
 				}
 			}
 		}
@@ -1341,6 +1360,10 @@ func (cur *SweepPoint) computeSweepFields(prev *SweepPoint, op pathOp, fillRule 
 func (s *SweepPoint) InResult(op pathOp, fillRule FillRule) bool {
 	lowerWindings, lowerOtherWindings := s.windings, s.otherWindings
 	upperWindings, upperOtherWindings := s.windings+s.selfWindings, s.otherWindings+s.otherSelfWindings
+	if s.clipping {
+		lowerWindings, lowerOtherWindings = lowerOtherWindings, lowerWindings
+		upperWindings, upperOtherWindings = upperOtherWindings, upperWindings
+	}
 
 	// lower/upper windings refers to subject path, otherWindings to clipping path
 	var belowFills, aboveFills bool
@@ -1355,11 +1378,15 @@ func (s *SweepPoint) InResult(op pathOp, fillRule FillRule) bool {
 		belowFills = fillRule.Fills(lowerWindings) || fillRule.Fills(lowerOtherWindings)
 		aboveFills = fillRule.Fills(upperWindings) || fillRule.Fills(upperOtherWindings)
 	case opNOT:
-		belowFills = fillRule.Fills(lowerWindings) != s.clipping && fillRule.Fills(lowerOtherWindings) == s.clipping
-		aboveFills = fillRule.Fills(upperWindings) != s.clipping && fillRule.Fills(upperOtherWindings) == s.clipping
+		belowFills = fillRule.Fills(lowerWindings) && !fillRule.Fills(lowerOtherWindings)
+		aboveFills = fillRule.Fills(upperWindings) && !fillRule.Fills(upperOtherWindings)
 	case opXOR:
 		belowFills = fillRule.Fills(lowerWindings) != fillRule.Fills(lowerOtherWindings)
 		aboveFills = fillRule.Fills(upperWindings) != fillRule.Fills(upperOtherWindings)
+		//case opDIV:
+		//	belowFills = fillRule.Fills(lowerWindings)
+		//	aboveFills = fillRule.Fills(upperWindings)
+		//	return belowFills|| aboveFills
 	}
 
 	// only keep edge if there is a change in filling between both sides
@@ -1772,7 +1799,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 			sort.Sort(eventList(square.Events))
 
 			// compute sweep fields on left-endpoints
-			for i, event := range square.Events { //[first:] {
+			for i, event := range square.Events {
 				if !event.left {
 					event.other.mergeOverlapping(op, fillRule)
 				} else if event.node == nil {
