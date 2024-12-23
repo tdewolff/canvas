@@ -142,13 +142,74 @@ func TestIntersectionLineLine(t *testing.T) {
 
 			zs := intersectionLineLine(nil, line1.Start(), line1.End(), line2.Start(), line2.End())
 			test.T(t, zs, tt.zs)
+		})
+	}
+}
 
-			ttZs := make([]Point, len(tt.zs))
-			for i := range tt.zs {
-				ttZs[i] = tt.zs[i].Point
+func isIncreasing(a, b Point) bool {
+	if b.X < a.X {
+		return false
+	} else if a.X == b.X && b.Y < a.Y {
+		return false
+	}
+	return true
+}
+
+func TestIntersectionLineLineBentleyOttmann(t *testing.T) {
+	var tts = []struct {
+		line1, line2 string
+		zs           []Point
+	}{
+		// secant
+		{"M2 0L2 3", "M1 2L3 2", []Point{{2.0, 2.0}}},
+
+		// tangent
+		{"M2 0L2 3", "M2 2L3 2", []Point{{2.0, 2.0}}},
+		{"M2 0L2 2", "M2 2L3 2", []Point{{2.0, 2.0}}},
+		{"L2 2", "M0 4L2 2", []Point{{2.0, 2.0}}},
+		{"L10 5", "M0 10L10 5", []Point{{10.0, 5.0}}},
+		{"M10 5L20 10", "M10 5L20 0", []Point{{10.0, 5.0}}},
+
+		// parallel
+		{"L2 2", "L2 2", []Point{{0.0, 0.0}, Point{2.0, 2.0}}},
+		{"L2 2", "M3 3L5 5", nil},
+		{"L2 2", "M-1 1L1 3", nil},
+		{"L2 2", "M2 2L4 4", []Point{{2.0, 2.0}}},
+		{"L2 2", "M-2 -2L0 0", []Point{{0.0, 0.0}}},
+		{"L4 4", "M2 2L6 6", []Point{{2.0, 2.0}, Point{4.0, 4.0}}},
+		{"L4 4", "M-2 -2L2 2", []Point{{0.0, 0.0}, Point{2.0, 2.0}}},
+
+		// none
+		{"M2 0L2 1", "M3 0L3 1", nil},
+		{"M2 0L2 1", "M0 2L1 2", nil},
+
+		// almost vertical
+		{"L2 0", "M1 -1L1.0000000000000002 2", []Point{{1.0000000000000002, 0.0}}},
+		{"L2 0", "M1 1L1.0000000000000002 -2", []Point{{1.0000000000000002, 0.0}}},
+		{"M1 -1L1.0000000000000002 2", "L2 0", []Point{{1.0000000000000002, 0.0}}},
+		{"M1 1L1.0000000000000002 -2", "L2 0", []Point{{1.0000000000000002, 0.0}}},
+
+		// bugs
+		{"M21.590990257669734 18.40900974233027L22.651650429449557 17.348349570550447", "M21.23743686707646 18.762563132923542L21.590990257669738 18.409009742330266", nil},                                                     // almost colinear
+		{"M-0.1997406229376793 158.88740153238177L-0.1997406229376793 296.9999999925494", "M-0.1997406229376793 158.88740153238177L-0.19974062293732664 158.8874019079834", []Point{{-0.1997406229376793, 158.88740153238177}}}, // #287
+		{"M-0.1997406229376793 158.88740153238177L-0.1997406229376793 296.9999999925494", "M-0.19999999999964735 20.77454766193328L-0.19974062293732664 158.8874019079834", []Point{{-0.1997406229376793, 158.88740172019808}}}, // #287
+		{"M-0.1997406229376793 158.88740153238177L-0.19974062293732664 158.8874019079834", "M-0.19999999999964735 20.77454766193328L-0.19974062293732664 158.8874019079834", nil},                                               // almost colinear, #287
+		{"M162.43449681368278 -9.999996185876771L162.43449681368278 -9.99998551284069", "M162.2344968136828 -9.99998551284069L162.43449681368278 -9.999985512840682", nil},                                                      // almost colinear, #287
+		{"M0.7814851602550552,0.3987574923859699L0.7814861805182336,0.39875653588924026", "M0.7814852358775772,0.39875773815916654L0.7814861805182336,0.39875653588924026", nil},                                                // almost colinear
+	}
+	for _, tt := range tts {
+		t.Run(fmt.Sprint(tt.line1, "x", tt.line2), func(t *testing.T) {
+			line1 := MustParseSVGPath(tt.line1).ReverseScanner()
+			line2 := MustParseSVGPath(tt.line2).ReverseScanner()
+			line1.Scan()
+			line2.Scan()
+
+			if !isIncreasing(line1.Start(), line1.End()) || !isIncreasing(line2.Start(), line2.End()) {
+				t.Fatal("bad test: lines not increasing")
 			}
-			Zs := intersectionLineLineBentleyOttmann(nil, line1.Start(), line1.End(), line2.Start(), line2.End())
-			test.T(t, Zs, ttZs)
+
+			zs := intersectionLineLineBentleyOttmann(nil, line1.Start(), line1.End(), line2.Start(), line2.End())
+			test.T(t, zs, tt.zs)
 		})
 	}
 }
