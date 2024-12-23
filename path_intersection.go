@@ -173,6 +173,7 @@ type SweepPoint struct {
 	left       bool // point is left-end of segment
 	vertical   bool // segment is vertical
 	increasing bool // original direction is left-right (or bottom-top)
+	overlapped bool // segment's overlapping was handled
 	inResult   bool // in final result polygon
 	processed  bool // written to final path
 }
@@ -1071,59 +1072,6 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, a
 	bPrevLeft.other, bLastRight.other = bLastRight, bPrevLeft
 }
 
-func (cur *SweepPoint) computeSweepFields(prev *SweepNode, op pathOp, fillRule FillRule) {
-	// cur is left-endpoint
-	cur.selfWindings = 1
-	if !cur.increasing {
-		cur.selfWindings = -1
-	}
-	if prev != nil {
-		// compute windings
-		if cur.clipping == prev.clipping {
-			cur.windings = prev.windings + prev.selfWindings
-			cur.otherWindings = prev.otherWindings + prev.otherSelfWindings
-		} else {
-			cur.windings = prev.otherWindings + prev.otherSelfWindings
-			cur.otherWindings = prev.windings + prev.selfWindings
-		}
-		cur.prev = prev.SweepPoint
-	} else {
-		// may have been copied when intersected / broken up
-		cur.windings, cur.otherWindings, cur.otherSelfWindings = 0, 0, 0
-		cur.prev = nil
-	}
-	cur.inResult = cur.InResult(op, fillRule)
-	cur.other.inResult = cur.inResult
-}
-
-func (s *SweepPoint) InResult(op pathOp, fillRule FillRule) bool {
-	lowerWindings, lowerOtherWindings := s.windings, s.otherWindings
-	upperWindings, upperOtherWindings := s.windings+s.selfWindings, s.otherWindings+s.otherSelfWindings
-
-	// lower/upper windings refers to subject path, otherWindings to clipping path
-	var belowFills, aboveFills bool
-	switch op {
-	case opSettle:
-		belowFills = fillRule.Fills(lowerWindings)
-		aboveFills = fillRule.Fills(upperWindings)
-	case opAND:
-		belowFills = fillRule.Fills(lowerWindings) && fillRule.Fills(lowerOtherWindings)
-		aboveFills = fillRule.Fills(upperWindings) && fillRule.Fills(upperOtherWindings)
-	case opOR:
-		belowFills = fillRule.Fills(lowerWindings) || fillRule.Fills(lowerOtherWindings)
-		aboveFills = fillRule.Fills(upperWindings) || fillRule.Fills(upperOtherWindings)
-	case opNOT:
-		belowFills = fillRule.Fills(lowerWindings) != s.clipping && fillRule.Fills(lowerOtherWindings) == s.clipping
-		aboveFills = fillRule.Fills(upperWindings) != s.clipping && fillRule.Fills(upperOtherWindings) == s.clipping
-	case opXOR:
-		belowFills = fillRule.Fills(lowerWindings) != fillRule.Fills(lowerOtherWindings)
-		aboveFills = fillRule.Fills(upperWindings) != fillRule.Fills(upperOtherWindings)
-	}
-
-	// only keep edge if there is a change in filling between both sides
-	return belowFills != aboveFills
-}
-
 type toleranceSquare struct {
 	X, Y   float64       // snapped value
 	Events []*SweepPoint // all events in this square
@@ -1360,39 +1308,115 @@ func (a eventList) Swap(i, j int) {
 	a[i], a[j] = a[j], a[i]
 }
 
-func (below *SweepPoint) mergeOverlapping(above *SweepPoint, op pathOp, fillRule FillRule) {
-	// when merging overlapping segments, the order of the right-endpoints may have changed and
-	// thus be different from the order used to compute the sweep fields, here we reset the values
-	// for windings and otherWindings to be taken from the segment below (prev) which was updated
-	// after snapping the endpoints
-	if below.prev != nil {
-		if below.clipping == below.prev.clipping {
-			below.windings = below.prev.windings + below.prev.selfWindings
-			below.otherWindings = below.prev.otherWindings + below.prev.otherSelfWindings
+func (cur *SweepPoint) computeSweepFields(prev *SweepPoint, op pathOp, fillRule FillRule) {
+	// cur is left-endpoint
+	cur.selfWindings = 1
+	if !cur.increasing {
+		cur.selfWindings = -1
+	}
+
+	// skip vertical segments
+	cur.prev = prev
+	for prev != nil && prev.vertical {
+		prev = prev.prev
+	}
+
+	// compute windings
+	if prev != nil {
+		if cur.clipping == prev.clipping {
+			cur.windings = prev.windings + prev.selfWindings
+			cur.otherWindings = prev.otherWindings + prev.otherSelfWindings
 		} else {
-			below.windings = below.prev.otherWindings + below.prev.otherSelfWindings
-			below.otherWindings = below.prev.windings + below.prev.selfWindings
+			cur.windings = prev.otherWindings + prev.otherSelfWindings
+			cur.otherWindings = prev.windings + prev.selfWindings
 		}
 	} else {
-		below.windings, below.otherWindings = 0, 0
+		// may have been copied when intersected / broken up
+		cur.windings, cur.otherWindings, cur.otherSelfWindings = 0, 0, 0
+	}
+	cur.inResult = cur.InResult(op, fillRule)
+	cur.other.inResult = cur.inResult
+}
+
+func (s *SweepPoint) InResult(op pathOp, fillRule FillRule) bool {
+	lowerWindings, lowerOtherWindings := s.windings, s.otherWindings
+	upperWindings, upperOtherWindings := s.windings+s.selfWindings, s.otherWindings+s.otherSelfWindings
+
+	// lower/upper windings refers to subject path, otherWindings to clipping path
+	var belowFills, aboveFills bool
+	switch op {
+	case opSettle:
+		belowFills = fillRule.Fills(lowerWindings)
+		aboveFills = fillRule.Fills(upperWindings)
+	case opAND:
+		belowFills = fillRule.Fills(lowerWindings) && fillRule.Fills(lowerOtherWindings)
+		aboveFills = fillRule.Fills(upperWindings) && fillRule.Fills(upperOtherWindings)
+	case opOR:
+		belowFills = fillRule.Fills(lowerWindings) || fillRule.Fills(lowerOtherWindings)
+		aboveFills = fillRule.Fills(upperWindings) || fillRule.Fills(upperOtherWindings)
+	case opNOT:
+		belowFills = fillRule.Fills(lowerWindings) != s.clipping && fillRule.Fills(lowerOtherWindings) == s.clipping
+		aboveFills = fillRule.Fills(upperWindings) != s.clipping && fillRule.Fills(upperOtherWindings) == s.clipping
+	case opXOR:
+		belowFills = fillRule.Fills(lowerWindings) != fillRule.Fills(lowerOtherWindings)
+		aboveFills = fillRule.Fills(upperWindings) != fillRule.Fills(upperOtherWindings)
 	}
 
-	// compute windings for region above
-	if below.clipping == above.clipping {
-		above.selfWindings += below.selfWindings
-		above.otherSelfWindings += below.otherSelfWindings
-		above.windings = below.windings
-		above.otherWindings = below.otherWindings
+	// only keep edge if there is a change in filling between both sides
+	return belowFills != aboveFills
+}
+
+func (s *SweepPoint) mergeOverlapping(op pathOp, fillRule FillRule) {
+	// When merging overlapping segments, the order of the right-endpoints may have changed and
+	// thus be different from the order used to compute the sweep fields, here we reset the values
+	// for windings and otherWindings to be taken from the segment below (prev) which was updated
+	// after snapping the endpoints.
+	// We use event.overlapped to handle segments once and count windings once, in whichever order
+	// the events are handled. We also update prev to reflect the segment below the overlapping
+	// segments.
+	if s.overlapped {
+		// already handled
+		return
+	}
+	prev := s.prev
+	for ; prev != nil; prev = prev.prev {
+		if s.Point != prev.Point || s.other.Point != prev.other.Point {
+			break
+		}
+
+		// combine selfWindings
+		if s.clipping == prev.clipping {
+			s.selfWindings += prev.selfWindings
+			s.otherSelfWindings += prev.otherSelfWindings
+		} else {
+			s.selfWindings += prev.otherSelfWindings
+			s.otherSelfWindings += prev.selfWindings
+		}
+		prev.inResult, prev.other.inResult = false, false
+
+		if prev.overlapped {
+			break
+		}
+		prev.overlapped = true
+	}
+	if prev == s.prev {
+		return
+	}
+	s.prev = prev
+
+	// compute merged windings
+	if s.prev == nil {
+		s.windings, s.otherWindings = 0, 0
+	} else if s.clipping == s.prev.clipping {
+		s.windings = s.prev.windings + s.prev.selfWindings
+		s.otherWindings = s.prev.otherWindings + s.prev.otherSelfWindings
 	} else {
-		above.selfWindings += below.otherSelfWindings
-		above.otherSelfWindings += below.selfWindings
-		above.windings = below.otherWindings
-		above.otherWindings = below.windings
+		s.windings = s.prev.otherWindings + s.prev.otherSelfWindings
+		s.otherWindings = s.prev.windings + s.prev.selfWindings
 	}
-	below.inResult, below.other.inResult = false, false
-
-	above.inResult = above.InResult(op, fillRule)
-	above.other.inResult = above.inResult
+	s.inResult = s.InResult(op, fillRule)
+	s.other.inResult = s.inResult
+	s.overlapped = true
 }
 
 func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
@@ -1719,27 +1743,13 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 					boPointPool.Put(event)
 					square.Events = append(square.Events[:i], square.Events[i+1:]...)
 					i--
-					continue
-				}
-
-				// correct for segments that have become vertical
-				if event.X == other.X {
-					// segment is now vertical
+				} else if event.X == other.X {
+					// correct for segments that have become vertical
 					if !event.left && event.Y < other.Y {
 						// downward sloped, reverse direction
 						event.Reverse()
 					}
 					event.vertical = true
-				}
-
-				// update prev for overlapping segments to refer to a segment below
-				if !event.left {
-					for prev := event.other.prev; ; prev = prev.prev {
-						if prev == nil || event.Point != prev.other.Point || event.other.Point != prev.Point {
-							event.other.prev = prev
-							break
-						}
-					}
 				}
 			}
 		}
@@ -1761,36 +1771,32 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 			sort.Sort(nodeList(nodes))
 			sort.Sort(eventList(square.Events))
 
-			// merge overlapping segments on right-endpoints
-			// note that order is reversed for right-endpoints
-			first := len(square.Events)
-			for i := len(square.Events) - 1; 0 <= i; i-- {
-				if event := square.Events[i]; event.left {
-					first = i
-				} else if 0 < i && !square.Events[i-1].left && event.Point == square.Events[i-1].Point && event.other.Point == square.Events[i-1].other.Point {
-					event.other.mergeOverlapping(square.Events[i-1].other, op, fillRule)
-				}
-			}
-
 			// compute sweep fields on left-endpoints
-			var prev *SweepNode
-			for _, event := range square.Events[first:] {
-				// event is left-endpoint
-				if event.node == nil {
+			for i, event := range square.Events { //[first:] {
+				if !event.left {
+					event.other.mergeOverlapping(op, fillRule)
+				} else if event.node == nil {
 					// vertical
-					if prev != nil {
-						// against last (right-extending) left-endpoint in square
+					if 0 < i && square.Events[i-1].left {
+						// against last left-endpoint in square
 						// inside this square there are no crossing segments, they have been broken
 						// up and have their left-endpoints sorted
-						event.computeSweepFields(prev, op, fillRule)
+						event.computeSweepFields(square.Events[i-1], op, fillRule)
 					} else {
 						// against first segment below square
 						// square.Node may be nil
-						event.computeSweepFields(square.Node, op, fillRule)
+						var s *SweepPoint
+						if square.Node != nil {
+							s = square.Node.SweepPoint
+						}
+						event.computeSweepFields(s, op, fillRule)
 					}
 				} else {
-					event.computeSweepFields(event.node.Prev(), op, fillRule)
-					prev = event.node
+					var s *SweepPoint
+					if event.node.Prev() != nil {
+						s = event.node.Prev().SweepPoint
+					}
+					event.computeSweepFields(s, op, fillRule)
 				}
 			}
 		}
@@ -1800,7 +1806,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 	//for _, square := range squares {
 	//	for _, event := range square.Events {
 	//		if event.left {
-	//			fmt.Println(event, event.inResult, "--", event.windings, event.selfWindings, "/", event.otherWindings, event.otherSelfWindings, fmt.Sprintf("%p", event))
+	//			fmt.Println(event, event.inResult, "--", event.windings, event.selfWindings, "/", event.otherWindings, event.otherSelfWindings)
 	//		}
 	//	}
 	//}
