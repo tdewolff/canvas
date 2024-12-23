@@ -38,7 +38,7 @@ func main() {
 
 	bezier := canvas.MustParseSVGPath("M173,44c-86,152 -215,149 -126,49c240,-239 -155,219 126,-49z")
 	bezier = bezier.Transform(canvas.Identity.Scale(0.05, -0.05).Translate(-100.0, -100.0))
-	draw(ctx, -145.0, "Cubic beziers", bezier.Translate(5.0, 5.0), bezier.Scale(-1.0, 1.0).Translate(5.0, 5.0))
+	draw(ctx, -145.0, "Cubic beziers", bezier.Copy().Translate(5.0, 5.0), bezier.Scale(-1.0, 1.0).Translate(5.0, 5.0))
 
 	var p *canvas.Path
 	a, _, _ := font.Face(40.0, canvas.Black, canvas.FontRegular, canvas.FontNormal).ToPath("a")
