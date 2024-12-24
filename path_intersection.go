@@ -945,8 +945,6 @@ func (a *SweepPoint) CompareV(b *SweepPoint) int {
 	}
 }
 
-type SweepPointPair [2]*SweepPoint
-
 func compareIntersections(a, b Point) int {
 	if a.X == b.X {
 		if a.Y == b.Y {
@@ -963,13 +961,21 @@ func compareIntersections(a, b Point) int {
 	}
 }
 
+type SweepPointPair [2]*SweepPoint
+
+func (pair SweepPointPair) Swapped() SweepPointPair {
+	return SweepPointPair{pair[1], pair[0]}
+}
+
 func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, a, b *SweepPoint) {
 	// a and b are always left-endpoints and a is below b
-	if _, ok := handled[SweepPointPair{a, b}]; ok {
+	pair := SweepPointPair{a, b}
+	if _, ok := handled[pair]; ok {
 		return
-	} else if _, ok := handled[SweepPointPair{b, a}]; ok {
+	} else if _, ok := handled[pair.Swapped()]; ok {
 		return
 	}
+	handled[pair] = struct{}{}
 
 	// find all intersections between segment pair
 	// this returns either no intersections, or one or more secant/tangent intersections,
@@ -980,7 +986,6 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, a
 
 	// no (valid) intersections
 	if len(zs) == 0 {
-		handled[SweepPointPair{a, b}] = struct{}{}
 		return
 	}
 
@@ -1032,8 +1037,6 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, a
 	//}
 
 	// handle a
-	aLefts_ := [2]*SweepPoint{a, nil} // there is only one non-tangential intersection
-	aLefts := aLefts_[:]
 	aPrevLeft, aLastRight := a, a.other
 	for _, z := range zs {
 		if z == a.Point || z == aLastRight.Point {
@@ -1057,18 +1060,17 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, a
 			aLeft.vertical = true
 		}
 
+		// add to handled
+		handled[SweepPointPair{aLeft, b}] = struct{}{}
+
 		// add to queue
 		queue.Push(aRight)
 		queue.Push(aLeft)
-		aLefts = append(aLefts, aLeft)
 		aPrevLeft = aLeft
 	}
 	aPrevLeft.other, aLastRight.other = aLastRight, aPrevLeft
 
 	// handle b
-	for _, a := range aLefts {
-		handled[SweepPointPair{a, b}] = struct{}{}
-	}
 	bPrevLeft, bLastRight := b, b.other
 	for _, z := range zs {
 		if z == b.Point || z == bLastRight.Point {
@@ -1092,12 +1094,16 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, a
 			bLeft.vertical = true
 		}
 
+		// add to handled
+		handled[SweepPointPair{a, bLeft}] = struct{}{}
+		if aPrevLeft != a {
+			// there is only one non-tangential intersection
+			handled[SweepPointPair{aPrevLeft, bLeft}] = struct{}{}
+		}
+
 		// add to queue
 		queue.Push(bRight)
 		queue.Push(bLeft)
-		for _, a := range aLefts {
-			handled[SweepPointPair{a, bLeft}] = struct{}{}
-		}
 		bPrevLeft = bLeft
 	}
 	bPrevLeft.other, bLastRight.other = bLastRight, bPrevLeft
@@ -1697,13 +1703,13 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				n := event.other.node
 				if n == nil {
 					fmt.Println("WARNING: right-endpoint not part of status, probably buggy intersection code")
-					boPointPool.Put(event)
+					// don't put back in boPointPool
 					continue
 				} else if n.SweepPoint == nil {
 					// this may happen if the left-endpoint is to the right of the right-endpoint for some reason
 					// usually due to a bug in the segment intersection code
 					fmt.Println("WARNING: other endpoint already removed, probably buggy intersection code")
-					boPointPool.Put(event)
+					// don't put back in boPointPool
 					continue
 				}
 
@@ -1767,7 +1773,11 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				other := event.other.Point.Gridsnap(BentleyOttmannEpsilon)
 				if event.Point == other {
 					// remove collapsed segments
-					boPointPool.Put(event)
+					// TODO: prevent creating these segments in the first place
+					// If we put the event back into boPointPool it may we used again and not be
+					// synchronized with `handled map[SweepPointPair]struct{}` above, so we are
+					// leaking the event to the GC.
+					//boPointPool.Put(event)
 					square.Events = append(square.Events[:i], square.Events[i+1:]...)
 					i--
 				} else if event.X == other.X {
