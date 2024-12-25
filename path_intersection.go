@@ -1357,8 +1357,9 @@ func (cur *SweepPoint) computeSweepFields(prev *SweepPoint, op pathOp, fillRule 
 		}
 	} else {
 		// may have been copied when intersected / broken up
-		cur.windings, cur.otherWindings, cur.otherSelfWindings = 0, 0, 0
+		cur.windings, cur.otherWindings = 0, 0
 	}
+
 	cur.inResult = cur.InResult(op, fillRule)
 	cur.other.inResult = cur.inResult
 }
@@ -1413,7 +1414,7 @@ func (s *SweepPoint) mergeOverlapping(op pathOp, fillRule FillRule) {
 	}
 	prev := s.prev
 	for ; prev != nil; prev = prev.prev {
-		if s.Point != prev.Point || s.other.Point != prev.other.Point {
+		if prev.overlapped || s.Point != prev.Point || s.other.Point != prev.other.Point {
 			break
 		}
 
@@ -1426,10 +1427,6 @@ func (s *SweepPoint) mergeOverlapping(op pathOp, fillRule FillRule) {
 			s.otherSelfWindings += prev.selfWindings
 		}
 		prev.inResult, prev.other.inResult = false, false
-
-		if prev.overlapped {
-			break
-		}
 		prev.overlapped = true
 	}
 	if prev == s.prev {
@@ -1449,12 +1446,14 @@ func (s *SweepPoint) mergeOverlapping(op pathOp, fillRule FillRule) {
 	}
 	s.inResult = s.InResult(op, fillRule)
 	s.other.inResult = s.inResult
-	s.overlapped = true
 }
 
 func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 	// TODO: make public and add grid spacing argument
-	// TODO: support OpDiv
+	// TODO: support OpDIV, keeping only subject, or both subject and clipping subpaths
+	// TODO: add Intersects/Touches functions (return bool)
+	// TODO: add Intersections function (return []Point)
+	// TODO: support Cut to cut a path in subpaths between intersections (not polygons)
 	// TODO: support open paths on ps
 	// TODO: support elliptical arcs
 	// TODO: use a red-black tree for the sweepline status?
@@ -1898,6 +1897,10 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				}
 				if next == nil {
 					fmt.Println("WARNING: next node for result polygon is nil, probably buggy intersection code")
+					fmt.Println(ps)
+					fmt.Println(op, fillRule)
+					fmt.Println(qs)
+					panic("")
 					break
 				} else if next == first {
 					break // contour is done
