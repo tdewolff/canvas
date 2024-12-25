@@ -27,32 +27,58 @@ The path intersection code and path boolean operation code is quite complete and
 Please issue bug reports or feature requests to help this library mature! All help is appreciated. Also see [Wiki - Planning](https://github.com/tdewolff/canvas/wiki/Planning) for an inexhaustive list of ideas and TODOs.
 
 ## Features
-
 - Path segment types: MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close (https://github.com/tdewolff/canvas/wiki/Paths)
 - Precise path flattening, stroking, and dashing for all segment type uing papers (see below)
 - Smooth spline generation through points for open and closed paths
-- Path boolean operations *(numerically stable!)*: AND, OR, XOR, NOT, Divide (https://github.com/tdewolff/canvas/wiki/Boolean-operations)
 - LaTeX to path conversion (native Go and CGO implementations available)
-- Font formats support (https://github.com/tdewolff/canvas/wiki/Fonts-&-Text)
-- - SFNT (such as TTF, OTF, WOFF, WOFF2, EOT) supporting TrueType, CFF, and CFF2 tables
-- HarfBuzz for text shaping (native Go and CGO implementations available)
-- FriBidi for text bidirectionality (native Go and CGO implementations available)
-- Donald Knuth's line breaking algorithm for text layout
 - sRGB compliance (use `SRGBColorSpace`, only available for rasterizer)
-- Font rendering with gamma correction of 1.43
-- Rendering targets (https://github.com/tdewolff/canvas/wiki/Renderers)
-- - Raster images (PNG, GIF, JPEG, TIFF, BMP, WEBP)
-- - PDF
-- - SVG and SVGZ
-- - PS and EPS
-- - HTMLCanvas
-- - OpenGL
-- - [Gio](https://gioui.org/)
-- - [Fyne](https://fyne.io/)
-- Rendering sources
-- - Canvas itself
-- - [go-chart](https://github.com/wcharczuk/go-chart)
-- - [gonum/plot](https://github.com/gonum/plot)
+
+### Rendering targets
+Paths can be exported as or rendered to:
+- Raster images (PNG, GIF, JPEG, TIFF, BMP, WEBP, AVIF, ...)
+- PDF
+- SVG and SVGZ
+- PS and EPS
+- HTMLCanvas
+- OpenGL
+- [Gio](https://gioui.org/)
+- [Fyne](https://fyne.io/)
+
+Additionally, it has bindings to be used as renderer for:
+- [go-chart](https://github.com/wcharczuk/go-chart)
+- [gonum/plot](https://github.com/gonum/plot)
+
+See (https://github.com/tdewolff/canvas/wiki/Renderers) for more information.
+
+### Stable path boolean operations
+Numerically stable (!) path boolean operations, supporting AND, OR, XOR, NOT, and DIV operations in `O((n+k) log n)`, with `n` the number of segments and `k` the number of intersections. This is very fast and allows handling huge paths. It uses 64bit floating-point precision for highly accurate computation and employs an additional strategy to ensure numerical stability. In particular:
+- Allows paths, subject or clipping, with any number of contours.
+- Allows contours with any orientation, clockwise or anticlockwise.
+- Contours may self-intersect any number of times.
+- Segments may overlap any number of times by any contour.
+- Points may be crossed any number of times.
+- Segments may be vertical.
+- Clipping path is implicitly closed (it makes no sense if it's an open path).
+- Subject path is currently implicitly closed, but it is WIP to support open paths.
+- Paths are currently flattened, but supporting Bézier or elliptical arcs is a WIP.
+
+Numerical stability refers to cases where two segments are extremely close where floating-point precision can alter the computation whether they intersect or not. This is a very difficult problem to solve, and many libraries cannot handle this properly (nor can they handle 'degenerate' paths in general, see the list of properties above). Note that fixed-point precision suffers from the same problem. This library builds on papers from Bentley & Ottmann, de Berg, Martínez, Hobby, and Hershberger (see bibliography below).
+
+Correctness and performance has been tested by drawing all land masses and islands from OpenStreetMap at various scales, which is a huge input (1 GB of compressed Shape files) with extremely degenerate data (many overlapping segments, overlapping points, vertical segments, self-intersections, extremely close intersections, different contour orientations, and so on).
+
+TODO: add benchmark with other libraries
+
+See (https://github.com/tdewolff/canvas/wiki/Boolean-operations) for more information.
+
+### Advanced text rendering
+High-quality (comparable to TeX) text rendering and line breaking. It uses HarfBuzz for text shaping (native Go and CGO implementations available) and FriBidi for text bidirectionality (native Go and CGO implementations available), and uses Donald Knuth's line breaking algorithm for text layout. This enables the following features:
+- Align text left, center, right and justified, including indentation.
+- Align text top, middle, bottom in a text box, including setting line spacing.
+- Handle any script, eg. latin, cyrillic, devanagari, arabic, hebrew, han, etc.
+- Handle left-to-right, right-to-left, or top-to-bottom/bottom-to-top writing systems.
+- Mix scripts and fonts in a single line, eg. combine latin and arabic, or bold and regular styles.
+
+Additionally, many font formats are supported (such as TTF, OTF, WOFF, WOFF2, EOT) and rendering can apply a gamma correction of 1.43 for better results. See (https://github.com/tdewolff/canvas/wiki/Fonts-&-Text) for more information.
 
 ## Examples
 
