@@ -1176,29 +1176,27 @@ func (squares *toleranceSquares) Add(x float64, event *SweepPoint, refNode *Swee
 	}
 }
 
-func (event *SweepPoint) breakupSegment(events *[]*SweepPoint, index int, x, y float64) {
+func (event *SweepPoint) breakupSegment(events *[]*SweepPoint, index int, x, y float64) *SweepPoint {
 	// break up a segment in two parts and let the middle point be (x,y)
 	if snap(event.X, BentleyOttmannEpsilon) == x && snap(event.Y, BentleyOttmannEpsilon) == y || snap(event.other.X, BentleyOttmannEpsilon) == x && snap(event.other.Y, BentleyOttmannEpsilon) == y {
 		// segment starts or ends in tolerance square, don't break up
-		return
+		return event
 	}
 
 	// original segment should be kept in-place to not alter the queue or status
-	right := boPointPool.Get().(*SweepPoint)
-	left := boPointPool.Get().(*SweepPoint)
-	*right, *left = *event.other, *event
-	right.X, right.Y = x, y
-	left.X, left.Y = x, y
-	left.other, event.other.other = event.other, left
-	right.other, event.other = event, right
-	right.index, left.index = index, index
+	r, l := event.SplitAt(Point{x, y})
+	r.index, l.index = index, index
 
+	// handle segments that have become vertical or that should be reversed later
+
+	// update node reference
 	if event.node != nil {
-		left.node.SweepPoint = left
-		event.node = nil
+		l.node, event.node = event.node, nil
+		l.node.SweepPoint = l
 	}
 
-	*events = append(*events, right, left)
+	*events = append(*events, r, l)
+	return l
 }
 
 func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
@@ -1280,29 +1278,34 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 			}
 		}
 
-		// then find other segments in the square below that may cross into this square
-		// these can only be right-endpoints in those squares and are downwards sloped
-		if n < i {
-			for _, event := range squares[i-1].Events {
-				if !event.left && yBottom <= event.other.Y {
-					// right-endpoint in square below with its left-endpoint above yBottom
-					y0, _ := event.ToleranceEdgeY(x0, x1)
-					if yBottom <= y0 {
-						event.breakupSegment(&squares[i].Events, i, x, square.Y)
+		// then find which segments that end in this square go through other squares
+		for _, event := range square.Events {
+			if !event.left {
+				y0, _ := event.ToleranceEdgeY(x0, x1)
+				s := event.other
+				if y0 < yBottom {
+					// comes from below, find lowest square and breakup in each square
+					j0 := i
+					for j := i - 1; 0 <= j; j-- {
+						if squares[j].X != x || squares[j].Y+BentleyOttmannEpsilon/2.0 <= y0 {
+							break
+						}
+						j0 = j
 					}
-				}
-			}
-		}
-
-		// then find other segments in the square above that may cross into this square
-		// these can only be right-endpoints in those squares and are upwards sloped
-		if i+1 < len(squares) {
-			for _, event := range squares[i+1].Events {
-				if !event.left && event.other.Y < yTop {
-					// right-endpoint in square above with its left-endpoint below yTop
-					y0, _ := event.ToleranceEdgeY(x0, x1)
-					if y0 < yTop {
-						event.breakupSegment(&squares[i].Events, i, x, square.Y)
+					for j := j0; j < i; j++ {
+						s = s.breakupSegment(&squares[j].Events, j, x, squares[j].Y)
+					}
+				} else if yTop <= y0 {
+					// comes from above, find highest square and breakup in each square
+					j0 := i
+					for j := i + 1; j < len(squares); j++ {
+						if y0 < squares[j].Y-BentleyOttmannEpsilon/2.0 {
+							break
+						}
+						j0 = j
+					}
+					for j := j0; i < j; j-- {
+						s = s.breakupSegment(&squares[j].Events, j, x, squares[j].Y)
 					}
 				}
 			}

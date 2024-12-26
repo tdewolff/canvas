@@ -1184,6 +1184,10 @@ func TestBentleyOttmannPrecision(t *testing.T) {
 
 		// breakup test
 		{"M0 2L1 0L2 2zM0 0L2 -1L2 -3z", opSettle, "", "L2 -3L2 -1L1 0zM0 2L1 0L2 2z"},
+
+		// segment crosses square in between
+		{"L3 0L3 7L1.1 7zM1 1L2 2L2 1zM1 3L2 4L2 3zM1 5L2 6L2 5z", opSettle, "", "M0 0L3 0L3 7L1 7L1 5L2 6L2 5L1 5L1 3L2 4L2 3L1 3zM1 1L2 2L2 1z"},
+		{"M1.1 0L3 0L3 7L0 7zM1 1L2 2L2 1zM1 3L2 4L2 3zM1 5L2 6L2 5z", opSettle, "", "M1 0L3 0L3 7L0 7L1 3L2 4L2 3L1 3L1 1L2 2L2 1L1 1zM1 5L2 6L2 5z"},
 	}
 
 	origEpsilon := BentleyOttmannEpsilon
