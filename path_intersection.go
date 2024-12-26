@@ -232,9 +232,23 @@ func (s *SweepPoint) ToleranceEdgeY(xLeft, xRight float64) (float64, float64) {
 	return y0, y1
 }
 
+func (s *SweepPoint) SplitAt(z Point) (*SweepPoint, *SweepPoint) {
+	// split segment at point
+	r := boPointPool.Get().(*SweepPoint)
+	l := boPointPool.Get().(*SweepPoint)
+	*r, *l = *s.other, *s
+	r.Point, l.Point = z, z
+
+	// update references
+	r.other, s.other.other = s, l
+	l.other, s.other = s.other, r
+	l.node = nil
+	return r, l
+}
+
 func (s *SweepPoint) Reverse() {
 	s.left, s.other.left = !s.left, s.left
-	s.increasing, s.other.increasing = !s.increasing, !s.increasing
+	s.increasing, s.other.increasing = !s.increasing, !s.other.increasing
 }
 
 func (s *SweepPoint) String() string {
@@ -990,74 +1004,50 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, a
 	}
 
 	// Non vertical but downward sloped segments may become vertical upon intersection due to
-	// floating point rounding and limited precision. We must make sure that the first segment
-	// after breaking up at the intersection remains as-is (its left-endpoint was already popped
-	// off the queue), but the second segment may become vertical and thus be reversed in direction
-
-	//aMinY, aMaxY := a.Y, a.other.Y
-	//if aMaxY < aMinY {
-	//	aMinY, aMaxY = aMaxY, aMinY
-	//}
-	//bMinY, bMaxY := b.Y, b.other.Y
-	//if bMaxY < bMinY {
-	//	bMinY, bMaxY = bMaxY, bMinY
-	//}
-	//for _, z := range zs {
-	//	if z.X < a.X {
-	//		fmt.Println("WARNING: ax0", a, b, "at", z)
-	//	} else if a.other.X < z.X {
-	//		fmt.Println("WARNING: ax1", a, b, "at", z)
-	//	} else if a.X != a.other.X && (z.X == a.X || z.X == a.other.X) && (z.Y != a.Y && z.Y != a.other.Y) {
-	//		fmt.Println("WARNING: ay", a, b, "at", z)
-	//	}
-	//	if z.X < b.X {
-	//		fmt.Println("WARNING: b", a, b, "at", z)
-	//	} else if b.other.X < z.X {
-	//		fmt.Println("WARNING: b.other", a, b, "at", z)
-	//	} else if b.X != b.other.X && (z.X == b.X || z.X == b.other.X) && (z.Y != b.Y && z.Y != b.other.Y) {
-	//		fmt.Println("WARNING: by", a, b, "at", z)
-	//	}
-
-	//	if z.Y < aMinY {
-	//		fmt.Println("WARNING: a2", a, b, "at", z)
-	//	} else if aMaxY < z.Y {
-	//		fmt.Println("WARNING: a2.other", a, b, "at", z)
-	//	}
-	//	if z.Y < bMinY {
-	//		fmt.Println("WARNING: b2", a, b, "at", z)
-	//	} else if bMaxY < z.Y {
-	//		fmt.Println("WARNING: b2.other", a, b, "at", z)
-	//	}
-	//}
-
-	// sort intersections from left to right
-	//if !slices.IsSortedFunc(zs, compareIntersections) {
-	//	fmt.Println("WARNING: intersections not sorted")
-	//	slices.SortFunc(zs, compareIntersections)
-	//}
+	// floating point rounding and limited precision. This involves reversing segments, which is
+	// non-trivial for the first segment since it was already popped off the queue.
 
 	// handle a
-	aPrevLeft, aLastRight := a, a.other
+	aPrevLeft := a
+	aDownwards := a.X < a.other.X && a.other.Y < a.Y
 	for _, z := range zs {
-		if z == a.Point || z == aLastRight.Point {
+		if z == aPrevLeft.Point || z == aPrevLeft.other.Point {
 			// ignore tangent intersections at the endpoints
 			continue
 		}
 
 		// split segment at intersection
-		aRight := boPointPool.Get().(*SweepPoint)
-		aLeft := boPointPool.Get().(*SweepPoint)
-		*aRight, *aLeft = *a.other, *a
-		aRight.Point = z
-		aLeft.Point = z
+		aRight, aLeft := aPrevLeft.SplitAt(z)
 
-		// update references
-		aPrevLeft.other, aRight.other = aRight, aPrevLeft
+		// reverse direction if necessary
+		aOrigLeft := aLeft
+		if aLeft.X == aLeft.other.X {
+			// segment after the split is vertical
+			aLeft.vertical, aLeft.other.vertical = true, true
+			if aLeft.other.Y < aLeft.Y {
+				aLeft.Reverse()
+				aLeft = aLeft.other // replace for `handled` below
+			}
+		} else if aRight.X == aRight.other.X {
+			// segment before the split is vertical
+			aRight.vertical, aRight.other.vertical = true, true
+			if aRight.other == a && aDownwards {
+				// reverse first segment
+				fmt.Println("WARNING: swap direction on A right")
+				aRight.Reverse()
+				if aRight.other.node != nil {
+					fmt.Println("NOTE: node not nil")
+				}
 
-		// reverse direction if necessary, see note above
-		if a.X < aLastRight.X && aLastRight.Y < a.Y && z.X == aLastRight.X {
-			aLeft.Reverse()
-			aLeft.vertical = true
+				// update references from status/handled/queue
+				// aRight will now be at the original start position and at the front of the queue
+				aFirst := aRight.other
+				*aRight, *aFirst = *aFirst, *aRight
+				aFirst.other, aRight.other = aRight, aFirst
+				aFirst.node, aRight.node = aRight.node, nil
+				// NOTE: a may need to be reordered in status
+				// NOTE: a.other may need to be reordered in queue
+			}
 		}
 
 		// add to handled
@@ -1065,33 +1055,51 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, a
 
 		// add to queue
 		queue.Push(aRight)
-		queue.Push(aLeft)
+		queue.Push(aOrigLeft)
 		aPrevLeft = aLeft
 	}
-	aPrevLeft.other, aLastRight.other = aLastRight, aPrevLeft
 
 	// handle b
-	bPrevLeft, bLastRight := b, b.other
+	bPrevLeft := b
+	bDownwards := b.X < b.other.X && b.other.Y < b.Y
 	for _, z := range zs {
-		if z == b.Point || z == bLastRight.Point {
+		if z == bPrevLeft.Point || z == bPrevLeft.other.Point {
 			// ignore tangent intersections at the endpoints
 			continue
 		}
 
 		// split segment at intersection
-		bRight := boPointPool.Get().(*SweepPoint)
-		bLeft := boPointPool.Get().(*SweepPoint)
-		*bRight, *bLeft = *b.other, *b
-		bRight.Point = z
-		bLeft.Point = z
+		bRight, bLeft := bPrevLeft.SplitAt(z)
 
-		// update references
-		bPrevLeft.other, bRight.other = bRight, bPrevLeft
+		// reverse direction if necessary
+		bOrigLeft := bLeft
+		if bLeft.X == bLeft.other.X {
+			// segment after the split is vertical
+			bLeft.vertical, bLeft.other.vertical = true, true
+			if bLeft.other.Y < bLeft.Y {
+				bLeft.Reverse()
+				bLeft = bLeft.other // replace for `handled` below
+			}
+		} else if bRight.X == bRight.other.X {
+			// segment before the split is vertical
+			bRight.vertical, bRight.other.vertical = true, true
+			if bRight.other == b && bDownwards {
+				// reverse first segment
+				fmt.Println("WARNING: swap direction on B right")
+				bRight.Reverse()
+				if bRight.other.node != nil {
+					fmt.Println("NOTE: node not nil")
+				}
 
-		// reverse direction if necessary, see note above
-		if b.X < bLastRight.X && bLastRight.Y < b.Y && z.X == bLastRight.X {
-			bLeft.Reverse()
-			bLeft.vertical = true
+				// update references from status/handled/queue
+				// bRight will now be at the original start position and at the front of the queue
+				bFirst := bRight.other
+				*bRight, *bFirst = *bFirst, *bRight
+				bFirst.other, bRight.other = bRight, bFirst
+				bFirst.node, bRight.node = bRight.node, nil
+				// NOTE: b may need to be reordered in status
+				// NOTE: b.other may need to be reordered in queue
+			}
 		}
 
 		// add to handled
@@ -1103,10 +1111,9 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, a
 
 		// add to queue
 		queue.Push(bRight)
-		queue.Push(bLeft)
+		queue.Push(bOrigLeft)
 		bPrevLeft = bLeft
 	}
-	bPrevLeft.other, bLastRight.other = bLastRight, bPrevLeft
 }
 
 type toleranceSquare struct {
@@ -1744,6 +1751,9 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 					// that goes below
 					continue
 				}
+				if !event.left {
+					fmt.Println("ERROR: SWAPPED LEFT TO RIGHT")
+				}
 				queue.Pop()
 
 				// add event to sweep status
@@ -1776,16 +1786,15 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 					// If we put the event back into boPointPool it may we used again and not be
 					// synchronized with `handled map[SweepPointPair]struct{}` above, so we are
 					// leaking the event to the GC.
-					//boPointPool.Put(event)
 					square.Events = append(square.Events[:i], square.Events[i+1:]...)
 					i--
 				} else if event.X == other.X {
-					// correct for segments that have become vertical
+					// correct for segments that have become vertical due to snap/breakup
 					if !event.left && event.Y < other.Y {
 						// downward sloped, reverse direction
 						event.Reverse()
 					}
-					event.vertical = true
+					event.vertical, event.other.vertical = true, true
 				}
 			}
 		}
