@@ -981,15 +981,15 @@ func (pair SweepPointPair) Swapped() SweepPointPair {
 	return SweepPointPair{pair[1], pair[0]}
 }
 
-func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, a, b *SweepPoint) {
+func addIntersections(queue *SweepEvents, a, b *SweepPoint) {
 	// a and b are always left-endpoints and a is below b
-	pair := SweepPointPair{a, b}
-	if _, ok := handled[pair]; ok {
-		return
-	} else if _, ok := handled[pair.Swapped()]; ok {
-		return
-	}
-	handled[pair] = struct{}{}
+	//pair := SweepPointPair{a, b}
+	//if _, ok := handled[pair]; ok {
+	//	return
+	//} else if _, ok := handled[pair.Swapped()]; ok {
+	//	return
+	//}
+	//handled[pair] = struct{}{}
 
 	// find all intersections between segment pair
 	// this returns either no intersections, or one or more secant/tangent intersections,
@@ -1058,7 +1058,7 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, a
 		}
 
 		// add to handled
-		handled[SweepPointPair{aLeft, b}] = struct{}{}
+		//handled[SweepPointPair{aLeft, b}] = struct{}{}
 
 		// add to queue
 		queue.Push(aRight)
@@ -1110,11 +1110,11 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, a
 		}
 
 		// add to handled
-		handled[SweepPointPair{a, bLeft}] = struct{}{}
-		if aPrevLeft != a {
-			// there is only one non-tangential intersection
-			handled[SweepPointPair{aPrevLeft, bLeft}] = struct{}{}
-		}
+		//handled[SweepPointPair{a, bLeft}] = struct{}{}
+		//if aPrevLeft != a {
+		//	// there is only one non-tangential intersection
+		//	handled[SweepPointPair{aPrevLeft, bLeft}] = struct{}{}
+		//}
 
 		// add to queue
 		queue.Push(bRight)
@@ -1687,10 +1687,9 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 	queue.Init() // sort from left to right
 
 	// run sweep line left-to-right
-	status := &SweepStatus{}                                    // contains only left events
-	squares := toleranceSquares{}                               // sorted vertically, squares and their events
-	nodes := []*SweepNode{}                                     // used for ordering status
-	handled := make(map[SweepPointPair]struct{}, len(*queue)*2) // prevent testing for intersections more than once, allocation length is an approximation
+	nodes := []*SweepNode{}       // buffer used for ordering status
+	status := &SweepStatus{}      // contains only left events
+	squares := toleranceSquares{} // sorted vertically, squares and their events
 	for 0 < len(*queue) {
 		// TODO: skip or stop depending on operation if we're to the left/right of subject/clipping polygon
 
@@ -1733,7 +1732,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				prev := n.Prev()
 				next := n.Next()
 				if prev != nil && next != nil {
-					addIntersections(queue, handled, prev.SweepPoint, next.SweepPoint)
+					addIntersections(queue, prev.SweepPoint, next.SweepPoint)
 				}
 
 				// add event to tolerance square
@@ -1750,10 +1749,10 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				// add intersections to queue
 				prev, next := status.FindPrevNext(event)
 				if prev != nil {
-					addIntersections(queue, handled, prev.SweepPoint, event)
+					addIntersections(queue, prev.SweepPoint, event)
 				}
 				if next != nil {
-					addIntersections(queue, handled, event, next.SweepPoint)
+					addIntersections(queue, event, next.SweepPoint)
 				}
 				if event != queue.Top() {
 					// check if the queue order was changed, this happens if the current event
