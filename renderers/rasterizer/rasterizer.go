@@ -188,24 +188,29 @@ func (r *Rasterizer) RenderText(text *canvas.Text, m canvas.Matrix) {
 func (r *Rasterizer) RenderImage(img image.Image, m canvas.Matrix) {
 	// add transparent margin to image for smooth borders when rotating
 	// TODO: optimize when transformation is only translation or stretch (if optimizing, dont overwrite original img when gamma correcting)
-	margin := 0 // TODO: margin makes stretched image blurry, how can we make edges smoother after rotation without affecting stretching?
-	size := img.Bounds().Size()
-	sp := img.Bounds().Min // starting point
-	img2 := image.NewRGBA(image.Rect(0, 0, size.X+margin*2, size.Y+margin*2))
-	draw.Draw(img2, image.Rect(margin, margin, size.X+margin, size.Y+margin), img, sp, draw.Over)
+	margin := 0
+	if (m[0][1] != 0.0 || m[1][0] != 0.0) && (m[0][0] != 0.0 || m[1][1] == 0.0) {
+		// only add margin for shear transformation or rotations that are not 90/180/270 degrees
+		margin = 4
+		size := img.Bounds().Size()
+		sp := img.Bounds().Min // starting point
+		img2 := image.NewRGBA(image.Rect(0, 0, size.X+margin*2, size.Y+margin*2))
+		draw.Draw(img2, image.Rect(margin, margin, size.X+margin, size.Y+margin), img, sp, draw.Over)
+		img = img2
+	}
+
+	if _, ok := r.colorSpace.(canvas.LinearColorSpace); !ok {
+		// gamma decompress
+		changeColorSpace(img.(draw.Image), img, r.colorSpace.ToLinear)
+	}
 
 	// draw to destination image
 	// note that we need to correct for the added margin in origin and m
 	dpmm := r.resolution.DPMM()
-	origin := m.Dot(canvas.Point{-float64(margin), float64(img2.Bounds().Size().Y - margin)}).Mul(dpmm)
+	origin := m.Dot(canvas.Point{-float64(margin), float64(img.Bounds().Size().Y - margin)}).Mul(dpmm)
 	m = m.Scale(dpmm, dpmm)
-
-	if _, ok := r.colorSpace.(canvas.LinearColorSpace); !ok {
-		// gamma decompress
-		changeColorSpace(img2, img2, r.colorSpace.ToLinear)
-	}
 
 	h := float64(r.Bounds().Size().Y)
 	aff3 := f64.Aff3{m[0][0], -m[0][1], origin.X, -m[1][0], m[1][1], h - origin.Y}
-	draw.CatmullRom.Transform(r, aff3, img2, img2.Bounds(), draw.Over, nil)
+	draw.CatmullRom.Transform(r, aff3, img, img.Bounds(), draw.Over, nil)
 }
