@@ -1003,9 +1003,29 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, a
 		return
 	}
 
-	// Non vertical but downward sloped segments may become vertical upon intersection due to
-	// floating point rounding and limited precision. This involves reversing segments, which is
-	// non-trivial for the first segment since it was already popped off the queue.
+	// Non-vertical but downwards-sloped segments may become vertical upon intersection due to
+	// floating-point rounding and limited precision. Only the first segment of b can ever become
+	// vertical, never the first segment of a:
+	// - a and b may be segments in status when processing a right-endpoint. The left-endpoints of
+	//   both thus must be to the left of this right-endpoint (unless vertical) and can never
+	//   become vertical in their first segment.
+	// - a is the segment of the currently processed left-endpoint and b is in status and above it.
+	//   a's left-endpoint is to the right of b's left-endpoint and is below b, thus:
+	//   - a and b go upwards: a nor b may become vertical, no reversal
+	//   - a goes downwards and b upwards: no intersection
+	//   - a goes upwards and b downwards: only a may become vertical but no reversal
+	//   - a and b go downwards: b may pass a's left-endpoint to its left (no intersection),
+	//     through it (tangential intersection, no splitting), or to its right so that a never
+	//     becomes vertical and thus no reversal
+	// - b is the segment of the currently processed left-endpoint and a is in status and below it.
+	//   a's left-endpoint is below or to the left of b's left-endpoint and a is below b, thus:
+	//   - a and b go upwards: only a may become vertical, no reversal
+	//   - a goes downwards and b upwards: no intersection
+	//   - a goes upwards and b downwards: both may become vertical where only b must be reversed
+	//   - a and b go downwards: if b passes through a's left-endpoint, it must become vertical and
+	//     be reversed, or it passed to the right of a's left-endpoint and a nor b become vertical
+	// Conclusion: either may become vertical, but only b ever needs reversal of direction. And
+	// note that b is the currently processed left-endpoint and thus isn't in status.
 
 	// handle a
 	aPrevLeft := a
@@ -1033,20 +1053,7 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, a
 			aRight.vertical, aRight.other.vertical = true, true
 			if aRight.other == a && aDownwards {
 				// reverse first segment
-				fmt.Println("WARNING: swap direction on A right")
-				aRight.Reverse()
-				if aRight.other.node != nil {
-					fmt.Println("NOTE: node not nil")
-				}
-
-				// update references from status/handled/queue
-				// aRight will now be at the original start position and at the front of the queue
-				aFirst := aRight.other
-				*aRight, *aFirst = *aFirst, *aRight
-				aFirst.other, aRight.other = aRight, aFirst
-				aFirst.node, aRight.node = aRight.node, nil
-				// NOTE: a may need to be reordered in status
-				// NOTE: a.other may need to be reordered in queue
+				panic("impossible: first segment of A became vertical and needs reversal")
 			}
 		}
 
@@ -1085,20 +1092,20 @@ func addIntersections(queue *SweepEvents, handled map[SweepPointPair]struct{}, a
 			bRight.vertical, bRight.other.vertical = true, true
 			if bRight.other == b && bDownwards {
 				// reverse first segment
-				fmt.Println("WARNING: swap direction on B right")
-				bRight.Reverse()
 				if bRight.other.node != nil {
-					fmt.Println("NOTE: node not nil")
+					panic("impossible: first segment of B became vertical and needs reversal, but B was already in the sweep status")
 				}
+				bRight.Reverse()
 
-				// update references from status/handled/queue
-				// bRight will now be at the original start position and at the front of the queue
+				// Note that we swap the content of the currently processed left-endpoint of b with
+				// the new left-endpoint vertically below. The queue may not be strictly ordered
+				// with other vertical segments at the new left-endpoint, but this isn't a problem
+				// since we sort the events in each square after the Bentley-Ottmann phase.
+
+				// update references from handled and queue by swapping their contents
 				bFirst := bRight.other
 				*bRight, *bFirst = *bFirst, *bRight
 				bFirst.other, bRight.other = bRight, bFirst
-				bFirst.node, bRight.node = bRight.node, nil
-				// NOTE: b may need to be reordered in status
-				// NOTE: b.other may need to be reordered in queue
 			}
 		}
 
@@ -1753,9 +1760,6 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 					// is the left-endpoint of a segment that intersects with an existing segment
 					// that goes below
 					continue
-				}
-				if !event.left {
-					fmt.Println("ERROR: SWAPPED LEFT TO RIGHT")
 				}
 				queue.Pop()
 
