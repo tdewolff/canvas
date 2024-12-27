@@ -2305,7 +2305,6 @@ func (p *Path) ToRasterizer(ras *vector.Rasterizer, resolution Resolution) {
 
 	dpmm := resolution.DPMM()
 	tolerance := PixelTolerance / dpmm // tolerance of 1/10 of a pixel
-	p = p.Flatten(tolerance)
 	dy := float64(ras.Bounds().Size().Y)
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
