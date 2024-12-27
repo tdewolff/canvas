@@ -1854,14 +1854,6 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 	}
 	status.Clear() // release all nodes (but not SweepPoints)
 
-	//for _, square := range squares {
-	//	for _, event := range square.Events {
-	//		if event.left {
-	//			fmt.Println(event, event.inResult, "--", event.windings, event.selfWindings, "/", event.otherWindings, event.otherSelfWindings)
-	//		}
-	//	}
-	//}
-
 	// build resulting polygons
 	for _, square := range squares {
 		for _, cur := range square.Events {
@@ -1912,10 +1904,6 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				}
 				if next == nil {
 					fmt.Println("WARNING: next node for result polygon is nil, probably buggy intersection code")
-					fmt.Println(ps)
-					fmt.Println(op, fillRule)
-					fmt.Println(qs)
-					panic("")
 					break
 				} else if next == first {
 					break // contour is done
