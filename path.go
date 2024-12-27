@@ -234,31 +234,24 @@ func (p *Path) Len() int {
 	return n
 }
 
-// Append appends path q to p and returns a new path if successful (otherwise either p or q are returned).
+// Append appends path q to p and returns the extended path p.
 func (p *Path) Append(qs ...*Path) *Path {
-	n := len(p.d)
-	for _, q := range qs {
-		if q != nil {
-			n += len(q.d)
-		}
-	}
-	r := &Path{make([]float64, 0, n)}
-	if !p.Empty() {
-		r.d = append(r.d, p.d...)
+	if p.Empty() {
+		p = &Path{}
 	}
 	for _, q := range qs {
 		if !q.Empty() {
-			r.d = append(r.d, q.d...)
+			p.d = append(p.d, q.d...)
 		}
 	}
-	return r
+	return p
 }
 
-// Join joins path q to p and returns a new path if successful (otherwise either p or q are returned). It's like executing the commands in q to p in sequence, where if the first MoveTo of q doesn't coincide with p, or if p ends in Close, it will fallback to appending the paths.
+// Join joins path q to p and returns the extended path p (or q if p is empty). It's like executing the commands in q to p in sequence, where if the first MoveTo of q doesn't coincide with p, or if p ends in Close, it will fallback to appending the paths.
 func (p *Path) Join(q *Path) *Path {
-	if q == nil || q.Empty() {
+	if q.Empty() {
 		return p
-	} else if p == nil || p.Empty() {
+	} else if p.Empty() {
 		return q
 	}
 
