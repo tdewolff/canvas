@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/tdewolff/canvas/text"
@@ -408,7 +409,7 @@ type RichText struct {
 	orient TextOrientation
 
 	defaultFace *FontFace
-	objects     []TextSpanObject
+	objects     map[uint32]TextSpanObject
 }
 
 // NewRichText returns a new rich text with the given default font face.
@@ -420,6 +421,7 @@ func NewRichText(face *FontFace) *RichText {
 		mode:        HorizontalTB,
 		orient:      Natural,
 		defaultFace: face,
+		objects:     map[uint32]TextSpanObject{},
 	}
 }
 
@@ -491,13 +493,13 @@ func (rt *RichText) WriteFace(face *FontFace, text string) {
 // WriteCanvas writes an inline canvas object.
 func (rt *RichText) WriteCanvas(c *Canvas, valign VerticalAlign) {
 	width, height := c.Size()
-	rt.WriteRune(text.ObjectRune) // replaced by object
-	rt.objects = append(rt.objects, TextSpanObject{
+	rt.objects[uint32(rt.Len())] = TextSpanObject{
 		Canvas: c,
 		Width:  width,
 		Height: height,
 		VAlign: valign,
-	})
+	}
+	rt.WriteRune(unicode.ReplacementChar) // replaced by object
 }
 
 // WritePath writes an inline path.
@@ -573,8 +575,8 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	logRunes := []rune(log)
 	embeddingLevels := text.EmbeddingLevels(logRunes)
 
-	// itemize string by font face and script
-	// this also splits on embedding level boundaries and runs of ObjectRune (replaced by object)
+	// itemize string by font face and script, this also splits on embedding level boundaries and
+	// unicode.ReplacementChar (replaced by object)
 	i := 0       // index into logRunes
 	curFace := 0 // index into rt.faces
 	runs := []textRun{}
@@ -599,41 +601,39 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	}
 
 	// shape text into glyphs and keep index into runs
-	objectOffset := 0
 	clusterOffset := uint32(0)
 	glyphIndices := indexer{} // indexes glyphs into runs
 	glyphs := make([]text.Glyph, 0, len(logRunes))
 	for _, run := range runs {
 		ppem := run.Face.PPEM(DefaultResolution)
 		glyphRun := run.Face.Font.shaper.Shape(run.Text, ppem, run.Direction, run.Script, run.Face.Language, run.Face.Font.features, run.Face.Font.variations)
-		for i, glyph := range glyphRun {
-			glyphRun[i].SFNT = run.Face.Font.SFNT
-			glyphRun[i].Size = run.Face.Size
-			glyphRun[i].Script = run.Script
-			glyphRun[i].Cluster += clusterOffset
-			if glyph.Text == text.ObjectRune {
+		for i := range glyphRun {
+			glyph := &glyphRun[i]
+			glyph.SFNT = run.Face.Font.SFNT
+			glyph.Size = run.Face.Size
+			glyph.Script = run.Script
+			glyph.Cluster += clusterOffset
+			if obj, ok := rt.objects[glyph.Cluster]; ok {
 				// path/image objects
-				obj := rt.objects[objectOffset]
 				ppem := float64(run.Face.Font.SFNT.Head.UnitsPerEm)
 				xadv, yadv := obj.Width, obj.Height
 				if rt.mode != HorizontalTB {
 					yadv = -yadv
 				}
-				glyphRun[i].Vertical = rt.mode != HorizontalTB
-				glyphRun[i].XAdvance = int32(xadv * ppem / run.Face.Size)
-				glyphRun[i].YAdvance = int32(yadv * ppem / run.Face.Size)
-				objectOffset++
+				glyph.Vertical = rt.mode != HorizontalTB
+				glyph.XAdvance = int32(xadv * ppem / run.Face.Size)
+				glyph.YAdvance = int32(yadv * ppem / run.Face.Size)
 			} else {
-				glyphRun[i].Vertical = run.Direction == text.TopToBottom || run.Direction == text.BottomToTop
+				glyph.Vertical = run.Direction == text.TopToBottom || run.Direction == text.BottomToTop
 				if rt.mode != HorizontalTB {
 					if run.Script == text.Mongolian {
-						glyphRun[i].YOffset += int32(run.Face.Font.SFNT.Hhea.Descender)
+						glyph.YOffset += int32(run.Face.Font.SFNT.Hhea.Descender)
 					} else if run.Rotation != text.NoRotation {
 						// center horizontal text by x-height when rotated in vertical layout
-						glyphRun[i].YOffset -= int32(run.Face.Font.SFNT.OS2.SxHeight) / 2
+						glyph.YOffset -= int32(run.Face.Font.SFNT.OS2.SxHeight) / 2
 					} else if rt.orient == Upright && run.Rotation == text.NoRotation && !text.IsVerticalScript(run.Script) {
 						// center horizontal text vertically when upright in vertical layout
-						glyphRun[i].YOffset = -(int32(run.Face.Font.SFNT.Head.UnitsPerEm) + int32(run.Face.Font.SFNT.OS2.SxHeight)) / 2
+						glyph.YOffset = -(int32(run.Face.Font.SFNT.Head.UnitsPerEm) + int32(run.Face.Font.SFNT.OS2.SxHeight)) / 2
 					}
 				}
 			}
@@ -706,8 +706,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	glyphs = append(glyphs, text.Glyph{Cluster: uint32(len(log))}) // makes indexing easier
 
 	y := 0.0
-	ai, ag := 0, 0   // index into items and glyphs
-	objectOffset = 0 // index into objects
+	ai, ag := 0, 0 // index into items and glyphs
 	lineSpacing := 1.0 + lineStretch
 	for j := range breaks {
 		// j is the current line
@@ -809,29 +808,17 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 				var w float64
 				var objects []TextSpanObject
-				if glyphs[a].Text == text.ObjectRune {
+				if obj, ok := rt.objects[glyphs[a].Cluster]; ok {
 					// path/image objects
-					n := b - a
-					objects = make([]TextSpanObject, n)
-					for i := 0; i < n; i++ {
-						var obj TextSpanObject
-						if run.Direction == text.RightToLeft || run.Direction == text.BottomToTop {
-							// logical to visual order
-							obj = rt.objects[objectOffset+(n-1-i)]
-						} else {
-							obj = rt.objects[objectOffset+i]
-						}
-						if rt.mode == HorizontalTB {
-							obj.X = w
-							w += obj.Width
-						} else {
-							obj.X = -obj.Width / 2.0
-							obj.Y = -w - obj.Height
-							w += obj.Height
-						}
-						objects[i] = obj
+					if rt.mode == HorizontalTB {
+						obj.X = w
+						w += obj.Width
+					} else {
+						obj.X = -obj.Width / 2.0
+						obj.Y = -w - obj.Height
+						w += obj.Height
 					}
-					objectOffset += n
+					objects = []TextSpanObject{obj}
 				} else {
 					if run.Direction == text.RightToLeft || run.Direction == text.BottomToTop {
 						// logical to visual order
@@ -845,6 +832,9 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 				}
 
 				ac, bc := glyphs[a].Cluster, glyphs[b].Cluster
+				if run.Direction == text.RightToLeft || run.Direction == text.BottomToTop {
+					ac = glyphs[b-1].Cluster
+				}
 				line.spans = append(line.spans, TextSpan{
 					X:         x,
 					Width:     w,
@@ -1221,17 +1211,13 @@ func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
 				if err != nil {
 					panic(err)
 				}
-				if span.Rotation != 0.0 {
-					p = p.Transform(Identity.Rotate(float64(span.Rotation)))
-				}
 				if resolution != 0.0 && span.Face.Hinting != font.NoHinting && span.Rotation == text.NoRotation {
 					// grid-align vertically on pixel raster, this improves font sharpness
 					_, dy := m.Pos()
 					dy += y
 					y += float64(int(dy*resolution.DPMM()+0.5))/resolution.DPMM() - dy
 				}
-				p = p.Translate(x, y)
-				r.RenderPath(p, style, m)
+				r.RenderPath(p, style, m.Translate(x, y).Rotate(float64(span.Rotation)))
 			} else {
 				for _, obj := range span.Objects {
 					obj.RenderViewTo(r, m.Mul(obj.View(x, y, span.Face)))

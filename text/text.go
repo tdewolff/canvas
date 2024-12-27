@@ -2,11 +2,10 @@ package text
 
 import (
 	"fmt"
+	"unicode"
 
 	"github.com/tdewolff/font"
 )
-
-const ObjectRune rune = -1
 
 type ScriptItem struct {
 	Script
@@ -14,8 +13,7 @@ type ScriptItem struct {
 	Text  string
 }
 
-// ScriptItemizer divides the string in parts for each different script.
-// Also separates on different embedding levels and runs of ObjectRune (replaced by object)
+// ScriptItemizer divides the string in parts for each different script. Also separates on different embedding levels and unicode.ReplacementChar (replaced by object).
 func ScriptItemizer(runes []rune, embeddingLevels []int) []ScriptItem {
 	if len(runes) == 0 {
 		return []ScriptItem{}
@@ -56,7 +54,8 @@ func ScriptItemizer(runes []rune, embeddingLevels []int) []ScriptItem {
 
 		scriptBoundary := script != prevScript
 		levelBoundary := level != prevLevel
-		objectReplacementBoundary := 0 < j && (r == ObjectRune) != (runes[j-1] == ObjectRune)
+		//objectReplacementBoundary := 0 < j && (r == unicode.ReplacementChar) != (runes[j-1] == unicode.ReplacementChar)
+		objectReplacementBoundary := r == unicode.ReplacementChar || 0 < j && runes[j-1] == unicode.ReplacementChar
 		if 0 < j && (levelBoundary || scriptBoundary || objectReplacementBoundary) {
 			items = append(items, ScriptItem{
 				Script: prevScript,
