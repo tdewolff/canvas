@@ -182,7 +182,7 @@ func intersectionLineLineBentleyOttmann(zs []Point, a0, a1, b0, b1 Point) []Poin
 	B := b0.Sub(b1)
 	C := a0.Sub(b0)
 	denom := B.PerpDot(A)
-	if denom == 0.0 {
+	if Equal(denom, 0.0) {
 		// colinear
 		if C.PerpDot(B) == 0.0 {
 			// overlap, rotate to x-axis
@@ -244,10 +244,14 @@ func intersectionLineLineBentleyOttmann(zs []Point, a0, a1, b0, b1 Point) []Poin
 			ta = 1.0
 		}
 		z := a0.Interpolate(a1, ta)
+		zs = append(zs, z)
+	}
 
-		// correct for numerical errors, make sure that the intersection is within the limits of
-		// each segment, and also that all split segments (ie. (a0,z), (z,a1), (b0,z), (z,b1)) are
-		// increasing (ie. go left-to-right or if vertical bottom-to-top)
+	// correct for numerical errors, make sure that the intersection is within the limits of
+	// each segment, and also that all split segments (ie. (a0,z), (z,a1), (b0,z), (z,b1)) are
+	// increasing (ie. go left-to-right or if vertical bottom-to-top)
+	for i := range zs {
+		z := &zs[i]
 		if z.X < a0.X {
 			z.X = a0.X
 		} else if a1.X < z.X {
@@ -268,7 +272,6 @@ func intersectionLineLineBentleyOttmann(zs []Point, a0, a1, b0, b1 Point) []Poin
 		} else if bMaxY < z.Y {
 			z.Y = bMaxY
 		}
-		zs = append(zs, z)
 	}
 	return zs
 }

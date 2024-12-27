@@ -981,7 +981,7 @@ func (pair SweepPointPair) Swapped() SweepPointPair {
 	return SweepPointPair{pair[1], pair[0]}
 }
 
-func addIntersections(queue *SweepEvents, a, b *SweepPoint) {
+func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) {
 	// a and b are always left-endpoints and a is below b
 	//pair := SweepPointPair{a, b}
 	//if _, ok := handled[pair]; ok {
@@ -1034,6 +1034,14 @@ func addIntersections(queue *SweepEvents, a, b *SweepPoint) {
 		if z == aPrevLeft.Point || z == aPrevLeft.other.Point {
 			// ignore tangent intersections at the endpoints
 			continue
+		} else if event != nil {
+			// intersection may be to the left (or below) the current event due to floating-point
+			// precision which would interfere with the sequence in queue
+			if z.X < event.X {
+				z.X = event.X
+			} else if z.X == event.X && z.Y < event.Y {
+				z.Y = event.Y
+			}
 		}
 
 		// split segment at intersection
@@ -1073,6 +1081,14 @@ func addIntersections(queue *SweepEvents, a, b *SweepPoint) {
 		if z == bPrevLeft.Point || z == bPrevLeft.other.Point {
 			// ignore tangent intersections at the endpoints
 			continue
+		} else if event != nil {
+			// intersection may be to the left (or below) the current event due to floating-point
+			// precision which would interfere with the sequence in queue
+			if z.X < event.X {
+				z.X = event.X
+			} else if z.X == event.X && z.Y < event.Y {
+				z.Y = event.Y
+			}
 		}
 
 		// split segment at intersection
@@ -1732,7 +1748,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				prev := n.Prev()
 				next := n.Next()
 				if prev != nil && next != nil {
-					addIntersections(queue, prev.SweepPoint, next.SweepPoint)
+					addIntersections(queue, event, prev.SweepPoint, next.SweepPoint)
 				}
 
 				// add event to tolerance square
@@ -1749,10 +1765,10 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				// add intersections to queue
 				prev, next := status.FindPrevNext(event)
 				if prev != nil {
-					addIntersections(queue, prev.SweepPoint, event)
+					addIntersections(queue, nil, prev.SweepPoint, event)
 				}
 				if next != nil {
-					addIntersections(queue, event, next.SweepPoint)
+					addIntersections(queue, nil, event, next.SweepPoint)
 				}
 				if event != queue.Top() {
 					// check if the queue order was changed, this happens if the current event
