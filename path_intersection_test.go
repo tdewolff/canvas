@@ -165,7 +165,7 @@ func TestIntersectionLineLineBentleyOttmann(t *testing.T) {
 
 		// tangent
 		{"M2 0L2 3", "M2 2L3 2", []Point{{2.0, 2.0}}},
-		{"M2 0L2 2", "M2 2L3 2", []Point{{2.0, 2.0}}},
+		{"M2 0L2 2", "M2 2L3 2", nil},
 		{"L2 2", "M0 4L2 2", []Point{{2.0, 2.0}}},
 		{"L10 5", "M0 10L10 5", []Point{{10.0, 5.0}}},
 		{"M10 5L20 10", "M10 5L20 0", []Point{{10.0, 5.0}}},
@@ -174,8 +174,8 @@ func TestIntersectionLineLineBentleyOttmann(t *testing.T) {
 		{"L2 2", "L2 2", []Point{{0.0, 0.0}, Point{2.0, 2.0}}},
 		{"L2 2", "M3 3L5 5", nil},
 		{"L2 2", "M-1 1L1 3", nil},
-		{"L2 2", "M2 2L4 4", []Point{{2.0, 2.0}}},
-		{"L2 2", "M-2 -2L0 0", []Point{{0.0, 0.0}}},
+		{"L2 2", "M2 2L4 4", nil},
+		{"L2 2", "M-2 -2L0 0", nil},
 		{"L4 4", "M2 2L6 6", []Point{{2.0, 2.0}, Point{4.0, 4.0}}},
 		{"L4 4", "M-2 -2L2 2", []Point{{0.0, 0.0}, Point{2.0, 2.0}}},
 

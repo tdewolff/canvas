@@ -173,6 +173,8 @@ func intersectionLineLineBentleyOttmann(zs []Point, a0, a1, b0, b1 Point) []Poin
 	bMinY, bMaxY := math.Min(b0.Y, b1.Y), math.Max(b0.Y, b1.Y)
 	if aMaxY < bMinY || bMaxY < aMinY {
 		return zs
+	} else if (a1.X == b0.X || b1.X == a0.X) && (aMaxY == bMinY || bMaxY == aMinY) {
+		return zs
 	}
 
 	// only the position and T values are valid for each intersection
