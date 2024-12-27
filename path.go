@@ -271,7 +271,6 @@ func (p *Path) Join(q *Path) *Path {
 	// add the first command through the command functions to use the optimization features
 	// q is not empty, so starts with a MoveTo followed by other commands
 	cmd := d[0]
-	p = p.Copy()
 	switch cmd {
 	case MoveToCmd:
 		p.MoveTo(d[1], d[2])
@@ -1612,7 +1611,7 @@ func (p *Path) SplitAt(ts ...float64) []*Path {
 		}
 	}
 	if cmdLen(MoveToCmd) < len(q.d) {
-		qs = append(qs, q)
+		push()
 	}
 	return qs
 }
