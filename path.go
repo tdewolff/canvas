@@ -2301,10 +2301,11 @@ func (p *Path) ToPDF() string {
 
 // ToRasterizer rasterizes the path using the given rasterizer and resolution.
 func (p *Path) ToRasterizer(ras *vector.Rasterizer, resolution Resolution) {
-	dpmm := resolution.DPMM()
-	// TODO: smoothen path using Ramer-... inside flatten
-	p = p.Flatten(PixelTolerance / dpmm) // tolerance of 1/10 of a pixel
+	// TODO: smoothen path using Ramer-...
 
+	dpmm := resolution.DPMM()
+	tolerance := PixelTolerance / dpmm // tolerance of 1/10 of a pixel
+	p = p.Flatten(tolerance)
 	dy := float64(ras.Bounds().Size().Y)
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
@@ -2313,6 +2314,31 @@ func (p *Path) ToRasterizer(ras *vector.Rasterizer, resolution Resolution) {
 			ras.MoveTo(float32(p.d[i+1]*dpmm), float32(dy-p.d[i+2]*dpmm))
 		case LineToCmd:
 			ras.LineTo(float32(p.d[i+1]*dpmm), float32(dy-p.d[i+2]*dpmm))
+		case QuadToCmd, CubeToCmd, ArcToCmd:
+			// flatten
+			var q *Path
+			var start Point
+			if 0 < i {
+				start = Point{p.d[i-3], p.d[i-2]}
+			}
+			if cmd == QuadToCmd {
+				cp := Point{p.d[i+1], p.d[i+2]}
+				end := Point{p.d[i+3], p.d[i+4]}
+				q = flattenQuadraticBezier(start, cp, end, tolerance)
+			} else if cmd == CubeToCmd {
+				cp1 := Point{p.d[i+1], p.d[i+2]}
+				cp2 := Point{p.d[i+3], p.d[i+4]}
+				end := Point{p.d[i+5], p.d[i+6]}
+				q = flattenCubicBezier(start, cp1, cp2, end, tolerance)
+			} else {
+				rx, ry, phi := p.d[i+1], p.d[i+2], p.d[i+3]
+				large, sweep := toArcFlags(p.d[i+4])
+				end := Point{p.d[i+5], p.d[i+6]}
+				q = flattenEllipticArc(start, rx, ry, phi, large, sweep, end, tolerance)
+			}
+			for j := 4; j < len(q.d); j += 4 {
+				ras.LineTo(float32(q.d[j+1]*dpmm), float32(dy-q.d[j+2]*dpmm))
+			}
 		case CloseCmd:
 			ras.ClosePath()
 		default:
