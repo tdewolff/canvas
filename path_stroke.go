@@ -612,8 +612,8 @@ func (p *Path) offset(halfWidth float64, cr Capper, jr Joiner, strokeOpen bool, 
 	return rhs, lhs
 }
 
-// Offset offsets the path to expand by w and returns a new path. If w is negative it will contract. For open paths, a positive w will offset the path to the right-hand side. The tolerance is the maximum deviation from the actual offset when flattening Béziers and optimizing the path. Subpaths may not (self-)intersect, use Settle to remove (self-)intersections.
-func (p *Path) Offset(w float64, fillRule FillRule, tolerance float64) *Path {
+// Offset offsets the path by w and returns a new path. A positive w will offset the path to the right-hand side, that is, it expands CCW oriented contours and contracts CW oriented contours. If you don't know the orientation you can use `Path.CCW` to find out, but if there may be self-intersection you should use `Path.Settle` to remove them and orient all filling contours CCW. The tolerance is the maximum deviation from the actual offset when flattening Béziers and optimizing the path.
+func (p *Path) Offset(w float64, tolerance float64) *Path {
 	if Equal(w, 0.0) {
 		return p
 	}
@@ -622,22 +622,19 @@ func (p *Path) Offset(w float64, fillRule FillRule, tolerance float64) *Path {
 	w = math.Abs(w)
 
 	q := &Path{}
-	filling := p.Filling(fillRule)
-	for i, pi := range p.Split() {
+	for _, pi := range p.Split() {
 		r := &Path{}
-		ccw := pi.CCW()
-		closed := pi.Closed()
 		rhs, lhs := pi.offset(w, ButtCap, RoundJoin, false, tolerance)
-		if !closed || (ccw != filling[i]) != positive {
+		if positive {
 			r = rhs
 		} else {
 			r = lhs
 		}
-
-		if closed {
-			r = r.Settle(Positive)
-			if !filling[i] {
-				r = r.Reverse()
+		if pi.Closed() {
+			if pi.CCW() {
+				r = r.Settle(Positive)
+			} else {
+				r = r.Settle(Negative).Reverse()
 			}
 		}
 		q = q.Append(r)
@@ -654,7 +651,7 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path 
 		jr = MiterJoin
 	}
 	q := &Path{}
-	halfWidth := w / 2.0
+	halfWidth := math.Abs(w) / 2.0
 	for _, pi := range p.Split() {
 		rhs, lhs := pi.offset(halfWidth, cr, jr, true, tolerance)
 		if lhs != nil { // closed path
