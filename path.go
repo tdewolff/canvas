@@ -1,6 +1,8 @@
 package canvas
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"log"
 	"math"
@@ -129,6 +131,22 @@ func (p *Path) Reset() {
 // Data returns the raw path data.
 func (p *Path) Data() []float64 {
 	return p.d
+}
+
+// GobEncode implements the gob interface.
+func (p *Path) GobEncode() ([]byte, error) {
+	b := bytes.Buffer{}
+	enc := gob.NewEncoder(&b)
+	if err := enc.Encode(p.d); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+}
+
+// GobDecode implements the gob interface.
+func (p *Path) GobDecode(b []byte) error {
+	dec := gob.NewDecoder(bytes.NewReader(b))
+	return dec.Decode(&p.d)
 }
 
 // Empty returns true if p is an empty path or consists of only MoveTos and Closes.
