@@ -981,7 +981,7 @@ func (pair SweepPointPair) Swapped() SweepPointPair {
 	return SweepPointPair{pair[1], pair[0]}
 }
 
-func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) {
+func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) bool {
 	// a and b are always left-endpoints and a is below b
 	//pair := SweepPointPair{a, b}
 	//if _, ok := handled[pair]; ok {
@@ -1000,7 +1000,11 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) {
 
 	// no (valid) intersections
 	if len(zs) == 0 {
-		return
+		return false
+	}
+
+	if !slices.IsSortedFunc(zs, compareIntersections) {
+		fmt.Println("WARNING: not sorted:", zs)
 	}
 
 	// Non-vertical but downwards-sloped segments may become vertical upon intersection due to
@@ -1028,6 +1032,7 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) {
 	// note that b is the currently processed left-endpoint and thus isn't in status.
 
 	// handle a
+	retry := false
 	aPrevLeft := a
 	aDownwards := a.X < a.other.X && a.other.Y < a.Y
 	for _, z := range zs {
@@ -1072,6 +1077,7 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) {
 		queue.Push(aRight)
 		queue.Push(aOrigLeft)
 		aPrevLeft = aLeft
+		retry = true
 	}
 
 	// handle b
@@ -1136,7 +1142,9 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) {
 		queue.Push(bRight)
 		queue.Push(bOrigLeft)
 		bPrevLeft = bLeft
+		retry = true
 	}
+	return retry
 }
 
 type toleranceSquare struct {
@@ -1763,17 +1771,19 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				status.Remove(n)
 			} else {
 				// add intersections to queue
+				retry := false
 				prev, next := status.FindPrevNext(event)
 				if prev != nil {
-					addIntersections(queue, nil, prev.SweepPoint, event)
+					retry = addIntersections(queue, nil, prev.SweepPoint, event)
 				}
 				if next != nil {
-					addIntersections(queue, nil, event, next.SweepPoint)
+					retry = retry || addIntersections(queue, nil, event, next.SweepPoint)
 				}
-				if event != queue.Top() {
+				if retry {
 					// check if the queue order was changed, this happens if the current event
 					// is the left-endpoint of a segment that intersects with an existing segment
-					// that goes below
+					// that goes below, or when two segments become fully overlapping, which sets
+					// their order in status differently than when one of them extends further
 					continue
 				}
 				queue.Pop()
