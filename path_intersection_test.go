@@ -1104,6 +1104,8 @@ func TestBentleyOttmannSortH(t *testing.T) {
 				}
 			}
 			test.T(t, cmp, tt.cmp)
+
+			test.T(t, tt.a.CompareH(tt.b), tt.cmp)
 		})
 	}
 }

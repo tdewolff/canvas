@@ -876,6 +876,26 @@ func (a *SweepPoint) LessH(b *SweepPoint) bool {
 	return false
 }
 
+func (a *SweepPoint) CompareH(b *SweepPoint) int {
+	// used for sweep queue
+	// sort left-to-right, then bottom-to-top, then right-endpoints before left-endpoints, and then
+	// sort upwards to ensure a CCW orientation of the result
+	if a.X < b.X {
+		return -1
+	} else if b.X < a.X {
+		return 1
+	} else if a.Y < b.Y {
+		return -1
+	} else if b.Y < a.Y {
+		return 1
+	} else if !a.left && b.left {
+		return -1
+	} else if a.left && !b.left {
+		return 1
+	}
+	return a.compareTangentsV(b)
+}
+
 func (a *SweepPoint) compareOverlapsV(b *SweepPoint) int {
 	// compare segments vertically that overlap (ie. are the same)
 	if a.clipping != b.clipping {
@@ -888,11 +908,14 @@ func (a *SweepPoint) compareOverlapsV(b *SweepPoint) int {
 	}
 
 	// equal segment on same path, sort by segment index
-	if a.segment < b.segment {
-		return -1
-	} else {
-		return 1
+	if a.segment != b.segment {
+		if a.segment < b.segment {
+			return -1
+		} else {
+			return 1
+		}
 	}
+	return 0
 }
 
 func (a *SweepPoint) compareTangentsV(b *SweepPoint) int {
@@ -920,7 +943,9 @@ func (a *SweepPoint) compareTangentsV(b *SweepPoint) int {
 		return -1
 	}
 
-	if a.left && a.other.X < b.other.X || !a.left && b.other.X < a.other.X {
+	if a.other.X == b.other.X && a.other.Y == b.other.Y {
+		return sign * a.compareOverlapsV(b)
+	} else if a.left && a.other.X < b.other.X || !a.left && b.other.X < a.other.X {
 		by := b.InterpolateY(a.other.X) // b's y at a's other
 		if a.other.Y == by {
 			return sign * a.compareOverlapsV(b)
