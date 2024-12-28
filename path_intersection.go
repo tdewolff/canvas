@@ -89,6 +89,22 @@ const (
 	//opDIV
 )
 
+func (op pathOp) String() string {
+	switch op {
+	case opSettle:
+		return "Settle"
+	case opAND:
+		return "AND"
+	case opOR:
+		return "OR"
+	case opNOT:
+		return "NOT"
+	case opXOR:
+		return "XOR"
+	}
+	return fmt.Sprintf("pathOp(%d)", op)
+}
+
 var boPointPool *sync.Pool
 var boNodePool *sync.Pool
 var boInitPoolsOnce = sync.OnceFunc(func() {
@@ -1041,7 +1057,8 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) bool {
 			continue
 		} else if event != nil {
 			// intersection may be to the left (or below) the current event due to floating-point
-			// precision which would interfere with the sequence in queue
+			// precision which would interfere with the sequence in queue, this is a problem when
+			// handling right-endpoints
 			if z.X < event.X {
 				z.X = event.X
 			} else if z.X == event.X && z.Y < event.Y {
@@ -1089,7 +1106,8 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) bool {
 			continue
 		} else if event != nil {
 			// intersection may be to the left (or below) the current event due to floating-point
-			// precision which would interfere with the sequence in queue
+			// precision which would interfere with the sequence in queue, this is a problem when
+			// handling right-endpoints
 			if z.X < event.X {
 				z.X = event.X
 			} else if z.X == event.X && z.Y < event.Y {
@@ -1714,6 +1732,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 	nodes := []*SweepNode{}       // buffer used for ordering status
 	status := &SweepStatus{}      // contains only left events
 	squares := toleranceSquares{} // sorted vertically, squares and their events
+	// TODO: use linked list for toleranceSquares?
 	for 0 < len(*queue) {
 		// TODO: skip or stop depending on operation if we're to the left/right of subject/clipping polygon
 
@@ -1742,13 +1761,13 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				n := event.other.node
 				if n == nil {
 					fmt.Println("WARNING: right-endpoint not part of status, probably buggy intersection code")
-					// don't put back in boPointPool
+					// don't put back in boPointPool, rare event
 					continue
 				} else if n.SweepPoint == nil {
 					// this may happen if the left-endpoint is to the right of the right-endpoint for some reason
 					// usually due to a bug in the segment intersection code
 					fmt.Println("WARNING: other endpoint already removed, probably buggy intersection code")
-					// don't put back in boPointPool
+					// don't put back in boPointPool, rare event
 					continue
 				}
 
@@ -1815,9 +1834,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				if event.Point == other {
 					// remove collapsed segments
 					// TODO: prevent creating these segments in the first place
-					// If we put the event back into boPointPool it may we used again and not be
-					// synchronized with `handled map[SweepPointPair]struct{}` above, so we are
-					// leaking the event to the GC.
+					boPointPool.Put(event)
 					square.Events = append(square.Events[:i], square.Events[i+1:]...)
 					i--
 				} else if event.X == other.X {
