@@ -1022,7 +1022,7 @@ func (pair SweepPointPair) Swapped() SweepPointPair {
 	return SweepPointPair{pair[1], pair[0]}
 }
 
-func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) bool {
+func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) (bool, bool) {
 	// a and b are always left-endpoints and a is below b
 	//pair := SweepPointPair{a, b}
 	//if _, ok := handled[pair]; ok {
@@ -1041,7 +1041,7 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) bool {
 
 	// no (valid) intersections
 	if len(zs) == 0 {
-		return false
+		return false, false
 	}
 
 	if !slices.IsSortedFunc(zs, compareIntersections) {
@@ -1073,7 +1073,7 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) bool {
 	// note that b is the currently processed left-endpoint and thus isn't in status.
 
 	// handle a
-	retry := false
+	aHas := false
 	aPrevLeft := a
 	aDownwards := a.X < a.other.X && a.other.Y < a.Y
 	for _, z := range zs {
@@ -1127,10 +1127,11 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) bool {
 		queue.Push(aRight)
 		queue.Push(aOrigLeft)
 		aPrevLeft = aLeft
-		retry = true
+		aHas = true
 	}
 
 	// handle b
+	bHas := false
 	bPrevLeft := b
 	bDownwards := b.X < b.other.X && b.other.Y < b.Y
 	for _, z := range zs {
@@ -1201,9 +1202,9 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) bool {
 		queue.Push(bRight)
 		queue.Push(bOrigLeft)
 		bPrevLeft = bLeft
-		retry = true
+		bHas = true
 	}
-	return retry
+	return aHas, bHas
 }
 
 type toleranceSquare struct {
@@ -1831,15 +1832,15 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				status.Remove(n)
 			} else {
 				// add intersections to queue
-				retry := false
+				retry1, retry2 := false, false
 				prev, next := status.FindPrevNext(event)
 				if prev != nil {
-					retry = addIntersections(queue, nil, prev.SweepPoint, event)
+					_, retry1 = addIntersections(queue, nil, prev.SweepPoint, event)
 				}
 				if next != nil {
-					retry = retry || addIntersections(queue, nil, event, next.SweepPoint)
+					retry2, _ = addIntersections(queue, nil, event, next.SweepPoint)
 				}
-				if retry {
+				if queue.Top() != event || retry1 || retry2 {
 					// check if the queue order was changed, this happens if the current event
 					// is the left-endpoint of a segment that intersects with an existing segment
 					// that goes below, or when two segments become fully overlapping, which sets
