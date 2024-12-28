@@ -191,31 +191,23 @@ func intersectionLineLineBentleyOttmann(zs []Point, a0, a1, b0, b1 Point) []Poin
 				// mostly vertical
 				a, b, c, d = a0.Y, a1.Y, b0.Y, b1.Y
 			}
-			// TODO: only add intersections that are not at both's endpoints
-			if c <= a && a <= d && c <= b && b <= d {
-				// a-b in c-d or a-b == c-d
-				zs = append(zs, a0)
-				zs = append(zs, a1)
-			} else if a <= c && c <= b && a <= d && d <= b {
-				// c-d in a-b
+			if a < c && c < b {
 				zs = append(zs, b0)
+				if d < b {
+					zs = append(zs, b1)
+				} else if b < d {
+					zs = append(zs, a1)
+				}
+			} else if a < d && d < b {
+				if c < a {
+					zs = append(zs, a0)
+				}
 				zs = append(zs, b1)
-			} else if c <= a && a <= d {
-				// a in c-d
+			} else if c < a && a < d {
 				zs = append(zs, a0)
-				if a < d {
-					zs = append(zs, b1)
-				} else if a < c {
-					zs = append(zs, b0)
+				if b < d {
+					zs = append(zs, a1)
 				}
-			} else if c <= b && b <= d {
-				// b in c-d
-				if c < b {
-					zs = append(zs, b0)
-				} else if d < b {
-					zs = append(zs, b1)
-				}
-				zs = append(zs, a1)
 			}
 		}
 	} else {
