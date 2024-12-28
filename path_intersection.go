@@ -292,7 +292,7 @@ func (q SweepEvents) Swap(i, j int) {
 
 func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
 	if len(p.d) == 0 {
-		return 0
+		return seg
 	}
 
 	// TODO: change this if we allow non-flat paths
