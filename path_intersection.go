@@ -1086,8 +1086,16 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) bool {
 			// handling right-endpoints
 			if z.X < event.X {
 				z.X = event.X
+				if z == aPrevLeft.Point || z == aPrevLeft.other.Point {
+					// ignore tangent intersections at the endpoints
+					continue
+				}
 			} else if z.X == event.X && z.Y < event.Y {
 				z.Y = event.Y
+				if z == aPrevLeft.Point || z == aPrevLeft.other.Point {
+					// ignore tangent intersections at the endpoints
+					continue
+				}
 			}
 		}
 
@@ -1135,8 +1143,16 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) bool {
 			// handling right-endpoints
 			if z.X < event.X {
 				z.X = event.X
+				if z == bPrevLeft.Point || z == bPrevLeft.other.Point {
+					// ignore tangent intersections at the endpoints
+					continue
+				}
 			} else if z.X == event.X && z.Y < event.Y {
 				z.Y = event.Y
+				if z == bPrevLeft.Point || z == bPrevLeft.other.Point {
+					// ignore tangent intersections at the endpoints
+					continue
+				}
 			}
 		}
 
