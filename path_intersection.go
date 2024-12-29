@@ -1024,7 +1024,7 @@ func (a *SweepPoint) CompareV(b *SweepPoint) int {
 //	return SweepPointPair{pair[1], pair[0]}
 //}
 
-func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) (bool, bool) {
+func addIntersections(queue *SweepEvents, event *SweepPoint, prev, next *SweepNode) bool {
 	// a and b are always left-endpoints and a is below b
 	//pair := SweepPointPair{a, b}
 	//if _, ok := handled[pair]; ok {
@@ -1033,6 +1033,15 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) (bool, bool) 
 	//	return
 	//}
 	//handled[pair] = struct{}{}
+
+	var a, b *SweepPoint
+	if prev == nil {
+		a, b = event, next.SweepPoint
+	} else if next == nil {
+		a, b = prev.SweepPoint, event
+	} else {
+		a, b = prev.SweepPoint, next.SweepPoint
+	}
 
 	// find all intersections between segment pair
 	// this returns either no intersections, or one or more secant/tangent intersections,
@@ -1043,7 +1052,7 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) (bool, bool) 
 
 	// no (valid) intersections
 	if len(zs) == 0 {
-		return false, false
+		return false
 	}
 
 	// Non-vertical but downwards-sloped segments may become vertical upon intersection due to
@@ -1069,50 +1078,72 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) (bool, bool) 
 	//     be reversed, or it passed to the right of a's left-endpoint and a nor b become vertical
 	// Conclusion: either may become vertical, but only b ever needs reversal of direction. And
 	// note that b is the currently processed left-endpoint and thus isn't in status.
+	// Note: handle overlapping segments immediately by checking up and down status for segments
+	// that compare equally with weak ordering (ie. overlapping).
 
 	// handle a
-	aHas := false
-	aPrevLeft := a
-	aDownwards := a.X < a.other.X && a.other.Y < a.Y
-	for _, z := range zs {
-		if z == aPrevLeft.Point || z == aPrevLeft.other.Point {
+	retry := false
+	for i := len(zs) - 1; 0 <= i; i-- {
+		z := zs[i]
+		if z == a.Point || z == a.other.Point {
 			// ignore tangent intersections at the endpoints
 			continue
-		} else if event != nil {
+		} else if !event.left {
 			// intersection may be to the left (or below) the current event due to floating-point
 			// precision which would interfere with the sequence in queue, this is a problem when
 			// handling right-endpoints
 			if z.X < event.X {
 				z.X = event.X
-				if z == aPrevLeft.Point || z == aPrevLeft.other.Point {
+				if z == a.Point || z == a.other.Point {
 					// ignore tangent intersections at the endpoints
 					continue
 				}
 			} else if z.X == event.X && z.Y < event.Y {
 				z.Y = event.Y
-				if z == aPrevLeft.Point || z == aPrevLeft.other.Point {
+				if z == a.Point || z == a.other.Point {
 					// ignore tangent intersections at the endpoints
 					continue
 				}
 			}
 		}
 
+		// split all overlapping segments at z as well
+		//if prev != nil {
+		//	for n := prev.Prev(); n != nil; n = n.Prev() {
+		//		if n.Point == a.Point && a.compareTangentsV(n.SweepPoint, true) == 0 {
+		//			fmt.Println("OVERLAP", a, n, "at", z)
+		//			r, l := n.SplitAt(z)
+		//			if l.X == l.other.X {
+		//				l.vertical, l.other.vertical = true, true
+		//				if l.other.Y < l.Y {
+		//					fmt.Println("  reverse...")
+		//				}
+		//			} else if r.X == r.other.X {
+		//				r.vertical, r.other.vertical = true, true
+		//				if r.Y < r.other.Y {
+		//					fmt.Println("  reverse...")
+		//				}
+		//			}
+		//			queue.Push(r)
+		//			queue.Push(l)
+		//		}
+		//	}
+		//}
+
 		// split segment at intersection
-		aRight, aLeft := aPrevLeft.SplitAt(z)
+		aRight, aLeft := a.SplitAt(z)
 
 		// reverse direction if necessary
-		aOrigLeft := aLeft
 		if aLeft.X == aLeft.other.X {
 			// segment after the split is vertical
 			aLeft.vertical, aLeft.other.vertical = true, true
 			if aLeft.other.Y < aLeft.Y {
 				aLeft.Reverse()
-				aLeft = aLeft.other // replace for `handled` below
 			}
 		} else if aRight.X == aRight.other.X {
 			// segment before the split is vertical
 			aRight.vertical, aRight.other.vertical = true, true
-			if aRight.other == a && aDownwards {
+			if aRight.Y < aRight.other.Y {
 				// reverse first segment
 				// this can never happen in theory, but may happen due to floating-point
 				// precision problems, perhaps we should handle this anyways?
@@ -1125,54 +1156,75 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) (bool, bool) 
 
 		// add to queue
 		queue.Push(aRight)
-		queue.Push(aOrigLeft)
-		aPrevLeft = aLeft
-		aHas = true
+		queue.Push(aLeft)
+		if prev == nil {
+			retry = true
+		}
 	}
 
 	// handle b
-	bHas := false
-	bPrevLeft := b
-	bDownwards := b.X < b.other.X && b.other.Y < b.Y
-	for _, z := range zs {
-		if z == bPrevLeft.Point || z == bPrevLeft.other.Point {
+	for i := len(zs) - 1; 0 <= i; i-- {
+		z := zs[i]
+		if z == b.Point || z == b.other.Point {
 			// ignore tangent intersections at the endpoints
 			continue
-		} else if event != nil {
+		} else if !event.left {
 			// intersection may be to the left (or below) the current event due to floating-point
 			// precision which would interfere with the sequence in queue, this is a problem when
 			// handling right-endpoints
 			if z.X < event.X {
 				z.X = event.X
-				if z == bPrevLeft.Point || z == bPrevLeft.other.Point {
+				if z == b.Point || z == b.other.Point {
 					// ignore tangent intersections at the endpoints
 					continue
 				}
 			} else if z.X == event.X && z.Y < event.Y {
 				z.Y = event.Y
-				if z == bPrevLeft.Point || z == bPrevLeft.other.Point {
+				if z == b.Point || z == b.other.Point {
 					// ignore tangent intersections at the endpoints
 					continue
 				}
 			}
 		}
 
+		// split all overlapping segments at z as well
+		//if next != nil {
+		//	for n := next.Next(); n != nil; n = n.Next() {
+		//		fmt.Println("next", n)
+		//		if n.Point == b.Point && b.compareTangentsV(n.SweepPoint, true) == 0 {
+		//			fmt.Println("OVERLAP", b, n, "at", z)
+		//			r, l := n.SplitAt(z)
+		//			if l.X == l.other.X {
+		//				l.vertical, l.other.vertical = true, true
+		//				if l.other.Y < l.Y {
+		//					fmt.Println("  reverse...")
+		//				}
+		//			} else if r.X == r.other.X {
+		//				r.vertical, r.other.vertical = true, true
+		//				if r.Y < r.other.Y {
+		//					fmt.Println("  reverse...")
+		//				}
+		//			}
+		//			queue.Push(r)
+		//			queue.Push(l)
+		//		}
+		//	}
+		//}
+
 		// split segment at intersection
-		bRight, bLeft := bPrevLeft.SplitAt(z)
+		bRight, bLeft := b.SplitAt(z)
 
 		// reverse direction if necessary
-		bOrigLeft := bLeft
 		if bLeft.X == bLeft.other.X {
 			// segment after the split is vertical
 			bLeft.vertical, bLeft.other.vertical = true, true
 			if bLeft.other.Y < bLeft.Y {
 				bLeft.Reverse()
-				bLeft = bLeft.other // replace for `handled` below
 			}
 		} else if bRight.X == bRight.other.X {
 			// segment before the split is vertical
 			bRight.vertical, bRight.other.vertical = true, true
-			if bRight.other == b && bDownwards {
+			if bRight.Y < bRight.other.Y {
 				// reverse first segment
 				if bRight.other.node != nil {
 					panic("impossible: first segment of B became vertical and needs reversal, but B was already in the sweep status")
@@ -1200,11 +1252,12 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) (bool, bool) 
 
 		// add to queue
 		queue.Push(bRight)
-		queue.Push(bOrigLeft)
-		bPrevLeft = bLeft
-		bHas = true
+		queue.Push(bLeft)
+		if next == nil {
+			retry = true
+		}
 	}
-	return aHas, bHas
+	return retry
 }
 
 type toleranceSquare struct {
@@ -1818,7 +1871,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				prev := n.Prev()
 				next := n.Next()
 				if prev != nil && next != nil {
-					addIntersections(queue, event, prev.SweepPoint, next.SweepPoint)
+					addIntersections(queue, event, prev, next)
 				}
 
 				// add event to tolerance square
@@ -1833,15 +1886,18 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				status.Remove(n)
 			} else {
 				// add intersections to queue
-				retry1, retry2 := false, false
+				retry := false
 				prev, next := status.FindPrevNext(event)
 				if prev != nil {
-					_, retry1 = addIntersections(queue, nil, prev.SweepPoint, event)
+					retry = addIntersections(queue, event, prev, nil)
 				}
 				if next != nil {
-					retry2, _ = addIntersections(queue, nil, event, next.SweepPoint)
+					retry = retry || addIntersections(queue, event, nil, next)
 				}
-				if queue.Top() != event || retry1 || retry2 {
+				if queue.Top() != event || retry {
+					//if queue.Top() == event {
+					//	fmt.Println("NOTE: retry necessary?")
+					//}
 					// check if the queue order was changed, this happens if the current event
 					// is the left-endpoint of a segment that intersects with an existing segment
 					// that goes below, or when two segments become fully overlapping, which sets
