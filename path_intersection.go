@@ -278,7 +278,7 @@ func (s *SweepPoint) String() string {
 	if !s.left {
 		arrow = "←"
 	}
-	return fmt.Sprintf("%s(%v%v%v)", path, s.Point, arrow, s.other.Point)
+	return fmt.Sprintf("%s%v(%v%v%v)", path, s.segment, s.Point, arrow, s.other.Point)
 }
 
 // SweepEvents is a heap priority queue of sweep events.
@@ -1046,10 +1046,6 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) (bool, bool) 
 		return false, false
 	}
 
-	if !slices.IsSortedFunc(zs, compareIntersections) {
-		fmt.Println("WARNING: not sorted:", zs)
-	}
-
 	// Non-vertical but downwards-sloped segments may become vertical upon intersection due to
 	// floating-point rounding and limited precision. Only the first segment of b can ever become
 	// vertical, never the first segment of a:
@@ -1118,6 +1114,8 @@ func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) (bool, bool) 
 			aRight.vertical, aRight.other.vertical = true, true
 			if aRight.other == a && aDownwards {
 				// reverse first segment
+				// this can never happen in theory, but may happen due to floating-point
+				// precision problems, perhaps we should handle this anyways?
 				panic("impossible: first segment of A became vertical and needs reversal")
 			}
 		}
@@ -1280,8 +1278,6 @@ func (event *SweepPoint) breakupSegment(events *[]*SweepPoint, index int, x, y f
 	// original segment should be kept in-place to not alter the queue or status
 	r, l := event.SplitAt(Point{x, y})
 	r.index, l.index = index, index
-
-	// handle segments that have become vertical or that should be reversed later
 
 	// update node reference
 	if event.node != nil {
@@ -1530,6 +1526,7 @@ func (s *SweepPoint) mergeOverlapping(op pathOp, fillRule FillRule) {
 			s.selfWindings += prev.otherSelfWindings
 			s.otherSelfWindings += prev.selfWindings
 		}
+		prev.windings, prev.selfWindings, prev.otherWindings, prev.otherSelfWindings = 0, 0, 0, 0
 		prev.inResult, prev.other.inResult = false, false
 		prev.overlapped = true
 	}
@@ -1539,14 +1536,14 @@ func (s *SweepPoint) mergeOverlapping(op pathOp, fillRule FillRule) {
 	s.prev = prev
 
 	// compute merged windings
-	if s.prev == nil {
+	if prev == nil {
 		s.windings, s.otherWindings = 0, 0
-	} else if s.clipping == s.prev.clipping {
-		s.windings = s.prev.windings + s.prev.selfWindings
-		s.otherWindings = s.prev.otherWindings + s.prev.otherSelfWindings
+	} else if s.clipping == prev.clipping {
+		s.windings = prev.windings + prev.selfWindings
+		s.otherWindings = prev.otherWindings + prev.otherSelfWindings
 	} else {
-		s.windings = s.prev.otherWindings + s.prev.otherSelfWindings
-		s.otherWindings = s.prev.windings + s.prev.selfWindings
+		s.windings = prev.otherWindings + prev.otherSelfWindings
+		s.otherWindings = prev.windings + prev.selfWindings
 	}
 	s.inResult = s.InResult(op, fillRule)
 	s.other.inResult = s.inResult
@@ -1561,7 +1558,8 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 	// TODO: support open paths on ps
 	// TODO: support elliptical arcs
 	// TODO: use a red-black tree for the sweepline status?
-	// TODO: use a red-black tree for the sweepline queue?
+	// TODO: use a red-black or 2-4 tree for the sweepline queue (LessH is 33% of time spent now)
+	// TODO: optimize path data by removing commands, set number of same command (50% less memory)
 
 	// Implementation of the Bentley-Ottmann algorithm by reducing the complexity of finding
 	// intersections to O((n + k) log n), with n the number of segments and k the number of
