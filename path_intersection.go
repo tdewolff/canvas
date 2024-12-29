@@ -278,7 +278,7 @@ func (s *SweepPoint) String() string {
 	if !s.left {
 		arrow = "←"
 	}
-	return fmt.Sprintf("%s%v(%v%v%v)", path, s.segment, s.Point, arrow, s.other.Point)
+	return fmt.Sprintf("%s-%v(%v%v%v)", path, s.segment, s.Point, arrow, s.other.Point)
 }
 
 // SweepEvents is a heap priority queue of sweep events.
@@ -1002,27 +1002,27 @@ func (a *SweepPoint) CompareV(b *SweepPoint) int {
 	}
 }
 
-func compareIntersections(a, b Point) int {
-	if a.X == b.X {
-		if a.Y == b.Y {
-			return 0
-		} else if a.Y < b.Y {
-			return -1
-		} else {
-			return 1
-		}
-	} else if a.X < b.X {
-		return -1
-	} else {
-		return 1
-	}
-}
+//func compareIntersections(a, b Point) int {
+//	if a.X == b.X {
+//		if a.Y == b.Y {
+//			return 0
+//		} else if a.Y < b.Y {
+//			return -1
+//		} else {
+//			return 1
+//		}
+//	} else if a.X < b.X {
+//		return -1
+//	} else {
+//		return 1
+//	}
+//}
 
-type SweepPointPair [2]*SweepPoint
-
-func (pair SweepPointPair) Swapped() SweepPointPair {
-	return SweepPointPair{pair[1], pair[0]}
-}
+//type SweepPointPair [2]*SweepPoint
+//
+//func (pair SweepPointPair) Swapped() SweepPointPair {
+//	return SweepPointPair{pair[1], pair[0]}
+//}
 
 func addIntersections(queue *SweepEvents, event, a, b *SweepPoint) (bool, bool) {
 	// a and b are always left-endpoints and a is below b
@@ -1905,8 +1905,12 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 					}
 				}
 			}
+
 			sort.Sort(nodeList(nodes))
 			sort.Sort(eventList(square.Events))
+
+			// TODO: check if uses less memory
+			//slices.SortFunc(square.Events, (*SweepPoint).CompareH)
 
 			// compute sweep fields on left-endpoints
 			for i, event := range square.Events {
