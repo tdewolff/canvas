@@ -107,9 +107,11 @@ func (op pathOp) String() string {
 
 var boPointPool *sync.Pool
 var boNodePool *sync.Pool
+var boSquarePool *sync.Pool
 var boInitPoolsOnce = sync.OnceFunc(func() {
 	boPointPool = &sync.Pool{New: func() any { return &SweepPoint{} }}
 	boNodePool = &sync.Pool{New: func() any { return &SweepNode{} }}
+	boSquarePool = &sync.Pool{New: func() any { return &toleranceSquare{} }}
 })
 
 // Settle returns the "settled" path. It removes all self-intersections, orients all filling paths
@@ -1219,7 +1221,7 @@ type toleranceSquare struct {
 	Lower, Upper *SweepNode
 }
 
-type toleranceSquares []toleranceSquare
+type toleranceSquares []*toleranceSquare
 
 func (squares *toleranceSquares) find(x, y float64) (int, bool) {
 	// find returns the index of the square at or above (x,y) (or len(squares) if above all)
@@ -1242,11 +1244,12 @@ func (squares *toleranceSquares) Add(x float64, event *SweepPoint, refNode *Swee
 	y := snap(event.Y, BentleyOttmannEpsilon)
 	if idx, ok := squares.find(x, y); !ok {
 		// create new tolerance square
-		square := toleranceSquare{
+		square := boSquarePool.Get().(*toleranceSquare)
+		*square = toleranceSquare{
 			X:      x,
 			Y:      y,
-			Node:   refNode,
 			Events: []*SweepPoint{event},
+			Node:   refNode,
 		}
 		*squares = append((*squares)[:idx], append(toleranceSquares{square}, (*squares)[idx:]...)...)
 	} else {
@@ -1298,7 +1301,7 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 
 	// scan squares bottom to top
 	for i := n; i < len(squares); i++ {
-		square := &squares[i] // take address to make changes persistent
+		square := squares[i] // pointer
 
 		// be aware that a tolerance square is inclusive of the left and bottom edge
 		// and only the bottom-left corner
@@ -1861,7 +1864,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 		squares.breakupCrossingSegments(n, x)
 
 		for j := n; j < len(squares); j++ {
-			square := &squares[j] // take address to make changes persistent
+			square := squares[j] // pointer
 
 			// snap events to grid
 			// note that this may make segments overlapping from the left and towards the right
@@ -2017,6 +2020,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 		for _, event := range square.Events {
 			boPointPool.Put(event)
 		}
+		boSquarePool.Put(square)
 	}
 	return R
 }
