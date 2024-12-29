@@ -183,7 +183,7 @@ func intersectionLineLineBentleyOttmann(zs []Point, a0, a1, b0, b1 Point) []Poin
 	C := a0.Sub(b0)
 	denom := B.PerpDot(A)
 	// divide by length^2 since the perpdot between very small segments may be below Epsilon
-	if Equal(denom/A.Length()/B.Length(), 0.0) {
+	if denom == 0.0 {
 		// colinear
 		if C.PerpDot(B) == 0.0 {
 			// overlap, rotate to x-axis
