@@ -1613,6 +1613,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 	// TODO: use a red-black tree for the sweepline status?
 	// TODO: use a red-black or 2-4 tree for the sweepline queue (LessH is 33% of time spent now)
 	// TODO: optimize path data by removing commands, set number of same command (50% less memory)
+	// TODO: fix bug with overlapping segments, intersections should intersect both
 
 	// Implementation of the Bentley-Ottmann algorithm by reducing the complexity of finding
 	// intersections to O((n + k) log n), with n the number of segments and k the number of
