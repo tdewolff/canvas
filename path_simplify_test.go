@@ -6,32 +6,36 @@ import (
 	"github.com/tdewolff/test"
 )
 
-func TestPathDecimate(t *testing.T) {
+func TestPathSimplifyVisvalingamWhyatt(t *testing.T) {
 	tests := []struct {
 		p         string
 		tolerance float64
 		r         string
 	}{
 		// closed path
-		{"M0 0L10 0L10 4L11 5L10 6L10 10L0 10z", 0.5, "M0 0L10 0L10 4L11 5L10 6L10 10L0 10z"},
+		{"M0 0L10 0L10 4L11 5L10 6L10 10L0 10z", 1.0, "M0 0L10 0L10 4L11 5L10 6L10 10L0 10z"},
 		{"M0 0L10 0L10 4L11 5L10 6L10 10L0 10z", 2.0, "M0 0L10 0L10 10L0 10z"},
-		{"M0 0L10 0L10 4L11 5L10 6L10 10L0 10z", 3.0, "M0 0L10 0L11 5L10 10L0 10z"},
-		{"M0 0L10 0L10 4L11 5L10 6L10 10L0 10z", 5.0, "M0 0L10 0L10 10L0 10z"},
-		{"M0 0L10 0L10 4L11 5L10 6L10 10L0 10z", 50.0, "M0 0L10 10L0 10z"},
+		{"M0 0L10 0L10 4L11 5L10 6L10 10L0 10z", 50.0, "M0 0L10 0L10 10L0 10z"},
 		{"M0 0L10 0L10 4L11 5L10 6L10 10L0 10z", 51.0, ""},
 
 		// open path
 		{"M0 0L10 0L11 1L12 0L13 -5L14 0", 1.0, "M0 0L10 0L11 1L12 0L13 -5L14 0"},
 		{"M0 0L10 0L11 1L12 0L13 -5L14 0", 2.0, "M0 0L12 0L13 -5L14 0"},
-		{"M0 0L10 0L11 1L12 0L13 -5L14 0", 6.0, "M0 0L11 1L13 -5L14 0"},
-		{"M0 0L10 0L11 1L12 0L13 -5L14 0", 30.0, "M0 0L14 0"},
+		{"M0 0L10 0L11 1L12 0L13 -5L14 0", 6.0, "M0 0L14 0"},
+
+		// bugs
+		{"M0 0L1 1L2 0zM2 0L4 2L4 0zM4 0L5 1L6 0z", 2.0, "M2 0L4 2L4 0z"},
+		{"M2 0L4 2L4 0zM0 0L1 1L2 0zM4 0L5 1L6 0z", 2.0, "M2 0L4 2L4 0z"},
+		{"M0 0L1 1L2 0zM4 0L5 1L6 0zM2 0L4 2L4 0z", 2.0, "M2 0L4 2L4 0z"},
+		{"M0 0L40 0L40.1 0.1L40.2 0L40.3 0.5L40 40z", 2.0, "M0 0L40.2 0L40.3 0.5L40 40z"},
+		{"M0 0L40 0L40.1 0.1L40.2 0L40.3 0.5L40 40z", 3.0, "M0 0L40.2 0L40 40z"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.p, func(t *testing.T) {
 			p := MustParseSVGPath(tt.p)
 			r := MustParseSVGPath(tt.r)
-			test.T(t, p.Decimate(tt.tolerance), r)
+			test.T(t, p.SimplifyVisvalingamWhyatt(tt.tolerance), r)
 		})
 	}
 }

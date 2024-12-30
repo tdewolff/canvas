@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -41,81 +42,226 @@ func (p *Path) Gridsnap(spacing float64) *Path {
 	return p
 }
 
-// Decimate decimates the path using the Visvalingam-Whyatt algorithm. Assuming path is flat and has no subpaths.
-func (p *Path) Decimate(tolerance float64) *Path {
-	q := &Path{}
-Loop:
+type simplifyItemVW struct {
+	Point
+	area       float64
+	prev, next int
+}
+
+func (item simplifyItemVW) String() string {
+	return fmt.Sprintf("%v %v (%v→·→%v)", item.Point, item.area, item.prev, item.next)
+}
+
+func (p *Path) SimplifyVisvalingamWhyatt(tolerance float64) *Path {
+	area := func(a, b, c Point) float64 {
+		return 0.5 * math.Abs(a.PerpDot(b)+b.PerpDot(c)+c.PerpDot(a))
+	}
+
+	q := &Path{} //d: p.d[:0]} // reuse memory
+	pq := NewPriorityQueue[int](nil, 0)
 	for _, pi := range p.Split() {
-		// indices are always one past the current point with -1 the command and [-3,-2] the endpoint
-		var is []int // stack of coordinate indices
-		closed := pi.d[len(pi.d)-1] == CloseCmd
-		if closed {
-			// put before-close command first
-			is = append(is, len(pi.d)-cmdLen(CloseCmd))
-		}
-
-		i := 0
-		for len(is) < 3 {
-			if len(pi.d) <= i {
-				q = q.Append(pi)
-				continue Loop
-			}
-			i += cmdLen(pi.d[i])
-			is = append(is, i)
-		}
-
-		// find indices of triangles with an area superior or equal to tolerance
-		for {
-			iPrev, iCur, iNext := is[len(is)-3], is[len(is)-2], is[len(is)-1]
-			prev := Point{pi.d[iPrev-3], pi.d[iPrev-2]}
-			cur := Point{pi.d[iCur-3], pi.d[iCur-2]}
-			next := Point{pi.d[iNext-3], pi.d[iNext-2]}
-			area := 0.5 * math.Abs(prev.X*cur.Y+cur.X*next.Y+next.X*prev.Y-prev.X*next.Y-cur.X*prev.Y-next.X*cur.Y)
-			if area < tolerance {
-				// remove point
-				is[len(is)-2] = is[len(is)-1] // cur = next
-				is = is[:len(is)-1]
-			}
-			if tolerance <= area || len(is) < 3 {
-				// advance to next triangle
-				if len(pi.d) <= i {
-					// end of path
-					break
-				} else if closed && i == is[0] {
-					if iNext < iCur || len(is) < 3 {
-						// past the end, no point is removed, so we're done
-						break
-					}
-
-					// end of closed path, move first index to the end
-					is = append(is, is[0])
-					is = is[1:]
-					i = is[0]
-				} else {
-					i += cmdLen(pi.d[i])
-					is = append(is, i)
-				}
-			}
-		}
-
-		// build the new path
-		if len(is) < 2 || closed && len(is) < 3 {
+		if len(pi.d) <= 4 || len(pi.d) <= 4+cmdLen(pi.d[4]) {
+			// must have at least 3 commands
 			continue
 		}
+
+		closed := pi.Closed()
+		prev, cur := Point{}, Point{pi.d[1], pi.d[2]}
 		if closed {
-			q.MoveTo(pi.d[is[len(is)-1]-3], pi.d[is[len(is)-1]-2])
-			is = is[:len(is)-1]
+			prev = Point{pi.d[len(pi.d)-7], pi.d[len(pi.d)-6]}
+		}
+
+		length := pi.Len()
+		list := make([]simplifyItemVW, 0, length)
+		pq.Reset(func(i, j int) bool {
+			return list[i].area < list[j].area
+		}, length)
+		for i := 4; i < len(pi.d); i += cmdLen(pi.d[i]) {
+			A := 0.0
+			idx := len(list)
+			j := i + cmdLen(pi.d[i])
+			next := Point{pi.d[j-3], pi.d[j-2]}
+			if 4 < i || closed {
+				A = area(prev, cur, next)
+				pq.Append(idx)
+			}
+			list = append(list, simplifyItemVW{
+				Point: cur,
+				area:  A,
+				prev:  idx - 1,
+				next:  idx + 1,
+			})
+			prev = cur
+			cur = next
+		}
+		if closed {
+			list[len(list)-1].next = 0
+			list[0].prev = len(list) - 1
 		} else {
-			q.MoveTo(pi.d[is[0]-3], pi.d[is[0]-2])
-			is = is[1:]
+			list = append(list, simplifyItemVW{
+				Point: Point{pi.d[len(pi.d)-3], pi.d[len(pi.d)-2]},
+				area:  0.0,
+				prev:  len(list) - 1,
+				next:  -1,
+			})
 		}
-		for _, i := range is {
-			q.d = append(q.d, pi.d[i-cmdLen(pi.d[i-1]):i]...)
+		pq.Init()
+
+		first := 0
+		for 0 < pq.Len() {
+			idx := pq.Pop()
+			cur := list[idx]
+			if tolerance <= cur.area {
+				break
+			}
+
+			// remove current point
+			list[cur.prev].next = cur.next
+			list[cur.next].prev = cur.prev
+			if first == idx {
+				first = cur.next
+			}
+
+			// update previous point
+			if prev := list[cur.prev]; prev.prev != -1 {
+				idxPrev, _ := pq.Find(cur.prev)
+				list[cur.prev].area = area(list[prev.prev].Point, prev.Point, list[prev.next].Point)
+				pq.Fix(idxPrev)
+			}
+
+			// update next point
+			if next := list[cur.next]; next.next != -1 {
+				idxNext, _ := pq.Find(cur.next)
+				list[cur.next].area = area(list[next.prev].Point, next.Point, list[next.next].Point)
+				pq.Fix(idxNext)
+			}
+		}
+		if closed && pq.Len() < 2 {
+			// result too small
+			continue
+		}
+
+		q.d = append(q.d, MoveToCmd, list[first].X, list[first].Y, MoveToCmd)
+		for idx := first; idx < list[idx].next; {
+			idx = list[idx].next
+			q.d = append(q.d, LineToCmd, list[idx].X, list[idx].Y, LineToCmd)
 		}
 		if closed {
-			q.Close()
+			q.d = append(q.d, CloseCmd, list[first].X, list[first].Y, CloseCmd)
 		}
+
 	}
+	return q
+}
+
+// Decimate decimates the path using the Visvalingam-Whyatt algorithm. Assuming path is flat and has no subpaths.
+func (p *Path) Decimate(tolerance float64) *Path {
+	var j int          // j is index until written from p
+	q := &Path{d: p.d} // reuse memory
+	write := func(i int) {
+		if 0 < j {
+			if j < i {
+				q.d = append(q.d, p.d[j:i]...)
+			}
+		} else {
+			// first write
+			q.d = q.d[:i]
+		}
+		j = i
+	}
+	remove := func(i int) {
+		write(i)
+		j += cmdLen(p.d[i])
+	}
+	area := func(a, b, c Point) float64 {
+		return 0.5 * math.Abs(a.PerpDot(b)+b.PerpDot(c)+c.PerpDot(a))
+	}
+
+	var i0 int // length of previous subpaths
+	for _, pi := range p.Split() {
+		var i, n int
+		var prev, cur Point
+		closed := pi.Closed()
+		if len(pi.d) <= 4 || len(pi.d) <= 4+cmdLen(pi.d[4]) {
+			// must have at least 3 commands
+			write(i0)
+			j += len(pi.d)
+			i0 += len(pi.d)
+			continue
+		} else if closed {
+			prev = Point{pi.d[len(pi.d)-7], pi.d[len(pi.d)-6]}
+			cur = Point{pi.d[1], pi.d[2]}
+			i, n = 0, len(pi.d)-4
+		} else {
+			prev = Point{pi.d[1], pi.d[2]}
+			cur = Point{pi.d[5], pi.d[6]}
+			i, n = 4, len(pi.d)-cmdLen(pi.d[len(pi.d)-1])
+		}
+
+		start := i0
+		if 0 < j {
+			start = len(q.d)
+		}
+		removed := false
+		for i < n {
+			iNext := i + cmdLen(pi.d[i])
+			next := Point{pi.d[iNext+cmdLen(pi.d[iNext])-3], pi.d[iNext+cmdLen(pi.d[iNext])-2]}
+
+			//fmt.Println(prev, cur, next, "--", area(prev, cur, next))
+			if area(prev, cur, next) < tolerance {
+				// remove point
+				remove(i0 + i)
+				cur = next
+				removed = true
+			} else {
+				if removed {
+					// move back and check again
+					for start < len(q.d) && start+cmdLen(q.d[start]) < len(q.d) {
+						m := cmdLen(q.d[len(q.d)-1])
+						cur = prev
+						prev = Point{q.d[len(q.d)-m-3], q.d[len(q.d)-m-2]}
+						if area(prev, cur, next) < tolerance {
+							q.d = q.d[:len(q.d)-m]
+						} else {
+							break
+						}
+					}
+					removed = false
+				}
+				prev = cur
+				cur = next
+			}
+			i = iNext
+		}
+
+		end := i0 + len(pi.d)
+		if 0 < j {
+			// write rest of subpath
+			write(i0 + len(pi.d))
+			end = len(q.d)
+		}
+		if start+cmdLen(q.d[start]) < end && q.d[start+cmdLen(q.d[start])] != CloseCmd {
+			// set MoveTo
+			if m := cmdLen(q.d[start]); m != 4 {
+				copy(q.d[start:], q.d[start+m-4:])
+				q.d = q.d[:len(q.d)-m+4]
+			}
+			q.d[start] = MoveToCmd
+			q.d[start+3] = MoveToCmd
+
+			if closed {
+				// update Close command
+				q.d[end-3] = q.d[start+1]
+				q.d[end-2] = q.d[start+2]
+			}
+		} else {
+			// remove small paths
+			q.d = q.d[:start]
+			j = i0 + len(pi.d)
+		}
+		i0 += len(pi.d)
+	}
+	write(i0)
 	return q
 }
 
@@ -278,6 +424,9 @@ func (p *Path) Clip(x0, y0, x1, y1 float64) *Path {
 		}
 		start = end
 		startIn = endIn
+	}
+	if p.Closed() && !q.Empty() && !q.Closed() {
+		fmt.Println("WARNING: clip result not closed")
 	}
 	return q
 }
