@@ -1456,33 +1456,33 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 	}
 }
 
-type nodeList []*SweepNode
+type eventSliceV []*SweepPoint
 
-func (a nodeList) Len() int {
+func (a eventSliceV) Len() int {
 	return len(a)
 }
 
-func (a nodeList) Less(i, j int) bool {
-	return a[i].CompareV(a[j].SweepPoint) < 0
+func (a eventSliceV) Less(i, j int) bool {
+	return a[i].CompareV(a[j]) < 0
 }
 
-func (a nodeList) Swap(i, j int) {
-	a[i].SweepPoint.node, a[j].SweepPoint.node = a[j].SweepPoint.node, a[i].SweepPoint.node
-	a[i].SweepPoint, a[j].SweepPoint = a[j].SweepPoint, a[i].SweepPoint
+func (a eventSliceV) Swap(i, j int) {
+	a[i].node.SweepPoint, a[j].node.SweepPoint = a[j], a[i]
+	a[i].node, a[j].node = a[j].node, a[i].node
 	a[i], a[j] = a[j], a[i]
 }
 
-type eventList []*SweepPoint
+type eventSliceH []*SweepPoint
 
-func (a eventList) Len() int {
+func (a eventSliceH) Len() int {
 	return len(a)
 }
 
-func (a eventList) Less(i, j int) bool {
+func (a eventSliceH) Less(i, j int) bool {
 	return a[i].LessH(a[j])
 }
 
-func (a eventList) Swap(i, j int) {
+func (a eventSliceH) Swap(i, j int) {
 	a[i], a[j] = a[j], a[i]
 }
 
@@ -1826,7 +1826,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 	queue.Init() // sort from left to right
 
 	// run sweep line left-to-right
-	nodes := []*SweepNode{}       // buffer used for ordering status
+	events := []*SweepPoint{}     // buffer used for ordering status
 	status := &SweepStatus{}      // contains only left events
 	squares := toleranceSquares{} // sorted vertically, squares and their events
 	// TODO: use linked list for toleranceSquares?
@@ -1948,23 +1948,51 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 			}
 		}
 
-		// we must first snap all segments in this column before sorting
 		for _, square := range squares[n:] {
 			// reorder sweep status and events for result polygon
 			// note that the number of events/nodes is usually small
-			// TODO: improve efficiency? could we sort events/status simultaneously?
-			nodes = nodes[:0]
+			// and note that we must first snap all segments in this column before sorting
 			if square.Lower != nil {
+				events = events[:0]
 				for n := square.Lower; ; n = n.Next() {
-					nodes = append(nodes, n)
+					events = append(events, n.SweepPoint)
 					if n == square.Upper {
 						break
 					}
 				}
+
+				// keep unsorted events in the same slice
+				n := len(events)
+				events = append(events, events...)
+				origEvents := events[n:]
+				events = events[:n]
+
+				sort.Sort(eventSliceV(events))
+
+				// find intersections between new neighbours in status after sorting
+				for i, event := range events {
+					if event != origEvents[i] {
+						n := event.node
+						var j int
+						for origEvents[j] != event {
+							j++
+						}
+
+						if prev := n.Prev(); prev != nil && i == 0 {
+							// lowest segment changed order, check with segment below
+							addIntersections(queue, event, prev, nil)
+						}
+						if next := n.Next(); next != nil && (i+1 == len(events) || (j == 0 || next.SweepPoint != origEvents[j-1]) && (j+1 == len(origEvents) || next.SweepPoint != origEvents[j+1])) {
+							// highest segment changed order, check with segment above
+							// or any other segment changed order and the segment above was not
+							// originally its neighbour
+							addIntersections(queue, event, nil, next)
+						}
+					}
+				}
 			}
 
-			sort.Sort(nodeList(nodes))
-			sort.Sort(eventList(square.Events))
+			sort.Sort(eventSliceH(square.Events))
 
 			// TODO: check if uses less memory
 			//slices.SortFunc(square.Events, (*SweepPoint).CompareH)

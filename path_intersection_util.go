@@ -208,27 +208,27 @@ func intersectionLineLineBentleyOttmann(zs []Point, a0, a1, b0, b1 Point) []Poin
 	} else {
 		anum := C.PerpDot(B)
 		if 0.0 < denom {
-			if anum < 0.0 || denom < anum {
+			if anum < Epsilon || denom+Epsilon < anum {
 				return zs
 			}
-		} else if anum < denom || 0.0 < anum {
+		} else if anum < denom-Epsilon || Epsilon < anum {
 			return zs
 		}
 
 		bnum := A.PerpDot(C)
 		if 0.0 < denom {
-			if bnum < 0.0 || denom < bnum {
+			if bnum < Epsilon || denom+Epsilon < bnum {
 				return zs
 			}
-		} else if bnum < denom || 0.0 < bnum {
+		} else if bnum < denom-Epsilon || Epsilon < bnum {
 			return zs
 		}
 
 		// ta is snapped to 0.0 or 1.0 if very close
 		ta := anum / denom // in [0,1]
-		if Equal(ta, 0.0) {
+		if Equal(ta, 0.0) || ta < 0.0 {
 			ta = 0.0
-		} else if Equal(ta, 1.0) {
+		} else if Equal(ta, 1.0) || 1.0 < ta {
 			ta = 1.0
 		}
 		z := a0.Interpolate(a1, ta)
