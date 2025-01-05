@@ -42,14 +42,19 @@ func (p *Path) Gridsnap(spacing float64) *Path {
 	return p
 }
 
-type simplifyItemVW struct {
+type pointVW struct {
 	Point
-	area       float64
-	prev, next int
+	prev, next int // indices into points
+	queued     bool
 }
 
-func (item simplifyItemVW) String() string {
-	return fmt.Sprintf("%v %v (%v→·→%v)", item.Point, item.area, item.prev, item.next)
+type itemVW struct {
+	area            float64
+	prev, cur, next int // indices into points
+}
+
+func (item itemVW) String() string {
+	return fmt.Sprintf("%v (%v→%v→%v)", item.area, item.prev, item.cur, item.next)
 }
 
 func (p *Path) SimplifyVisvalingamWhyatt(tolerance float64) *Path {
@@ -57,103 +62,126 @@ func (p *Path) SimplifyVisvalingamWhyatt(tolerance float64) *Path {
 }
 
 func (p *Path) SimplifyVisvalingamWhyattFilter(tolerance float64, filter func(Point) bool) *Path {
-	area := func(a, b, c Point) float64 {
+	computeArea := func(a, b, c Point) float64 {
 		return 0.5 * math.Abs(a.PerpDot(b)+b.PerpDot(c)+c.PerpDot(a))
 	}
 
 	// don't reuse memory since the new path may be much smaller and keep the extra capacity
 	q := &Path{}
-	pq := NewPriorityQueue[int](nil, 0)
+	pq := NewPriorityQueue[itemVW](nil, 0)
+SubpathLoop:
 	for _, pi := range p.Split() {
-		if len(pi.d) <= 4 || len(pi.d) <= 4+cmdLen(pi.d[4]) {
-			// must have at least 3 commands
+		closed := pi.Closed()
+		if len(pi.d) <= 4 || closed && len(pi.d) <= 4+cmdLen(pi.d[4]) {
+			// must have at least 2 commands for open paths, and 3 for closed
 			continue
 		}
 
-		closed := pi.Closed()
 		prev, cur := Point{}, Point{pi.d[1], pi.d[2]}
 		if closed {
 			prev = Point{pi.d[len(pi.d)-7], pi.d[len(pi.d)-6]}
 		}
 
 		length := pi.Len()
-		list := make([]simplifyItemVW, 0, length)
-		pq.Reset(func(i, j int) bool {
-			return list[i].area < list[j].area
+		if closed {
+			length--
+		}
+		points := make([]pointVW, 0, length)
+		pq.Reset(func(i, j itemVW) bool {
+			return i.area < j.area
 		}, length)
-		for i := 4; i < len(pi.d); i += cmdLen(pi.d[i]) {
-			A := 0.0
-			idx := len(list)
+		for i := 4; i < len(pi.d); {
 			j := i + cmdLen(pi.d[i])
 			next := Point{pi.d[j-3], pi.d[j-2]}
-			if (4 < i || closed) && (filter == nil || filter(cur)) {
-				A = area(prev, cur, next)
-				pq.Append(idx)
+
+			queued := false
+			idx := len(points)
+			idxPrev, idxNext := idx-1, idx+1
+			if closed {
+				if i == 4 {
+					idxPrev = length - 1
+				} else if j == len(pi.d) {
+					idxNext = 0
+				}
 			}
-			list = append(list, simplifyItemVW{
-				Point: cur,
-				area:  A,
-				prev:  idx - 1,
-				next:  idx + 1,
+			if (4 < i || closed) && (filter == nil || filter(cur)) {
+				pq.Append(itemVW{
+					area: computeArea(prev, cur, next),
+					prev: idxPrev,
+					cur:  idx,
+					next: idxNext,
+				})
+				queued = true
+			}
+			points = append(points, pointVW{
+				Point:  cur,
+				prev:   idxPrev,
+				next:   idxNext,
+				queued: queued,
 			})
 			prev = cur
 			cur = next
+			i = j
 		}
-		if closed {
-			list[len(list)-1].next = 0
-			list[0].prev = len(list) - 1
-		} else {
-			list = append(list, simplifyItemVW{
-				Point: Point{pi.d[len(pi.d)-3], pi.d[len(pi.d)-2]},
-				area:  0.0,
-				prev:  len(list) - 1,
+		if !closed {
+			points = append(points, pointVW{
+				Point: cur,
+				prev:  len(points) - 1,
 				next:  -1,
 			})
 		}
+
 		pq.Init()
 
 		first := 0
 		for 0 < pq.Len() {
-			idx := pq.Pop()
-			cur := list[idx]
-			if math.IsNaN(cur.area) {
-				continue
-			} else if tolerance <= cur.area {
+			item := pq.Pop()
+			if tolerance <= item.area {
 				break
+			} else if point := points[item.cur]; item.prev != point.prev || item.next != point.next {
+				// triangle is invalidated
+				continue
+			} else if item.prev == item.next {
+				// fewer than 3 points left
+				continue SubpathLoop
 			}
 
-			// remove current point
-			list[cur.prev].next = cur.next
-			list[cur.next].prev = cur.prev
-			if first == idx {
-				first = cur.next
+			// remove current point from linked list, this invalidates those items in the queue
+			points[item.prev].next = item.next
+			points[item.next].prev = item.prev
+			if first == item.cur {
+				first = item.next
 			}
 
-			// update previous point
-			if prev := list[cur.prev]; prev.prev != -1 {
-				idxPrev, _ := pq.Find(cur.prev)
-				list[cur.prev].area = area(list[prev.prev].Point, prev.Point, list[prev.next].Point)
-				pq.Fix(idxPrev)
+			// reinsert previous point
+			if prev := points[item.prev]; prev.queued && prev.prev != -1 {
+				area := computeArea(points[prev.prev].Point, prev.Point, points[prev.next].Point)
+				pq.Push(itemVW{
+					area: area,
+					prev: prev.prev,
+					cur:  item.prev,
+					next: prev.next,
+				})
 			}
 
-			// update next point
-			if next := list[cur.next]; next.next != -1 {
-				idxNext, _ := pq.Find(cur.next)
-				list[cur.next].area = area(list[next.prev].Point, next.Point, list[next.next].Point)
-				pq.Fix(idxNext)
+			// reinsert next point
+			if next := points[item.next]; next.queued && next.next != -1 {
+				area := computeArea(points[next.prev].Point, next.Point, points[next.next].Point)
+				pq.Push(itemVW{
+					area: area,
+					prev: next.prev,
+					cur:  item.next,
+					next: next.next,
+				})
 			}
 		}
-		if closed && pq.Len() < 2 {
-			// result too small
-			continue
-		}
 
-		q.d = append(q.d, MoveToCmd, list[first].X, list[first].Y, MoveToCmd)
-		for idx := list[first].next; idx != -1 && idx != first; idx = list[idx].next {
-			q.d = append(q.d, LineToCmd, list[idx].X, list[idx].Y, LineToCmd)
+		q.d = append(q.d, MoveToCmd, points[first].X, points[first].Y, MoveToCmd)
+		for i := points[first].next; i != -1 && i != first; i = points[i].next {
+			q.d = append(q.d, LineToCmd, points[i].X, points[i].Y, LineToCmd)
 		}
 		if closed {
-			q.d = append(q.d, CloseCmd, list[first].X, list[first].Y, CloseCmd)
+			q.d = append(q.d, CloseCmd, points[first].X, points[first].Y, CloseCmd)
 		}
 
 	}

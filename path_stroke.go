@@ -520,7 +520,7 @@ func (p *Path) offset(halfWidth float64, cr Capper, jr Joiner, strokeOpen bool, 
 		start = end
 		i += cmdLen(cmd)
 	}
-	if len(states) < 2 {
+	if len(states) == 0 {
 		return nil, nil
 	}
 

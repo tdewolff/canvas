@@ -29,6 +29,7 @@ func TestPathSimplifyVisvalingamWhyatt(t *testing.T) {
 		{"M0 0L1 1L2 0zM4 0L5 1L6 0zM2 0L4 2L4 0z", 2.0, "M2 0L4 2L4 0z"},
 		{"M0 0L40 0L40.1 0.1L40.2 0L40.3 0.5L40 40z", 2.0, "M0 0L40.2 0L40.3 0.5L40 40z"},
 		{"M0 0L40 0L40.1 0.1L40.2 0L40.3 0.5L40 40z", 3.0, "M0 0L40.2 0L40 40z"},
+		{"M0 0L10 0", 1.0, "M0 0L10 0"},
 	}
 
 	for _, tt := range tests {
