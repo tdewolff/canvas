@@ -380,6 +380,12 @@ func (q *SweepEvents) Pop() *SweepPoint {
 	return items
 }
 
+func (q *SweepEvents) Fix(i int) {
+	if !q.down(i, len(*q)) {
+		q.up(i)
+	}
+}
+
 // from container/heap
 func (q SweepEvents) up(j int) {
 	for {
@@ -392,7 +398,7 @@ func (q SweepEvents) up(j int) {
 	}
 }
 
-func (q SweepEvents) down(i0, n int) {
+func (q SweepEvents) down(i0, n int) bool {
 	i := i0
 	for {
 		j1 := 2*i + 1
@@ -409,6 +415,7 @@ func (q SweepEvents) down(i0, n int) {
 		q.Swap(i, j)
 		i = j
 	}
+	return i0 < i
 }
 
 func (q SweepEvents) Print(w io.Writer) {
@@ -422,7 +429,7 @@ func (q SweepEvents) Print(w io.Writer) {
 		q.down(0, n)
 		n--
 	}
-	width := int(math.Log10(float64(len(q)-1))) + 1
+	width := int(math.Max(0.0, math.Log10(float64(len(q)-1)))) + 1
 	for k := len(q) - 1; 0 <= k; k-- {
 		fmt.Fprintf(w, "%*d %v\n", width, len(q)-1-k, q[k])
 	}
@@ -476,6 +483,11 @@ func (n *SweepNode) Next() *SweepNode {
 		n = n.parent // find first parent for which we're left
 	}
 	return n.parent // can be nil
+}
+
+func (a *SweepNode) swap(b *SweepNode) {
+	a.SweepPoint, b.SweepPoint = b.SweepPoint, a.SweepPoint
+	a.SweepPoint.node, b.SweepPoint.node = a, b
 }
 
 func (n *SweepNode) balance() int {
@@ -878,25 +890,25 @@ func (a *SweepPoint) LessH(b *SweepPoint) bool {
 	return false
 }
 
-func (a *SweepPoint) CompareH(b *SweepPoint) int {
-	// used for sweep queue
-	// sort left-to-right, then bottom-to-top, then right-endpoints before left-endpoints, and then
-	// sort upwards to ensure a CCW orientation of the result
-	if a.X < b.X {
-		return -1
-	} else if b.X < a.X {
-		return 1
-	} else if a.Y < b.Y {
-		return -1
-	} else if b.Y < a.Y {
-		return 1
-	} else if !a.left && b.left {
-		return -1
-	} else if a.left && !b.left {
-		return 1
-	}
-	return a.compareTangentsV(b)
-}
+//func (a *SweepPoint) CompareH(b *SweepPoint) int {
+//	// used for sweep queue
+//	// sort left-to-right, then bottom-to-top, then right-endpoints before left-endpoints, and then
+//	// sort upwards to ensure a CCW orientation of the result
+//	if a.X < b.X {
+//		return -1
+//	} else if b.X < a.X {
+//		return 1
+//	} else if a.Y < b.Y {
+//		return -1
+//	} else if b.Y < a.Y {
+//		return 1
+//	} else if !a.left && b.left {
+//		return -1
+//	} else if a.left && !b.left {
+//		return 1
+//	}
+//	return a.compareTangentsV(b, false)
+//}
 
 func (a *SweepPoint) compareOverlapsV(b *SweepPoint) int {
 	// compare segments vertically that overlap (ie. are the same)
@@ -1001,22 +1013,6 @@ func (a *SweepPoint) CompareV(b *SweepPoint) int {
 		return a.compareV(b)
 	}
 }
-
-//func compareIntersections(a, b Point) int {
-//	if a.X == b.X {
-//		if a.Y == b.Y {
-//			return 0
-//		} else if a.Y < b.Y {
-//			return -1
-//		} else {
-//			return 1
-//		}
-//	} else if a.X < b.X {
-//		return -1
-//	} else {
-//		return 1
-//	}
-//}
 
 //type SweepPointPair [2]*SweepPoint
 //
@@ -1611,9 +1607,11 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 	// TODO: support open paths on ps
 	// TODO: support elliptical arcs
 	// TODO: use a red-black tree for the sweepline status?
-	// TODO: use a red-black or 2-4 tree for the sweepline queue (LessH is 33% of time spent now)
+	// TODO: use a red-black or 2-4 tree for the sweepline queue (LessH is 33% of time spent now),
+	//       perhaps a red-black tree where the nodes are min-queues of the resulting squares
 	// TODO: optimize path data by removing commands, set number of same command (50% less memory)
-	// TODO: fix bug with overlapping segments, intersections should intersect both
+	// TODO: can we get idempotency (same result after second time) by tracing back each snapped
+	//       right-endpoint for the squares it may now intersect? (Hershberger 2013)
 
 	// Implementation of the Bentley-Ottmann algorithm by reducing the complexity of finding
 	// intersections to O((n + k) log n), with n the number of segments and k the number of
@@ -1841,6 +1839,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 		// are lower (by compareTangentV). If no intersections are found, pop off the queue and
 		// proceed as usual.
 
+		// Pass 1
 		// process all events of the current column
 		n := len(squares)
 		x := snap(queue.Top().X, BentleyOttmannEpsilon)
@@ -1915,16 +1914,16 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 			}
 		}
 
+		// Pass 2
 		// find all crossing segments, break them up and snap to the grid
 		squares.breakupCrossingSegments(n, x)
 
+		// snap events to grid
+		// note that this may make segments overlapping from the left and towards the right
+		// we handle the former below, but ignore the latter which may result in overlapping
+		// segments not being strictly ordered
 		for j := n; j < len(squares); j++ {
 			square := squares[j] // pointer
-
-			// snap events to grid
-			// note that this may make segments overlapping from the left and towards the right
-			// we handle the former below, but ignore the latter which may result in overlapping
-			// segments not being strictly ordered
 			for i := 0; i < len(square.Events); i++ {
 				event := square.Events[i]
 				event.index = j
@@ -1939,11 +1938,11 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 					i--
 				} else if event.X == other.X {
 					// correct for segments that have become vertical due to snap/breakup
+					event.vertical, event.other.vertical = true, true
 					if !event.left && event.Y < other.Y {
 						// downward sloped, reverse direction
 						event.Reverse()
 					}
-					event.vertical, event.other.vertical = true, true
 				}
 			}
 		}
