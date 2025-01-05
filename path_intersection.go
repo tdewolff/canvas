@@ -1077,54 +1077,34 @@ func addIntersections(queue *SweepEvents, event *SweepPoint, prev, next *SweepNo
 	// Note: handle overlapping segments immediately by checking up and down status for segments
 	// that compare equally with weak ordering (ie. overlapping).
 
+	if !event.left {
+		// intersection may be to the left (or below) the current event due to floating-point
+		// precision which would interfere with the sequence in queue, this is a problem when
+		// handling right-endpoints
+		for i := range zs {
+			z := &zs[i]
+			if z.X < event.X {
+				z.X = event.X
+			} else if z.X == event.X && z.Y < event.Y {
+				z.Y = event.Y
+			}
+
+			aMaxY := math.Max(a.Y, a.other.Y)
+			bMaxY := math.Max(b.Y, b.other.Y)
+			if a.other.X < z.X || b.other.X < z.X || aMaxY < z.Y || bMaxY < z.Y {
+				panic("moved outside of segments")
+			}
+		}
+	}
+
 	// handle a
-	retry := false
+	aChanged := false
 	for i := len(zs) - 1; 0 <= i; i-- {
 		z := zs[i]
 		if z == a.Point || z == a.other.Point {
 			// ignore tangent intersections at the endpoints
 			continue
-		} else if !event.left {
-			// intersection may be to the left (or below) the current event due to floating-point
-			// precision which would interfere with the sequence in queue, this is a problem when
-			// handling right-endpoints
-			if z.X < event.X {
-				z.X = event.X
-				if z == a.Point || z == a.other.Point {
-					// ignore tangent intersections at the endpoints
-					continue
-				}
-			} else if z.X == event.X && z.Y < event.Y {
-				z.Y = event.Y
-				if z == a.Point || z == a.other.Point {
-					// ignore tangent intersections at the endpoints
-					continue
-				}
-			}
 		}
-
-		// split all overlapping segments at z as well
-		//if prev != nil {
-		//	for n := prev.Prev(); n != nil; n = n.Prev() {
-		//		if n.Point == a.Point && a.compareTangentsV(n.SweepPoint, true) == 0 {
-		//			fmt.Println("OVERLAP", a, n, "at", z)
-		//			r, l := n.SplitAt(z)
-		//			if l.X == l.other.X {
-		//				l.vertical, l.other.vertical = true, true
-		//				if l.other.Y < l.Y {
-		//					fmt.Println("  reverse...")
-		//				}
-		//			} else if r.X == r.other.X {
-		//				r.vertical, r.other.vertical = true, true
-		//				if r.Y < r.other.Y {
-		//					fmt.Println("  reverse...")
-		//				}
-		//			}
-		//			queue.Push(r)
-		//			queue.Push(l)
-		//		}
-		//	}
-		//}
 
 		// split segment at intersection
 		aRight, aLeft := a.SplitAt(z)
@@ -1142,8 +1122,23 @@ func addIntersections(queue *SweepEvents, event *SweepPoint, prev, next *SweepNo
 			if aRight.Y < aRight.other.Y {
 				// reverse first segment
 				// this can never happen in theory, but may happen due to floating-point
-				// precision problems, perhaps we should handle this anyways?
-				panic("impossible: first segment of A became vertical and needs reversal")
+				//panic("impossible: first segment of A became vertical and needs reversal")
+
+				// reverse first segment
+				if aRight.other.node != nil {
+					panic("impossible: first segment of A became vertical and needs reversal, but A was already in the sweep status")
+				}
+				aRight.Reverse()
+
+				// Note that we swap the content of the currently processed left-endpoint of b with
+				// the new left-endpoint vertically below. The queue may not be strictly ordered
+				// with other vertical segments at the new left-endpoint, but this isn't a problem
+				// since we sort the events in each square after the Bentley-Ottmann phase.
+
+				// update references from handled and queue by swapping their contents
+				aFirst := aRight.other
+				*aRight, *aFirst = *aFirst, *aRight
+				aFirst.other, aRight.other = aRight, aFirst
 			}
 		}
 
@@ -1153,59 +1148,17 @@ func addIntersections(queue *SweepEvents, event *SweepPoint, prev, next *SweepNo
 		// add to queue
 		queue.Push(aRight)
 		queue.Push(aLeft)
-		if prev == nil {
-			retry = true
-		}
+		aChanged = true
 	}
 
 	// handle b
+	bChanged := false
 	for i := len(zs) - 1; 0 <= i; i-- {
 		z := zs[i]
 		if z == b.Point || z == b.other.Point {
 			// ignore tangent intersections at the endpoints
 			continue
-		} else if !event.left {
-			// intersection may be to the left (or below) the current event due to floating-point
-			// precision which would interfere with the sequence in queue, this is a problem when
-			// handling right-endpoints
-			if z.X < event.X {
-				z.X = event.X
-				if z == b.Point || z == b.other.Point {
-					// ignore tangent intersections at the endpoints
-					continue
-				}
-			} else if z.X == event.X && z.Y < event.Y {
-				z.Y = event.Y
-				if z == b.Point || z == b.other.Point {
-					// ignore tangent intersections at the endpoints
-					continue
-				}
-			}
 		}
-
-		// split all overlapping segments at z as well
-		//if next != nil {
-		//	for n := next.Next(); n != nil; n = n.Next() {
-		//		fmt.Println("next", n)
-		//		if n.Point == b.Point && b.compareTangentsV(n.SweepPoint, true) == 0 {
-		//			fmt.Println("OVERLAP", b, n, "at", z)
-		//			r, l := n.SplitAt(z)
-		//			if l.X == l.other.X {
-		//				l.vertical, l.other.vertical = true, true
-		//				if l.other.Y < l.Y {
-		//					fmt.Println("  reverse...")
-		//				}
-		//			} else if r.X == r.other.X {
-		//				r.vertical, r.other.vertical = true, true
-		//				if r.Y < r.other.Y {
-		//					fmt.Println("  reverse...")
-		//				}
-		//			}
-		//			queue.Push(r)
-		//			queue.Push(l)
-		//		}
-		//	}
-		//}
 
 		// split segment at intersection
 		bRight, bLeft := b.SplitAt(z)
@@ -1249,11 +1202,10 @@ func addIntersections(queue *SweepEvents, event *SweepPoint, prev, next *SweepNo
 		// add to queue
 		queue.Push(bRight)
 		queue.Push(bLeft)
-		if next == nil {
-			retry = true
-		}
+		bChanged = true
 	}
-	return retry
+
+	return aChanged || bChanged // && prev == nil || bChanged && next == nil
 }
 
 type toleranceSquare struct {
@@ -1856,13 +1808,13 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 
 				n := event.other.node
 				if n == nil {
-					fmt.Println("WARNING: right-endpoint not part of status, probably buggy intersection code")
+					panic("right-endpoint not part of status, probably buggy intersection code")
 					// don't put back in boPointPool, rare event
 					continue
 				} else if n.SweepPoint == nil {
-					// this may happen if the left-endpoint is to the right of the right-endpoint for some reason
-					// usually due to a bug in the segment intersection code
-					fmt.Println("WARNING: other endpoint already removed, probably buggy intersection code")
+					// this may happen if the left-endpoint is to the right of the right-endpoint
+					// for some reason, usually due to a bug in the segment intersection code
+					panic("other endpoint already removed, probably buggy intersection code")
 					// don't put back in boPointPool, rare event
 					continue
 				}
@@ -1894,10 +1846,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				if next != nil {
 					retry = retry || addIntersections(queue, event, nil, next)
 				}
-				if queue.Top() != event || retry {
-					//if queue.Top() == event {
-					//	fmt.Println("NOTE: retry necessary?")
-					//}
+				if queue.Top() != event { //|| retry {
 					// check if the queue order was changed, this happens if the current event
 					// is the left-endpoint of a segment that intersects with an existing segment
 					// that goes below, or when two segments become fully overlapping, which sets
@@ -1968,8 +1917,21 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 
 				sort.Sort(eventSliceV(events))
 
+				// find intersections between neighbouring segments due to snapping
+				// TODO: ugly!
+				has := false
+				centre := &SweepPoint{
+					Point: Point{square.X, square.Y},
+				}
+				if prev := square.Lower.Prev(); prev != nil {
+					has = addIntersections(queue, centre, prev, square.Lower)
+				}
+				if next := square.Upper.Next(); next != nil {
+					has = has || addIntersections(queue, centre, square.Upper, next)
+				}
+
 				// find intersections between new neighbours in status after sorting
-				for i, event := range events {
+				for i, event := range events[:len(events)-1] {
 					if event != origEvents[i] {
 						n := event.node
 						var j int
@@ -1977,17 +1939,18 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 							j++
 						}
 
-						if prev := n.Prev(); prev != nil && i == 0 {
-							// lowest segment changed order, check with segment below
-							addIntersections(queue, event, prev, nil)
-						}
-						if next := n.Next(); next != nil && (i+1 == len(events) || (j == 0 || next.SweepPoint != origEvents[j-1]) && (j+1 == len(origEvents) || next.SweepPoint != origEvents[j+1])) {
-							// highest segment changed order, check with segment above
-							// or any other segment changed order and the segment above was not
-							// originally its neighbour
-							addIntersections(queue, event, nil, next)
+						if next := n.Next(); next != nil && (j == 0 || next.SweepPoint != origEvents[j-1]) && (j+1 == len(origEvents) || next.SweepPoint != origEvents[j+1]) {
+							// segment changed order and the segment above was not its neighbour
+							has = has || addIntersections(queue, centre, n, next)
 						}
 					}
+				}
+
+				if 0 < len(*queue) && snap(queue.Top().X, BentleyOttmannEpsilon) == x {
+					fmt.Println("WARNING: new intersections in this column!")
+				} else if has {
+					// sort overlapping segments again
+					sort.Sort(eventSliceV(events))
 				}
 			}
 
@@ -2077,7 +2040,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 					}
 				}
 				if next == nil {
-					fmt.Println("WARNING: next node for result polygon is nil, probably buggy intersection code")
+					panic("next node for result polygon is nil, probably buggy intersection code")
 					break
 				} else if next == first {
 					break // contour is done
