@@ -7,13 +7,17 @@ import (
 	"strings"
 )
 
-type PriorityQueue[T int] struct {
+type Integer interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
+}
+
+type PriorityQueue[T Integer] struct {
 	items []T
 	keys  []int
 	less  func(T, T) bool
 }
 
-func NewPriorityQueue[T int](less func(T, T) bool, capacity int) *PriorityQueue[T] {
+func NewPriorityQueue[T Integer](less func(T, T) bool, capacity int) *PriorityQueue[T] {
 	pq := &PriorityQueue[T]{}
 	pq.Reset(less, capacity)
 	return pq

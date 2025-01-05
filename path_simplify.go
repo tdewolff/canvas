@@ -42,19 +42,14 @@ func (p *Path) Gridsnap(spacing float64) *Path {
 	return p
 }
 
-type pointVW struct {
-	Point
-	prev, next int // indices into points
-	queued     bool
-}
-
 type itemVW struct {
-	area            float64
-	prev, cur, next int // indices into points
+	Point
+	area       float64
+	prev, next int32 // indices into points
 }
 
 func (item itemVW) String() string {
-	return fmt.Sprintf("%v (%v→%v→%v)", item.area, item.prev, item.cur, item.next)
+	return fmt.Sprintf("%v %v (%v→·→%v)", item.Point, item.area, item.prev, item.next)
 }
 
 func (p *Path) SimplifyVisvalingamWhyatt(tolerance float64) *Path {
@@ -68,7 +63,7 @@ func (p *Path) SimplifyVisvalingamWhyattFilter(tolerance float64, filter func(Po
 
 	// don't reuse memory since the new path may be much smaller and keep the extra capacity
 	q := &Path{}
-	pq := NewPriorityQueue[itemVW](nil, 0)
+	pq := NewPriorityQueue[int32](nil, 0)
 SubpathLoop:
 	for _, pi := range p.Split() {
 		closed := pi.Closed()
@@ -86,102 +81,91 @@ SubpathLoop:
 		if closed {
 			length--
 		}
-		points := make([]pointVW, 0, length)
-		pq.Reset(func(i, j itemVW) bool {
-			return i.area < j.area
+		items := make([]itemVW, 0, length)
+		pq.Reset(func(i, j int32) bool {
+			return items[i].area < items[j].area
 		}, length)
 		for i := 4; i < len(pi.d); {
 			j := i + cmdLen(pi.d[i])
 			next := Point{pi.d[j-3], pi.d[j-2]}
 
-			queued := false
-			idx := len(points)
+			idx := int32(len(items))
+			area := math.NaN()
+			if (4 < i || closed) && (filter == nil || filter(cur)) {
+				area = computeArea(prev, cur, next)
+				pq.Append(idx)
+			}
+
 			idxPrev, idxNext := idx-1, idx+1
 			if closed {
 				if i == 4 {
-					idxPrev = length - 1
+					idxPrev = int32(length - 1)
 				} else if j == len(pi.d) {
 					idxNext = 0
 				}
 			}
-			if (4 < i || closed) && (filter == nil || filter(cur)) {
-				pq.Append(itemVW{
-					area: computeArea(prev, cur, next),
-					prev: idxPrev,
-					cur:  idx,
-					next: idxNext,
-				})
-				queued = true
-			}
-			points = append(points, pointVW{
-				Point:  cur,
-				prev:   idxPrev,
-				next:   idxNext,
-				queued: queued,
+			items = append(items, itemVW{
+				Point: cur,
+				area:  area,
+				prev:  idxPrev,
+				next:  idxNext,
 			})
 			prev = cur
 			cur = next
 			i = j
 		}
 		if !closed {
-			points = append(points, pointVW{
+			items = append(items, itemVW{
 				Point: cur,
-				prev:  len(points) - 1,
+				area:  math.NaN(),
+				prev:  int32(len(items) - 1),
 				next:  -1,
 			})
 		}
 
 		pq.Init()
 
-		first := 0
+		first := int32(0)
 		for 0 < pq.Len() {
-			item := pq.Pop()
+			idx := pq.Pop()
+			item := items[idx]
 			if tolerance <= item.area {
 				break
-			} else if point := points[item.cur]; item.prev != point.prev || item.next != point.next {
-				// triangle is invalidated
-				continue
 			} else if item.prev == item.next {
 				// fewer than 3 points left
 				continue SubpathLoop
 			}
 
 			// remove current point from linked list, this invalidates those items in the queue
-			points[item.prev].next = item.next
-			points[item.next].prev = item.prev
-			if first == item.cur {
+			items[item.prev].next = item.next
+			items[item.next].prev = item.prev
+			if first == idx {
 				first = item.next
 			}
 
-			// reinsert previous point
-			if prev := points[item.prev]; prev.queued && prev.prev != -1 {
-				area := computeArea(points[prev.prev].Point, prev.Point, points[prev.next].Point)
-				pq.Push(itemVW{
-					area: area,
-					prev: prev.prev,
-					cur:  item.prev,
-					next: prev.next,
-				})
+			// update previous point
+			if prev := items[item.prev]; prev.prev != -1 && !math.IsNaN(prev.area) {
+				area := computeArea(items[prev.prev].Point, prev.Point, items[prev.next].Point)
+				items[item.prev].area = area
+				idx, _ := pq.Find(item.prev)
+				pq.Fix(idx)
 			}
 
-			// reinsert next point
-			if next := points[item.next]; next.queued && next.next != -1 {
-				area := computeArea(points[next.prev].Point, next.Point, points[next.next].Point)
-				pq.Push(itemVW{
-					area: area,
-					prev: next.prev,
-					cur:  item.next,
-					next: next.next,
-				})
+			// update next point
+			if next := items[item.next]; next.next != -1 && !math.IsNaN(next.area) {
+				area := computeArea(items[next.prev].Point, next.Point, items[next.next].Point)
+				items[item.next].area = area
+				idx, _ := pq.Find(item.next)
+				pq.Fix(idx)
 			}
 		}
 
-		q.d = append(q.d, MoveToCmd, points[first].X, points[first].Y, MoveToCmd)
-		for i := points[first].next; i != -1 && i != first; i = points[i].next {
-			q.d = append(q.d, LineToCmd, points[i].X, points[i].Y, LineToCmd)
+		q.d = append(q.d, MoveToCmd, items[first].X, items[first].Y, MoveToCmd)
+		for i := items[first].next; i != -1 && i != first; i = items[i].next {
+			q.d = append(q.d, LineToCmd, items[i].X, items[i].Y, LineToCmd)
 		}
 		if closed {
-			q.d = append(q.d, CloseCmd, points[first].X, points[first].Y, CloseCmd)
+			q.d = append(q.d, CloseCmd, items[first].X, items[first].Y, CloseCmd)
 		}
 
 	}
