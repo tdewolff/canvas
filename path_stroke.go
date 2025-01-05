@@ -520,6 +520,9 @@ func (p *Path) offset(halfWidth float64, cr Capper, jr Joiner, strokeOpen bool, 
 		start = end
 		i += cmdLen(cmd)
 	}
+	if len(states) < 2 {
+		return nil, nil
+	}
 
 	rhs, lhs := &Path{}, &Path{}
 	rStart := states[0].p0.Add(states[0].n0)
@@ -625,7 +628,9 @@ func (p *Path) Offset(w float64, tolerance float64) *Path {
 	for _, pi := range p.Split() {
 		r := &Path{}
 		rhs, lhs := pi.offset(w, ButtCap, RoundJoin, false, tolerance)
-		if positive {
+		if rhs == nil {
+			continue
+		} else if positive {
 			r = rhs
 		} else {
 			r = lhs
@@ -654,7 +659,13 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path 
 	halfWidth := math.Abs(w) / 2.0
 	for _, pi := range p.Split() {
 		rhs, lhs := pi.offset(halfWidth, cr, jr, true, tolerance)
-		if lhs != nil { // closed path
+		if rhs == nil {
+			continue
+		} else if lhs == nil {
+			// open path
+			q = q.Append(rhs.Settle(Positive))
+		} else {
+			// closed path
 			// inner path should go opposite direction to cancel the outer path
 			if pi.CCW() {
 				q = q.Append(rhs.Settle(Positive))
@@ -664,8 +675,6 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path 
 				q = q.Append(lhs.Settle(Negative))
 				q = q.Append(rhs.Settle(Negative).Reverse())
 			}
-		} else {
-			q = q.Append(rhs.Settle(Positive))
 		}
 	}
 	return q
