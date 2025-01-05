@@ -1838,15 +1838,14 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				status.Remove(n)
 			} else {
 				// add intersections to queue
-				retry := false
 				prev, next := status.FindPrevNext(event)
 				if prev != nil {
-					retry = addIntersections(queue, event, prev, nil)
+					addIntersections(queue, event, prev, nil)
 				}
 				if next != nil {
-					retry = retry || addIntersections(queue, event, nil, next)
+					addIntersections(queue, event, nil, next)
 				}
-				if queue.Top() != event { //|| retry {
+				if queue.Top() != event {
 					// check if the queue order was changed, this happens if the current event
 					// is the left-endpoint of a segment that intersects with an existing segment
 					// that goes below, or when two segments become fully overlapping, which sets
@@ -1882,7 +1881,8 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				if event.Point == other {
 					// remove collapsed segments
 					// TODO: prevent creating these segments in the first place
-					boPointPool.Put(event)
+					// TODO: putting the event back causes a very rare bug apparently
+					//boPointPool.Put(event)
 					square.Events = append(square.Events[:i], square.Events[i+1:]...)
 					i--
 				} else if event.X == other.X {
@@ -1947,9 +1947,15 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				}
 
 				if 0 < len(*queue) && snap(queue.Top().X, BentleyOttmannEpsilon) == x {
+					// TODO: this never happens apparently, why not?
 					fmt.Println("WARNING: new intersections in this column!")
 				} else if has {
 					// sort overlapping segments again
+					// this is needed when segments get cut and now become equal to the adjacent
+					// overlapping segments
+					// TODO: segments should be sorted by segment ID when overlapping, even if
+					//       one segment extends further than the other, is that due to floating
+					//       point accuracy?
 					sort.Sort(eventSliceV(events))
 				}
 			}
