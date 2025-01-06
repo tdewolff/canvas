@@ -22,13 +22,14 @@ Whether this library is ready for production environments is up to your own judg
 
 Execution performance is actually really good, especially the rasterizer is highly optimized with ASM. See for example a comparison of an extreme case in https://github.com/tdewolff/canvas/issues/280#issuecomment-1995990038, where this library is at least twice as fast as existing solutions, and can handle bigger images than the likes of Inkscape and Cairo.
 
-The path intersection code and path boolean operation code is quite complete and fast, and more importantly has a time complexity of O(n log n). It may suffer from numerical precision which can be avoided using `Path.Gridsnap` beforehand.
+The path intersection code and path boolean operation code is quite complete and fast, and more importantly has a time complexity of O(n log n). It is numerically stable and does not suffer from floating-point precision errors.
 
 Please issue bug reports or feature requests to help this library mature! All help is appreciated. Also see [Wiki - Planning](https://github.com/tdewolff/canvas/wiki/Planning) for an inexhaustive list of ideas and TODOs.
 
 ## Features
-- Path segment types: MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close (https://github.com/tdewolff/canvas/wiki/Paths)
-- Precise path flattening, stroking, and dashing for all segment type uing papers (see below)
+### General
+- Path segment types: MoveTo, LineTo, QuadTo, CubeTo, ArcTo, Close (see [Paths](https://github.com/tdewolff/canvas/wiki/Paths))
+- Precise path flattening, stroking, and dashing for all segment types (see papers below)
 - Smooth spline generation through points for open and closed paths
 - LaTeX to path conversion (native Go and CGO implementations available)
 - sRGB compliance (use `SRGBColorSpace`, only available for rasterizer)
@@ -48,12 +49,13 @@ Additionally, it has bindings to be used as renderer for:
 - [go-chart](https://github.com/wcharczuk/go-chart)
 - [gonum/plot](https://github.com/gonum/plot)
 
-See (https://github.com/tdewolff/canvas/wiki/Renderers) for more information.
+See [Renderers](https://github.com/tdewolff/canvas/wiki/Renderers) for more information.
 
 ### Stable path boolean operations
-Numerically stable (!) path boolean operations, supporting AND, OR, XOR, NOT, and DIV operations in `O((n+k) log n)`, with `n` the number of segments and `k` the number of intersections. This is very fast and allows handling huge paths. It uses 64bit floating-point precision for highly accurate computation and employs an additional strategy to ensure numerical stability. In particular:
-- Allows paths, subject or clipping, with any number of contours.
+Numerically stable (!) path boolean operations, supporting AND, OR, XOR, NOT, and DIV operations in `O((n+k) log n)`, with `n` the number of segments and `k` the number of intersections. This is very fast and allows handling huge paths. It uses 64-bit floating-point precision for highly accurate computation and employs an additional strategy to ensure numerical stability. In particular:
+- Allows paths, subject or clipping, with any number of (overlapping) contours.
 - Allows contours with any orientation, clockwise or anticlockwise.
+- Contours may be concave or of any shape.
 - Contours may self-intersect any number of times.
 - Segments may overlap any number of times by any contour.
 - Points may be crossed any number of times.
@@ -68,7 +70,7 @@ Correctness and performance has been tested by drawing all land masses and islan
 
 TODO: add benchmark with other libraries
 
-See (https://github.com/tdewolff/canvas/wiki/Boolean-operations) for more information.
+See [Boolean operations](https://github.com/tdewolff/canvas/wiki/Boolean-operations) for more information.
 
 ### Advanced text rendering
 High-quality (comparable to TeX) text rendering and line breaking. It uses HarfBuzz for text shaping (native Go and CGO implementations available) and FriBidi for text bidirectionality (native Go and CGO implementations available), and uses Donald Knuth's line breaking algorithm for text layout. This enables the following features:
@@ -78,7 +80,7 @@ High-quality (comparable to TeX) text rendering and line breaking. It uses HarfB
 - Handle left-to-right, right-to-left, or top-to-bottom/bottom-to-top writing systems.
 - Mix scripts and fonts in a single line, eg. combine latin and arabic, or bold and regular styles.
 
-Additionally, many font formats are supported (such as TTF, OTF, WOFF, WOFF2, EOT) and rendering can apply a gamma correction of 1.43 for better results. See (https://github.com/tdewolff/canvas/wiki/Fonts-&-Text) for more information.
+Additionally, many font formats are supported (such as TTF, OTF, WOFF, WOFF2, EOT) and rendering can apply a gamma correction of 1.43 for better results. See [Fonts & Text](https://github.com/tdewolff/canvas/wiki/Fonts-&-Text) for more information.
 
 ## Examples
 
