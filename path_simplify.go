@@ -167,7 +167,6 @@ SubpathLoop:
 		if closed {
 			q.d = append(q.d, CloseCmd, items[first].X, items[first].Y, CloseCmd)
 		}
-
 	}
 	return q
 }

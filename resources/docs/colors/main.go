@@ -72,7 +72,7 @@ func main() {
 		ctx.DrawPath(0.5+10.0*float64(i), -9.5-10.0*float64(j), canvas.Rectangle(9.0, 9.0))
 
 		p, w, _ := face.ToPath(names[idx])
-		p = p.Offset(0.05, canvas.EvenOdd, 0.01)
+		p = p.Offset(0.05, 0.01)
 		p = p.Translate(-w/2.0, 0.0)
 		ctx.SetFillColor(canvas.Hex("#ffffff88"))
 		ctx.DrawPath(5.0+10.0*float64(i), -9.0-10.0*float64(j), p)
