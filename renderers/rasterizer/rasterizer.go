@@ -83,7 +83,8 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		tolerance := canvas.PixelTolerance / r.resolution.DPMM()
 		stroke = path
 		if 0 < len(style.Dashes) {
-			stroke = stroke.Dash(style.DashOffset, style.Dashes...)
+			dashOffset, dashes := canvas.ScaleDash(style.StrokeWidth, style.DashOffset, style.Dashes)
+			stroke = stroke.Dash(dashOffset, dashes...)
 		}
 		stroke = stroke.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner, tolerance)
 		stroke = stroke.Transform(m)

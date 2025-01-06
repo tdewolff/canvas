@@ -186,12 +186,7 @@ func (r *PS) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) 
 		if m.IsSimilarity() {
 			scale := math.Sqrt(math.Abs(m.Det()))
 			style.StrokeWidth *= scale
-			style.DashOffset *= scale
-			dashes := make([]float64, len(style.Dashes))
-			for i := range style.Dashes {
-				dashes[i] = style.Dashes[i] * scale
-			}
-			style.Dashes = dashes
+			style.DashOffset, style.Dashes = canvas.ScaleDash(style.StrokeWidth, style.DashOffset, style.Dashes)
 		} else {
 			strokeUnsupported = true
 		}

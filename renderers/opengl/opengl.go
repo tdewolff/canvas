@@ -345,12 +345,13 @@ var fragmentShaderSource = `
 //		ogl.AddPath(l.path, l.fillColor)
 //	}
 //	if l.strokeColor.A != 0 && 0.0 < l.strokeWidth {
-//		strokePath := l.path
+//		stroke := l.path
 //		if 0 < len(l.dashes) {
-//			strokePath = strokePath.Dash(l.dashOffset, l.dashes...)
+//			dashOffset, dashes := canvas.ScaleDash(style.StrokeWidth, l.dashOffset, l.dashes)
+//			stroke = stroke.Dash(dashOffset, dashes...)
 //		}
-//		strokePath = strokePath.Stroke(l.strokeWidth, l.strokeCapper, l.strokeJoiner)
-//		ogl.AddPath(strokePath, l.strokeColor)
+//		stroke= stroke.Stroke(l.strokeWidth, l.strokeCapper, l.strokeJoiner)
+//		ogl.AddPath(stroke, l.strokeColor)
 //	}
 //}
 //

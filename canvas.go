@@ -141,6 +141,28 @@ func (paint Paint) IsPattern() bool {
 	return paint.Pattern != nil
 }
 
+// Dash patterns
+var (
+	Solid              = []float64{}
+	Dotted             = []float64{1.0, 2.0}
+	DenselyDotted      = []float64{1.0, 1.0}
+	SparselyDotted     = []float64{1.0, 4.0}
+	Dashed             = []float64{3.0, 3.0}
+	DenselyDashed      = []float64{3.0, 1.0}
+	SparselyDashed     = []float64{3.0, 6.0}
+	Dashdotted         = []float64{3.0, 2.0, 1.0, 2.0}
+	DenselyDashdotted  = []float64{3.0, 1.0, 1.0, 1.0}
+	SparselyDashdotted = []float64{3.0, 4.0, 1.0, 4.0}
+)
+
+func ScaleDash(scale float64, offset float64, d []float64) (float64, []float64) {
+	d2 := make([]float64, len(d))
+	for i := range d {
+		d2[i] = d[i] * scale
+	}
+	return offset * scale, d2
+}
+
 // Style is the path style that defines how to draw the path. When Fill is not set it will not fill the path. If StrokeColor is transparent or StrokeWidth is zero, it will not stroke the path. If Dashes is an empty array, it will not draw dashes but instead a solid stroke line. FillRule determines how to fill the path when paths overlap and have certain directions (clockwise, counter clockwise).
 type Style struct {
 	Fill         Paint
