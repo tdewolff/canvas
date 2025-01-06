@@ -183,154 +183,84 @@ func (p *Path) Clip(x0, y0, x1, y1 float64) *Path {
 
 	// don't reuse memory since the new path may be much smaller and keep the extra capacity
 	q := &Path{}
-	startIn := false
+	if len(p.d) <= 4 {
+		return q
+	}
+
+	// TODO: we could check if the path is only in two external regions (left/right and top/bottom)
+	//       and if no segment crosses the rectangle, it is fully outside the rectangle
+
+	var rectSegs Rect // sum of rects of prev removed points
+	var first, start, prev Point
+	//crosses := false
 	pendingMoveTo := true
-	first, start := Point{}, Point{}
-	var moveToIndex, firstInIndex int
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		i += cmdLen(cmd)
 
 		end := Point{p.d[i-3], p.d[i-2]}
-		endIn := rect.TouchesPoint(end)
-		crossesXY := false
-		if 0 < len(q.d) && !startIn && !endIn {
-			// check if between out last position on Q and the end of the current segment we cross
-			// lines along X0, X1, Y0, or Y1. If we cross both an X and Y boundary, the path may
-			// cross into the clipping rectangle, so we must include some points on the exterior
-			// of the clipping rectangle to prevent that.
-			prev := Point{q.d[len(q.d)-3], q.d[len(q.d)-2]}
-			crossesX0 := prev.X < rect.X0 && rect.X0 < end.X || rect.X0 < prev.X && end.X < rect.X0
-			crossesX1 := prev.X < rect.X1 && rect.X1 < end.X || rect.X1 < prev.X && end.X < rect.X1
-			crossesY0 := prev.Y < rect.Y0 && rect.Y0 < end.Y || rect.Y0 < prev.Y && end.Y < rect.Y0
-			crossesY1 := prev.Y < rect.Y1 && rect.Y1 < end.Y || rect.Y1 < prev.Y && end.Y < rect.Y1
-			crossesXY = (crossesX0 || crossesX1) && (crossesY0 || crossesY1)
+		if cmd == MoveToCmd {
+			rectSegs = Rect{end.X, end.Y, end.X, end.Y}
+			pendingMoveTo = true
+			start = end
+			continue
 		}
 
-		if cmd == MoveToCmd {
-			if endIn {
-				q.d = append(q.d, MoveToCmd, end.X, end.Y, MoveToCmd)
-				pendingMoveTo = false
-				firstInIndex = i
-				first = end
-			} else {
-				pendingMoveTo = true
-			}
-			moveToIndex = i - cmdLen(MoveToCmd)
-		} else {
-			if crossesXY || !startIn && endIn {
-				if pendingMoveTo {
-					q.d = append(q.d, MoveToCmd, start.X, start.Y, MoveToCmd)
-					pendingMoveTo = false
-					firstInIndex = i
-					first = start
-				} else {
+		rectSeg := RectFromPoints(start, end)
+		switch cmd {
+		//case LineToCmd, CloseCmd:
+		//if !crosses && rect.Touches(rectSeg) {
+		//	crosses = true
+		//}
+		case QuadToCmd:
+			rectSeg = rectSeg.AddPoint(Point{p.d[i-5], p.d[i-4]})
+			//if !crosses && rect.Touches(rectSeg) {
+			//	crosses = true
+			//}
+		case CubeToCmd:
+			rectSeg = rectSeg.AddPoint(Point{p.d[i-7], p.d[i-6]})
+			rectSeg = rectSeg.AddPoint(Point{p.d[i-5], p.d[i-4]})
+			//if !crosses && rect.Touches(rectSeg) {
+			//	crosses = true
+			//}
+		case ArcToCmd:
+			rx, ry, phi := p.d[i-7], p.d[i-6], p.d[i-5]
+			large, sweep := toArcFlags(p.d[i-4])
+			cx, cy, _, _ := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
+			rectSeg = rectSeg.AddPoint(Point{cx - rx, cy - ry})
+			rectSeg = rectSeg.AddPoint(Point{cx + rx, cy + ry})
+			//if !crosses && rect.Touches(rectSeg) {
+			//	crosses = true
+			//}
+		}
+
+		rectSegs = rectSegs.Add(rectSeg)
+		if cmd == CloseCmd {
+			if !pendingMoveTo {
+				if rect.Touches(rectSegs) && start != prev {
+					// previous segments were skipped
 					q.d = append(q.d, LineToCmd, start.X, start.Y, LineToCmd)
 				}
-			}
-			if cmd == LineToCmd && (startIn || endIn) {
-				if pendingMoveTo {
-					q.d = append(q.d, MoveToCmd, start.X, start.Y, MoveToCmd)
-					pendingMoveTo = false
-					firstInIndex = i
-					first = start
+				if end != first {
+					// original moveTo was ignored, but now we need it
+					q.d = append(q.d, LineToCmd, end.X, end.Y, LineToCmd)
 				}
-				q.d = append(q.d, p.d[i-4:i]...)
-			} else if cmd == QuadToCmd {
-				cp := Point{p.d[i-5], p.d[i-4]}
-				if startIn || endIn || rect.TouchesPoint(cp) {
-					if pendingMoveTo {
-						q.d = append(q.d, MoveToCmd, start.X, start.Y, MoveToCmd)
-						pendingMoveTo = false
-						firstInIndex = i
-						first = start
-					}
-					q.d = append(q.d, p.d[i-6:i]...)
-				}
-			} else if cmd == CubeToCmd {
-				cp0 := Point{p.d[i-7], p.d[i-6]}
-				cp1 := Point{p.d[i-5], p.d[i-4]}
-				if startIn || endIn || rect.TouchesPoint(cp0) || rect.TouchesPoint(cp1) {
-					if pendingMoveTo {
-						q.d = append(q.d, MoveToCmd, start.X, start.Y, MoveToCmd)
-						pendingMoveTo = false
-						firstInIndex = i
-						first = start
-					}
-					q.d = append(q.d, p.d[i-8:i]...)
-				}
-			} else if cmd == ArcToCmd {
-				touches := startIn || endIn
-				rx, ry, phi := p.d[i-7], p.d[i-6], p.d[i-5]
-				large, sweep := toArcFlags(p.d[i-4])
-				if !touches {
-					cx, cy, theta0, theta1 := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
-
-					// find the four extremes (top, bottom, left, right) and apply those who are between theta1 and theta2
-					// x(theta) = cx + rx*cos(theta)*cos(phi) - ry*sin(theta)*sin(phi)
-					// y(theta) = cy + rx*cos(theta)*sin(phi) + ry*sin(theta)*cos(phi)
-					// be aware that positive rotation appears clockwise in SVGs (non-Cartesian coordinate system)
-					// we can now find the angles of the extremes
-
-					sinphi, cosphi := math.Sincos(phi)
-					thetaRight := math.Atan2(-ry*sinphi, rx*cosphi)
-					thetaTop := math.Atan2(rx*cosphi, ry*sinphi)
-					thetaLeft := thetaRight + math.Pi
-					thetaBottom := thetaTop + math.Pi
-
-					dx := math.Sqrt(rx*rx*cosphi*cosphi + ry*ry*sinphi*sinphi)
-					dy := math.Sqrt(rx*rx*sinphi*sinphi + ry*ry*cosphi*cosphi)
-					if angleBetween(thetaLeft, theta0, theta1) {
-						touches = touches || rect.TouchesPoint(Point{cx - dx, cy})
-					}
-					if angleBetween(thetaRight, theta0, theta1) {
-						touches = touches || rect.TouchesPoint(Point{cx + dx, cy})
-					}
-					if angleBetween(thetaBottom, theta0, theta1) {
-						touches = touches || rect.TouchesPoint(Point{cx, cy - dy})
-					}
-					if angleBetween(thetaTop, theta0, theta1) {
-						touches = touches || rect.TouchesPoint(Point{cx, cy + dy})
-					}
-				}
-				if touches {
-					if pendingMoveTo {
-						q.d = append(q.d, MoveToCmd, start.X, start.Y, MoveToCmd)
-						pendingMoveTo = false
-						firstInIndex = i
-						first = start
-					}
-					q.d = append(q.d, p.d[i-8:i]...)
-				}
-			} else if cmd == CloseCmd {
-				if !pendingMoveTo {
-					// handle first part of the path which may cross boundaries
-					start = Point{p.d[moveToIndex+1], p.d[moveToIndex+2]}
-					for i := moveToIndex; ; {
-						cmd := p.d[i]
-						i += cmdLen(cmd)
-						if firstInIndex <= i {
-							break
-						}
-
-						end := Point{p.d[i-3], p.d[i-2]}
-						prev := Point{q.d[len(q.d)-3], q.d[len(q.d)-2]}
-						crossesX0 := prev.X < rect.X0 && rect.X0 < end.X || rect.X0 < prev.X && end.X < rect.X0
-						crossesX1 := prev.X < rect.X1 && rect.X1 < end.X || rect.X1 < prev.X && end.X < rect.X1
-						crossesY0 := prev.Y < rect.Y0 && rect.Y0 < end.Y || rect.Y0 < prev.Y && end.Y < rect.Y0
-						crossesY1 := prev.Y < rect.Y1 && rect.Y1 < end.Y || rect.Y1 < prev.Y && end.Y < rect.Y1
-						if (crossesX0 || crossesX1) && (crossesY0 || crossesY1) {
-							q.d = append(q.d, LineToCmd, start.X, start.Y, LineToCmd)
-						}
-						start = end
-					}
-					q.d = append(q.d, CloseCmd, first.X, first.Y, CloseCmd)
-				}
+				q.d = append(q.d, CloseCmd, first.X, first.Y, CloseCmd)
 				pendingMoveTo = true
 			}
+		} else if rect.Touches(rectSegs) {
+			if pendingMoveTo {
+				q.d = append(q.d, MoveToCmd, start.X, start.Y, MoveToCmd)
+				pendingMoveTo = false
+				first = start
+			} else if start != prev {
+				q.d = append(q.d, LineToCmd, start.X, start.Y, LineToCmd)
+			}
+			q.d = append(q.d, p.d[i-cmdLen(cmd):i]...)
+			rectSegs = Rect{end.X, end.Y, end.X, end.Y}
+			prev = end
 		}
 		start = end
-		startIn = endIn
 	}
 	return q
 }
