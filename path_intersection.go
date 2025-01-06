@@ -496,6 +496,40 @@ func (a *SweepNode) swap(b *SweepNode) {
 	a.SweepPoint.node, b.SweepPoint.node = a, b
 }
 
+//func (n *SweepNode) fix() (*SweepNode, int) {
+//	move := 0
+//	if prev := n.Prev(); prev != nil && 0 < prev.CompareV(n.SweepPoint, false) {
+//		// move down
+//		n.swap(prev)
+//		n, prev = prev, n
+//		move--
+//
+//		for prev = prev.Prev(); prev != nil; prev = prev.Prev() {
+//			if prev.CompareV(n.SweepPoint, false) < 0 {
+//				break
+//			}
+//			n.swap(prev)
+//			n, prev = prev, n
+//			move--
+//		}
+//	} else if next := n.Next(); next != nil && next.CompareV(n.SweepPoint, false) < 0 {
+//		// move up
+//		n.swap(next)
+//		n, next = next, n
+//		move++
+//
+//		for next = next.Next(); next != nil; next = next.Next() {
+//			if 0 < next.CompareV(n.SweepPoint, false) {
+//				break
+//			}
+//			n.swap(next)
+//			n, next = next, n
+//			move++
+//		}
+//	}
+//	return n, move
+//}
+
 func (n *SweepNode) balance() int {
 	r := 0
 	if n.left != nil {
@@ -1214,6 +1248,67 @@ func addIntersections(queue *SweepEvents, event *SweepPoint, prev, next *SweepNo
 	return aChanged || bChanged // && prev == nil || bChanged && next == nil
 }
 
+//func reorderStatus(queue *SweepEvents, event *SweepPoint, aOld, bOld *SweepNode) {
+//	var aNew, bNew *SweepNode
+//	var aMove, bMove int
+//	if aOld != nil {
+//		// a == prev is a node in status that needs to be reordered
+//		aNew, aMove = aOld.fix()
+//	}
+//	if bOld != nil {
+//		// b == next is a node in status that needs to be reordered
+//		bNew, bMove = bOld.fix()
+//	}
+//
+//	// find new intersections after snapping and moving around, first between the (new) neighbours
+//	// of a and b, and then check if any other segment became adjacent due to moving around a or b,
+//	// while avoiding superfluous checking for intersections (the aMove/bMove conditions)
+//	if aNew != nil {
+//		if prev := aNew.Prev(); prev != nil && aMove != bMove+1 {
+//			// b is not a's previous
+//			addIntersections(queue, event, prev, aNew)
+//		}
+//		if next := aNew.Next(); next != nil && aMove != bMove-1 {
+//			// b is not a's next
+//			addIntersections(queue, event, aNew, next)
+//		}
+//	}
+//	if bNew != nil {
+//		if prev := bNew.Prev(); prev != nil && bMove != aMove+1 {
+//			// a is not b's previous
+//			addIntersections(queue, event, prev, bNew)
+//		}
+//		if next := bNew.Next(); next != nil && bMove != aMove-1 {
+//			// a is not b's next
+//			addIntersections(queue, event, bNew, next)
+//		}
+//	}
+//	if aOld != nil && aMove != 0 && bMove != -1 {
+//		// a's old position is not aNew or bNew
+//		if prev := aOld.Prev(); prev != nil && aMove != -1 && bMove != -2 {
+//			// a nor b are not old a's previous
+//			addIntersections(queue, event, prev, aOld)
+//		}
+//		if next := aOld.Next(); next != nil && aMove != 1 && bMove != 0 {
+//			// a nor b are not old a's next
+//			addIntersections(queue, event, aOld, next)
+//		}
+//	}
+//	if bOld != nil && aMove != 1 && bMove != 0 {
+//		// b's old position is not aNew or bNew
+//		if aOld == nil {
+//			if prev := bOld.Prev(); prev != nil && aMove != 0 && bMove != -1 {
+//				// a nor b are not old b's previous
+//				addIntersections(queue, event, prev, bOld)
+//			}
+//		}
+//		if next := bOld.Next(); next != nil && aMove != 2 && bMove != 1 {
+//			// a nor b are not old b's next
+//			addIntersections(queue, event, bOld, next)
+//		}
+//	}
+//}
+
 type toleranceSquare struct {
 	X, Y   float64       // snapped value
 	Events []*SweepPoint // all events in this square
@@ -1275,6 +1370,33 @@ func (squares *toleranceSquares) Add(x float64, event *SweepPoint, refNode *Swee
 	}
 }
 
+//func (event *SweepPoint) insertIntoSortedH(events *[]*SweepPoint) {
+//	// O(log n)
+//	lo, hi := 0, len(*events)
+//	for lo < hi {
+//		mid := (lo + hi) / 2
+//		if (*events)[mid].LessH(event, false) {
+//			lo = mid + 1
+//		} else {
+//			hi = mid
+//		}
+//	}
+//
+//	sorted := sort.IsSorted(eventSliceH(*events))
+//	if !sorted {
+//		fmt.Println("WARNING: H not sorted")
+//		for i, event := range *events {
+//			fmt.Println(i, event, event.Angle())
+//		}
+//	}
+//	*events = append(*events, nil)
+//	copy((*events)[lo+1:], (*events)[lo:])
+//	(*events)[lo] = event
+//	if sorted && !sort.IsSorted(eventSliceH(*events)) {
+//		fmt.Println("ERROR: not sorted after inserting into events:", *events)
+//	}
+//}
+
 func (event *SweepPoint) breakupSegment(events *[]*SweepPoint, index int, x, y float64) *SweepPoint {
 	// break up a segment in two parts and let the middle point be (x,y)
 	if snap(event.X, BentleyOttmannEpsilon) == x && snap(event.Y, BentleyOttmannEpsilon) == y || snap(event.other.X, BentleyOttmannEpsilon) == x && snap(event.other.Y, BentleyOttmannEpsilon) == y {
@@ -1285,6 +1407,19 @@ func (event *SweepPoint) breakupSegment(events *[]*SweepPoint, index int, x, y f
 	// original segment should be kept in-place to not alter the queue or status
 	r, l := event.SplitAt(Point{x, y})
 	r.index, l.index = index, index
+
+	// reverse
+	//if r.other.X == r.X {
+	//	if l.other.Y < r.other.Y {
+	//		r.Reverse()
+	//	}
+	//	r.vertical, r.other.vertical = true, true
+	//} else if l.other.X == l.X {
+	//	if l.other.Y < r.other.Y {
+	//		l.Reverse()
+	//	}
+	//	l.vertical, l.other.vertical = true, true
+	//}
 
 	// update node reference
 	if event.node != nil {
@@ -1953,7 +2088,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				}
 
 				if 0 < len(*queue) && snap(queue.Top().X, BentleyOttmannEpsilon) == x {
-					// TODO: this never happens apparently, why not?
+					// TODO: this happens very rarely, but apparently not a bug, why not?
 					fmt.Println("WARNING: new intersections in this column!")
 				} else if has {
 					// sort overlapping segments again
