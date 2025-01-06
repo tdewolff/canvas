@@ -167,6 +167,32 @@ func (p *Path) Equals(q *Path) bool {
 	return true
 }
 
+// Sane returns true if the path is sane, ie. it does not have NaN or infinity values.
+func (p *Path) Sane() bool {
+	sane := func(x float64) bool {
+		return !math.IsNaN(x) && !math.IsInf(x, 0.0)
+	}
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		i += cmdLen(cmd)
+
+		if !sane(p.d[i-3]) || !sane(p.d[i-2]) {
+			return false
+		}
+		switch cmd {
+		case QuadToCmd:
+			if !sane(p.d[i-5]) || !sane(p.d[i-4]) {
+				return false
+			}
+		case CubeToCmd, ArcToCmd:
+			if !sane(p.d[i-7]) || !sane(p.d[i-6]) || !sane(p.d[i-5]) || !sane(p.d[i-4]) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // Same returns true if p and q are equal shapes within tolerance Epsilon. Path q may start at an offset into path p or may be in the reverse direction.
 func (p *Path) Same(q *Path) bool {
 	// TODO: improve, does not handle subpaths or Close vs LineTo

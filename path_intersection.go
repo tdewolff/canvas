@@ -307,6 +307,9 @@ func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
 	}
 
 	start := Point{p.d[1], p.d[2]}
+	if math.IsNaN(start.X) || math.IsInf(start.X, 0.0) || math.IsNaN(start.Y) || math.IsInf(start.Y, 0.0) {
+		panic("path has NaN or Inf")
+	}
 	for i := 4; i < len(p.d); {
 		if p.d[i] != LineToCmd && p.d[i] != CloseCmd {
 			panic("non-flat paths not supported")
@@ -314,6 +317,9 @@ func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
 
 		n := cmdLen(p.d[i])
 		end := Point{p.d[i+n-3], p.d[i+n-2]}
+		if math.IsNaN(end.X) || math.IsInf(end.X, 0.0) || math.IsNaN(end.Y) || math.IsInf(end.Y, 0.0) {
+			panic("path has NaN or Inf")
+		}
 		i += n
 		seg++
 
