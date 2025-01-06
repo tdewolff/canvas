@@ -466,10 +466,10 @@ func (r Rect) Transform(m Matrix) Rect {
 
 // ContainsPoint returns true if the rectangles contains a point, not if it touches an edge.
 func (r Rect) ContainsPoint(p Point) bool {
-	if p.X <= r.X0 || r.X1 <= p.X {
+	if p.X < r.X0 || r.X1 < p.X {
 		// left or right
 		return false
-	} else if p.Y <= r.Y0 || r.Y1 <= p.Y {
+	} else if p.Y < r.Y0 || r.Y1 < p.Y {
 		// below or above
 		return false
 	}
@@ -557,7 +557,7 @@ func (r Rect) TouchesLine(a, b Point) bool {
 
 // Contains returns true if r contains q.
 func (r Rect) Contains(q Rect) bool {
-	return r.X0 < q.X0 && q.X1 < r.X1 && r.Y0 < q.Y0 && q.Y1 < r.Y1
+	return r.X0 <= q.X0 && q.X1 <= r.X1 && r.Y0 <= q.Y0 && q.Y1 <= r.Y1
 }
 
 // Overlaps returns true if both rectangles overlap.
@@ -574,10 +574,10 @@ func (r Rect) Overlaps(q Rect) bool {
 
 // Touches returns true if both rectangles touch (or overlap).
 func (r Rect) Touches(q Rect) bool {
-	if q.X1+Epsilon <= r.X0 || r.X1 <= q.X0-Epsilon {
+	if q.X1+Epsilon < r.X0 || r.X1 < q.X0-Epsilon {
 		// left or right
 		return false
-	} else if q.Y1+Epsilon <= r.Y0 || r.Y1 <= q.Y0-Epsilon {
+	} else if q.Y1+Epsilon < r.Y0 || r.Y1 < q.Y0-Epsilon {
 		// below or above
 		return false
 	}

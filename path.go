@@ -927,7 +927,10 @@ func (p *Path) Crossings(x, y float64) (int, bool) {
 // FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with
 // the path. When the point is on the boundary it is considered to be on the path's exterior.
 func (p *Path) Contains(x, y float64, fillRule FillRule) bool {
-	n, _ := p.Windings(x, y)
+	n, boundary := p.Windings(x, y)
+	if boundary {
+		return true
+	}
 	return fillRule.Fills(n)
 }
 
