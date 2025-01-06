@@ -818,8 +818,14 @@ func (c *Canvas) Fit(margin float64) {
 				size := l.img.Bounds().Size()
 				bounds = Rect{0.0, 0.0, float64(size.X), float64(size.Y)}
 			}
-			bounds = bounds.Transform(l.m)
-			rect = rect.Add(bounds)
+			if !bounds.Empty() {
+				bounds = bounds.Transform(l.m)
+				if rect.Empty() {
+					rect = bounds
+				} else {
+					rect = rect.Add(bounds)
+				}
+			}
 		}
 	}
 	rect.X0 -= margin
