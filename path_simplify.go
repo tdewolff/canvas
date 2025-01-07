@@ -43,18 +43,14 @@ func (p *Path) Gridsnap(spacing float64) *Path {
 }
 
 type itemVW struct {
-	pathIdx    int32
-	heapIdx    int32
+	Point
 	area       float64
 	prev, next int32 // indices into items
-}
-
-func (item itemVW) Point(p *Path) Point {
-	return Point{p.d[item.pathIdx-3], p.d[item.pathIdx-2]}
+	heapIdx    int32
 }
 
 func (item itemVW) String() string {
-	return fmt.Sprintf("%v %v (%v→·→%v)", item.pathIdx, item.area, item.prev, item.next)
+	return fmt.Sprintf("%v %v (%v→·→%v)", item.Point, item.area, item.prev, item.next)
 }
 
 func (p *Path) SimplifyVisvalingamWhyatt(tolerance float64) *Path {
@@ -116,10 +112,10 @@ SubpathLoop:
 				area = computeArea(prev, cur, next)
 			}
 			items = append(items, itemVW{
-				pathIdx: int32(i),
-				area:    area,
-				prev:    idxPrev,
-				next:    idxNext,
+				Point: cur,
+				area:  area,
+				prev:  idxPrev,
+				next:  idxNext,
 			})
 			if add {
 				heap.Append(&items[idx])
@@ -133,10 +129,10 @@ SubpathLoop:
 		}
 		if !closed {
 			items = append(items, itemVW{
-				pathIdx: int32(len(pi.d)),
-				area:    math.NaN(),
-				prev:    int32(len(items) - 1),
-				next:    -1,
+				Point: cur,
+				area:  math.NaN(),
+				prev:  int32(len(items) - 1),
+				next:  -1,
 			})
 		}
 
@@ -160,27 +156,27 @@ SubpathLoop:
 
 			// update previous point
 			if prev := &items[item.prev]; prev.prev != -1 && !math.IsNaN(prev.area) {
-				area := computeArea(items[prev.prev].Point(pi), prev.Point(pi), items[prev.next].Point(pi))
+				area := computeArea(items[prev.prev].Point, prev.Point, items[prev.next].Point)
 				prev.area = area
 				heap.Fix(int(prev.heapIdx))
 			}
 
 			// update next point
 			if next := &items[item.next]; next.next != -1 && !math.IsNaN(next.area) {
-				area := computeArea(items[next.prev].Point(pi), next.Point(pi), items[next.next].Point(pi))
+				area := computeArea(items[next.prev].Point, next.Point, items[next.next].Point)
 				next.area = area
 				heap.Fix(int(next.heapIdx))
 			}
 		}
 
-		point := items[first].Point(pi)
+		point := items[first].Point
 		q.d = append(q.d, MoveToCmd, point.X, point.Y, MoveToCmd)
 		for i := items[first].next; i != -1 && i != first; i = items[i].next {
-			point = items[i].Point(pi)
+			point = items[i].Point
 			q.d = append(q.d, LineToCmd, point.X, point.Y, LineToCmd)
 		}
 		if closed {
-			point = items[first].Point(pi)
+			point = items[first].Point
 			q.d = append(q.d, CloseCmd, point.X, point.Y, CloseCmd)
 		}
 	}
