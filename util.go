@@ -424,6 +424,19 @@ func (r Rect) Translate(x, y float64) Rect {
 	return r
 }
 
+// Transform transforms the rectangle by affine transformation matrix m and returns the new bounds of that rectangle.
+func (r Rect) Transform(m Matrix) Rect {
+	p0 := m.Dot(Point{r.X0, r.Y0})
+	p1 := m.Dot(Point{r.X1, r.Y0})
+	p2 := m.Dot(Point{r.X1, r.Y1})
+	p3 := m.Dot(Point{r.X0, r.Y1})
+	x0 := math.Min(p0.X, math.Min(p1.X, math.Min(p2.X, p3.X)))
+	y0 := math.Min(p0.Y, math.Min(p1.Y, math.Min(p2.Y, p3.Y)))
+	x1 := math.Max(p0.X, math.Max(p1.X, math.Max(p2.X, p3.X)))
+	y1 := math.Max(p0.Y, math.Max(p1.Y, math.Max(p2.Y, p3.Y)))
+	return Rect{x0, y0, x1, y1}
+}
+
 // Add returns a rect that encompasses both the current rect and the given rect.
 func (r Rect) Add(q Rect) Rect {
 	x0 := math.Min(r.X0, q.X0)
@@ -449,19 +462,6 @@ func (r Rect) Expand(d float64) Rect {
 	r.X1 += d
 	r.Y1 += d
 	return r
-}
-
-// Transform transforms the rectangle by affine transformation matrix m and returns the new bounds of that rectangle.
-func (r Rect) Transform(m Matrix) Rect {
-	p0 := m.Dot(Point{r.X0, r.Y0})
-	p1 := m.Dot(Point{r.X1, r.Y0})
-	p2 := m.Dot(Point{r.X1, r.Y1})
-	p3 := m.Dot(Point{r.X0, r.Y1})
-	x0 := math.Min(p0.X, math.Min(p1.X, math.Min(p2.X, p3.X)))
-	y0 := math.Min(p0.Y, math.Min(p1.Y, math.Min(p2.Y, p3.Y)))
-	x1 := math.Max(p0.X, math.Max(p1.X, math.Max(p2.X, p3.X)))
-	y1 := math.Max(p0.Y, math.Max(p1.Y, math.Max(p2.Y, p3.Y)))
-	return Rect{x0, y0, x1, y1}
 }
 
 // ContainsPoint returns true if the rectangles contains a point, not if it touches an edge.

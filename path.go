@@ -62,12 +62,12 @@ func (fillRule FillRule) String() string {
 // TODO: make CloseCmd a LineTo + CloseCmd, where CloseCmd is only a command value, no coordinates
 // TODO: optimize command memory layout in paths: we need three bits to represent each command, thus 6 to specify command going forward and going backward. The remaining 58 bits, or 28 per direction, should specify the index into Path.d of the end of the sequence of coordinates. MoveTo should have an index to the end of the subpath. Use math.Float64bits. For long flat paths this will reduce memory usage in half since besides all coordinates, the only overhead is: 64 bits first MoveTo, 64 bits end of MoveTo and start of LineTo, 64 bits end of LineTo and start of Close, 64 bits end of Close.
 const (
-	MoveToCmd = 1.0 << iota //  1.0
-	LineToCmd               //  2.0
-	QuadToCmd               //  4.0
-	CubeToCmd               //  8.0
-	ArcToCmd                // 16.0
-	CloseCmd                // 32.0
+	MoveToCmd = 1.0
+	LineToCmd = 2.0
+	QuadToCmd = 4.0
+	CubeToCmd = 8.0
+	ArcToCmd  = 16.0
+	CloseCmd  = 32.0
 )
 
 var cmdLens = [6]int{4, 4, 6, 8, 8, 4}
