@@ -91,10 +91,11 @@ SubpathLoop:
 		}
 		heap.Reset(length)
 
-		first := int32(0)
+		bounds := Rect{cur.X, cur.Y, cur.X, cur.Y}
 		for i := 4; i < len(pi.d); {
 			j := i + cmdLen(pi.d[i])
 			next := Point{pi.d[j-3], pi.d[j-2]}
+			bounds = bounds.AddPoint(next)
 
 			idx := int32(len(items))
 			idxPrev, idxNext := idx-1, idx+1
@@ -119,13 +120,14 @@ SubpathLoop:
 			})
 			if add {
 				heap.Append(&items[idx])
-			} else if closed && first == idx {
-				first++
 			}
 
 			prev = cur
 			cur = next
 			i = j
+		}
+		if closed && bounds.Area() < tolerance {
+			continue
 		}
 		if !closed {
 			items = append(items, itemVW{
@@ -138,6 +140,7 @@ SubpathLoop:
 
 		heap.Init()
 
+		first := int32(0)
 		for 0 < len(heap) {
 			item := heap.Pop()
 			if tolerance <= item.area {
