@@ -1936,6 +1936,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 		// process all events of the current column
 		n := len(squares)
 		x := snap(queue.Top().X, BentleyOttmannEpsilon)
+	BentleyOttmannLoop:
 		for 0 < len(*queue) && snap(queue.Top().X, BentleyOttmannEpsilon) == x {
 			event := queue.Top()
 			// TODO: breaking intersections into two right and two left endpoints is not the most
@@ -2088,8 +2089,10 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				}
 
 				if 0 < len(*queue) && snap(queue.Top().X, BentleyOttmannEpsilon) == x {
-					// TODO: this happens very rarely, but apparently not a bug, why not?
-					fmt.Println("WARNING: new intersections in this column!")
+					//fmt.Println("WARNING: new intersections in this column!")
+					goto BentleyOttmannLoop // TODO: is this correct? seems to work
+					// TODO: almost parallel combined with overlapping segments may create many intersections considering order of
+					//       of overlapping segments and snapping after each column
 				} else if has {
 					// sort overlapping segments again
 					// this is needed when segments get cut and now become equal to the adjacent
@@ -2187,6 +2190,9 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 					}
 				}
 				if next == nil {
+					fmt.Println(ps)
+					fmt.Println(op)
+					fmt.Println(qs)
 					panic("next node for result polygon is nil, probably buggy intersection code")
 					break
 				} else if next == first {
