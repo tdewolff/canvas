@@ -12,7 +12,7 @@ import (
 // BentleyOttmannEpsilon is the snap rounding grid used by the Bentley-Ottmann algorithm.
 // This prevents numerical issues. It must be larger than Epsilon since we use that to calculate
 // intersections between segments. It is the number of binary digits to keep.
-var BentleyOttmannEpsilon = 1e2 * Epsilon
+var BentleyOttmannEpsilon = 1e-8
 
 // RayIntersections returns the intersections of a path with a ray starting at (x,y) to (∞,y).
 // An intersection is tangent only when it is at (x,y), i.e. the start of the ray. Intersections

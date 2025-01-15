@@ -246,29 +246,21 @@ func intersectionLineLineBentleyOttmann(zs []Point, a0, a1, b0, b1 Point) []Poin
 		return zs
 	}
 
-	anum := C.PerpDot(B)
-	if 0.0 < denom {
-		if anum < 0.0 || denom < anum {
-			return zs
-		}
-	} else if anum < denom || 0.0 < anum {
+	// find intersections within +-Epsilon to avoid missing near intersections
+	ta := C.PerpDot(B) / denom
+	if ta < -Epsilon || 1.0+Epsilon < ta {
 		return zs
 	}
 
-	bnum := A.PerpDot(C)
-	if 0.0 < denom {
-		if bnum < 0.0 || denom < bnum {
-			return zs
-		}
-	} else if bnum < denom || 0.0 < bnum {
+	tb := A.PerpDot(C) / denom
+	if tb < -Epsilon || 1.0+Epsilon < tb {
 		return zs
 	}
 
 	// ta is snapped to 0.0 or 1.0 if very close
-	ta := anum / denom // in [0,1]
-	if Equal(ta, 0.0) {
+	if ta <= Epsilon {
 		ta = 0.0
-	} else if Equal(ta, 1.0) {
+	} else if 1.0-Epsilon <= ta {
 		ta = 1.0
 	}
 
