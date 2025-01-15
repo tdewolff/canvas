@@ -353,14 +353,14 @@ func flattenEllipticArc(start Point, rx, ry, phi float64, large, sweep bool, end
 		// draw line segments from arc+tolerance to arc+tolerance, touching arc-tolerance in between
 		// we start and end at the arc itself
 		dtheta := math.Abs(theta1 - theta0)
-		thetam := math.Acos(r / (r + tolerance))     // half angle of first/last segment
-		thetat := math.Acos(r / (r + 2.0*tolerance)) // half angle of middle segments
-		n := math.Ceil((dtheta - thetam*2.0) / (thetat * 2.0))
+		thetaEnd := math.Acos((r - tolerance) / r)               // half angle of first/last segment
+		thetaMid := math.Acos((r - tolerance) / (r + tolerance)) // half angle of middle segments
+		n := math.Ceil((dtheta - thetaEnd*2.0) / (thetaMid * 2.0))
 
 		// evenly space out points along arc
-		ratio := dtheta / (thetam*2.0 + thetat*2.0*n)
-		thetam *= ratio
-		thetat *= ratio
+		ratio := dtheta / (thetaEnd*2.0 + thetaMid*2.0*n)
+		thetaEnd *= ratio
+		thetaMid *= ratio
 
 		// adjust distance from arc to lower total deviation area, add points on the outer circle
 		// of the tolerance since the middle of the line segment touches the inner circle and thus
@@ -370,12 +370,12 @@ func flattenEllipticArc(start Point, rx, ry, phi float64, large, sweep bool, end
 
 		p := &Path{}
 		p.MoveTo(start.X, start.Y)
-		theta := thetam + thetat
+		theta := thetaEnd + thetaMid
 		for i := 0; i < int(n); i++ {
 			t := theta0 + math.Copysign(theta, theta1-theta0)
 			pos := PolarPoint(t, r).Add(Point{cx, cy})
 			p.LineTo(pos.X, pos.Y)
-			theta += 2.0 * thetat
+			theta += 2.0 * thetaMid
 		}
 		p.LineTo(end.X, end.Y)
 		return p
