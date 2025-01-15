@@ -2013,6 +2013,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 		// we handle the former below, but ignore the latter which may result in overlapping
 		// segments not being strictly ordered
 		for j := n; j < len(squares); j++ {
+			del := 0
 			square := squares[j] // pointer
 			for i := 0; i < len(square.Events); i++ {
 				event := square.Events[i]
@@ -2021,20 +2022,28 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 
 				other := event.other.Point.Gridsnap(BentleyOttmannEpsilon)
 				if event.Point == other {
-					// remove collapsed segments
+					// remove collapsed segments, we aggregate them with `del` to improve performance when we have many
 					// TODO: prevent creating these segments in the first place
-					// TODO: putting the event back causes a very rare bug apparently
-					//boPointPool.Put(event)
-					square.Events = append(square.Events[:i], square.Events[i+1:]...)
-					i--
-				} else if event.X == other.X {
-					// correct for segments that have become vertical due to snap/breakup
-					event.vertical, event.other.vertical = true, true
-					if !event.left && event.Y < other.Y {
-						// downward sloped, reverse direction
-						event.Reverse()
+					// TODO: putting the event back causes a very rare bug apparently: boPointPool.Put(event)
+					del++
+				} else {
+					if 0 < del {
+						square.Events = append(square.Events[:i-del], square.Events[i:]...)
+						i -= del
+						del = 0
+					}
+					if event.X == other.X {
+						// correct for segments that have become vertical due to snap/breakup
+						event.vertical, event.other.vertical = true, true
+						if !event.left && event.Y < other.Y {
+							// downward sloped, reverse direction
+							event.Reverse()
+						}
 					}
 				}
+			}
+			if 0 < del {
+				square.Events = square.Events[:len(square.Events)-del]
 			}
 		}
 
