@@ -140,6 +140,7 @@ SubpathLoop:
 
 		heap.Init()
 
+		removed := false
 		first := int32(0)
 		for 0 < len(heap) {
 			item := heap.Pop()
@@ -170,17 +171,22 @@ SubpathLoop:
 				next.area = area
 				heap.Fix(int(next.heapIdx))
 			}
+			removed = true
 		}
 
-		point := items[first].Point
-		q.d = append(q.d, MoveToCmd, point.X, point.Y, MoveToCmd)
-		for i := items[first].next; i != -1 && i != first; i = items[i].next {
-			point = items[i].Point
-			q.d = append(q.d, LineToCmd, point.X, point.Y, LineToCmd)
-		}
-		if closed {
-			point = items[first].Point
-			q.d = append(q.d, CloseCmd, point.X, point.Y, CloseCmd)
+		if first == 0 && !removed {
+			q.d = append(q.d, pi.d...)
+		} else {
+			point := items[first].Point
+			q.d = append(q.d, MoveToCmd, point.X, point.Y, MoveToCmd)
+			for i := items[first].next; i != -1 && i != first; i = items[i].next {
+				point = items[i].Point
+				q.d = append(q.d, LineToCmd, point.X, point.Y, LineToCmd)
+			}
+			if closed {
+				point = items[first].Point
+				q.d = append(q.d, CloseCmd, point.X, point.Y, CloseCmd)
+			}
 		}
 	}
 	return q
