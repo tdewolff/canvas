@@ -464,19 +464,12 @@ func (r Rect) Expand(d float64) Rect {
 	return r
 }
 
-// ContainsPoint returns true if the rectangles contains a point, not if it touches an edge.
+// ContainsPoint returns true if the rectangle contains or touches an edge.
 func (r Rect) ContainsPoint(p Point) bool {
-	if p.X < r.X0 || r.X1 < p.X {
-		// left or right
-		return false
-	} else if p.Y < r.Y0 || r.Y1 < p.Y {
-		// below or above
-		return false
-	}
-	return true
+	return cohenSutherlandOutcode(r, p, 0.0) == 0
 }
 
-// TouchesPoint returns true if the rectangles contains or touches a point.
+// TouchesPoint returns true if the rectangle touches a point (within +-Epsilon).
 func (r Rect) TouchesPoint(p Point) bool {
 	return Interval(p.X, r.X0, r.X1) && Interval(p.Y, r.Y0, r.Y1)
 }
@@ -548,11 +541,13 @@ func (r Rect) ContainsLine(a, b Point) bool {
 }
 
 func (r Rect) OverlapsLine(a, b Point) bool {
-	return cohenSutherlandLineClip(r, a, b, 0.0)
+	overlaps, _ := cohenSutherlandLineClip(r, a, b, 0.0)
+	return overlaps
 }
 
 func (r Rect) TouchesLine(a, b Point) bool {
-	return cohenSutherlandLineClip(r, a, b, Epsilon)
+	_, touches := cohenSutherlandLineClip(r, a, b, Epsilon)
+	return touches
 }
 
 // Contains returns true if r contains q.
@@ -854,31 +849,35 @@ func (m Matrix) ToSVG(h float64) string {
 
 ////////////////////////////////////////////////////////////////
 
-func cohenSutherlandLineClip(rect Rect, a, b Point, eps float64) bool {
-	computeOutcode := func(p Point) int {
-		code := 0x0000
-		if p.X < rect.X0-eps {
-			code |= 0x0001 // left
-		} else if rect.X1+eps < p.X {
-			code |= 0x0010 // right
-		}
-		if p.Y < rect.Y0-eps {
-			code |= 0x0100 // bottom
-		} else if rect.Y1+eps < p.Y {
-			code |= 0x1000 // top
-		}
-		return code
+func cohenSutherlandOutcode(rect Rect, p Point, eps float64) int {
+	code := 0b0000
+	if p.X < rect.X0-eps {
+		code |= 0b0001 // left
+	} else if rect.X1+eps < p.X {
+		code |= 0b0010 // right
 	}
+	if p.Y < rect.Y0-eps {
+		code |= 0b0100 // bottom
+	} else if rect.Y1+eps < p.Y {
+		code |= 0b1000 // top
+	}
+	return code
+}
 
-	outcode0 := computeOutcode(a)
-	outcode1 := computeOutcode(b)
+// return whether line is (partially) inside the rectangle, and whether it is partially inside the rectangle.
+func cohenSutherlandLineClip(rect Rect, a, b Point, eps float64) (bool, bool) {
+	outcode0 := cohenSutherlandOutcode(rect, a, eps)
+	outcode1 := cohenSutherlandOutcode(rect, b, eps)
+	if outcode0 == 0 && outcode1 == 0 {
+		return true, false
+	}
 	for {
 		if (outcode0 | outcode1) == 0 {
 			// both inside
-			return true
+			return true, true
 		} else if (outcode0 & outcode1) != 0 {
 			// both in same region outside
-			return false
+			return false, false
 		}
 
 		// pick point outside
@@ -889,19 +888,19 @@ func cohenSutherlandLineClip(rect Rect, a, b Point, eps float64) bool {
 
 		// intersect with rectangle
 		var c Point
-		if (outcodeOut & 0x1000) != 0 {
+		if (outcodeOut & 0b1000) != 0 {
 			// above
 			c.X = a.X + (b.X-a.X)*(rect.Y1-a.Y)/(b.Y-a.Y)
 			c.Y = rect.Y1
-		} else if (outcodeOut & 0x0100) != 0 {
+		} else if (outcodeOut & 0b0100) != 0 {
 			// below
 			c.X = a.X + (b.X-a.X)*(rect.Y0-a.Y)/(b.Y-a.Y)
 			c.Y = rect.Y0
-		} else if (outcodeOut & 0x0010) != 0 {
+		} else if (outcodeOut & 0b0010) != 0 {
 			// right
 			c.X = rect.X1
 			c.Y = a.Y + (b.Y-a.Y)*(rect.X1-a.X)/(b.X-a.X)
-		} else if (outcodeOut & 0x0001) != 0 {
+		} else if (outcodeOut & 0b0001) != 0 {
 			// left
 			c.X = rect.X0
 			c.Y = a.Y + (b.Y-a.Y)*(rect.X0-a.X)/(b.X-a.X)
@@ -909,10 +908,10 @@ func cohenSutherlandLineClip(rect Rect, a, b Point, eps float64) bool {
 
 		// prepare next pass
 		if outcodeOut == outcode0 {
-			outcode0 = computeOutcode(c)
+			outcode0 = cohenSutherlandOutcode(rect, c, eps)
 			a = c
 		} else {
-			outcode1 = computeOutcode(c)
+			outcode1 = cohenSutherlandOutcode(rect, c, eps)
 			b = c
 		}
 	}

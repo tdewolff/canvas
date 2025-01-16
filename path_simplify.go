@@ -276,8 +276,8 @@ func (q heapVW) down(i0, n int) bool {
 	return i0 < i
 }
 
-// Clip removes all segments that are completely outside the given clipping rectangle. To ensure that the removal doesn't cause a segment to cross the rectangle from the outside, it keeps points that cross at least two lines to infinity along the rectangle's edges. This is much quicker (along O(n)) than using p.And(canvas.Rectangle(x1-x0, y1-y0).Translate(x0, y0)) (which is O(n log n)).
-func (p *Path) Clip(x0, y0, x1, y1 float64) *Path {
+// FastClip removes all segments that are completely outside the given clipping rectangle. To ensure that the removal doesn't cause a segment to cross the rectangle from the outside, it keeps points that cross at least two lines to infinity along the rectangle's edges. This is much quicker (along O(n)) than using p.And(canvas.Rectangle(x1-x0, y1-y0).Translate(x0, y0)) (which is O(n log n)).
+func (p *Path) FastClip(x0, y0, x1, y1 float64) *Path {
 	if x1 < x0 {
 		x0, x1 = x1, x0
 	}
@@ -295,9 +295,11 @@ func (p *Path) Clip(x0, y0, x1, y1 float64) *Path {
 	// TODO: we could check if the path is only in two external regions (left/right and top/bottom)
 	//       and if no segment crosses the rectangle, it is fully outside the rectangle
 
-	var rectSegs Rect // sum of rects of prev removed points
+	// Note that applying AND to multiple Cohen-Sutherland outcodes will give us whether all points are left/right and/or above/below
+	// the rectangle.
 	var first, start, prev Point
-	//crosses := false
+	outcodes := 0 // cumulative of removed segments
+	startOutcode := 0
 	pendingMoveTo := true
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
@@ -305,44 +307,33 @@ func (p *Path) Clip(x0, y0, x1, y1 float64) *Path {
 
 		end := Point{p.d[i-3], p.d[i-2]}
 		if cmd == MoveToCmd {
-			rectSegs = Rect{end.X, end.Y, end.X, end.Y}
+			startOutcode = cohenSutherlandOutcode(rect, end, 0.0)
+			outcodes = startOutcode
 			pendingMoveTo = true
 			start = end
 			continue
 		}
 
-		rectSeg := RectFromPoints(start, end)
+		endOutcode := cohenSutherlandOutcode(rect, end, 0.0)
+		outcodes &= endOutcode
 		switch cmd {
-		//case LineToCmd, CloseCmd:
-		//if !crosses && rect.Touches(rectSeg) {
-		//	crosses = true
-		//}
 		case QuadToCmd:
-			rectSeg = rectSeg.AddPoint(Point{p.d[i-5], p.d[i-4]})
-			//if !crosses && rect.Touches(rectSeg) {
-			//	crosses = true
-			//}
+			outcodes &= cohenSutherlandOutcode(rect, Point{p.d[i-5], p.d[i-4]}, 0.0)
 		case CubeToCmd:
-			rectSeg = rectSeg.AddPoint(Point{p.d[i-7], p.d[i-6]})
-			rectSeg = rectSeg.AddPoint(Point{p.d[i-5], p.d[i-4]})
-			//if !crosses && rect.Touches(rectSeg) {
-			//	crosses = true
-			//}
+			outcodes &= cohenSutherlandOutcode(rect, Point{p.d[i-7], p.d[i-6]}, 0.0)
+			outcodes &= cohenSutherlandOutcode(rect, Point{p.d[i-5], p.d[i-4]}, 0.0)
 		case ArcToCmd:
 			rx, ry, phi := p.d[i-7], p.d[i-6], p.d[i-5]
 			large, sweep := toArcFlags(p.d[i-4])
 			cx, cy, _, _ := ellipseToCenter(start.X, start.Y, rx, ry, phi, large, sweep, end.X, end.Y)
-			rectSeg = rectSeg.AddPoint(Point{cx - rx, cy - ry})
-			rectSeg = rectSeg.AddPoint(Point{cx + rx, cy + ry})
-			//if !crosses && rect.Touches(rectSeg) {
-			//	crosses = true
-			//}
+			outcodes &= cohenSutherlandOutcode(rect, Point{cx - rx, cy - ry}, 0.0)
+			outcodes &= cohenSutherlandOutcode(rect, Point{cx + rx, cy + ry}, 0.0)
 		}
 
-		rectSegs = rectSegs.Add(rectSeg)
-		if cmd == CloseCmd {
+		// either start is inside, or entire segment is left/right or above/below
+		if crosses := outcodes == 0; cmd == CloseCmd {
 			if !pendingMoveTo {
-				if rect.Touches(rectSegs) && start != prev {
+				if crosses && start != prev {
 					// previous segments were skipped
 					q.d = append(q.d, LineToCmd, start.X, start.Y, LineToCmd)
 				}
@@ -353,18 +344,20 @@ func (p *Path) Clip(x0, y0, x1, y1 float64) *Path {
 				q.d = append(q.d, CloseCmd, first.X, first.Y, CloseCmd)
 				pendingMoveTo = true
 			}
-		} else if rect.Touches(rectSegs) {
+		} else if crosses {
 			if pendingMoveTo {
 				q.d = append(q.d, MoveToCmd, start.X, start.Y, MoveToCmd)
 				pendingMoveTo = false
 				first = start
 			} else if start != prev {
+				// previous segments were skipped
 				q.d = append(q.d, LineToCmd, start.X, start.Y, LineToCmd)
 			}
 			q.d = append(q.d, p.d[i-cmdLen(cmd):i]...)
-			rectSegs = Rect{end.X, end.Y, end.X, end.Y}
+			outcodes = endOutcode
 			prev = end
 		}
+		startOutcode = endOutcode
 		start = end
 	}
 	return q
