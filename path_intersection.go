@@ -1122,6 +1122,7 @@ func addIntersections(queue *SweepEvents, event *SweepPoint, prev, next *SweepNo
 		// precision which would interfere with the sequence in queue, this is a problem when
 		// handling right-endpoints
 		for i := range zs {
+			zold := zs[i]
 			z := &zs[i]
 			if z.X < event.X {
 				z.X = event.X
@@ -1132,7 +1133,7 @@ func addIntersections(queue *SweepEvents, event *SweepPoint, prev, next *SweepNo
 			aMaxY := math.Max(a.Y, a.other.Y)
 			bMaxY := math.Max(b.Y, b.other.Y)
 			if a.other.X < z.X || b.other.X < z.X || aMaxY < z.Y || bMaxY < z.Y {
-				panic("moved outside of segments")
+				fmt.Println("WARNING: intersection moved outside of segment:", zold, "=>", z)
 			}
 		}
 	}
@@ -1162,6 +1163,7 @@ func addIntersections(queue *SweepEvents, event *SweepPoint, prev, next *SweepNo
 			if aRight.Y < aRight.other.Y {
 				// reverse first segment
 				// this can never happen in theory, but may happen due to floating-point
+				fmt.Println("WARNING: reversing first segment of A")
 				//panic("impossible: first segment of A became vertical and needs reversal")
 
 				// reverse first segment
@@ -2024,10 +2026,15 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				if event.Point == other {
 					// remove collapsed segments, we aggregate them with `del` to improve performance when we have many
 					// TODO: prevent creating these segments in the first place
-					// TODO: putting the event back causes a very rare bug apparently: boPointPool.Put(event)
 					del++
 				} else {
 					if 0 < del {
+						for _, event := range square.Events[i-del : i] {
+							if !event.left {
+								boPointPool.Put(event.other)
+								boPointPool.Put(event)
+							}
+						}
 						square.Events = append(square.Events[:i-del], square.Events[i:]...)
 						i -= del
 						del = 0
@@ -2043,6 +2050,12 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				}
 			}
 			if 0 < del {
+				for _, event := range square.Events[len(square.Events)-del:] {
+					if !event.left {
+						boPointPool.Put(event.other)
+						boPointPool.Put(event)
+					}
+				}
 				square.Events = square.Events[:len(square.Events)-del]
 			}
 		}
@@ -2229,7 +2242,10 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 		}
 
 		for _, event := range square.Events {
-			boPointPool.Put(event)
+			if !event.left {
+				boPointPool.Put(event.other)
+				boPointPool.Put(event)
+			}
 		}
 		boSquarePool.Put(square)
 	}
