@@ -195,7 +195,7 @@ SubpathLoop:
 type heapVW []*itemVW
 
 func (q *heapVW) Reset(capacity int) {
-	if capacity < cap(*q) {
+	if cap(*q) < capacity {
 		*q = heapVW(make([]*itemVW, 0, capacity))
 	} else {
 		*q = (*q)[:0]

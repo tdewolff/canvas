@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -930,25 +931,25 @@ func (a *SweepPoint) LessH(b *SweepPoint) bool {
 	return false
 }
 
-//func (a *SweepPoint) CompareH(b *SweepPoint) int {
-//	// used for sweep queue
-//	// sort left-to-right, then bottom-to-top, then right-endpoints before left-endpoints, and then
-//	// sort upwards to ensure a CCW orientation of the result
-//	if a.X < b.X {
-//		return -1
-//	} else if b.X < a.X {
-//		return 1
-//	} else if a.Y < b.Y {
-//		return -1
-//	} else if b.Y < a.Y {
-//		return 1
-//	} else if !a.left && b.left {
-//		return -1
-//	} else if a.left && !b.left {
-//		return 1
-//	}
-//	return a.compareTangentsV(b, false)
-//}
+func (a *SweepPoint) CompareH(b *SweepPoint) int {
+	// used for sweep queue
+	// sort left-to-right, then bottom-to-top, then right-endpoints before left-endpoints, and then
+	// sort upwards to ensure a CCW orientation of the result
+	if a.X < b.X {
+		return -1
+	} else if b.X < a.X {
+		return 1
+	} else if a.Y < b.Y {
+		return -1
+	} else if b.Y < a.Y {
+		return 1
+	} else if !a.left && b.left {
+		return -1
+	} else if a.left && !b.left {
+		return 1
+	}
+	return a.compareTangentsV(b)
+}
 
 func (a *SweepPoint) compareOverlapsV(b *SweepPoint) int {
 	// compare segments vertically that overlap (ie. are the same)
@@ -1060,7 +1061,7 @@ func (a *SweepPoint) CompareV(b *SweepPoint) int {
 //	return SweepPointPair{pair[1], pair[0]}
 //}
 
-func addIntersections(queue *SweepEvents, event *SweepPoint, prev, next *SweepNode) bool {
+func addIntersections(zs []Point, queue *SweepEvents, event *SweepPoint, prev, next *SweepNode) bool {
 	// a and b are always left-endpoints and a is below b
 	//pair := SweepPointPair{a, b}
 	//if _, ok := handled[pair]; ok {
@@ -1082,8 +1083,6 @@ func addIntersections(queue *SweepEvents, event *SweepPoint, prev, next *SweepNo
 	// find all intersections between segment pair
 	// this returns either no intersections, or one or more secant/tangent intersections,
 	// or exactly two "same" intersections which occurs when the segments overlap.
-	zs_ := [2]Point{}
-	zs := zs_[:]
 	zs = intersectionLineLineBentleyOttmann(zs[:0], a.Point, a.other.Point, b.Point, b.other.Point)
 
 	// no (valid) intersections
@@ -1919,6 +1918,8 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 	queue.Init() // sort from left to right
 
 	// run sweep line left-to-right
+	zs := make([]Point, 0, 2)     // buffer for intersections
+	centre := &SweepPoint{}       // allocate here to reduce allocations
 	events := []*SweepPoint{}     // buffer used for ordering status
 	status := &SweepStatus{}      // contains only left events
 	squares := toleranceSquares{} // sorted vertically, squares and their events
@@ -1967,7 +1968,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				prev := n.Prev()
 				next := n.Next()
 				if prev != nil && next != nil {
-					addIntersections(queue, event, prev, next)
+					addIntersections(zs, queue, event, prev, next)
 				}
 
 				// add event to tolerance square
@@ -1984,10 +1985,10 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				// add intersections to queue
 				prev, next := status.FindPrevNext(event)
 				if prev != nil {
-					addIntersections(queue, event, prev, nil)
+					addIntersections(zs, queue, event, prev, nil)
 				}
 				if next != nil {
-					addIntersections(queue, event, nil, next)
+					addIntersections(zs, queue, event, nil, next)
 				}
 				if queue.Top() != event {
 					// check if the queue order was changed, this happens if the current event
@@ -2084,14 +2085,12 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				// find intersections between neighbouring segments due to snapping
 				// TODO: ugly!
 				has := false
-				centre := &SweepPoint{
-					Point: Point{square.X, square.Y},
-				}
+				centre.Point = Point{square.X, square.Y}
 				if prev := square.Lower.Prev(); prev != nil {
-					has = addIntersections(queue, centre, prev, square.Lower)
+					has = addIntersections(zs, queue, centre, prev, square.Lower)
 				}
 				if next := square.Upper.Next(); next != nil {
-					has = has || addIntersections(queue, centre, square.Upper, next)
+					has = has || addIntersections(zs, queue, centre, square.Upper, next)
 				}
 
 				// find intersections between new neighbours in status after sorting
@@ -2105,7 +2104,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 
 						if next := n.Next(); next != nil && (j == 0 || next.SweepPoint != origEvents[j-1]) && (j+1 == len(origEvents) || next.SweepPoint != origEvents[j+1]) {
 							// segment changed order and the segment above was not its neighbour
-							has = has || addIntersections(queue, centre, n, next)
+							has = has || addIntersections(zs, queue, centre, n, next)
 						}
 					}
 				}
@@ -2126,10 +2125,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				}
 			}
 
-			sort.Sort(eventSliceH(square.Events))
-
-			// TODO: check if uses less memory
-			//slices.SortFunc(square.Events, (*SweepPoint).CompareH)
+			slices.SortFunc(square.Events, (*SweepPoint).CompareH)
 
 			// compute sweep fields on left-endpoints
 			for i, event := range square.Events {
