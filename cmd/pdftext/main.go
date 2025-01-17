@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 
 	"github.com/tdewolff/argp"
@@ -212,32 +211,32 @@ func getObjects(pdf *pdfReader, page int) ([]string, []interface{}) {
 	objects := []interface{}{
 		dict,
 	}
-	var addDict func(string, pdfDict)
-	addDict = func(prefix string, dict pdfDict) {
-		resources, _ := pdf.GetDict(dict["Resources"])
-		xobjects, _ := pdf.GetDict(resources["XObject"])
-		xnames := []string{}
-		for name := range xobjects {
-			xnames = append(xnames, name)
-		}
-		sort.Strings(xnames)
-		if prefix != "" {
-			prefix += "/"
-		}
-		for i, xname := range xnames {
-			name := fmt.Sprintf("%s%d", prefix, i+1)
-			xobject, err := pdf.GetStream(xobjects[xname])
-			if _, ok := xobjects[xname].(pdfRef); ok && err == nil {
-				if subtype, ok := xobject.dict["Subtype"].(pdfName); ok && (subtype == pdfName("Form") || subtype == pdfName("PS")) {
+	//var addDict func(string, pdfDict)
+	//addDict = func(prefix string, dict pdfDict) {
+	//	resources, _ := pdf.GetDict(dict["Resources"])
+	//	xobjects, _ := pdf.GetDict(resources["XObject"])
+	//	xnames := []string{}
+	//	for name := range xobjects {
+	//		xnames = append(xnames, name)
+	//	}
+	//	sort.Strings(xnames)
+	//	if prefix != "" {
+	//		prefix += "/"
+	//	}
+	//	for i, xname := range xnames {
+	//		name := fmt.Sprintf("%s%d", prefix, i+1)
+	//		xobject, err := pdf.GetStream(xobjects[xname])
+	//		if _, ok := xobjects[xname].(pdfRef); ok && err == nil {
+	//			if subtype, ok := xobject.dict["Subtype"].(pdfName); ok && (subtype == pdfName("Form") || subtype == pdfName("PS")) {
 
-					names = append(names, name)
-					objects = append(objects, xobjects[xname])
-				}
-			}
-			addDict(name, xobject.dict)
-		}
-	}
-	addDict("", dict)
+	//				names = append(names, name)
+	//				objects = append(objects, xobjects[xname])
+	//			}
+	//		}
+	//		addDict(name, xobject.dict)
+	//	}
+	//}
+	//addDict("", dict)
 	return names, objects
 }
 

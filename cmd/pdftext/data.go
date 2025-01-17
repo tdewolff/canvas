@@ -1,6 +1,7 @@
 package main
 
 var charsetName = map[string]rune{
+	".notdef":                             0,
 	"A":                                   '\u0041', // A
 	"AE":                                  '\u00c6', // Æ
 	"AEacute":                             '\u01fc', // Ǽ

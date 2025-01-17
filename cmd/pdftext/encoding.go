@@ -89,21 +89,17 @@ func (e builtinEncoding) Encode(b []byte) ([]byte, error) {
 }
 
 func (e builtinEncoding) Decode(b []byte) ([]byte, error) {
-	//fmt.Println(string(b), b)
 	runes := []rune{}
 	if e.bytes == 1 {
 		for _, c := range b {
-			//fmt.Println(c, string(c), e.sfnt.Cmap.ToUnicode(uint16(c)))
 			runes = append(runes, e.sfnt.Cmap.ToUnicode(uint16(c)))
 		}
 	} else {
 		for i := 0; i+2 <= len(b); i += 2 {
 			c := binary.BigEndian.Uint16(b[i : i+2])
-			//fmt.Println(c, e.sfnt.GlyphName(c))
 			runes = append(runes, e.sfnt.Cmap.ToUnicode(c))
 		}
 	}
-	//fmt.Println(string(runes), runes)
 	return []byte(string(runes)), nil
 }
 
@@ -499,42 +495,38 @@ func (r *pdfReader) GetFont(dict pdfDict, name pdfName) (pdfFont, error) {
 	return nil, fmt.Errorf("unsupported font subtype: %v", subtype)
 }
 
-func (r *pdfReader) getBuiltinEncoding(fontType pdfName, fontDescriptor pdfDict) (builtinEncoding, error) {
-	cff := false
-	otf := false
-	ifontFile, ok := fontDescriptor["FontFile"]
-	if ok {
-		cff = true
-	} else {
-		if ifontFile, ok = fontDescriptor["FontFile2"]; ok {
-			otf = true
-		} else {
-			if ifontFile, ok = fontDescriptor["FontFile3"]; !ok {
-				return builtinEncoding{}, fmt.Errorf("missing font program")
-			}
-		}
-	}
-	fontFile, err := r.GetStream(ifontFile)
-	if err != nil {
-		return builtinEncoding{}, err
-	}
-
-	if !cff && !otf {
-		// FontFile3
-		subtype, err := r.GetName(fontFile.dict["Subtype"])
+func (r *pdfReader) getFontProgram(fontDescriptor pdfDict) (*font.SFNT, error) {
+	if ifontFile2, ok := fontDescriptor["FontFile2"]; ok {
+		fontFile2, err := r.GetStream(ifontFile2)
 		if err != nil {
-			return builtinEncoding{}, err
+			return nil, err
 		}
-		if subtype == pdfName("Type1C") || subtype == pdfName("CIDFOntType0C") {
-			cff = true
-		} else if subtype == pdfName("OpenType") {
-			otf = true
+		return font.ParseEmbeddedSFNT(fontFile2.data, 0)
+	} else if ifontFile3, ok := fontDescriptor["FontFile3"]; ok {
+		if fontFile3, err := r.GetStream(ifontFile3); err != nil {
+			return nil, err
+		} else if subtype, err := r.GetName(fontFile3.dict["Subtype"]); err != nil {
+			return nil, err
+		} else if subtype == pdfName("OpenType") || subtype == pdfName("Type1C") || subtype == pdfName("CIDFOntType0C") {
+			fontFile, err := r.GetStream(fontFile3)
+			if err != nil {
+				return nil, err
+			}
+			if subtype == pdfName("OpenType") {
+				return font.ParseEmbeddedSFNT(fontFile.data, 0)
+			}
+			return font.ParseCFF(fontFile.data)
 		} else {
-			return builtinEncoding{}, fmt.Errorf("unknown font program type: %v/%v", fontFile.dict["Type"], fontFile.dict["Subtype"])
+			return nil, fmt.Errorf("invalid subtype for FontFile3: %v", subtype)
 		}
+	} else if _, ok := fontDescriptor["FontFile"]; ok {
+		return nil, fmt.Errorf("unsupported FontFile type")
 	}
+	return nil, fmt.Errorf("missing font program")
+}
 
-	sfnt, err := font.ParseEmbeddedSFNT(fontFile.data, 0)
+func (r *pdfReader) getBuiltinEncoding(fontType pdfName, fontDescriptor pdfDict) (builtinEncoding, error) {
+	sfnt, err := r.getFontProgram(fontDescriptor)
 	if err != nil {
 		return builtinEncoding{}, err
 	}
@@ -544,238 +536,6 @@ func (r *pdfReader) getBuiltinEncoding(fontType pdfName, fontDescriptor pdfDict)
 	}
 	return builtinEncoding{bytes, sfnt}, nil
 }
-
-//var charsetName = map[string]rune{
-//	"A":              'A',
-//	"AE":             'Æ',
-//	"Aacute":         'Á',
-//	"Acircumflex":    'Â',
-//	"Adieresis":      'Ä',
-//	"Agrave":         'À',
-//	"Aring":          'Å',
-//	"Atilde":         'Ã',
-//	"B":              'B',
-//	"C":              'C',
-//	"Ccedilla":       'Ç',
-//	"D":              'D',
-//	"E":              'E',
-//	"Eacute":         'É',
-//	"Ecircumflex":    'Ê',
-//	"Edieresis":      'Ë',
-//	"Egrave":         'È',
-//	"Eth":            'Ð',
-//	"Euro":           '€',
-//	"F":              'F',
-//	"G":              'G',
-//	"H":              'H',
-//	"I":              'I',
-//	"Iacute":         'Í',
-//	"Icircumflex":    'Î',
-//	"Idieresis":      'Ï',
-//	"Igrave":         'Ì',
-//	"J":              'J',
-//	"K":              'K',
-//	"L":              'L',
-//	"Lslash":         'Ł',
-//	"M":              'M',
-//	"N":              'N',
-//	"Ntilde":         'Ñ',
-//	"O":              'O',
-//	"OE":             'Œ',
-//	"Oacute":         'Ó',
-//	"Ocircumflex":    'Ô',
-//	"Odieresis":      'Ö',
-//	"Ograve":         'Ò',
-//	"Oslash":         'Ø',
-//	"Otilde":         'Õ',
-//	"P":              'P',
-//	"Q":              'Q',
-//	"R":              'R',
-//	"S":              'S',
-//	"Scaron":         'Š',
-//	"T":              'T',
-//	"Thorn":          'Þ',
-//	"U":              'U',
-//	"Uacute":         'Ú',
-//	"Ucircumflex":    'Û',
-//	"Udieresis":      'Ü',
-//	"Ugrave":         'Ù',
-//	"V":              'V',
-//	"W":              'W',
-//	"X":              'X',
-//	"Y":              'Y',
-//	"Yacute":         'Ý',
-//	"Ydieresis":      'Ÿ',
-//	"Z":              'Z',
-//	"Zcaron":         'Ž',
-//	"a":              'a',
-//	"aacute":         'á',
-//	"acircumflex":    'â',
-//	"acute":          '´',
-//	"adieresis":      'ä',
-//	"ae":             'æ',
-//	"agrave":         'à',
-//	"ampersand":      '&',
-//	"aring":          'å',
-//	"asciicircum":    '^',
-//	"asciitilde":     '~',
-//	"asterisk":       '*',
-//	"at":             '@',
-//	"atilde":         'ã',
-//	"b":              'b',
-//	"backslash":      '\\',
-//	"bar":            '|',
-//	"braceleft":      '{',
-//	"braceright":     '}',
-//	"bracketleft":    '[',
-//	"bracketright":   ']',
-//	"breve":          '˘',
-//	"brokenbar":      '¦',
-//	"bullet":         '•',
-//	"c":              'c',
-//	"caron":          'ˇ',
-//	"ccedilla":       'ç',
-//	"cedilla":        '¸',
-//	"cent":           '¢',
-//	"circumflex":     'ˆ',
-//	"colon":          ':',
-//	"comma":          ',',
-//	"copyright":      '©',
-//	"currency":       '¤',
-//	"d":              'd',
-//	"dagger":         '†',
-//	"daggerdbl":      '‡',
-//	"degree":         '°',
-//	"dieresis":       '¨',
-//	"divide":         '÷',
-//	"dollar":         '$',
-//	"dotaccent":      '˙',
-//	"dotlessi":       'ı',
-//	"e":              'e',
-//	"eacute":         'é',
-//	"ecircumflex":    'ê',
-//	"edieresis":      'ë',
-//	"egrave":         'è',
-//	"eight":          '8',
-//	"ellipsis":       '…',
-//	"emdash":         '—',
-//	"endash":         '–',
-//	"equal":          '=',
-//	"eth":            'ð',
-//	"exclam":         '!',
-//	"exclamdown":     '¡',
-//	"f":              'f',
-//	"fi":             'ﬁ',
-//	"five":           '5',
-//	"fl":             'ﬂ',
-//	"florin":         'ƒ',
-//	"four":           '4',
-//	"fraction":       '⁄',
-//	"g":              'g',
-//	"germandbls":     'ß',
-//	"grave":          '`',
-//	"greater":        '>',
-//	"guillemotleft":  '«',
-//	"guillemotright": '»',
-//	"guilsinglleft":  '‹',
-//	"guilsinglright": '›',
-//	"h":              'h',
-//	"hungarumlaut":   '˝',
-//	"hyphen":         '-',
-//	"i":              'i',
-//	"iacute":         'í',
-//	"icircumflex":    'î',
-//	"idieresis":      'ï',
-//	"igrave":         'ì',
-//	"j":              'j',
-//	"k":              'k',
-//	"l":              'l',
-//	"less":           '<',
-//	"logicalnot":     '¬',
-//	"lslash":         'ł',
-//	"m":              'm',
-//	"macron":         '¯',
-//	"minus":          '−',
-//	"mu":             'μ',
-//	"multiply":       '×',
-//	"n":              'n',
-//	"nine":           '9',
-//	"ntilde":         'ñ',
-//	"numbersign":     '#',
-//	"o":              'o',
-//	"oacute":         'ó',
-//	"ocircumflex":    'ô',
-//	"odieresis":      'ö',
-//	"oe":             'œ',
-//	"ogonek":         '˛',
-//	"ograve":         'ò',
-//	"one":            '1',
-//	"onehalf":        '½',
-//	"onequarter":     '¼',
-//	"onesuperior":    '¹',
-//	"ordfeminine":    'ª',
-//	"ordmasculine":   'º',
-//	"oslash":         'ø',
-//	"otilde":         'õ',
-//	"p":              'p',
-//	"paragraph":      '¶',
-//	"parenleft":      '(',
-//	"parenright":     ')',
-//	"percent":        '%',
-//	"period":         '.',
-//	"periodcentered": '·',
-//	"perthousand":    '‰',
-//	"plus":           '+',
-//	"plusminus":      '±',
-//	"q":              'q',
-//	"question":       '?',
-//	"questiondown":   '¿',
-//	"quotedbl":       '"',
-//	"quotedblbase":   '„',
-//	"quotedblleft":   '“',
-//	"quotedblright":  '”',
-//	"quoteleft":      '‘',
-//	"quoteright":     '’',
-//	"quotesinglbase": '‚',
-//	"quotesingle":    '\'',
-//	"r":              'r',
-//	"registered":     '®',
-//	"ring":           '˚',
-//	"s":              's',
-//	"scaron":         'š',
-//	"section":        '§',
-//	"semicolon":      ';',
-//	"seven":          '7',
-//	"six":            '6',
-//	"slash":          '/',
-//	"space":          ' ',
-//	"sterling":       '£',
-//	"t":              't',
-//	"thorn":          'þ',
-//	"three":          '3',
-//	"threequarters":  '¾',
-//	"threesuperior":  '³',
-//	"tilde":          '˜',
-//	"trademark":      '™',
-//	"two":            '2',
-//	"twosuperior":    '²',
-//	"u":              'u',
-//	"uacute":         'ú',
-//	"ucircumflex":    'û',
-//	"udieresis":      'ü',
-//	"ugrave":         'ù',
-//	"underscore":     '_',
-//	"v":              'v',
-//	"w":              'w',
-//	"x":              'x',
-//	"y":              'y',
-//	"yacute":         'ý',
-//	"ydieresis":      'ÿ',
-//	"yen":            '¥',
-//	"z":              'z',
-//	"zcaron":         'ž',
-//	"zero":           '0',
-//}
 
 type charsetEntry struct {
 	name               string

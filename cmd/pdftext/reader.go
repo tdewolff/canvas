@@ -77,6 +77,7 @@ func (r *pdfReader) readCrossReferenceTable() (pdfDict, error) {
 	var starttrailer int
 	var line []byte
 
+	var i0 uint32
 	lr := newLineReader(r.data, r.startxref)
 	_ = lr.Next() // xref
 	for {
@@ -112,7 +113,7 @@ func (r *pdfReader) readCrossReferenceTable() (pdfDict, error) {
 				return pdfDict{}, fmt.Errorf("invalid cross reference table")
 			}
 			free := line[17] == 'f'
-			if i == 0 && (!free || generation != 65535) {
+			if i0+i == 0 && (!free || generation != 65535) {
 				return pdfDict{}, fmt.Errorf("invalid cross reference table")
 			}
 			ref := pdfRef{uint32(first) + i, uint32(generation)}
@@ -125,6 +126,7 @@ func (r *pdfReader) readCrossReferenceTable() (pdfDict, error) {
 				}
 			}
 		}
+		i0 += uint32(entries)
 	}
 
 	// trailer
@@ -547,6 +549,61 @@ func pdfReadContentVal(b []byte) (interface{}, int, error) {
 	return pdfReadVal(nil, pdfRef{}, b)
 }
 
+func pdfReadStreamLike(b []byte, endDict, endStream []byte) (pdfDict, []byte, int, error) {
+	// read eg. an inline image
+	var r *pdfReader
+	var ref pdfRef
+	i := moveWhiteSpace(b, 0)
+	dict := pdfDict{}
+	for {
+		if len(b) <= i {
+			return nil, nil, 0, fmt.Errorf("bad dict")
+		} else if i+len(endDict) < len(b) && bytes.Equal(b[i:i+len(endDict)], endDict) && isWhiteSpace(b[i+len(endDict)]) {
+			i += len(endDict) + 1
+			break
+		}
+
+		val, n, err := pdfReadContentVal(b[i:])
+		key, ok := val.(pdfName)
+		if err != nil {
+			return nil, nil, 0, err
+		} else if !ok {
+			return nil, nil, 0, fmt.Errorf("bad dict")
+		}
+		i = moveWhiteSpace(b, i+n)
+
+		val, n, err = pdfReadVal(r, ref, b[i:])
+		if err != nil {
+			return nil, nil, 0, err
+		}
+		i = moveWhiteSpace(b, i+n)
+		if object, ok := val.(int); ok && r != nil {
+			mark := i
+			val2, n, err := pdfReadContentVal(b[i:])
+			if generation, ok := val2.(int); ok && err == nil && 0 <= generation {
+				i = moveWhiteSpace(b, i+n)
+				if i < len(b) && b[i] == 'R' {
+					val = pdfRef{uint32(object), uint32(generation)}
+					i = moveWhiteSpace(b, i+1)
+				} else {
+					i = mark
+				}
+			}
+		}
+		dict[string(key)] = val
+	}
+	start := i
+	for i+len(endStream)+2 < len(b) {
+		if isWhiteSpace(b[i]) && bytes.Equal(b[i+1:i+1+len(endStream)], endStream) && isWhiteSpace(b[i+1+len(endStream)]) {
+			end := i
+			i += len(endStream) + 2
+			return dict, b[start:end], i, nil
+		}
+		i++
+	}
+	return nil, nil, 0, fmt.Errorf("bad stream")
+}
+
 func pdfReadVal(r *pdfReader, ref pdfRef, b []byte) (interface{}, int, error) {
 	if len(b) == 0 {
 		return nil, 0, fmt.Errorf("bad value")
@@ -642,7 +699,6 @@ func pdfReadVal(r *pdfReader, ref pdfRef, b []byte) (interface{}, int, error) {
 					}
 				}
 			}
-
 			dict[string(key)] = val
 		}
 		i = moveWhiteSpace(b, i)
@@ -845,6 +901,16 @@ func (r *pdfStreamReader) Next() (string, []interface{}, error) {
 				return "", nil, err
 			}
 			r.i += n
+
+			switch string(name) {
+			case "BI":
+				dict, data, n, err := pdfReadStreamLike(r.b[r.i:], []byte("ID"), []byte("EI"))
+				if err != nil {
+					return "", nil, err
+				}
+				r.i += n
+				vals = append(vals, dict, data)
+			}
 			return string(name), vals, nil
 		}
 
