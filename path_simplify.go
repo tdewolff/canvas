@@ -42,6 +42,10 @@ func (p *Path) Gridsnap(spacing float64) *Path {
 	return p
 }
 
+func (p *Path) SimplifyVisvalingamWhyatt(tolerance float64) *Path {
+	return NewVisvalingamWhyatt(nil).Simplify(p.Split(), tolerance)
+}
+
 type itemVW struct {
 	Point
 	area       float64
@@ -53,22 +57,29 @@ func (item itemVW) String() string {
 	return fmt.Sprintf("%v %v (%v→·→%v)", item.Point, item.area, item.prev, item.next)
 }
 
-func (p *Path) SimplifyVisvalingamWhyatt(tolerance float64) *Path {
-	return p.SimplifyVisvalingamWhyattFilter(tolerance, nil)
+type CoordinateFilter func(Point) bool
+
+type VisvalingamWhyatt struct {
+	heap   heapVW
+	items  []itemVW
+	filter CoordinateFilter
 }
 
-func (p *Path) SimplifyVisvalingamWhyattFilter(tolerance float64, filter func(Point) bool) *Path {
-	tolerance *= 2.0 // save on 0.5 multiply in computeArea
+func NewVisvalingamWhyatt(filter CoordinateFilter) *VisvalingamWhyatt {
+	return &VisvalingamWhyatt{
+		filter: filter,
+	}
+}
+
+func (s *VisvalingamWhyatt) Simplify(ps []*Path, tolerance float64) *Path {
 	computeArea := func(a, b, c Point) float64 {
 		return math.Abs(a.PerpDot(b) + b.PerpDot(c) + c.PerpDot(a))
 	}
+	tolerance *= 2.0 // save on 0.5 multiply in computeArea
 
-	// don't reuse memory since the new path may be much smaller and keep the extra capacity
 	q := &Path{}
-	var heap heapVW
-	var items []itemVW
 SubpathLoop:
-	for _, pi := range p.Split() {
+	for _, pi := range ps {
 		closed := pi.Closed()
 		if len(pi.d) <= 4 || closed && len(pi.d) <= 4+cmdLen(pi.d[4]) {
 			// must have at least 2 commands for open paths, and 3 for closed
@@ -84,20 +95,26 @@ SubpathLoop:
 		if closed {
 			length--
 		}
-		if cap(items) < length {
-			items = make([]itemVW, 0, length)
+		if cap(s.items) < length {
+			s.items = make([]itemVW, 0, length)
 		} else {
-			items = items[:0]
+			s.items = s.items[:0]
 		}
-		heap.Reset(length)
+		s.heap.Reset(length)
 
+		tooSmall := closed
 		bounds := Rect{cur.X, cur.Y, cur.X, cur.Y}
 		for i := 4; i < len(pi.d); {
 			j := i + cmdLen(pi.d[i])
 			next := Point{pi.d[j-3], pi.d[j-2]}
-			bounds = bounds.AddPoint(next)
+			if tooSmall {
+				bounds = bounds.AddPoint(next)
+				if tolerance <= bounds.Area() {
+					tooSmall = false
+				}
+			}
 
-			idx := int32(len(items))
+			idx := int32(len(s.items))
 			idxPrev, idxNext := idx-1, idx+1
 			if closed {
 				if i == 4 {
@@ -108,42 +125,42 @@ SubpathLoop:
 			}
 
 			area := math.NaN()
-			add := (4 < i || closed) && (filter == nil || filter(cur))
+			add := (4 < i || closed) && (s.filter == nil || s.filter(cur))
 			if add {
 				area = computeArea(prev, cur, next)
 			}
-			items = append(items, itemVW{
+			s.items = append(s.items, itemVW{
 				Point: cur,
 				area:  area,
 				prev:  idxPrev,
 				next:  idxNext,
 			})
 			if add {
-				heap.Append(&items[idx])
+				s.heap.Append(&s.items[idx])
 			}
 
 			prev = cur
 			cur = next
 			i = j
 		}
-		if closed && bounds.Area() < tolerance {
+		if tooSmall {
 			continue
 		}
 		if !closed {
-			items = append(items, itemVW{
+			s.items = append(s.items, itemVW{
 				Point: cur,
 				area:  math.NaN(),
-				prev:  int32(len(items) - 1),
+				prev:  int32(len(s.items) - 1),
 				next:  -1,
 			})
 		}
 
-		heap.Init()
+		s.heap.Init()
 
 		removed := false
 		first := int32(0)
-		for 0 < len(heap) {
-			item := heap.Pop()
+		for 0 < len(s.heap) {
+			item := s.heap.Pop()
 			if tolerance <= item.area {
 				break
 			} else if item.prev == item.next {
@@ -152,24 +169,24 @@ SubpathLoop:
 			}
 
 			// remove current point from linked list, this invalidates those items in the queue
-			items[item.prev].next = item.next
-			items[item.next].prev = item.prev
-			if item == &items[first] {
+			s.items[item.prev].next = item.next
+			s.items[item.next].prev = item.prev
+			if item == &s.items[first] {
 				first = item.next
 			}
 
 			// update previous point
-			if prev := &items[item.prev]; prev.prev != -1 && !math.IsNaN(prev.area) {
-				area := computeArea(items[prev.prev].Point, prev.Point, items[prev.next].Point)
+			if prev := &s.items[item.prev]; prev.prev != -1 && !math.IsNaN(prev.area) {
+				area := computeArea(s.items[prev.prev].Point, prev.Point, s.items[prev.next].Point)
 				prev.area = area
-				heap.Fix(int(prev.heapIdx))
+				s.heap.Fix(int(prev.heapIdx))
 			}
 
 			// update next point
-			if next := &items[item.next]; next.next != -1 && !math.IsNaN(next.area) {
-				area := computeArea(items[next.prev].Point, next.Point, items[next.next].Point)
+			if next := &s.items[item.next]; next.next != -1 && !math.IsNaN(next.area) {
+				area := computeArea(s.items[next.prev].Point, next.Point, s.items[next.next].Point)
 				next.area = area
-				heap.Fix(int(next.heapIdx))
+				s.heap.Fix(int(next.heapIdx))
 			}
 			removed = true
 		}
@@ -177,14 +194,14 @@ SubpathLoop:
 		if first == 0 && !removed {
 			q.d = append(q.d, pi.d...)
 		} else {
-			point := items[first].Point
+			point := s.items[first].Point
 			q.d = append(q.d, MoveToCmd, point.X, point.Y, MoveToCmd)
-			for i := items[first].next; i != -1 && i != first; i = items[i].next {
-				point = items[i].Point
+			for i := s.items[first].next; i != -1 && i != first; i = s.items[i].next {
+				point = s.items[i].Point
 				q.d = append(q.d, LineToCmd, point.X, point.Y, LineToCmd)
 			}
 			if closed {
-				point = items[first].Point
+				point = s.items[first].Point
 				q.d = append(q.d, CloseCmd, point.X, point.Y, CloseCmd)
 			}
 		}

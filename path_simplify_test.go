@@ -41,9 +41,9 @@ func TestPathSimplifyVisvalingamWhyatt(t *testing.T) {
 	}
 
 	p := MustParseSVGPath("M0 0L10 0L5 10z")
-	test.T(t, p.SimplifyVisvalingamWhyattFilter(1.0, func(_ Point) bool {
+	test.T(t, NewVisvalingamWhyatt(func(_ Point) bool {
 		return false
-	}), p)
+	}).Simplify(p.Split(), 1.0), p)
 }
 
 func TestPathFastClip(t *testing.T) {
