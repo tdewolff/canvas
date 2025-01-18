@@ -1137,39 +1137,70 @@ func addIntersections(zs []Point, queue *SweepEvents, event *SweepPoint, prev, n
 		}
 	}
 
-	// handle a
-	aChanged := false
+	// split segments a and b, but first find overlapping segments above and below and split them at the same point
+	// this prevents a case that causes alternating intersections between overlapping segments and thus slowdown significantly
+	//if a.node != nil {
+	//	splitOverlappingAtIntersections(zs, queue, a, true)
+	//}
+	aChanged := splitAtIntersections(zs, queue, a, true)
+
+	//if b.node != nil {
+	//	splitOverlappingAtIntersections(zs, queue, b, false)
+	//}
+	bChanged := splitAtIntersections(zs, queue, b, false)
+	return aChanged || bChanged
+}
+
+//func splitOverlappingAtIntersections(zs []Point, queue *SweepEvents, s *SweepPoint, isA bool) bool {
+//	changed := false
+//	for prev := s.node.Prev(); prev != nil; prev = prev.Prev() {
+//		if prev.Point == s.Point && prev.other.Point == s.other.Point {
+//			splitAtIntersections(zs, queue, prev.SweepPoint, isA)
+//			changed = true
+//		}
+//	}
+//	if !changed {
+//		for next := s.node.Next(); next != nil; next = next.Next() {
+//			if next.Point == s.Point && next.other.Point == s.other.Point {
+//				splitAtIntersections(zs, queue, next.SweepPoint, isA)
+//				changed = true
+//			}
+//		}
+//	}
+//	return changed
+//}
+
+func splitAtIntersections(zs []Point, queue *SweepEvents, s *SweepPoint, isA bool) bool {
+	changed := false
 	for i := len(zs) - 1; 0 <= i; i-- {
 		z := zs[i]
-		if z == a.Point || z == a.other.Point {
+		if z == s.Point || z == s.other.Point {
 			// ignore tangent intersections at the endpoints
 			continue
 		}
 
 		// split segment at intersection
-		aRight, aLeft := a.SplitAt(z)
+		right, left := s.SplitAt(z)
 
 		// reverse direction if necessary
-		if aLeft.X == aLeft.other.X {
+		if left.X == left.other.X {
 			// segment after the split is vertical
-			aLeft.vertical, aLeft.other.vertical = true, true
-			if aLeft.other.Y < aLeft.Y {
-				aLeft.Reverse()
+			left.vertical, left.other.vertical = true, true
+			if left.other.Y < left.Y {
+				left.Reverse()
 			}
-		} else if aRight.X == aRight.other.X {
+		} else if right.X == right.other.X {
 			// segment before the split is vertical
-			aRight.vertical, aRight.other.vertical = true, true
-			if aRight.Y < aRight.other.Y {
+			right.vertical, right.other.vertical = true, true
+			if right.Y < right.other.Y {
 				// reverse first segment
-				// this can never happen in theory, but may happen due to floating-point
-				fmt.Println("WARNING: reversing first segment of A")
-				//panic("impossible: first segment of A became vertical and needs reversal")
-
-				// reverse first segment
-				if aRight.other.node != nil {
-					panic("impossible: first segment of A became vertical and needs reversal, but A was already in the sweep status")
+				if isA {
+					fmt.Println("WARNING: reversing first segment of A")
 				}
-				aRight.Reverse()
+				if right.other.node != nil {
+					panic("impossible: first segment became vertical and needs reversal, but was already in the sweep status")
+				}
+				right.Reverse()
 
 				// Note that we swap the content of the currently processed left-endpoint of b with
 				// the new left-endpoint vertically below. The queue may not be strictly ordered
@@ -1177,59 +1208,9 @@ func addIntersections(zs []Point, queue *SweepEvents, event *SweepPoint, prev, n
 				// since we sort the events in each square after the Bentley-Ottmann phase.
 
 				// update references from handled and queue by swapping their contents
-				aFirst := aRight.other
-				*aRight, *aFirst = *aFirst, *aRight
-				aFirst.other, aRight.other = aRight, aFirst
-			}
-		}
-
-		// add to handled
-		//handled[SweepPointPair{aLeft, b}] = struct{}{}
-
-		// add to queue
-		queue.Push(aRight)
-		queue.Push(aLeft)
-		aChanged = true
-	}
-
-	// handle b
-	bChanged := false
-	for i := len(zs) - 1; 0 <= i; i-- {
-		z := zs[i]
-		if z == b.Point || z == b.other.Point {
-			// ignore tangent intersections at the endpoints
-			continue
-		}
-
-		// split segment at intersection
-		bRight, bLeft := b.SplitAt(z)
-
-		// reverse direction if necessary
-		if bLeft.X == bLeft.other.X {
-			// segment after the split is vertical
-			bLeft.vertical, bLeft.other.vertical = true, true
-			if bLeft.other.Y < bLeft.Y {
-				bLeft.Reverse()
-			}
-		} else if bRight.X == bRight.other.X {
-			// segment before the split is vertical
-			bRight.vertical, bRight.other.vertical = true, true
-			if bRight.Y < bRight.other.Y {
-				// reverse first segment
-				if bRight.other.node != nil {
-					panic("impossible: first segment of B became vertical and needs reversal, but B was already in the sweep status")
-				}
-				bRight.Reverse()
-
-				// Note that we swap the content of the currently processed left-endpoint of b with
-				// the new left-endpoint vertically below. The queue may not be strictly ordered
-				// with other vertical segments at the new left-endpoint, but this isn't a problem
-				// since we sort the events in each square after the Bentley-Ottmann phase.
-
-				// update references from handled and queue by swapping their contents
-				bFirst := bRight.other
-				*bRight, *bFirst = *bFirst, *bRight
-				bFirst.other, bRight.other = bRight, bFirst
+				first := right.other
+				*right, *first = *first, *right
+				first.other, right.other = right, first
 			}
 		}
 
@@ -1241,12 +1222,11 @@ func addIntersections(zs []Point, queue *SweepEvents, event *SweepPoint, prev, n
 		//}
 
 		// add to queue
-		queue.Push(bRight)
-		queue.Push(bLeft)
-		bChanged = true
+		queue.Push(right)
+		queue.Push(left)
+		changed = true
 	}
-
-	return aChanged || bChanged // && prev == nil || bChanged && next == nil
+	return changed
 }
 
 //func reorderStatus(queue *SweepEvents, event *SweepPoint, aOld, bOld *SweepNode) {
@@ -2072,6 +2052,23 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 					if n == square.Upper {
 						break
 					}
+				}
+
+				// TODO: test this thoroughly, this below prevents long loops of moving intersections to columns on the right
+				for n := square.Lower; n != square.Upper; {
+					next := n.Next()
+					if 0 < n.CompareV(next.SweepPoint) {
+						if next.other.X < n.other.X {
+							r, l := n.SplitAt(next.other.Point)
+							queue.Push(r)
+							queue.Push(l)
+						} else if n.other.X < next.other.X {
+							r, l := next.SplitAt(n.other.Point)
+							queue.Push(r)
+							queue.Push(l)
+						}
+					}
+					n = next
 				}
 
 				// keep unsorted events in the same slice
