@@ -302,7 +302,7 @@ func standardFontName(font *canvas.Font) string {
 
 func (w *pdfWriter) getFont(font *canvas.Font, vertical bool) pdfRef {
 	if standardFont := standardFontName(font); standardFont != "" {
-		// handle 14 embedded standard fonts in PDF if name and style matches
+		// handle 14 embedded standard fonts in PDF if name and style match
 		if ref, ok := w.fontsStd[font]; ok {
 			return ref
 		}

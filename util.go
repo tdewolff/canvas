@@ -405,6 +405,11 @@ func (r Rect) H() float64 {
 	return r.Y1 - r.Y0
 }
 
+// Area returns the area of the rectangle.
+func (r Rect) Area() float64 {
+	return (r.X1 - r.X0) * (r.Y1 - r.Y0)
+}
+
 // Center returns the center point.
 func (r Rect) Center() Point {
 	return Point{(r.X0 + r.X1) / 2.0, (r.Y0 + r.Y1) / 2.0}
@@ -590,11 +595,6 @@ func (r Rect) And(q Rect) Rect {
 	}
 	return Rect{x0, y0, x1, y1}
 
-}
-
-// Area returns the area of the rectangle.
-func (r Rect) Area() float64 {
-	return (r.X1 - r.X0) * (r.Y1 - r.Y0)
 }
 
 // ToPath converts the rectangle to a path.
