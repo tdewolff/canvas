@@ -546,12 +546,12 @@ func (r Rect) ContainsLine(a, b Point) bool {
 }
 
 func (r Rect) OverlapsLine(a, b Point) bool {
-	overlaps, _ := cohenSutherlandLineClip(r, a, b, 0.0)
+	_, _, overlaps, _ := cohenSutherlandLineClip(r, a, b, 0.0)
 	return overlaps
 }
 
 func (r Rect) TouchesLine(a, b Point) bool {
-	_, touches := cohenSutherlandLineClip(r, a, b, Epsilon)
+	_, _, _, touches := cohenSutherlandLineClip(r, a, b, Epsilon)
 	return touches
 }
 
@@ -864,20 +864,20 @@ func cohenSutherlandOutcode(rect Rect, p Point, eps float64) int {
 	return code
 }
 
-// return whether line is (partially) inside the rectangle, and whether it is partially inside the rectangle.
-func cohenSutherlandLineClip(rect Rect, a, b Point, eps float64) (bool, bool) {
+// return whether line is inside the rectangle, either entirely or partially.
+func cohenSutherlandLineClip(rect Rect, a, b Point, eps float64) (Point, Point, bool, bool) {
 	outcode0 := cohenSutherlandOutcode(rect, a, eps)
 	outcode1 := cohenSutherlandOutcode(rect, b, eps)
 	if outcode0 == 0 && outcode1 == 0 {
-		return true, false
+		return a, b, true, false
 	}
 	for {
 		if (outcode0 | outcode1) == 0 {
 			// both inside
-			return true, true
+			return a, b, true, true
 		} else if (outcode0 & outcode1) != 0 {
 			// both in same region outside
-			return false, false
+			return a, b, false, false
 		}
 
 		// pick point outside

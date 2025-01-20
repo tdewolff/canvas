@@ -294,7 +294,8 @@ func (q heapVW) down(i0, n int) bool {
 }
 
 // FastClip removes all segments that are completely outside the given clipping rectangle. To ensure that the removal doesn't cause a segment to cross the rectangle from the outside, it keeps points that cross at least two lines to infinity along the rectangle's edges. This is much quicker (along O(n)) than using p.And(canvas.Rectangle(x1-x0, y1-y0).Translate(x0, y0)) (which is O(n log n)).
-func (p *Path) FastClip(x0, y0, x1, y1 float64) *Path {
+func (p *Path) FastClip(x0, y0, x1, y1 float64, closed bool) *Path {
+	// TODO: check if path is closed while processing instead of as parameter
 	if x1 < x0 {
 		x0, x1 = x1, x0
 	}
@@ -309,15 +310,12 @@ func (p *Path) FastClip(x0, y0, x1, y1 float64) *Path {
 		return q
 	}
 
-	// TODO: we could check if the path is only in two external regions (left/right and top/bottom)
-	//       and if no segment crosses the rectangle, it is fully outside the rectangle
-
 	// Note that applying AND to multiple Cohen-Sutherland outcodes will give us whether all points are left/right and/or above/below
 	// the rectangle.
 	var first, start, prev Point
-	outcodes := 0 // cumulative of removed segments
-	startOutcode := 0
-	pendingMoveTo := true
+	var pendingMoveTo bool
+	var startOutcode int
+	var outcodes int // cumulative of removed segments
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		i += cmdLen(cmd)
@@ -326,8 +324,8 @@ func (p *Path) FastClip(x0, y0, x1, y1 float64) *Path {
 		if cmd == MoveToCmd {
 			startOutcode = cohenSutherlandOutcode(rect, end, 0.0)
 			outcodes = startOutcode
-			pendingMoveTo = true
 			start = end
+			pendingMoveTo = true
 			continue
 		}
 
@@ -373,8 +371,76 @@ func (p *Path) FastClip(x0, y0, x1, y1 float64) *Path {
 			q.d = append(q.d, p.d[i-cmdLen(cmd):i]...)
 			outcodes = endOutcode
 			prev = end
+		} else if !closed && pendingMoveTo {
+			// there is no line from previous point that may move inside
+			outcodes = endOutcode
 		}
 		startOutcode = endOutcode
+		start = end
+	}
+	return q
+}
+
+// LineClip converts the path to line segments between all coordinates and clips those lines against the given rectangle.
+func (p *Path) LineClip(x0, y0, x1, y1 float64) *Path {
+	if x1 < x0 {
+		x0, x1 = x1, x0
+	}
+	if y1 < y0 {
+		y0, y1 = y1, y0
+	}
+	rect := Rect{x0, y0, x1, y1}
+
+	// don't reuse memory since the new path may be much smaller and keep the extra capacity
+	q := &Path{}
+	if len(p.d) <= 4 {
+		return q
+	}
+
+	var in bool
+	var firstMoveTo, lastMoveTo int
+	var start Point
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		i += cmdLen(cmd)
+
+		end := Point{p.d[i-3], p.d[i-2]}
+		if cmd == MoveToCmd {
+			start = end
+			continue
+		}
+
+		a, b, inEntirely, inPartially := cohenSutherlandLineClip(rect, start, end, 0.0)
+		if inEntirely || inPartially {
+			if !in {
+				lastMoveTo = len(q.d)
+				q.d = append(q.d, MoveToCmd, a.X, a.Y, MoveToCmd)
+				in = true
+			}
+			q.d = append(q.d, LineToCmd, b.X, b.Y, LineToCmd)
+		} else {
+			in = false
+		}
+		if cmd == CloseCmd {
+			if in && firstMoveTo < lastMoveTo {
+				// connect the last segment with the first
+				if end := len(q.d) - lastMoveTo; end < lastMoveTo-firstMoveTo-4 {
+					tmp := make([]float64, end)
+					copy(tmp, q.d[lastMoveTo:])
+					copy(q.d[firstMoveTo+end:], q.d[firstMoveTo+4:lastMoveTo])
+					copy(q.d[firstMoveTo:], tmp)
+				} else {
+					tmp := make([]float64, lastMoveTo-firstMoveTo-4)
+					copy(tmp, q.d[firstMoveTo+4:lastMoveTo])
+					copy(q.d[firstMoveTo:], q.d[lastMoveTo:])
+					copy(q.d[firstMoveTo+end:], tmp)
+				}
+				q.d = q.d[:len(q.d)-4]
+			}
+			firstMoveTo = len(q.d)
+			lastMoveTo = firstMoveTo
+			in = false
+		}
 		start = end
 	}
 	return q
