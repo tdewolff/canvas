@@ -355,6 +355,8 @@ github.com/tdewolff/font v0.0.0-20241125130148-1635d719282c h1:0sLc4SkdpMt0OS7a5
 github.com/tdewolff/font v0.0.0-20241125130148-1635d719282c/go.mod h1:qCEdvMrY8e5eoJdaYEDaCV9NYKzlFCYFPUQwlGHJ9tk=
 github.com/tdewolff/font v0.0.0-20241125190050-d899fdc808fc h1:8YYYxRss857qPp/DHQw5Ej5jMdWkTFYz6kHO9tnqY3M=
 github.com/tdewolff/font v0.0.0-20241125190050-d899fdc808fc/go.mod h1:qCEdvMrY8e5eoJdaYEDaCV9NYKzlFCYFPUQwlGHJ9tk=
+github.com/tdewolff/font v0.0.0-20250120192450-68a3ecdf9008 h1:qjVwh/3ItmR7J2cZt8vfpwGOwG8Azw7TAk1O9oD6O+4=
+github.com/tdewolff/font v0.0.0-20250120192450-68a3ecdf9008/go.mod h1:qCEdvMrY8e5eoJdaYEDaCV9NYKzlFCYFPUQwlGHJ9tk=
 github.com/tdewolff/minify/v2 v2.21.1 h1:AAf5iltw6+KlUvjRNPAPrANIXl3XEJNBBzuZom5iCAM=
 github.com/tdewolff/minify/v2 v2.21.1/go.mod h1:PoqFH8ugcuTUvKqVM9vOqXw4msxvuhL/DTmV5ZXhSCI=
 github.com/tdewolff/parse/v2 v2.7.19 h1:7Ljh26yj+gdLFEq/7q9LT4SYyKtwQX4ocNrj45UCePg=
@@ -432,6 +434,8 @@ golang.org/x/image v0.21.0 h1:c5qV36ajHpdj4Qi0GnE0jUc/yuo33OLFaa0d+crTD5s=
 golang.org/x/image v0.21.0/go.mod h1:vUbsLavqK/W303ZroQQVKQ+Af3Yl6Uz1Ppu5J/cLz78=
 golang.org/x/image v0.22.0 h1:UtK5yLUzilVrkjMAZAZ34DXGpASN8i8pj8g+O+yd10g=
 golang.org/x/image v0.22.0/go.mod h1:9hPFhljd4zZ1GNSIZJ49sqbp45GKK9t6w+iXvGqZUz4=
+golang.org/x/image v0.23.0 h1:HseQ7c2OpPKTPVzNjG5fwJsOTCiiwS4QdsYi5XU6H68=
+golang.org/x/image v0.23.0/go.mod h1:wJJBTdLfCCf3tiHa1fNxpZmUI4mmoZvwMCPP0ddoNKY=
 golang.org/x/lint v0.0.0-20181026193005-c67002cb31c3/go.mod h1:UVdnD1Gm6xHRNCYTkRU2/jEulfH38KcIWyp/GAMgvoE=
 golang.org/x/lint v0.0.0-20190227174305-5b3e6a55c961/go.mod h1:wehouNa3lNwaWXcvxsM5YxQ5yQlVC4a0KAMCusXpPoU=
 golang.org/x/lint v0.0.0-20190301231843-5614ed5bae6f/go.mod h1:UVdnD1Gm6xHRNCYTkRU2/jEulfH38KcIWyp/GAMgvoE=
