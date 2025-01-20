@@ -1,6 +1,7 @@
 package canvas
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/tdewolff/test"
@@ -32,7 +33,7 @@ func TestTextLine(t *testing.T) {
 	test.Float(t, text.lines[1].spans[0].X, -text.lines[1].spans[0].Width)
 }
 
-func TestRichText(t *testing.T) {
+func TestRichTextPositions(t *testing.T) {
 	family := NewFontFamily("dejavu-serif")
 	if err := family.LoadFontFile("resources/DejaVuSerif.ttf", FontRegular); err != nil {
 		test.Error(t, err)
@@ -133,17 +134,63 @@ func TestRichText(t *testing.T) {
 	rt.ToText(10.0, 10.0, Left, Top, 0.0, 0.0)
 }
 
-func TestRichText2(t *testing.T) {
-	family := NewFontFamily("dejavu-serif")
-	if err := family.LoadFontFile("resources/DejaVuSerif.ttf", FontRegular); err != nil {
+func TestRichText(t *testing.T) {
+	familyLatin := NewFontFamily("dejavu-serif")
+	if err := familyLatin.LoadFontFile("resources/DejaVuSerif.ttf", FontRegular); err != nil {
 		test.Error(t, err)
 	}
-	pt := ptPerMm * float64(family.fonts[FontRegular].Head.UnitsPerEm)
-	face := family.Face(pt, Black, FontRegular, FontNormal) // line height is 13.96875
+	faceLatin := familyLatin.Face(12.0, Black, FontRegular, FontNormal) // line height is 13.96875
 
-	rt := NewRichText(face)
-	rt.WriteString(" a")
-	rt.ToText(100.0, 100.0, Left, Top, 0.0, 0.0)
+	familyCJK := NewFontFamily("unifont")
+	if err := familyCJK.LoadFontFile("resources/unifont-13.0.05.ttf", FontRegular); err != nil {
+		test.Error(t, err)
+	}
+	faceCJK := familyCJK.Face(12.0, Black, FontRegular, FontNormal) // line height is 13.96875
+
+	var tests = []struct {
+		face  *FontFace
+		align TextAlign
+		in    string
+		out   string
+	}{
+		{faceLatin, Left, " a", " a"},
+		{
+			faceLatin, Left,
+			"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
+			"Lorem ipsum dolor sit amet, consectetur\nadipiscing elit, sed do eiusmod tempor\nincididunt ut labore et dolore magna aliqua.\nUt enim ad minim veniam, quis nostrud\nexercitation ullamco laboris nisi ut aliquip ex\nea commodo consequat.",
+		},
+		{
+			faceLatin, Left,
+			"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do\neiusmod tempor incididunt ut labore et dolore magna aliqua.\nUt enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
+			"Lorem ipsum dolor sit amet, consectetur\nadipiscing elit, sed do\neiusmod tempor incididunt ut labore et dolore\nmagna aliqua.\nUt enim ad minim veniam, quis nostrud\nexercitation ullamco laboris nisi ut aliquip ex\nea commodo consequat.",
+		},
+		{
+			faceLatin, Center,
+			"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
+			"Lorem ipsum dolor sit amet, consectetur\nadipiscing elit, sed do eiusmod tempor\nincididunt ut labore et dolore magna aliqua.\nUt enim ad minim veniam, quis nostrud\nexercitation ullamco laboris nisi ut aliquip ex\nea commodo consequat.",
+		},
+		{
+			faceCJK, Left,
+			"执行送出执行送出执行送出执行送出执行送出执行送出执行送出执行送出执行送出执行送出执行送出执行送出执行送出出执行送出执行送出执行送出执行送出出执行送出执行送出执行送出执行送出出执行送出执行送出执行送出执行送出",
+			"执行送出执行送出执行送出执行送出执行送出执行送\n出执行送出执行送出执行送出执行送出执行送出执行\n送出执行送出出执行送出执行送出执行送出执行送出\n出执行送出执行送出执行送出执行送出出执行送出执\n行送出执行送出执行送出",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			rt := NewRichText(tt.face)
+			rt.WriteString(tt.in)
+			text := rt.ToText(100.0, 100.0, tt.align, Top, 0.0, 0.0)
+			var lines []string
+			for _, line := range text.lines {
+				var spans []string
+				for _, span := range line.spans {
+					spans = append(spans, span.Text)
+				}
+				lines = append(lines, strings.Join(spans, " "))
+			}
+			test.T(t, strings.Join(lines, "\n"), tt.out)
+		})
+	}
 }
 
 func TestTextBounds(t *testing.T) {
