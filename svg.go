@@ -714,11 +714,11 @@ func (svg *svgParser) setStyling(props []cssProperty) {
 func (svg *svgParser) parseUrlID(val string) string {
 	if strings.HasPrefix(val, "url(") && strings.HasSuffix(val, ")") {
 		if 6 < len(val) && (val[4] == '#' || val[5] == '#') {
-			id := val[6 : len(val)-2]
 			if val[4] == '#' {
-				id = val[5 : len(val)-1]
+				return val[5 : len(val)-1]
+			} else {
+				return val[6 : len(val)-2]
 			}
-			return id
 		}
 	}
 	return ""
