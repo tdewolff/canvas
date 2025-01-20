@@ -113,9 +113,9 @@ type Paint struct {
 func (paint Paint) Equal(other Paint) bool {
 	if paint.IsColor() && other.IsColor() && paint.Color == other.Color {
 		return true
-	} else if paint.IsGradient() && other.IsGradient() && reflect.DeepEqual(paint, other) {
+	} else if paint.IsGradient() && other.IsGradient() && reflect.DeepEqual(paint.Gradient, other.Gradient) {
 		return true
-	} else if paint.IsPattern() && other.IsPattern() && reflect.DeepEqual(paint, other) {
+	} else if paint.IsPattern() && other.IsPattern() && reflect.DeepEqual(paint.Pattern, other.Pattern) {
 		return true
 	}
 	return false

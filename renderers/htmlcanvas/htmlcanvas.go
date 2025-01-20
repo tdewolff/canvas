@@ -66,6 +66,27 @@ func (r *HTMLCanvas) writePath(path *canvas.Path) {
 	}
 }
 
+func (r *HTMLCanvas) toStyle(paint canvas.Paint) any {
+	if paint.IsPattern() {
+		// TODO
+	} else if paint.IsGradient() {
+		if g, ok := paint.Gradient.(*canvas.LinearGradient); ok {
+			grad := r.ctx.Call("createLinearGradient", g.Start.X*r.dpm, r.height-g.Start.Y*r.dpm, g.End.X*r.dpm, r.height-g.End.Y*r.dpm)
+			for _, stop := range g.Stops {
+				grad.Call("addColorStop", stop.Offset, canvas.CSSColor(stop.Color).String())
+			}
+			return grad
+		} else if g, ok := paint.Gradient.(*canvas.RadialGradient); ok {
+			grad := r.ctx.Call("createRadialGradient", g.C0.X*r.dpm, r.height-g.C0.Y*r.dpm, g.R0*r.dpm, g.C1.X*r.dpm, r.height-g.C1.Y*r.dpm, g.R1*r.dpm)
+			for _, stop := range g.Stops {
+				grad.Call("addColorStop", stop.Offset, canvas.CSSColor(stop.Color).String())
+			}
+			return grad
+		}
+	}
+	return canvas.CSSColor(paint.Color).String()
+}
+
 // RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
 	if path.Empty() {
@@ -86,9 +107,9 @@ func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 	}
 
 	if style.HasFill() {
-		if style.Fill.IsColor() && style.Fill.Color != r.style.Fill.Color {
-			r.ctx.Set("fillStyle", canvas.CSSColor(style.Fill.Color).String())
-			r.style.Fill.Color = style.Fill.Color
+		if !style.Fill.Equal(r.style.Fill) {
+			r.ctx.Set("fillStyle", r.toStyle(style.Fill))
+			r.style.Fill = style.Fill
 		}
 		r.ctx.Call("fill")
 	}
@@ -149,10 +170,10 @@ func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 			r.ctx.Set("lineWidth", style.StrokeWidth*r.dpm)
 			r.style.StrokeWidth = style.StrokeWidth
 		}
-		if style.Stroke.IsColor() && style.Stroke.Color != r.style.Stroke.Color {
-			r.ctx.Set("strokeStyle", canvas.CSSColor(style.Stroke.Color).String())
-			r.style.Stroke.Color = style.Stroke.Color
-		}
+		//if !style.Stroke.Equal(r.style.Stroke) {
+		r.ctx.Set("strokeStyle", r.toStyle(style.Stroke))
+		r.style.Stroke = style.Stroke
+		//}
 		r.ctx.Call("stroke")
 	} else if style.HasStroke() {
 		// stroke settings unsupported by HTML Canvas, draw stroke explicitly
@@ -161,9 +182,9 @@ func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		}
 		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner, canvas.Tolerance)
 		r.writePath(path.Transform(m).ReplaceArcs())
-		if style.Stroke.IsColor() && style.Stroke.Color != r.style.Fill.Color {
-			r.ctx.Set("fillStyle", canvas.CSSColor(style.Stroke.Color).String())
-			r.style.Fill.Color = style.Stroke.Color
+		if !style.Stroke.Equal(r.style.Fill) {
+			r.ctx.Set("fillStyle", r.toStyle(style.Stroke))
+			r.style.Fill = style.Stroke
 		}
 		r.ctx.Call("fill")
 	}
