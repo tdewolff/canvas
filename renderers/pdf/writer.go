@@ -242,7 +242,7 @@ func (w *pdfWriter) writeVal(i interface{}) {
 		w.writeVal(v.dict)
 		w.write("stream\n")
 		w.writeBytes(b)
-		w.write("\nendstream")
+		w.write("\nendstream\n")
 	default:
 		panic(fmt.Sprintf("unknown PDF type %T", i))
 	}
