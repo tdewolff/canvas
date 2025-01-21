@@ -404,9 +404,11 @@ func (w *pdfWriter) writeFont(ref pdfRef, font *canvas.Font, vertical bool) {
 			length++
 		} else {
 			if 1 < length {
-				fmt.Fprintf(&bfRange, "<%04X> <%04X> <%04X>\n", startGlyphID, startGlyphID+length-1, startUnicode)
+				fmt.Fprintf(&bfRange, "\n<%04X> <%04X> <%04X>", startGlyphID, startGlyphID+length-1, startUnicode)
+				bfRangeCount++
 			} else {
-				fmt.Fprintf(&bfChar, "<%04X> <%04X>\n", startGlyphID, startUnicode)
+				fmt.Fprintf(&bfChar, "\n<%04X> <%04X>", startGlyphID, startUnicode)
+				bfCharCount++
 			}
 			startGlyphID = uint16(subsetGlyphID + 1)
 			startUnicode = unicode
@@ -414,35 +416,38 @@ func (w *pdfWriter) writeFont(ref pdfRef, font *canvas.Font, vertical bool) {
 		}
 	}
 	if 1 < length {
-		fmt.Fprintf(&bfRange, "<%04X> <%04X> <%04X>\n", startGlyphID, startGlyphID+length-1, startUnicode)
+		fmt.Fprintf(&bfRange, "\n<%04X> <%04X> <%04X>", startGlyphID, startGlyphID+length-1, startUnicode)
+		bfRangeCount++
 	} else {
-		fmt.Fprintf(&bfChar, "<%04X> <%04X>\n", startGlyphID, startUnicode)
+		fmt.Fprintf(&bfChar, "\n<%04X> <%04X>", startGlyphID, startUnicode)
+		bfCharCount++
 	}
 
-	toUnicode := fmt.Sprintf(`/CIDInit /ProcSet findresource begin
+	toUnicode := bytes.Buffer{}
+	fmt.Fprintf(&toUnicode, `/CIDInit /ProcSet findresource begin
 12 dict begin
 begincmap
-/CIDSystemInfo
-<< /Registry (Adobe)
-   /Ordering (UCS)
-   /Supplement 0
->> def
+/CIDSystemInfo <</Registry(Adobe)/Ordering(UCS)/Supplement 0>> def
 /CMapName /Adobe-Identity-UCS def
 /CMapType 2 def
 1 begincodespacerange
-<0000> <FFFF>
-endcodespacerange
-%d beginbfrange
-%sendbfrange
-%d beginbfchar
-%sendbfchar
+<0000> <FFFF> endcodespacerange`)
+	if 0 < bfRangeCount {
+		fmt.Fprintf(&toUnicode, `
+%d beginbfrange%s endbfrange`, bfRangeCount, bfRange.String())
+	}
+	if 0 < bfCharCount {
+		fmt.Fprintf(&toUnicode, `
+%d beginbfchar%s endbfchar`, bfCharCount, bfChar.String())
+	}
+	fmt.Fprintf(&toUnicode, `
 endcmap
 CMapName currentdict /CMap defineresource pop
 end
-end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
+end`)
 	toUnicodeStream := pdfStream{
 		dict:   pdfDict{},
-		stream: []byte(toUnicode),
+		stream: toUnicode.Bytes(),
 	}
 	if w.compress {
 		toUnicodeStream.dict["Filter"] = pdfFilterFlate
