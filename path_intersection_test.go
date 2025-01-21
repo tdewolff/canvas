@@ -1466,18 +1466,18 @@ func TestPathAnd(t *testing.T) {
 		{"L7 0L7 4L0 4z", "M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z", "M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z"},                                                  // two inside the same
 		{"M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z", "L7 0L7 4L0 4z", "M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z"},                                                  // two inside the same
 
-		// open TODO
-		//{"M5 1L5 9", "L10 0L10 10L0 10z", "M5 1L5 9"},                 // in
-		//{"M15 1L15 9", "L10 0L10 10L0 10z", ""},                       // out
-		//{"M5 5L5 15", "L10 0L10 10L0 10z", "M5 5L5 10"},               // cross
-		//{"L10 10", "L10 0L10 10L0 10z", "L10 10"},                     // touch
-		//{"M5 0L10 0L10 5", "L10 0L10 10L0 10z", ""},                   // boundary
-		//{"L5 0L5 5", "L10 0L10 10L0 10z", "L5 0L5 5"},                 // touch with parallel
-		//{"M1 1L2 0L8 0L9 1", "L10 0L10 10L0 10z", "M1 1L2 0L8 0L9 1"}, // touch with parallel
-		//{"M1 -1L2 0L8 0L9 -1", "L10 0L10 10L0 10z", ""},               // touch with parallel
-		//{"L10 0", "L10 0L10 10L0 10z", ""},                            // touch with parallel
-		//{"L5 0L5 1L7 -1", "L10 0L10 10L0 10z", "L5 0L5 1L6 0"},        // touch with parallel
-		//{"L5 0L5 -1L7 1", "L10 0L10 10L0 10z", "M6 0L7 1"},            // touch with parallel
+		// open
+		{"M5 1L5 9", "L10 0L10 10L0 10z", "M5 1L5 9"},                 // in
+		{"M15 1L15 9", "L10 0L10 10L0 10z", ""},                       // out
+		{"M5 5L5 15", "L10 0L10 10L0 10z", "M5 5L5 10"},               // cross
+		{"L10 10", "L10 0L10 10L0 10z", "L10 10"},                     // touch
+		{"M5 0L10 0L10 5", "L10 0L10 10L0 10z", ""},                   // boundary
+		{"L5 0L5 5", "L10 0L10 10L0 10z", "M5 0L5 5"},                 // touch with parallel
+		{"M1 1L2 0L8 0L9 1", "L10 0L10 10L0 10z", "M1 1L2 0M8 0L9 1"}, // touch with parallel
+		{"M1 -1L2 0L8 0L9 -1", "L10 0L10 10L0 10z", ""},               // touch with parallel
+		{"L10 0", "L10 0L10 10L0 10z", ""},                            // touch with parallel
+		{"L5 0L5 1L7 -1", "L10 0L10 10L0 10z", "M5 0L5 1L6 0"},        // touch with parallel
+		{"L5 0L5 -1L7 1", "L10 0L10 10L0 10z", "M6 0L7 1"},            // touch with parallel
 
 		// P intersects Q twice in the same point
 		{"L0 -20L20 -20L20 20L0 20z", "L10 10L10 -10L-10 10L-10 -10z", "L10 -10L10 10z"},
@@ -1512,8 +1512,10 @@ func TestPathAnd(t *testing.T) {
 			r := p.And(q)
 			test.T(t, r, MustParseSVGPath(tt.r))
 
-			r = q.And(p)
-			test.T(t, r, MustParseSVGPath(tt.r), "swapped arguments")
+			if p.Closed() {
+				r = q.And(p)
+				test.T(t, r, MustParseSVGPath(tt.r), "swapped arguments")
+			}
 		})
 	}
 }
@@ -1575,17 +1577,17 @@ func TestPathOr(t *testing.T) {
 		{"L7 0L7 4L0 4z", "M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z", "L7 0L7 4L0 4z"},                                                                 // two inside the same
 		{"M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z", "L7 0L7 4L0 4z", "L7 0L7 4L0 4z"},                                                                 // two inside the same
 
-		// open TODO
-		//{"M5 1L5 9", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM5 1L5 9"},                     // in
-		//{"M15 1L15 9", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM15 1L15 9"},                 // out
-		//{"M5 5L5 15", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM5 5L5 10M5 10L5 15"},         // cross
-		//{"L10 10", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM0 0L10 10"},                     // touch
-		//{"L5 0L5 5", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM0 0L5 0L5 5"},                 // touch with parallel
-		//{"M1 1L2 0L8 0L9 1", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM1 1L2 0L8 0L9 1"},     // touch with parallel
-		//{"M1 -1L2 0L8 0L9 -1", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM1 -1L2 0L8 0L9 -1"}, // touch with parallel
-		//{"L10 0", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM0 0L10 0"},                       // touch with parallel
-		//{"L5 0L5 1L7 -1", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zL5 0L5 1L6 0M6 0L7 -1"},   // touch with parallel
-		//{"L5 0L5 -1L7 1", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zL5 0L5 -1L6 0M6 0L7 1"},   // touch with parallel
+		// open
+		{"M5 1L5 9", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM5 1L5 9"},                     // in
+		{"M15 1L15 9", "L10 0L10 10L0 10z", "M15 1L15 9M0 0L10 0L10 10L0 10z"},             // out
+		{"M5 5L5 15", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM5 5L5 10L5 15"},              // cross
+		{"L10 10", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM0 0L10 10"},                     // touch
+		{"L5 0L5 5", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM5 0L5 5"},                     // touch with parallel
+		{"M1 1L2 0L8 0L9 1", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM1 1L2 0M8 0L9 1"},     // touch with parallel
+		{"M1 -1L2 0L8 0L9 -1", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM1 -1L2 0M8 0L9 -1"}, // touch with parallel
+		{"L10 0", "L10 0L10 10L0 10z", "M0 0L10 0L10 10L0 10z"},                            // touch with parallel
+		{"L5 0L5 1L7 -1", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM5 0L5 1L7 -1"},           // touch with parallel
+		{"L5 0L5 -1L7 1", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM5 0L5 -1L7 1"},           // touch with parallel
 
 		// similar to holes and islands 4
 		{"M0 4L6 4L6 6L0 6zM5 5L6 6L7 5L6 4z", "M1 3L5 3L5 7L1 7z", "M0 4L1 4L1 3L5 3L5 4L6 4L5 5L6 6L5 6L5 7L1 7L1 6L0 6zM6 4L7 5L6 6z"},
@@ -1611,8 +1613,10 @@ func TestPathOr(t *testing.T) {
 			r := p.Or(q)
 			test.T(t, r, MustParseSVGPath(tt.r))
 
-			r = q.Or(p)
-			test.T(t, r, MustParseSVGPath(tt.r), "swapped arguments")
+			if p.Closed() {
+				r = q.Or(p)
+				test.T(t, r, MustParseSVGPath(tt.r), "swapped arguments")
+			}
 		})
 	}
 }
@@ -1667,17 +1671,17 @@ func TestPathXor(t *testing.T) {
 		{"L7 0L7 4L0 4z", "M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z", "L7 0L7 4L0 4zM1 1L1 3L3 3L3 1zM4 1L4 3L6 3L6 1z"},                                                                                                              // two inside the same
 		{"M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z", "L7 0L7 4L0 4z", "L7 0L7 4L0 4zM1 1L1 3L3 3L3 1zM4 1L4 3L6 3L6 1z"},                                                                                                              // two inside the same
 
-		// open TODO
-		//{"M5 1L5 9", "L10 0L10 10L0 10z", "L10 0L10 10L0 10z"},                             // in
-		//{"M15 1L15 9", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM15 1L15 9"},                 // out
-		//{"M5 5L5 15", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM5 10L5 15"},                  // cross
-		//{"L10 10", "L10 0L10 10L0 10z", "L10 0L10 10L0 10z"},                               // touch
-		//{"L5 0L5 5", "L10 0L10 10L0 10z", "L10 0L10 10L0 10z"},                             // touch with parallel
-		//{"M1 1L2 0L8 0L9 1", "L10 0L10 10L0 10z", "L10 0L10 10L0 10z"},                     // touch with parallel
-		//{"M1 -1L2 0L8 0L9 -1", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM1 -1L2 0L8 0L9 -1"}, // touch with parallel
-		//{"L10 0", "L10 0L10 10L0 10z", "L10 0L10 10L0 10z"},                                // touch with parallel
-		//{"L5 0L5 1L7 -1", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM6 0L7 -1"},               // touch with parallel
-		//{"L5 0L5 -1L7 1", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zL5 0L5 -1L6 0"},           // touch with parallel
+		// open
+		{"M5 1L5 9", "L10 0L10 10L0 10z", "L10 0L10 10L0 10z"},                             // in
+		{"M15 1L15 9", "L10 0L10 10L0 10z", "M15 1L15 9M0 0L10 0L10 10L0 10z"},             // out
+		{"M5 5L5 15", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM5 10L5 15"},                  // cross
+		{"L10 10", "L10 0L10 10L0 10z", "L10 0L10 10L0 10z"},                               // touch
+		{"L5 0L5 5", "L10 0L10 10L0 10z", "L10 0L10 10L0 10z"},                             // touch with parallel
+		{"M1 1L2 0L8 0L9 1", "L10 0L10 10L0 10z", "L10 0L10 10L0 10z"},                     // touch with parallel
+		{"M1 -1L2 0L8 0L9 -1", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM1 -1L2 0M8 0L9 -1"}, // touch with parallel
+		{"L10 0", "L10 0L10 10L0 10z", "L10 0L10 10L0 10z"},                                // touch with parallel
+		{"L5 0L5 1L7 -1", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM6 0L7 -1"},               // touch with parallel
+		{"L5 0L5 -1L7 1", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM5 0L5 -1L6 0"},           // touch with parallel
 
 		// multiple intersections in one point
 		{"L2 0L2 2L4 2L4 4L2 2L0 2z", "L2 0L2 2L4 4L2 4L2 2L0 2z", "M2 2L4 2L4 4L2 4z"},
@@ -1701,8 +1705,10 @@ func TestPathXor(t *testing.T) {
 			r := p.Xor(q)
 			test.T(t, r, MustParseSVGPath(tt.r))
 
-			r = q.Xor(p)
-			test.T(t, r, MustParseSVGPath(tt.r), "swapped arguments")
+			if p.Closed() {
+				r = q.Xor(p)
+				test.T(t, r, MustParseSVGPath(tt.r), "swapped arguments")
+			}
 		})
 	}
 }
@@ -1774,17 +1780,17 @@ func TestPathNot(t *testing.T) {
 		{"L7 0L7 4L0 4z", "M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z", "L7 0L7 4L0 4zM1 1L1 3L3 3L3 1zM4 1L4 3L6 3L6 1z"},                                                  // two inside the same
 		{"M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z", "L7 0L7 4L0 4z", ""},                                                                                                 // two inside the same
 
-		// open TODO
-		//{"M5 1L5 9", "L10 0L10 10L0 10z", ""},                             // in
-		//{"M15 1L15 9", "L10 0L10 10L0 10z", "M15 1L15 9"},                 // out
-		//{"M5 5L5 15", "L10 0L10 10L0 10z", "M5 10L5 15"},                  // cross
-		//{"L10 10", "L10 0L10 10L0 10z", ""},                               // touch
-		//{"L5 0L5 5", "L10 0L10 10L0 10z", ""},                             // touch with parallel
-		//{"M1 1L2 0L8 0L9 9", "L10 0L10 10L0 10z", ""},                     // touch with parallel
-		//{"M1 -1L2 0L8 0L9 -1", "L10 0L10 10L0 10z", "M1 -1L2 0L8 0L9 -1"}, // touch with parallel
-		//{"L10 0", "L10 0L10 10L0 10z", ""},                                // touch with parallel
-		//{"L5 0L5 1L7 -1", "L10 0L10 10L0 10z", "M6 0L7 -1"},               // touch with parallel
-		//{"L5 0L5 -1L7 1", "L10 0L10 10L0 10z", "L5 0L5 -1L6 0"},           // touch with parallel
+		// open
+		{"M5 1L5 9", "L10 0L10 10L0 10z", ""},                             // in
+		{"M15 1L15 9", "L10 0L10 10L0 10z", "M15 1L15 9"},                 // out
+		{"M5 5L5 15", "L10 0L10 10L0 10z", "M5 10L5 15"},                  // cross
+		{"L10 10", "L10 0L10 10L0 10z", ""},                               // touch
+		{"L5 0L5 5", "L10 0L10 10L0 10z", ""},                             // touch with parallel
+		{"M1 1L2 0L8 0L9 9", "L10 0L10 10L0 10z", ""},                     // touch with parallel
+		{"M1 -1L2 0L8 0L9 -1", "L10 0L10 10L0 10z", "M1 -1L2 0M8 0L9 -1"}, // touch with parallel
+		{"L10 0", "L10 0L10 10L0 10z", ""},                                // touch with parallel
+		{"L5 0L5 1L7 -1", "L10 0L10 10L0 10z", "M6 0L7 -1"},               // touch with parallel
+		{"L5 0L5 -1L7 1", "L10 0L10 10L0 10z", "M5 0L5 -1L6 0"},           // touch with parallel
 
 		// similar to holes and islands 4
 		{"M0 4L6 4L6 6L0 6zM5 5L6 6L7 5L6 4z", "M1 3L5 3L5 7L1 7z", "M0 4L1 4L1 6L0 6zM5 4L6 4L5 5zM5 5L6 6L5 6zM6 4L7 5L6 6z"},

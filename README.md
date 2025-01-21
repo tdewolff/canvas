@@ -61,8 +61,8 @@ Numerically stable (!) path boolean operations, supporting AND, OR, XOR, NOT, an
 - Points may be crossed any number of times.
 - Segments may be vertical.
 - Clipping path is implicitly closed (it makes no sense if it's an open path).
-- Subject path is currently implicitly closed, but it is WIP to support open paths.
-- Paths are currently flattened, but supporting Bézier or elliptical arcs is a WIP.
+- Subject path may be either open or closed.
+- Paths are currently flattened, but supporting Bézier or elliptical arcs is a WIP (not anytime soon).
 
 Numerical stability refers to cases where two segments are extremely close where floating-point precision can alter the computation whether they intersect or not. This is a very difficult problem to solve, and many libraries cannot handle this properly (nor can they handle 'degenerate' paths in general, see the list of properties above). Note that fixed-point precision suffers from the same problem. This library builds on papers from Bentley & Ottmann, de Berg, Martínez, Hobby, and Hershberger (see bibliography below).
 

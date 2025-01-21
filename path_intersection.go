@@ -219,7 +219,8 @@ type SweepPoint struct {
 	resultWindings int // windings of the resulting polygon
 
 	// bools at the end to optimize memory layout of struct
-	clipping   bool // is clipping polygon (otherwise is subject polygon)
+	clipping   bool // is clipping path (otherwise is subject path)
+	open       bool // path is not closed (only for subject paths)
 	left       bool // point is left-end of segment
 	vertical   bool // segment is vertical
 	increasing bool // original direction is left-right (or bottom-top)
@@ -307,6 +308,7 @@ func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
 		*q = q2
 	}
 
+	open := !p.Closed()
 	start := Point{p.d[1], p.d[2]}
 	if math.IsNaN(start.X) || math.IsInf(start.X, 0.0) || math.IsNaN(start.Y) || math.IsInf(start.Y, 0.0) {
 		panic("path has NaN or Inf")
@@ -340,6 +342,7 @@ func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
 		*a = SweepPoint{
 			Point:      start,
 			clipping:   clipping,
+			open:       open,
 			segment:    seg,
 			left:       increasing,
 			increasing: increasing,
@@ -348,6 +351,7 @@ func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
 		*b = SweepPoint{
 			Point:      end,
 			clipping:   clipping,
+			open:       open,
 			segment:    seg,
 			left:       !increasing,
 			increasing: increasing,
@@ -1558,9 +1562,11 @@ func (a eventSliceH) Swap(i, j int) {
 
 func (cur *SweepPoint) computeSweepFields(prev *SweepPoint, op pathOp, fillRule FillRule) {
 	// cur is left-endpoint
-	cur.selfWindings = 1
-	if !cur.increasing {
-		cur.selfWindings = -1
+	if !cur.open {
+		cur.selfWindings = 1
+		if !cur.increasing {
+			cur.selfWindings = -1
+		}
 	}
 
 	// skip vertical segments
@@ -1593,6 +1599,18 @@ func (s *SweepPoint) InResult(op pathOp, fillRule FillRule) bool {
 	if s.clipping {
 		lowerWindings, lowerOtherWindings = lowerOtherWindings, lowerWindings
 		upperWindings, upperOtherWindings = upperOtherWindings, upperWindings
+	}
+
+	if s.open {
+		// handle open paths on the subject
+		switch op {
+		case opSettle, opOR:
+			return true
+		case opAND:
+			return fillRule.Fills(lowerOtherWindings) || fillRule.Fills(upperOtherWindings)
+		case opNOT, opXOR:
+			return !fillRule.Fills(lowerOtherWindings) || !fillRule.Fills(upperOtherWindings)
+		}
 	}
 
 	// lower/upper windings refers to subject path, otherWindings to clipping path
@@ -1656,7 +1674,6 @@ func (s *SweepPoint) mergeOverlapping(op pathOp, fillRule FillRule) {
 	if prev == s.prev {
 		return
 	}
-	s.prev = prev
 
 	// compute merged windings
 	if prev == nil {
@@ -1670,6 +1687,7 @@ func (s *SweepPoint) mergeOverlapping(op pathOp, fillRule FillRule) {
 	}
 	s.inResult = s.InResult(op, fillRule)
 	s.other.inResult = s.inResult
+	s.prev = prev
 }
 
 func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
@@ -1678,7 +1696,6 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 	// TODO: add Intersects/Touches functions (return bool)
 	// TODO: add Intersections function (return []Point)
 	// TODO: support Cut to cut a path in subpaths between intersections (not polygons)
-	// TODO: support open paths on ps
 	// TODO: support elliptical arcs
 	// TODO: use a red-black tree for the sweepline status?
 	// TODO: use a red-black or 2-4 tree for the sweepline queue (LessH is 33% of time spent now),
@@ -1869,18 +1886,11 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 		}
 	}
 
-	// TODO: handle open paths
-
 	// construct the priority queue of sweep events
 	pSeg, qSeg := 0, 0
 	queue := &SweepEvents{}
 	for i := range ps {
 		if qs == nil || pOverlaps[i] {
-			// implicitly close all subpaths on P
-			// TODO: remove and support open paths only on P
-			if !ps[i].Closed() {
-				ps[i].Close()
-			}
 			pSeg = queue.AddPathEndpoints(ps[i], pSeg, false)
 		}
 	}
@@ -2157,12 +2167,14 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 	status.Clear() // release all nodes (but not SweepPoints)
 
 	// build resulting polygons
+	var Ropen *Path
 	for _, square := range squares {
 		for _, cur := range square.Events {
 			if !cur.inResult || cur.processed {
 				continue
 			}
 
+		BuildPath:
 			windings := 0
 			prev := cur.prev
 			for prev != nil {
@@ -2176,7 +2188,11 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 			first := cur
 			indexR := len(R.d)
 			R.MoveTo(cur.X, cur.Y)
-			cur.resultWindings = windings + 1 // always increasing
+			cur.resultWindings = windings
+			if !first.open {
+				// we go to the right/top
+				cur.resultWindings++
+			}
 			cur.other.resultWindings = cur.resultWindings
 			for {
 				// find segments starting from other endpoint, find the other segment amongst
@@ -2199,16 +2215,20 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 					}
 					if i == i0 {
 						break
-					} else if nodes[i].inResult && !nodes[i].processed {
+					} else if nodes[i].inResult && !nodes[i].processed && nodes[i].open == first.open {
 						next = nodes[i]
 						break
 					}
 				}
 				if next == nil {
-					fmt.Println(ps)
-					fmt.Println(op)
-					fmt.Println(qs)
-					panic("next node for result polygon is nil, probably buggy intersection code")
+					if first.open {
+						R.LineTo(cur.other.X, cur.other.Y)
+					} else {
+						fmt.Println(ps)
+						fmt.Println(op)
+						fmt.Println(qs)
+						panic("next node for result polygon is nil, probably buggy intersection code")
+					}
 					break
 				} else if next == first {
 					break // contour is done
@@ -2217,7 +2237,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 
 				R.LineTo(cur.X, cur.Y)
 				cur.resultWindings = windings
-				if cur.left {
+				if cur.left && !first.open {
 					// we go to the right/top
 					cur.resultWindings++
 				}
@@ -2225,12 +2245,31 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				cur.processed, cur.other.processed = true, true
 			}
 			first.processed, first.other.processed = true, true
-			R.Close()
 
-			if windings%2 != 0 {
-				// orient holes clockwise
-				hole := (&Path{R.d[indexR:]}).Reverse()
-				R.d = append(R.d[:indexR], hole.d...)
+			if first.open {
+				if Ropen != nil {
+					start := (&Path{R.d[indexR:]}).Reverse()
+					R.d = append(R.d[:indexR], start.d...)
+					R.d = append(R.d, Ropen.d...)
+					Ropen = nil
+				} else {
+					for _, cur2 := range square.Events {
+						if cur2.inResult && !cur2.processed && cur2.open {
+							cur = cur2
+							Ropen = &Path{d: make([]float64, len(R.d)-indexR-4)}
+							copy(Ropen.d, R.d[indexR+4:])
+							R.d = R.d[:indexR]
+							goto BuildPath
+						}
+					}
+				}
+			} else {
+				R.Close()
+				if windings%2 != 0 {
+					// orient holes clockwise
+					hole := (&Path{R.d[indexR:]}).Reverse()
+					R.d = append(R.d[:indexR], hole.d...)
+				}
 			}
 		}
 
