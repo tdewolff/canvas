@@ -87,7 +87,7 @@ const (
 	opOR
 	opNOT
 	opXOR
-	//opDIV
+	opDIV
 )
 
 func (op pathOp) String() string {
@@ -102,6 +102,8 @@ func (op pathOp) String() string {
 		return "NOT"
 	case opXOR:
 		return "XOR"
+	case opDIV:
+		return "DIV"
 	}
 	return fmt.Sprintf("pathOp(%d)", op)
 }
@@ -189,14 +191,14 @@ func (ps Paths) Not(qs Paths) *Path {
 // split into subpaths if possible. Note that path p is flattened unless q is already flat. Path
 // q is implicitly closed. It runs in O((n + k) log n), with n the sum of the number of segments,
 // and k the number of intersections.
-//func (p *Path) DivideBy(q *Path) *Path {
-//	return bentleyOttmann(p.Split(), q.Split(), opDIV, NonZero)
-//}
-//
-//// DivideBy is the same as Path.DivideBy, but faster if paths are already split.
-//func (ps Paths) DivideBy(qs Paths) *Path {
-//	return bentleyOttmann(ps, qs, opDIV, NonZero)
-//}
+func (p *Path) DivideBy(q *Path) *Path {
+	return bentleyOttmann(p.Split(), q.Split(), opDIV, NonZero)
+}
+
+// DivideBy is the same as Path.DivideBy, but faster if paths are already split.
+func (ps Paths) DivideBy(qs Paths) *Path {
+	return bentleyOttmann(ps, qs, opDIV, NonZero)
+}
 
 type SweepPoint struct {
 	// initial data
@@ -219,14 +221,13 @@ type SweepPoint struct {
 	resultWindings int // windings of the resulting polygon
 
 	// bools at the end to optimize memory layout of struct
-	clipping   bool // is clipping path (otherwise is subject path)
-	open       bool // path is not closed (only for subject paths)
-	left       bool // point is left-end of segment
-	vertical   bool // segment is vertical
-	increasing bool // original direction is left-right (or bottom-top)
-	overlapped bool // segment's overlapping was handled
-	inResult   bool // in final result polygon
-	processed  bool // written to final path
+	clipping   bool  // is clipping path (otherwise is subject path)
+	open       bool  // path is not closed (only for subject paths)
+	left       bool  // point is left-end of segment
+	vertical   bool  // segment is vertical
+	increasing bool  // original direction is left-right (or bottom-top)
+	overlapped bool  // segment's overlapping was handled
+	inResult   uint8 // in final result polygon (1 is once, 2 is twice for opDIV)
 }
 
 func (s *SweepPoint) InterpolateY(x float64) float64 {
@@ -1593,7 +1594,7 @@ func (cur *SweepPoint) computeSweepFields(prev *SweepPoint, op pathOp, fillRule 
 	cur.other.inResult = cur.inResult
 }
 
-func (s *SweepPoint) InResult(op pathOp, fillRule FillRule) bool {
+func (s *SweepPoint) InResult(op pathOp, fillRule FillRule) uint8 {
 	lowerWindings, lowerOtherWindings := s.windings, s.otherWindings
 	upperWindings, upperOtherWindings := s.windings+s.selfWindings, s.otherWindings+s.otherSelfWindings
 	if s.clipping {
@@ -1604,13 +1605,18 @@ func (s *SweepPoint) InResult(op pathOp, fillRule FillRule) bool {
 	if s.open {
 		// handle open paths on the subject
 		switch op {
-		case opSettle, opOR:
-			return true
+		case opSettle, opOR, opDIV:
+			return 1
 		case opAND:
-			return fillRule.Fills(lowerOtherWindings) || fillRule.Fills(upperOtherWindings)
+			if fillRule.Fills(lowerOtherWindings) || fillRule.Fills(upperOtherWindings) {
+				return 1
+			}
 		case opNOT, opXOR:
-			return !fillRule.Fills(lowerOtherWindings) || !fillRule.Fills(upperOtherWindings)
+			if !fillRule.Fills(lowerOtherWindings) || !fillRule.Fills(upperOtherWindings) {
+				return 1
+			}
 		}
+		return 0
 	}
 
 	// lower/upper windings refers to subject path, otherWindings to clipping path
@@ -1631,14 +1637,22 @@ func (s *SweepPoint) InResult(op pathOp, fillRule FillRule) bool {
 	case opXOR:
 		belowFills = fillRule.Fills(lowerWindings) != fillRule.Fills(lowerOtherWindings)
 		aboveFills = fillRule.Fills(upperWindings) != fillRule.Fills(upperOtherWindings)
-		//case opDIV:
-		//	belowFills = fillRule.Fills(lowerWindings)
-		//	aboveFills = fillRule.Fills(upperWindings)
-		//	return belowFills|| aboveFills
+	case opDIV:
+		belowFills = fillRule.Fills(lowerWindings)
+		aboveFills = fillRule.Fills(upperWindings)
+		if belowFills && aboveFills {
+			return 2
+		} else if belowFills || aboveFills {
+			return 1
+		}
+		return 0
 	}
 
 	// only keep edge if there is a change in filling between both sides
-	return belowFills != aboveFills
+	if belowFills != aboveFills {
+		return 1
+	}
+	return 0
 }
 
 func (s *SweepPoint) mergeOverlapping(op pathOp, fillRule FillRule) {
@@ -1668,7 +1682,7 @@ func (s *SweepPoint) mergeOverlapping(op pathOp, fillRule FillRule) {
 			s.otherSelfWindings += prev.selfWindings
 		}
 		prev.windings, prev.selfWindings, prev.otherWindings, prev.otherSelfWindings = 0, 0, 0, 0
-		prev.inResult, prev.other.inResult = false, false
+		prev.inResult, prev.other.inResult = 0, 0
 		prev.overlapped = true
 	}
 	if prev == s.prev {
@@ -2170,19 +2184,15 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 	var Ropen *Path
 	for _, square := range squares {
 		for _, cur := range square.Events {
-			if !cur.inResult || cur.processed {
+			if cur.inResult == 0 {
 				continue
 			}
 
 		BuildPath:
 			windings := 0
 			prev := cur.prev
-			for prev != nil {
-				if prev.inResult {
-					windings = prev.resultWindings
-					break
-				}
-				prev = prev.prev
+			if op != opDIV && prev != nil {
+				windings = prev.resultWindings
 			}
 
 			first := cur
@@ -2215,7 +2225,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 					}
 					if i == i0 {
 						break
-					} else if nodes[i].inResult && !nodes[i].processed && nodes[i].open == first.open {
+					} else if 0 < nodes[i].inResult && nodes[i].open == first.open {
 						next = nodes[i]
 						break
 					}
@@ -2242,9 +2252,11 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 					cur.resultWindings++
 				}
 				cur.other.resultWindings = cur.resultWindings
-				cur.processed, cur.other.processed = true, true
+				cur.other.inResult--
+				cur.inResult--
 			}
-			first.processed, first.other.processed = true, true
+			first.other.inResult--
+			first.inResult--
 
 			if first.open {
 				if Ropen != nil {
@@ -2254,7 +2266,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 					Ropen = nil
 				} else {
 					for _, cur2 := range square.Events {
-						if cur2.inResult && !cur2.processed && cur2.open {
+						if 0 < cur2.inResult && cur2.open {
 							cur = cur2
 							Ropen = &Path{d: make([]float64, len(R.d)-indexR-4)}
 							copy(Ropen.d, R.d[indexR+4:])

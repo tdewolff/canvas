@@ -1816,20 +1816,21 @@ func TestPathNot(t *testing.T) {
 	}
 }
 
-//func TestPathDivideBy(t *testing.T) {
-//	var tts = []struct {
-//		p, q string
-//		r    string
-//	}{
-//		{"L10 0L5 10z", "M0 5L10 5L5 15z", "L10 0L7.5 5L2.5 5zM2.5 5L7.5 5L5 10z"},
-//		{"L2 0L2 2L0 2zM4 0L6 0L6 2L4 2z", "M1 1L5 1L5 3L1 3z", "M0 0L2 0L2 1L1 1L1 2L0 2zM1 1L2 1L2 2L1 2zM4 0L6 0L6 2L5 2L5 1L4 1zM4 1L5 1L5 2L4 2z"},
-//		{"L2 0L2 2L0 2zM4 0L6 0L6 2L4 2z", "M1 1L1 3L5 3L5 1z", "M0 0L2 0L2 1L1 1L1 2L0 2zM1 1L2 1L2 2L1 2zM4 0L6 0L6 2L5 2L5 1L4 1zM4 1L5 1L5 2L4 2z"},
-//	}
-//	for _, tt := range tts {
-//		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
-//			p := MustParseSVGPath(tt.p)
-//			q := MustParseSVGPath(tt.q)
-//			test.T(t, p.DivideBy(q), MustParseSVGPath(tt.r))
-//		})
-//	}
-//}
+func TestPathDivideBy(t *testing.T) {
+	var tts = []struct {
+		p, q string
+		r    string
+	}{
+		{"L10 0L5 10z", "M0 5L10 5L5 15z", "L10 0L7.5 5L2.5 5zM2.5 5L7.5 5L5 10z"},
+		{"L2 0L2 2L0 2zM4 0L6 0L6 2L4 2z", "M1 1L5 1L5 3L1 3z", "M0 0L2 0L2 1L1 1L1 2L0 2zM1 1L2 1L2 2L1 2zM4 0L6 0L6 2L5 2L5 1L4 1zM4 1L5 1L5 2L4 2z"},
+		{"L2 0L2 2L0 2zM4 0L6 0L6 2L4 2z", "M1 1L1 3L5 3L5 1z", "M0 0L2 0L2 1L1 1L1 2L0 2zM1 1L2 1L2 2L1 2zM4 0L6 0L6 2L5 2L5 1L4 1zM4 1L5 1L5 2L4 2z"},
+	}
+	for _, tt := range tts {
+		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
+			p := MustParseSVGPath(tt.p)
+			q := MustParseSVGPath(tt.q)
+			r := p.DivideBy(q)
+			test.T(t, r, MustParseSVGPath(tt.r))
+		})
+	}
+}
