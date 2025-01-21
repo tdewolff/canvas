@@ -73,12 +73,12 @@ func TestPathFastClip(t *testing.T) {
 		t.Run(tt.p, func(t *testing.T) {
 			p := MustParseSVGPath(tt.p)
 			r := MustParseSVGPath(tt.r)
-			test.T(t, p.FastClip(tt.rect.X0, tt.rect.Y0, tt.rect.X1, tt.rect.Y1, p.Closed()), r)
+			test.T(t, p.FastClip(tt.rect.X0, tt.rect.Y0, tt.rect.X1, tt.rect.Y1), r)
 		})
 	}
 }
 
-func TestPathLineClip(t *testing.T) {
+func TestPathClip(t *testing.T) {
 	tests := []struct {
 		p    string
 		rect Rect
@@ -105,7 +105,7 @@ func TestPathLineClip(t *testing.T) {
 		t.Run(tt.p, func(t *testing.T) {
 			p := MustParseSVGPath(tt.p)
 			r := MustParseSVGPath(tt.r)
-			test.T(t, p.LineClip(tt.rect.X0, tt.rect.Y0, tt.rect.X1, tt.rect.Y1), r)
+			test.T(t, p.Clip(tt.rect.X0, tt.rect.Y0, tt.rect.X1, tt.rect.Y1), r)
 		})
 	}
 }

@@ -294,8 +294,7 @@ func (q heapVW) down(i0, n int) bool {
 }
 
 // FastClip removes all segments that are completely outside the given clipping rectangle. To ensure that the removal doesn't cause a segment to cross the rectangle from the outside, it keeps points that cross at least two lines to infinity along the rectangle's edges. This is much quicker (along O(n)) than using p.And(canvas.Rectangle(x1-x0, y1-y0).Translate(x0, y0)) (which is O(n log n)).
-func (p *Path) FastClip(x0, y0, x1, y1 float64, closed bool) *Path {
-	// TODO: check if path is closed while processing instead of as parameter
+func (p *Path) FastClip(x0, y0, x1, y1 float64) *Path {
 	if x1 < x0 {
 		x0, x1 = x1, x0
 	}
@@ -316,6 +315,7 @@ func (p *Path) FastClip(x0, y0, x1, y1 float64, closed bool) *Path {
 	var pendingMoveTo bool
 	var startOutcode int
 	var outcodes int // cumulative of removed segments
+	var closed bool
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		i += cmdLen(cmd)
@@ -326,6 +326,19 @@ func (p *Path) FastClip(x0, y0, x1, y1 float64, closed bool) *Path {
 			outcodes = startOutcode
 			start = end
 			pendingMoveTo = true
+
+			// TODO: use new path format that encodes if closed at the beginning
+			closed = false
+			for j := i; j < len(p.d); {
+				cmd := p.d[j]
+				j += cmdLen(cmd)
+				if cmd == MoveToCmd {
+					break
+				} else if cmd == CloseCmd {
+					closed = true
+					break
+				}
+			}
 			continue
 		}
 
@@ -381,8 +394,9 @@ func (p *Path) FastClip(x0, y0, x1, y1 float64, closed bool) *Path {
 	return q
 }
 
-// LineClip converts the path to line segments between all coordinates and clips those lines against the given rectangle.
-func (p *Path) LineClip(x0, y0, x1, y1 float64) *Path {
+// Clip clips the path against the given rectangle. This is O(n), which is faster than using Path.And(rect.ToPath()) and does not alter
+// the path structurally beyond removing sections.
+func (p *Path) Clip(x0, y0, x1, y1 float64) *Path {
 	if x1 < x0 {
 		x0, x1 = x1, x0
 	}
@@ -397,7 +411,7 @@ func (p *Path) LineClip(x0, y0, x1, y1 float64) *Path {
 		return q
 	}
 
-	var in bool
+	in, inLast := true, false
 	var firstMoveTo, lastMoveTo int
 	var start Point
 	for i := 0; i < len(p.d); {
@@ -405,41 +419,49 @@ func (p *Path) LineClip(x0, y0, x1, y1 float64) *Path {
 		i += cmdLen(cmd)
 
 		end := Point{p.d[i-3], p.d[i-2]}
-		if cmd == MoveToCmd {
-			start = end
-			continue
-		}
-
-		a, b, inEntirely, inPartially := cohenSutherlandLineClip(rect, start, end, 0.0)
-		if inEntirely || inPartially {
-			if !in {
-				lastMoveTo = len(q.d)
-				q.d = append(q.d, MoveToCmd, a.X, a.Y, MoveToCmd)
+		switch cmd {
+		case MoveToCmd:
+			// no-op
+		case LineToCmd, CloseCmd:
+			a, b, inEntirely, inPartially := cohenSutherlandLineClip(rect, start, end, 0.0)
+			if inEntirely || inPartially {
+				if !inLast {
+					lastMoveTo = len(q.d)
+					q.d = append(q.d, MoveToCmd, a.X, a.Y, MoveToCmd)
+					inLast = true
+				}
+				q.d = append(q.d, LineToCmd, b.X, b.Y, LineToCmd)
+			} else {
+				inLast = false
+			}
+			in = in && inEntirely
+			if cmd == CloseCmd {
+				if in {
+					// entire path is inside
+					q.d[len(q.d)-4] = CloseCmd
+					q.d[len(q.d)-1] = CloseCmd
+				} else if inLast && firstMoveTo < lastMoveTo {
+					// connect the last segment with the first
+					if end := len(q.d) - lastMoveTo; end < lastMoveTo-firstMoveTo-4 {
+						tmp := make([]float64, end)
+						copy(tmp, q.d[lastMoveTo:])
+						copy(q.d[firstMoveTo+end:], q.d[firstMoveTo+4:lastMoveTo])
+						copy(q.d[firstMoveTo:], tmp)
+					} else {
+						tmp := make([]float64, lastMoveTo-firstMoveTo-4)
+						copy(tmp, q.d[firstMoveTo+4:lastMoveTo])
+						copy(q.d[firstMoveTo:], q.d[lastMoveTo:])
+						copy(q.d[firstMoveTo+end:], tmp)
+					}
+					q.d = q.d[:len(q.d)-4]
+				}
+				firstMoveTo = len(q.d)
+				lastMoveTo = firstMoveTo
+				inLast = false
 				in = true
 			}
-			q.d = append(q.d, LineToCmd, b.X, b.Y, LineToCmd)
-		} else {
-			in = false
-		}
-		if cmd == CloseCmd {
-			if in && firstMoveTo < lastMoveTo {
-				// connect the last segment with the first
-				if end := len(q.d) - lastMoveTo; end < lastMoveTo-firstMoveTo-4 {
-					tmp := make([]float64, end)
-					copy(tmp, q.d[lastMoveTo:])
-					copy(q.d[firstMoveTo+end:], q.d[firstMoveTo+4:lastMoveTo])
-					copy(q.d[firstMoveTo:], tmp)
-				} else {
-					tmp := make([]float64, lastMoveTo-firstMoveTo-4)
-					copy(tmp, q.d[firstMoveTo+4:lastMoveTo])
-					copy(q.d[firstMoveTo:], q.d[lastMoveTo:])
-					copy(q.d[firstMoveTo+end:], tmp)
-				}
-				q.d = q.d[:len(q.d)-4]
-			}
-			firstMoveTo = len(q.d)
-			lastMoveTo = firstMoveTo
-			in = false
+		case QuadToCmd, CubeToCmd, ArcToCmd:
+			panic("not implemented")
 		}
 		start = end
 	}
