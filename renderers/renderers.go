@@ -210,9 +210,9 @@ func SVGZ(opts ...interface{}) canvas.Writer {
 		}
 	}
 	if options == nil {
-		options := svg.DefaultOptions
+		defaultOptions := svg.DefaultOptions
+		options = &defaultOptions
 		options.Compression = flate.DefaultCompression
-		opts = append(opts, &options)
 	} else if options.Compression < -2 || options.Compression == 0 || 9 < options.Compression {
 		options.Compression = flate.DefaultCompression
 	}

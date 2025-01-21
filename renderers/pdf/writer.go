@@ -450,13 +450,29 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 	toUnicodeRef := w.writeObject(toUnicodeStream)
 
 	// write font program
-	fontfileRef := w.writeObject(pdfStream{
-		dict: pdfDict{
-			"Subtype": pdfName("OpenType"),
-			"Filter":  pdfFilterFlate,
-		},
-		stream: fontProgram,
-	})
+	var cidSubtype string
+	var fontfileKey pdfName
+	var fontfileRef pdfRef
+	if font.SFNT.IsTrueType {
+		cidSubtype = "CIDFontType2"
+		fontfileKey = "FontFile2"
+		fontfileRef = w.writeObject(pdfStream{
+			dict: pdfDict{
+				"Filter": pdfFilterFlate,
+			},
+			stream: fontProgram,
+		})
+	} else if font.SFNT.IsCFF {
+		cidSubtype = "CIDFontType0"
+		fontfileKey = "FontFile3"
+		fontfileRef = w.writeObject(pdfStream{
+			dict: pdfDict{
+				"Subtype": pdfName("OpenType"),
+				"Filter":  pdfFilterFlate,
+			},
+			stream: fontProgram,
+		})
+	}
 
 	// get name and CID subtype
 	name := font.Name()
@@ -473,13 +489,6 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 		encoding = "Identity-V"
 	}
 
-	cidSubtype := ""
-	if font.SFNT.IsTrueType {
-		cidSubtype = "CIDFontType2"
-	} else if font.SFNT.IsCFF {
-		cidSubtype = "CIDFontType0"
-	}
-
 	// in order to support more than 256 characters, we need to use a CIDFont dictionary which must be inside a Type0 font. Character codes in the stream are glyph IDs, however for subsetted fonts they are the _old_ glyph IDs, which is why we need the CIDToGIDMap
 	dict := pdfDict{
 		"Type":      pdfName("Font"),
@@ -488,12 +497,12 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 		"Encoding":  pdfName(encoding), // map character codes in the stream to CID with identity encoding, we additionally map CID to GID in the descendant font when subsetting, otherwise that is also identity
 		"ToUnicode": toUnicodeRef,
 		"DescendantFonts": pdfArray{pdfDict{
-			"Type":        pdfName("Font"),
-			"Subtype":     pdfName(cidSubtype),
-			"BaseFont":    pdfName(baseFont),
-			"DW":          DW,
-			"W":           W,
-			"CIDToGIDMap": pdfName("Identity"),
+			"Type":     pdfName("Font"),
+			"Subtype":  pdfName(cidSubtype),
+			"BaseFont": pdfName(baseFont),
+			"DW":       DW,
+			"W":        W,
+			//"CIDToGIDMap": pdfName("Identity"),
 			"CIDSystemInfo": pdfDict{
 				"Registry":   "Adobe",
 				"Ordering":   "Identity",
@@ -514,7 +523,7 @@ end`, bfRangeCount, bfRange.String(), bfCharCount, bfChar.String())
 				"Descent":     -int(f * float64(font.SFNT.Hhea.Descender)),
 				"CapHeight":   int(f * float64(font.SFNT.OS2.SCapHeight)),
 				"StemV":       80, // taken from Inkscape, should be calculated somehow, maybe use: 10+220*(usWeightClass-50)/900
-				"FontFile3":   fontfileRef,
+				fontfileKey:   fontfileRef,
 			},
 		}},
 	}
