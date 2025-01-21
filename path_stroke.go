@@ -406,6 +406,14 @@ func (p *Path) optimizeInnerBend(i int) {
 			p.d[ai+2] = zs[0].Y
 			if bi == 4 {
 				// inner bend is at the path's start
+				if p.d[i] == CloseCmd {
+					if p.d[ai] == LineToCmd {
+						p.d[ai] = CloseCmd
+						p.d[ai+3] = CloseCmd
+					} else {
+						p.d = append(p.d, CloseCmd, zs[0].X, zs[1].Y, CloseCmd)
+					}
+				}
 				p.d = p.d[:i]
 				p.d[1] = zs[0].X
 				p.d[2] = zs[0].Y
