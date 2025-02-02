@@ -18,6 +18,7 @@ require (
 	github.com/paulmach/orb v0.11.1
 	github.com/paulmach/osm v0.8.0
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
+	github.com/srwiley/scanx v0.0.0-20190309010443-e94503791388
 	github.com/tdewolff/argp v0.0.0-20240625173203-87b04d5d3e52
 	github.com/tdewolff/font v0.0.0-20250120192450-68a3ecdf9008
 	github.com/tdewolff/minify/v2 v2.21.1
@@ -33,7 +34,11 @@ require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	fyne.io/systray v1.11.0 // indirect
 	git.sr.ht/~sbinet/gg v0.6.0 // indirect
+	github.com/BurntSushi/freetype-go v0.0.0-20160129220410-b763ddbfe298 // indirect
+	github.com/BurntSushi/graphics-go v0.0.0-20160129215708-b43f31a4a966 // indirect
 	github.com/BurntSushi/toml v1.4.0 // indirect
+	github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802 // indirect
+	github.com/BurntSushi/xgbutil v0.0.0-20190907113008-ad855c713046 // indirect
 	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/benoitkugler/textlayout v0.3.0 // indirect
@@ -57,6 +62,7 @@ require (
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rymdport/portal v0.2.6 // indirect
+	github.com/srwiley/scanFT v0.0.0-20220128184157-0d1ee492111f // indirect
 	go.mongodb.org/mongo-driver v1.17.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

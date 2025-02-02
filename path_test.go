@@ -2,12 +2,16 @@ package canvas
 
 import (
 	"fmt"
+	"image"
+	"image/png"
 	"math"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/srwiley/scanx"
 	"github.com/tdewolff/test"
+	"golang.org/x/image/vector"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
@@ -943,4 +947,73 @@ func TestPathLengthParametrization(t *testing.T) {
 		return ellipseLength(rx, ry, theta1, theta)
 	}
 	plotPathLengthParametrization("test/len_param_ellipse.png", 20, speed, length, theta1, theta2)
+}
+
+func BenchmarkToRasterizer(b *testing.B) {
+	res := DPMM(1.0)
+	data, err := os.ReadFile("resources/netherlands.path")
+	if err != nil {
+		panic(err)
+	}
+	p, err := ParseSVGPath(string(data))
+	if err != nil {
+		panic(err)
+	}
+	bounds := p.FastBounds()
+	p = p.Transform(Identity.Scale(1.0, -1.0).Translate(-bounds.X0, -bounds.Y1))
+
+	w, h := math.Ceil(float64(res)*bounds.W()), math.Ceil(float64(res)*bounds.H())
+	rect := image.Rect(0, 0, int(w), int(h))
+	img := image.NewRGBA(rect)
+	ras := &vector.Rasterizer{}
+	ras.Reset(int(w), int(h))
+
+	src := image.NewUniform(image.Black)
+	p.ToRasterizer(ras, res)
+	ras.Draw(img, rect, src, image.Point{0, 0})
+
+	f, _ := os.Create("ToRasterizer.png")
+	defer f.Close()
+	(&png.Encoder{}).Encode(f, img)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ras.Reset(int(w), int(h))
+		p.ToRasterizer(ras, res)
+		ras.Draw(img, rect, src, image.Point{0, 0})
+	}
+}
+
+func BenchmarkToScanx(b *testing.B) {
+	res := DPMM(1.0)
+	data, err := os.ReadFile("resources/netherlands.path")
+	if err != nil {
+		panic(err)
+	}
+	p, err := ParseSVGPath(string(data))
+	if err != nil {
+		panic(err)
+	}
+	bounds := p.FastBounds()
+	p = p.Transform(Identity.Scale(1.0, -1.0).Translate(-bounds.X0, -bounds.Y1))
+
+	w, h := math.Ceil(float64(res)*bounds.W()), math.Ceil(float64(res)*bounds.H())
+	img := image.NewRGBA(image.Rect(0, 0, int(w), int(h)))
+	spanner := scanx.NewImgSpanner(img)
+	scanner := scanx.NewScanner(spanner, int(w), int(h))
+
+	scanner.SetColor(image.Black)
+	p.ToScanx(scanner, h*float64(res), res)
+	scanner.Draw()
+
+	f, _ := os.Create("ToScanx.png")
+	defer f.Close()
+	(&png.Encoder{}).Encode(f, img)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		scanner.Clear()
+		p.ToScanx(scanner, h*float64(res), res)
+		scanner.Draw()
+	}
 }
