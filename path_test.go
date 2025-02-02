@@ -950,7 +950,7 @@ func TestPathLengthParametrization(t *testing.T) {
 }
 
 func BenchmarkToRasterizer(b *testing.B) {
-	res := DPMM(1.0)
+	res := DPMM(0.5)
 	data, err := os.ReadFile("resources/netherlands.path")
 	if err != nil {
 		panic(err)
@@ -985,7 +985,7 @@ func BenchmarkToRasterizer(b *testing.B) {
 }
 
 func BenchmarkToScanx(b *testing.B) {
-	res := DPMM(1.0)
+	res := DPMM(0.5)
 	data, err := os.ReadFile("resources/netherlands.path")
 	if err != nil {
 		panic(err)
@@ -1003,7 +1003,7 @@ func BenchmarkToScanx(b *testing.B) {
 	scanner := scanx.NewScanner(spanner, int(w), int(h))
 
 	scanner.SetColor(image.Black)
-	p.ToScanx(scanner, h*float64(res), res)
+	p.ToScanx(scanner, h, res)
 	scanner.Draw()
 
 	f, _ := os.Create("ToScanx.png")
@@ -1013,7 +1013,7 @@ func BenchmarkToScanx(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		scanner.Clear()
-		p.ToScanx(scanner, h*float64(res), res)
+		p.ToScanx(scanner, h, res)
 		scanner.Draw()
 	}
 }
