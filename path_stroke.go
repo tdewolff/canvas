@@ -4,6 +4,13 @@ import (
 	"math"
 )
 
+// FastStroke skips "settling" the resulting paths for Path.Offset and Path.Stroke, which ensures a well-formed path without overlapping
+// nor holes. This fixes overlapping strokes or the inner-bend for corners. Inner-bends are currently already fixed for two line
+// segments, but will otherwise leave a hole. Overlapping strokes may not be a problem when using the NonZero winding order for drawing.
+// Strokes that are significantly larger than the path itself may be problematic with this enabled, but it may provide a stark
+// performance gain for most (trivial) cases.
+var FastStroke = false
+
 // NOTE: implementation inspired from github.com/golang/freetype/raster/stroke.go
 
 // Capper implements Cap, with rhs the path to append to, halfWidth the half width of the stroke, pivot the pivot point around which to construct a cap, and n0 the normal at the start of the path. The length of n0 is equal to the halfWidth.
@@ -643,7 +650,7 @@ func (p *Path) Offset(w float64, tolerance float64) *Path {
 		} else {
 			r = lhs
 		}
-		if pi.Closed() {
+		if pi.Closed() && !FastStroke {
 			if pi.CCW() {
 				r = r.Settle(Positive)
 			} else {
@@ -671,17 +678,31 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path 
 			continue
 		} else if lhs == nil {
 			// open path
-			q = q.Append(rhs.Settle(Positive))
+			if FastStroke {
+				q = q.Append(rhs)
+			} else {
+				q = q.Append(rhs.Settle(Positive))
+			}
 		} else {
 			// closed path
 			// inner path should go opposite direction to cancel the outer path
 			if pi.CCW() {
-				q = q.Append(rhs.Settle(Positive))
-				q = q.Append(lhs.Settle(Positive).Reverse())
+				if FastStroke {
+					q = q.Append(rhs)
+					q = q.Append(lhs.Reverse())
+				} else {
+					q = q.Append(rhs.Settle(Positive))
+					q = q.Append(lhs.Settle(Positive).Reverse())
+				}
 			} else {
 				// outer first, then inner
-				q = q.Append(lhs.Settle(Negative))
-				q = q.Append(rhs.Settle(Negative).Reverse())
+				if FastStroke {
+					q = q.Append(lhs.Reverse())
+					q = q.Append(rhs)
+				} else {
+					q = q.Append(lhs.Settle(Negative))
+					q = q.Append(rhs.Settle(Negative).Reverse())
+				}
 			}
 		}
 	}
