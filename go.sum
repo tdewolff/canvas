@@ -360,10 +360,14 @@ github.com/tdewolff/argp v0.0.0-20240625173203-87b04d5d3e52 h1:bHOA+qzNf3CwchHAI
 github.com/tdewolff/argp v0.0.0-20240625173203-87b04d5d3e52/go.mod h1:e1dkYfBKpwfFhwXWrQpEU2ClFgxYOT4SrHd6fKD7nIE=
 github.com/tdewolff/font v0.0.0-20250120192450-68a3ecdf9008 h1:qjVwh/3ItmR7J2cZt8vfpwGOwG8Azw7TAk1O9oD6O+4=
 github.com/tdewolff/font v0.0.0-20250120192450-68a3ecdf9008/go.mod h1:qCEdvMrY8e5eoJdaYEDaCV9NYKzlFCYFPUQwlGHJ9tk=
+github.com/tdewolff/font v0.0.0-20250206205927-2dd4de7757d6 h1:VJM1cGhZSiordZBwghC8wef/cz3rrhqbXZYXwUqrp2Q=
+github.com/tdewolff/font v0.0.0-20250206205927-2dd4de7757d6/go.mod h1:qCEdvMrY8e5eoJdaYEDaCV9NYKzlFCYFPUQwlGHJ9tk=
 github.com/tdewolff/minify/v2 v2.21.1 h1:AAf5iltw6+KlUvjRNPAPrANIXl3XEJNBBzuZom5iCAM=
 github.com/tdewolff/minify/v2 v2.21.1/go.mod h1:PoqFH8ugcuTUvKqVM9vOqXw4msxvuhL/DTmV5ZXhSCI=
 github.com/tdewolff/parse/v2 v2.7.19 h1:7Ljh26yj+gdLFEq/7q9LT4SYyKtwQX4ocNrj45UCePg=
 github.com/tdewolff/parse/v2 v2.7.19/go.mod h1:3FbJWZp3XT9OWVN3Hmfp0p/a08v4h8J9W1aghka0soA=
+github.com/tdewolff/parse/v2 v2.7.21-0.20250206205826-9029f397cf8a h1:2hOV4HU2cyuuSQHUt7ffDIcDZmNH+dlCVjVx3K86lls=
+github.com/tdewolff/parse/v2 v2.7.21-0.20250206205826-9029f397cf8a/go.mod h1:3FbJWZp3XT9OWVN3Hmfp0p/a08v4h8J9W1aghka0soA=
 github.com/tdewolff/test v1.0.6/go.mod h1:6DAvZliBAAnD7rhVgwaM7DE5/d9NMOAJ09SqYqeK4QE=
 github.com/tdewolff/test v1.0.11-0.20231101010635-f1265d231d52/go.mod h1:6DAvZliBAAnD7rhVgwaM7DE5/d9NMOAJ09SqYqeK4QE=
 github.com/tdewolff/test v1.0.11-0.20240106005702-7de5f7df4739 h1:IkjBCtQOOjIn03u/dMQK9g+Iw9ewps4mCl1nB8Sscbo=

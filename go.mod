@@ -20,9 +20,9 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/srwiley/scanx v0.0.0-20190309010443-e94503791388
 	github.com/tdewolff/argp v0.0.0-20240625173203-87b04d5d3e52
-	github.com/tdewolff/font v0.0.0-20250120192450-68a3ecdf9008
+	github.com/tdewolff/font v0.0.0-20250206205927-2dd4de7757d6
 	github.com/tdewolff/minify/v2 v2.21.1
-	github.com/tdewolff/parse/v2 v2.7.19
+	github.com/tdewolff/parse/v2 v2.7.21-0.20250206205826-9029f397cf8a
 	github.com/tdewolff/test v1.0.11-0.20240106005702-7de5f7df4739
 	github.com/wcharczuk/go-chart/v2 v2.1.2
 	golang.org/x/image v0.23.0
