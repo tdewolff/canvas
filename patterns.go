@@ -8,7 +8,7 @@ import (
 type Pattern interface {
 	SetView(Matrix) Pattern
 	SetColorSpace(ColorSpace) Pattern
-	ClipTo(Renderer, *Path)
+	RenderTo(Renderer, *Path)
 }
 
 //type CanvasPattern struct {
@@ -126,8 +126,8 @@ func (p *HatchPattern) Tile(clip *Path) *Path {
 	return hatch
 }
 
-// ClipTo tiles the hatch pattern to the clipping path and renders it to the renderer.
-func (p *HatchPattern) ClipTo(r Renderer, clip *Path) {
+// RenderTo tiles the hatch pattern to the clipping path and renders it to the renderer.
+func (p *HatchPattern) RenderTo(r Renderer, clip *Path) {
 	hatch := p.Tile(clip)
 	r.RenderPath(hatch, Style{Fill: p.Fill}, Identity)
 }

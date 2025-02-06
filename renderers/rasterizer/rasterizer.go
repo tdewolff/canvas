@@ -2,12 +2,14 @@ package rasterizer
 
 import (
 	"image"
+	"image/color"
 	"math"
 
+	"github.com/srwiley/rasterx"
+	"github.com/srwiley/scanx"
 	"github.com/tdewolff/canvas"
 	"golang.org/x/image/draw"
 	"golang.org/x/image/math/f64"
-	"golang.org/x/image/vector"
 )
 
 // TODO: add ASM optimized version for NRGBA images, since those are much faster to write as PNG
@@ -27,7 +29,8 @@ type Rasterizer struct {
 	resolution canvas.Resolution
 	colorSpace canvas.ColorSpace
 
-	ras *vector.Rasterizer // reuse
+	spanner *scanx.ImgSpanner
+	scanner *scanx.Scanner
 }
 
 // New returns a renderer that draws to a rasterized image. The final width and height of the image is the width and height (mm) multiplied by the resolution (px/mm), thus a higher resolution results in larger images. By default the linear color space is used, which assumes input and output colors are in linearRGB. If the sRGB color space is used for drawing with an average of gamma=2.2, the input and output colors are assumed to be in sRGB (a common assumption) and blending happens in linearRGB. Be aware that for text this results in thin stems for black-on-white (but wide stems for white-on-black).
@@ -48,12 +51,14 @@ func FromImage(img draw.Image, resolution canvas.Resolution, colorSpace canvas.C
 	if colorSpace == nil {
 		colorSpace = canvas.DefaultColorSpace
 	}
+	spanner := scanx.NewImgSpanner(img)
 	return &Rasterizer{
 		Image:      img,
 		resolution: resolution,
 		colorSpace: colorSpace,
 
-		ras: &vector.Rasterizer{},
+		spanner: spanner,
+		scanner: scanx.NewScanner(spanner, bounds.Dx(), bounds.Dy()),
 	}
 }
 
@@ -95,63 +100,32 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		}
 	}
 
-	padding := 2
-	dx, dy := 0, 0
-	origin := r.Bounds().Min
 	size := r.Bounds().Size()
-	dpmm := r.resolution.DPMM()
-	x := int(bounds.X0*dpmm) - padding
-	y := size.Y - int((bounds.Y1)*dpmm) - padding
-	w := int(bounds.W()*dpmm) + 2*padding
-	h := int(bounds.H()*dpmm) + 2*padding
-	if (x+w <= origin.X || origin.X+size.X <= x) && (y+h <= origin.Y || origin.Y+size.Y <= y) {
-		return // outside canvas
-	}
-
-	zp := image.Point{x, y}
-	if x < origin.X {
-		dx = -x
-		x = origin.X
-	}
-	if y < origin.Y {
-		dy = -y
-		y = origin.Y
-	}
-	if origin.X+size.X <= x+w {
-		w = origin.X + size.X - x
-	}
-	if origin.Y+size.Y <= y+h {
-		h = origin.Y + size.Y - y
-	}
-	if w <= 0 || h <= 0 {
-		return // has no size
-	}
-
 	if style.HasFill() {
 		if style.Fill.IsPattern() {
 			if hatch, ok := style.Fill.Pattern.(*canvas.HatchPattern); ok {
 				style.Fill = hatch.Fill
 				fill = hatch.Tile(fill)
+			} else {
+				pattern := style.Fill.Pattern.SetColorSpace(r.colorSpace)
+				pattern.RenderTo(r, fill)
 			}
 		}
-
-		var src image.Image
-		if style.Fill.IsColor() {
-			c := r.colorSpace.ToLinear(style.Fill.Color)
-			src = image.NewUniform(r.Image.ColorModel().Convert(c))
-		} else if style.Fill.IsGradient() {
+		if style.Fill.IsGradient() {
 			gradient := style.Fill.Gradient.SetColorSpace(r.colorSpace)
-			src = NewGradientImage(gradient, zp, size, r.resolution)
-			// TODO: convert to dst color model
-		} else if style.Fill.IsPattern() {
-			pattern := style.Fill.Pattern.SetColorSpace(r.colorSpace)
-			pattern.ClipTo(r, fill)
-		}
-		if src != nil {
-			r.ras.Reset(w, h)
-			fill = fill.Translate(-float64(x)/dpmm, -float64(size.Y-y-h)/dpmm)
-			fill.ToRasterizer(r.ras, r.resolution)
-			r.ras.Draw(r.Image, image.Rect(x, y, x+w, y+h), src, image.Point{dx, dy})
+			r.scanner.Clear()
+			r.scanner.SetColor(rasterx.ColorFunc(func(x, y int) color.Color {
+				// TODO: convert to dst color model
+				return gradient.At(float64(x), float64(y))
+			}))
+			fill.ToScanxScanner(r.scanner, float64(size.Y), r.resolution)
+			r.scanner.Draw()
+		} else if style.Fill.IsColor() {
+			c := r.colorSpace.ToLinear(style.Fill.Color)
+			r.scanner.Clear()
+			r.scanner.SetColor(color.Color(r.Image.ColorModel().Convert(c)))
+			fill.ToScanxScanner(r.scanner, float64(size.Y), r.resolution)
+			r.scanner.Draw()
 		}
 	}
 	if style.HasStroke() {
@@ -159,26 +133,26 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 			if hatch, ok := style.Stroke.Pattern.(*canvas.HatchPattern); ok {
 				style.Stroke = hatch.Fill
 				stroke = hatch.Tile(stroke)
+			} else {
+				pattern := style.Stroke.Pattern.SetColorSpace(r.colorSpace)
+				pattern.RenderTo(r, stroke)
 			}
 		}
-
-		var src image.Image
-		if style.Stroke.IsColor() {
-			c := r.colorSpace.ToLinear(style.Stroke.Color)
-			src = image.NewUniform(r.Image.ColorModel().Convert(c))
-		} else if style.Stroke.IsGradient() {
+		if style.Stroke.IsGradient() {
 			gradient := style.Stroke.Gradient.SetColorSpace(r.colorSpace)
-			src = NewGradientImage(gradient, zp, size, r.resolution)
-			// TODO: convert to dst color model
-		} else if style.Stroke.IsPattern() {
-			pattern := style.Stroke.Pattern.SetColorSpace(r.colorSpace)
-			pattern.ClipTo(r, stroke)
-		}
-		if src != nil {
-			r.ras.Reset(w, h)
-			stroke = stroke.Translate(-float64(x)/dpmm, -float64(size.Y-y-h)/dpmm)
-			stroke.ToRasterizer(r.ras, r.resolution)
-			r.ras.Draw(r.Image, image.Rect(x, y, x+w, y+h), src, image.Point{dx, dy})
+			r.scanner.Clear()
+			r.scanner.SetColor(rasterx.ColorFunc(func(x, y int) color.Color {
+				// TODO: convert to dst color model
+				return gradient.At(float64(x), float64(y))
+			}))
+			stroke.ToScanxScanner(r.scanner, float64(size.Y), r.resolution)
+			r.scanner.Draw()
+		} else if style.Stroke.IsColor() {
+			c := r.colorSpace.ToLinear(style.Stroke.Color)
+			r.scanner.Clear()
+			r.scanner.SetColor(color.Color(r.Image.ColorModel().Convert(c)))
+			stroke.ToScanxScanner(r.scanner, float64(size.Y), r.resolution)
+			r.scanner.Draw()
 		}
 	}
 }
