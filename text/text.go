@@ -13,6 +13,10 @@ type ScriptItem struct {
 	Text  string
 }
 
+func (item *ScriptItem) String() string {
+	return fmt.Sprintf("{%v %v %v}", item.Script, item.Level, item.Text)
+}
+
 // ScriptItemizer divides the string in parts for each different script. Also separates on different embedding levels and unicode.ReplacementChar (replaced by object).
 func ScriptItemizer(runes []rune, embeddingLevels []int) []ScriptItem {
 	if len(runes) == 0 {
@@ -27,8 +31,10 @@ func ScriptItemizer(runes []rune, embeddingLevels []int) []ScriptItem {
 		if script == ScriptInherited {
 			if r == '\u200C' || r == '\u200D' {
 				script = ScriptCommon
+			} else if level < len(scripts) {
+				script = scripts[level] // take level from preceding base character
 			} else {
-				script = scripts[level] // take leven from preceding base character
+				script = ScriptUnknown
 			}
 		}
 		prevScript := scripts[len(scripts)-1]
