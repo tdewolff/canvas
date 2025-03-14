@@ -48,7 +48,7 @@ func (r *pdfReader) readEncrypt(password []byte) error {
 	V, _ := encrypt["V"].(int)
 	if V != 1 && V != 2 && V != 4 {
 		return fmt.Errorf("bad encryption algorithm")
-	} else if V != 2 {
+	} else if V == 4 {
 		return fmt.Errorf("unsupported encryption algorithm")
 	}
 	length, ok := encrypt["Length"].(int)

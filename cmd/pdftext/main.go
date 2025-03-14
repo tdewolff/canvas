@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/tdewolff/argp"
 )
@@ -18,16 +19,21 @@ type Extract struct {
 	Input    string `index:"0" desc:"Input file"`
 }
 
+type Change struct {
+}
+
 type Replace struct {
-	Page     int    `short:"p" default:"0" desc:"Page"`
-	XObj     string `desc:"XObject"`
-	Index    int    `short:"i" default:"-1" desc:"String index to replace"`
-	String   string `short:"s" desc:"Text replacement"`
-	XOffset  int    `desc:"Text X-offset in font units"`
-	Spacing  string `default:"none" desc:"Character spacing type, 'none' for regular spacing, a number for character spacing"`
-	Password string `default:"" desc:"Password"`
-	Output   string `short:"o" desc:"Output file"`
-	Input    string `index:"0" desc:"Input file"`
+	Page      int    `short:"p" default:"0" desc:"Page"`
+	XObj      string `desc:"XObject"`
+	Index     int    `short:"i" default:"-1" desc:"String index to replace"`
+	Info      string `desc:"Update info instead of string, either Producer or CreationDate"`
+	String    string `short:"s" desc:"Text replacement"`
+	Alignment string `short:"a" default:"L" desc:"Text alignment: L, C, R"`
+	XOffset   int    `desc:"Text X-offset in font units"`
+	Spacing   string `default:"none" desc:"Character spacing type, 'none' for regular spacing, a number for character spacing"`
+	Password  string `default:"" desc:"Password"`
+	Output    string `short:"o" desc:"Output file"`
+	Input     string `index:"0" desc:"Input file"`
 }
 
 func main() {
@@ -106,11 +112,24 @@ func (cmd *Extract) Run() error {
 func (cmd *Replace) Run() error {
 	if cmd.Input == "" {
 		return argp.ShowUsage
-	} else if cmd.Index == -1 {
+	} else if cmd.Index == -1 && cmd.Info == "" {
 		fmt.Println("ERROR: must specify string index to replace")
 		return argp.ShowUsage
 	} else if cmd.Output == "" {
 		cmd.Output = cmd.Input
+	}
+
+	alignment := "left"
+	switch strings.ToLower(cmd.Alignment) {
+	case "", "l", "left":
+		alignment = "left"
+	case "c", "center", "centre":
+		alignment = "center"
+	case "r", "right":
+		alignment = "right"
+	default:
+		fmt.Println("ERROR: alignment must be L, C, or R")
+		return argp.ShowUsage
 	}
 
 	fr, err := os.Open(cmd.Input)
@@ -157,9 +176,13 @@ func (cmd *Replace) Run() error {
 				b.WriteString(" Tc T*")
 			}
 
+			offset := cmd.XOffset
+			if alignment == "center" || alignment == "right" {
+			}
+
 			array := pdfArray{}
-			if cmd.XOffset != 0 {
-				array = append(array, -cmd.XOffset)
+			if offset != 0 {
+				array = append(array, -offset)
 			}
 			if space, err := strconv.ParseInt(cmd.Spacing, 10, 64); err == nil {
 				di := state.fonts[state.fontName].Bytes()

@@ -522,13 +522,15 @@ func (r *pdfReader) getFontProgram(fontDescriptor pdfDict) (*font.SFNT, error) {
 	} else if _, ok := fontDescriptor["FontFile"]; ok {
 		return nil, fmt.Errorf("unsupported FontFile type")
 	}
-	return nil, fmt.Errorf("missing font program")
+	return nil, nil // standard font
 }
 
-func (r *pdfReader) getBuiltinEncoding(fontType pdfName, fontDescriptor pdfDict) (builtinEncoding, error) {
+func (r *pdfReader) getBuiltinEncoding(fontType pdfName, fontDescriptor pdfDict) (encoding, error) {
 	sfnt, err := r.getFontProgram(fontDescriptor)
 	if err != nil {
 		return builtinEncoding{}, err
+	} else if sfnt == nil {
+		return standardEncoding{}, nil // standard font
 	}
 	bytes := 1
 	if fontType == pdfName("CIDFontType0") || fontType == pdfName("CIDFontType2") {
