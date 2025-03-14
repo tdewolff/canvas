@@ -60,6 +60,11 @@ func (r *PDF) SetInfo(title, subject, keywords, author, creator string) {
 	r.w.pdf.SetCreator(creator)
 }
 
+// SetLang sets the document's language. It must adhere the RFC 3066 specification on Language-Tag, eg. es-CL.
+func (r *PDF) SetLang(lang string) {
+	r.w.pdf.SetLang(lang)
+}
+
 // NewPage starts adds a new page where further rendering will be written to.
 func (r *PDF) NewPage(width, height float64) {
 	r.w = r.w.pdf.NewPage(width, height)
