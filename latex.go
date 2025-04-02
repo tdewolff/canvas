@@ -91,15 +91,17 @@ func ParseLaTeX(formula string) (*Path, error) {
 }
 
 type dviFonts struct {
-	font map[string]*dviFont
+	font     map[string]*dviFont
+	mathSyms *dviFont // always available as backup for any rune
 }
 
 type dviFont struct {
-	sfnt   *canvasFont.SFNT
-	cmap   map[uint32]rune
-	size   float64
-	italic bool
-	ex     bool // is it cmex?
+	sfnt     *canvasFont.SFNT
+	cmap     map[uint32]rune
+	size     float64
+	italic   bool
+	ex       bool     // is it cmex?
+	mathSyms *dviFont // always available as backup for any rune
 }
 
 func newFonts() *dviFonts {
@@ -117,6 +119,10 @@ func (fs *dviFonts) Get(name string, scale float64) DVIFont {
 	fontsize := 10.0
 	if ifontsize, err := strconv.Atoi(name[i:]); err == nil {
 		fontsize = float64(ifontsize)
+	}
+
+	if fs.mathSyms == nil {
+		fs.mathSyms = fs.loadFont("cmsy", cmapCMSY, 10.0, scale, lmmath.TTF)
 	}
 
 	cmap := cmapCMR
@@ -283,29 +289,43 @@ func (fs *dviFonts) Get(name string, scale float64) DVIFont {
 			}
 		}
 
-		// load font
-		sfnt, err := canvasFont.ParseSFNT(data, 0)
-		if err != nil {
-			fmt.Println("ERROR: %w", err)
-		}
-
-		// calculate size correction if the found font has a different font size than requested
-		fsize := scale * fontsize * mmPerPt / float64(sfnt.Head.UnitsPerEm)
-		//fsizeCorr := fontsize / size
-		isItalic := 0 < len(fontname) && fontname[len(fontname)-1] == 'i'
-		fsizeCorr := 1.0
-		isEx := fontname == "cmex"
-
-		f = &dviFont{sfnt, cmap, fsizeCorr * fsize, isItalic, isEx}
+		f = fs.loadFont(fontname, cmap, fontsize, scale, data)
 		fs.font[name] = f
 	}
 	return f
+}
+
+func (fs *dviFonts) loadFont(fontname string, cmap map[uint32]rune, fontsize, scale float64, data []byte) *dviFont {
+	sfnt, err := canvasFont.ParseSFNT(data, 0)
+	if err != nil {
+		fmt.Println("ERROR: %w", err)
+	}
+
+	// calculate size correction if the found font has a different font size than requested
+	fsize := scale * fontsize * mmPerPt / float64(sfnt.Head.UnitsPerEm)
+	//fsizeCorr := fontsize / size
+	isItalic := 0 < len(fontname) && fontname[len(fontname)-1] == 'i'
+	fsizeCorr := 1.0
+	isEx := fontname == "cmex"
+	return &dviFont{sfnt, cmap, fsizeCorr * fsize, isItalic, isEx, fs.mathSyms}
 }
 
 func (f *dviFont) Draw(p canvasFont.Pather, x, y float64, cid uint32) float64 {
 	face := f.sfnt
 	r := f.cmap[cid]
 	gid := face.GlyphIndex(r)
+	if gid == 0 {
+		if f.mathSyms != nil {
+			face = f.mathSyms.sfnt
+			gid = face.GlyphIndex(r)
+			if gid == 0 {
+				fmt.Println("rune not found in mathSyms:", string(r))
+			}
+		} else {
+			fmt.Println("rune not found:", string(r))
+		}
+	}
+
 	if f.italic {
 		x -= f.size * float64(face.OS2.SxHeight) / 2.0 * math.Tan(-face.Post.ItalicAngle*math.Pi/180.0)
 	}
