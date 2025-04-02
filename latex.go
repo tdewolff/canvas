@@ -99,6 +99,7 @@ type dviFont struct {
 	cmap   map[uint32]rune
 	size   float64
 	italic bool
+	ex     bool // is it cmex?
 }
 
 func newFonts() *dviFonts {
@@ -293,21 +294,154 @@ func (fs *dviFonts) Get(name string, scale float64) DVIFont {
 		//fsizeCorr := fontsize / size
 		isItalic := 0 < len(fontname) && fontname[len(fontname)-1] == 'i'
 		fsizeCorr := 1.0
+		isEx := fontname == "cmex"
 
-		f = &dviFont{sfnt, cmap, fsizeCorr * fsize, isItalic}
+		f = &dviFont{sfnt, cmap, fsizeCorr * fsize, isItalic, isEx}
 		fs.font[name] = f
 	}
 	return f
 }
 
 func (f *dviFont) Draw(p canvasFont.Pather, x, y float64, cid uint32) float64 {
+	face := f.sfnt
 	r := f.cmap[cid]
-	gid := f.sfnt.GlyphIndex(r)
+	gid := face.GlyphIndex(r)
 	if f.italic {
-		x -= f.size * float64(f.sfnt.OS2.SxHeight) / 2.0 * math.Tan(-f.sfnt.Post.ItalicAngle*math.Pi/180.0)
+		x -= f.size * float64(face.OS2.SxHeight) / 2.0 * math.Tan(-face.Post.ItalicAngle*math.Pi/180.0)
 	}
-	_ = f.sfnt.GlyphPath(p, gid, 0, x, y, f.size, canvasFont.NoHinting)
-	return f.size * float64(f.sfnt.GlyphAdvance(gid)) // in mm
+	size := f.size
+	if f.ex {
+		_, ymin, _, ymax := face.GlyphBounds(gid)
+		yb := float64(max(ymin, ymax))
+		if exsc, has := cmexScales[cid]; has {
+			size *= exsc
+		}
+		y -= size * yb
+	}
+	_ = face.GlyphPath(p, gid, 0, x, y, size, canvasFont.NoHinting)
+	return size * float64(face.GlyphAdvance(gid)) // in mm
+}
+
+const (
+	// magnification factors that seem to work: not quite official tex but sorta
+	mag1 = 1.2
+	mag2 = 1.2 * 1.2
+	mag3 = 1.2 * 1.2 * 1.2
+	mag4 = 1.2 * 1.2 * 1.2 * 1.2 * 1.2
+	mag5 = 3.2
+)
+
+// cmexScales has per-character (original ASCII numbers) scaling factors
+// for the cmex10 font.
+var cmexScales = map[uint32]float64{
+	0x00: mag1,
+	0x01: mag1,
+	0x02: mag1,
+	0x03: mag1,
+	0x04: mag1,
+	0x05: mag1,
+	0x06: mag1,
+	0x07: mag1,
+	0x08: mag1,
+	0x0A: mag1,
+	0x0B: mag1,
+	0x0C: mag1,
+	0x0D: mag1,
+	0x0E: mag1,
+	0x0F: mag1,
+
+	0x10: mag3, // (
+	0x11: mag3, // )
+	0x12: mag4, // (
+	0x13: mag4, // )
+	0x14: mag4, // [
+	0x15: mag4, // ]
+	0x16: mag4, // ⌊
+	0x17: mag4, // ⌋
+	0x18: mag4, // ⌈
+	0x19: mag4, // ⌉
+	0x1A: mag4, // {
+	0x1B: mag4, // }
+	0x1C: mag4, // 〈
+	0x1D: mag4, // 〉
+	0x1E: mag4, // ∕
+	0x1F: mag4, // \
+
+	0x20: mag5, // (
+	0x21: mag5, // )
+	0x22: mag5, // [
+	0x23: mag5, // ]
+	0x24: mag5, // ⌊
+	0x25: mag5, // ⌋
+	0x26: mag5, // ⌈
+	0x27: mag5, // ⌉
+	0x28: mag5, // {
+	0x29: mag5, // }
+	0x2A: mag5, // 〈
+	0x2B: mag5, // 〉
+	0x2C: mag5, // ∕
+	0x2D: mag5, // \
+	0x2E: mag3, // ∕
+	0x2F: mag3, // \
+
+	0x30: mag2, // ⎛
+	0x31: mag2, // ⎞
+	0x32: mag2, // ⌈
+	0x33: mag2, // ⌉
+	0x34: mag2, // ⌊
+	0x35: mag2, // ⌋
+	0x36: mag2, // ⎢
+	0x37: mag2, // ⎥
+
+	0x38: mag2, // ⎧ // big braces start
+	0x39: mag2, // ⎫
+	0x3A: mag2, // ⎩
+	0x3B: mag2, // ⎭
+	0x3C: mag2, // ⎨
+	0x3D: mag2, // ⎬
+	0x3E: mag2, // ⎪
+	0x3F: mag2, // ∣ ?? unclear
+
+	0x40: mag2, // ⎝ // big parens
+	0x41: mag2, // ⎠
+	0x42: mag2, // ⎜
+	0x43: mag2, // ⎟
+	0x44: mag2, // 〈
+	0x45: mag2, // 〉
+	0x47: mag2, // ⨆
+	0x49: mag2, // ∮
+	0x4B: mag2, // ⨀
+	0x4D: mag2, // ⨁
+	0x4F: mag2, // ⨂
+
+	0x58: mag2, // ∑
+	0x59: mag2, // ∏
+	0x5A: mag2, // ∫
+	0x5B: mag2, // ⋃
+	0x5C: mag2, // ⋂
+	0x5D: mag2, // ⨄
+	0x5E: mag2, // ⋀
+	0x5F: mag2, // ⋁
+
+	0x61: mag2, // ∐
+	0x63: mag2, // ̂
+	0x64: mag4, // ̂
+	0x66: mag2, // ˜
+	0x67: mag4, // ˜
+	0x68: mag3, // [
+	0x69: mag3, // ]
+	0x6B: mag2, // ⌋
+	0x6C: mag2, // ⌈
+	0x6D: mag2, // ⌉
+	0x6E: mag3, // {
+	0x6F: mag3, // }
+
+	0x71: mag3, // √
+	0x72: mag4, // √
+	0x73: mag5, // √
+	0x74: mag1, // ⎷
+	0x75: mag1, // ⏐
+	0x76: mag1, // ⌜
 }
 
 var cmapCMR = map[uint32]rune{

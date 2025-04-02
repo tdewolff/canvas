@@ -1,9 +1,9 @@
 package startex_test
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/tdewolff/canvas"
@@ -46,15 +46,13 @@ func TestStarTex(t *testing.T) {
 		// if test.name != "partial-text" {
 		// 	continue
 		// }
-		// src := `$a = \left[ \prod_i^j \sum_i^j f_i^j \right]$`
-		fmt.Println(test.name)
 		src := test.tex
 		p, err := canvas.ParseLaTeX(src)
 		if err != nil {
 			t.Error(err)
 		}
-		w := 50.0
-		h := 15.0
+		w := 80.0
+		h := 20.0
 		c := canvas.New(w, h)
 		ctx := canvas.NewContext(c)
 
@@ -62,10 +60,15 @@ func TestStarTex(t *testing.T) {
 		ctx.DrawPath(0.0, 0.0, canvas.Rectangle(w, h))
 
 		ctx.SetFillColor(canvas.Black)
-		ctx.DrawPath(1.0, 5.0, p)
+		x := 1.0
+		y := 5.0
+		if strings.Contains(test.name, "-all") {
+			y = 20
+		}
+
+		ctx.DrawPath(x, y, p)
 
 		fname := filepath.Join("testdata", test.name+".png")
-		fmt.Println(fname)
-		renderers.Write(fname, c, canvas.DPMM(10))
+		renderers.Write(fname, c, canvas.DPMM(8))
 	}
 }
