@@ -310,14 +310,48 @@ func (f *dviFont) Draw(p canvasFont.Pather, x, y float64, cid uint32) float64 {
 		x -= f.size * float64(face.OS2.SxHeight) / 2.0 * math.Tan(-face.Post.ItalicAngle*math.Pi/180.0)
 	}
 	size := f.size
+	xsc := 1.0
 	if f.ex {
 		_, ymin, _, ymax := face.GlyphBounds(gid)
 		yb := float64(max(ymin, ymax))
 		if exsc, has := cmexScales[cid]; has {
 			size *= exsc
 		}
+		switch cid {
+		case 0x5A, 0x49: // \int and \oint are off in large size
+			yb += 200
+		case 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F:
+			// larger delims are too thick
+			xsc = .7
+		case 0x20, 0x21, 0x22, 0x23, 0x28, 0x29, 0x2A, 0x2B:
+			// same for even larger ones
+			xsc = .6
+		case 0x3C, 0x3D: // braces middles need shifting
+			yb += 150
+		case 0x3A, 0x3B: // braces bottom shifting
+			yb += 400
+		// below are fixes for all the square root elements
+		case 0x71:
+			x += size * 80
+			xsc = .6
+		case 0x72:
+			x -= size * 80
+			xsc = .6
+		case 0x73:
+			x -= size * 80
+			xsc = .5
+		case 0x74:
+			yb += 600
+		case 0x75:
+			x += size * 560
+		case 0x76:
+			x += size * 400
+			yb -= 36
+		}
 		y -= size * yb
 	}
+	// note: need a way to separately multiply the x scaling here:
+	_ = xsc
 	_ = face.GlyphPath(p, gid, 0, x, y, size, canvasFont.NoHinting)
 	return size * float64(face.GlyphAdvance(gid)) // in mm
 }
