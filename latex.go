@@ -76,7 +76,10 @@ func ParseLaTeX(formula string) (*Path, error) {
 	r := strings.NewReader(fmt.Sprintf(`%s $%s$`, preamble, formula))
 	w := &bytes.Buffer{}
 	stdout := &bytes.Buffer{}
-	engine := tex.NewEngine(stdout, bytes.NewReader([]byte{}))
+	engine := tex.New()
+	engine.Stderr = stdout
+	engine.Stdout = stdout
+	engine.Stdin = bytes.NewReader([]byte{})
 	if err := engine.Process(w, r); err != nil {
 		fmt.Println(stdout.String())
 		return nil, err

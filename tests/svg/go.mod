@@ -1,7 +1,9 @@
 module github.com/tdewolff/fuzz/canvas/svg
 
-go 1.13
+go 1.22.0
+
+toolchain go1.22.4
 
 replace github.com/tdewolff/canvas => ../../../canvas
 
-require github.com/tdewolff/canvas v0.0.0-00010101000000-000000000000
+require github.com/tdewolff/canvas v0.0.0-20240301225202-94b55b0c5a78
