@@ -157,6 +157,8 @@ github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOf
 github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/tdewolff/argp v0.0.0-20250314085407-8f72444d274a h1:OxjSOaXFsOdOcd1TfhTLJ2manYje+mvrvz/It4nkq7s=
 github.com/tdewolff/argp v0.0.0-20250314085407-8f72444d274a/go.mod h1:QtG24A8hnW/b0wUwtsB+YOIj7I2sDo4b3RomLk9wRvA=
+github.com/tdewolff/canvas v0.0.0-20250209140343-015076d8ff76 h1:pcM3MNDASC6FAXtTebNyF3KDW2Wi8j8I1aGN9i41esk=
+github.com/tdewolff/canvas v0.0.0-20250209140343-015076d8ff76/go.mod h1:p+JBWkp4FRY7OkTIP05jH4iLu8NzH9IJ7GUg1w0xwo0=
 github.com/tdewolff/font v0.0.0-20250314092958-e0eef3f68b08 h1:Y3N6Ybcu0KjE/PQz0FDHccNvWFXsgSUmlLzPQ0HNRSw=
 github.com/tdewolff/font v0.0.0-20250314092958-e0eef3f68b08/go.mod h1:UMXcYUtuwlB+zTaaOo6HyckTN7ubt4MF5eR16xKIT+s=
 github.com/tdewolff/minify/v2 v2.22.1 h1:dm7uwLdE6TFQp+P6vQhD5gEsy183cpMPMRK873m1v+E=
@@ -304,7 +306,5 @@ modernc.org/token v1.1.0 h1:Xl7Ap9dKaEs5kLoOQeQmPWevfnk/DM5qcLcYlA8ys6Y=
 modernc.org/token v1.1.0/go.mod h1:UGzOrNV1mAFSEB63lOFHIpNRUVMvYTc6yu1SMY/XTDM=
 rsc.io/pdf v0.1.1 h1:k1MczvYDUvJBe93bYd7wrZLLUEcLZAuF824/I4e5Xr4=
 rsc.io/pdf v0.1.1/go.mod h1:n8OzWcQ6Sp37PL01nO98y4iUCRdTGarVfzxY20ICaU4=
-star-tex.org/x/tex v0.5.0 h1:KXxY58YioX9kLvjEzIl61JH4IvWob3FSQQ5DiU3RQ3M=
-star-tex.org/x/tex v0.5.0/go.mod h1:k7py0yK2wZM4aJSgN1RonpvnxgEgIqC0i/x7kKR9GZI=
 star-tex.org/x/tex v0.6.0 h1:ZD/4082kR5+2gFzFNgRvZBMCGuXrQWp3hNo5W5LmCeI=
 star-tex.org/x/tex v0.6.0/go.mod h1:wJWeUmM2d4qH/mCtMOcioNl2sluKx85mLi+Yv9Nq4Ms=
