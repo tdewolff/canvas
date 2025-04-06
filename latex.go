@@ -76,8 +76,7 @@ func ParseLaTeX(formula string) (*Path, error) {
 	r := strings.NewReader(fmt.Sprintf(`%s $%s$`, preamble, formula))
 	w := &bytes.Buffer{}
 	stdout := &bytes.Buffer{}
-	engine := tex.NewEngine(stdout, bytes.NewReader([]byte{}))
-	if err := engine.Process(w, r); err != nil {
+	if err := tex.Run(w, r); err != nil {
 		fmt.Println(stdout.String())
 		return nil, err
 	}
@@ -251,8 +250,8 @@ func (fs *dviFonts) Get(name string, scale float64) DVIFont {
 			fontSizes = map[float64][]byte{
 				10.0: lmmonocaps10regular.TTF,
 			}
-		//case "cmtex":
-		//cmap = nil
+		// case "cmtex":
+		// cmap = nil
 		case "cmti":
 			fontSizes = map[float64][]byte{
 				12.0: lmroman12italic.TTF,
@@ -273,8 +272,8 @@ func (fs *dviFonts) Get(name string, scale float64) DVIFont {
 			fontSizes = map[float64][]byte{
 				10.0: lmromanunsl10regular.TTF,
 			}
-		//case "cmvtt":
-		//cmap = cmapCTT
+		// case "cmvtt":
+		// cmap = cmapCTT
 		default:
 			fmt.Println("WARNING: unknown font", fontname)
 		}
@@ -303,7 +302,7 @@ func (fs *dviFonts) loadFont(fontname string, cmap map[uint32]rune, fontsize, sc
 
 	// calculate size correction if the found font has a different font size than requested
 	fsize := scale * fontsize * mmPerPt / float64(sfnt.Head.UnitsPerEm)
-	//fsizeCorr := fontsize / size
+	// fsizeCorr := fontsize / size
 	isItalic := 0 < len(fontname) && fontname[len(fontname)-1] == 'i'
 	fsizeCorr := 1.0
 	isEx := fontname == "cmex"
