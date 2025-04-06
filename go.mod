@@ -76,5 +76,5 @@ require (
 	golang.org/x/mobile v0.0.0-20250305212854-3a7bc9f8a4de // indirect
 	golang.org/x/net v0.37.0
 	golang.org/x/sys v0.31.0 // indirect
-	star-tex.org/x/tex v0.5.0
+	star-tex.org/x/tex v0.6.0
 )
