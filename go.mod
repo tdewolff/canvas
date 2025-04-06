@@ -1,6 +1,6 @@
-module github.com/aldernero/canvas
+module github.com/tdewolff/canvas
 
-go 1.24.1
+go 1.24.2
 
 require (
 	fyne.io/fyne/v2 v2.5.5
@@ -19,7 +19,6 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/srwiley/scanx v0.0.0-20190309010443-e94503791388
 	github.com/tdewolff/argp v0.0.0-20250314085407-8f72444d274a
-	github.com/tdewolff/canvas v0.0.0-20250209140343-015076d8ff76
 	github.com/tdewolff/font v0.0.0-20250314092958-e0eef3f68b08
 	github.com/tdewolff/minify/v2 v2.22.1
 	github.com/tdewolff/parse/v2 v2.7.21
