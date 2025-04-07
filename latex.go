@@ -73,7 +73,8 @@ var preamble = `\nopagenumbers
 
 // ParseLaTeX parse a LaTeX formula (that what is between $...$) and returns a path.
 func ParseLaTeX(formula string) (*Path, error) {
-	r := strings.NewReader(fmt.Sprintf(`%s $%s$ /bye`, preamble, formula))
+	r := strings.NewReader(fmt.Sprintf(`%s $%s$
+/bye`, preamble, formula))
 	w := &bytes.Buffer{}
 	stdout := &bytes.Buffer{}
 	engine := tex.New()
