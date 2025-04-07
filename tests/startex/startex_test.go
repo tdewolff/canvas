@@ -49,7 +49,7 @@ func TestStarTex(t *testing.T) {
 		src := test.tex
 		p, err := canvas.ParseLaTeX(src)
 		if err != nil {
-			t.Error(err)
+			panic(err)
 		}
 		w := 80.0
 		h := 20.0
