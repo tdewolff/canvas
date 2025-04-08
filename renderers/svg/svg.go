@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
+	"html"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -43,6 +44,7 @@ type SVG struct {
 	maskID        int
 	patterns      map[canvas.Gradient]string
 	classes       []string
+	customStyle   string
 	opts          *Options
 }
 
@@ -76,6 +78,9 @@ func New(w io.Writer, width, height float64, opts *Options) *SVG {
 func (r *SVG) Close() error {
 	if r.opts.EmbedFonts {
 		r.writeFonts()
+	}
+	if r.customStyle != "" {
+		fmt.Fprintf(r.w, "<style>%s</style>", html.EscapeString(r.customStyle))
 	}
 	_, err := fmt.Fprintf(r.w, "</svg>")
 	if r.opts.Compression != 0 {
@@ -153,6 +158,11 @@ func (r *SVG) RemoveClass(class string) {
 // SetImageEncoding sets the image encoding to Loss or Lossless.
 func (r *SVG) SetImageEncoding(enc canvas.ImageEncoding) {
 	r.opts.ImageEncoding = enc
+}
+
+// SetCustomStyle defines a custom CSS code to add in the SVG
+func (r *SVG) SetCustomStyle(style string) {
+	r.customStyle = style
 }
 
 // Size returns the size of the canvas in millimeters.
