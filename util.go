@@ -7,8 +7,9 @@ import (
 	"math"
 	"strings"
 
-	"github.com/tdewolff/minify/v2"
 	"golang.org/x/image/math/fixed"
+
+	"github.com/tdewolff/minify/v2"
 )
 
 const minNormalFloat64 = 0x1p-1022
@@ -374,6 +375,10 @@ func (p Point) String() string {
 // Rect is a rectangle in 2D defined by a position and its width and height.
 type Rect struct {
 	X0, Y0, X1, Y1 float64
+}
+
+func RectFromSize(x, y, w, h float64) Rect {
+	return Rect{x, y, x + w, y + h}
 }
 
 func RectFromPoints(ps ...Point) Rect {
