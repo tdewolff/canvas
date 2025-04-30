@@ -394,7 +394,7 @@ func (c *Context) ShearAbout(sx, sy, x, y float64) {
 	c.view = c.view.Mul(Identity.ShearAbout(sx, sy, x, y))
 }
 
-// SetFill sets the color, gradient, or pattern to be used for filling operations.
+// SetFill sets the color, gradient, or pattern to be used for filling operations. The default fill color is black.
 func (c *Context) SetFill(ifill interface{}) {
 	if paint, ok := ifill.(Paint); ok {
 		c.Style.Fill = paint
@@ -409,28 +409,28 @@ func (c *Context) SetFill(ifill interface{}) {
 	}
 }
 
-// SetFillColor sets the color to be used for filling operations.
+// SetFillColor sets the color to be used for filling operations. The default fill color is black.
 func (c *Context) SetFillColor(col color.Color) {
 	c.Style.Fill.Color = rgbaColor(col)
 	c.Style.Fill.Gradient = nil
 	c.Style.Fill.Pattern = nil
 }
 
-// SetFillGradient sets the gradient to be used for filling operations.
+// SetFillGradient sets the gradient to be used for filling operations. The default fill color is black.
 func (c *Context) SetFillGradient(gradient Gradient) {
 	c.Style.Fill.Color = Transparent
 	c.Style.Fill.Gradient = gradient
 	c.Style.Fill.Pattern = nil
 }
 
-// SetFillPattern sets the pattern to be used for filling operations.
+// SetFillPattern sets the pattern to be used for filling operations. The default fill color is black.
 func (c *Context) SetFillPattern(pattern Pattern) {
 	c.Style.Fill.Color = Transparent
 	c.Style.Fill.Gradient = nil
 	c.Style.Fill.Pattern = pattern
 }
 
-// SetStroke sets the color, gradient, or pattern to be used for stroke operations.
+// SetStroke sets the color, gradient, or pattern to be used for stroke operations. The default stroke color is transparent.
 func (c *Context) SetStroke(istroke interface{}) {
 	if paint, ok := istroke.(Paint); ok {
 		c.Style.Stroke = paint
@@ -445,49 +445,49 @@ func (c *Context) SetStroke(istroke interface{}) {
 	}
 }
 
-// SetStrokeColor sets the color to be used for stroking operations.
+// SetStrokeColor sets the color to be used for stroking operations. The default stroke color is transparent.
 func (c *Context) SetStrokeColor(col color.Color) {
 	c.Style.Stroke.Color = rgbaColor(col)
 	c.Style.Stroke.Gradient = nil
 	c.Style.Stroke.Pattern = nil
 }
 
-// SetStrokeGradient sets the gradients to be used for stroking operations.
+// SetStrokeGradient sets the gradients to be used for stroking operations. The default stroke color is transparent.
 func (c *Context) SetStrokeGradient(gradient Gradient) {
 	c.Style.Stroke.Color = Transparent
 	c.Style.Stroke.Gradient = gradient
 	c.Style.Stroke.Pattern = nil
 }
 
-// SetStrokePattern sets the pattern to be used for stroking operations.
+// SetStrokePattern sets the pattern to be used for stroking operations. The default stroke color is transparent.
 func (c *Context) SetStrokePattern(pattern Pattern) {
 	c.Style.Stroke.Color = Transparent
 	c.Style.Stroke.Gradient = nil
 	c.Style.Stroke.Pattern = pattern
 }
 
-// SetStrokeWidth sets the width in millimeters for stroking operations.
+// SetStrokeWidth sets the width in millimeters for stroking operations. The default stroke width is 1.0.
 func (c *Context) SetStrokeWidth(width float64) {
 	c.Style.StrokeWidth = width
 }
 
-// SetStrokeCapper sets the line cap function to be used for stroke end points.
+// SetStrokeCapper sets the line cap function to be used for stroke end points. The default stroke capper is a butt cap.
 func (c *Context) SetStrokeCapper(capper Capper) {
 	c.Style.StrokeCapper = capper
 }
 
-// SetStrokeJoiner sets the line join function to be used for stroke mid points.
+// SetStrokeJoiner sets the line join function to be used for stroke mid points. The default stroke joiner is a miter join with a limit of 4.0 for a bevel join.
 func (c *Context) SetStrokeJoiner(joiner Joiner) {
 	c.Style.StrokeJoiner = joiner
 }
 
-// SetDashes sets the dash pattern to be used for stroking operations. The dash offset denotes the offset into the dash array in millimeters from where to start. Negative values are allowed.
+// SetDashes sets the dash pattern to be used for stroking operations. The dash offset denotes the offset into the dash array in millimeters from where to start. Negative values are allowed. The default dashes is empty at zero offset.
 func (c *Context) SetDashes(offset float64, dashes ...float64) {
 	c.Style.DashOffset = offset
 	c.Style.Dashes = dashes
 }
 
-// SetFillRule sets the fill rule to be used for filling paths.
+// SetFillRule sets the fill rule to be used for filling paths. The default fill rule is NonZero. Note that support is limited.
 func (c *Context) SetFillRule(rule FillRule) {
 	c.Style.FillRule = rule
 }
@@ -569,9 +569,9 @@ func (c *Context) FillStroke() {
 }
 
 // FitImage fits an image to a rectangle using different fit strategies.
-func (c *Context) FitImage(img image.Image, rect Rect, fit ImageFit) {
+func (c *Context) FitImage(img image.Image, rect Rect, fit ImageFit) Rect {
 	if img.Bounds().Size().Eq(image.Point{}) || rect.Empty() {
-		return
+		return Rect{}
 	}
 
 	width := float64(img.Bounds().Max.X - img.Bounds().Min.X)
@@ -583,10 +583,18 @@ func (c *Context) FitImage(img image.Image, rect Rect, fit ImageFit) {
 	switch fit {
 	case ImageContain:
 		if xres < yres {
-			x += (rect.W() - width/yres) / 2.0
+			// less wide, height restricted
+			dx := (rect.W() - width/yres) / 2.0
+			x += dx
+			rect.X0 += dx
+			rect.X1 -= dx
 			xres = yres
 		} else {
-			y += (rect.H() - height/xres) / 2.0
+			// less high, width restricted
+			dy := (rect.H() - height/xres) / 2.0
+			y += dy
+			rect.Y0 += dy
+			rect.Y1 -= dy
 			yres = xres
 		}
 	case ImageCover:
@@ -629,6 +637,7 @@ func (c *Context) FitImage(img image.Image, rect Rect, fit ImageFit) {
 		m = m.ReflectXAbout(float64(img.Bounds().Size().X) / 2.0)
 	}
 	c.RenderImage(img, m)
+	return rect
 }
 
 // DrawPath draws a path at position (x,y) using the current draw state.
