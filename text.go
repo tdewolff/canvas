@@ -705,7 +705,16 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	}
 	glyphs = append(glyphs, text.Glyph{Cluster: uint32(len(log))}) // makes indexing easier
 
-	y := 0.0
+	// support negative width or height
+	x0, y0, w, h := 0.0, 0.0, width, height
+	if width < 0.0 {
+		x0, w = width, -width
+	}
+	if height < 0.0 {
+		y0, h = height, -height
+	}
+
+	y := y0
 	ai, ag := 0, 0 // index into items and glyphs
 	lineSpacing := 1.0 + lineStretch
 	for j := range breaks {
@@ -788,11 +797,11 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		}
 
 		// build text spans of line
-		x := 0.0
+		x := x0
 		if halign == Right {
-			x += width - breaks[j].Width
+			x += w - breaks[j].Width
 		} else if halign == Center || halign == Middle {
-			x += (width - breaks[j].Width) / 2.0
+			x += (w - breaks[j].Width) / 2.0
 		}
 		if j == 0 {
 			x += indent
@@ -864,7 +873,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			ascent *= lineSpacing
 		}
 		bottom *= lineSpacing
-		if height != 0.0 && height < y+ascent+descent {
+		if height != 0.0 && h < y+ascent+descent {
 			// line doesn't fit
 			t.Text = log[:glyphs[a].Cluster]
 			break
@@ -898,7 +907,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		}
 	}
 	if valign == Center || valign == Middle || valign == Bottom {
-		dy := height - y
+		dy := h - y
 		if valign == Center || valign == Middle {
 			dy /= 2.0
 		}
@@ -906,7 +915,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			t.lines[j].y += dy
 		}
 	} else if valign == Justify {
-		ddy := (height - y) / float64(len(t.lines)-1)
+		ddy := (h - y) / float64(len(t.lines)-1)
 		dy := 0.0
 		for j := range t.lines {
 			t.lines[j].y += dy
@@ -915,7 +924,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 	}
 	if rt.mode == VerticalRL {
 		for j := range t.lines {
-			t.lines[j].y = height - t.lines[j].y
+			t.lines[j].y = h - t.lines[j].y
 		}
 	}
 
@@ -926,12 +935,14 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 				t.Width = math.Max(t.Width, last.X+last.Width)
 			}
 		}
+	} else {
+		t.Width = width
 	}
 	if height == 0.0 {
-		height = y
+		t.Height = y
+	} else {
+		t.Height = height
 	}
-	t.Width = width
-	t.Height = height
 	return t
 }
 
