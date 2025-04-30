@@ -77,9 +77,8 @@ github.com/go-gl/gl v0.0.0-20231021071112-07e5d0ea2e71 h1:5BVwOaUSBTlVZowGO6VZGw
 github.com/go-gl/gl v0.0.0-20231021071112-07e5d0ea2e71/go.mod h1:9YTyiznxEY1fVinfM7RvRcjRHbw2xLBJ3AAGIT0I4Nw=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20250301202403-da16c1255728 h1:RkGhqHxEVAvPM0/R+8g7XRwQnHatO0KAuVcwHo8q9W8=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20250301202403-da16c1255728/go.mod h1:SyRD8YfuKk+ZXlDqYiqe1qMSqjNgtHzBTG810KUagMc=
+github.com/go-sql-driver/mysql v1.8.1 h1:LedoTUt/eveggdHS9qUFC1EFSa8bU2+1pZjSRpvNJ1Y=
 github.com/go-sql-driver/mysql v1.8.1/go.mod h1:wEBSXgmK//2ZFJyE+qWnIsVGmvmEKlqwuVSjsCm7DZg=
-github.com/go-sql-driver/mysql v1.9.0 h1:Y0zIbQXhQKmQgTp44Y1dp3wTXcn804QoTptLZT1vtvo=
-github.com/go-sql-driver/mysql v1.9.0/go.mod h1:pDetrLJeA3oMujJuvXc8RJoasr589B6A9fwzD3QMrqw=
 github.com/go-text/render v0.2.0 h1:LBYoTmp5jYiJ4NPqDc2pz17MLmA3wHw1dZSVGcOdeAc=
 github.com/go-text/render v0.2.0/go.mod h1:CkiqfukRGKJA5vZZISkjSYrcdtgKQWRa2HIzvwNN5SU=
 github.com/go-text/typesetting v0.3.0 h1:OWCgYpp8njoxSRpwrdd1bQOxdjOXDj9Rqart9ML4iF4=
@@ -157,8 +156,8 @@ github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOf
 github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/tdewolff/argp v0.0.0-20250325153840-ab3be54df185 h1:yNKG03OguiQYcSsmPb7aBDAKyCttFclmL7xQA5NZPI0=
 github.com/tdewolff/argp v0.0.0-20250325153840-ab3be54df185/go.mod h1:EsA2iZLlkV7V/hd67zmi7ebo1HgvokR6QYGOw1ooO/M=
-github.com/tdewolff/font v0.0.0-20250314092958-e0eef3f68b08 h1:Y3N6Ybcu0KjE/PQz0FDHccNvWFXsgSUmlLzPQ0HNRSw=
-github.com/tdewolff/font v0.0.0-20250314092958-e0eef3f68b08/go.mod h1:UMXcYUtuwlB+zTaaOo6HyckTN7ubt4MF5eR16xKIT+s=
+github.com/tdewolff/font v0.0.0-20250430140153-b654fd8acba3 h1:DztDdVAimSmI3eDKlMP1XSpeEYyhLRt9tPPivB7SNz8=
+github.com/tdewolff/font v0.0.0-20250430140153-b654fd8acba3/go.mod h1:eDnkgh2pt95UFXk0GsUv2JNj5gumg78c02QX0TdcwTA=
 github.com/tdewolff/minify/v2 v2.23.0 h1:ZdVmMkGYApnUpmOL/H/PCEk6qg6OFHzVDXgk07z9TW0=
 github.com/tdewolff/minify/v2 v2.23.0/go.mod h1:ll/rxPfOGIgN9G4JXg+3jMtPTPEnEJB3nGtEG08sHl8=
 github.com/tdewolff/parse/v2 v2.7.22 h1:ROVbrjtp5RoXi22YSZaOks5DaOcXBJ3PZO5hyyQ9Bbs=
