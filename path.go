@@ -10,9 +10,10 @@ import (
 	"strings"
 
 	"github.com/srwiley/scanx"
-	"github.com/tdewolff/parse/v2/strconv"
 	"golang.org/x/image/math/fixed"
 	"golang.org/x/image/vector"
+
+	"github.com/tdewolff/parse/v2/strconv"
 )
 
 // Tolerance is the maximum deviation from the original path in millimeters when e.g. flatting. Used for flattening in the renderers, font decorations, and path intersections.
@@ -872,7 +873,7 @@ func windings(zs []Intersection) (int, bool) {
 			if !z.Same {
 				n += d
 			}
-		} else {
+		} else if i+1 < len(zs) {
 			same := z.Same || zs[i+1].Same
 			if !same {
 				if z.Into() == zs[i+1].Into() {

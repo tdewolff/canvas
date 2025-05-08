@@ -16,8 +16,9 @@ import (
 var BentleyOttmannEpsilon = 1e-8
 
 // RayIntersections returns the intersections of a path with a ray starting at (x,y) to (∞,y).
-// An intersection is tangent only when it is at (x,y), i.e. the start of the ray. Intersections
-// are sorted along the ray. This function runs in O(n) with n the number of path segments.
+// An intersection is tangent only when it is at (x,y), i.e. the start of the ray. The parameter T
+// along the ray is zero at the start but NaN otherwise. Intersections are sorted along the ray.
+// This function runs in O(n) with n the number of path segments.
 func (p *Path) RayIntersections(x, y float64) []Intersection {
 	var start, end Point
 	var zs []Intersection
