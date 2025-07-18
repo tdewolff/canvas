@@ -739,9 +739,6 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 	y := y0
 	i, ag := 0, 0 // index into items and glyphs
-	if halign != Justify {
-		i++
-	}
 	lineSpacing := 1.0 + lineStretch
 	for j := range breaks {
 		// j is the current line

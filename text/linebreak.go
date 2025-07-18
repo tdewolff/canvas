@@ -161,55 +161,32 @@ type Items []Item
 
 // Box adds a box item (a word) of the given fixed width.
 func (items Items) Box(width float64) Items {
-	if len(items) == 0 || items[len(items)-1].Type != BoxType {
-		items = append(items, Item{
-			Type:  BoxType,
-			Width: width,
-		})
-	} else {
-		items[len(items)-1].Width += width
-	}
+	items = append(items, Item{
+		Type:  BoxType,
+		Width: width,
+	})
 	return items
 }
 
 // Glue adds a glue item (a space) where width is the default width, stretch*Tolerance the maximum width, and shrink*Tolerance the minimum width.
 func (items Items) Glue(width, stretch, shrink float64) Items {
-	// TODO: merge?
-	//if len(items) == 0 || items[len(items)-1].Type != GlueType {
 	items = append(items, Item{
 		Type:    GlueType,
 		Width:   width,
 		Stretch: stretch,
 		Shrink:  shrink,
 	})
-	//} else {
-	//	prev := &items[len(items)-1]
-	//	prev.Width += width
-	//	prev.Stretch += stretch
-	//	prev.Shrink += shrink
-	//	if prev.Width <= Epsilon && prev.Stretch <= Epsilon && prev.Shrink <= Epsilon {
-	//		items = items[:len(items)-1]
-	//	}
-	//}
 	return items
 }
 
 // Penalty adds a penalty item (explicit or possible newline, hyphen) with a given penalization factor. For hyphen insertion, width is the hyphen width and flagged should be set to discourage multiple hyphened lines next to each other. For explicit newlines the penalty is -Infinity.
 func (items Items) Penalty(width, penalty float64, flagged bool) Items {
-	// TODO: merge?
-	//if len(items) == 0 || items[len(items)-1].Type != PenaltyType {
 	items = append(items, Item{
 		Type:    PenaltyType,
 		Width:   width,
 		Penalty: penalty,
 		Flagged: flagged,
 	})
-	//} else {
-	//	prev := &items[len(items)-1]
-	//	prev.Width += width
-	//	prev.Penalty = math.Min(prev.Penalty, penalty)
-	//	prev.Flagged = prev.Flagged || flagged
-	//}
 	return items
 }
 
@@ -344,16 +321,12 @@ func (lb *linebreaker) computeAdjustmentRatio(b int, active *Breakpoint) float64
 			// unstretchable line, act as if we have a very small stretchable space.
 			// this helps to distinguish between between smaller and longer lines if both would
 			// need to stretched beyond the tolerance
-			//fmt.Println("UNSTRECHABLE", b, active)
 			return Infinity * (1.0 + (lb.width-L)/lb.width)
 		}
 		ratio = (lb.width - L) / (lb.Y - active.Y)
 	} else if lb.width < L {
 		ratio = (lb.width - L) / (lb.Z - active.Z)
 	}
-	//if Infinity < ratio {
-	//	fmt.Println("LIM ratio", b, active, ratio)
-	//}
 	// limiting positive ratios gives space to distinguish non-stretchable lines
 	// allowing negative ratios will break up words that are too long
 	return math.Min(ratio, Infinity) // range [-inf,1000]
@@ -488,112 +461,124 @@ func (lb *linebreaker) mainLoop(b int, tolerance float64) {
 func KnuthLinebreak(items Items, width float64, looseness int) ([]Break, bool) {
 	overflows := false
 	tolerance := Tolerance
+	var breaks []Break
 
-	// TODO: slow for long texts, break up paragraphs (explicit newlines) and process independently, this will mostly linearlize this
+	// break up paragraphs, ie. between explicit newlines, to somewhat linearise this function
+	for first, last := 0, 0; first < len(items); first = last {
+		if items[first].Type == GlueType {
+			first++
+		}
+		for last < len(items) && (items[last].Type != PenaltyType || items[last].Penalty != -Infinity) {
+			last++
+		}
+		last++
 
-START:
-	// create an active node representing the beginning of the paragraph
-	lb := newLinebreaker(items, width)
-	// if index is a legal breakpoint then main loop
-	for b, item := range lb.items {
-		if item.Type == BoxType {
-			lb.W += item.Width
-		} else if item.Type == GlueType {
-			// additionally don't check glue if it has zero width (eg. before a penalty, not in the original algorithm), this optimizes the search space
-			if 0 < b && lb.items[b-1].Type == BoxType && 0.0 < item.Width {
+	START:
+		// create an active node representing the beginning of the paragraph
+		lb := newLinebreaker(items[first:last], width)
+		// if index is a legal breakpoint then main loop
+		for b, item := range lb.items {
+			if item.Type == BoxType {
+				lb.W += item.Width
+			} else if item.Type == GlueType {
+				// additionally don't check glue if it has zero width (eg. before a penalty, not in the original algorithm), this optimizes the search space
+				if 0 < b && lb.items[b-1].Type == BoxType && 0.0 < item.Width {
+					lb.mainLoop(b, tolerance)
+				}
+				lb.W += item.Width
+				lb.Y += item.Stretch
+				lb.Z += item.Shrink
+			} else if item.Type == PenaltyType && item.Penalty < Infinity {
 				lb.mainLoop(b, tolerance)
 			}
-			lb.W += item.Width
-			lb.Y += item.Stretch
-			lb.Z += item.Shrink
-		} else if item.Type == PenaltyType && item.Penalty < Infinity {
-			lb.mainLoop(b, tolerance)
-		}
 
-		// do something drastic since there is no feasible solution
-		if lb.activeNodes.head == nil {
-			if tolerance != lb.nextTolerance {
-				tolerance = lb.nextTolerance
-				goto START
-			} else {
-				// line doesn't fit, amongst the rejected active set we choose the ones that stick out the least and continue
-				overflows = true
-				minWidth := math.Inf(1.0)
-				for parent := lb.inactiveNodes.head; parent != nil; parent = parent.next {
-					minWidth = math.Min(minWidth, lb.W-parent.W)
-				}
-				for parent := lb.inactiveNodes.head; parent != nil; parent = parent.next {
-					if lb.W-parent.W == minWidth {
-						breakpoint := &Breakpoint{
-							parent: parent,
-							Break: Break{
-								Position: b,
-								Width:    lb.W,
-								Stretch:  lb.Y,
-								Shrink:   lb.Z,
-								Ratio:    0.0,
-							},
-							Line:     parent.Line + 1,
-							Fitness:  1,
-							W:        lb.W,
-							Y:        lb.Y,
-							Z:        lb.Z,
-							Demerits: parent.Demerits + 1000.0,
+			// do something drastic since there is no feasible solution
+			if lb.activeNodes.head == nil {
+				if tolerance != lb.nextTolerance {
+					tolerance = lb.nextTolerance
+					goto START
+				} else {
+					// line doesn't fit, amongst the rejected active set we choose the ones that stick out the least and continue
+					overflows = true
+					minWidth := math.Inf(1.0)
+					for parent := lb.inactiveNodes.head; parent != nil; parent = parent.next {
+						minWidth = math.Min(minWidth, lb.W-parent.W)
+					}
+					for parent := lb.inactiveNodes.head; parent != nil; parent = parent.next {
+						if lb.W-parent.W == minWidth {
+							breakpoint := &Breakpoint{
+								parent: parent,
+								Break: Break{
+									Position: b,
+									Width:    lb.W,
+									Stretch:  lb.Y,
+									Shrink:   lb.Z,
+									Ratio:    0.0,
+								},
+								Line:     parent.Line + 1,
+								Fitness:  1,
+								W:        lb.W,
+								Y:        lb.Y,
+								Z:        lb.Z,
+								Demerits: parent.Demerits + 1000.0,
+							}
+							lb.activeNodes.Push(breakpoint)
 						}
-						lb.activeNodes.Push(breakpoint)
 					}
 				}
 			}
 		}
-	}
 
-	// either len(items)==0 or we couldn't find feasible line breaks
-	if lb.activeNodes.head == nil {
-		return []Break{{
-			Position: len(lb.items) - 1,
-		}}, !overflows
-	}
+		// TODO: really never happens?
+		// either len(items)==0 or we couldn't find feasible line breaks
+		//if lb.activeNodes.head == nil {
+		//	fmt.Println("head is nil")
+		//	breaks = append(breaks, Break{
+		//		Position: first + len(lb.items) - 1,
+		//	})
+		//	continue
+		//}
 
-	// choose the active node with fewest total demerits
-	b := &Breakpoint{Demerits: math.Inf(1.0)}
-	for a := lb.activeNodes.head; a != nil; a = a.next {
-		if a.Demerits < b.Demerits {
-			b = a
-		}
-	}
-
-	// choose the appropriate active node
-	if looseness != 0 {
-		s := 0
-		k := b.Line
+		// choose the active node with fewest total demerits
+		b := &Breakpoint{Demerits: math.Inf(1.0)}
 		for a := lb.activeNodes.head; a != nil; a = a.next {
-			delta := a.Line - k
-			if looseness <= delta && delta < s || s < delta && delta <= looseness {
-				s = delta
-				b = a
-			} else if delta == s && a.Demerits < b.Demerits {
+			if a.Demerits < b.Demerits {
 				b = a
 			}
 		}
-	}
 
-	// use the chosen node to determine the optimum breakpoint sequence
-	breaks := make([]Break, b.Line+1)
-	for b != nil {
-		if b.Line+1 < len(breaks) {
-			// values are cumulative, take their difference
-			breaks[b.Line+1].Width -= b.W
-			breaks[b.Line+1].Stretch -= b.Y
-			breaks[b.Line+1].Shrink -= b.Z
+		// choose the appropriate active node
+		if looseness != 0 {
+			s := 0
+			k := b.Line
+			for a := lb.activeNodes.head; a != nil; a = a.next {
+				delta := a.Line - k
+				if looseness <= delta && delta < s || s < delta && delta <= looseness {
+					s = delta
+					b = a
+				} else if delta == s && a.Demerits < b.Demerits {
+					b = a
+				}
+			}
 		}
-		if b.Ratio < -1.0 || Tolerance < b.Ratio {
-			b.Ratio = 0.0
+
+		// use the chosen node to determine the optimum breakpoint sequence
+		line0 := len(breaks)
+		breaks = append(breaks, make([]Break, b.Line)...)
+		for b != nil && b.Position != 0 {
+			if line0+b.Line < len(breaks) {
+				// values are cumulative, take their difference
+				breaks[line0+b.Line].Width -= b.W
+				breaks[line0+b.Line].Stretch -= b.Y
+				breaks[line0+b.Line].Shrink -= b.Z
+			}
+			if b.Ratio < -1.0 || Tolerance < b.Ratio {
+				b.Ratio = 0.0
+			}
+			breaks[line0+b.Line-1] = b.Break
+			breaks[line0+b.Line-1].Position += first
+			b = b.parent
 		}
-		breaks[b.Line] = b.Break
-		b = b.parent
-	}
-	if 1 < len(breaks) {
-		breaks = breaks[1:]
 	}
 	return breaks, !overflows
 }

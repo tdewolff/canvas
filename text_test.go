@@ -2,7 +2,6 @@ package canvas
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/tdewolff/canvas/text"
@@ -152,45 +151,45 @@ func TestRichText(t *testing.T) {
 	var tests = []struct {
 		face  *FontFace
 		align TextAlign
-		in    string
-		out   string
+		str   string
+		spans [][]string
 	}{
-		{faceLatin, Left, " a", " a"},
+		{faceLatin, Left, " a", [][]string{{" a"}}},
 		{
 			faceLatin, Left,
 			"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
-			"Lorem ipsum dolor sit amet, consectetur\nadipiscing elit, sed do eiusmod tempor\nincididunt ut labore et dolore magna aliqua.\nUt enim ad minim veniam, quis nostrud\nexercitation ullamco laboris nisi ut aliquip ex\nea commodo consequat.",
+			[][]string{{"Lorem ipsum dolor sit amet, consectetur "}, {"adipiscing elit, sed do eiusmod tempor "}, {"incididunt ut labore et dolore magna "}, {"aliqua. Ut enim ad minim veniam, quis "}, {"nostrud exercitation ullamco laboris nisi "}, {"ut aliquip ex ea commodo consequat."}},
 		},
 		{
 			faceLatin, Left,
 			"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do\neiusmod tempor incididunt ut labore et dolore magna aliqua.\nUt enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
-			"Lorem ipsum dolor sit amet, consectetur\nadipiscing elit, sed do\neiusmod tempor incididunt ut labore et dolore\nmagna aliqua.\nUt enim ad minim veniam, quis nostrud\nexercitation ullamco laboris nisi ut aliquip ex\nea commodo consequat.",
+			[][]string{{"Lorem ipsum dolor sit amet, "}, {"consectetur adipiscing elit, sed do\n"}, {"eiusmod tempor incididunt ut "}, {"labore et dolore magna aliqua.\n"}, {"Ut enim ad minim veniam, quis nostrud "}, {"exercitation ullamco laboris nisi ut "}, {"aliquip ex ea commodo consequat."}},
 		},
 		{
 			faceLatin, Center,
 			"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
-			"Lorem ipsum dolor sit amet, consectetur\nadipiscing elit, sed do eiusmod tempor\nincididunt ut labore et dolore magna aliqua.\nUt enim ad minim veniam, quis nostrud\nexercitation ullamco laboris nisi ut aliquip ex\nea commodo consequat.",
+			[][]string{{"Lorem ipsum dolor sit amet, consectetur "}, {"adipiscing elit, sed do eiusmod tempor "}, {"incididunt ut labore et dolore magna "}, {"aliqua. Ut enim ad minim veniam, quis "}, {"nostrud exercitation ullamco laboris nisi "}, {"ut aliquip ex ea commodo consequat."}},
 		},
 		{
 			faceCJK, Left,
 			"执行送出执行送出执行送出执行送出执行送出执行送出执行送出执行送出执行送出执行送出执行送出执行送出执行送出出执行送出执行送出执行送出执行送出出执行送出执行送出执行送出执行送出出执行送出执行送出执行送出执行送出",
-			"执行送出执行送出执行送出执行送出执行送出执行送\n出执行送出执行送出执行送出执行送出执行送出执行\n送出执行送出出执行送出执行送出执行送出执行送出\n出执行送出执行送出执行送出执行送出出执行送出执\n行送出执行送出执行送出",
+			[][]string{{"执行送出执行送出执行送出执行送出执行送出执行送"}, {"出执行送出执行送出执行送出执行送出执行送出执行"}, {"送出执行送出出执行送出执行送出执行送出执行送出"}, {"出执行送出执行送出执行送出执行送出出执行送出执"}, {"行送出执行送出执行送出"}},
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.in, func(t *testing.T) {
+		t.Run(tt.str, func(t *testing.T) {
 			rt := NewRichText(tt.face)
-			rt.WriteString(tt.in)
+			rt.WriteString(tt.str)
 			text := rt.ToText(100.0, 100.0, tt.align, Top, 0.0, 0.0, KnuthLinebreaker{})
-			var lines []string
+			var lines [][]string
 			for _, line := range text.lines {
 				var spans []string
 				for _, span := range line.spans {
 					spans = append(spans, span.Text)
 				}
-				lines = append(lines, strings.Join(spans, " "))
+				lines = append(lines, spans)
 			}
-			test.T(t, strings.Join(lines, "\n"), tt.out)
+			test.T(t, lines, tt.spans)
 		})
 	}
 }
