@@ -104,7 +104,7 @@ func (g Glyph) Advance() float64 {
 }
 
 func (g Glyph) String() string {
-	return fmt.Sprintf("%s GID=%v Cluster=%v Adv=(%v,%v) Off=(%v,%v)", string(g.Text), g.ID, g.Cluster, g.XAdvance, g.YAdvance, g.XOffset, g.YOffset)
+	return fmt.Sprintf("['%s' GID=%v Cluster=%v Adv=(%v,%v) Off=(%v,%v)]", string(g.Text), g.ID, g.Cluster, g.XAdvance, g.YAdvance, g.XOffset, g.YOffset)
 }
 
 func (g Glyph) Rotation() Rotation {

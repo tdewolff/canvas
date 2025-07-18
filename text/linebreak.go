@@ -3,10 +3,11 @@ package text
 import (
 	"fmt"
 	"math"
-	"unicode"
 
 	"github.com/tdewolff/font"
 )
+
+var Epsilon = 1e-6
 
 // See: Donald E. Knuth and Michael F. Plass, "Breaking Paragraphs into Lines", 1981
 // Implementations:
@@ -55,10 +56,10 @@ import (
 const FairyTales = "In olden times when wish\u00ADing still helped one there\u2001lived a king\u2001whose daugh\u00ADters were all beau\u00ADti\u00ADful; and the young\u00ADest was so beautiful that the sun it\u00ADself, which has seen so much, was aston\u00ADished when\u00ADever it shone in her face. Close by the king's castle lay a great dark for\u00ADest, and un\u00ADder an old lime-tree in the for\u00ADest was a well, and when the day was very warm, the king's child went out into the for\u00ADest and sat down by the side of the cool foun\u00ADtain; and when she was bored she took a golden ball, and threw it up on high and caught it; and this ball was her favor\u00ADite play\u00ADthing."
 
 // SpaceStretch is the stretchability of spaces.
-var SpaceStretch = 1.0 / 2.0
+var SpaceStretch = 1.0 / 2.0 // ratio of the space that can be added
 
 // SpaceShrink is the shrinkability of spaces.
-var SpaceShrink = 1.0 / 3.0
+var SpaceShrink = 1.0 / 3.0 // ratio of the space that can be removed
 
 // FrenchSpacing enforces equal widths for inter-word and inter-sentence spaces.
 var FrenchSpacing = false
@@ -100,6 +101,20 @@ const (
 	Justified
 )
 
+func (a Align) String() string {
+	switch a {
+	case Left:
+		return "Left"
+	case Right:
+		return "Right"
+	case Centered:
+		return "Centered"
+	case Justified:
+		return "Justified"
+	}
+	return fmt.Sprint(int(a))
+}
+
 // Type is the item type.
 type Type int
 
@@ -125,7 +140,7 @@ func (t Type) String() string {
 // Item is a box, glue or penalty item.
 type Item struct {
 	Type
-	Width, Stretch, Shrink float64
+	Width, Stretch, Shrink float64 // Width is the natural width, Stretch the width that can be added, and Shrink that can be removed
 	Penalty                float64
 	Flagged                bool
 	Size                   int // number of boxes (glyphs) compressed into one
@@ -142,32 +157,66 @@ func (item Item) String() string {
 	return "?"
 }
 
-// Box returns a box item of given width.
-func Box(width float64) Item {
-	return Item{
-		Type:  BoxType,
-		Width: width,
+type Items []Item
+
+// Box adds a box item (a word) of the given fixed width.
+func (items Items) Box(width float64) Items {
+	if len(items) == 0 || items[len(items)-1].Type != BoxType {
+		items = append(items, Item{
+			Type:  BoxType,
+			Width: width,
+		})
+	} else {
+		items[len(items)-1].Width += width
 	}
+	return items
 }
 
-// Glue returns a glue item where width is the default width, stretch*Tolerance the maximum width, and shrink*Tolerance the minimum width.
-func Glue(width, stretch, shrink float64) Item {
-	return Item{
+// Glue adds a glue item (a space) where width is the default width, stretch*Tolerance the maximum width, and shrink*Tolerance the minimum width.
+func (items Items) Glue(width, stretch, shrink float64) Items {
+	// TODO: merge?
+	//if len(items) == 0 || items[len(items)-1].Type != GlueType {
+	items = append(items, Item{
 		Type:    GlueType,
 		Width:   width,
 		Stretch: stretch,
 		Shrink:  shrink,
-	}
+	})
+	//} else {
+	//	prev := &items[len(items)-1]
+	//	prev.Width += width
+	//	prev.Stretch += stretch
+	//	prev.Shrink += shrink
+	//	if prev.Width <= Epsilon && prev.Stretch <= Epsilon && prev.Shrink <= Epsilon {
+	//		items = items[:len(items)-1]
+	//	}
+	//}
+	return items
 }
 
-// Penalty returns a panalty item with a given penalization factor. For hyphen insertion, width is the hyphen width and flagged should be set to discourage multiple hyphened lines next to each other.
-func Penalty(width, penalty float64, flagged bool) Item {
-	return Item{
+// Penalty adds a penalty item (explicit or possible newline, hyphen) with a given penalization factor. For hyphen insertion, width is the hyphen width and flagged should be set to discourage multiple hyphened lines next to each other. For explicit newlines the penalty is -Infinity.
+func (items Items) Penalty(width, penalty float64, flagged bool) Items {
+	// TODO: merge?
+	//if len(items) == 0 || items[len(items)-1].Type != PenaltyType {
+	items = append(items, Item{
 		Type:    PenaltyType,
 		Width:   width,
 		Penalty: penalty,
 		Flagged: flagged,
-	}
+	})
+	//} else {
+	//	prev := &items[len(items)-1]
+	//	prev.Width += width
+	//	prev.Penalty = math.Min(prev.Penalty, penalty)
+	//	prev.Flagged = prev.Flagged || flagged
+	//}
+	return items
+}
+
+type Break struct {
+	Position               int
+	Width, Stretch, Shrink float64
+	Ratio                  float64
 }
 
 // Breakpoint is a (possible) break point in the string.
@@ -175,12 +224,10 @@ type Breakpoint struct {
 	next, prev *Breakpoint
 	parent     *Breakpoint
 
-	Position int
+	Break
 	Line     int
 	Fitness  int
-	Width    float64
 	W, Y, Z  float64
-	Ratio    float64
 	Demerits float64
 }
 
@@ -297,30 +344,34 @@ func (lb *linebreaker) computeAdjustmentRatio(b int, active *Breakpoint) float64
 			// unstretchable line, act as if we have a very small stretchable space.
 			// this helps to distinguish between between smaller and longer lines if both would
 			// need to stretched beyond the tolerance
+			//fmt.Println("UNSTRECHABLE", b, active)
 			return Infinity * (1.0 + (lb.width-L)/lb.width)
 		}
 		ratio = (lb.width - L) / (lb.Y - active.Y)
 	} else if lb.width < L {
 		ratio = (lb.width - L) / (lb.Z - active.Z)
 	}
+	//if Infinity < ratio {
+	//	fmt.Println("LIM ratio", b, active, ratio)
+	//}
 	// limiting positive ratios gives space to distinguish non-stretchable lines
 	// allowing negative ratios will break up words that are too long
 	return math.Min(ratio, Infinity) // range [-inf,1000]
 }
 
-func (lb *linebreaker) computeSum(b int) (float64, float64, float64) {
+func (lb *linebreaker) sumBreakGlues(b int) (float64, float64, float64) {
 	// compute tw=(sum w)after(b), ty=(sum y)after(b), and tz=(sum z)after(b)
-	// count all glues after the proposed break at b until a box, compulsory break, or explicit space
-	// these glues are eaten up by the proposed break and should be taken into account
+	// count the glue at or right after the break, they disappear (this is different from the original algorithm)
 	W, Y, Z := lb.W, lb.Y, lb.Z
-	for i, item := range lb.items[b:] {
-		if item.Type == BoxType || (item.Type == PenaltyType && item.Penalty <= -Infinity && 0 < i) {
-			break
-		} else if item.Type == GlueType {
-			W += item.Width
-			Y += item.Stretch
-			Z += item.Shrink
-		}
+	if lb.items[b].Type == GlueType {
+		W += lb.items[b].Width
+		Y += lb.items[b].Stretch
+		Z += lb.items[b].Shrink
+	}
+	if b+1 < len(lb.items) && lb.items[b+1].Type == GlueType {
+		W += lb.items[b+1].Width
+		Y += lb.items[b+1].Stretch
+		Z += lb.items[b+1].Shrink
 	}
 	return W, Y, Z
 }
@@ -399,7 +450,7 @@ func (lb *linebreaker) mainLoop(b int, tolerance float64) {
 
 		if Dmin < math.Inf(1.0) {
 			// insert new active node for break from A[c] to the current item
-			W, Y, Z := lb.computeSum(b)
+			W, Y, Z := lb.sumBreakGlues(b)
 			width := lb.W
 			if lb.items[b].Type == PenaltyType {
 				width += lb.items[b].Width
@@ -407,15 +458,19 @@ func (lb *linebreaker) mainLoop(b int, tolerance float64) {
 			for c := 0; c < len(D); c++ {
 				if D[c] <= Dmin+DemeritsFitness {
 					breakpoint := &Breakpoint{
-						parent:   A[c],
-						Position: b,
+						parent: A[c],
+						Break: Break{
+							Position: b,
+							Width:    width,
+							Stretch:  lb.Y,
+							Shrink:   lb.Z,
+							Ratio:    R[c],
+						},
 						Line:     A[c].Line + 1,
 						Fitness:  c,
-						Width:    width,
 						W:        W,
 						Y:        Y,
 						Z:        Z,
-						Ratio:    R[c],
 						Demerits: D[c],
 					}
 					if active == nil {
@@ -429,10 +484,12 @@ func (lb *linebreaker) mainLoop(b int, tolerance float64) {
 	}
 }
 
-// Linebreak breaks a list of items using Donald Knuth's line breaking algorithm. See Donald E. Knuth and Michael F. Plass, "Breaking Paragraphs into Lines", 1981
-func Linebreak(items []Item, width float64, looseness int) ([]*Breakpoint, bool) {
+// KnuthLinebreak breaks a list of items using Donald Knuth's line breaking algorithm. See Donald E. Knuth and Michael F. Plass, "Breaking Paragraphs into Lines", 1981
+func KnuthLinebreak(items Items, width float64, looseness int) ([]Break, bool) {
 	overflows := false
 	tolerance := Tolerance
+
+	// TODO: slow for long texts, break up paragraphs (explicit newlines) and process independently, this will mostly linearlize this
 
 START:
 	// create an active node representing the beginning of the paragraph
@@ -442,8 +499,8 @@ START:
 		if item.Type == BoxType {
 			lb.W += item.Width
 		} else if item.Type == GlueType {
-			// additionally don't check glue if the next element is a penalty (not in the original algorithm), this optimizes the search space
-			if 0 < b && lb.items[b-1].Type == BoxType && lb.items[b+1].Type != PenaltyType {
+			// additionally don't check glue if it has zero width (eg. before a penalty, not in the original algorithm), this optimizes the search space
+			if 0 < b && lb.items[b-1].Type == BoxType && 0.0 < item.Width {
 				lb.mainLoop(b, tolerance)
 			}
 			lb.W += item.Width
@@ -468,15 +525,19 @@ START:
 				for parent := lb.inactiveNodes.head; parent != nil; parent = parent.next {
 					if lb.W-parent.W == minWidth {
 						breakpoint := &Breakpoint{
-							parent:   parent,
-							Position: b,
+							parent: parent,
+							Break: Break{
+								Position: b,
+								Width:    lb.W,
+								Stretch:  lb.Y,
+								Shrink:   lb.Z,
+								Ratio:    0.0,
+							},
 							Line:     parent.Line + 1,
 							Fitness:  1,
-							Width:    lb.W,
 							W:        lb.W,
 							Y:        lb.Y,
 							Z:        lb.Z,
-							Ratio:    0.0,
 							Demerits: parent.Demerits + 1000.0,
 						}
 						lb.activeNodes.Push(breakpoint)
@@ -488,7 +549,7 @@ START:
 
 	// either len(items)==0 or we couldn't find feasible line breaks
 	if lb.activeNodes.head == nil {
-		return []*Breakpoint{{
+		return []Break{{
 			Position: len(lb.items) - 1,
 		}}, !overflows
 	}
@@ -517,19 +578,100 @@ START:
 	}
 
 	// use the chosen node to determine the optimum breakpoint sequence
-	breaks := make([]*Breakpoint, b.Line+1)
+	breaks := make([]Break, b.Line+1)
 	for b != nil {
 		if b.Line+1 < len(breaks) {
+			// values are cumulative, take their difference
 			breaks[b.Line+1].Width -= b.W
+			breaks[b.Line+1].Stretch -= b.Y
+			breaks[b.Line+1].Shrink -= b.Z
 		}
 		if b.Ratio < -1.0 || Tolerance < b.Ratio {
 			b.Ratio = 0.0
 		}
-		breaks[b.Line] = b
+		breaks[b.Line] = b.Break
 		b = b.parent
 	}
 	if 1 < len(breaks) {
 		breaks = breaks[1:]
+	}
+	return breaks, !overflows
+}
+
+// GreedyLinebreak breaks a list of items using a greedy line breaking algorithm. This is much faster than Knuth's algorithm.
+func GreedyLinebreak(items Items, width float64) ([]Break, bool) {
+	overflows := false
+	breaks := []Break{}
+	w, y, z := 0.0, 0.0, 0.0 // of glues between boxes
+	W, Y, Z := 0.0, 0.0, 0.0 // of line
+
+	i, b := 0, -1
+	for ; i < len(items); i++ {
+		if b != -1 && width < W+w+items[i].Width-Z-z-items[i].Shrink || items[i].Penalty == -Infinity {
+			// break
+			if items[i].Penalty == -Infinity {
+				// move breakpoint to this
+				W += w
+				Y += y
+				Z += z
+				w, y, z = 0.0, 0.0, 0.0
+				b = i
+			}
+			if items[b].Type == PenaltyType {
+				// add width of used potential hyphen
+				W += items[b].Width
+			} else if items[b].Type == GlueType {
+				// subtract disappeared glue used as break
+				W -= items[b].Width
+				Y -= items[b].Stretch
+				Z -= items[b].Shrink
+			}
+
+			ratio := 0.0
+			if W-Z <= width && width < W {
+				// shrink
+				ratio = (width - W) / Z
+			} else if W < width && width <= W+Y {
+				// stretch
+				ratio = (width - W) / Y
+			} else if width < W-Z {
+				overflows = true
+			}
+			breaks = append(breaks, Break{
+				Position: b,
+				Width:    W,
+				Stretch:  Y,
+				Shrink:   Z,
+				Ratio:    ratio,
+			})
+
+			W, Y, Z = 0.0, 0.0, 0.0
+			if b+1 < len(items) && items[b+1].Type == GlueType {
+				// skip glue after break
+				W -= items[b+1].Width
+				Y -= items[b+1].Stretch
+				Z -= items[b+1].Shrink
+			}
+		}
+
+		if items[i].Type == BoxType {
+			w += items[i].Width
+		} else if items[i].Type == GlueType {
+			w += items[i].Width
+			y += items[i].Stretch
+			z += items[i].Shrink
+		}
+
+		if items[i].Type == PenaltyType && items[i].Penalty != Infinity || 0 < i && items[i].Type == GlueType && items[i-1].Type == BoxType && (i+1 == len(items) || items[i+1].Type != PenaltyType) {
+			// possible breakpoint:
+			// - penalty that is not infinity
+			// - glue after box and not before penalty
+			W += w
+			Y += y
+			Z += z
+			w, y, z = 0.0, 0.0, 0.0
+			b = i
+		}
 	}
 	return breaks, !overflows
 }
@@ -555,125 +697,72 @@ func IsNewline(r rune) bool {
 	return false
 }
 
-// GlyphsToItems converts a slice of glyphs into the box/glue/penalty items model as used by Knuth's line breaking algorithm. The SFNT and Size of each glyph must be set. Indent and align specify the indentation width of the first line and the alignment (left, right, centered, justified) of the lines respectively.
-func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
-	if len(glyphs) == 0 {
-		return []Item{}
-	}
+func SpaceGlue(glyphs []Glyph, i int) (float64, float64, float64) {
+	spaceFactor := 1.0
+	spaceWidth := glyphs[i].Advance()
+	if !FrenchSpacing {
+		i--
+		if 0 <= i && (glyphs[i].Text == ')' || glyphs[i].Text == ']' || glyphs[i].Text == '\'' || glyphs[i].Text == '"') {
+			i--
+		}
 
-	// the average space width used for left, right, centered alignment
-	stretchWidth := 0.0
-	if align != Justified {
-		n := 0.0
-		for _, glyph := range glyphs {
-			if IsSpace(glyph.Text) {
-				stretchWidth += glyph.Advance()
-				n += 1.0
+		// TODO: add support for surpressing extra spacing with U+E000 and forcing extra spacing with U+E001
+		// don't add extra spacing after uppercase + period
+		//if i == 0 || glyphs[i].Text != '.' || 0 < i && !unicode.IsUpper(glyphs[i-1].Text) {
+		if 0 <= i {
+			switch glyphs[i].Text {
+			case '.', '!', '?':
+				spaceFactor = SentenceFactor
+			case ':':
+				spaceFactor = ColonFactor
+			case ';':
+				spaceFactor = SemicolonFactor
+			case ',':
+				spaceFactor = CommaFactor
 			}
 		}
-		if 1e-8 < n {
-			stretchWidth /= n
-		}
+	}
+	return spaceWidth, spaceWidth * SpaceStretch * spaceFactor, spaceWidth * SpaceShrink / spaceFactor
+}
+
+// GlyphsToItems converts a slice of glyphs into the box/glue/penalty items model as used by Knuth's line breaking algorithm. The SFNT and Size of each glyph must be set. Indent and align specify the indentation width of the first line and the alignment (left, right, centered, justified) of the lines respectively.
+func GlyphsToItems(glyphs []Glyph, indent float64, align Align) Items {
+	// Notes:
+	// - Penalties with a cost less than Infinity are potential breakpoints
+	// - Glues directly after a box are potential breakpoints (a penalty with cost Infinity would prohibit this)
+	// - Only the Justified and Left alignments are really used, Left is used for Right and Centered as well
+	if len(glyphs) == 0 {
+		return Items{}
 	}
 
 	// trim spaces from start and end
-	padStart, padEnd := Box(0.0), Box(0.0)
 	first, last := 0, len(glyphs)
-	for i := 0; i < len(glyphs); i++ {
-		if IsSpace(glyphs[i].Text) {
-			padStart.Width += glyphs[i].Advance()
-			padStart.Size++
-			first++
-		} else {
-			break
-		}
-	}
-	for i := len(glyphs) - 1; first <= i; i-- {
-		if IsSpace(glyphs[i].Text) {
-			padEnd.Width += glyphs[i].Advance()
-			padEnd.Size++
-			last--
-		} else {
-			break
-		}
-	}
 
-	items := []Item{}
-	items = append(items, Box(indent))
-	if padStart.Size != 0 {
-		items[0].Width += padStart.Width
-		items[0].Size += padStart.Size
-		items = append(items, Penalty(0, 0, false))
-	}
-	if align == Centered {
-		items = append(items, Glue(0.0, stretchWidth, 0.0))
-	}
+	items := Items{}
+	items = items.Box(indent)
 	for i := first; i < last; i++ {
 		glyph := glyphs[i]
 		if IsSpace(glyph.Text) {
-			spaceWidth := glyph.Advance()
-			spaceFactor := 1.0
-			if !FrenchSpacing && align == Justified {
-				j := i - 1
-				if 0 <= j && (glyphs[j].Text == ')' || glyphs[j].Text == ']' || glyphs[j].Text == '\'' || glyphs[j].Text == '"') {
-					j--
-				}
-				if 0 <= j && (j == 0 || !unicode.IsUpper(glyphs[j-1].Text)) {
-					switch glyphs[j].Text {
-					case '.', '!', '?':
-						spaceFactor = SentenceFactor
-					case ':':
-						spaceFactor = ColonFactor
-					case ';':
-						spaceFactor = SemicolonFactor
-					case ',':
-						spaceFactor = CommaFactor
-					}
-				}
-			}
-			var w, y, z float64
+			w, y, z := SpaceGlue(glyphs, i)
 			if align == Justified {
-				w = spaceWidth
-				y = spaceWidth * SpaceStretch * spaceFactor
-				z = spaceWidth * SpaceShrink / spaceFactor
-			} else if align == Left || align == Right || align == Centered {
-				w = 0.0
-				y = stretchWidth
-				z = 0.0
-			}
-			if items[len(items)-1].Type == GlueType {
-				items[len(items)-1].Width += w
-				items[len(items)-1].Stretch += y
-				items[len(items)-1].Shrink += z
+				items = items.Glue(w, y, z)
+				items[len(items)-1].Size++
 			} else {
-				items = append(items, Glue(w, y, z))
-			}
-			if align == Justified {
+				items = items.Glue(0.0, Infinity, 0.0)
+				items = items.Penalty(0.0, 0.0, false) // breakable
+				items = items.Glue(w, y-Infinity, z)
 				items[len(items)-1].Size++
-			} else if align == Left || align == Right {
-				items = append(items, Penalty(0.0, 0.0, false))
-				items = append(items, Glue(spaceWidth, -stretchWidth, 0.0))
-				items[len(items)-1].Size++
-			} else if align == Centered {
-				items = append(items, Penalty(0.0, 0.0, false))
-				items = append(items, Glue(spaceWidth, -stretchWidth, 0.0))
-				items[len(items)-1].Size++
-				items = append(items, Box(0.0))
-				items = append(items, Penalty(0.0, Infinity, false))
-				items = append(items, Glue(0.0, stretchWidth, 0.0))
 			}
 		} else if IsNewline(glyph.Text) {
 			// only add one penalty for \r\n
-			if glyph.Text != '\n' || i == 0 || glyphs[i-1].Text != '\r' {
-				if align == Centered {
-					items = append(items, Glue(0.0, stretchWidth, 0.0))
-					items = append(items, Penalty(0.0, -Infinity, false))
-				} else {
-					items = append(items, Glue(0.0, Infinity, 0.0))
-					items = append(items, Penalty(0.0, -Infinity, false))
-				}
-			}
+			items = items.Glue(0.0, Infinity, 0.0)
+			items = items.Penalty(0.0, -Infinity, false) // forced breakpoint
 			items[len(items)-1].Size++
+			if glyph.Text == '\r' && i+1 < len(glyphs) && glyphs[i+1].Text == '\n' {
+				items[len(items)-1].Size++
+				i++
+			}
+			items = items.Glue(0.0, -Infinity, 0.0)
 		} else if glyph.Text == '\u00AD' || glyph.Text == '\u200B' {
 			// optional hyphens
 			var hyphenWidth float64
@@ -686,54 +775,56 @@ func GlyphsToItems(glyphs []Glyph, indent float64, align Align) []Item {
 				hyphenWidth *= glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
 			}
 			if align == Justified {
-				items = append(items, Penalty(hyphenWidth, HyphenPenalty, true))
+				items = items.Penalty(hyphenWidth, HyphenPenalty, true) // breakable
 				items[len(items)-1].Size++
-			} else if align == Left || align == Right {
-				items = append(items, Penalty(0.0, Infinity, false))
-				items = append(items, Glue(0.0, stretchWidth, 0.0))
-				items = append(items, Penalty(hyphenWidth, 10.0*HyphenPenalty, true))
+			} else {
+				items = items.Penalty(0.0, Infinity, false)
+				items = items.Glue(0.0, Infinity, 0.0)
+				items = items.Penalty(hyphenWidth, 10.0*HyphenPenalty, true) // breakable
 				items[len(items)-1].Size++
-				items = append(items, Glue(0.0, -stretchWidth, 0.0))
-			} else if align == Centered {
-				// nothing
+				items = items.Glue(0.0, -Infinity, 0.0)
 			}
 		} else {
 			// glyphs
 			width := glyph.Advance()
 			if 1 < len(items) && items[len(items)-1].Type == BoxType {
-				if IsSpacelessScript(glyph.Script) || IsSpacelessScript(glyphs[i-1].Script) {
+				if IsSpacelessScript(glyph.Script) || 0 < i && IsSpacelessScript(glyphs[i-1].Script) {
 					// allow breaks around spaceless script glyphs, most commonly CJK
-					items = append(items, Penalty(0.0, 0.0, false))
-					items = append(items, Box(width))
+					items = items.Penalty(0.0, 0.0, false) // breakable
+					items = items.Box(width)
 				} else {
 					// merge with previous box only if it's not indent
 					items[len(items)-1].Width += width
 				}
 			} else {
-				items = append(items, Box(width))
+				items = items.Box(width)
 			}
 			items[len(items)-1].Size++
 		}
 		if glyph.Text == '-' {
 			// optional break after hyphen
-			items = append(items, Penalty(0.0, HyphenPenalty, true))
+			if align == Justified {
+				items = items.Penalty(0.0, HyphenPenalty, true) // breakable
+			} else {
+				items = items.Penalty(0.0, Infinity, false)
+				items = items.Glue(0.0, Infinity, 0.0)
+				items = items.Penalty(0.0, HyphenPenalty, true) // breakable
+				items = items.Glue(0.0, -Infinity, 0.0)
+			}
 		}
 	}
-	if padEnd.Size != 0 {
-		items = append(items, padEnd)
-	}
-	if align == Centered {
-		items = append(items, Glue(0.0, stretchWidth, 0.0))
-		items = append(items, Penalty(0.0, -Infinity, false))
-	} else {
-		items = append(items, Glue(0.0, Infinity, 0.0))
-		items = append(items, Penalty(0.0, -Infinity, false))
-	}
+	items = items.Glue(0.0, Infinity, 0.0)
+	items = items.Penalty(0.0, -Infinity, false) // forced breakpoint
 	return items
 }
 
+// Linebreaker is an interface for line breaking algorithms. Given a set of items and a desired text width, it will break lines to remain within the given width. It returns the breakpoints and whether it succesfully broke all lines to fit within the width; it returns falso if it overflows.
+type Linebreaker interface {
+	Linebreak([]Item, float64) ([]Break, bool)
+}
+
 // LinebreakGlyphs breaks a slice of glyphs uing the given SFNT font and font size. The indent and width specify the first line's indentation and the maximum line's width respectively. Align sets the horizontal alignment of the text. The looseness specifies whether it is desirable to have less or more lines than optimal.
-func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, indent, width float64, align Align, looseness int) [][]Glyph {
+func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, indent, width float64, align Align, linebreaker Linebreaker) [][]Glyph {
 	if len(glyphs) == 0 {
 		return [][]Glyph{}
 	}
@@ -746,7 +837,7 @@ func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, indent, widt
 	toUnits := float64(sfnt.Head.UnitsPerEm) / size
 
 	items := GlyphsToItems(glyphs, indent, align)
-	breaks, _ := Linebreak(items, width, looseness)
+	breaks, _ := linebreaker.Linebreak(items, width)
 
 	i, j := 0, 0 // index into: glyphs, breaks/lines
 	atStart := true

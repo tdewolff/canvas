@@ -118,7 +118,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	y := 95.0
 	metrics := face.Metrics()
 	width, height := 90.0, 32.0
-	text := rt.ToText(width, height, Justify, Top, 0.0, 0.0)
+	text := rt.ToText(width, height, Justify, Top, 0.0, 0.0, KnuthLinebreaker{})
 	ctx.SetFillColor(color.RGBA{192, 0, 64, 255})
 	ctx.DrawPath(x, y, text.Bounds().ToPath())
 	ctx.SetFillColor(color.RGBA{51, 51, 51, 51})
@@ -230,7 +230,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	titles := []string{"A and B", "A or B", "A xor B", "A not B", "B not A"}
 	for i := 0; i < 5; i++ {
 		y := 56.0 - 12.0*float64(i)
-		ctx.DrawText(15.0, y, NewTextBox(face, titles[i], 0.0, 0.0, Right, Middle, 0.0, 0.0))
+		ctx.DrawText(15.0, y, NewTextBox(face, titles[i], 0.0, 0.0, Right, Middle, 0.0, 0.0, KnuthLinebreaker{}))
 		ctx.DrawPath(25.0, y, a)
 		ctx.DrawPath(25.0, y, b)
 	}
