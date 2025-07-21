@@ -529,15 +529,6 @@ func KnuthLinebreak(items Items, width float64, looseness int) ([]Break, bool) {
 			}
 		}
 
-		// TODO: really never happens?
-		// either len(items)==0 or we couldn't find feasible line breaks
-		//if lb.activeNodes.head == nil {
-		//	fmt.Println("head is nil")
-		//	breaks = append(breaks, Break{
-		//		Position: first + len(lb.items) - 1,
-		//	})
-		//	continue
-		//}
 
 		// choose the active node with fewest total demerits
 		b := &Breakpoint{Demerits: math.Inf(1.0)}
@@ -592,7 +583,7 @@ func GreedyLinebreak(items Items, width float64) ([]Break, bool) {
 
 	i, b := 0, -1
 	for ; i < len(items); i++ {
-		if b != -1 && width < W+w+items[i].Width-Z-z-items[i].Shrink || items[i].Penalty == -Infinity {
+		if b != -1 && items[i].Type == BoxType && width < W+w+items[i].Width-Z-z-items[i].Shrink || items[i].Penalty == -Infinity {
 			// break
 			if items[i].Penalty == -Infinity {
 				// move breakpoint to this
