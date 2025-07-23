@@ -15,8 +15,8 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster i
 **Figure 1**: top-left you can see text being fitted into a box, justified using Donald Knuth's linea breaking algorithm to stretch the spaces between words to fill the whole width. You can observe a variety of styles and text decorations applied, as well as support for LTR/RTL mixing and complex scripts. In the bottom-right the word "stroke" is being stroked and drawn as a path. Top-right we see a LaTeX formula that has been converted to a path. Left of that we see an ellipse showcasing precise dashing, notably the length of e.g. the short dash is equal wherever it is on the curve. Note that the dashes themselves are elliptical arcs as well (thus exactly precise even if magnified greatly). To the right we see a closed polygon of four points being smoothed by cubic Béziers that are smooth along the whole path, and the blue line on the left shows a smoothed open path. On the bottom you can see a rotated rasterized image. The bottom-left shows path boolean operations. The result is equivalent for all renderers (PNG, PDF, SVG, etc.).
 
 ### Recent changes
-- `RichText.ToText` requires an additional parameter `text.Linebreaker`, use `rt.ToText(..., canvas.KnuthLinebreaker{})` for the original result.
-- `NewTextBox` requires an additional parameter `text.Linebreaker`, use `canvas.NewTextBox(..., canvas.KnuthLinebreaker{})` for the original result.
+- `RichText.ToText` replaces some parameters by `*TextOptions`, use `rt.ToText(..., &canvas.TextOptions{Indent: indent, LineStretch: lineStretch})` or if `indent` and `lineStretch` are zero use `rt.ToText(..., nil)` for the original result.
+- `NewTextBox` replaces some parameters by `*TextOptions`, use `rt.ToText(..., &canvas.TextOptions{Indent: indent, LineStretch: lineStretch})` or if `indent` and `lineStretch` are zero use `rt.ToText(..., nil)` for the original result.
 
 ### Sponsors
 I'm actively looking for support in the form of donations or sponsorships to keep developing this library and highly appreciate any gesture. Please see the Sponsors button in GitHub for ways to contribute, or contact me directly.

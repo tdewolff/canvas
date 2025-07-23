@@ -382,11 +382,25 @@ func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 	return t
 }
 
+type TextOptions struct {
+	// Indent is the indentation in millimeters for the first line of every paragraph.
+	Indent float64
+
+	// PunctuationInMargins enables putting punctuation marks in the right margins, outside the text box.
+	PunctuationInMargins bool
+
+	// LineStretch is the addition to the line spacing. Zero means regular line spacing, 1.0 means double spacing.
+	LineStretch float64
+
+	// Linebreaker is the line breaking algorithm. KnuthLinebreaker will give better results, but GreedyLinebreaker is faster.
+	Linebreaker text.Linebreaker
+}
+
 // NewTextBox is an advanced text formatter that will format text placement based on the settings. It takes a single font face, a string, the width or height of the box (can be zero to disable), horizontal and vertical alignment (Left, Center, Right, Top, Bottom or Justify), text indentation for the first line and line stretch (percentage to stretch the line based on the line height).
-func NewTextBox(face *FontFace, s string, width, height float64, halign, valign TextAlign, indent, lineStretch float64, linebreaker text.Linebreaker) *Text {
+func NewTextBox(face *FontFace, s string, width, height float64, halign, valign TextAlign, opts *TextOptions) *Text {
 	rt := NewRichText(face)
 	rt.WriteString(s)
-	return rt.ToText(width, height, halign, valign, indent, lineStretch, linebreaker)
+	return rt.ToText(width, height, halign, valign, opts)
 }
 
 type indexer []int
@@ -570,6 +584,7 @@ type textRun struct {
 }
 
 type KnuthLinebreaker struct {
+	Tolerance float64
 	Looseness int
 }
 
@@ -578,8 +593,12 @@ func (lb KnuthLinebreaker) String() string {
 }
 
 // Linebreak breaks a list of items using a greedy line breaking algorithm. This is much faster than Knuth's algorithm.
-func (lb KnuthLinebreaker) Linebreak(items []text.Item, width float64) ([]text.Break, bool) {
-	return text.KnuthLinebreak(items, width, lb.Looseness)
+func (lb KnuthLinebreaker) Linebreak(items []text.Item, width float64) []text.Break {
+	tolerance := lb.Tolerance
+	if tolerance <= 0.0 {
+		tolerance = 2.0
+	}
+	return text.KnuthLinebreak(items, width, tolerance, lb.Looseness)
 }
 
 type GreedyLinebreaker struct{}
@@ -589,12 +608,20 @@ func (lb GreedyLinebreaker) String() string {
 }
 
 // Linebreak breaks a list of items using a greedy line breaking algorithm. This is much faster than Knuth's algorithm.
-func (_ GreedyLinebreaker) Linebreak(items []text.Item, width float64) ([]text.Break, bool) {
+func (_ GreedyLinebreaker) Linebreak(items []text.Item, width float64) []text.Break {
 	return text.GreedyLinebreak(items, width)
 }
 
 // ToText takes the added text spans and fits them within a given box of certain width and height using Donald Knuth's line breaking algorithm.
-func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, indent, lineStretch float64, linebreaker text.Linebreaker) *Text {
+func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts *TextOptions) *Text {
+	if opts == nil {
+		opts = &TextOptions{
+			Linebreaker: KnuthLinebreaker{},
+		}
+	} else if opts.Linebreaker == nil {
+		opts.Linebreaker = KnuthLinebreaker{}
+	}
+
 	log := rt.String()
 	logRunes := []rune(log)
 	embeddingLevels := text.EmbeddingLevels(logRunes)
@@ -691,20 +718,21 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		}
 	}
 
-	// break glyphs into lines following Donald Knuth's line breaking algorithm
+	// break glyphs into lines
 	align := text.Left
 	if halign == Justify {
 		align = text.Justified
 	}
-	items := text.GlyphsToItems(glyphs, indent, align)
+	items := text.GlyphsToItems(glyphs, text.Options{
+		Align:                align,
+		Indent:               opts.Indent,
+		PunctuationInMargins: opts.PunctuationInMargins,
+	})
 
-	var overflows bool
 	var breaks []text.Break
 	if 0 < len(items) {
 		if width != 0.0 {
-			var ok bool
-			breaks, ok = linebreaker.Linebreak(items, width)
-			overflows = !ok
+			breaks = opts.Linebreaker.Linebreak(items, width)
 		} else {
 			lineWidth := 0.0
 			for i, item := range items {
@@ -724,7 +752,6 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		WritingMode:     rt.mode,
 		TextOrientation: rt.orient,
 		Text:            log,
-		Overflows:       overflows,
 	}
 	glyphs = append(glyphs, text.Glyph{Cluster: uint32(len(log))}) // makes indexing easier
 
@@ -739,7 +766,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 
 	y := y0
 	i, ag := 0, 0 // index into items and glyphs
-	lineSpacing := 1.0 + lineStretch
+	lineSpacing := 1.0 + opts.LineStretch
 	for j := range breaks {
 		// j is the current line
 		end := breaks[j].Position + 1
@@ -747,8 +774,11 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 		lineWidth := breaks[j].Width
 		if breaks[j].Ratio < 0.0 {
 			lineWidth += breaks[j].Shrink * breaks[j].Ratio
-		} else if align == text.Justified && 0.0 < breaks[j].Ratio {
+		} else if halign == Justify && 0.0 < breaks[j].Ratio {
 			lineWidth += breaks[j].Stretch * breaks[j].Ratio
+		}
+		if w < lineWidth {
+			t.Overflows = true
 		}
 
 		// shift line to centre or right
@@ -881,7 +911,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, inde
 			// stretch or shrink glues
 			if breaks[j].Ratio < 0.0 {
 				x += W + Z*breaks[j].Ratio
-			} else if align == text.Justified && 0.0 < breaks[j].Ratio {
+			} else if halign == Justify && 0.0 < breaks[j].Ratio {
 				x += W + Y*breaks[j].Ratio
 			} else if Epsilon < W {
 				x += W
