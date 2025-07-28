@@ -160,35 +160,32 @@ func (item Item) String() string {
 
 type Items []Item
 
-// Box adds a box item (a word) of the given fixed width.
-func (items Items) Box(width float64) Items {
-	items = append(items, Item{
+// Box returns a box item (a word) of the given fixed width.
+func Box(width float64) Item {
+	return Item{
 		Type:  BoxType,
 		Width: width,
-	})
-	return items
+	}
 }
 
-// Glue adds a glue item (a space) where width is the default width, stretch*Tolerance the maximum width, and shrink*Tolerance the minimum width.
-func (items Items) Glue(width, stretch, shrink float64) Items {
-	items = append(items, Item{
+// Glue returns a glue item (a space) where width is the default width, stretch*Tolerance the maximum width, and shrink*Tolerance the minimum width.
+func Glue(width, stretch, shrink float64) Item {
+	return Item{
 		Type:    GlueType,
 		Width:   width,
 		Stretch: stretch,
 		Shrink:  shrink,
-	})
-	return items
+	}
 }
 
-// Penalty adds a penalty item (explicit or possible newline, hyphen) with a given penalization factor. For hyphen insertion, width is the hyphen width and flagged should be set to discourage multiple hyphened lines next to each other. For explicit newlines the penalty is -Infinity.
-func (items Items) Penalty(width, penalty float64, flagged bool) Items {
-	items = append(items, Item{
+// Penalty returns a penalty item (explicit or possible newline, hyphen) with a given penalization factor. For hyphen insertion, width is the hyphen width and flagged should be set to discourage multiple hyphened lines next to each other. For explicit newlines the penalty is -Infinity.
+func Penalty(width, penalty float64, flagged bool) Item {
+	return Item{
 		Type:    PenaltyType,
 		Width:   width,
 		Penalty: penalty,
 		Flagged: flagged,
-	})
-	return items
+	}
 }
 
 type Break struct {
@@ -744,7 +741,7 @@ func GlyphsToItems(glyphs []Glyph, opts Options) Items {
 	raggedStretch := 5.0 * SpaceRaggedStretch
 
 	items := Items{}
-	items = items.Box(opts.Indent) // always, even if 0.0, to avoid starting with a glue
+	items = append(items, Box(opts.Indent)) // always, even if 0.0, to avoid starting with a glue
 	for i := 0; i < len(glyphs); i++ {
 		glyph := glyphs[i]
 		if IsSpace(glyph.Text) {
@@ -754,26 +751,26 @@ func GlyphsToItems(glyphs []Glyph, opts Options) Items {
 				items[len(items)-1].Width = 0.0
 			}
 			if opts.Align == Justified {
-				items = items.Glue(w, y, z)
+				items = append(items, Glue(w, y, z))
 				items[len(items)-1].Size++
 			} else {
-				items = items.Glue(0.0, raggedStretch, 0.0)
-				items = items.Penalty(0.0, 0.0, false) // breakable
-				items = items.Glue(w, y-raggedStretch, z)
+				items = append(items, Glue(0.0, raggedStretch, 0.0))
+				items = append(items, Penalty(0.0, 0.0, false)) // breakable
+				items = append(items, Glue(w, y-raggedStretch, z))
 				items[len(items)-1].Size++
 			}
 		} else if IsParagraph(glyph.Text) || IsNewline(glyph.Text) {
 			// only add one penalty for \r\n
-			items = items.Glue(0.0, Infinity, 0.0)
-			items = items.Penalty(0.0, -Infinity, false) // forced breakpoint
+			items = append(items, Glue(0.0, Infinity, 0.0))
+			items = append(items, Penalty(0.0, -Infinity, false)) // forced breakpoint
 			items[len(items)-1].Size++
 			if glyph.Text == '\r' && i+1 < len(glyphs) && glyphs[i+1].Text == '\n' {
 				items[len(items)-1].Size++
 				i++
 			}
-			items = items.Glue(0.0, -Infinity, 0.0)
+			items = append(items, Glue(0.0, -Infinity, 0.0))
 			if IsParagraph(glyph.Text) && opts.Indent != 0.0 {
-				items = items.Box(opts.Indent)
+				items = append(items, Box(opts.Indent))
 			}
 		} else if glyph.Text == '\u00AD' || glyph.Text == '\u200B' {
 			// optional hyphens
@@ -787,30 +784,30 @@ func GlyphsToItems(glyphs []Glyph, opts Options) Items {
 				hyphenWidth *= glyph.Size / float64(glyph.SFNT.Head.UnitsPerEm)
 			}
 			if opts.Align == Justified {
-				items = items.Penalty(hyphenWidth, HyphenPenalty, true) // breakable
+				items = append(items, Penalty(hyphenWidth, HyphenPenalty, true)) // breakable
 				items[len(items)-1].Size++
 			} else {
-				items = items.Penalty(0.0, Infinity, false)
-				items = items.Glue(0.0, raggedStretch, 0.0)
-				items = items.Penalty(hyphenWidth, 10.0*HyphenPenalty, true) // breakable
+				items = append(items, Penalty(0.0, Infinity, false))
+				items = append(items, Glue(0.0, raggedStretch, 0.0))
+				items = append(items, Penalty(hyphenWidth, 10.0*HyphenPenalty, true)) // breakable
 				items[len(items)-1].Size++
-				items = items.Glue(0.0, -raggedStretch, 0.0)
+				items = append(items, Glue(0.0, -raggedStretch, 0.0))
 			}
 		} else {
 			// glyphs
 			if width := glyph.Advance(); (!opts.PunctuationInMargins || !unicode.IsPunct(glyph.Text)) && 1 < len(items) && items[len(items)-1].Type == BoxType {
 				if IsSpacelessScript(glyph.Script) || 0 < i && IsSpacelessScript(glyphs[i-1].Script) {
 					// allow breaks around spaceless script glyphs, most commonly CJK
-					items = items.Glue(0.0, raggedStretch, 0.0)
-					items = items.Penalty(0.0, 0.0, false) // breakable
-					items = items.Glue(0.0, -raggedStretch, 0.0)
-					items = items.Box(width)
+					items = append(items, Glue(0.0, raggedStretch, 0.0))
+					items = append(items, Penalty(0.0, 0.0, false)) // breakable
+					items = append(items, Glue(0.0, -raggedStretch, 0.0))
+					items = append(items, Box(width))
 				} else {
 					// merge with previous box only if it's not indent
 					items[len(items)-1].Width += width
 				}
 			} else {
-				items = items.Box(width)
+				items = append(items, Box(width))
 			}
 			items[len(items)-1].Size++
 		}
@@ -823,17 +820,17 @@ func GlyphsToItems(glyphs []Glyph, opts Options) Items {
 				items[len(items)-1].Width = 0.0
 			}
 			if opts.Align == Justified {
-				items = items.Penalty(width, HyphenPenalty, true) // breakable
+				items = append(items, Penalty(width, HyphenPenalty, true)) // breakable
 			} else {
-				items = items.Penalty(0.0, Infinity, false)
-				items = items.Glue(0.0, raggedStretch, 0.0)
-				items = items.Penalty(width, HyphenPenalty, true) // breakable
-				items = items.Glue(0.0, -raggedStretch, 0.0)
+				items = append(items, Penalty(0.0, Infinity, false))
+				items = append(items, Glue(0.0, raggedStretch, 0.0))
+				items = append(items, Penalty(width, HyphenPenalty, true)) // breakable
+				items = append(items, Glue(0.0, -raggedStretch, 0.0))
 			}
 		}
 	}
-	items = items.Glue(0.0, Infinity, 0.0)
-	items = items.Penalty(0.0, -Infinity, false) // forced breakpoint
+	items = append(items, Glue(0.0, Infinity, 0.0))
+	items = append(items, Penalty(0.0, -Infinity, false)) // forced breakpoint
 	return items
 }
 

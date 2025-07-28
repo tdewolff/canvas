@@ -91,7 +91,7 @@ func doTestPDFText(t *testing.T, subsetFonts bool, expectedSize int, filename st
 	rt.WriteFace(dejaVu12, " glyphspacing")
 	rt.WriteFace(dejaVu12sub, " dejaVu12sub")
 	rt.WriteFace(garamond10, " garamond10")
-	text := rt.ToText(180, 20.0, canvas.Justify, canvas.Top, 0.0, 0.0)
+	text := rt.ToText(180, 20.0, canvas.Justify, canvas.Top, nil)
 
 	buf := &bytes.Buffer{}
 	var w io.Writer = buf

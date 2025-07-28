@@ -100,7 +100,7 @@ func main() {
 		panic(err)
 	}
 	rt.WriteString(".")
-	ctx.DrawText(40.0, 7.0, rt.ToText(0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0))
+	ctx.DrawText(40.0, 7.0, rt.ToText(0.0, 0.0, canvas.Center, canvas.Top, nil))
 
 	renderers.Write("obj.png", c, canvas.DPMM(5.0))
 }
@@ -109,7 +109,9 @@ func drawText(ctx *canvas.Context, x, y float64, halign, valign canvas.TextAlign
 	face := fontFamily.Face(10.0, color.Black, canvas.FontRegular, canvas.FontNormal)
 	phrase := "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi egestas, augue eget blandit laoreet, dolor lorem interdum ante, quis consectetur lorem massa vitae nulla. Sed cursus tellus id venenatis suscipit." // Nunc volutpat imperdiet ipsum vel varius. Pellentesque mattis viverra odio, ullamcorper iaculis massa tristique imperdiet. Aliquam posuere nisl tortor, in scelerisque elit eleifend sed. Suspendisse in risus aliquam leo vestibulum gravida. Sed ipsum massa, fringilla at pellentesque vitae, dictum nec libero. Morbi lorem ante, facilisis a justo vel, mollis fringilla massa. Mauris aliquet imperdiet magna, ac tempor sem fringilla sed."
 
-	text := canvas.NewTextBox(face, phrase, 60.0, 35.0, halign, valign, 5.0, 0.0)
+	text := canvas.NewTextBox(face, phrase, 60.0, 35.0, halign, valign, &canvas.TextOptions{
+		Indent: 5.0,
+	})
 	ctx.SetFillColor(canvas.Whitesmoke)
 	ctx.SetStrokeColor(canvas.Gray)
 	ctx.SetStrokeWidth(0.05)
@@ -141,7 +143,7 @@ func drawCJK(ctx *canvas.Context, x, y float64, title string, mode canvas.Writin
 	}
 	rt.SetWritingMode(mode)
 	rt.SetTextOrientation(orient)
-	text := rt.ToText(40.0, 40.0, halign, canvas.Top, 0.0, 0.0)
+	text := rt.ToText(40.0, 40.0, halign, canvas.Top, nil)
 
 	ctx.SetFillColor(canvas.Whitesmoke)
 	ctx.SetStrokeColor(canvas.Gray)

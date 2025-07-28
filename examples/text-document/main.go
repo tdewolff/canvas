@@ -95,17 +95,23 @@ func drawDocument(c *canvas.Context) {
 	c.DrawImage(190.0-imgWidth, y-imgHeight, img, canvas.DPMM(imgDPMM))
 
 	y -= 10
-	txt := canvas.NewTextBox(headerFace, "Document Example", 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0)
+	txt := canvas.NewTextBox(headerFace, "Document Example", 0.0, 0.0, canvas.Left, canvas.Top, nil)
 	drawTextAndMoveDown(c, 20.0, txt)
 
 	for _, t := range lorem {
 		if len(t) > 0 {
 			if t[0] == '#' {
-				txt = canvas.NewTextBox(boldFace, t[2:], 170.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0)
+				txt = canvas.NewTextBox(boldFace, t[2:], 170.0, 0.0, canvas.Justify, canvas.Top, &canvas.TextOptions{
+					Indent: 5.0,
+				})
 			} else if t[0] == '-' {
-				txt = canvas.NewTextBox(text10Face, t[2:], 170.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0)
+				txt = canvas.NewTextBox(text10Face, t[2:], 170.0, 0.0, canvas.Justify, canvas.Top, &canvas.TextOptions{
+					Indent: 5.0,
+				})
 			} else {
-				txt = canvas.NewTextBox(text12Face, t, 170.0, 0.0, canvas.Justify, canvas.Top, 5.0, 0.0)
+				txt = canvas.NewTextBox(text12Face, t, 170.0, 0.0, canvas.Justify, canvas.Top, &canvas.TextOptions{
+					Indent: 5.0,
+				})
 			}
 			drawTextAndMoveDown(c, 20.0, txt)
 		}

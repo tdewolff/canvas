@@ -20,29 +20,30 @@ func TestLinebreak(t *testing.T) {
 		ratios []float64
 	}{
 		// full lines without spaces
-		{[]Item{Box(100.0), P, Box(100.0)}, "1>0", []float64{0.0, 0.0}},
-		{[]Item{Box(50.0), Box(50.0), P, Box(100.0)}, "2>0", []float64{0.0, 0.0}},
-		{[]Item{Box(50.0), P, Box(50.0), P, Box(100.0)}, "3>0", []float64{0.0, 0.0}},
+		{[]Item{Box(100.0), P, Box(100.0)}, "1", []float64{0.0, 0.0}},
+		{[]Item{Box(50.0), Box(50.0), P, Box(100.0)}, "2", []float64{0.0, 0.0}},
+		{[]Item{Box(50.0), P, Box(50.0), P, Box(100.0)}, "3", []float64{0.0, 0.0}},
 
 		// stretch line at spaces
-		{[]Item{Box(50.0), G, Box(30.0), P, Box(100.0)}, "3>0", []float64{2.0, 0.0}},
-		{[]Item{Box(50.0), G, P, g, Box(30.0), P, Box(100.0)}, "5>0", []float64{0.0, 0.0}},
-		{[]Item{Box(50.0), P, Box(30.0), G, P, g, Box(100.0)}, "4>0", []float64{2.0, 0.0}},
+		{[]Item{Box(50.0), G, Box(30.0), P, Box(100.0)}, "3", []float64{2.0, 0.0}},
+		{[]Item{Box(50.0), G, P, g, Box(30.0), P, Box(100.0)}, "5", []float64{0.0, 0.0}},
+		{[]Item{Box(50.0), P, Box(30.0), G, P, g, Box(100.0)}, "4", []float64{2.0, 0.0}},
 
 		// line too short
-		{[]Item{Box(80.0), P, Box(100.0)}, "1>0", []float64{0.0, 0.0}},
-		{[]Item{Box(50.0), G, Box(20.0), P, Box(100.0)}, "3>0", []float64{0.0, 0.0}},
-		{[]Item{Box(50.0), P, Box(40.0), G, Box(100.0)}, "3>0", []float64{0.0, 0.0}},
-		{[]Item{Box(50.0), P, Box(40.0), P, Box(60.0), P, Box(50.0)}, "5>3>0", []float64{0.0, 0.0, 0.0}},
-		{[]Item{Box(50.0), P, Box(40.0), P, Box(50.0), P, Box(60.0)}, "5>3>0", []float64{0.0, 0.0, 0.0}},
-		{[]Item{Box(50.0), P, Box(40.0), P, Box(50.0), P, Box(40.0), P, Box(50.0)}, "7>3>0", []float64{0.0, 0.0, 0.0}},
-		{[]Item{Box(30.0), P, Box(30.0), P, Box(30.0), P, Box(60.0), G, P, g, Box(60.0)}, "8>5>0", []float64{0.0, 0.0, 0.0}},
+		{[]Item{Box(80.0), P, Box(100.0)}, "1", []float64{0.0, 0.0}},
+		{[]Item{Box(50.0), G, Box(20.0), P, Box(100.0)}, "3", []float64{0.0, 0.0}},
+		{[]Item{Box(50.0), P, Box(40.0), G, Box(100.0)}, "", []float64{0.0}},
+		{[]Item{Box(50.0), P, Box(40.0), g, Box(100.0)}, "3", []float64{0.0, 0.0}},
+		{[]Item{Box(50.0), P, Box(40.0), P, Box(60.0), P, Box(50.0)}, "5>3", []float64{0.0, 0.0, 0.0}},
+		{[]Item{Box(50.0), P, Box(40.0), P, Box(50.0), P, Box(60.0)}, "5>3", []float64{0.0, 0.0, 0.0}},
+		{[]Item{Box(50.0), P, Box(40.0), P, Box(50.0), P, Box(40.0), P, Box(50.0)}, "7>3", []float64{0.0, 0.0, 0.0}},
+		{[]Item{Box(30.0), P, Box(30.0), P, Box(30.0), P, Box(60.0), G, P, g, Box(60.0)}, "8>5", []float64{0.0, 0.0, 0.0}},
 
 		// CJK
-		{[]Item{Box(21.0), P, Box(21.0), P, Box(21.0), P, Box(21.0), P, Box(21.0), P, Box(21.0), P, Box(21.0), P, Box(21.0), P, Box(21.0)}, "15>7>0", []float64{0.0, 0.0, 0.0}},
+		{[]Item{Box(21.0), P, Box(21.0), P, Box(21.0), P, Box(21.0), P, Box(21.0), P, Box(21.0), P, Box(21.0), P, Box(21.0), P, Box(21.0)}, "15>7", []float64{0.0, 0.0, 0.0}},
 
 		// line too long
-		{[]Item{Box(120.0), P, Box(100.0)}, "1>0", []float64{0.0, 0.0}},
+		{[]Item{Box(120.0), P, Box(100.0)}, "1", []float64{0.0, 0.0}},
 	}
 
 	for i, tt := range tests {
@@ -50,10 +51,18 @@ func TestLinebreak(t *testing.T) {
 			tt.items = append(tt.items, Glue(0.0, math.Inf(1.0), 0.0))
 			tt.items = append(tt.items, Penalty(0.0, -Infinity, true))
 
-			breakpoints, _ := Linebreak(tt.items, lineWidth, 0)
-			test.String(t, breakpoints[len(breakpoints)-2].String(), tt.breaks)
+			breaks := KnuthLinebreak(tt.items, lineWidth, 2.0, 0)
+
+			s := ""
+			for i := len(breaks) - 2; 0 <= i; i-- {
+				if 0 < len(s) {
+					s += ">"
+				}
+				s += fmt.Sprintf("%d", breaks[i].Position)
+			}
+			test.String(t, s, tt.breaks)
 			for i, ratio := range tt.ratios {
-				test.T(t, breakpoints[i].Ratio, ratio, fmt.Sprintf("ratio of break %d", i))
+				test.T(t, breaks[i].Ratio, ratio, fmt.Sprintf("ratio of break %d", i))
 			}
 		})
 	}

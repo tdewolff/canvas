@@ -386,11 +386,11 @@ type TextOptions struct {
 	// Indent is the indentation in millimeters for the first line of every paragraph.
 	Indent float64
 
-	// PunctuationInMargins enables putting punctuation marks in the right margins, outside the text box.
-	PunctuationInMargins bool
-
 	// LineStretch is the addition to the line spacing. Zero means regular line spacing, 1.0 means double spacing.
 	LineStretch float64
+
+	// PunctuationInMargins enables putting punctuation marks in the right margins, outside the text box.
+	PunctuationInMargins bool
 
 	// Linebreaker is the line breaking algorithm. KnuthLinebreaker will give better results, but GreedyLinebreaker is faster.
 	Linebreaker text.Linebreaker
