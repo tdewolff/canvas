@@ -146,14 +146,14 @@ func (zs Intersections) HasTangent() bool {
 
 func (zs Intersections) add(pos Point, ta, tb, dira, dirb float64, tangent, same bool) Intersections {
 	// normalise T values between [0,1]
-	if ta < 0.0 { // || Equal(ta, 0.0) {
+	if ta < 0.0 {
 		ta = 0.0
-	} else if 1.0 <= ta { // || Equal(ta, 1.0) {
+	} else if 1.0 <= ta {
 		ta = 1.0
 	}
-	if tb < 0.0 { // || Equal(tb, 0.0) {
+	if tb < 0.0 {
 		tb = 0.0
-	} else if 1.0 < tb { // || Equal(tb, 1.0) {
+	} else if 1.0 < tb {
 		tb = 1.0
 	}
 	return append(zs, Intersection{pos, [2]float64{ta, tb}, [2]float64{dira, dirb}, tangent, same})
@@ -161,31 +161,23 @@ func (zs Intersections) add(pos Point, ta, tb, dira, dirb float64, tangent, same
 
 func correctIntersection(z, aMin, aMax, bMin, bMax Point) Point {
 	if z.X < aMin.X {
-		//fmt.Println("CORRECT 1:", a0, a1, "--", b0, b1)
 		z.X = aMin.X
 	} else if aMax.X < z.X {
-		//fmt.Println("CORRECT 2:", a0, a1, "--", b0, b1)
 		z.X = aMax.X
 	}
 	if z.X < bMin.X {
-		//fmt.Println("CORRECT 3:", a0, a1, "--", b0, b1)
 		z.X = bMin.X
 	} else if bMax.X < z.X {
-		//fmt.Println("CORRECT 4:", a0, a1, "--", b0, b1)
 		z.X = bMax.X
 	}
 	if z.Y < aMin.Y {
-		//fmt.Println("CORRECT 5:", a0, a1, "--", b0, b1)
 		z.Y = aMin.Y
 	} else if aMax.Y < z.Y {
-		//fmt.Println("CORRECT 6:", a0, a1, "--", b0, b1)
 		z.Y = aMax.Y
 	}
 	if z.Y < bMin.Y {
-		//fmt.Println("CORRECT 7:", a0, a1, "--", b0, b1)
 		z.Y = bMin.Y
 	} else if bMax.Y < z.Y {
-		//fmt.Println("CORRECT 8:", a0, a1, "--", b0, b1)
 		z.Y = bMax.Y
 	}
 	return z

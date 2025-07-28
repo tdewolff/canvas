@@ -118,86 +118,105 @@ var boInitPoolsOnce = sync.OnceFunc(func() {
 	boSquarePool = &sync.Pool{New: func() any { return &toleranceSquare{} }}
 })
 
-// Settle returns the "settled" path. It removes all self-intersections, orients all filling paths
-// CCW and all holes CW, and tries to split into subpaths if possible. Note that path p is
-// flattened unless q is already flat. Path q is implicitly closed. It runs in O((n + k) log n),
-// with n the sum of the number of segments, and k the number of intersections.
+// Settle returns the "settled"/flattened path, a visually identical version of the original.
+// It removes all self-intersections and overlapping areas, orients all filling paths CCW and all
+// holes CW, and tries to separate paths as much as possible. Paths are grouped by the filling/outer
+// ring followed by the corresponding holes/inner rings; the outer rings are ordered from
+// left-to-right and secondly from bottom-to-top. Note that path p is flattened unless q is already
+// flat. Path q is implicitly closed. It runs in O((n + k) log n), with n the number of segments,
+// and k the number of intersections.
 func (p *Path) Settle(fillRule FillRule) *Path {
-	return bentleyOttmann(p.Split(), nil, opSettle, fillRule)
+	return bentleyOttmann(p.Split(), nil, opSettle, fillRule).Merge()
 }
 
-// Settle is the same as Path.Settle, but faster if paths are already split.
-func (ps Paths) Settle(fillRule FillRule) *Path {
+// Settle is the same as Path.Settle, but faster if paths are already split. Each resulting path
+// is a single filling path followed by its holes as subpaths.
+func (ps Paths) Settle(fillRule FillRule) []*Path {
 	return bentleyOttmann(ps, nil, opSettle, fillRule)
 }
 
-// And returns the boolean path operation of path p AND q, i.e. the intersection of both. It
-// removes all self-intersections, orients all filling paths CCW and all holes CW, and tries to
-// split into subpaths if possible. Note that path p is flattened unless q is already flat. Path
-// q is implicitly closed. It runs in O((n + k) log n), with n the sum of the number of segments,
+// And returns the boolean path operation of path p AND q, i.e. the intersection of both.
+// It removes all self-intersections and overlapping areas, orients all filling paths CCW and all
+// holes CW, and tries to separate paths as much as possible. Paths are grouped by the filling/outer
+// ring followed by the corresponding holes/inner rings; the outer rings are ordered from
+// left-to-right and secondly from bottom-to-top. Note that path p is flattened unless q is already
+// flat. Path q is implicitly closed. It runs in O((n + k) log n), with n the number of segments,
 // and k the number of intersections.
 func (p *Path) And(q *Path) *Path {
-	return bentleyOttmann(p.Split(), q.Split(), opAND, NonZero)
+	return bentleyOttmann(p.Split(), q.Split(), opAND, NonZero).Merge()
 }
 
-// And is the same as Path.And, but faster if paths are already split.
-func (ps Paths) And(qs Paths) *Path {
+// And is the same as Path.And, but faster if paths are already split. Each resulting path
+// is a single filling path followed by its holes as subpaths.
+func (ps Paths) And(qs Paths) []*Path {
 	return bentleyOttmann(ps, qs, opAND, NonZero)
 }
 
 // Or returns the boolean path operation of path p OR q, i.e. the union of both. It
-// removes all self-intersections, orients all filling paths CCW and all holes CW, and tries to
-// split into subpaths if possible. Note that path p is flattened unless q is already flat. Path
-// q is implicitly closed. It runs in O((n + k) log n), with n the sum of the number of segments,
+// It removes all self-intersections and overlapping areas, orients all filling paths CCW and all
+// holes CW, and tries to separate paths as much as possible. Paths are grouped by the filling/outer
+// ring followed by the corresponding holes/inner rings; the outer rings are ordered from
+// left-to-right and secondly from bottom-to-top. Note that path p is flattened unless q is already
+// flat. Path q is implicitly closed. It runs in O((n + k) log n), with n the number of segments,
 // and k the number of intersections.
 func (p *Path) Or(q *Path) *Path {
-	return bentleyOttmann(p.Split(), q.Split(), opOR, NonZero)
+	return bentleyOttmann(p.Split(), q.Split(), opOR, NonZero).Merge()
 }
 
-// Or is the same as Path.Or, but faster if paths are already split.
-func (ps Paths) Or(qs Paths) *Path {
+// Or is the same as Path.Or, but faster if paths are already split. Each resulting path
+// is a single filling path followed by its holes as subpaths.
+func (ps Paths) Or(qs Paths) []*Path {
 	return bentleyOttmann(ps, qs, opOR, NonZero)
 }
 
 // Xor returns the boolean path operation of path p XOR q, i.e. the symmetric difference of both.
-// It removes all self-intersections, orients all filling paths CCW and all holes CW, and tries to
-// split into subpaths if possible. Note that path p is flattened unless q is already flat. Path
-// q is implicitly closed. It runs in O((n + k) log n), with n the sum of the number of segments,
+// It removes all self-intersections and overlapping areas, orients all filling paths CCW and all
+// holes CW, and tries to separate paths as much as possible. Paths are grouped by the filling/outer
+// ring followed by the corresponding holes/inner rings; the outer rings are ordered from
+// left-to-right and secondly from bottom-to-top. Note that path p is flattened unless q is already
+// flat. Path q is implicitly closed. It runs in O((n + k) log n), with n the number of segments,
 // and k the number of intersections.
 func (p *Path) Xor(q *Path) *Path {
-	return bentleyOttmann(p.Split(), q.Split(), opXOR, NonZero)
+	return bentleyOttmann(p.Split(), q.Split(), opXOR, NonZero).Merge()
 }
 
-// Xor is the same as Path.Xor, but faster if paths are already split.
-func (ps Paths) Xor(qs Paths) *Path {
+// Xor is the same as Path.Xor, but faster if paths are already split. Each resulting path
+// is a single filling path followed by its holes as subpaths.
+func (ps Paths) Xor(qs Paths) []*Path {
 	return bentleyOttmann(ps, qs, opXOR, NonZero)
 }
 
 // Not returns the boolean path operation of path p NOT q, i.e. the difference of both.
-// It removes all self-intersections, orients all filling paths CCW and all holes CW, and tries to
-// split into subpaths if possible. Note that path p is flattened unless q is already flat. Path
-// q is implicitly closed. It runs in O((n + k) log n), with n the sum of the number of segments,
+// It removes all self-intersections and overlapping areas, orients all filling paths CCW and all
+// holes CW, and tries to separate paths as much as possible. Paths are grouped by the filling/outer
+// ring followed by the corresponding holes/inner rings; the outer rings are ordered from
+// left-to-right and secondly from bottom-to-top. Note that path p is flattened unless q is already
+// flat. Path q is implicitly closed. It runs in O((n + k) log n), with n the number of segments,
 // and k the number of intersections.
 func (p *Path) Not(q *Path) *Path {
-	return bentleyOttmann(p.Split(), q.Split(), opNOT, NonZero)
+	return bentleyOttmann(p.Split(), q.Split(), opNOT, NonZero).Merge()
 }
 
-// Not is the same as Path.Not, but faster if paths are already split.
-func (ps Paths) Not(qs Paths) *Path {
+// Not is the same as Path.Not, but faster if paths are already split. Each resulting path
+// is a single filling path followed by its holes as subpaths.
+func (ps Paths) Not(qs Paths) []*Path {
 	return bentleyOttmann(ps, qs, opNOT, NonZero)
 }
 
 // DivideBy returns the boolean path operation of path p DIV q, i.e. p divided by q.
-// It removes all self-intersections, orients all filling paths CCW and all holes CW, and tries to
-// split into subpaths if possible. Note that path p is flattened unless q is already flat. Path
-// q is implicitly closed. It runs in O((n + k) log n), with n the sum of the number of segments,
+// It removes all self-intersections and overlapping areas, orients all filling paths CCW and all
+// holes CW, and tries to separate paths as much as possible. Paths are grouped by the filling/outer
+// ring followed by the corresponding holes/inner rings; the outer rings are ordered from
+// left-to-right and secondly from bottom-to-top. Note that path p is flattened unless q is already
+// flat. Path q is implicitly closed. It runs in O((n + k) log n), with n the number of segments,
 // and k the number of intersections.
 func (p *Path) DivideBy(q *Path) *Path {
-	return bentleyOttmann(p.Split(), q.Split(), opDIV, NonZero)
+	return bentleyOttmann(p.Split(), q.Split(), opDIV, NonZero).Merge()
 }
 
-// DivideBy is the same as Path.DivideBy, but faster if paths are already split.
-func (ps Paths) DivideBy(qs Paths) *Path {
+// DivideBy is the same as Path.DivideBy, but faster if paths are already split. Each resulting
+// path is a single filling path followed by its holes as subpaths.
+func (ps Paths) DivideBy(qs Paths) []*Path {
 	return bentleyOttmann(ps, qs, opDIV, NonZero)
 }
 
@@ -218,7 +237,7 @@ type SweepPoint struct {
 	prev              *SweepPoint // segment below
 
 	// building the polygon
-	index          int // index into result array
+	square         int // index into tolerance squares
 	resultWindings int // windings of the resulting polygon
 
 	// bools at the end to optimize memory layout of struct
@@ -229,6 +248,9 @@ type SweepPoint struct {
 	increasing bool  // original direction is left-right (or bottom-top)
 	overlapped bool  // segment's overlapping was handled
 	inResult   uint8 // in final result polygon (1 is once, 2 is twice for opDIV)
+
+	// building the resulting paths
+	index int // index into resulting paths' array
 }
 
 func (s *SweepPoint) InterpolateY(x float64) float64 {
@@ -639,6 +661,7 @@ func (n *SweepNode) Print(w io.Writer) {
 }
 
 // TODO: test performance versus (2,4)-tree (current LEDA implementation), (2,16)-tree (as proposed by S. Naber/Näher in "Comparison of search-tree data structures in LEDA. Personal communication" apparently), RB-tree (likely a good candidate), and an AA-tree (simpler implementation may be faster). Perhaps an unbalanced (e.g. Treap) works well due to the high number of insertions/deletions.
+// In any case, measure the amount of finds and inserts/deletes. If finds >> inserts probably AVL is better, if somewhat similar or inserts > finds then perhaps an RB tree (store color in sign bit of node's height).
 type SweepStatus struct {
 	root *SweepNode
 }
@@ -1393,7 +1416,7 @@ func (event *SweepPoint) breakupSegment(events *[]*SweepPoint, index int, x, y f
 
 	// original segment should be kept in-place to not alter the queue or status
 	r, l := event.SplitAt(Point{x, y})
-	r.index, l.index = index, index
+	r.square, l.square = index, index
 
 	// reverse
 	//if r.other.X == r.X {
@@ -1705,7 +1728,7 @@ func (s *SweepPoint) mergeOverlapping(op pathOp, fillRule FillRule) {
 	s.prev = prev
 }
 
-func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
+func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 	// TODO: make public and add grid spacing argument
 	// TODO: support OpDIV, keeping only subject, or both subject and clipping subpaths
 	// TODO: add Intersects/Touches functions (return bool)
@@ -1826,7 +1849,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 		qs = nil
 	} else if qs.Empty() {
 		if op == opAND {
-			return &Path{}
+			return []*Path{}
 		}
 		return ps.Settle(fillRule)
 	}
@@ -1834,7 +1857,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 		if qs != nil && (op == opOR || op == opXOR) {
 			return qs.Settle(fillRule)
 		}
-		return &Path{}
+		return []*Path{}
 	}
 
 	// ensure that X-monotone property holds for Béziers and arcs by breaking them up at their
@@ -1868,7 +1891,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 	// check for path bounding boxes to overlap
 	// TODO: cluster paths that overlap and treat non-overlapping clusters separately, this
 	// makes the algorithm "more linear"
-	R := &Path{}
+	Rs := []*Path{}
 	var pOverlaps, qOverlaps []bool
 	if qs != nil {
 		pBounds := make([]Rect, len(ps))
@@ -1890,13 +1913,13 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 			}
 			if !pOverlaps[i] && (op == opOR || op == opXOR || op == opNOT) {
 				// path bounding boxes do not overlap, thus no intersections
-				R = R.Append(ps[i].Settle(fillRule))
+				Rs = append(Rs, ps[i].Settle(fillRule))
 			}
 		}
 		for j := range qs {
 			if !qOverlaps[j] && (op == opOR || op == opXOR) {
 				// path bounding boxes do not overlap, thus no intersections
-				R = R.Append(qs[j].Settle(fillRule))
+				Rs = append(Rs, qs[j].Settle(fillRule))
 			}
 		}
 	}
@@ -2025,7 +2048,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 			square := squares[j] // pointer
 			for i := 0; i < len(square.Events); i++ {
 				event := square.Events[i]
-				event.index = j
+				event.square = j
 				event.X, event.Y = x, square.Y
 
 				other := event.other.Point.Gridsnap(BentleyOttmannEpsilon)
@@ -2190,14 +2213,18 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 			}
 
 		BuildPath:
-			windings := 0
-			prev := cur.prev
-			if op != opDIV && prev != nil {
-				windings = prev.resultWindings
+			windings := 0    // windings outside of the current polygon
+			index := len(Rs) // index into Rs, refers to previous for holes
+			if op != opDIV && cur.prev != nil {
+				windings = cur.prev.resultWindings
+				if windings%2 != 0 {
+					// current ring is a hole
+					index = cur.prev.index
+				}
 			}
 
 			first := cur
-			indexR := len(R.d)
+			R := &Path{}
 			R.MoveTo(cur.X, cur.Y)
 			cur.resultWindings = windings
 			if !first.open {
@@ -2205,11 +2232,13 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				cur.resultWindings++
 			}
 			cur.other.resultWindings = cur.resultWindings
+			cur.index = index
+
 			for {
 				// find segments starting from other endpoint, find the other segment amongst
 				// them, the next segment should be the next going CCW
 				i0 := 0
-				nodes := squares[cur.other.index].Events
+				nodes := squares[cur.other.square].Events
 				for i := range nodes {
 					if nodes[i] == cur.other {
 						i0 = i
@@ -2255,33 +2284,36 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 				cur.other.resultWindings = cur.resultWindings
 				cur.other.inResult--
 				cur.inResult--
+				cur.index = index
 			}
 			first.other.inResult--
 			first.inResult--
 
 			if first.open {
+				// open path, merge parts
 				if Ropen != nil {
-					start := (&Path{R.d[indexR:]}).Reverse()
-					R.d = append(R.d[:indexR], start.d...)
-					R.d = append(R.d, Ropen.d...)
+					R = R.Reverse()
+					R.d = append(R.d, Ropen.d[4:]...)
 					Ropen = nil
 				} else {
 					for _, cur2 := range square.Events {
 						if 0 < cur2.inResult && cur2.open {
 							cur = cur2
-							Ropen = &Path{d: make([]float64, len(R.d)-indexR-4)}
-							copy(Ropen.d, R.d[indexR+4:])
-							R.d = R.d[:indexR]
+							Ropen = R
 							goto BuildPath
 						}
 					}
 				}
+				Rs = append(Rs, R)
 			} else {
 				R.Close()
 				if windings%2 != 0 {
 					// orient holes clockwise
-					hole := (&Path{R.d[indexR:]}).Reverse()
-					R.d = append(R.d[:indexR], hole.d...)
+					R = R.Reverse()
+					Rs[index] = Rs[index].Append(R)
+				} else {
+					// filling ring
+					Rs = append(Rs, R)
 				}
 			}
 		}
@@ -2294,5 +2326,5 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) *Path {
 		}
 		boSquarePool.Put(square)
 	}
-	return R
+	return Rs
 }

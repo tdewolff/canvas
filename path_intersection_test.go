@@ -179,13 +179,13 @@ func TestIntersectionLineLineBentleyOttmann(t *testing.T) {
 		{"L2 2", "M2 2L4 4", nil},
 		{"L2 2", "M-2 -2L0 0", nil},
 		{"L4 4", "M2 2L4 4", []Point{{2.0, 2.0}}},
-		{"L4 4", "M2 2L6 6", []Point{{2.0, 2.0}, Point{4.0, 4.0}}},
+		{"L4 4", "M2 2L6 6", []Point{{2.0, 2.0}, {4.0, 4.0}}},
 		{"L4 4", "M0 0L2 2", []Point{{2.0, 2.0}}},
 		{"L4 4", "M0 0L6 6", []Point{{4.0, 4.0}}},
 		{"L4 4", "M-2 -2L2 2", []Point{{0.0, 0.0}, {2.0, 2.0}}},
 		{"L4 4", "M-2 -2L4 4", []Point{{0.0, 0.0}}},
-		{"L4 4", "M1 1L3 3", []Point{{1.0, 1.0}, Point{3.0, 3.0}}},
-		{"L4 4", "M-1 -1L5 5", []Point{{0.0, 0.0}, Point{4.0, 4.0}}},
+		{"L4 4", "M1 1L3 3", []Point{{1.0, 1.0}, {3.0, 3.0}}},
+		{"L4 4", "M-1 -1L5 5", []Point{{0.0, 0.0}, {4.0, 4.0}}},
 
 		// none
 		{"M2 0L2 1", "M3 0L3 1", nil},
@@ -1239,11 +1239,11 @@ func TestBentleyOttmannPrecision(t *testing.T) {
 			}
 
 			r := bentleyOttmann(ps, qs, tt.op, NonZero)
-			test.T(t, r, MustParseSVGPath(tt.r))
+			test.T(t, r.Merge(), MustParseSVGPath(tt.r))
 
 			if tt.q != "" {
 				r = bentleyOttmann(qs, ps, tt.op, NonZero)
-				test.T(t, r, MustParseSVGPath(tt.r), "swapped arguments")
+				test.T(t, r.Merge(), MustParseSVGPath(tt.r), "swapped arguments")
 				//} else {
 				//	r = bentleyOttmann(r.Split(), nil, tt.op, NonZero)
 				//	test.T(t, r, MustParseSVGPath(tt.r), "idempotency")
@@ -1276,7 +1276,7 @@ func TestBentleyOttmannPerformance(t *testing.T) {
 
 			t0 := time.Now()
 			r := bentleyOttmann(ps, qs, tt.op, NonZero)
-			test.T(t, r, MustParseSVGPath(tt.r))
+			test.T(t, r.Merge(), MustParseSVGPath(tt.r))
 			if d := time.Since(t0); tt.d < d {
 				test.Fail(t, fmt.Sprintf("takes too long: %v instead of <%v", d, tt.d))
 			}
@@ -1467,17 +1467,19 @@ func TestPathAnd(t *testing.T) {
 		{"M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z", "L7 0L7 4L0 4z", "M1 1L3 1L3 3L1 3zM4 1L6 1L6 3L4 3z"},                                                  // two inside the same
 
 		// open
-		{"M5 1L5 9", "L10 0L10 10L0 10z", "M5 1L5 9"},                 // in
-		{"M15 1L15 9", "L10 0L10 10L0 10z", ""},                       // out
-		{"M5 5L5 15", "L10 0L10 10L0 10z", "M5 5L5 10"},               // cross
-		{"L10 10", "L10 0L10 10L0 10z", "L10 10"},                     // touch
-		{"M5 0L10 0L10 5", "L10 0L10 10L0 10z", ""},                   // boundary
-		{"L5 0L5 5", "L10 0L10 10L0 10z", "M5 0L5 5"},                 // touch with parallel
-		{"M1 1L2 0L8 0L9 1", "L10 0L10 10L0 10z", "M1 1L2 0M8 0L9 1"}, // touch with parallel
-		{"M1 -1L2 0L8 0L9 -1", "L10 0L10 10L0 10z", ""},               // touch with parallel
-		{"L10 0", "L10 0L10 10L0 10z", ""},                            // touch with parallel
-		{"L5 0L5 1L7 -1", "L10 0L10 10L0 10z", "M5 0L5 1L6 0"},        // touch with parallel
-		{"L5 0L5 -1L7 1", "L10 0L10 10L0 10z", "M6 0L7 1"},            // touch with parallel
+		{"M5 1L5 9", "L10 0L10 10L0 10z", "M5 1L5 9"},                                    // in
+		{"M15 1L15 9", "L10 0L10 10L0 10z", ""},                                          // out
+		{"M5 5L5 15", "L10 0L10 10L0 10z", "M5 5L5 10"},                                  // cross
+		{"L10 10", "L10 0L10 10L0 10z", "L10 10"},                                        // touch
+		{"M5 0L10 0L10 5", "L10 0L10 10L0 10z", ""},                                      // boundary
+		{"L5 0L5 5", "L10 0L10 10L0 10z", "M5 0L5 5"},                                    // touch with parallel
+		{"M1 1L2 0L8 0L9 1", "L10 0L10 10L0 10z", "M1 1L2 0M8 0L9 1"},                    // touch with parallel
+		{"M1 -1L2 0L8 0L9 -1", "L10 0L10 10L0 10z", ""},                                  // touch with parallel
+		{"L10 0", "L10 0L10 10L0 10z", ""},                                               // touch with parallel
+		{"L5 0L5 1L7 -1", "L10 0L10 10L0 10z", "M5 0L5 1L6 0"},                           // touch with parallel
+		{"L5 0L5 -1L7 1", "L10 0L10 10L0 10z", "M6 0L7 1"},                               // touch with parallel
+		{"L5 0L5 -1L7 1", "L10 0L10 10L0 10z", "M6 0L7 1"},                               // touch with parallel
+		{"M5 5L25 5", "L10 0L10 10L0 10zM20 0L30 0L30 10L20 10z", "M5 5L10 5M20 5L25 5"}, // cross twice
 
 		// P intersects Q twice in the same point
 		{"L0 -20L20 -20L20 20L0 20z", "L10 10L10 -10L-10 10L-10 -10z", "L10 -10L10 10z"},
