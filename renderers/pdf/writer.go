@@ -15,10 +15,11 @@ import (
 	"time"
 	"unicode/utf16"
 
+	"golang.org/x/text/encoding/charmap"
+
 	"github.com/tdewolff/canvas"
 	canvasText "github.com/tdewolff/canvas/text"
 	canvasFont "github.com/tdewolff/font"
-	"golang.org/x/text/encoding/charmap"
 )
 
 // TODO: Invalid graphics transparency, Group has a transparency S entry or the S entry is null
@@ -350,11 +351,12 @@ func (w *pdfWriter) writeFont(ref pdfRef, font *canvas.Font, vertical bool) {
 		if sfnt.IsCFF && sfnt.CFF != nil {
 			sfnt.CFF.SetGlyphNames(nil)
 		}
+
 		sfntSubset, err := sfnt.Subset(glyphIDs, canvasFont.SubsetOptions{Tables: canvasFont.KeepPDFTables})
 		if err == nil {
 			sfnt = sfntSubset
 		} else {
-			fmt.Println("WARNING: font subsetting failed:", err)
+			panic("font subsetting failed: " + err.Error())
 		}
 	}
 	fontProgram := sfnt.Write()
