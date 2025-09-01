@@ -261,8 +261,8 @@ func TestPathCrossingsWindings(t *testing.T) {
 	for _, tt := range tts {
 		t.Run(fmt.Sprint(tt.p, " at ", tt.pos), func(t *testing.T) {
 			p := MustParseSVGPath(tt.p)
-			crossings, boundary1 := p.Crossings(tt.pos.X, tt.pos.Y)
-			windings, boundary2 := p.Windings(tt.pos.X, tt.pos.Y)
+			crossings, boundary1 := p.CrossingsAt(tt.pos.X, tt.pos.Y)
+			windings, boundary2 := p.WindingsAt(tt.pos.X, tt.pos.Y)
 			test.T(t, []any{crossings, windings, boundary1, boundary2}, []any{tt.crossings, tt.windings, tt.boundary, tt.boundary})
 		})
 	}

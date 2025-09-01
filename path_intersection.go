@@ -131,7 +131,7 @@ func (p *Path) Settle(fillRule FillRule) *Path {
 
 // Settle is the same as Path.Settle, but faster if paths are already split. Each resulting path
 // is a single filling path followed by its holes as subpaths.
-func (ps Paths) Settle(fillRule FillRule) []*Path {
+func (ps Paths) Settle(fillRule FillRule) Paths {
 	return bentleyOttmann(ps, nil, opSettle, fillRule)
 }
 
@@ -148,7 +148,7 @@ func (p *Path) And(q *Path) *Path {
 
 // And is the same as Path.And, but faster if paths are already split. Each resulting path
 // is a single filling path followed by its holes as subpaths.
-func (ps Paths) And(qs Paths) []*Path {
+func (ps Paths) And(qs Paths) Paths {
 	return bentleyOttmann(ps, qs, opAND, NonZero)
 }
 
@@ -165,7 +165,7 @@ func (p *Path) Or(q *Path) *Path {
 
 // Or is the same as Path.Or, but faster if paths are already split. Each resulting path
 // is a single filling path followed by its holes as subpaths.
-func (ps Paths) Or(qs Paths) []*Path {
+func (ps Paths) Or(qs Paths) Paths {
 	return bentleyOttmann(ps, qs, opOR, NonZero)
 }
 
@@ -182,7 +182,7 @@ func (p *Path) Xor(q *Path) *Path {
 
 // Xor is the same as Path.Xor, but faster if paths are already split. Each resulting path
 // is a single filling path followed by its holes as subpaths.
-func (ps Paths) Xor(qs Paths) []*Path {
+func (ps Paths) Xor(qs Paths) Paths {
 	return bentleyOttmann(ps, qs, opXOR, NonZero)
 }
 
@@ -199,7 +199,7 @@ func (p *Path) Not(q *Path) *Path {
 
 // Not is the same as Path.Not, but faster if paths are already split. Each resulting path
 // is a single filling path followed by its holes as subpaths.
-func (ps Paths) Not(qs Paths) []*Path {
+func (ps Paths) Not(qs Paths) Paths {
 	return bentleyOttmann(ps, qs, opNOT, NonZero)
 }
 
@@ -216,7 +216,7 @@ func (p *Path) DivideBy(q *Path) *Path {
 
 // DivideBy is the same as Path.DivideBy, but faster if paths are already split. Each resulting
 // path is a single filling path followed by its holes as subpaths.
-func (ps Paths) DivideBy(qs Paths) []*Path {
+func (ps Paths) DivideBy(qs Paths) Paths {
 	return bentleyOttmann(ps, qs, opDIV, NonZero)
 }
 
@@ -1729,8 +1729,7 @@ func (s *SweepPoint) mergeOverlapping(op pathOp, fillRule FillRule) {
 }
 
 func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
-	// TODO: make public and add grid spacing argument
-	// TODO: support OpDIV, keeping only subject, or both subject and clipping subpaths
+	// TODO: add grid spacing argument
 	// TODO: add Intersects/Touches functions (return bool)
 	// TODO: add Intersections function (return []Point)
 	// TODO: support Cut to cut a path in subpaths between intersections (not polygons)
@@ -1844,7 +1843,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 
 	boInitPoolsOnce() // use pools for SweepPoint and SweepNode to amortize repeated calls to BO
 
-	// return in case of one path is empty
+	// return when one path is empty
 	if op == opSettle {
 		qs = nil
 	} else if qs.Empty() {

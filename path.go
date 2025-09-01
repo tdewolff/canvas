@@ -899,7 +899,7 @@ func windings(zs []Intersection) (int, bool) {
 }
 
 // Windings returns the number of windings at the given point, i.e. the sum of windings for each time a ray from (x,y) towards (∞,y) intersects the path. Counter clock-wise intersections count as positive, while clock-wise intersections count as negative. Additionally, it returns whether the point is on a path's boundary (which counts as being on the exterior).
-func (p *Path) Windings(x, y float64) (int, bool) {
+func (p *Path) WindingsAt(x, y float64) (int, bool) {
 	n := 0
 	boundary := false
 	for _, pi := range p.Split() {
@@ -914,7 +914,7 @@ func (p *Path) Windings(x, y float64) (int, bool) {
 }
 
 // Crossings returns the number of crossings with the path from the given point outwards, i.e. the number of times a ray from (x,y) towards (∞,y) intersects the path. Additionally, it returns whether the point is on a path's boundary (which does not count towards the number of crossings).
-func (p *Path) Crossings(x, y float64) (int, bool) {
+func (p *Path) CrossingsAt(x, y float64) (int, bool) {
 	n := 0
 	boundary := false
 	for _, pi := range p.Split() {
@@ -941,8 +941,8 @@ func (p *Path) Crossings(x, y float64) (int, bool) {
 // Contains returns whether the point (x,y) is contained/filled by the path. This depends on the
 // FillRule. It uses a ray from (x,y) toward (∞,y) and counts the number of intersections with
 // the path. When the point is on the boundary it is considered to be on the path's exterior.
-func (p *Path) Contains(x, y float64, fillRule FillRule) bool {
-	n, boundary := p.Windings(x, y)
+func (p *Path) ContainsPoint(x, y float64, fillRule FillRule) bool {
+	n, boundary := p.WindingsAt(x, y)
 	if boundary {
 		return true
 	}

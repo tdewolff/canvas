@@ -17,6 +17,9 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster i
 ### Recent changes
 - `RichText.ToText` replaces some parameters by `*TextOptions`, use `rt.ToText(..., &canvas.TextOptions{Indent: indent, LineStretch: lineStretch})` or if `indent` and `lineStretch` are zero use `rt.ToText(..., nil)` for the original result.
 - `NewTextBox` replaces some parameters by `*TextOptions`, use `rt.ToText(..., &canvas.TextOptions{Indent: indent, LineStretch: lineStretch})` or if `indent` and `lineStretch` are zero use `rt.ToText(..., nil)` for the original result.
+- `Path.Windings` is now `Path.WindingsAt`
+- `Path.Crossings` is now `Path.CrossingsAt`
+- `Path.Contains` is now `Path.ContainsPoint`
 
 ### Sponsors
 I'm actively looking for support in the form of donations or sponsorships to keep developing this library and highly appreciate any gesture. Please see the Sponsors button in GitHub for ways to contribute, or contact me directly.
