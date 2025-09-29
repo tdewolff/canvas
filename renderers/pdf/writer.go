@@ -16,6 +16,7 @@ import (
 	"unicode/utf16"
 
 	"golang.org/x/text/encoding/charmap"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/tdewolff/canvas"
 	canvasText "github.com/tdewolff/canvas/text"
@@ -1047,33 +1048,36 @@ func (w *pdfPageWriter) WriteText(mode canvas.WritingMode, TJ ...interface{}) {
 		}
 		subset := w.pdf.fontSubset[w.font]
 		if subset == nil {
+			form := norm.NFKC
 			for _, glyph := range glyphs {
-				c, ok := charmap.Windows1252.EncodeRune(glyph.Text)
-				if !ok {
-					if '\u2000' <= glyph.Text && glyph.Text <= '\u200A' {
-						c = ' '
+				r := glyph.Text
+				s := form.String(string(r)) // split ligatures into separate characters
+				for _, b := range s {
+					c, ok := charmap.Windows1252.EncodeRune(b)
+					if !ok && '\u2000' <= glyph.Text && glyph.Text <= '\u200A' {
+						c = ' ' // convert all whitespace characters to a regular space
 					}
-				}
-				if c == '\n' {
-					w.WriteByte('\\')
-					w.WriteByte('n')
-				} else if c == '\r' {
-					w.WriteByte('\\')
-					w.WriteByte('r')
-				} else if c == '\t' {
-					w.WriteByte('\\')
-					w.WriteByte('t')
-				} else if c == '\b' {
-					w.WriteByte('\\')
-					w.WriteByte('b')
-				} else if c == '\f' {
-					w.WriteByte('\\')
-					w.WriteByte('f')
-				} else if c == '\\' || c == '(' || c == ')' {
-					w.WriteByte('\\')
-					w.WriteByte(c)
-				} else {
-					w.WriteByte(c)
+					if c == '\n' {
+						w.WriteByte('\\')
+						w.WriteByte('n')
+					} else if c == '\r' {
+						w.WriteByte('\\')
+						w.WriteByte('r')
+					} else if c == '\t' {
+						w.WriteByte('\\')
+						w.WriteByte('t')
+					} else if c == '\b' {
+						w.WriteByte('\\')
+						w.WriteByte('b')
+					} else if c == '\f' {
+						w.WriteByte('\\')
+						w.WriteByte('f')
+					} else if c == '\\' || c == '(' || c == ')' {
+						w.WriteByte('\\')
+						w.WriteByte(c)
+					} else {
+						w.WriteByte(c)
+					}
 				}
 			}
 		} else {

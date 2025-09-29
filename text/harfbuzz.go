@@ -5,6 +5,7 @@ package text
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 
@@ -12,11 +13,13 @@ import (
 	"github.com/go-text/typesetting/font/opentype"
 	"github.com/go-text/typesetting/harfbuzz"
 	"github.com/go-text/typesetting/language"
+
 	"github.com/tdewolff/font"
 )
 
 // Shaper is a text shaper formatting a string in properly positioned glyphs.
 type Shaper struct {
+	sfnt *font.SFNT
 	font *harfbuzz.Font
 }
 
@@ -38,7 +41,9 @@ func NewShaper(b []byte, _ int) (Shaper, error) {
 // NewShaperSFNT returns a new text shaper using a SFNT structure.
 func NewShaperSFNT(sfnt *font.SFNT) (Shaper, error) {
 	// TODO: add interface to SFNT for use in this harfbuzz implementation
-	return NewShaper(sfnt.Write(), 0)
+	s, err := NewShaper(sfnt.Write(), 0)
+	s.sfnt = sfnt
+	return s, err
 }
 
 // Destroy destroys the allocated C memory.
@@ -75,7 +80,12 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 		glyphs[i].YAdvance = int32(position.YAdvance)
 		glyphs[i].XOffset = int32(position.XOffset)
 		glyphs[i].YOffset = int32(position.YOffset)
-		glyphs[i].Text = rtext[info.Cluster]
+		if s.sfnt != nil && s.sfnt.Cmap != nil && info.Glyph <= math.MaxUint16 {
+			glyphs[i].Text = s.sfnt.Cmap.ToUnicode(uint16(info.Glyph))
+		}
+		if glyphs[i].Text == 0 {
+			glyphs[i].Text = rtext[info.Cluster]
+		}
 	}
 	return glyphs
 }
