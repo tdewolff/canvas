@@ -1045,7 +1045,7 @@ func (t *Text) Bounds() Rect {
 	if t.Empty() {
 		return Rect{}
 	}
-	rect := Rect{}
+	rect := Rect{math.Inf(1), math.Inf(1), math.Inf(-1), math.Inf(-1)}
 	for _, line := range t.lines {
 		for _, span := range line.spans {
 			// TODO: vertical text
@@ -1053,6 +1053,10 @@ func (t *Text) Bounds() Rect {
 			rect = rect.Add(Rect{x, y, x + span.Width, y + span.Face.Metrics().Ascent + span.Face.Metrics().Descent})
 		}
 	}
+	if math.IsNaN(rect.X0) || math.IsNaN(rect.Y0) || math.IsNaN(rect.X1) || math.IsNaN(rect.Y1) {
+		return Rect{}
+	}
+
 	return rect
 }
 
@@ -1061,7 +1065,7 @@ func (t *Text) OutlineBounds() Rect {
 	if t.Empty() {
 		return Rect{}
 	}
-	r := Rect{}
+	r := Rect{math.Inf(1), math.Inf(1), math.Inf(-1), math.Inf(-1)}
 	for _, line := range t.lines {
 		for _, span := range line.spans {
 			// TODO: vertical text
@@ -1077,6 +1081,9 @@ func (t *Text) OutlineBounds() Rect {
 	t.WalkDecorations(func(_ Paint, p *Path) {
 		r = r.Add(p.Bounds())
 	})
+	if math.IsNaN(r.X0) || math.IsNaN(r.Y0) || math.IsNaN(r.X1) || math.IsNaN(r.Y1) {
+		return Rect{}
+	}
 	return r
 }
 
