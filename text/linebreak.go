@@ -91,7 +91,7 @@ var HyphenPenalty = 50.0
 // Infinity specifies infinity as something finite to prevent numerical errors.
 var Infinity = 1000.0 // in case of ratio, demerits become about 1e22
 
-// Align is te text alignment.
+// Align is the text alignment.
 type Align int
 
 // see Align
@@ -703,7 +703,7 @@ func SpaceGlue(glyphs []Glyph, i int) (float64, float64, float64) {
 			i--
 		}
 
-		// TODO: add support for surpressing extra spacing with U+E000 and forcing extra spacing with U+E001
+		// TODO: add support for suppressing extra spacing with U+E000 and forcing extra spacing with U+E001
 		// don't add extra spacing after uppercase + period
 		//if i == 0 || glyphs[i].Text != '.' || 0 < i && !unicode.IsUpper(glyphs[i-1].Text) {
 		if 0 <= i {
@@ -834,7 +834,7 @@ func GlyphsToItems(glyphs []Glyph, opts Options) Items {
 	return items
 }
 
-// Linebreaker is an interface for line breaking algorithms. Given a set of items and a desired text width, it will break lines to remain within the given width. It returns the breakpoints and whether it succesfully broke all lines to fit within the width; it returns falso if it overflows.
+// Linebreaker is an interface for line breaking algorithms. Given a set of items and a desired text width, it will break lines to remain within the given width. It returns the breakpoints and whether it successfully broke all lines to fit within the width; it returns false if it overflows.
 type Linebreaker interface {
 	Linebreak([]Item, float64) []Break
 }
