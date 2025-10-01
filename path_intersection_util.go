@@ -602,7 +602,7 @@ func intersectionLineEllipse(zs Intersections, l0, l1, center, radius Point, phi
 	}
 
 	// TODO: needs more testing
-	// TODO: intersection inconsistency due to numerical stability in finding tangent collisions for subsequent paht segments (line -> ellipse), or due to the endpoint of a line not touching with another arc, but the subsequent segment does touch with its starting point
+	// TODO: intersection inconsistency due to numerical stability in finding tangent collisions for subsequent path segments (line -> ellipse), or due to the endpoint of a line not touching with another arc, but the subsequent segment does touch with its starting point
 	dira := l1.Sub(l0).Angle()
 
 	// we take the ellipse center as the origin and counter-rotate by phi
