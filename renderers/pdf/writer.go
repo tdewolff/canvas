@@ -19,6 +19,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/tdewolff/canvas"
+	"github.com/tdewolff/canvas/text"
 	canvasText "github.com/tdewolff/canvas/text"
 	canvasFont "github.com/tdewolff/font"
 )
@@ -1054,7 +1055,7 @@ func (w *pdfPageWriter) WriteText(mode canvas.WritingMode, TJ ...interface{}) {
 				s := form.String(string(r)) // split ligatures into separate characters
 				for _, b := range s {
 					c, ok := charmap.Windows1252.EncodeRune(b)
-					if !ok && '\u2000' <= glyph.Text && glyph.Text <= '\u200A' {
+					if !ok && text.IsSpace(glyph.Text) {
 						c = ' ' // convert all whitespace characters to a regular space
 					}
 					if c == '\n' {

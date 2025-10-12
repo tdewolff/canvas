@@ -92,7 +92,7 @@ type Glyph struct {
 	YAdvance int32
 	XOffset  int32
 	YOffset  int32
-	Text     rune // TODO: remove? use sfnt.cmap.tounicode
+	Text     string
 }
 
 func (g Glyph) Advance() float64 {

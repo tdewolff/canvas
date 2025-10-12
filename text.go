@@ -813,12 +813,12 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 					// penalty with glyphs, either unused potential hyphen or used hyphen/newline, stop the loop
 					if i+1 < end {
 						// potential but unused hyphen
-					} else if glyphs[bg].Text == '\u00AD' {
+					} else if glyphs[bg].Text == "\u00AD" {
 						// hyphen
 						id := glyphs[bg].SFNT.GlyphIndex('-')
 						glyphs[bg].ID = id
 						glyphs[bg].XAdvance = int32(glyphs[bg].SFNT.GlyphAdvance(id))
-						glyphs[bg].Text = '-'
+						glyphs[bg].Text = "-"
 						bg += items[i].Size
 						W += items[i].Width
 					} else {

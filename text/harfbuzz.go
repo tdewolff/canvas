@@ -5,7 +5,6 @@ package text
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"os"
 	"strings"
 
@@ -80,12 +79,12 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 		glyphs[i].YAdvance = int32(position.YAdvance)
 		glyphs[i].XOffset = int32(position.XOffset)
 		glyphs[i].YOffset = int32(position.YOffset)
-		if s.sfnt != nil && s.sfnt.Cmap != nil && info.Glyph <= math.MaxUint16 {
-			glyphs[i].Text = s.sfnt.Cmap.ToUnicode(uint16(info.Glyph))
+
+		end := len(rtext)
+		if i+1 < len(buf.Info) {
+			end = buf.Info[i+1].Cluster
 		}
-		if glyphs[i].Text == 0 {
-			glyphs[i].Text = rtext[info.Cluster]
-		}
+		glyphs[i].Text = string(rtext[info.Cluster:end])
 	}
 	return glyphs
 }

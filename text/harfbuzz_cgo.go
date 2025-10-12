@@ -19,7 +19,6 @@ hb_glyph_position_t *get_glyph_position(hb_glyph_position_t *pos, unsigned int i
 import "C"
 import (
 	"strings"
-	"unicode/utf8"
 	"unsafe"
 
 	"github.com/tdewolff/font"
@@ -122,7 +121,7 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	positions := C.hb_buffer_get_glyph_positions(buf, nil)
 
 	glyphs := make([]Glyph, length)
-	for i := uint(0); i < uint(length); i++ {
+	for i := int(0); i < int(length); i++ {
 		info := C.get_glyph_info(infos, C.uint(i))
 		position := C.get_glyph_position(positions, C.uint(i))
 		glyphs[i].ID = uint16(info.codepoint)
@@ -131,7 +130,12 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 		glyphs[i].YAdvance = int32(position.y_advance)
 		glyphs[i].XOffset = int32(position.x_offset)
 		glyphs[i].YOffset = int32(position.y_offset)
-		glyphs[i].Text, _ = utf8.DecodeRuneInString(text[glyphs[i].Cluster:])
+
+		end := len(text)
+		if i+1 < len(glyphs) {
+			end = int(glyphs[i+1].Cluster)
+		}
+		glyphs[i].Text = string(text[glyphs[i].Cluster:end])
 	}
 
 	if language != "" {

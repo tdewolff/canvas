@@ -663,35 +663,56 @@ func GreedyLinebreak(items Items, width float64) []Break {
 	return breaks
 }
 
-func IsSpace(r rune) bool {
+func IsSpace(s string) bool {
 	// no-break spaces such as U+00A0, U+180E, U+202F, and U+FEFF are used as boxes
-	spaces := []rune(" \t\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u205F\u3000")
-	for _, space := range spaces {
-		if r == space {
-			return true
+Loop:
+	for _, r := range s {
+		spaces := []rune(" \t\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u205F\u3000")
+		for _, space := range spaces {
+			if r == space {
+				continue Loop
+			}
 		}
+		return false
 	}
-	return false
+	return true
 }
 
-func IsNewline(r rune) bool {
-	newlines := []rune("\r\n\u0085\u2028")
-	for _, newline := range newlines {
-		if r == newline {
-			return true
+func IsNewline(s string) bool {
+Loop:
+	for _, r := range s {
+		newlines := []rune("\r\n\u0085\u2028")
+		for _, newline := range newlines {
+			if r == newline {
+				continue Loop
+			}
 		}
+		return false
 	}
-	return false
+	return true
 }
 
-func IsParagraph(r rune) bool {
-	breaks := []rune("\f\v\u2029")
-	for _, br := range breaks {
-		if r == br {
-			return true
+func IsParagraph(s string) bool {
+Loop:
+	for _, r := range s {
+		breaks := []rune("\f\v\u2029")
+		for _, br := range breaks {
+			if r == br {
+				continue Loop
+			}
+		}
+		return false
+	}
+	return true
+}
+
+func IsPunctuation(s string) bool {
+	for _, r := range s {
+		if !unicode.IsPunct(r) {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 func SpaceGlue(glyphs []Glyph, i int) (float64, float64, float64) {
@@ -699,7 +720,7 @@ func SpaceGlue(glyphs []Glyph, i int) (float64, float64, float64) {
 	spaceWidth := glyphs[i].Advance()
 	if !FrenchSpacing {
 		i--
-		if 0 <= i && (glyphs[i].Text == ')' || glyphs[i].Text == ']' || glyphs[i].Text == '\'' || glyphs[i].Text == '"') {
+		if 0 <= i && (glyphs[i].Text == ")" || glyphs[i].Text == "]" || glyphs[i].Text == "'" || glyphs[i].Text == "\"") {
 			i--
 		}
 
@@ -708,13 +729,13 @@ func SpaceGlue(glyphs []Glyph, i int) (float64, float64, float64) {
 		//if i == 0 || glyphs[i].Text != '.' || 0 < i && !unicode.IsUpper(glyphs[i-1].Text) {
 		if 0 <= i {
 			switch glyphs[i].Text {
-			case '.', '!', '?':
+			case ".", "!", "?":
 				spaceFactor = SentenceFactor
-			case ':':
+			case ":":
 				spaceFactor = ColonFactor
-			case ';':
+			case ";":
 				spaceFactor = SemicolonFactor
-			case ',':
+			case ",":
 				spaceFactor = CommaFactor
 			}
 		}
@@ -746,7 +767,7 @@ func GlyphsToItems(glyphs []Glyph, opts Options) Items {
 		glyph := glyphs[i]
 		if IsSpace(glyph.Text) {
 			w, y, z := SpaceGlue(glyphs, i)
-			if 0 < i && opts.PunctuationInMargins && unicode.IsPunct(glyphs[i-1].Text) {
+			if 0 < i && opts.PunctuationInMargins && IsPunctuation(glyphs[i-1].Text) {
 				w += items[len(items)-1].Width
 				items[len(items)-1].Width = 0.0
 			}
@@ -764,7 +785,7 @@ func GlyphsToItems(glyphs []Glyph, opts Options) Items {
 			items = append(items, Glue(0.0, Infinity, 0.0))
 			items = append(items, Penalty(0.0, -Infinity, false)) // forced breakpoint
 			items[len(items)-1].Size++
-			if glyph.Text == '\r' && i+1 < len(glyphs) && glyphs[i+1].Text == '\n' {
+			if glyph.Text == "\r" && i+1 < len(glyphs) && glyphs[i+1].Text == "\n" {
 				items[len(items)-1].Size++
 				i++
 			}
@@ -772,10 +793,10 @@ func GlyphsToItems(glyphs []Glyph, opts Options) Items {
 			if IsParagraph(glyph.Text) && opts.Indent != 0.0 {
 				items = append(items, Box(opts.Indent))
 			}
-		} else if glyph.Text == '\u00AD' || glyph.Text == '\u200B' {
+		} else if glyph.Text == "\u00AD" || glyph.Text == "\u200B" {
 			// optional hyphens
 			var hyphenWidth float64
-			if glyph.Text == '\u00AD' {
+			if glyph.Text == "\u00AD" {
 				if !glyph.Vertical {
 					hyphenWidth = float64(glyph.SFNT.GlyphAdvance(glyph.SFNT.GlyphIndex('-')))
 				} else {
@@ -795,7 +816,7 @@ func GlyphsToItems(glyphs []Glyph, opts Options) Items {
 			}
 		} else {
 			// glyphs
-			if width := glyph.Advance(); (!opts.PunctuationInMargins || !unicode.IsPunct(glyph.Text)) && 1 < len(items) && items[len(items)-1].Type == BoxType {
+			if width := glyph.Advance(); (!opts.PunctuationInMargins || !IsPunctuation(glyph.Text)) && 1 < len(items) && items[len(items)-1].Type == BoxType {
 				if IsSpacelessScript(glyph.Script) || 0 < i && IsSpacelessScript(glyphs[i-1].Script) {
 					// allow breaks around spaceless script glyphs, most commonly CJK
 					items = append(items, Glue(0.0, raggedStretch, 0.0))
@@ -812,10 +833,10 @@ func GlyphsToItems(glyphs []Glyph, opts Options) Items {
 			items[len(items)-1].Size++
 		}
 
-		if glyph.Text == '-' {
+		if glyph.Text == "-" {
 			// optional break after hyphen
 			width := 0.0
-			if 0 < i && opts.PunctuationInMargins && unicode.IsPunct(glyphs[i-1].Text) {
+			if 0 < i && opts.PunctuationInMargins && IsPunctuation(glyphs[i-1].Text) {
 				width = items[len(items)-1].Width
 				items[len(items)-1].Width = 0.0
 			}
@@ -859,7 +880,7 @@ func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, width float6
 	atStart := true
 	glyphLines := [][]Glyph{{}}
 	if opts.Align == Right {
-		glyphLines[j] = append(glyphLines[j], Glyph{SFNT: sfnt, Size: size, ID: spaceID, Text: ' ', XAdvance: int32((width - breaks[j].Width) * toUnits)})
+		glyphLines[j] = append(glyphLines[j], Glyph{SFNT: sfnt, Size: size, ID: spaceID, Text: " ", XAdvance: int32((width - breaks[j].Width) * toUnits)})
 	}
 	for position, item := range items {
 		if position == breaks[j].Position {
@@ -867,14 +888,14 @@ func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, width float6
 				if 0 < len(glyphLines[j]) && glyphLines[j][len(glyphLines[j])-1].ID == spaceID {
 					glyphLines[j] = glyphLines[j][:len(glyphLines[j])-1]
 				}
-				glyphLines[j] = append(glyphLines[j], Glyph{SFNT: sfnt, Size: size, ID: hyphenID, Text: '-', XAdvance: int32(item.Width * toUnits)})
+				glyphLines[j] = append(glyphLines[j], Glyph{SFNT: sfnt, Size: size, ID: hyphenID, Text: "-", XAdvance: int32(item.Width * toUnits)})
 			}
 			glyphLines = append(glyphLines, []Glyph{})
 			if j+1 < len(breaks) {
 				j++
 			}
 			if opts.Align == Right {
-				glyphLines[j] = append(glyphLines[j], Glyph{SFNT: sfnt, Size: size, ID: spaceID, Text: ' ', XAdvance: int32((width - breaks[j].Width) * toUnits)})
+				glyphLines[j] = append(glyphLines[j], Glyph{SFNT: sfnt, Size: size, ID: spaceID, Text: " ", XAdvance: int32((width - breaks[j].Width) * toUnits)})
 			}
 			atStart = true
 		} else if item.Type == BoxType {
@@ -893,7 +914,7 @@ func LinebreakGlyphs(sfnt *font.SFNT, size float64, glyphs []Glyph, width float6
 			if 0 < len(glyphLines[j]) && glyphLines[j][len(glyphLines[j])-1].ID == spaceID {
 				glyphLines[j][len(glyphLines[j])-1].XAdvance += int32(width * toUnits)
 			} else {
-				glyphLines[j] = append(glyphLines[j], Glyph{SFNT: sfnt, Size: size, ID: spaceID, Text: ' ', XAdvance: int32(width * toUnits)})
+				glyphLines[j] = append(glyphLines[j], Glyph{SFNT: sfnt, Size: size, ID: spaceID, Text: " ", XAdvance: int32(width * toUnits)})
 			}
 		}
 	}
