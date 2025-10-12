@@ -123,8 +123,8 @@ var boInitPoolsOnce = sync.OnceFunc(func() {
 // holes CW, and tries to separate paths as much as possible. Paths are grouped by the filling/outer
 // ring followed by the corresponding holes/inner rings; the outer rings are ordered from
 // left-to-right and secondly from bottom-to-top. Note that path p is flattened unless q is already
-// flat. Path q is implicitly closed. It runs in O((n + k) log n), with n the number of segments,
-// and k the number of intersections.
+// flat. It runs in O((n + k) log n), with n the number of segments, and k the number of
+// intersections.
 func (p *Path) Settle(fillRule FillRule) *Path {
 	return bentleyOttmann(p.Split(), nil, opSettle, fillRule).Merge()
 }
@@ -2267,6 +2267,9 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 					}
 					break
 				} else if next == first {
+					if first.open {
+						R.Close()
+					}
 					break // contour is done
 				}
 				cur = next
