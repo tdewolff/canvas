@@ -913,7 +913,7 @@ func (s *SweepStatus) Remove(n *SweepNode) {
 		}
 		succ.parent.swapChild(succ, succ.right)
 
-		// swap succesor with deleted node
+		// swap successor with deleted node
 		succ.parent, succ.left, succ.right = n.parent, n.left, n.right
 		if n.parent != nil {
 			n.parent.swapChild(n, succ)
@@ -1800,11 +1800,11 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 	//
 	// The difference with Hobby's steps is that we advance Bentley-Ottmann for the entire column,
 	// and only then do we calculate crossing segments. I'm not sure what reason Hobby has to do
-	// this in two fases. Also, Hobby uses a shadow sweep line status structure which contains the
+	// this in two phases. Also, Hobby uses a shadow sweep line status structure which contains the
 	// segments sorted after snapping. Instead of using two sweep status structures (the original
 	// Bentley-Ottmann and the shadow with snapped segments), we sort the status after each column.
 	// Additionally, we need to keep the sweep line queue structure ordered as well for the result
-	// polygon (instead of the queue we gather the events for each sqaure, and sort those), and we
+	// polygon (instead of the queue we gather the events for each square, and sort those), and we
 	// need to calculate the sweep fields for the result polygon.
 	//
 	// It is best to think of processing the tolerance squares, one at a time moving bottom-to-top,
