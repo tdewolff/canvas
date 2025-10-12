@@ -1825,7 +1825,7 @@ func (p *Path) Dash(offset float64, d ...float64) *Path {
 
 // Reverse returns a new path that is the same path as p but in the reverse direction.
 func (p *Path) Reverse() *Path {
-	if len(p.d) == 0 {
+	if p.Empty() {
 		return p
 	}
 

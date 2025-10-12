@@ -1051,8 +1051,7 @@ func (w *pdfPageWriter) WriteText(mode canvas.WritingMode, TJ ...interface{}) {
 		if subset == nil {
 			form := norm.NFKC
 			for _, glyph := range glyphs {
-				r := glyph.Text
-				s := form.String(string(r)) // split ligatures into separate characters
+				s := form.String(glyph.Text) // split ligatures into separate characters
 				for _, b := range s {
 					c, ok := charmap.Windows1252.EncodeRune(b)
 					if !ok && text.IsSpace(glyph.Text) {

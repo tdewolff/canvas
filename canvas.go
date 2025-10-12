@@ -546,26 +546,32 @@ func (c *Context) Close() {
 
 // Fill fills the current path and resets the path.
 func (c *Context) Fill() {
-	stroke := c.Style.Stroke
-	c.Style.Stroke = Paint{}
-	c.DrawPath(0.0, 0.0, c.path)
-	c.Style.Stroke = stroke
-	c.path = &Path{}
+	if 0 < len(c.path.d) {
+		stroke := c.Style.Stroke
+		c.Style.Stroke = Paint{}
+		c.DrawPath(0.0, 0.0, c.path)
+		c.Style.Stroke = stroke
+		c.path = &Path{}
+	}
 }
 
 // Stroke strokes the current path and resets the path.
 func (c *Context) Stroke() {
-	fill := c.Style.Fill
-	c.Style.Fill = Paint{}
-	c.DrawPath(0.0, 0.0, c.path)
-	c.Style.Fill = fill
-	c.path = &Path{}
+	if 0 < len(c.path.d) {
+		fill := c.Style.Fill
+		c.Style.Fill = Paint{}
+		c.DrawPath(0.0, 0.0, c.path)
+		c.Style.Fill = fill
+		c.path = &Path{}
+	}
 }
 
 // FillStroke fills and then strokes the current path and resets the path.
 func (c *Context) FillStroke() {
-	c.DrawPath(0.0, 0.0, c.path)
-	c.path = &Path{}
+	if 0 < len(c.path.d) {
+		c.DrawPath(0.0, 0.0, c.path)
+		c.path = &Path{}
+	}
 }
 
 // FitImage fits an image to a rectangle using different fit strategies.

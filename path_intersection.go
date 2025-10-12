@@ -1934,10 +1934,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 	if qs != nil {
 		for i := range qs {
 			if qOverlaps[i] {
-				// implicitly close all subpaths on Q
-				if !qs[i].Closed() {
-					qs[i].Close()
-				}
+				qs[i].Close() // implicitly close all subpaths on Q
 				qSeg = queue.AddPathEndpoints(qs[i], qSeg, true)
 			}
 		}
