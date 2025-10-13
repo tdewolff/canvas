@@ -567,9 +567,11 @@ func (p *Path) Close() {
 
 	end := p.StartPos()
 	if p.d[len(p.d)-1] == LineToCmd && Equal(p.d[len(p.d)-3], end.X) && Equal(p.d[len(p.d)-2], end.Y) {
-		// replace LineTo by Close if equal
-		p.d[len(p.d)-1] = CloseCmd
+		// replace LineTo by Close if equal (replace coordinates to ensure they match exactly)
 		p.d[len(p.d)-cmdLen(LineToCmd)] = CloseCmd
+		p.d[len(p.d)-3] = end.X
+		p.d[len(p.d)-2] = end.Y
+		p.d[len(p.d)-1] = CloseCmd
 		return
 	} else if p.d[len(p.d)-1] == LineToCmd {
 		// replace LineTo by Close if equidirectional extension
@@ -949,11 +951,10 @@ func (p *Path) ContainsPoint(x, y float64, fillRule FillRule) bool {
 	return fillRule.Fills(n)
 }
 
-// CCW returns true when the path is counter clockwise oriented at its bottom-right-most
-// coordinate. It is most useful when knowing that the path does not self-intersect as it will
-// tell you if the entire path is CCW or not. It will only return the result for the first subpath.
-// It will return true for an empty path or a straight line. It may not return a valid value when
-// the right-most point happens to be a (self-)overlapping segment.
+// CCW returns true when the path is counter clockwise oriented at its right-most coordinate
+// (bottom-most of all right-most coordinates). It is most useful when knowing that the path does
+// not self-intersect as it will tell you if the entire path is CCW or not. It will only return the
+// result for the first subpath. It will return true for an empty path or a straight line.
 func (p *Path) CCW() bool {
 	if len(p.d) <= 4 || (p.d[4] == LineToCmd || p.d[4] == CloseCmd) && len(p.d) <= 4+cmdLen(p.d[4]) {
 		// empty path or single straight segment

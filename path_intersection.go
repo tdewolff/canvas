@@ -318,6 +318,8 @@ func (q SweepEvents) Swap(i, j int) {
 	q[i], q[j] = q[j], q[i]
 }
 
+// AddPathEndpoints adds all line segments of p to the queue q. The first command is converted to a MoveToCmd and any CloseCmd that
+// is not at the end is converted to a LineToCmd.
 func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
 	if len(p.d) == 0 {
 		return seg
@@ -340,6 +342,8 @@ func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
 	for i := 4; i < len(p.d); {
 		if p.d[i] != LineToCmd && p.d[i] != CloseCmd {
 			panic("non-flat paths not supported")
+		} else if p.d[i] == CloseCmd && (p.d[len(p.d)-3] != p.d[1] || p.d[len(p.d)-2] != p.d[2]) {
+			panic("invalid close command in path")
 		}
 
 		n := cmdLen(p.d[i])
@@ -352,7 +356,6 @@ func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
 
 		if start == end {
 			// skip zero-length lineTo or close command
-			start = end
 			continue
 		}
 
