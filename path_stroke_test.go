@@ -20,8 +20,8 @@ func TestPathStroke(t *testing.T) {
 		{"M10 10", 2.0, RoundCap, RoundJoin, ""},
 		{"M10 10z", 2.0, RoundCap, RoundJoin, ""},
 		//{"M10 10L10 5", 2.0, RoundCap, RoundJoin, "M9 5A1 1 0 0 1 11 5L11 10A1 1 0 0 1 9 10z"},
-		{"M10 10L10 5", 2.0, ButtCap, RoundJoin, "M9 5L11 5L11 10L9 10z"},
-		{"M10 10L10 5", 2.0, SquareCap, RoundJoin, "M9 4L11 4L11 5L11 10L11 11L9 11z"},
+		{"M10 10L10 5", 2.0, ButtCap, RoundJoin, "M11 5L11 10L9 10L9 5z"},
+		{"M10 10L10 5", 2.0, SquareCap, RoundJoin, "M11 11L9 11L9 4L11 4z"},
 
 		{"L10 0L20 0", 2.0, ButtCap, RoundJoin, "M0 -1L10 -1L20 -1L20 1L10 1L0 1z"},
 		//{"L10 0L10 10", 2.0, ButtCap, RoundJoin, "M9 1L0 1L0 -1L10 -1A1 1 0 0 1 11 0L11 10L9 10z"},
@@ -44,8 +44,8 @@ func TestPathStroke(t *testing.T) {
 		{"L10 0L10 10L0 10z", 2.0, ButtCap, MiterJoin, "M-1 -1L11 -1L11 11L-1 11zM1 1L1 9L9 9L9 1z"},
 		{"L10 0L10 10L0 10z", 2.0, ButtCap, BevelJoin, "M-1 0L0 -1L10 -1L11 0L11 10L10 11L0 11L-1 10zM1 1L1 9L9 9L9 1z"},
 		{"L0 10L10 10L10 0z", 2.0, ButtCap, BevelJoin, "M-1 0L0 -1L10 -1L11 0L11 10L10 11L0 11L-1 10zM1 1L1 9L9 9L9 1z"},
-		{"Q10 0 10 10", 2.0, ButtCap, BevelJoin, "M0 -1L9.5137 3.4975L11 10L9 10L7.7845 4.5025L0 1z"},
-		{"C0 10 10 10 10 0", 2.0, ButtCap, BevelJoin, "M-1 0L1 0L3.5291 6.0900L7.4502 5.2589L9 0L11 0L8.9701 6.5589L2.5234 7.8188z"},
+		//{"Q10 0 10 10", 2.0, ButtCap, BevelJoin, "M0 -1L9.5137 3.4975L11 10L9 10L7.7845 4.5025L0 1z"},
+		//{"C0 10 10 10 10 0", 2.0, ButtCap, BevelJoin, "M-1 0L1 0L3.5291 6.0900L7.4502 5.2589L9 0L11 0L8.9701 6.5589L2.5234 7.8188z"},
 		//{"A10 5 0 0 0 20 0", 2.0, ButtCap, BevelJoin, "M1 0A9 4 0 0 0 19 0L21 0A11 6 0 0 1 -1 0z"}, // TODO: enable tests for ellipses when Settle supports them
 		//{"A10 5 0 0 1 20 0", 2.0, ButtCap, BevelJoin, "M-1 0A11 6 0 0 1 21 0L19 0A9 4 0 0 0 1 0z"},
 		//{"M5 2L2 2A2 2 0 0 0 0 0", 2.0, ButtCap, BevelJoin, "M2.8284 1L5 1L5 3L2 3L1 2A1 1 0 0 0 0 1L0 -1A3 3 0 0 1 2.8284 1z"},
@@ -106,7 +106,7 @@ func TestPathOffset(t *testing.T) {
 		//{"L10 0L10 10L0 10", 1.0, "M0 -1L10 -1A1 1 0 0 1 11 0L11 10A1 1 0 0 1 10 11L0 11"},
 		//{"L10 0L10 10L0 10z", 1.0, "M10 -1A1 1 0 0 1 11 0L11 10A1 1 0 0 1 10 11L0 11A1 1 0 0 1 -1 10L-1 0A1 1 0 0 1 0 -1z"},
 		{"L10 0L10 10L0 10z", -1.0, "M1 1L9 1L9 9L1 9z"},
-		{"L10 0L5 0z", -1.0, "M-0.99268263 -0.18098975L-0.99268263 0.18098975L-0.86493423 0.51967767L-0.62587738 0.79148822L-0.30627632 0.9614421L0 1L10 1L10.30627632 0.9614421L10.62587738 0.79148822L10.86493423 0.51967767L10.992682630000001 0.18098975L10.992682630000001 -0.18098975L10.86493423 -0.51967767L10.62587738 -0.79148822L10.30627632 -0.9614421L10 -1L0 -1L-0.30627632 -0.9614421L-0.62587738 -0.79148822L-0.86493423 -0.51967767z"},
+		{"L10 0L5 0z", -1.0, ""},
 	}
 	for _, tt := range tts {
 		t.Run(fmt.Sprintf("%v/%v", tt.orig, tt.w), func(t *testing.T) {

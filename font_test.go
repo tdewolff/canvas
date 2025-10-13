@@ -75,7 +75,7 @@ func TestFontDecoration(t *testing.T) {
 	test.T(t, face.Decorate(10.0), MustParseSVGPath("M0 530L10 530L10 632L0 632z"))
 
 	face = family.Face(pt, Black, FontRegular, FontNormal, FontDoubleUnderline)
-	test.T(t, face.Decorate(10.0), MustParseSVGPath("M0 -265L10 -265L10 -175L0 -175zM0 -400L10 -400L10 -310L0 -310z"))
+	test.T(t, face.Decorate(10.0), MustParseSVGPath("M0 -400L10 -400L10 -310L0 -310zM0 -265L10 -265L10 -175L0 -175z"))
 
 	face = family.Face(pt, Black, FontRegular, FontNormal, FontDottedUnderline)
 	test.T(t, face.Decorate(89.0), MustParseSVGPath(""))
