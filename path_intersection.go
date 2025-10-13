@@ -2207,18 +2207,24 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 	var Ropen *Path
 	for _, square := range squares {
 		for _, cur := range square.Events {
-			if cur.inResult == 0 {
+			if !cur.left || cur.inResult == 0 {
 				continue
 			}
 
 		BuildPath:
-			windings := 0    // windings outside of the current polygon
-			index := len(Rs) // index into Rs, refers to previous for holes
-			if op != opDIV && cur.prev != nil {
-				windings = cur.prev.resultWindings
-				if windings%2 != 0 {
-					// current ring is a hole
-					index = cur.prev.index
+			windings := 0        // windings outside of the current polygon
+			index := len(Rs) + 1 // index into Rs + 1, refers to previous for holes
+			if op != opDIV {
+				prev := cur.prev
+				for prev != nil && prev.index == 0 {
+					prev = prev.prev
+				}
+				if prev != nil {
+					windings = prev.resultWindings
+					if windings%2 != 0 {
+						// current ring is a hole
+						index = prev.index
+					}
 				}
 			}
 
@@ -2230,7 +2236,6 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 				// we go to the right/top
 				cur.resultWindings++
 			}
-			cur.other.resultWindings = cur.resultWindings
 			cur.index = index
 
 			for {
@@ -2279,16 +2284,18 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 
 				R.LineTo(cur.X, cur.Y)
 				cur.resultWindings = windings
-				if cur.left && !first.open {
-					// we go to the right/top
-					cur.resultWindings++
+				if cur.left {
+					if !first.open {
+						// we go to the right/top
+						cur.resultWindings++
+					}
+					cur.inResult--
+					cur.index = index
+				} else {
+					cur.other.inResult--
+					cur.other.index = index
 				}
-				cur.other.resultWindings = cur.resultWindings
-				cur.other.inResult--
-				cur.inResult--
-				cur.index = index
 			}
-			first.other.inResult--
 			first.inResult--
 
 			if first.open {
@@ -2312,7 +2319,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 				if windings%2 != 0 {
 					// orient holes clockwise
 					R = R.Reverse()
-					Rs[index] = Rs[index].Append(R)
+					Rs[index-1] = Rs[index-1].Append(R)
 				} else {
 					// filling ring
 					Rs = append(Rs, R)
