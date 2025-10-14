@@ -338,6 +338,8 @@ func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
 	start := Point{p.d[1], p.d[2]}
 	if math.IsNaN(start.X) || math.IsInf(start.X, 0.0) || math.IsNaN(start.Y) || math.IsInf(start.Y, 0.0) {
 		panic("path has NaN or Inf")
+	} else if open && p.d[len(p.d)-3] == p.d[1] && p.d[len(p.d)-2] == p.d[2] {
+		open = false // start and end points coincide, consider path closed
 	}
 	for i := 4; i < len(p.d); {
 		if p.d[i] != LineToCmd && p.d[i] != CloseCmd {
@@ -2276,10 +2278,8 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 					}
 					break
 				} else if next == first {
-					if first.open {
-						R.Close()
-					}
-					break // contour is done
+					first.open = false // open path encloses area
+					break              // contour is done
 				}
 				cur = next
 
@@ -2302,7 +2302,8 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 			first.inResult--
 
 			if first.open {
-				// open path, merge parts
+				// open path, merge separate parts
+				// TODO: relevant?
 				if Ropen != nil {
 					R = R.Reverse()
 					R.d = append(R.d, Ropen.d[4:]...)
@@ -2320,7 +2321,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 			} else {
 				R.Close()
 				if windings%2 != 0 {
-					// orient holes clockwise
+					// orient holes clockwise and put together with outer filling ring
 					R = R.Reverse()
 					Rs[index-1] = Rs[index-1].Append(R)
 				} else {

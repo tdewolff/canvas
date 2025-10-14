@@ -648,7 +648,7 @@ func (p *Path) Offset(w float64, tolerance float64) *Path {
 		}
 	}
 	if !FastStroke {
-		// remove overlapping or spilled parts
+		// fix overlapping and spilled parts
 		q = q.Settle(Positive)
 	}
 	return q
@@ -672,7 +672,7 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path 
 		}
 	}
 	if !FastStroke {
-		// remove overlapping or spilled parts
+		// fix overlapping and spilled parts
 		q = q.Settle(Positive)
 	}
 	return q
