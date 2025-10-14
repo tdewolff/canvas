@@ -91,7 +91,7 @@ func main() {
 }
 
 func draw(ctx *canvas.Context, y float64, title string, p, q *canvas.Path) {
-	face := font.Face(2.5, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	face := font.Face(3.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	ctx.Translate(2.0, y+5.0)
 	ctx.Rotate(90.0)
 	ctx.DrawText(0.0, 0.0, canvas.NewTextLine(face, title, canvas.Center))
