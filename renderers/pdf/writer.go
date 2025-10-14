@@ -1346,7 +1346,7 @@ func patternStopsFunction(stops canvas.Stops) pdfDict {
 		return pdfDict{}
 	}
 
-	fs := []pdfDict{}
+	fs := pdfArray{}
 	encode := pdfArray{}
 	bounds := pdfArray{}
 	if !canvas.Equal(stops[0].Offset, 0.0) {
@@ -1366,7 +1366,7 @@ func patternStopsFunction(stops canvas.Stops) pdfDict {
 		encode = append(encode, 0, 1)
 	}
 	if len(fs) == 1 {
-		return fs[0]
+		return fs[0].(pdfDict)
 	}
 	return pdfDict{
 		"FunctionType": 3,

@@ -143,9 +143,6 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 			} else {
 				r.w.Write([]byte(" S"))
 			}
-			if style.FillRule == canvas.EvenOdd {
-				r.w.Write([]byte("*"))
-			}
 		} else if style.HasFill() && style.HasStroke() {
 			sameAlpha := style.Fill.IsColor() && style.Stroke.IsColor() && style.Fill.Color.A == style.Stroke.Color.A
 			if sameAlpha {
@@ -185,9 +182,6 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 					r.w.Write([]byte(" s"))
 				} else {
 					r.w.Write([]byte(" S"))
-				}
-				if style.FillRule == canvas.EvenOdd {
-					r.w.Write([]byte("*"))
 				}
 			}
 		}

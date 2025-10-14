@@ -7,9 +7,10 @@ import (
 
 	"github.com/srwiley/rasterx"
 	"github.com/srwiley/scanx"
-	"github.com/tdewolff/canvas"
 	"golang.org/x/image/draw"
 	"golang.org/x/image/math/f64"
+
+	"github.com/tdewolff/canvas"
 )
 
 // TODO: add ASM optimized version for NRGBA images, since those are much faster to write as PNG
@@ -77,7 +78,6 @@ func (r *Rasterizer) Size() (float64, float64) {
 
 // RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
-	// TODO: use fill rule (EvenOdd, NonZero) for rasterizer
 	bounds := canvas.Rect{}
 	var fill, stroke *canvas.Path
 	if style.HasFill() {
@@ -99,6 +99,8 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 			bounds = stroke.FastBounds()
 		}
 	}
+
+	r.scanner.SetWinding(style.FillRule == canvas.NonZero)
 
 	size := r.Bounds().Size()
 	if style.HasFill() {
