@@ -238,7 +238,7 @@ type SweepPoint struct {
 
 	// building the polygon
 	square         int // index into tolerance squares
-	resultWindings int // windings of the resulting polygon
+	resultWindings int // windings above the segment of the resulting polygon
 
 	// bools at the end to optimize memory layout of struct
 	clipping   bool  // is clipping path (otherwise is subject path)
@@ -2208,12 +2208,13 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 	for _, square := range squares {
 		for _, cur := range square.Events {
 			if !cur.left || cur.inResult == 0 {
+				// skip
 				continue
 			}
 
 		BuildPath:
-			windings := 0        // windings outside of the current polygon
-			index := len(Rs) + 1 // index into Rs + 1, refers to previous for holes
+			windings := 0        // windings (outside) of the current polygon
+			index := len(Rs) + 1 // index into Rs + 1 to group (outer) filling with (inner) holes, 0 means resultWindings is invalid
 			if op != opDIV {
 				prev := cur.prev
 				for prev != nil && prev.index == 0 {
@@ -2231,12 +2232,12 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 			first := cur
 			R := &Path{}
 			R.MoveTo(cur.X, cur.Y)
+			cur.index = index
 			cur.resultWindings = windings
 			if !first.open {
-				// we go to the right/top
+				// TODO: is this correct? test with open paths
 				cur.resultWindings++
 			}
-			cur.index = index
 
 			for {
 				// find segments starting from other endpoint, find the other segment amongst
@@ -2283,17 +2284,19 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 				cur = next
 
 				R.LineTo(cur.X, cur.Y)
-				cur.resultWindings = windings
 				if cur.left {
-					if !first.open {
-						// we go to the right/top
-						cur.resultWindings++
-					}
+					// we go to the right/top
 					cur.inResult--
 					cur.index = index
+					cur.resultWindings = windings
+					if !first.open {
+						// TODO: is this correct? test with open paths
+						cur.resultWindings++
+					}
 				} else {
 					cur.other.inResult--
 					cur.other.index = index
+					cur.other.resultWindings = windings
 				}
 			}
 			first.inResult--
