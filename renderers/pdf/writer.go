@@ -10,6 +10,7 @@ import (
 	"io"
 	"math"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -27,6 +28,21 @@ import (
 // TODO: Invalid graphics transparency, Group has a transparency S entry or the S entry is null
 // TODO: Invalid Color space, The operator "g" can't be used without Color Profile
 
+type pdfAnchor struct {
+	page int
+	name string
+	rect canvas.Rect
+}
+
+type pdfOutline struct {
+	page  int
+	name  string
+	level int
+	y     float64
+
+	parent, prev, next, first, last, count int
+}
+
 type pdfWriter struct {
 	w   io.Writer
 	err error
@@ -41,6 +57,8 @@ type pdfWriter struct {
 	fontsV     map[*canvas.Font]pdfRef
 	fontsStd   map[*canvas.Font]pdfRef
 	images     map[image.Image]pdfRef
+	anchors    []pdfAnchor
+	outlines   []pdfOutline
 	compress   bool
 	subset     bool
 	title      string
@@ -584,6 +602,85 @@ func (w *pdfWriter) writeFonts(fontMap map[*canvas.Font]pdfRef, vertical bool) {
 	}
 }
 
+func (w *pdfWriter) writeOutlines() (pdfRef, bool) {
+	if len(w.outlines) == 0 {
+		return 0, false
+	}
+	last := -1       // last top-level
+	stack := []int{} // index into outlines and refs
+	firstRef := pdfRef(len(w.objOffsets) + 1)
+	for i := range w.outlines {
+		if w.outlines[i].level == 0 {
+			w.outlines[i].prev = last
+			if last != -1 {
+				w.outlines[last].next = i
+			}
+			stack = append(stack[:0], i)
+			last = i
+		} else if len(stack) == 0 || w.outlines[stack[len(stack)-1]].level+1 < w.outlines[i].level {
+			continue // ignore disconnected level
+		} else {
+			for w.outlines[i].level <= w.outlines[stack[len(stack)-1]].level {
+				w.outlines[stack[len(stack)-2]].count += w.outlines[stack[len(stack)-1]].count
+				stack = stack[:len(stack)-1]
+			}
+			parent := stack[len(stack)-1]
+			w.outlines[i].parent = parent
+			if w.outlines[parent].first == -1 {
+				w.outlines[parent].first = i
+			} else if prev := w.outlines[parent].last; prev != -1 {
+				w.outlines[i].prev = prev
+				w.outlines[prev].next = i
+			}
+			w.outlines[parent].last = i
+			w.outlines[parent].count++
+			stack = append(stack, i)
+		}
+	}
+	for 1 < len(stack) {
+		w.outlines[stack[len(stack)-2]].count += w.outlines[stack[len(stack)-1]].count
+		stack = stack[:len(stack)-1]
+	}
+	for i := range w.outlines {
+		outline := pdfDict{
+			"Title": w.outlines[i].name,
+		}
+		if w.outlines[i].y == 0.0 {
+			outline["Dest"] = pdfArray{w.pages[w.outlines[i].page], pdfName("Fit")}
+		} else {
+			outline["Dest"] = pdfArray{w.pages[w.outlines[i].page], pdfName("FitH"), w.outlines[i].y * ptPerMm}
+		}
+		if w.outlines[i].parent != -1 {
+			outline["Parent"] = firstRef + pdfRef(w.outlines[i].parent)
+		}
+		if w.outlines[i].prev != -1 {
+			outline["Prev"] = firstRef + pdfRef(w.outlines[i].prev)
+		}
+		if w.outlines[i].next != -1 {
+			outline["Next"] = firstRef + pdfRef(w.outlines[i].next)
+		}
+		if w.outlines[i].first != -1 {
+			outline["First"] = firstRef + pdfRef(w.outlines[i].first)
+		}
+		if w.outlines[i].last != -1 {
+			outline["Last"] = firstRef + pdfRef(w.outlines[i].last)
+		}
+		if w.outlines[i].count != 0 {
+			outline["Count"] = w.outlines[i].count
+		}
+		w.writeObject(outline)
+	}
+	if last == -1 {
+		return 0, false
+	}
+	return w.writeObject(pdfDict{
+		"Type":  pdfName("Outlines"),
+		"First": firstRef,
+		"Last":  firstRef + pdfRef(last),
+		"Count": len(w.outlines),
+	}), true
+}
+
 // Close finished the document.
 func (w *pdfWriter) Close() error {
 	// TODO: support cross reference table streams and compressed objects for all dicts
@@ -605,6 +702,39 @@ func (w *pdfWriter) Close() error {
 		"Type":  pdfName("Catalog"),
 		"Pages": pdfRef(3),
 		// TODO: add metadata?
+	}
+
+	if 0 < len(w.anchors) {
+		names := pdfArray{}
+		slices.SortFunc(w.anchors, func(a, b pdfAnchor) int {
+			return strings.Compare(a.name, b.name) // sort lexically
+		})
+		for _, anchor := range w.anchors {
+			var dest pdfArray
+			if anchor.rect.X0 == 0.0 && anchor.rect.X1 == 0.0 && anchor.rect.Y0 == 0.0 && anchor.rect.Y1 == 0.0 {
+				dest = pdfArray{w.pages[anchor.page], pdfName("Fit")}
+			} else if anchor.rect.X0 == 0.0 && anchor.rect.X1 == 0.0 && anchor.rect.Y0 == anchor.rect.Y1 {
+				dest = pdfArray{w.pages[anchor.page], pdfName("FitH"), anchor.rect.Y0 * ptPerMm}
+			} else if anchor.rect.Y0 == 0.0 && anchor.rect.Y1 == 0.0 && anchor.rect.X0 == anchor.rect.X1 {
+				dest = pdfArray{w.pages[anchor.page], pdfName("FitV"), anchor.rect.X0 * ptPerMm}
+			} else if anchor.rect.X0 == anchor.rect.X1 || anchor.rect.Y0 == anchor.rect.Y1 {
+				dest = pdfArray{w.pages[anchor.page], pdfName("XYZ"), anchor.rect.X0 * ptPerMm, anchor.rect.Y0 * ptPerMm, 0}
+			} else {
+				dest = pdfArray{w.pages[anchor.page], pdfName("FitR"), anchor.rect.X0 * ptPerMm, anchor.rect.Y0 * ptPerMm, anchor.rect.X1 * ptPerMm, anchor.rect.Y1 * ptPerMm}
+			}
+			names = append(names, anchor.name, w.writeObject(pdfDict{
+				"D": dest,
+			}))
+		}
+		catalog["Names"] = pdfDict{
+			"Dests": pdfDict{
+				"Names": names,
+			},
+		}
+	}
+
+	if ref, ok := w.writeOutlines(); ok {
+		catalog["Outlines"] = ref
 	}
 
 	// document info
@@ -786,20 +916,45 @@ func (w *pdfPageWriter) writePage(parent pdfRef) pdfRef {
 	return w.pdf.writeObject(page)
 }
 
-// AddAnnotation adds an annotation.
-func (w *pdfPageWriter) AddURIAction(uri string, rect canvas.Rect) {
+// AddAnchor adds an anchor to which a link can point.
+func (w *pdfPageWriter) AddAnchor(name string, rect canvas.Rect) {
+	w.pdf.anchors = append(w.pdf.anchors, pdfAnchor{len(w.pdf.pages), name, rect})
+}
+
+// AddLink adds a local or external link. Local links are # + anchor name (see AddAnchor).
+func (w *pdfPageWriter) AddLink(uri string, rect canvas.Rect) {
 	annot := pdfDict{
-		"Type":     pdfName("Annot"),
-		"Subtype":  pdfName("Link"),
-		"Border":   pdfArray{0, 0, 0},
-		"Rect":     pdfArray{rect.X0 * ptPerMm, rect.Y0 * ptPerMm, rect.X1 * ptPerMm, rect.Y1 * ptPerMm},
-		"Contents": uri,
-		"A": pdfDict{
+		"Type":    pdfName("Annot"),
+		"Subtype": pdfName("Link"),
+		"Border":  pdfArray{0, 0, 0},
+		"Rect":    pdfArray{rect.X0 * ptPerMm, rect.Y0 * ptPerMm, rect.X1 * ptPerMm, rect.Y1 * ptPerMm},
+	}
+	if 0 < len(uri) && uri[0] == '#' {
+		// local link
+		annot["Dest"] = uri[1:]
+	} else {
+		annot["Contents"] = uri
+		annot["A"] = pdfDict{
 			"S":   pdfName("URI"),
 			"URI": uri,
-		},
+		}
 	}
 	w.annots = append(w.annots, annot)
+}
+
+// AddOutline adds an outline element.
+func (w *pdfPageWriter) AddOutline(name string, level int, y float64) {
+	w.pdf.outlines = append(w.pdf.outlines, pdfOutline{
+		page:   len(w.pdf.pages),
+		name:   name,
+		level:  level,
+		y:      y,
+		parent: -1,
+		prev:   -1,
+		next:   -1,
+		first:  -1,
+		last:   -1,
+	})
 }
 
 // SetAlpha sets the transparency value.

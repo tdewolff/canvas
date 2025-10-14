@@ -70,9 +70,23 @@ func (r *PDF) NewPage(width, height float64) {
 	r.w = r.w.pdf.NewPage(width, height)
 }
 
-// AddLink adds a link to the PDF document.
+// AddAnchor adds an anchor that can be referenced by a link (see AddLink). The rectangle is the area to be referenced. If the width and
+// height are zero and the X and Y positions are zero, it will fit the entire page. If either width/height and X/Y are zero then it will
+// fit the page's height/width and scroll to the X/Y position. Otherwise, if the width and height are zero and X and Y are not zero, it
+// will scroll to the position but not change it's zoom.
+func (r *PDF) AddAnchor(name string, rect canvas.Rect) {
+	r.w.AddAnchor(name, rect)
+}
+
+// AddLink adds a link at the given rectangle. If the URI starts with # this will link to an anchor (set with AddAnchor).
 func (r *PDF) AddLink(uri string, rect canvas.Rect) {
-	r.w.AddURIAction(uri, rect)
+	r.w.AddLink(uri, rect)
+}
+
+// AddOutline adds an outline element at the given y position. The top-level element must have level zero. If any level is missing, then
+// higher level elements are ignored.
+func (r *PDF) AddOutline(name string, level int, y float64) {
+	r.w.AddOutline(name, level, y)
 }
 
 // Close finished and closes the PDF.
