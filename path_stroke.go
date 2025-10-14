@@ -636,23 +636,20 @@ func (p *Path) Offset(w float64, tolerance float64) *Path {
 		return p
 	}
 
-	positive := 0.0 < w
-	w = math.Abs(w)
-
 	q := &Path{}
-	p = p.Settle(NonZero) // TODO: keep boolean if settled to avoid costly and unnecessary settling
+	if !FastStroke {
+		// make sure all filling paths are CCW
+		p = p.Settle(NonZero) // TODO: set/check boolean if path is settled to avoid costly and unnecessary settling
+	}
 	for _, pi := range p.Split() {
-		rhs, lhs := pi.offset(w, ButtCap, RoundJoin, false, tolerance)
+		rhs, _ := pi.offset(w, ButtCap, RoundJoin, false, tolerance)
 		if rhs != nil {
-			r := rhs
-			if !positive {
-				r = lhs
-			}
-			if pi.Closed() && !FastStroke {
-				r = r.Settle(Positive)
-			}
-			q = q.Append(r)
+			q = q.Append(rhs)
 		}
+	}
+	if !FastStroke {
+		// remove overlapping or spilled parts
+		q = q.Settle(Positive)
 	}
 	return q
 }
@@ -665,18 +662,18 @@ func (p *Path) Stroke(w float64, cr Capper, jr Joiner, tolerance float64) *Path 
 	if jr == nil {
 		jr = MiterJoin
 	}
+
 	q := &Path{}
-	p = p.Settle(NonZero) // TODO: keep boolean if settled to avoid costly and unnecessary settling
 	halfWidth := math.Abs(w) / 2.0
 	for _, pi := range p.Split() {
 		rhs, lhs := pi.offset(halfWidth, cr, jr, true, tolerance)
 		if rhs != nil {
-			r := rhs.Append(lhs.Reverse())
-			if pi.Closed() && !FastStroke {
-				r = r.Settle(Positive)
-			}
-			q = q.Append(r)
+			q = q.Append(rhs).Append(lhs.Reverse())
 		}
+	}
+	if !FastStroke {
+		// remove overlapping or spilled parts
+		q = q.Settle(Positive)
 	}
 	return q
 }
