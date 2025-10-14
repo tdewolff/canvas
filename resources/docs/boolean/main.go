@@ -17,12 +17,14 @@ func main() {
 	c := canvas.New(0.0, 0.0)
 	ctx := canvas.NewContext(c)
 
-	face := font.Face(4.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	face := font.Face(4.5, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	ctx.DrawText(20.0, -2.0, canvas.NewTextLine(face, "A and B", canvas.Center))
 	ctx.DrawText(32.0, -2.0, canvas.NewTextLine(face, "A or B", canvas.Center))
 	ctx.DrawText(44.0, -2.0, canvas.NewTextLine(face, "A xor B", canvas.Center))
 	ctx.DrawText(56.0, -2.0, canvas.NewTextLine(face, "A not B", canvas.Center))
 	ctx.DrawText(68.0, -2.0, canvas.NewTextLine(face, "B not A", canvas.Center))
+	ctx.DrawText(80.0, -2.0, canvas.NewTextLine(face, "A div B", canvas.Center))
+	ctx.DrawText(92.0, -2.0, canvas.NewTextLine(face, "B div A", canvas.Center))
 
 	draw(ctx, -13.0, "Overlapping circles", canvas.Circle(2.0).Translate(2.0, 5.0), canvas.Circle(4.0).Translate(6.0, 5.0))
 	draw(ctx, -25.0, "Disjoint circles", canvas.Circle(2.0).Translate(2.5, 5.0), canvas.Circle(2.0).Translate(7.5, 5.0))
@@ -89,7 +91,7 @@ func main() {
 }
 
 func draw(ctx *canvas.Context, y float64, title string, p, q *canvas.Path) {
-	face := font.Face(2.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	face := font.Face(2.5, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	ctx.Translate(2.0, y+5.0)
 	ctx.Rotate(90.0)
 	ctx.DrawText(0.0, 0.0, canvas.NewTextLine(face, title, canvas.Center))
@@ -123,4 +125,6 @@ func draw(ctx *canvas.Context, y float64, title string, p, q *canvas.Path) {
 	ctx.DrawPath(39.0, y, p.Xor(q))
 	ctx.DrawPath(51.0, y, p.Not(q))
 	ctx.DrawPath(63.0, y, q.Not(p))
+	ctx.DrawPath(75.0, y, p.DivideBy(q))
+	ctx.DrawPath(87.0, y, q.DivideBy(p))
 }
