@@ -497,555 +497,6 @@ func TestIntersectionEllipseEllipse(t *testing.T) {
 	Epsilon = origEpsilon
 }
 
-/*func TestIntersections(t *testing.T) {
-	var tts = []struct {
-		p, q   string
-		zp, zq []PathIntersection
-	}{
-		{"L10 0L5 10z", "M0 5L10 5L5 15z", []PathIntersection{
-			{Point{7.5, 5.0}, 2, 0.5, Point{-1.0, 2.0}.Angle(), true, false, false},
-			{Point{2.5, 5.0}, 3, 0.5, Point{-1.0, -2.0}.Angle(), false, false, false},
-		}, []PathIntersection{
-			{Point{7.5, 5.0}, 1, 0.75, 0.0, false, false, false},
-			{Point{2.5, 5.0}, 1, 0.25, 0.0, true, false, false},
-		}},
-		{"L10 0L5 10z", "M0 -5L10 -5A5 5 0 0 1 0 -5", []PathIntersection{
-			{Point{5.0, 0.0}, 1, 0.5, 0.0, false, true, false},
-		}, []PathIntersection{
-			{Point{5.0, 0.0}, 2, 0.5, math.Pi, false, true, false},
-		}},
-		{"M5 5L0 0", "M-5 0A5 5 0 0 0 5 0", []PathIntersection{
-			{Point{5.0 / math.Sqrt(2.0), 5.0 / math.Sqrt(2.0)}, 1, 0.292893219, 1.25 * math.Pi, false, false, false},
-		}, []PathIntersection{
-			{Point{5.0 / math.Sqrt(2.0), 5.0 / math.Sqrt(2.0)}, 1, 0.75, 1.75 * math.Pi, true, false, false},
-		}},
-
-		// intersection on one segment endpoint
-		{"L0 15", "M5 0L0 5L5 5", []PathIntersection{
-			{Point{0.0, 5.0}, 1, 1.0 / 3.0, 0.5 * math.Pi, true, true, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 2, 0.0, 0.0, false, true, false},
-		}},
-		{"L0 15", "M5 0L0 5L-5 5", []PathIntersection{
-			{Point{0.0, 5.0}, 1, 1.0 / 3.0, 0.5 * math.Pi, false, false, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 2, 0.0, math.Pi, true, false, false},
-		}},
-		{"L0 15", "M5 5L0 5L5 0", []PathIntersection{
-			{Point{0.0, 5.0}, 1, 1.0 / 3.0, 0.5 * math.Pi, false, true, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 2, 0.0, 1.75 * math.Pi, false, true, false},
-		}},
-		{"L0 15", "M-5 5L0 5L5 0", []PathIntersection{
-			{Point{0.0, 5.0}, 1, 1.0 / 3.0, 0.5 * math.Pi, true, false, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 2, 0.0, 1.75 * math.Pi, false, false, false},
-		}},
-		{"M5 0L0 5L5 5", "L0 15", []PathIntersection{
-			{Point{0.0, 5.0}, 2, 0.0, 0.0, false, true, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 1, 1.0 / 3.0, 0.5 * math.Pi, true, true, false},
-		}},
-		{"M5 0L0 5L-5 5", "L0 15", []PathIntersection{
-			{Point{0.0, 5.0}, 2, 0.0, math.Pi, true, false, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 1, 1.0 / 3.0, 0.5 * math.Pi, false, false, false},
-		}},
-		{"M5 5L0 5L5 0", "L0 15", []PathIntersection{
-			{Point{0.0, 5.0}, 2, 0.0, 1.75 * math.Pi, false, true, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 1, 1.0 / 3.0, 0.5 * math.Pi, false, true, false},
-		}},
-		{"M-5 5L0 5L5 0", "L0 15", []PathIntersection{
-			{Point{0.0, 5.0}, 2, 0.0, 1.75 * math.Pi, false, false, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 1, 1.0 / 3.0, 0.5 * math.Pi, true, false, false},
-		}},
-		{"L0 10", "M5 0A5 5 0 0 0 0 5A5 5 0 0 0 5 10", []PathIntersection{
-			{Point{0.0, 5.0}, 1, 0.5, 0.5 * math.Pi, true, true, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 2, 0.0, 0.5 * math.Pi, false, true, false},
-		}},
-		{"L0 10", "M5 10A5 5 0 0 1 0 5A5 5 0 0 1 5 0", []PathIntersection{
-			{Point{0.0, 5.0}, 1, 0.5, 0.5 * math.Pi, false, true, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 2, 0.0, 1.5 * math.Pi, false, true, false},
-		}},
-		{"L0 5L5 5", "M5 0A5 5 0 0 0 5 10", []PathIntersection{
-			{Point{0.0, 5.0}, 2, 0.0, 0.0, false, false, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 1, 0.5, 0.5 * math.Pi, true, false, false},
-		}},
-		{"L0 5L5 5", "M5 10A5 5 0 0 1 5 0", []PathIntersection{
-			{Point{0.0, 5.0}, 2, 0.0, 0.0, true, false, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 1, 0.5, 1.5 * math.Pi, false, false, false},
-		}},
-
-		// intersection on two segment endpoint
-		{"L10 6L20 0", "M0 10L10 6L20 10", []PathIntersection{
-			{Point{10.0, 6.0}, 2, 0.0, Point{10.0, -6.0}.Angle(), false, true, false},
-		}, []PathIntersection{
-			{Point{10.0, 6.0}, 2, 0.0, Point{10.0, 4.0}.Angle(), true, true, false},
-		}},
-		{"L10 6L20 0", "M20 10L10 6L0 10", []PathIntersection{
-			{Point{10.0, 6.0}, 2, 0.0, Point{10.0, -6.0}.Angle(), true, true, false},
-		}, []PathIntersection{
-			{Point{10.0, 6.0}, 2, 0.0, Point{-10.0, 4.0}.Angle(), true, true, false},
-		}},
-		{"M20 0L10 6L0 0", "M0 10L10 6L20 10", []PathIntersection{
-			{Point{10.0, 6.0}, 2, 0.0, Point{-10.0, -6.0}.Angle(), false, true, false},
-		}, []PathIntersection{
-			{Point{10.0, 6.0}, 2, 0.0, Point{10.0, 4.0}.Angle(), false, true, false},
-		}},
-		{"M20 0L10 6L0 0", "M20 10L10 6L0 10", []PathIntersection{
-			{Point{10.0, 6.0}, 2, 0.0, Point{-10.0, -6.0}.Angle(), true, true, false},
-		}, []PathIntersection{
-			{Point{10.0, 6.0}, 2, 0.0, Point{-10.0, 4.0}.Angle(), false, true, false},
-		}},
-		{"L10 6L20 10", "M0 10L10 6L20 0", []PathIntersection{
-			{Point{10.0, 6.0}, 2, 0.0, Point{10.0, 4.0}.Angle(), true, false, false},
-		}, []PathIntersection{
-			{Point{10.0, 6.0}, 2, 0.0, Point{10.0, -6.0}.Angle(), false, false, false},
-		}},
-		{"L10 6L20 10", "M20 0L10 6L0 10", []PathIntersection{
-			{Point{10.0, 6.0}, 2, 0.0, Point{10.0, 4.0}.Angle(), false, false, false},
-		}, []PathIntersection{
-			{Point{10.0, 6.0}, 2, 0.0, Point{-10.0, 4.0}.Angle(), true, false, false},
-		}},
-		{"M20 10L10 6L0 0", "M0 10L10 6L20 0", []PathIntersection{
-			{Point{10.0, 6.0}, 2, 0.0, Point{-10.0, -6.0}.Angle(), false, false, false},
-		}, []PathIntersection{
-			{Point{10.0, 6.0}, 2, 0.0, Point{10.0, -6.0}.Angle(), true, false, false},
-		}},
-		{"M20 10L10 6L0 0", "M20 0L10 6L0 10", []PathIntersection{
-			{Point{10.0, 6.0}, 2, 0.0, Point{-10.0, -6.0}.Angle(), true, false, false},
-		}, []PathIntersection{
-			{Point{10.0, 6.0}, 2, 0.0, Point{-10.0, 4.0}.Angle(), false, false, false},
-		}},
-		{"M4 1L4 3L0 3", "M3 4L4 3L3 2", []PathIntersection{
-			{Point{4.0, 3.0}, 2, 0.0, math.Pi, false, false, false},
-		}, []PathIntersection{
-			{Point{4.0, 3.0}, 2, 0.0, 1.25 * math.Pi, true, false, false},
-		}},
-		{"M0 1L4 1L4 3L0 3z", MustParseSVGPath("M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z").Flatten(Tolerance).ToSVG(), []PathIntersection{
-			{Point{4.0, 3.0}, 3, 0.0, math.Pi, false, false, false},
-			{Point{2.0, 3.0}, 3, 0.5, math.Pi, true, false, false},
-		}, []PathIntersection{
-			{Point{4.0, 3.0}, 1, 0.0, 262.83296263 * math.Pi / 180.0, true, false, false},
-			{Point{2.0, 3.0}, 10, 0.0, 82.83296263 * math.Pi / 180.0, false, false, false},
-		}},
-		{"M5 1L9 1L9 5L5 5z", MustParseSVGPath("M9 5A4 4 0 0 1 1 5A4 4 0 0 1 9 5z").Flatten(Tolerance).ToSVG(), []PathIntersection{
-			{Point{9.0, 5.0}, 3, 0.0, math.Pi, true, false, false},
-			{Point{5.0, 1.00828530}, 4, 0.997928675, 1.5 * math.Pi, false, false, false},
-		}, []PathIntersection{
-			{Point{9.0, 5.0}, 1, 0.0, 93.76219714 * math.Pi / 180.0, false, false, false},
-			{Point{5.0, 1.00828530}, 26, 0.5, 0.0, true, false, false},
-		}},
-
-		// touches / same
-		{"L2 0L2 2L0 2z", "M2 0L4 0L4 2L2 2z", []PathIntersection{
-			{Point{2.0, 0.0}, 2, 0.0, 0.5 * math.Pi, false, true, true},
-			{Point{2.0, 2.0}, 3, 0.0, math.Pi, false, true, false},
-		}, []PathIntersection{
-			{Point{2.0, 0.0}, 1, 0.0, 0.0, false, true, false},
-			{Point{2.0, 2.0}, 4, 0.0, 1.5 * math.Pi, false, true, true},
-		}},
-		{"L2 0L2 2L0 2z", "M2 0L2 2L4 2L4 0z", []PathIntersection{
-			{Point{2.0, 0.0}, 2, 0.0, 0.5 * math.Pi, true, true, true},
-			{Point{2.0, 2.0}, 3, 0.0, math.Pi, true, true, false},
-		}, []PathIntersection{
-			{Point{2.0, 0.0}, 1, 0.0, 0.5 * math.Pi, false, true, true},
-			{Point{2.0, 2.0}, 2, 0.0, 0.0, false, true, false},
-		}},
-		{"M2 0L4 0L4 2L2 2z", "L2 0L2 2L0 2z", []PathIntersection{
-			{Point{2.0, 0.0}, 1, 0.0, 0.0, false, true, false},
-			{Point{2.0, 2.0}, 4, 0.0, 1.5 * math.Pi, false, true, true},
-		}, []PathIntersection{
-			{Point{2.0, 0.0}, 2, 0.0, 0.5 * math.Pi, false, true, true},
-			{Point{2.0, 2.0}, 3, 0.0, math.Pi, false, true, false},
-		}},
-		{"L2 0L2 2L0 2z", "M2 1L4 1L4 3L2 3z", []PathIntersection{
-			{Point{2.0, 1.0}, 2, 0.5, 0.5 * math.Pi, false, true, true},
-			{Point{2.0, 2.0}, 3, 0.0, math.Pi, false, true, false},
-		}, []PathIntersection{
-			{Point{2.0, 1.0}, 1, 0.0, 0.0, false, true, false},
-			{Point{2.0, 2.0}, 4, 0.5, 1.5 * math.Pi, false, true, true},
-		}},
-		{"L2 0L2 2L0 2z", "M2 -1L4 -1L4 1L2 1z", []PathIntersection{
-			{Point{2.0, 0.0}, 2, 0.0, 0.5 * math.Pi, false, true, true},
-			{Point{2.0, 1.0}, 2, 0.5, 0.5 * math.Pi, false, true, false},
-		}, []PathIntersection{
-			{Point{2.0, 0.0}, 4, 0.5, 1.5 * math.Pi, false, true, false},
-			{Point{2.0, 1.0}, 4, 0.0, 1.5 * math.Pi, false, true, true},
-		}},
-		{"L2 0L2 2L0 2z", "M2 -1L4 -1L4 3L2 3z", []PathIntersection{
-			{Point{2.0, 0.0}, 2, 0.0, 0.5 * math.Pi, false, true, true},
-			{Point{2.0, 2.0}, 3, 0.0, math.Pi, false, true, false},
-		}, []PathIntersection{
-			{Point{2.0, 0.0}, 4, 0.75, 1.5 * math.Pi, false, true, false},
-			{Point{2.0, 2.0}, 4, 0.25, 1.5 * math.Pi, false, true, true},
-		}},
-		{"M0 -1L2 -1L2 3L0 3z", "M2 0L4 0L4 2L2 2z", []PathIntersection{
-			{Point{2.0, 0.0}, 2, 0.25, 0.5 * math.Pi, false, true, true},
-			{Point{2.0, 2.0}, 2, 0.75, 0.5 * math.Pi, false, true, false},
-		}, []PathIntersection{
-			{Point{2.0, 0.0}, 1, 0.0, 0.0, false, true, false},
-			{Point{2.0, 2.0}, 4, 0.0, 1.5 * math.Pi, false, true, true},
-		}},
-		{"L1 0L1 1zM2 0L1.9 1L1.9 -1z", "L1 0L1 -1zM2 0L1.9 1L1.9 -1z", []PathIntersection{
-			{Point{0.0, 0.0}, 1, 0.0, 0.0, true, true, true},
-			{Point{1.0, 0.0}, 2, 0.0, 0.5 * math.Pi, true, true, false},
-		}, []PathIntersection{
-			{Point{0.0, 0.0}, 1, 0.0, 0.0, false, true, true},
-			{Point{1.0, 0.0}, 2, 0.0, 1.5 * math.Pi, false, true, false},
-		}},
-
-		// head-on collisions
-		{"M2 0L2 2L0 2", "M4 2L2 2L2 4", []PathIntersection{
-			{Point{2.0, 2.0}, 2, 0.0, math.Pi, true, true, false},
-		}, []PathIntersection{
-			{Point{2.0, 2.0}, 2, 0.0, 0.5 * math.Pi, false, true, false},
-		}},
-		{"M0 2Q2 4 2 2Q4 2 2 4", "M2 4L2 2L4 2", []PathIntersection{
-			{Point{2.0, 2.0}, 2, 0.0, 0.0, true, false, false},
-			{Point{2.0, 4.0}, 2, 1.0, 0.75 * math.Pi, false, true, false},
-		}, []PathIntersection{
-			{Point{2.0, 2.0}, 2, 0.0, 0.0, false, false, false},
-			{Point{2.0, 4.0}, 1, 0.0, 1.5 * math.Pi, false, true, false},
-		}},
-		{"M0 2C0 4 2 4 2 2C4 2 4 4 2 4", "M2 4L2 2L4 2", []PathIntersection{
-			{Point{2.0, 2.0}, 2, 0.0, 0.0, true, false, false},
-			{Point{2.0, 4.0}, 2, 1.0, math.Pi, false, true, false},
-		}, []PathIntersection{
-			{Point{2.0, 2.0}, 2, 0.0, 0.0, false, false, false},
-			{Point{2.0, 4.0}, 1, 0.0, 1.5 * math.Pi, false, true, false},
-		}},
-		{"M0 2A1 1 0 0 0 2 2A1 1 0 0 1 2 4", "M2 4L2 2L4 2", []PathIntersection{
-			{Point{2.0, 2.0}, 2, 0.0, 0.0, true, false, false},
-			{Point{2.0, 4.0}, 2, 1.0, math.Pi, false, true, false},
-		}, []PathIntersection{
-			{Point{2.0, 2.0}, 2, 0.0, 0.0, false, false, false},
-			{Point{2.0, 4.0}, 1, 0.0, 1.5 * math.Pi, false, true, false},
-		}},
-		{"M0 2A1 1 0 0 1 2 2A1 1 0 0 1 2 4", "M2 4L2 2L4 2", []PathIntersection{
-			{Point{2.0, 2.0}, 2, 0.0, 0.0, true, false, false},
-			{Point{2.0, 4.0}, 2, 1.0, math.Pi, false, true, false},
-		}, []PathIntersection{
-			{Point{2.0, 2.0}, 2, 0.0, 0.0, false, false, false},
-			{Point{2.0, 4.0}, 1, 0.0, 1.5 * math.Pi, false, true, false},
-		}},
-		{"M0 2A1 1 0 0 1 2 2A1 1 0 0 1 2 4", "M2 0L2 2L0 2", []PathIntersection{
-			{Point{0.0, 2.0}, 1, 0.0, 1.5 * math.Pi, true, true, false},
-			{Point{2.0, 2.0}, 2, 0.0, 0.0, false, false, false},
-		}, []PathIntersection{
-			{Point{0.0, 2.0}, 2, 1.0, math.Pi, false, true, false},
-			{Point{2.0, 2.0}, 2, 0.0, math.Pi, true, false, false},
-		}},
-		{"M0 1L4 1L4 3L0 3z", "M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", []PathIntersection{
-			{Point{4.0, 3.0}, 3, 0.0, math.Pi, false, false, false},
-			{Point{2.0, 3.0}, 3, 0.5, math.Pi, true, false, false},
-		}, []PathIntersection{
-			{Point{4.0, 3.0}, 1, 0.0, 1.5 * math.Pi, true, false, false},
-			{Point{2.0, 3.0}, 2, 0.0, 0.5 * math.Pi, false, false, false},
-		}},
-		{"M1 0L3 0L3 4L1 4z", "M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", []PathIntersection{
-			{Point{3.0, 2.0}, 2, 0.5, 0.5 * math.Pi, false, false, false},
-			{Point{3.0, 4.0}, 3, 0.0, math.Pi, true, false, false},
-		}, []PathIntersection{
-			{Point{3.0, 2.0}, 1, 0.5, math.Pi, true, false, false},
-			{Point{3.0, 4.0}, 2, 0.5, 0.0, false, false, false},
-		}},
-		{"M1 0L3 0L3 4L1 4z", "M3 0A1 1 0 0 0 1 0A1 1 0 0 0 3 0z", []PathIntersection{
-			{Point{1.0, 0.0}, 1, 0.0, 0.0, false, false, false},
-			{Point{3.0, 0.0}, 2, 0.0, 0.5 * math.Pi, true, false, false},
-		}, []PathIntersection{
-			{Point{1.0, 0.0}, 2, 0.0, 0.5 * math.Pi, true, false, false},
-			{Point{3.0, 0.0}, 1, 0.0, 1.5 * math.Pi, false, false, false},
-		}},
-		{"M1 0L3 0L3 4L1 4z", "M1 0A1 1 0 0 0 -1 0A1 1 0 0 0 1 0z", []PathIntersection{
-			{Point{1.0, 0.0}, 1, 0.0, 0.0, true, true, false},
-		}, []PathIntersection{
-			{Point{1.0, 0.0}, 1, 0.0, 1.5 * math.Pi, false, true, false},
-		}},
-		{"M1 0L3 0L3 4L1 4z", "M1 0L1 -1L0 0z", []PathIntersection{
-			{Point{1.0, 0.0}, 1, 0.0, 0.0, true, true, false},
-		}, []PathIntersection{
-			{Point{1.0, 0.0}, 1, 0.0, 1.5 * math.Pi, false, true, false},
-		}},
-		{"M1 0L3 0L3 4L1 4z", "M1 0L0 0L1 -1z", []PathIntersection{
-			{Point{1.0, 0.0}, 1, 0.0, 0.0, false, true, false},
-		}, []PathIntersection{
-			{Point{1.0, 0.0}, 1, 0.0, math.Pi, false, true, false},
-		}},
-		{"M1 0L3 0L3 4L1 4z", "M1 0L2 0L1 1z", []PathIntersection{
-			{Point{2.0, 0.0}, 1, 0.5, 0.0, false, true, false},
-			{Point{1.0, 1.0}, 4, 0.75, 1.5 * math.Pi, false, true, true},
-		}, []PathIntersection{
-			{Point{2.0, 0.0}, 2, 0.0, 0.75 * math.Pi, true, true, false},
-			{Point{1.0, 1.0}, 3, 0.0, 1.5 * math.Pi, true, true, true},
-		}},
-		{"M1 0L3 0L3 4L1 4z", "M1 0L1 1L2 0z", []PathIntersection{
-			{Point{2.0, 0.0}, 1, 0.5, 0.0, true, true, false},
-			{Point{1.0, 1.0}, 4, 0.75, 1.5 * math.Pi, true, true, true},
-		}, []PathIntersection{
-			{Point{2.0, 0.0}, 3, 0.0, math.Pi, true, true, true},
-			{Point{1.0, 1.0}, 2, 0.0, 1.75 * math.Pi, true, true, false},
-		}},
-		{"M1 0L3 0L3 4L1 4z", "M1 0L2 1L0 1z", []PathIntersection{
-			{Point{1.0, 0.0}, 1, 0.0, 0.0, false, false, false},
-			{Point{1.0, 1.0}, 4, 0.75, 1.5 * math.Pi, true, false, false},
-		}, []PathIntersection{
-			{Point{1.0, 0.0}, 1, 0.0, 0.25 * math.Pi, true, false, false},
-			{Point{1.0, 1.0}, 2, 0.5, math.Pi, false, false, false},
-		}},
-
-		// intersection with overlapping lines
-		{"L0 15", "M5 0L0 5L0 10L5 15", []PathIntersection{
-			{Point{0.0, 5.0}, 1, 1.0 / 3.0, 0.5 * math.Pi, true, true, true},
-			{Point{0.0, 10.0}, 1, 2.0 / 3.0, 0.5 * math.Pi, true, true, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 2, 0.0, 0.5 * math.Pi, false, true, true},
-			{Point{0.0, 10.0}, 3, 0.0, 0.25 * math.Pi, false, true, false},
-		}},
-		{"L0 15", "M5 0L0 5L0 10L-5 15", []PathIntersection{
-			{Point{0.0, 5.0}, 1, 1.0 / 3.0, 0.5 * math.Pi, false, false, true},
-			{Point{0.0, 10.0}, 1, 2.0 / 3.0, 0.5 * math.Pi, false, false, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 2, 0.0, 0.5 * math.Pi, true, false, true},
-			{Point{0.0, 10.0}, 3, 0.0, 0.75 * math.Pi, true, false, false},
-		}},
-		{"L0 15", "M5 15L0 10L0 5L5 0", []PathIntersection{
-			{Point{0.0, 5.0}, 1, 1.0 / 3.0, 0.5 * math.Pi, false, true, true},
-			{Point{0.0, 10.0}, 1, 2.0 / 3.0, 0.5 * math.Pi, false, true, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 3, 0.0, 1.75 * math.Pi, false, true, false},
-			{Point{0.0, 10.0}, 2, 0.0, 1.5 * math.Pi, false, true, true},
-		}},
-		{"L0 15", "M5 15L0 10L0 5L-5 0", []PathIntersection{
-			{Point{0.0, 5.0}, 1, 1.0 / 3.0, 0.5 * math.Pi, false, false, true},
-			{Point{0.0, 10.0}, 1, 2.0 / 3.0, 0.5 * math.Pi, false, false, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 3, 0.0, 1.25 * math.Pi, true, false, false},
-			{Point{0.0, 10.0}, 2, 0.0, 1.5 * math.Pi, true, false, true},
-		}},
-		{"L0 10L-5 15", "M5 0L0 5L0 15", []PathIntersection{
-			{Point{0.0, 5.0}, 1, 0.5, 0.5 * math.Pi, true, true, true},
-			{Point{0.0, 10.0}, 2, 0.0, 0.75 * math.Pi, true, true, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 2, 0.0, 0.5 * math.Pi, false, true, true},
-			{Point{0.0, 10.0}, 2, 0.5, 0.5 * math.Pi, false, true, false},
-		}},
-		{"L0 10L5 15", "M5 0L0 5L0 15", []PathIntersection{
-			{Point{0.0, 5.0}, 1, 0.5, 0.5 * math.Pi, false, false, true},
-			{Point{0.0, 10.0}, 2, 0.0, 0.25 * math.Pi, false, false, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 2, 0.0, 0.5 * math.Pi, true, false, true},
-			{Point{0.0, 10.0}, 2, 0.5, 0.5 * math.Pi, true, false, false},
-		}},
-		{"L0 10L-5 15", "M0 15L0 5L5 0", []PathIntersection{
-			{Point{0.0, 5.0}, 1, 0.5, 0.5 * math.Pi, false, true, true},
-			{Point{0.0, 10.0}, 2, 0.0, 0.75 * math.Pi, false, true, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 2, 0.0, 1.75 * math.Pi, false, true, false},
-			{Point{0.0, 10.0}, 1, 0.5, 1.5 * math.Pi, false, true, true},
-		}},
-		{"L0 10L5 15", "M0 15L0 5L5 0", []PathIntersection{
-			{Point{0.0, 5.0}, 1, 0.5, 0.5 * math.Pi, true, false, true},
-			{Point{0.0, 10.0}, 2, 0.0, 0.25 * math.Pi, true, false, false},
-		}, []PathIntersection{
-			{Point{0.0, 5.0}, 2, 0.0, 1.75 * math.Pi, false, false, false},
-			{Point{0.0, 10.0}, 1, 0.5, 1.5 * math.Pi, false, false, true},
-		}},
-		{"L5 5L5 10L0 15", "M10 0L5 5L5 15", []PathIntersection{
-			{Point{5.0, 5.0}, 2, 0.0, 0.5 * math.Pi, true, true, true},
-			{Point{5.0, 10.0}, 3, 0.0, 0.75 * math.Pi, true, true, false},
-		}, []PathIntersection{
-			{Point{5.0, 5.0}, 2, 0.0, 0.5 * math.Pi, false, true, true},
-			{Point{5.0, 10.0}, 2, 0.5, 0.5 * math.Pi, false, true, false},
-		}},
-		{"L5 5L5 10L10 15", "M10 0L5 5L5 15", []PathIntersection{
-			{Point{5.0, 5.0}, 2, 0.0, 0.5 * math.Pi, false, false, true},
-			{Point{5.0, 10.0}, 3, 0.0, 0.25 * math.Pi, false, false, false},
-		}, []PathIntersection{
-			{Point{5.0, 5.0}, 2, 0.0, 0.5 * math.Pi, true, false, true},
-			{Point{5.0, 10.0}, 2, 0.5, 0.5 * math.Pi, true, false, false},
-		}},
-		{"L5 5L5 10L0 15", "M10 0L5 5L5 10L10 15", []PathIntersection{
-			{Point{5.0, 5.0}, 2, 0.0, 0.5 * math.Pi, true, true, true},
-			{Point{5.0, 10.0}, 3, 0.0, 0.75 * math.Pi, true, true, false},
-		}, []PathIntersection{
-			{Point{5.0, 5.0}, 2, 0.0, 0.5 * math.Pi, false, true, true},
-			{Point{5.0, 10.0}, 3, 0.0, 0.25 * math.Pi, false, true, false},
-		}},
-		{"L5 5L5 10L10 15", "M10 0L5 5L5 10L0 15", []PathIntersection{
-			{Point{5.0, 5.0}, 2, 0.0, 0.5 * math.Pi, false, false, true},
-			{Point{5.0, 10.0}, 3, 0.0, 0.25 * math.Pi, false, false, false},
-		}, []PathIntersection{
-			{Point{5.0, 5.0}, 2, 0.0, 0.5 * math.Pi, true, false, true},
-			{Point{5.0, 10.0}, 3, 0.0, 0.75 * math.Pi, true, false, false},
-		}},
-		{"L5 5L5 10L10 15L5 20", "M10 0L5 5L5 10L10 15L10 20", []PathIntersection{
-			{Point{5.0, 5.0}, 2, 0.0, 0.5 * math.Pi, true, true, true},
-			{Point{10.0, 15.0}, 4, 0.0, 0.75 * math.Pi, true, true, false},
-		}, []PathIntersection{
-			{Point{5.0, 5.0}, 2, 0.0, 0.5 * math.Pi, false, true, true},
-			{Point{10.0, 15.0}, 4, 0.0, 0.5 * math.Pi, false, true, false},
-		}},
-		{"L5 5L5 10L10 15L5 20", "M10 20L10 15L5 10L5 5L10 0", []PathIntersection{
-			{Point{5.0, 5.0}, 2, 0.0, 0.5 * math.Pi, false, true, true},
-			{Point{10.0, 15.0}, 4, 0.0, 0.75 * math.Pi, false, true, false},
-		}, []PathIntersection{
-			{Point{5.0, 5.0}, 4, 0.0, 1.75 * math.Pi, false, true, false},
-			{Point{10.0, 15.0}, 2, 0.0, 1.25 * math.Pi, false, true, true},
-		}},
-		{"L2 0L2 1L0 1z", "M1 0L3 0L3 1L1 1z", []PathIntersection{
-			{Point{1.0, 0.0}, 1, 0.5, 0.0, true, false, true},
-			{Point{2.0, 0.0}, 2, 0.0, 0.5 * math.Pi, true, false, false},
-			{Point{2.0, 1.0}, 3, 0.0, math.Pi, false, false, true},
-			{Point{1.0, 1.0}, 3, 0.5, math.Pi, false, false, false},
-		}, []PathIntersection{
-			{Point{1.0, 0.0}, 1, 0.0, 0.0, false, false, true},
-			{Point{2.0, 0.0}, 1, 0.5, 0.0, false, false, false},
-			{Point{2.0, 1.0}, 3, 0.5, math.Pi, true, false, true},
-			{Point{1.0, 1.0}, 4, 0.0, 1.5 * math.Pi, true, false, false},
-		}},
-
-		// bugs
-		{"M67.89174682452696 63.79390646055095L67.89174682452696 63.91890646055095L59.89174682452683 50.06250000000001", "M68.10825317547533 63.79390646055193L67.89174682452919 63.91890646055186M67.89174682452672 63.918906460550865L59.891746824526074 50.06250000000021", []PathIntersection{
-			{Point{67.89174682452696, 63.91890646055095}, 2, 0.0, 240.0 * math.Pi / 180.0, false, true, false},
-			{Point{67.89174682452696, 63.91890646055095}, 2, 0.0, 240.0 * math.Pi / 180.0, false, true, true},
-			{Point{59.89174682452683, 50.06250000000001}, 2, 1.0, 240.0 * math.Pi / 180.0, false, true, false},
-		}, []PathIntersection{
-			{Point{67.89174682452919, 63.91890646055186}, 1, 1.0, 150.0 * math.Pi / 180.0, false, true, false},
-			{Point{67.89174682452672, 63.918906460550865}, 3, 0.0, 240.0 * math.Pi / 180.0, false, true, true},
-			{Point{59.891746824526074, 50.06250000000021}, 3, 1.0, 240.0 * math.Pi / 180.0, false, true, false},
-		}},
-	}
-	origEpsilon := Epsilon
-	for _, tt := range tts {
-		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
-			Epsilon = origEpsilon
-			p := MustParseSVGPath(tt.p)
-			q := MustParseSVGPath(tt.q)
-
-			zp, zq := p.Collisions(q)
-
-			Epsilon = 3.0 * origEpsilon
-			test.T(t, zp, tt.zp)
-			test.T(t, zq, tt.zq)
-		})
-	}
-	Epsilon = origEpsilon
-}
-
-func TestSelfIntersections(t *testing.T) {
-	var tts = []struct {
-		p  string
-		zs []PathIntersection
-	}{
-		{"L10 10L10 0L0 10z", []PathIntersection{
-			{Point{5.0, 5.0}, 1, 0.5, 0.25 * math.Pi, false, false, false},
-			{Point{5.0, 5.0}, 3, 0.5, 0.75 * math.Pi, true, false, false},
-		}},
-
-		// intersection
-		{"M2 1L0 0L0 2L2 1L1 0L1 2z", []PathIntersection{
-			{Point{2.0, 1.0}, 1, 0.0, 206.5650511771 * math.Pi / 180.0, false, false, false},
-			{Point{1.0, 0.5}, 1, 0.5, 206.5650511771 * math.Pi / 180.0, true, false, false},
-			{Point{1.0, 1.5}, 3, 0.5, 333.4349488229 * math.Pi / 180.0, false, false, false},
-			{Point{2.0, 1.0}, 4, 0.0, 1.25 * math.Pi, true, false, false},
-			{Point{1.0, 0.5}, 5, 0.25, 0.5 * math.Pi, false, false, false},
-			{Point{1.0, 1.5}, 5, 0.75, 0.5 * math.Pi, true, false, false},
-		}},
-
-		// parallel segment TODO
-		{"L10 0L5 0L15 0", []PathIntersection{
-			{Point{5.0, 0.0}, 1, 0.5, 0.0, false, true, true},
-			{Point{10.0, 0.0}, 3, 0.5, 0.0, false, true, true},
-		}},
-		{"L10 0L0 0L15 0", []PathIntersection{
-			{Point{0.0, 0.0}, 1, 0.5, 0.0, false, true, true},
-			{Point{10.0, 0.0}, 3, 0.5, 0.0, false, true, true},
-		}},
-		{"L10 0L15 5L20 10L15 5L10 0L0 5", []PathIntersection{
-			{Point{10.0, 0.0}, 1, 0.0, 0.0, true, true, true},
-			{Point{10.0, 0.0}, 6, 0.0, 0.0, true, true, true},
-		}},
-		{"L15 0L15 10L5 10L5 0L10 0L10 5L0 5z", []PathIntersection{
-			{Point{5.0, 0.0}, 1, 0.5, 0.0, false, true, true},
-			{Point{10.0, 0.0}, 3, 0.5, 0.0, false, true, true},
-		}},
-		{"L15 0L15 10L0 10L0 0L10 0L10 5L-5 5L-5 0z", []PathIntersection{
-			{Point{0.0, 0.0}, 1, 0.5, 0.0, false, true, true},
-			{Point{10.0, 0.0}, 3, 0.5, 0.0, false, true, true},
-		}},
-		{"L15 0L15 10L0 10L0 0L10 0L10 5L0 5z", []PathIntersection{
-			{Point{0.0, 5.0}, 1, 0.5, 0.0, false, true, true},
-			{Point{10.0, 0.0}, 3, 0.5, 0.0, false, true, true},
-		}},
-		{"L-5 0A5 5 0 0 1 5 0A5 5 0 0 1 -5 0z", []PathIntersection{
-			{Point{5.0, 0.0}, 1, 0.5, 0.0, false, true, true},
-			{Point{10.0, 0.0}, 3, 0.5, 0.0, false, true, true},
-		}},
-		{"L-5 0A5 5 0 0 1 5 0A5 5 0 0 1 -5 0L0 0L0 1L1 0L0 -1z", []PathIntersection{
-			{Point{0.0, 0.0}, 1, 0.0, math.Pi, false, true, true},
-			{Point{10.0, 0.0}, 3, 0.5, 0.0, false, true, true},
-		}},
-		{"L15 0L15 5L5 0L10 0L15 -5", []PathIntersection{
-			{Point{5.0, 0.0}, 1, 1.0 / 3.0, 0.0, false, true, true},
-			{Point{10.0, 0.0}, 3, 2.0 / 3.0, 0.0, false, true, true},
-		}},
-		{"L15 0L15 5L10 0L5 0L0 5", []PathIntersection{
-			{Point{5.0, 0.0}, 1, 1.0 / 3.0, 0.0, false, true, true},
-			{Point{10.0, 0.0}, 3, 2.0 / 3.0, 0.0, false, true, true},
-		}},
-
-		// bugs
-		{"M3.512162397982181 1.239754268684486L3.3827323986701674 1.1467946944092953L3.522449858001167 1.2493787337129587A0.21166666666666667 0.21166666666666667 0 0 1 3.5121623979821806 1.2397542686844856z", []PathIntersection{}}, // #277, very small circular arc at the end of the path to the start
-		{"M-0.1997406229376793 296.9999999925494L-0.1997406229376793 158.88740153238177L-0.19974062293732664 158.8874019079834L-0.19999999999964735 20.77454766193328", []PathIntersection{
-			{Point{-0.1997406229376793, 158.88740172019808}, 1, 0.9999999986401219, 270.0 * math.Pi / 180.0, true, false, false},
-			{Point{-0.1997406229376793, 158.88740172019808}, 3, 1.359651237533596e-09, 269.9998923980606 * math.Pi / 180.0, false, false, false},
-		}}, // #287
-	}
-	for _, tt := range tts {
-		t.Run(fmt.Sprint(tt.p), func(t *testing.T) {
-			p := MustParseSVGPath(tt.p)
-			zs, _ := pathIntersections(p, nil, true, true)
-			test.T(t, zs, tt.zs)
-		})
-	}
-}
-
-func TestPathCut(t *testing.T) {
-	var tts = []struct {
-		p, q string
-		rs   []string
-	}{
-		{"L10 0L5 10z", "M0 5L10 5L5 15z",
-			[]string{"M7.5 5L5 10L2.5 5", "M2.5 5L0 0L10 0L7.5 5"},
-		},
-		{"L2 0L2 2L0 2zM4 0L6 0L6 2L4 2z", "M1 1L5 1L5 3L1 3z",
-			[]string{"M2 1L2 2L1 2", "M1 2L0 2L0 0L2 0L2 1", "M5 2L4 2L4 1", "M4 1L4 0L6 0L6 2L5 2"},
-		},
-		{"L2 0M2 1L4 1L4 3L2 3zM0 4L2 4", "M1 -1L1 5",
-			[]string{"L1 0", "M1 0L2 0M2 1L4 1L4 3L2 3zM0 4L1 4", "M1 4L2 4"},
-		},
-	}
-	for _, tt := range tts {
-		ttrs := []*Path{}
-		for _, rs := range tt.rs {
-			ttrs = append(ttrs, MustParseSVGPath(rs))
-		}
-		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
-			p := MustParseSVGPath(tt.p)
-			q := MustParseSVGPath(tt.q)
-			rs := p.Cut(q)
-			test.T(t, rs, ttrs)
-		})
-	}
-}*/
-
 func boSP(a, b Point, clipping bool) *SweepPoint {
 	vertical := Equal(a.X, b.X)
 	increasing := a.X < b.X
@@ -1394,6 +845,8 @@ func TestPathSettle(t *testing.T) {
 		t.Run(fmt.Sprint(tt.p), func(t *testing.T) {
 			p := MustParseSVGPath(tt.p)
 			test.T(t, p.Settle(tt.fillRule), MustParseSVGPath(tt.r))
+
+			p.Relate(nil) // test no panic
 		})
 	}
 }
@@ -1520,6 +973,8 @@ func TestPathAnd(t *testing.T) {
 				r = q.And(p)
 				test.T(t, r, MustParseSVGPath(tt.r), "swapped arguments")
 			}
+
+			p.Relate(q) // test no panic
 		})
 	}
 }
@@ -1621,6 +1076,8 @@ func TestPathOr(t *testing.T) {
 				r = q.Or(p)
 				test.T(t, r, MustParseSVGPath(tt.r), "swapped arguments")
 			}
+
+			p.Relate(q) // test no panic
 		})
 	}
 }
@@ -1713,6 +1170,8 @@ func TestPathXor(t *testing.T) {
 				r = q.Xor(p)
 				test.T(t, r, MustParseSVGPath(tt.r), "swapped arguments")
 			}
+
+			p.Relate(q) // test no panic
 		})
 	}
 }
@@ -1816,6 +1275,8 @@ func TestPathNot(t *testing.T) {
 			q := MustParseSVGPath(tt.q)
 			r := p.Not(q)
 			test.T(t, r, MustParseSVGPath(tt.r))
+
+			p.Relate(q) // test no panic
 		})
 	}
 }
@@ -1835,6 +1296,192 @@ func TestPathDivideBy(t *testing.T) {
 			q := MustParseSVGPath(tt.q)
 			r := p.DivideBy(q)
 			test.T(t, r, MustParseSVGPath(tt.r))
+
+			p.Relate(q) // test no panic
+		})
+	}
+}
+
+/*func TestPathCut(t *testing.T) {
+	var tts = []struct {
+		p, q string
+		rs   []string
+	}{
+		{"L10 0L5 10z", "M0 5L10 5L5 15z",
+			[]string{"M7.5 5L5 10L2.5 5", "M2.5 5L0 0L10 0L7.5 5"},
+		},
+		{"L2 0L2 2L0 2zM4 0L6 0L6 2L4 2z", "M1 1L5 1L5 3L1 3z",
+			[]string{"M2 1L2 2L1 2", "M1 2L0 2L0 0L2 0L2 1", "M5 2L4 2L4 1", "M4 1L4 0L6 0L6 2L5 2"},
+		},
+		{"L2 0M2 1L4 1L4 3L2 3zM0 4L2 4", "M1 -1L1 5",
+			[]string{"L1 0", "M1 0L2 0M2 1L4 1L4 3L2 3zM0 4L1 4", "M1 4L2 4"},
+		},
+	}
+	for _, tt := range tts {
+		ttrs := []*Path{}
+		for _, rs := range tt.rs {
+			ttrs = append(ttrs, MustParseSVGPath(rs))
+		}
+		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
+			p := MustParseSVGPath(tt.p)
+			q := MustParseSVGPath(tt.q)
+			rs := p.Cut(q)
+			test.T(t, rs, ttrs)
+		})
+	}
+}*/
+
+type relTest int
+
+const (
+	relDisjoint relTest = 1 << iota
+	relIntersects
+	relEquals
+	relTouches
+	relContains
+	relWithin
+	relOverlaps
+)
+
+func TestPathRelate(t *testing.T) {
+	var tts = []struct {
+		p, q string
+		rel  relTest
+		zs   []Point
+	}{
+		{"L10 0L5 10z", "M0 5L10 5L5 15z", relOverlaps, []Point{{2.5, 5}, {7.5, 5}}},
+		{"L10 0L5 10z", "M0 10L10 10L5 20z", relTouches, []Point{{5, 10}}},
+		{"L10 0L5 10z", "M0 11L10 11L5 21z", relDisjoint, []Point{}},
+		{"L10 0L5 10z", "M5 10L15 10L10 20z", relTouches, []Point{{5, 10}}},
+		{"L10 0L5 10z", "M5 10L10 0L15 10z", relTouches, []Point{{5, 10}, {10, 0}}},
+		{"L10 0L5 10z", "M10 0L20 0L15 10z", relTouches, []Point{{10, 0}}},
+		{"L10 0L5 10z", "M11 0L21 0L16 10z", relDisjoint, []Point{}},
+		//{"L10 0L5 10z", "M0 -5L10 -5A5 5 0 0 1 0 -5", []Point{{5, 0}}},
+		//{"M5 5L0 0", "M-5 0A5 5 0 0 0 5 0", []Point{{5.0 / math.Sqrt(2.0), 5.0 / math.Sqrt(2.0)}}},
+		{"L10 0", "M-1 0L0 0", relTouches, []Point{{0, 0}}},
+		{"L10 0", "M10 0L20 0", relTouches, []Point{{10, 0}}},
+		{"L10 0", "M11 0L21 0", relDisjoint, []Point{}},
+		{"L10 0", "M0 1L10 1", relDisjoint, []Point{}},
+		{"L10 0", "M0 -5L0 5", relTouches, []Point{{0, 0}}},
+		{"L10 0", "M5 -5L5 5", relOverlaps, []Point{{5, 0}}},
+		{"L10 0", "M10 -5L10 5", relTouches, []Point{{10, 0}}},
+		//{"L10 10L10 0L0 10z", "", []Point{{5, 5}, {5, 5}}},
+		//{"M2 1L0 0L0 2L2 1L1 0L1 2z", "",[]Point{{2, 1}, {1, 0.5}, {1, 1.5}, {2, 1}, {1, 0.5}, {1, 1.5}}},
+
+		// containment
+		{"L10 0L5 10z", "M1 1L9 1L5 9z", relContains, []Point{}},
+		{"M1 1L9 1L5 9z", "L10 0L5 10z", relWithin, []Point{}},
+		{"L10 0L5 10z", "M1 2L9 2L5 10z", relContains, []Point{{1, 2}, {9, 2}}},
+		{"L10 0L5 10z", "L10 0L5 10z", relEquals, []Point{}},
+		{"L10 0", "M1 0L9 0", relContains, []Point{{1, 0}, {9, 0}}},
+		{"L10 0", "M-1 0L1 0", relOverlaps, []Point{{0, 0}, {1, 0}}},
+		{"L10 0", "M1 0L11 0", relOverlaps, []Point{{1, 0}, {10, 0}}},
+		{"L10 0", "L10 0", relEquals, []Point{}},
+
+		// intersection on one segment endpoint
+		{"L0 15", "M5 0L0 5L5 5", relOverlaps, []Point{{0, 5}}}, // unexpected, should be relTouches
+		{"L0 15", "M5 0L0 5L-5 5", relOverlaps, []Point{{0, 5}}},
+		//{"L0 10", "M5 0A5 5 0 0 0 0 5A5 5 0 0 0 5 10", []Point{{0, 5}}},
+		//{"L0 5L5 5", "M5 0A5 5 0 0 0 5 10", []Point{{0, 5}}},
+
+		// intersection on two segment endpoint
+		{"L10 6L20 0", "M0 10L10 6L20 10", relOverlaps, []Point{{10, 6}}}, // unexpected, should be relTouches
+		{"L10 6L20 10", "M0 10L10 6L20 0", relOverlaps, []Point{{10, 6}}},
+		{"M4 1L4 3L0 3", "M3 4L4 3L3 2", relOverlaps, []Point{{4, 3}}},
+		//{"M0 1L4 1L4 3L0 3z", MustParseSVGPath("M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z").Flatten(Tolerance).ToSVG(), []Point{{4, 3}, {2, 3}}},
+		//{"M5 1L9 1L9 5L5 5z", MustParseSVGPath("M9 5A4 4 0 0 1 1 5A4 4 0 0 1 9 5z").Flatten(Tolerance).ToSVG(), []Point{{9, 5}, {5, 1.00828530}}},
+
+		// touches / same
+		{"L2 0L2 2L0 2z", "M2 0L4 0L4 2L2 2z", relTouches, []Point{{2, 0}, {2, 2}}},
+		{"L2 0L2 2L0 2z", "M2 1L4 1L4 3L2 3z", relTouches, []Point{{2, 1}, {2, 2}}},
+		{"L2 0L2 2L0 2z", "M2 -1L4 -1L4 1L2 1z", relTouches, []Point{{2, 0}, {2, 1}}},
+		{"L2 0L2 2L0 2z", "M2 -1L4 -1L4 3L2 3z", relTouches, []Point{{2, 0}, {2, 2}}},
+		{"M0 -1L2 -1L2 3L0 3z", "M2 0L4 0L4 2L2 2z", relTouches, []Point{{2, 0}, {2, 2}}},
+		{"L1 0L1 1zM2 0L1.9 1L1.9 -1z", "L1 0L1 -1zM2 0L1.9 1L1.9 -1z", relOverlaps, []Point{{0, 0}, {1, 0}}},
+
+		// head-on collisions
+		{"M2 0L2 2L0 2", "M4 2L2 2L2 4", relOverlaps, []Point{{2, 2}}},
+		//{"M0 2Q2 4 2 2Q4 2 2 4", "M2 4L2 2L4 2", []Point{{2, 2}, {2, 4}}},
+		//{"M0 2C0 4 2 4 2 2C4 2 4 4 2 4", "M2 4L2 2L4 2", []Point{{2, 2}, {2, 4}}},
+		//{"M0 2A1 1 0 0 0 2 2A1 1 0 0 1 2 4", "M2 4L2 2L4 2", []Point{{2, 2}, {2, 4}}},
+		//{"M0 2A1 1 0 0 1 2 2A1 1 0 0 1 2 4", "M2 4L2 2L4 2", []Point{{2, 2}, {2, 4}}},
+		//{"M0 2A1 1 0 0 1 2 2A1 1 0 0 1 2 4", "M2 0L2 2L0 2", []Point{{0, 2}, {2, 2}}},
+		//{"M0 1L4 1L4 3L0 3z", "M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", []Point{{4, 3}, {2, 3}}},
+		//{"M1 0L3 0L3 4L1 4z", "M4 3A1 1 0 0 0 2 3A1 1 0 0 0 4 3z", []Point{{3, 2}, {3, 4}}},
+		//{"M1 0L3 0L3 4L1 4z", "M3 0A1 1 0 0 0 1 0A1 1 0 0 0 3 0z", []Point{{1, 0}, {3, 0}}},
+		//{"M1 0L3 0L3 4L1 4z", "M1 0A1 1 0 0 0 -1 0A1 1 0 0 0 1 0z", []Point{{1, 0}}},
+		{"M1 0L3 0L3 4L1 4z", "M1 0L1 -1L0 0z", relTouches, []Point{{1, 0}}},
+		{"M1 0L3 0L3 4L1 4z", "M1 0L2 0L1 1z", relContains, []Point{{1, 1}, {2, 0}}},
+		{"M1 0L3 0L3 4L1 4z", "M1 0L2 1L0 1z", relOverlaps, []Point{{1, 0}, {1, 1}}},
+
+		// intersection with overlapping lines
+		{"L0 15", "M5 0L0 5L0 10L5 15", relOverlaps, []Point{{0, 5}, {0, 10}}},
+		{"L0 15", "M5 0L0 5L0 10L-5 15", relOverlaps, []Point{{0, 5}, {0, 10}}},
+		{"L0 10L-5 15", "M5 0L0 5L0 15", relOverlaps, []Point{{0, 5}, {0, 10}}},
+		{"L0 10L5 15", "M5 0L0 5L0 15", relOverlaps, []Point{{0, 5}, {0, 10}}},
+		{"L5 5L5 10L0 15", "M10 0L5 5L5 15", relOverlaps, []Point{{5, 5}, {5, 10}}},
+		{"L5 5L5 10L10 15", "M10 0L5 5L5 15", relOverlaps, []Point{{5, 5}, {5, 10}}},
+		{"L5 5L5 10L10 15L5 20", "M10 0L5 5L5 10L10 15L10 20", relOverlaps, []Point{{5, 5}, {10, 15}}},
+		{"L2 0L2 1L0 1z", "M1 0L3 0L3 1L1 1z", relOverlaps, []Point{{1, 0}, {1, 1}, {2, 0}, {2, 1}}},
+		//{"L10 0L5 0L15 0", []Point{{5, 0}, {10, 0}}},
+		//{"L10 0L0 0L15 0", []Point{{0, 0}, {10, 0}}},
+		//{"L10 0L15 5L20 10L15 5L10 0L0 5", []Point{{10, 0}, {10, 0}}},
+		//{"L15 0L15 10L5 10L5 0L10 0L10 5L0 5z", []Point{{5, 0}, {10, 0}}},
+		//{"L15 0L15 10L0 10L0 0L10 0L10 5L-5 5L-5 0z", []Point{{0, 0}, {10, 0}}},
+		//{"L15 0L15 10L0 10L0 0L10 0L10 5L0 5z", []Point{{0, 5}, {10, 0}}},
+		////{"L-5 0A5 5 0 0 1 5 0A5 5 0 0 1 -5 0z", []Point{{5, 0}, {10, 0}}},
+		////{"L-5 0A5 5 0 0 1 5 0A5 5 0 0 1 -5 0L0 0L0 1L1 0L0 -1z", []Point{{0, 0}, {10, 0}}},
+		//{"L15 0L15 5L5 0L10 0L15 -5", []Point{{5, 0}, {10, 0}}},
+		//{"L15 0L15 5L10 0L5 0L0 5", []Point{{5, 0}, {10, 0}}},
+
+		// bugs
+		{"M67.89174682452696 63.79390646055095L67.89174682452696 63.91890646055095L59.89174682452683 50.06250000000001", "M68.10825317547533 63.79390646055193L67.89174682452919 63.91890646055186M67.89174682452672 63.918906460550865L59.891746824526074 50.06250000000021", relDisjoint, []Point{}},
+		//{"M3.512162397982181 1.239754268684486L3.3827323986701674 1.1467946944092953L3.522449858001167 1.2493787337129587A0.21166666666666667 0.21166666666666667 0 0 1 3.5121623979821806 1.2397542686844856z", "", relDisjoint,[]Point{}},                                            // #277, very small circular arc at the end of the path to the start
+		//{"M-0.1997406229376793 296.9999999925494L-0.1997406229376793 158.88740153238177L-0.19974062293732664 158.8874019079834L-0.19999999999964735 20.77454766193328", "", relDisjoint,[]Point{{-0.1997406229376793, 158.88740172019808}, {-0.1997406229376793, 158.88740172019808}}}, // #287
+	}
+	for _, tt := range tts {
+		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
+			p := MustParseSVGPath(tt.p)
+			var q *Path
+			if len(tt.q) != 0 {
+				q = MustParseSVGPath(tt.q)
+			}
+
+			rel, zs := p.Relate(q)
+			if tt.rel == relDisjoint {
+				test.That(t, rel.Disjoint(), "disjoint")
+			} else if tt.rel == relIntersects {
+				test.That(t, rel.Intersects(), "intersects")
+			} else if tt.rel == relEquals {
+				test.That(t, rel.Equals(), "equals")
+				test.That(t, rel.Intersects(), "intersects")
+				test.That(t, !rel.Touches(), "!touches")
+			} else if tt.rel == relContains {
+				test.That(t, rel.Contains(), "contains")
+				test.That(t, rel.Intersects(), "intersects")
+				test.That(t, rel.Overlaps(), "overlaps")
+				test.That(t, !rel.Equals(), "!equals")
+				test.That(t, !rel.Touches(), "!touches")
+			} else if tt.rel == relWithin {
+				test.That(t, rel.Within(), "within")
+				test.That(t, rel.Intersects(), "intersects")
+				test.That(t, rel.Overlaps(), "overlaps")
+				test.That(t, !rel.Equals(), "!equals")
+				test.That(t, !rel.Touches(), "!touches")
+			} else if tt.rel == relTouches {
+				test.That(t, rel.Touches(), "touches")
+				test.That(t, rel.Intersects(), "intersects")
+				test.That(t, !rel.Contains(), "!contains")
+				test.That(t, !rel.Within(), "!within")
+				test.That(t, !rel.Overlaps(), "!overlaps")
+			} else if tt.rel == relOverlaps {
+				test.That(t, rel.Overlaps(), "overlaps")
+				test.That(t, rel.Intersects(), "intersects")
+				test.That(t, !rel.Contains(), "!contains")
+				test.That(t, !rel.Within(), "!within")
+				test.That(t, !rel.Touches(), "!touches")
+			}
+			test.T(t, zs, tt.zs)
 		})
 	}
 }

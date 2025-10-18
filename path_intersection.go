@@ -220,6 +220,47 @@ func (ps Paths) DivideBy(qs Paths) Paths {
 	return bentleyOttmann(ps, qs, opDIV, NonZero)
 }
 
+// Relate returns the spatial relation as defined by DE-9IM between the two paths as well as the intersections between both. It is
+// faster if you need to check multiple spatial relations and/or retrieve the intersections.
+func (p *Path) Relate(q *Path) (Relation, []Point) {
+	return relate(p.Split(), q.Split(), true)
+}
+
+// Intersections returns a list of points of all intersections of path p with q. The intersection can be tangent (touch) or secant
+// (cross). If the two paths are partially coincident it will return an intersection at the start and end. Equal paths have no
+// intersections. If q is nil it returns the intersections of p with itself. Intersections are sorted from left-to-right, and
+// otherwise from bottom-to-top.
+func (p *Path) Intersections(q *Path) []Point {
+	_, zs := relate(p.Split(), q.Split(), true)
+	return zs
+}
+
+// Intersects returns true if path p and q have at least one common point. The intersection can be tangent (touch) or secant (cross).
+// If q is nil it returns if p intersects itself.
+func (p *Path) Intersects(q *Path) bool {
+	rel, _ := relate(p.Split(), q.Split(), false)
+	return rel.Intersects()
+}
+
+// Touches returns true if path p and q touch along the boundary, but their interiors do not overlap.
+func (p *Path) Touches(q *Path) bool {
+	rel, _ := relate(p.Split(), q.Split(), false)
+	return rel.Touches()
+}
+
+// Overlaps returns true if path p and q overlap. Either they have a secant intersection, one path in contained in the other, or both
+// paths are equal. If q is nil it returns if p overlaps with itself, ie. somewhere its windings add or cancel.
+func (p *Path) Overlaps(q *Path) bool {
+	rel, _ := relate(p.Split(), q.Split(), false)
+	return rel.Overlaps()
+}
+
+// Contains returns true if path p contains all points in q. This is the same as stating that q is within p.
+func (p *Path) Contains(q *Path) bool {
+	rel, _ := relate(p.Split(), q.Split(), false)
+	return rel.Contains()
+}
+
 type SweepPoint struct {
 	// initial data
 	Point               // position of this endpoint
@@ -242,7 +283,8 @@ type SweepPoint struct {
 
 	// bools at the end to optimize memory layout of struct
 	clipping   bool  // is clipping path (otherwise is subject path)
-	open       bool  // path is not closed (only for subject paths)
+	open       bool  // path is not closed
+	end        bool  // event is path endpoint (only for open paths)
 	left       bool  // point is left-end of segment
 	vertical   bool  // segment is vertical
 	increasing bool  // original direction is left-right (or bottom-top)
@@ -282,6 +324,7 @@ func (s *SweepPoint) SplitAt(z Point) (*SweepPoint, *SweepPoint) {
 	l := boPointPool.Get().(*SweepPoint)
 	*r, *l = *s.other, *s
 	r.Point, l.Point = z, z
+	r.end, l.end = false, false
 
 	// update references
 	r.other, s.other.other = s, l
@@ -342,13 +385,14 @@ func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
 		open = false // start and end points coincide, consider path closed
 	}
 	for i := 4; i < len(p.d); {
-		if p.d[i] != LineToCmd && p.d[i] != CloseCmd {
+		cmd := p.d[i]
+		if cmd != LineToCmd && cmd != CloseCmd {
 			panic("non-flat paths not supported")
-		} else if p.d[i] == CloseCmd && (p.d[len(p.d)-3] != p.d[1] || p.d[len(p.d)-2] != p.d[2]) {
+		} else if cmd == CloseCmd && (p.d[len(p.d)-3] != p.d[1] || p.d[len(p.d)-2] != p.d[2]) {
 			panic("invalid close command in path")
 		}
 
-		n := cmdLen(p.d[i])
+		n := cmdLen(cmd)
 		end := Point{p.d[i+n-3], p.d[i+n-2]}
 		if math.IsNaN(end.X) || math.IsInf(end.X, 0.0) || math.IsNaN(end.Y) || math.IsInf(end.Y, 0.0) {
 			panic("path has NaN or Inf")
@@ -372,6 +416,7 @@ func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
 			Point:      start,
 			clipping:   clipping,
 			open:       open,
+			end:        open && i == 4+n,
 			segment:    seg,
 			left:       increasing,
 			increasing: increasing,
@@ -381,6 +426,7 @@ func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
 			Point:      end,
 			clipping:   clipping,
 			open:       open,
+			end:        open && i == len(p.d),
 			segment:    seg,
 			left:       !increasing,
 			increasing: increasing,
@@ -1095,7 +1141,7 @@ func (a *SweepPoint) CompareV(b *SweepPoint) int {
 //	return SweepPointPair{pair[1], pair[0]}
 //}
 
-func addIntersections(zs []Point, queue *SweepEvents, event *SweepPoint, prev, next *SweepNode) bool {
+func addIntersections(zs []Point, queue *SweepEvents, event, a, b *SweepPoint) bool {
 	// a and b are always left-endpoints and a is below b
 	//pair := SweepPointPair{a, b}
 	//if _, ok := handled[pair]; ok {
@@ -1105,18 +1151,18 @@ func addIntersections(zs []Point, queue *SweepEvents, event *SweepPoint, prev, n
 	//}
 	//handled[pair] = struct{}{}
 
-	var a, b *SweepPoint
-	if prev == nil {
-		a, b = event, next.SweepPoint
-	} else if next == nil {
-		a, b = prev.SweepPoint, event
-	} else {
-		a, b = prev.SweepPoint, next.SweepPoint
-	}
+	//var a, b *SweepPoint
+	//if prev == nil {
+	//	a, b = event, next.SweepPoint
+	//} else if next == nil {
+	//	a, b = prev.SweepPoint, event
+	//} else {
+	//	a, b = prev.SweepPoint, next.SweepPoint
+	//}
 
 	// find all intersections between segment pair
 	// this returns either no intersections, or one or more secant/tangent intersections,
-	// or exactly two "same" intersections which occurs when the segments overlap.
+	// or exactly two endpoint intersections which occurs when the segments overlap.
 	zs = intersectionLineLineBentleyOttmann(zs[:0], a.Point, a.other.Point, b.Point, b.other.Point)
 
 	// no (valid) intersections
@@ -1997,7 +2043,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 				prev := n.Prev()
 				next := n.Next()
 				if prev != nil && next != nil {
-					addIntersections(zs, queue, event, prev, next)
+					addIntersections(zs, queue, event, prev.SweepPoint, next.SweepPoint)
 				}
 
 				// add event to tolerance square
@@ -2014,10 +2060,10 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 				// add intersections to queue
 				prev, next := status.FindPrevNext(event)
 				if prev != nil {
-					addIntersections(zs, queue, event, prev, nil)
+					addIntersections(zs, queue, event, prev.SweepPoint, event)
 				}
 				if next != nil {
-					addIntersections(zs, queue, event, nil, next)
+					addIntersections(zs, queue, event, event, next.SweepPoint)
 				}
 				if queue.Top() != event {
 					// check if the queue order was changed, this happens if the current event
@@ -2133,10 +2179,10 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 				has := false
 				centre.Point = Point{square.X, square.Y}
 				if prev := square.Lower.Prev(); prev != nil {
-					has = addIntersections(zs, queue, centre, prev, square.Lower)
+					has = addIntersections(zs, queue, centre, prev.SweepPoint, square.Lower.SweepPoint)
 				}
 				if next := square.Upper.Next(); next != nil {
-					has = has || addIntersections(zs, queue, centre, square.Upper, next)
+					has = has || addIntersections(zs, queue, centre, square.Upper.SweepPoint, next.SweepPoint)
 				}
 
 				// find intersections between new neighbours in status after sorting
@@ -2237,7 +2283,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 			cur.index = index
 			cur.resultWindings = windings
 			if !first.open {
-				// TODO: is this correct? test with open paths
+				// TODO: should be += selfWindings? test with open paths
 				cur.resultWindings++
 			}
 
@@ -2290,7 +2336,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 					cur.index = index
 					cur.resultWindings = windings
 					if !first.open {
-						// TODO: is this correct? test with open paths
+						// TODO: should be += selfWindings? test with open paths
 						cur.resultWindings++
 					}
 				} else {
@@ -2340,4 +2386,407 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 		boSquarePool.Put(square)
 	}
 	return Rs
+}
+
+// The DE-9IM naming scheme is used for spatial relationships and geometry intersection classification. Note:
+// - Contains does not include the boundary: a point/line completely on the boundary of a polygon is not contained by the polygon.
+// - Touches means both geometries touch but do not overlap nor are equal/contained/covered
+// - Overlaps means that both geometries overlap but are not equal/contained/covered
+type Relation byte
+
+const (
+	relII Relation = 0x01 // interior(p) intersects interior(q)
+	relIB Relation = 0x02 // interior(p) intersects boundary(q)
+	relIE Relation = 0x04 // interior(p) intersects exterior(q)
+	relBI Relation = 0x08 // boundary(p) intersects interior(q)
+	relBB Relation = 0x10 // boundary(p) intersects boundary(q)
+	relBE Relation = 0x20 // boundary(p) intersects exterior(q)
+	relEI Relation = 0x40 // exterior(p) intersects interior(q)
+	relEB Relation = 0x80 // exterior(p) intersects boundary(q)
+)
+
+func (rel Relation) String() string {
+	b := make([]byte, 9)
+	for i := 0; i < 9; i++ {
+		if (rel>>i)&1 != 0 {
+			b[i] = 'T'
+		} else {
+			b[i] = 'F'
+		}
+	}
+	b[8] = 'T' // relEE, always true
+	return string(b)
+}
+
+// Disjoint is the inverse of Intersects.
+func (rel Relation) Disjoint() bool {
+	return (rel & 0x1B) == 0
+}
+
+// Intersects returns true if both shapes have at least one point in common, ie. they may touch/overlap/contain/equal.
+func (rel Relation) Intersects() bool {
+	return (rel & 0x1B) != 0
+}
+
+// Equals returns true if all interior points of one are interior of the other, and the same for exterior points.
+func (rel Relation) Equals() bool {
+	return (rel & 0xE5) == 1
+}
+
+// Touches returns true if the shapes have a point in common but their interiors do not intersect, ie. their boundaries meet/overlap.
+func (rel Relation) Touches() bool {
+	return (rel&0x01) == 0 && (rel&0x1A) != 0
+}
+
+// Contains returns true if at least one point of the second shape lies in the first, and no points of the second lie in the exterior
+// of the first. This is the DE-9IM specification's Covers, but is more consistent with this library's convention of containment. It
+// implies the DE-9IM specifications' Contains but also includes points or lines on the boundaries.
+func (rel Relation) Contains() bool {
+	//return (rel & 0xC1) == 1                  // Contains
+	return (rel&0x1B) != 0 && (rel&0xC0) == 0 // Covers
+}
+
+// Within is the same as Contains but with the shapes swapped.
+func (rel Relation) Within() bool {
+	//return (rel & 0x25) == 1 // Within
+	return (rel&0x1B) != 0 && (rel&0x24) == 0 // CoveredBy
+}
+
+// Overlaps returns true if both shapes have some but not all points in common. This is different from the DE-9IM specification since
+// it does not consider the dimensionality of the shapes. The result is that equal shapes do not overlap, points never overlap,
+// crossing lines overlap, and contained/covered shapes also overlap. This also more closely resembles natural languages of shapes that
+// overlap.
+func (rel Relation) Overlaps() bool {
+	return (rel&0x01) != 0 && (rel&0x44) != 0
+}
+
+func eventRelation(rel Relation, zs []Point, event *SweepPoint, rights []*SweepPoint, self bool) (Relation, []Point) {
+	// event is left and is the last segment of the set of overlapping segments
+
+	// handle right-events to the left of the current event, these do not appear in status/event.prev
+	if event.left {
+		// add intersections left-to-right (after splitting always at endpoints)
+		for _, right := range rights {
+			if right.clipping != event.clipping {
+				p, q := event, right
+				if event.clipping {
+					p, q = q, p
+				}
+				if p.open && q.open {
+					if p.end && q.end {
+						rel |= relBB
+					} else if p.end {
+						rel |= relBI
+					} else if q.end {
+						rel |= relIB
+					} else {
+						rel |= relII
+					}
+				} else if p.open {
+					if p.end {
+						rel |= relBB
+					} else {
+						rel |= relIB
+					}
+				} else if q.open {
+					if q.end {
+						rel |= relBB
+					} else {
+						rel |= relBI
+					}
+				} else {
+					rel |= relBB
+				}
+				if (!right.other.overlapped || right.end) && (len(zs) == 0 || zs[len(zs)-1] != event.Point) {
+					// add endpoint intersections of non-overlapped segments
+					zs = append(zs, event.Point)
+				}
+			}
+		}
+		return rel, zs
+	}
+
+	event = event.other // get left-event
+	if event.overlapped {
+		return rel, zs
+	}
+	hasSubject, hasClipping := !event.clipping, event.clipping
+	if event.prev != nil && event.Point == event.prev.Point {
+		if event.other.Point == event.prev.other.Point {
+			// segment overlaps with previous segment (may overlap with multiple)
+			for {
+				// combine selfWindings
+				if event.clipping == event.prev.clipping {
+					event.selfWindings += event.prev.selfWindings
+					event.otherSelfWindings += event.prev.otherSelfWindings
+				} else {
+					event.selfWindings += event.prev.otherSelfWindings
+					event.otherSelfWindings += event.prev.selfWindings
+
+					p, q := event, event.prev
+					if event.clipping {
+						p, q = q, p
+					}
+					if p.open && q.open {
+						rel |= relII
+						if (p.end || p.other.end) && (q.end || q.other.end) {
+							rel |= relBB
+						} else if p.end || p.other.end {
+							rel |= relBI
+						} else if q.end || q.other.end {
+							rel |= relIB
+						}
+					} else if p.open {
+						rel |= relIB
+						if p.end || p.other.end {
+							rel |= relBB
+						}
+					} else if q.open {
+						rel |= relBI
+						if q.end || q.other.end {
+							rel |= relBB
+						}
+					} else {
+						rel |= relBB
+					}
+				}
+				event.prev.overlapped = true
+				hasSubject = hasSubject || !event.prev.clipping
+				hasClipping = hasClipping || event.prev.clipping
+
+				event.prev = event.prev.prev
+				if event.prev == nil || event.Point != event.prev.Point || event.other.Point != event.prev.other.Point {
+					break
+				}
+			}
+			if event.prev == nil {
+				event.windings, event.otherWindings = 0, 0
+			} else if event.clipping == event.prev.clipping {
+				event.windings = event.prev.windings + event.prev.selfWindings
+				event.otherWindings = event.prev.otherWindings + event.prev.otherSelfWindings
+			} else {
+				event.windings = event.prev.otherWindings + event.prev.otherSelfWindings
+				event.otherWindings = event.prev.windings + event.prev.selfWindings
+			}
+			if hasSubject && hasClipping {
+				event.overlapped = true
+			}
+		} else if event.prev.overlapped {
+			event.prev = event.prev.prev // ignore overlapped segments below
+		}
+	}
+
+	if event.prev != nil && event.clipping != event.prev.clipping {
+		if equalStart := event.Point == event.prev.Point; equalStart || event.other.Point == event.prev.other.Point {
+			p, q := event, event.prev
+			if event.clipping {
+				p, q = q, p
+			}
+
+			e := event
+			if !equalStart {
+				e = event.other
+				p, q = p.other, q.other
+			}
+			// add intersections left-to-left and right-to-right (always at endpoints)
+			// current event does not overlap event.prev, this was handled above
+			// we need to check this at a right-event otherwise overlapping segments may not have been detected
+			if p.open && q.open {
+				if p.end && q.end {
+					rel |= relBB
+				} else if p.end {
+					rel |= relBI
+				} else if q.end {
+					rel |= relIB
+				} else {
+					rel |= relII
+				}
+			} else if p.open {
+				if p.end {
+					rel |= relBB
+				} else {
+					rel |= relIB
+				}
+			} else if q.open {
+				if q.end {
+					rel |= relBB
+				} else {
+					rel |= relBI
+				}
+			} else {
+				rel |= relBB
+			}
+			index := len(zs)
+			for 0 < index && (e.X < zs[index-1].X || e.X == zs[index-1].X && e.Y <= zs[index-1].Y) {
+				index--
+			}
+			if !event.prev.overlapped && (index == len(zs) || zs[index] != e.Point) {
+				zs = append(zs[:index], append([]Point{e.Point}, zs[index:]...)...)
+			}
+		}
+	}
+
+	pFillsBelow := event.windings != 0
+	pFillsAbove := (event.windings + event.selfWindings) != 0
+	qFillsBelow := event.otherWindings != 0
+	qFillsAbove := (event.otherWindings + event.otherSelfWindings) != 0
+	if event.clipping {
+		pFillsBelow, qFillsBelow = qFillsBelow, pFillsBelow
+		pFillsAbove, qFillsAbove = qFillsAbove, pFillsAbove
+	}
+
+	if event.open {
+		if !event.clipping && !hasClipping && qFillsBelow == qFillsAbove {
+			if qFillsBelow {
+				rel |= relII
+			} else {
+				rel |= relIE
+			}
+		} else if event.clipping && !hasSubject && pFillsBelow == pFillsAbove {
+			if pFillsBelow {
+				rel |= relII
+			} else {
+				rel |= relEI
+			}
+		}
+	} else {
+		if pFillsBelow && qFillsBelow || pFillsAbove && qFillsAbove {
+			rel |= relII
+		}
+		if pFillsBelow && !qFillsBelow || pFillsAbove && !qFillsAbove {
+			rel |= relIE
+		}
+		if !pFillsBelow && qFillsBelow || !pFillsAbove && qFillsAbove {
+			rel |= relEI
+		}
+		if pFillsBelow == pFillsAbove && !hasSubject {
+			if pFillsBelow {
+				rel |= relIB
+			} else {
+				rel |= relEB
+			}
+		}
+		if qFillsBelow == qFillsAbove && !hasClipping {
+			if qFillsBelow {
+				rel |= relBI
+			} else {
+				rel |= relBE
+			}
+		}
+	}
+	return rel, zs
+}
+
+// relate uses the Bentley-Ottmann algorithm to classify geometry intersections using DE-9IM.
+func relate(ps, qs Paths, intersections bool) (Relation, []Point) {
+	boInitPoolsOnce() // use pools for SweepPoint and SweepNode to amortize repeated calls to BO
+
+	self := qs == nil
+	if ps.Empty() || !self && qs.Empty() {
+		return 0, nil
+	}
+
+	// flatten paths and initialise queue
+	// TODO: keep arcs
+	pSeg, qSeg := 0, 0
+	queue := &SweepEvents{}
+	for i := range ps {
+		ps[i] = ps[i].Flatten(Tolerance)
+		pSeg = queue.AddPathEndpoints(ps[i], pSeg, false)
+	}
+	if !self {
+		for i := range qs {
+			qs[i] = qs[i].Flatten(Tolerance)
+			qSeg = queue.AddPathEndpoints(qs[i], qSeg, true)
+		}
+	}
+	queue.Init() // sort from left to right
+
+	var rel Relation
+	zsAll := []Point{}
+
+	// Bentley-Ottmann loop
+	var rights []*SweepPoint  // right-events at position
+	status := &SweepStatus{}  // contains only left events
+	zs := make([]Point, 0, 2) // buffer for intersections
+	for 0 < len(*queue) {
+		// We slightly divert from the original Bentley-Ottmann and paper implementation. First
+		// we find the top element in queue but do not pop it off yet. If it is a right-event, pop
+		// from queue and proceed as usual, but if it's a left-event we first check (and add) all
+		// surrounding intersections to the queue. This may change the order from which we should
+		// pop off the queue, since intersections may create right-events, or new left-events that
+		// are lower (by compareTangentV). If no intersections are found, pop off the queue and
+		// proceed as usual.
+
+		event := queue.Top()
+		if 0 < len(rights) && rights[0].Point != event.Point {
+			rights = rights[:0]
+		}
+		if !event.left {
+			queue.Pop()
+
+			n := event.other.node
+			if n == nil {
+				panic("right-endpoint not part of status, probably buggy intersection code")
+				// don't put back in boPointPool, rare event
+				continue
+			} else if n.SweepPoint == nil {
+				// this may happen if the left-endpoint is to the right of the right-endpoint
+				// for some reason, usually due to a bug in the segment intersection code
+				panic("other endpoint already removed, probably buggy intersection code")
+				// don't put back in boPointPool, rare event
+				continue
+			}
+
+			// find intersections between the now adjacent segments
+			prev := n.Prev()
+			next := n.Next()
+			if prev != nil && next != nil {
+				addIntersections(zs, queue, event, prev.SweepPoint, next.SweepPoint)
+			}
+
+			// remove event from sweep status
+			status.Remove(n)
+
+			// update relation
+			rel, zsAll = eventRelation(rel, zsAll, event, nil, self)
+
+			rights = append(rights, event)
+		} else {
+			// add intersections to queue
+			prev, next := status.FindPrevNext(event)
+			if prev != nil {
+				addIntersections(zs, queue, event, prev.SweepPoint, event)
+			}
+			if next != nil {
+				addIntersections(zs, queue, event, event, next.SweepPoint)
+			}
+
+			if queue.Top() != event {
+				// check if the queue order was changed, this happens if the current event
+				// is the left-endpoint of a segment that intersects with an existing segment
+				// that goes below, or when two segments become fully overlapping, which sets
+				// their order in status differently than when one of them extends further
+				continue
+			}
+			queue.Pop()
+
+			// add event to sweep status
+			status.InsertAfter(prev, event)
+
+			// compute fields
+			if prev == nil {
+				event.computeSweepFields(nil, -1, 0)
+			} else {
+				event.computeSweepFields(prev.SweepPoint, -1, 0)
+			}
+
+			// update relation
+			rel, zsAll = eventRelation(rel, zsAll, event, rights, self)
+		}
+	}
+	if !intersections {
+		return rel, nil
+	}
+	return rel, zsAll
 }
