@@ -411,23 +411,17 @@ func (c *Context) SetFill(ifill interface{}) {
 
 // SetFillColor sets the color to be used for filling operations. The default fill color is black.
 func (c *Context) SetFillColor(col color.Color) {
-	c.Style.Fill.Color = rgbaColor(col)
-	c.Style.Fill.Gradient = nil
-	c.Style.Fill.Pattern = nil
+	c.Style.Fill = Paint{Color: rgbaColor(col)}
 }
 
 // SetFillGradient sets the gradient to be used for filling operations. The default fill color is black.
 func (c *Context) SetFillGradient(gradient Gradient) {
-	c.Style.Fill.Color = Transparent
-	c.Style.Fill.Gradient = gradient
-	c.Style.Fill.Pattern = nil
+	c.Style.Fill = Paint{Gradient: gradient}
 }
 
 // SetFillPattern sets the pattern to be used for filling operations. The default fill color is black.
 func (c *Context) SetFillPattern(pattern Pattern) {
-	c.Style.Fill.Color = Transparent
-	c.Style.Fill.Gradient = nil
-	c.Style.Fill.Pattern = pattern
+	c.Style.Fill = Paint{Pattern: pattern}
 }
 
 // SetStroke sets the color, gradient, or pattern to be used for stroke operations. The default stroke color is transparent.
@@ -447,23 +441,17 @@ func (c *Context) SetStroke(istroke interface{}) {
 
 // SetStrokeColor sets the color to be used for stroking operations. The default stroke color is transparent.
 func (c *Context) SetStrokeColor(col color.Color) {
-	c.Style.Stroke.Color = rgbaColor(col)
-	c.Style.Stroke.Gradient = nil
-	c.Style.Stroke.Pattern = nil
+	c.Style.Stroke = Paint{Color: rgbaColor(col)}
 }
 
 // SetStrokeGradient sets the gradients to be used for stroking operations. The default stroke color is transparent.
 func (c *Context) SetStrokeGradient(gradient Gradient) {
-	c.Style.Stroke.Color = Transparent
-	c.Style.Stroke.Gradient = gradient
-	c.Style.Stroke.Pattern = nil
+	c.Style.Stroke = Paint{Gradient: gradient}
 }
 
 // SetStrokePattern sets the pattern to be used for stroking operations. The default stroke color is transparent.
 func (c *Context) SetStrokePattern(pattern Pattern) {
-	c.Style.Stroke.Color = Transparent
-	c.Style.Stroke.Gradient = nil
-	c.Style.Stroke.Pattern = pattern
+	c.Style.Stroke = Paint{Pattern: pattern}
 }
 
 // SetStrokeWidth sets the width in millimeters for stroking operations. The default stroke width is 1.0.
@@ -815,6 +803,7 @@ func (c *Canvas) Clip(rect Rect) {
 func (c *Canvas) Fit(margin float64) {
 	rect := Rect{}
 	// TODO: slow when we have many paths (see Graph example)
+	// TODO: translate gradients
 	for _, layers := range c.layers {
 		for _, l := range layers {
 			bounds := Rect{}

@@ -118,7 +118,7 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 			r.scanner.Clear()
 			r.scanner.SetColor(rasterx.ColorFunc(func(x, y int) color.Color {
 				// TODO: convert to dst color model
-				return gradient.At(float64(x), float64(y))
+				return gradient.At((float64(x)+0.5)/float64(r.resolution), (float64(y)+0.5)/float64(r.resolution))
 			}))
 			fill.ToScanxScanner(r.scanner, float64(size.Y), r.resolution)
 			r.scanner.Draw()
@@ -145,7 +145,7 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 			r.scanner.Clear()
 			r.scanner.SetColor(rasterx.ColorFunc(func(x, y int) color.Color {
 				// TODO: convert to dst color model
-				return gradient.At(float64(x), float64(y))
+				return gradient.At((float64(x)+0.5)/float64(r.resolution), (float64(y)+0.5)/float64(r.resolution))
 			}))
 			stroke.ToScanxScanner(r.scanner, float64(size.Y), r.resolution)
 			r.scanner.Draw()

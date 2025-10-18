@@ -1218,10 +1218,10 @@ func addIntersections(zs []Point, queue *SweepEvents, event, a, b *SweepPoint) b
 				//gob.NewEncoder(w).Encode(ps)
 				//w.Close()
 				//fmt.Println(ps)
-				fmt.Println("a", a)
-				fmt.Println("b", b)
+				//fmt.Println("a", a)
+				//fmt.Println("b", b)
 				//fmt.Println("z", z)
-				fmt.Println("event", event)
+				//fmt.Println("event", event)
 				//panic("moved outside of segments")
 			}
 		}
@@ -2217,7 +2217,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 				}
 
 				if 0 < len(*queue) && snap(queue.Top().X, BentleyOttmannEpsilon) == x {
-					fmt.Println("WARNING: new intersections in this column!")
+					//fmt.Println("WARNING: new intersections in this column!")
 					goto BentleyOttmannLoop // TODO: is this correct? seems to work
 					// TODO: almost parallel combined with overlapping segments may create many intersections considering order of
 					//       of overlapping segments and snapping after each column
