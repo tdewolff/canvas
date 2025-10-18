@@ -2196,7 +2196,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 
 						if next := n.Next(); next != nil && (j == 0 || next.SweepPoint != origEvents[j-1]) && (j+1 == len(origEvents) || next.SweepPoint != origEvents[j+1]) {
 							// segment changed order and the segment above was not its neighbour
-							has = has || addIntersections(zs, queue, centre, n, next)
+							has = has || addIntersections(zs, queue, centre, n.SweepPoint, next.SweepPoint)
 						}
 					}
 				}
@@ -2511,83 +2511,67 @@ func eventRelation(rel Relation, zs []Point, event *SweepPoint, rights []*SweepP
 		return rel, zs
 	}
 	hasSubject, hasClipping := !event.clipping, event.clipping
-	if event.prev != nil && event.Point == event.prev.Point {
-		if event.other.Point == event.prev.other.Point {
-			// segment overlaps with previous segment (may overlap with multiple)
-			for {
-				// combine selfWindings
-				if event.clipping == event.prev.clipping {
-					event.selfWindings += event.prev.selfWindings
-					event.otherSelfWindings += event.prev.otherSelfWindings
-				} else {
-					event.selfWindings += event.prev.otherSelfWindings
-					event.otherSelfWindings += event.prev.selfWindings
-
-					p, q := event, event.prev
-					if event.clipping {
-						p, q = q, p
-					}
-					if p.open && q.open {
-						rel |= relII
-						if (p.end || p.other.end) && (q.end || q.other.end) {
-							rel |= relBB
-						} else if p.end || p.other.end {
-							rel |= relBI
-						} else if q.end || q.other.end {
-							rel |= relIB
-						}
-					} else if p.open {
-						rel |= relIB
-						if p.end || p.other.end {
-							rel |= relBB
-						}
-					} else if q.open {
-						rel |= relBI
-						if q.end || q.other.end {
-							rel |= relBB
-						}
-					} else {
-						rel |= relBB
-					}
-				}
-				event.prev.overlapped = true
-				hasSubject = hasSubject || !event.prev.clipping
-				hasClipping = hasClipping || event.prev.clipping
-
-				event.prev = event.prev.prev
-				if event.prev == nil || event.Point != event.prev.Point || event.other.Point != event.prev.other.Point {
-					break
-				}
-			}
-			if event.prev == nil {
-				event.windings, event.otherWindings = 0, 0
-			} else if event.clipping == event.prev.clipping {
-				event.windings = event.prev.windings + event.prev.selfWindings
-				event.otherWindings = event.prev.otherWindings + event.prev.otherSelfWindings
-			} else {
-				event.windings = event.prev.otherWindings + event.prev.otherSelfWindings
-				event.otherWindings = event.prev.windings + event.prev.selfWindings
-			}
-			if hasSubject && hasClipping {
-				event.overlapped = true
-			}
-		} else if event.prev.overlapped {
-			event.prev = event.prev.prev // ignore overlapped segments below
+	for i := len(rights) - 1; 0 <= i; i-- {
+		if rights[i].other.Point != event.Point {
+			break
 		}
+
+		other := rights[i].other
+		if event.clipping == other.clipping {
+			event.selfWindings += other.selfWindings
+			event.otherSelfWindings += other.otherSelfWindings
+		} else {
+			event.selfWindings += other.otherSelfWindings
+			event.otherSelfWindings += other.selfWindings
+
+			p, q := event, other
+			if event.clipping {
+				p, q = q, p
+			}
+			if p.open && q.open {
+				rel |= relII
+				if (p.end || p.other.end) && (q.end || q.other.end) {
+					rel |= relBB
+				} else if p.end || p.other.end {
+					rel |= relBI
+				} else if q.end || q.other.end {
+					rel |= relIB
+				}
+			} else if p.open {
+				rel |= relIB
+				if p.end || p.other.end {
+					rel |= relBB
+				}
+			} else if q.open {
+				rel |= relBI
+				if q.end || q.other.end {
+					rel |= relBB
+				}
+			} else {
+				rel |= relBB
+			}
+		}
+		other.prev = event.prev
+		other.overlapped = true
+		hasSubject = hasSubject || !other.clipping
+		hasClipping = hasClipping || other.clipping
+	}
+	if hasSubject && hasClipping {
+		event.overlapped = true
 	}
 
-	if event.prev != nil && event.clipping != event.prev.clipping {
+	if !event.overlapped && event.prev != nil && event.clipping != event.prev.clipping {
 		if equalStart := event.Point == event.prev.Point; equalStart || event.other.Point == event.prev.other.Point {
+			e := event
 			p, q := event, event.prev
 			if event.clipping {
 				p, q = q, p
 			}
-
-			e := event
 			if !equalStart {
-				e = event.other
 				p, q = p.other, q.other
+				e = event.other
 			}
+
 			// add intersections left-to-left and right-to-right (always at endpoints)
 			// current event does not overlap event.prev, this was handled above
 			// we need to check this at a right-event otherwise overlapping segments may not have been detected
@@ -2620,7 +2604,7 @@ func eventRelation(rel Relation, zs []Point, event *SweepPoint, rights []*SweepP
 			for 0 < index && (e.X < zs[index-1].X || e.X == zs[index-1].X && e.Y <= zs[index-1].Y) {
 				index--
 			}
-			if !event.prev.overlapped && (index == len(zs) || zs[index] != e.Point) {
+			if index == len(zs) || zs[index] != e.Point {
 				zs = append(zs[:index], append([]Point{e.Point}, zs[index:]...)...)
 			}
 		}
@@ -2706,7 +2690,8 @@ func relate(ps, qs Paths, intersections bool) (Relation, []Point) {
 	zsAll := []Point{}
 
 	// Bentley-Ottmann loop
-	var rights []*SweepPoint  // right-events at position
+	var rights []*SweepPoint // right-events at position
+	var processedRights = false
 	status := &SweepStatus{}  // contains only left events
 	zs := make([]Point, 0, 2) // buffer for intersections
 	for 0 < len(*queue) {
@@ -2720,6 +2705,13 @@ func relate(ps, qs Paths, intersections bool) (Relation, []Point) {
 
 		event := queue.Top()
 		if 0 < len(rights) && rights[0].Point != event.Point {
+			if !processedRights {
+				for i, right := range rights {
+					if i+1 == len(rights) || rights[i+1].other.Point != right.other.Point {
+						rel, zsAll = eventRelation(rel, zsAll, right, rights[:i], self)
+					}
+				}
+			}
 			rights = rights[:0]
 		}
 		if !event.left {
@@ -2748,10 +2740,8 @@ func relate(ps, qs Paths, intersections bool) (Relation, []Point) {
 			// remove event from sweep status
 			status.Remove(n)
 
-			// update relation
-			rel, zsAll = eventRelation(rel, zsAll, event, nil, self)
-
 			rights = append(rights, event)
+			processedRights = false
 		} else {
 			// add intersections to queue
 			prev, next := status.FindPrevNext(event)
@@ -2769,6 +2759,16 @@ func relate(ps, qs Paths, intersections bool) (Relation, []Point) {
 				// their order in status differently than when one of them extends further
 				continue
 			}
+			if !processedRights {
+				// wait after really popping a left event, since it may break an overlapping segment
+				// that is why we need delayed processing of right-events and processedRights
+				for i, right := range rights {
+					if i+1 == len(rights) || rights[i+1].other.Point != right.other.Point {
+						rel, zsAll = eventRelation(rel, zsAll, right, rights[:i], self)
+					}
+				}
+				processedRights = true
+			}
 			queue.Pop()
 
 			// add event to sweep status
@@ -2783,6 +2783,13 @@ func relate(ps, qs Paths, intersections bool) (Relation, []Point) {
 
 			// update relation
 			rel, zsAll = eventRelation(rel, zsAll, event, rights, self)
+		}
+	}
+	if !processedRights {
+		for i, right := range rights {
+			if i+1 == len(rights) || rights[i+1].other.Point != right.other.Point {
+				rel, zsAll = eventRelation(rel, zsAll, right, rights[:i], self)
+			}
 		}
 	}
 	if !intersections {
