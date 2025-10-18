@@ -5,22 +5,22 @@ import (
 	"math"
 )
 
-// RGB returns a color given by red, green, and blue ∈ [0,255].
-func RGB(r, g, b uint8) color.RGBA {
+// RGB returns a color given by red, green, and blue ∈ [0,1].
+func RGB(r, g, b float64) color.RGBA {
 	return color.RGBA{
-		uint8(float64(r)),
-		uint8(float64(g)),
-		uint8(float64(b)),
+		uint8(r * 255.0),
+		uint8(g * 255.0),
+		uint8(b * 255.0),
 		uint8(255.0),
 	}
 }
 
-// RGBA returns a color given by red, green, and blue ∈ [0,255] (non alpha premultiplied) and alpha ∈ [0,1].
-func RGBA(r, g, b uint8, a float64) color.RGBA {
+// RGBA returns a color given by red, green, blue, and alpha ∈ [0,1] (non alpha premultiplied).
+func RGBA(r, g, b, a float64) color.RGBA {
 	return color.RGBA{
-		uint8(a * float64(r)),
-		uint8(a * float64(g)),
-		uint8(a * float64(b)),
+		uint8(a * r * 255.0),
+		uint8(a * g * 255.0),
+		uint8(a * b * 255.0),
 		uint8(a * 255.0),
 	}
 }
