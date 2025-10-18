@@ -212,7 +212,6 @@ func intersectionLineLineBentleyOttmann(zs []Point, a0, a1, b0, b1 Point) []Poin
 	B := b0.Sub(b1)
 	C := a0.Sub(b0)
 	denom := B.PerpDot(A)
-	// divide by length^2 since the perpdot between very small segments may be below Epsilon
 	if denom == 0.0 {
 		// colinear
 		if C.PerpDot(B) == 0.0 {

@@ -203,20 +203,20 @@ func (ps Paths) Not(qs Paths) Paths {
 	return bentleyOttmann(ps, qs, opNOT, NonZero)
 }
 
-// DivideBy returns the boolean path operation of path p DIV q, i.e. p divided by q.
+// Div returns the boolean path operation of path p DIV q, i.e. p divided by q.
 // It removes all self-intersections and overlapping areas, orients all filling paths CCW and all
 // holes CW, and tries to separate paths as much as possible. Paths are grouped by the filling/outer
 // ring followed by the corresponding holes/inner rings; the outer rings are ordered from
 // left-to-right and secondly from bottom-to-top. Note that path p is flattened unless q is already
 // flat. Path q is implicitly closed. It runs in O((n + k) log n), with n the number of segments,
 // and k the number of intersections.
-func (p *Path) DivideBy(q *Path) *Path {
+func (p *Path) Div(q *Path) *Path {
 	return bentleyOttmann(p.Split(), q.Split(), opDIV, NonZero).Merge()
 }
 
-// DivideBy is the same as Path.DivideBy, but faster if paths are already split. Each resulting
+// Div is the same as Path.DivideBy, but faster if paths are already split. Each resulting
 // path is a single filling path followed by its holes as subpaths.
-func (ps Paths) DivideBy(qs Paths) Paths {
+func (ps Paths) Div(qs Paths) Paths {
 	return bentleyOttmann(ps, qs, opDIV, NonZero)
 }
 
@@ -236,7 +236,6 @@ func (p *Path) Intersections(q *Path) []Point {
 }
 
 // Intersects returns true if path p and q have at least one common point. The intersection can be tangent (touch) or secant (cross).
-// If q is nil it returns if p intersects itself.
 func (p *Path) Intersects(q *Path) bool {
 	rel, _ := relate(p.Split(), q.Split(), false)
 	return rel.Intersects()
@@ -248,14 +247,15 @@ func (p *Path) Touches(q *Path) bool {
 	return rel.Touches()
 }
 
-// Overlaps returns true if path p and q overlap. Either they have a secant intersection, one path in contained in the other, or both
-// paths are equal. If q is nil it returns if p overlaps with itself, ie. somewhere its windings add or cancel.
+// Overlaps returns true if the interiors of p and q have at least one point in common. Either they have a secant intersection, one
+// path in contained in the other, or both paths are equal.
 func (p *Path) Overlaps(q *Path) bool {
 	rel, _ := relate(p.Split(), q.Split(), false)
 	return rel.Overlaps()
 }
 
-// Contains returns true if path p contains all points in q. This is the same as stating that q is within p.
+// Contains returns true if the interior of p contains the interior of q. Equal shapes contain each other. If p contains q, then q is
+// within p.
 func (p *Path) Contains(q *Path) bool {
 	rel, _ := relate(p.Split(), q.Split(), false)
 	return rel.Contains()
@@ -1213,6 +1213,16 @@ func addIntersections(zs []Point, queue *SweepEvents, event, a, b *SweepPoint) b
 			bMaxY := math.Max(b.Y, b.other.Y)
 			if a.other.X < z.X || b.other.X < z.X || aMaxY < z.Y || bMaxY < z.Y {
 				fmt.Println("WARNING: intersection moved outside of segment:", zold, "=>", z)
+				// TODO: this has happened!!
+				//w, _ := os.Create("p.gob")
+				//gob.NewEncoder(w).Encode(ps)
+				//w.Close()
+				//fmt.Println(ps)
+				fmt.Println("a", a)
+				fmt.Println("b", b)
+				//fmt.Println("z", z)
+				fmt.Println("event", event)
+				//panic("moved outside of segments")
 			}
 		}
 	}
@@ -2014,6 +2024,11 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 		// process all events of the current column
 		n := len(squares)
 		x := snap(queue.Top().X, BentleyOttmannEpsilon)
+		//fmt.Println()
+		//fmt.Println("---")
+		//fmt.Println("X", x)
+		//fmt.Println(queue)
+		//fmt.Println(status)
 	BentleyOttmannLoop:
 		for 0 < len(*queue) && snap(queue.Top().X, BentleyOttmannEpsilon) == x {
 			event := queue.Top()
@@ -2202,7 +2217,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 				}
 
 				if 0 < len(*queue) && snap(queue.Top().X, BentleyOttmannEpsilon) == x {
-					//fmt.Println("WARNING: new intersections in this column!")
+					fmt.Println("WARNING: new intersections in this column!")
 					goto BentleyOttmannLoop // TODO: is this correct? seems to work
 					// TODO: almost parallel combined with overlapping segments may create many intersections considering order of
 					//       of overlapping segments and snapping after each column
@@ -2250,6 +2265,14 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 		}
 	}
 	status.Clear() // release all nodes (but not SweepPoints)
+
+	//for _, square := range squares {
+	//	for _, event := range square.Events {
+	//		if event.left {
+	//			fmt.Println(event, event.prev, event.inResult, "--", event.windings, event.selfWindings)
+	//		}
+	//	}
+	//}
 
 	// build resulting polygons
 	var Ropen *Path
@@ -2454,10 +2477,9 @@ func (rel Relation) Within() bool {
 
 // Overlaps returns true if both shapes have some but not all points in common. This is different from the DE-9IM specification since
 // it does not consider the dimensionality of the shapes. The result is that equal shapes do not overlap, points never overlap,
-// crossing lines overlap, and contained/covered shapes also overlap. This also more closely resembles natural languages of shapes that
-// overlap.
+// crossing lines overlap, and contained/covered shapes do not overlap.
 func (rel Relation) Overlaps() bool {
-	return (rel&0x01) != 0 && (rel&0x44) != 0
+	return (rel & 0x45) == 0x45
 }
 
 func eventRelation(rel Relation, zs []Point, event *SweepPoint, rights []*SweepPoint, self bool) (Relation, []Point) {

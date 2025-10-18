@@ -1281,7 +1281,7 @@ func TestPathNot(t *testing.T) {
 	}
 }
 
-func TestPathDivideBy(t *testing.T) {
+func TestPathDiv(t *testing.T) {
 	var tts = []struct {
 		p, q string
 		r    string
@@ -1294,7 +1294,7 @@ func TestPathDivideBy(t *testing.T) {
 		t.Run(fmt.Sprint(tt.p, "x", tt.q), func(t *testing.T) {
 			p := MustParseSVGPath(tt.p)
 			q := MustParseSVGPath(tt.q)
-			r := p.DivideBy(q)
+			r := p.Div(q)
 			test.T(t, r, MustParseSVGPath(tt.r))
 
 			p.Relate(q) // test no panic
@@ -1455,33 +1455,34 @@ func TestPathRelate(t *testing.T) {
 			} else if tt.rel == relIntersects {
 				test.That(t, rel.Intersects(), "intersects")
 			} else if tt.rel == relEquals {
-				test.That(t, rel.Equals(), "equals")
 				test.That(t, rel.Intersects(), "intersects")
 				test.That(t, !rel.Touches(), "!touches")
+				test.That(t, !rel.Overlaps(), "overlaps")
+				test.That(t, rel.Equals(), "equals")
 			} else if tt.rel == relContains {
 				test.That(t, rel.Contains(), "contains")
 				test.That(t, rel.Intersects(), "intersects")
-				test.That(t, rel.Overlaps(), "overlaps")
-				test.That(t, !rel.Equals(), "!equals")
 				test.That(t, !rel.Touches(), "!touches")
+				test.That(t, !rel.Overlaps(), "overlaps")
+				test.That(t, !rel.Equals(), "!equals")
 			} else if tt.rel == relWithin {
 				test.That(t, rel.Within(), "within")
 				test.That(t, rel.Intersects(), "intersects")
-				test.That(t, rel.Overlaps(), "overlaps")
+				test.That(t, !rel.Touches(), "!touches")
+				test.That(t, !rel.Overlaps(), "overlaps")
 				test.That(t, !rel.Equals(), "!equals")
-				test.That(t, !rel.Touches(), "!touches")
 			} else if tt.rel == relTouches {
+				test.That(t, rel.Intersects(), "intersects")
 				test.That(t, rel.Touches(), "touches")
-				test.That(t, rel.Intersects(), "intersects")
-				test.That(t, !rel.Contains(), "!contains")
-				test.That(t, !rel.Within(), "!within")
 				test.That(t, !rel.Overlaps(), "!overlaps")
-			} else if tt.rel == relOverlaps {
-				test.That(t, rel.Overlaps(), "overlaps")
-				test.That(t, rel.Intersects(), "intersects")
 				test.That(t, !rel.Contains(), "!contains")
 				test.That(t, !rel.Within(), "!within")
+			} else if tt.rel == relOverlaps {
+				test.That(t, rel.Intersects(), "intersects")
 				test.That(t, !rel.Touches(), "!touches")
+				test.That(t, rel.Overlaps(), "overlaps")
+				test.That(t, !rel.Contains(), "!contains")
+				test.That(t, !rel.Within(), "!within")
 			}
 			test.T(t, zs, tt.zs)
 		})

@@ -922,6 +922,10 @@ func cohenSutherlandLineClip(rect Rect, a, b Point, eps float64) (Point, Point, 
 	}
 }
 
+func SolveQuadraticFormula(a, b, c float64) (float64, float64) {
+	return solveQuadraticFormula(a, b, c)
+}
+
 // Numerically stable quadratic formula, lowest root is returned first, see https://math.stackexchange.com/a/2007723
 func solveQuadraticFormula(a, b, c float64) (float64, float64) {
 	if Equal(a, 0.0) {
@@ -964,6 +968,10 @@ func solveQuadraticFormula(a, b, c float64) (float64, float64) {
 		x1, x2 = x2, x1
 	}
 	return x1, x2
+}
+
+func SolveCubicFormula(a, b, c, d float64) (float64, float64, float64) {
+	return solveCubicFormula(a, b, c, d)
 }
 
 // see https://www.geometrictools.com/Documentation/LowDegreePolynomialRoots.pdf

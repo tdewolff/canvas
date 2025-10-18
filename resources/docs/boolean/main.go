@@ -14,6 +14,7 @@ func main() {
 		panic(err)
 	}
 
+	canvas.Tolerance = 0.001
 	c := canvas.New(0.0, 0.0)
 	ctx := canvas.NewContext(c)
 
@@ -125,6 +126,6 @@ func draw(ctx *canvas.Context, y float64, title string, p, q *canvas.Path) {
 	ctx.DrawPath(39.0, y, p.Xor(q))
 	ctx.DrawPath(51.0, y, p.Not(q))
 	ctx.DrawPath(63.0, y, q.Not(p))
-	ctx.DrawPath(75.0, y, p.DivideBy(q))
-	ctx.DrawPath(87.0, y, q.DivideBy(p))
+	ctx.DrawPath(75.0, y, p.Div(q))
+	ctx.DrawPath(87.0, y, q.Div(p))
 }
