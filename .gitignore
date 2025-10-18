@@ -34,3 +34,4 @@ renderers/pdf/reader*
 cmd/fontinfo/fontinfo
 cmd/pdftext/pdftext
 examples/opengl/opengl
+examples/chile/extract.go.off

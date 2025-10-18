@@ -93,6 +93,8 @@ Additionally, many font formats are supported (such as TTF, OTF, WOFF, WOFF2, EO
 
 **[Amsterdam city centre](https://github.com/tdewolff/canvas/tree/master/examples/amsterdam-centre)**: the centre of Amsterdam is drawn from data loaded from the Open Street Map API.
 
+**[Chile over Europe](https://github.com/tdewolff/canvas/tree/master/examples/chile)**: the size of Chile overlaying Europe in their respective UTM projections.
+
 **[Mauna-Loa CO2 concentration](https://github.com/tdewolff/canvas/tree/master/examples/co2-mauna-loa)**: using data from the Mauna-Loa observatory, carbon dioxide concentrations over time are drawn
 
 **[Text document](https://github.com/tdewolff/canvas/tree/master/examples/text-document)**: an example of a text document using the PDF backend.
