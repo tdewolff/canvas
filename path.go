@@ -285,6 +285,9 @@ func (p *Path) CopyTo(q *Path) *Path {
 
 // Len returns the number of segments.
 func (p *Path) Len() int {
+	if p == nil {
+		return 0
+	}
 	n := 0
 	for i := 0; i < len(p.d); {
 		i += cmdLen(p.d[i])
@@ -1347,8 +1350,85 @@ func (p *Path) Scale(x, y float64) *Path {
 	return p.Transform(Identity.Scale(x, y))
 }
 
-// Flat returns true if the path consists of solely line segments, that is only MoveTo, LineTo and Close commands.
-func (p *Path) Flat() bool {
+// TransformFunc transforms the path by the given function: (x,y)=>(x,y). It modifies the path in-place.
+func (p *Path) TransformFunc(f func(float64, float64) (float64, float64)) *Path {
+	for i := 0; i < len(p.d); {
+		cmd := p.d[i]
+		switch cmd {
+		case MoveToCmd, LineToCmd, CloseCmd:
+			x, y := f(p.d[i+1], p.d[i+2])
+			p.d[i+1] = x
+			p.d[i+2] = y
+		case QuadToCmd:
+			cpx, cpy := f(p.d[i+1], p.d[i+2])
+			x, y := f(p.d[i+3], p.d[i+4])
+			p.d[i+1] = cpx
+			p.d[i+2] = cpy
+			p.d[i+3] = x
+			p.d[i+4] = y
+		case CubeToCmd:
+			cp1x, cp1y := f(p.d[i+1], p.d[i+2])
+			cp2x, cp2y := f(p.d[i+3], p.d[i+4])
+			x, y := f(p.d[i+5], p.d[i+6])
+			p.d[i+1] = cp1x
+			p.d[i+2] = cp1y
+			p.d[i+3] = cp2x
+			p.d[i+4] = cp2y
+			p.d[i+5] = x
+			p.d[i+6] = y
+		case ArcToCmd:
+			panic("not implemented") // TODO: implement transform func for arcs
+			//rx := p.d[i+1]
+			//ry := p.d[i+2]
+			//phi := p.d[i+3]
+			//large, sweep := toArcFlags(p.d[i+4])
+			//end := Point{p.d[i+5], p.d[i+6]}
+
+			//// For ellipses written as the conic section equation in matrix form, we have:
+			//// [x, y] E [x; y] = 0, with E = [1/rx^2, 0; 0, 1/ry^2]
+			//// For our transformed ellipse we have [x', y'] = T [x, y], with T the affine
+			//// transformation matrix so that
+			//// (T^-1 [x'; y'])^T E (T^-1 [x'; y'] = 0  =>  [x', y'] T^(-T) E T^(-1) [x'; y'] = 0
+			//// We define Q = T^(-1,T) E T^(-1) the new ellipse equation which is typically rotated
+			//// from the x-axis. That's why we find the eigenvalues and eigenvectors (the new
+			//// direction and length of the major and minor axes).
+			//T := m.Rotate(phi * 180.0 / math.Pi)
+			//invT := T.Inv()
+			//Q := Identity.Scale(1.0/rx/rx, 1.0/ry/ry)
+			//Q = invT.T().Mul(Q).Mul(invT)
+
+			//lambda1, lambda2, v1, v2 := Q.Eigen()
+			//rx = 1 / math.Sqrt(lambda1)
+			//ry = 1 / math.Sqrt(lambda2)
+			//phi = v1.Angle()
+			//if rx < ry {
+			//	rx, ry = ry, rx
+			//	phi = v2.Angle()
+			//}
+			//phi = angleNorm(phi)
+			//if math.Pi <= phi { // phi is canonical within 0 <= phi < 180
+			//	phi -= math.Pi
+			//}
+
+			//if xscale*yscale < 0.0 { // flip x or y axis needs flipping of the sweep
+			//	sweep = !sweep
+			//}
+			//end = f(end)
+
+			//p.d[i+1] = rx
+			//p.d[i+2] = ry
+			//p.d[i+3] = phi
+			//p.d[i+4] = fromArcFlags(large, sweep)
+			//p.d[i+5] = end.X
+			//p.d[i+6] = end.Y
+		}
+		i += cmdLen(cmd)
+	}
+	return p
+}
+
+// IsFlat returns true if the path consists of solely line segments, that is only MoveTo, LineTo and Close commands.
+func (p *Path) IsFlat() bool {
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		if cmd != MoveToCmd && cmd != LineToCmd && cmd != CloseCmd {
