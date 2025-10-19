@@ -235,30 +235,26 @@ func (p *Path) Intersections(q *Path) []Point {
 	return zs
 }
 
-// Intersects returns true if path p and q have at least one common point. The intersection can be tangent (touch) or secant (cross).
-func (p *Path) Intersects(q *Path) bool {
+// Touches returns true if path p and q are not disjoint, their boundaries/interiors intersect.
+// This is different from DE-9IM's definition of Touches.
+func (p *Path) Touches(q *Path) bool {
 	rel, _ := relate(p.Split(), q.Split(), false)
 	return rel.Intersects()
 }
 
-// Touches returns true if path p and q touch along the boundary, but their interiors do not overlap.
-func (p *Path) Touches(q *Path) bool {
-	rel, _ := relate(p.Split(), q.Split(), false)
-	return rel.Touches()
-}
-
-// Overlaps returns true if the interiors of p and q have at least one point in common. Either they have a secant intersection, one
-// path in contained in the other, or both paths are equal.
+// Overlaps returns true if the interiors of p and q have at least one point in common. Either
+// they have a secant intersection, one path in contained in the other, or both paths are equal.
+// This is different from DE-9IM's definition of Overlaps.
 func (p *Path) Overlaps(q *Path) bool {
 	rel, _ := relate(p.Split(), q.Split(), false)
-	return rel.Overlaps()
+	return (rel & 0x01) != 0
 }
 
-// Contains returns true if the interior of p contains the interior of q. Equal shapes contain each other. If p contains q, then q is
-// within p.
+// Contains returns true if the interior of p contains the interior of q. Equal shapes contain
+// each other. If p contains q, then q is within p. This tests DE-9IM's Covers relation.
 func (p *Path) Contains(q *Path) bool {
 	rel, _ := relate(p.Split(), q.Split(), false)
-	return rel.Contains()
+	return rel.Covers()
 }
 
 type SweepPoint struct {
@@ -1801,6 +1797,8 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 	// TODO: optimize path data by removing commands, set number of same command (50% less memory)
 	// TODO: can we get idempotency (same result after second time) by tracing back each snapped
 	//       right-endpoint for the squares it may now intersect? (Hershberger 2013)
+	// TODO: if overlapping segments can be detected earlier, we can just process left-events
+	//       and make the code simpler
 
 	// Implementation of the Bentley-Ottmann algorithm by reducing the complexity of finding
 	// intersections to O((n + k) log n), with n the number of segments and k the number of
@@ -2446,38 +2444,51 @@ func (rel Relation) Disjoint() bool {
 	return (rel & 0x1B) == 0
 }
 
-// Intersects returns true if both shapes have at least one point in common, ie. they may touch/overlap/contain/equal.
+// Intersects returns true if both shapes have at least one point in common, ie. they may
+// touch/overlap/contain/equal.
 func (rel Relation) Intersects() bool {
 	return (rel & 0x1B) != 0
 }
 
-// Equals returns true if all interior points of one are interior of the other, and the same for exterior points.
+// Equals returns true if all interior points of one are interior of the other, and the same for
+// exterior points.
 func (rel Relation) Equals() bool {
 	return (rel & 0xE5) == 1
 }
 
-// Touches returns true if the shapes have a point in common but their interiors do not intersect, ie. their boundaries meet/overlap.
+// Touches returns true if the shapes have a point in common but their interiors do not intersect,
+// ie. their boundaries meet/overlap.
 func (rel Relation) Touches() bool {
 	return (rel&0x01) == 0 && (rel&0x1A) != 0
 }
 
-// Contains returns true if at least one point of the second shape lies in the first, and no points of the second lie in the exterior
-// of the first. This is the DE-9IM specification's Covers, but is more consistent with this library's convention of containment. It
-// implies the DE-9IM specifications' Contains but also includes points or lines on the boundaries.
+// Contains returns true if at least one point of the second shape lies in the first, and no points
+// of the second lie in the exterior of the first.
 func (rel Relation) Contains() bool {
-	//return (rel & 0xC1) == 1                  // Contains
-	return (rel&0x1B) != 0 && (rel&0xC0) == 0 // Covers
+	return (rel & 0xC1) == 1 // Contains
 }
 
 // Within is the same as Contains but with the shapes swapped.
 func (rel Relation) Within() bool {
-	//return (rel & 0x25) == 1 // Within
+	return (rel & 0x25) == 1 // Within
+}
+
+// Covers returns true if at least one point of the second shape lies in the first, and no points
+// of the second lie in the exterior of the first, including boundaries. It is similar to Contains
+// but includes lines on the boundary of an area.
+func (rel Relation) Covers() bool {
+	return (rel&0x1B) != 0 && (rel&0xC0) == 0 // Covers
+}
+
+// CoveredBy is the same as Covers but with the shapes swapped.
+func (rel Relation) CoveredBy() bool {
 	return (rel&0x1B) != 0 && (rel&0x24) == 0 // CoveredBy
 }
 
-// Overlaps returns true if both shapes have some but not all points in common. This is different from the DE-9IM specification since
-// it does not consider the dimensionality of the shapes. The result is that equal shapes do not overlap, points never overlap,
-// crossing lines overlap, and contained/covered shapes do not overlap.
+// Overlaps returns true if both shapes have some but not all points in common. This is different
+// from the DE-9IM specification since it does not consider the dimensionality of the shapes. The
+// result is that equal shapes do not overlap, points never overlap, crossing lines overlap, and
+// contained/covered shapes do not overlap.
 func (rel Relation) Overlaps() bool {
 	return (rel & 0x45) == 0x45
 }
@@ -2685,6 +2696,11 @@ func eventRelation(rel Relation, zs []Point, event *SweepPoint, rights []*SweepP
 
 // relate uses the Bentley-Ottmann algorithm to classify geometry intersections using DE-9IM.
 func relate(ps, qs Paths, intersections bool) (Relation, []Point) {
+	// TODO: support arcs
+	// TODO: support finding self-intersections
+	// TODO: if overlapping segments can be detected earlier, we can just process left-events
+	//       and make the code simpler
+
 	boInitPoolsOnce() // use pools for SweepPoint and SweepNode to amortize repeated calls to BO
 
 	self := qs == nil
@@ -2693,7 +2709,6 @@ func relate(ps, qs Paths, intersections bool) (Relation, []Point) {
 	}
 
 	// flatten paths and initialise queue
-	// TODO: keep arcs
 	pSeg, qSeg := 0, 0
 	queue := &SweepEvents{}
 	for i := range ps {

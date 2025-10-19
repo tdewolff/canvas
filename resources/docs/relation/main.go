@@ -65,10 +65,10 @@ func draw(ctx *canvas.Context, y float64, title string, p, q *canvas.Path) {
 
 	rel, zs := p.Relate(q)
 	for _, z := range zs {
-		ctx.SetFillColor(canvas.Hex("#ED3F27"))
+		ctx.SetFillColor(canvas.Hex("#BF0000"))
 		ctx.SetStrokeColor(canvas.Transparent)
 		ctx.SetStrokeCapper(canvas.RoundCap)
-		ctx.DrawPath(3.0+z.X, y+z.Y, canvas.Circle(0.25))
+		ctx.DrawPath(3.0+z.X, y+z.Y, canvas.Circle(0.30))
 	}
 
 	y += 5.0

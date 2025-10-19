@@ -1460,16 +1460,18 @@ func TestPathRelate(t *testing.T) {
 				test.That(t, !rel.Overlaps(), "overlaps")
 				test.That(t, rel.Equals(), "equals")
 			} else if tt.rel == relContains {
-				test.That(t, rel.Contains(), "contains")
 				test.That(t, rel.Intersects(), "intersects")
 				test.That(t, !rel.Touches(), "!touches")
 				test.That(t, !rel.Overlaps(), "overlaps")
+				test.That(t, rel.Contains(), "contains")
+				test.That(t, rel.Covers(), "covers")
 				test.That(t, !rel.Equals(), "!equals")
 			} else if tt.rel == relWithin {
-				test.That(t, rel.Within(), "within")
 				test.That(t, rel.Intersects(), "intersects")
 				test.That(t, !rel.Touches(), "!touches")
 				test.That(t, !rel.Overlaps(), "overlaps")
+				test.That(t, rel.Within(), "within")
+				test.That(t, rel.CoveredBy(), "covered-by")
 				test.That(t, !rel.Equals(), "!equals")
 			} else if tt.rel == relTouches {
 				test.That(t, rel.Intersects(), "intersects")

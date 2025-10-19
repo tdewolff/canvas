@@ -20,6 +20,9 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster i
 - `Path.Windings` is now `Path.WindingsAt`
 - `Path.Crossings` is now `Path.CrossingsAt`
 - `Path.Contains` is now `Path.ContainsPoint`
+- `Path.Flat` is now `Path.IsFlat`
+- `Path.DivideBy` is now `Path.Div`
+- `canvas.RGB` and `canvas.RGBA` now accept channel values in [0,1] and not [0,255]
 
 ### Sponsors
 I'm actively looking for support in the form of donations or sponsorships to keep developing this library and highly appreciate any gesture. Please see the Sponsors button in GitHub for ways to contribute, or contact me directly.

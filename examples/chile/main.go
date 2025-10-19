@@ -38,7 +38,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(europe.Len(), europe.Bounds())
 
 	// remove islands (coordinates in WGS84)
 	chile = chile.Clip(-78, -60, -62, -16)
@@ -59,8 +58,8 @@ func main() {
 	})
 
 	// simplify using the Visvalingam-Whyatt algorithm this greatly reduces the number of line segments
-	chile = chile.SimplifyVisvalingamWhyatt(0.0002)
-	europe = europe.SimplifyVisvalingamWhyatt(0.0002)
+	//chile = chile.SimplifyVisvalingamWhyatt(0.0002)
+	//europe = europe.SimplifyVisvalingamWhyatt(0.0002)
 
 	bounds := chile.Bounds().Add(europe.Bounds())
 	chile.Translate(-bounds.X0+1.0, -bounds.Y0+1.0)
@@ -73,10 +72,14 @@ func main() {
 	ctx.SetFillColor(canvas.White)
 	ctx.DrawPath(0, 0, canvas.Rectangle(c.W, c.H))
 
-	candyShop := canvas.Stops{}
-	candyShop.Add(0.0, canvas.RGB(0.31, 0.14, 0.33))
-	candyShop.Add(0.5, canvas.RGB(0.87, 0.85, 0.65))
-	candyShop.Add(1.0, canvas.RGB(0.54, 0.99, 0.77))
+	//candyShop := canvas.Stops{}
+	//candyShop.Add(0.0, canvas.RGB(0.31, 0.14, 0.33))
+	//candyShop.Add(0.5, canvas.RGB(0.87, 0.85, 0.65))
+	//candyShop.Add(1.0, canvas.RGB(0.54, 0.99, 0.77))
+
+	deepOcean := canvas.Stops{}
+	deepOcean.Add(0.0, canvas.Hex("#f2f2cc"))
+	deepOcean.Add(1.0, canvas.Hex("#00194c"))
 
 	ctx.SetStrokeWidth(0.015)
 	ctx.SetStrokeColor(canvas.Black)
@@ -92,7 +95,7 @@ func main() {
 	fmt.Printf("%v chile=%d europe=%d\n", time.Since(t), chile.Len(), europe.Len())
 	bounds = overlap.Bounds()
 	gradient := canvas.NewLinearGradient(canvas.Point{bounds.X0, bounds.Y0}, canvas.Point{bounds.X1, bounds.Y1})
-	gradient.Stops = candyShop
+	gradient.Stops = deepOcean
 	ctx.SetFill(gradient)
 	ctx.SetStrokeColor(canvas.Black)
 	ctx.SetStrokeWidth(0.025)
