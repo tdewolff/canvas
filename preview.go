@@ -156,7 +156,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	if err != nil {
 		return err
 	}
-	ctx.SetFillColor(Whitesmoke)
+	ctx.SetFillColor(Hex("#e0e0e0"))
 	ctx.DrawPath(110, 60, ellipse)
 
 	ctx.SetFillColor(Transparent)
@@ -186,22 +186,26 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	polyline.Add(30.0, 15.0)
 	polyline.Add(0.0, 30.0)
 	polyline.Add(0.0, 0.0)
-	ctx.SetFillColor(Seagreen)
-	col := Seagreen
-	col.R = byte(float64(col.R) * 0.25)
-	col.G = byte(float64(col.G) * 0.25)
-	col.B = byte(float64(col.B) * 0.25)
-	col.A = byte(float64(col.A) * 0.25)
-	ctx.SetFillColor(col)
-	ctx.SetStrokeColor(Seagreen)
-	ctx.DrawPath(155, 35, polyline.Smoothen())
 
 	ctx.SetFillColor(Transparent)
-	ctx.SetStrokeColor(Black)
-	ctx.SetStrokeWidth(0.5)
+	ctx.SetStrokeColor(Hex("#ccc"))
+	ctx.SetStrokeWidth(0.25)
 	ctx.DrawPath(155, 35, polyline.ToPath())
+
+	//col := Seagreen
+	//col.R = byte(float64(col.R) * 0.25)
+	//col.G = byte(float64(col.G) * 0.25)
+	//col.B = byte(float64(col.B) * 0.25)
+	//col.A = byte(float64(col.A) * 0.25)
+	//ctx.SetFillColor(col)
+	ctx.SetStrokeColor(Seagreen)
+	ctx.SetStrokeWidth(0.5)
+	ctx.DrawPath(155, 35, polyline.Smoothen())
+
+	ctx.SetFillColor(Hex("#c00"))
+	ctx.SetStrokeColor(Transparent)
 	for _, coord := range polyline.Coords() {
-		ctx.DrawPath(155, 35, Circle(1.5).Translate(coord.X, coord.Y))
+		ctx.DrawPath(155, 35, Circle(0.75).Translate(coord.X, coord.Y))
 	}
 
 	// Draw a open set of points being smoothed
@@ -211,11 +215,20 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	polyline.Add(20.0, 15.0)
 	polyline.Add(30.0, 20.0)
 	polyline.Add(40.0, 10.0)
+
+	ctx.SetFillColor(Transparent)
+	ctx.SetStrokeColor(Hex("#ccc"))
+	ctx.SetStrokeWidth(0.25)
+	ctx.DrawPath(95, 30, polyline.ToPath())
+
 	ctx.SetStrokeColor(Dodgerblue)
+	ctx.SetStrokeWidth(0.5)
 	ctx.DrawPath(95, 30, polyline.Smoothen())
-	ctx.SetStrokeColor(Black)
+
+	ctx.SetFillColor(Hex("#c00"))
+	ctx.SetStrokeColor(Transparent)
 	for _, coord := range polyline.Coords() {
-		ctx.DrawPath(95, 30, Circle(1.5).Translate(coord.X, coord.Y))
+		ctx.DrawPath(95, 30, Circle(0.75).Translate(coord.X, coord.Y))
 	}
 
 	// Draw path boolean operations
@@ -225,7 +238,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	b = b.Flatten(Tolerance)
 	ctx.SetFillColor(Transparent)
 	ctx.SetStrokeColor(Black)
-	ctx.SetStrokeWidth(0.1)
+	ctx.SetStrokeWidth(0.2)
 	face = fontLatin.Face(8.0)
 	titles := []string{"A and B", "A or B", "A xor B", "A not B", "B not A"}
 	for i := 0; i < 5; i++ {
@@ -235,8 +248,6 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 		ctx.DrawPath(25.0, y, b)
 	}
 	ctx.SetFillColor(Hex("#00C8"))
-	ctx.SetStrokeColor(Black)
-	ctx.SetStrokeWidth(0.1)
 	ctx.DrawPath(25.0, 56.0, a.And(b))
 	ctx.DrawPath(25.0, 44.0, a.Or(b))
 	ctx.DrawPath(25.0, 32.0, a.Xor(b))

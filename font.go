@@ -986,7 +986,7 @@ func (wavyUnderline) Decorate(face *FontFace, w float64) *Path {
 
 	dx := 0.707 * r
 	w -= 2.0 * dx
-	dh := -face.Size * 0.15
+	dh := -face.Size * 0.10
 	d := 5.0 * r
 	n := int(0.5 + w/d)
 	if n == 0 {
@@ -1038,7 +1038,7 @@ func (sineUnderline) Decorate(face *FontFace, w float64) *Path {
 	d = (w - r) / float64(n)
 
 	dx := r
-	dh := -face.Size * 0.15
+	dh := -face.Size * 0.10
 	y += 0.5 * dh
 	p := &Path{}
 	p.MoveTo(dx, y)

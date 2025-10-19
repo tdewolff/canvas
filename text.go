@@ -868,7 +868,13 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 								glyphs[a+i], glyphs[b-1-i] = glyphs[b-1-i], glyphs[a+i]
 							}
 						}
-						width = run.Face.textWidth(glyphs[a:b])
+
+						// don't count whitespace at the end towards the width of the text span
+						b2 := b
+						for a < b2 && (text.IsSpace(glyphs[b2-1].Text) || text.IsNewline(glyphs[b2-1].Text) || text.IsParagraph(glyphs[b2-1].Text)) {
+							b2--
+						}
+						width = run.Face.textWidth(glyphs[a:b2])
 						t.fonts[run.Face.Font] = true
 					}
 
