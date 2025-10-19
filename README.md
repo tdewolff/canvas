@@ -1,6 +1,6 @@
 ![Canvas](https://raw.githubusercontent.com/tdewolff/canvas/master/resources/title/title.png)
 
-** *** FUNDING REQUIRED *** please contact me to support this work **
+*** **FUNDING REQUIRED** *** **please contact me to support this work**
 
 [![API reference](https://img.shields.io/badge/godoc-reference-5272B4)](https://pkg.go.dev/github.com/tdewolff/canvas?tab=doc) [![User guide](https://img.shields.io/badge/user-guide-5272B4)](https://github.com/tdewolff/canvas/wiki) [![Go Report Card](https://goreportcard.com/badge/github.com/tdewolff/canvas)](https://goreportcard.com/report/github.com/tdewolff/canvas) [![Coverage Status](https://coveralls.io/repos/github/tdewolff/canvas/badge.svg?branch=master)](https://coveralls.io/github/tdewolff/canvas?branch=master)
 
