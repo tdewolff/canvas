@@ -765,7 +765,12 @@ func (face *FontFace) toPath(glyphs []text.Glyph, ppem uint16) (*Path, float64, 
 			// TrueType is CW oriented for filling contours.
 			d = -d
 		}
+
+		// use FastStroke to omit settling the path
+		origFastStroke := FastStroke
+		FastStroke = true
 		p = p.Offset(d, Tolerance)
+		FastStroke = origFastStroke
 	}
 	if face.FauxItalic != 0.0 {
 		p = p.Transform(Identity.Shear(face.FauxItalic, 0.0))
