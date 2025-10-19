@@ -51,9 +51,9 @@ func TestRichTextPositions(t *testing.T) {
 	test.Float(t, text.lines[0].y, 1901)
 	test.Float(t, text.lines[1].y, 4285)
 	test.Float(t, text.lines[0].spans[0].X, 0.0)
-	test.Float(t, text.lines[0].spans[0].Width, 6150)
+	test.Float(t, text.lines[0].spans[0].Width, 6150) // ee. ee
 	test.Float(t, text.lines[1].spans[0].X, 0.0)
-	test.Float(t, text.lines[1].spans[0].Width, 4848)
+	test.Float(t, text.lines[1].spans[0].Width, 4848) // eeee
 
 	text = rt.ToText(6500.0, 5000.0, Right, Top, nil)
 	test.Float(t, text.lines[0].spans[0].X, 6500-6150)

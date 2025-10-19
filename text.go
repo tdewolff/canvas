@@ -185,14 +185,14 @@ func (l line) Heights(mode WritingMode) (float64, float64, float64, float64) {
 
 // TextSpan is a span of text.
 type TextSpan struct {
-	X         float64
-	Width     float64
-	Face      *FontFace
-	Text      string
-	Glyphs    []text.Glyph
-	Direction text.Direction
-	Rotation  text.Rotation
-	Level     int
+	X                  float64
+	Width, widthSuffix float64 // suffix is the space at the end of the line
+	Face               *FontFace
+	Text               string
+	Glyphs             []text.Glyph
+	Direction          text.Direction
+	Rotation           text.Rotation
+	Level              int
 
 	Objects []TextSpanObject
 }
@@ -848,7 +848,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 				if nextK != k || b == bg {
 					run := runs[k]
 
-					var width float64
+					var width, widthSuffix float64
 					var objects []TextSpanObject
 					if obj, ok := rt.objects[glyphs[a].Cluster]; ok {
 						// path/image objects
@@ -874,7 +874,12 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 						for a < b2 && (text.IsSpace(glyphs[b2-1].Text) || text.IsNewline(glyphs[b2-1].Text) || text.IsParagraph(glyphs[b2-1].Text)) {
 							b2--
 						}
-						width = run.Face.textWidth(glyphs[a:b2])
+						width = run.Face.textWidth(glyphs[a:b])
+						if b != b2 {
+							widthSuffix = run.Face.textWidth(glyphs[b2:b])
+						} else {
+							widthSuffix = 0.0
+						}
 						t.fonts[run.Face.Font] = true
 					}
 
@@ -886,15 +891,16 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 						bc = glyphs[b+skip].Cluster
 					}
 					s := TextSpan{
-						X:         x,
-						Width:     width,
-						Face:      run.Face,
-						Text:      log[ac:bc],
-						Objects:   objects,
-						Glyphs:    glyphs[a:b:b],
-						Direction: run.Direction,
-						Rotation:  run.Rotation,
-						Level:     run.Level,
+						X:           x,
+						Width:       width - widthSuffix,
+						widthSuffix: widthSuffix,
+						Face:        run.Face,
+						Text:        log[ac:bc],
+						Objects:     objects,
+						Glyphs:      glyphs[a:b:b],
+						Direction:   run.Direction,
+						Rotation:    run.Rotation,
+						Level:       run.Level,
 					}
 					if !merge || len(line.spans) == 0 {
 						line.spans = append(line.spans, s)
@@ -902,7 +908,8 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 						line.spans = append(line.spans, s)
 					} else {
 						// merge spans
-						prev.Width += width
+						prev.Width += prev.widthSuffix + width - widthSuffix
+						prev.widthSuffix = widthSuffix
 						prev.Text += log[ac:bc]
 						prev.Objects = append(prev.Objects, objects...)
 						prev.Glyphs = append(prev.Glyphs, glyphs[a:b:b]...)
