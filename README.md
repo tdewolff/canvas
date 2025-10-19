@@ -1,5 +1,7 @@
 ![Canvas](https://raw.githubusercontent.com/tdewolff/canvas/master/resources/title/title.png)
 
+** *** FUNDING REQUIRED *** please contact me to support this work **
+
 [![API reference](https://img.shields.io/badge/godoc-reference-5272B4)](https://pkg.go.dev/github.com/tdewolff/canvas?tab=doc) [![User guide](https://img.shields.io/badge/user-guide-5272B4)](https://github.com/tdewolff/canvas/wiki) [![Go Report Card](https://goreportcard.com/badge/github.com/tdewolff/canvas)](https://goreportcard.com/report/github.com/tdewolff/canvas) [![Coverage Status](https://coveralls.io/repos/github/tdewolff/canvas/badge.svg?branch=master)](https://coveralls.io/github/tdewolff/canvas?branch=master)
 
 **[API documentation](https://pkg.go.dev/github.com/tdewolff/canvas?tab=doc)**
@@ -23,9 +25,6 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster i
 - `Path.Flat` is now `Path.IsFlat`
 - `Path.DivideBy` is now `Path.Div`
 - `canvas.RGB` and `canvas.RGBA` now accept channel values in [0,1] and not [0,255]
-
-### Sponsors
-I'm actively looking for support in the form of donations or sponsorships to keep developing this library and highly appreciate any gesture. Please see the Sponsors button in GitHub for ways to contribute, or contact me directly.
 
 ## State
 Whether this library is ready for production environments is up to your own judgment. In general, this library is written thoughtfully and complete, but the scope of this work is so big and the implementation can be quite complex that inevitably it must have a great amount of bugs. Effort was put in writing unit and fuzz tests so that I suspect only special use-cases will stumble into bugs, but coverage is still lacking. As time permits, work is done to flesh-out functionality, find bugs, and optimize code. Optimization could be in execution time / reducing code complexity, reducing memory footprint, or reducing the length of paths from operation.
