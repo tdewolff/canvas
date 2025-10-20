@@ -112,7 +112,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	face = fontDevanagari.Face(pt)
 	face.Language = "hi"
 	face.Script = text.Devanagari
-	rt.WriteFace(face, "हालाँकि प्र ")
+	rt.WriteFace(face, "हालाँकि प्र")
 
 	x := 5.0
 	y := 95.0

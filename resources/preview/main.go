@@ -11,5 +11,5 @@ func main() {
 	if err := canvas.DrawPreview(ctx); err != nil {
 		panic(err)
 	}
-	c.WriteFile("preview.png", renderers.PNG(canvas.DPMM(10.0)))
+	c.WriteFile("preview.png", renderers.PNG(canvas.DPMM(5.0)))
 }
