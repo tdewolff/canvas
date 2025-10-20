@@ -2538,18 +2538,16 @@ func eventRelation(rel Relation, zs []Point, event *SweepPoint, rights []*SweepP
 		}
 		return rel, zs
 	}
-
 	event = event.other // get left-event
-	if event.overlapped {
-		return rel, zs
-	}
+
+	// handle overlapping segments
 	hasSubject, hasClipping := !event.clipping, event.clipping
 	for i := len(rights) - 1; 0 <= i; i-- {
-		if rights[i].other.Point != event.Point {
+		other := rights[i].other
+		if other.Point != event.Point {
 			break
 		}
 
-		other := rights[i].other
 		if event.clipping == other.clipping {
 			event.selfWindings += other.selfWindings
 			event.otherSelfWindings += other.otherSelfWindings
@@ -2559,7 +2557,9 @@ func eventRelation(rel Relation, zs []Point, event *SweepPoint, rights []*SweepP
 
 			p, q := event, other
 			if event.clipping {
+				// TODO: this should not happen? it means that an overlapping clipping segment is below a subject's
 				p, q = q, p
+				event.windings, event.otherWindings = other.otherWindings, other.windings
 			}
 			if p.open && q.open {
 				rel |= relII
@@ -2593,6 +2593,9 @@ func eventRelation(rel Relation, zs []Point, event *SweepPoint, rights []*SweepP
 		event.overlapped = true
 	}
 
+	// add intersections left-to-left and right-to-right (always at endpoints)
+	// current event does not overlap event.prev, this was handled above
+	// we need to check this at a right-event otherwise overlapping segments may not have been detected
 	if !event.overlapped && event.prev != nil && event.clipping != event.prev.clipping {
 		if equalStart := event.Point == event.prev.Point; equalStart || event.other.Point == event.prev.other.Point {
 			e := event
@@ -2605,9 +2608,6 @@ func eventRelation(rel Relation, zs []Point, event *SweepPoint, rights []*SweepP
 				e = event.other
 			}
 
-			// add intersections left-to-left and right-to-right (always at endpoints)
-			// current event does not overlap event.prev, this was handled above
-			// we need to check this at a right-event otherwise overlapping segments may not have been detected
 			if p.open && q.open {
 				if p.end && q.end {
 					rel |= relBB
@@ -2643,6 +2643,7 @@ func eventRelation(rel Relation, zs []Point, event *SweepPoint, rights []*SweepP
 		}
 	}
 
+	// update relation
 	pFillsBelow := event.windings != 0
 	pFillsAbove := (event.windings + event.selfWindings) != 0
 	qFillsBelow := event.otherWindings != 0
@@ -2651,19 +2652,30 @@ func eventRelation(rel Relation, zs []Point, event *SweepPoint, rights []*SweepP
 		pFillsBelow, qFillsBelow = qFillsBelow, pFillsBelow
 		pFillsAbove, qFillsAbove = qFillsAbove, pFillsAbove
 	}
-
 	if event.open {
 		if !event.clipping && !hasClipping && qFillsBelow == qFillsAbove {
 			if qFillsBelow {
 				rel |= relII
+				if event.end || event.other.end {
+					rel |= relBI
+				}
 			} else {
 				rel |= relIE
+				if event.end || event.other.end {
+					rel |= relBE
+				}
 			}
 		} else if event.clipping && !hasSubject && pFillsBelow == pFillsAbove {
 			if pFillsBelow {
 				rel |= relII
+				if event.end || event.other.end {
+					rel |= relIB
+				}
 			} else {
 				rel |= relEI
+				if event.end || event.other.end {
+					rel |= relEB
+				}
 			}
 		}
 	} else {
@@ -2698,8 +2710,8 @@ func eventRelation(rel Relation, zs []Point, event *SweepPoint, rights []*SweepP
 func relate(ps, qs Paths, intersections bool) (Relation, []Point) {
 	// TODO: support arcs
 	// TODO: support finding self-intersections
-	// TODO: if overlapping segments can be detected earlier, we can just process left-events
-	//       and make the code simpler
+	// TODO: if overlapping segments can be detected earlier (in addIntersections) and combined there,
+	// we can just process left-events and make the code simpler
 
 	boInitPoolsOnce() // use pools for SweepPoint and SweepNode to amortize repeated calls to BO
 

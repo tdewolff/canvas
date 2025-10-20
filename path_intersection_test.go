@@ -1336,11 +1336,13 @@ type relTest int
 const (
 	relDisjoint relTest = 1 << iota
 	relIntersects
-	relEquals
 	relTouches
+	relOverlaps
 	relContains
 	relWithin
-	relOverlaps
+	relEquals
+	relCovers
+	relCoveredBy
 )
 
 func TestPathRelate(t *testing.T) {
@@ -1379,10 +1381,16 @@ func TestPathRelate(t *testing.T) {
 		{"L10 0", "M-1 0L1 0", relOverlaps, []Point{{0, 0}, {1, 0}}},
 		{"L10 0", "M1 0L11 0", relOverlaps, []Point{{1, 0}, {10, 0}}},
 		{"L10 0", "L10 0", relEquals, []Point{}},
+		{"L10 0", "M0 1L0 0L10 0L10 1", relIntersects | relWithin | relCoveredBy, []Point{ /*{0, 0},*/ {10, 0}}}, // TODO
 
 		// intersection on one segment endpoint
 		{"L0 15", "M5 0L0 5L5 5", relOverlaps, []Point{{0, 5}}}, // unexpected, should be relTouches
 		{"L0 15", "M5 0L0 5L-5 5", relOverlaps, []Point{{0, 5}}},
+		{"L10 0", "M0 10L10 0", relTouches, []Point{{10, 0}}},
+		{"L10 0L20 10", "M0 10L10 0", relTouches, []Point{{10, 0}}},
+		{"L10 0L20 10", "M10 0L20 0", relTouches, []Point{{10, 0}}},
+		{"L10 0", "M5 0L15 0", relOverlaps, []Point{{5, 0}, {10, 0}}},
+		{"L10 0", "M5 5L10 0L15 5", relTouches, []Point{{10, 0}}},
 		//{"L0 10", "M5 0A5 5 0 0 0 0 5A5 5 0 0 0 5 10", []Point{{0, 5}}},
 		//{"L0 5L5 5", "M5 0A5 5 0 0 0 5 10", []Point{{0, 5}}},
 
@@ -1436,6 +1444,25 @@ func TestPathRelate(t *testing.T) {
 		//{"L15 0L15 5L5 0L10 0L15 -5", []Point{{5, 0}, {10, 0}}},
 		//{"L15 0L15 5L10 0L5 0L0 5", []Point{{5, 0}, {10, 0}}},
 
+		// overlapping self
+		{"L10 0L10 5L20 5L10 5L10 10L0 10z", "M15 0L25 0L25 10L15 10z", relTouches, []Point{{15, 5}}},
+		{"L10 0L10 5L20 5L10 5L10 10L0 10z", "M15 5L25 5L25 15L15 15z", relTouches, []Point{{15, 5} /*, {20, 5}*/}},
+		{"L10 0L10 5L20 5L10 5L10 10L0 10z", "M15 0L15 10", relTouches, []Point{{15, 5}}},
+		{"L10 0L10 5L20 5L10 5L10 10L0 10z", "M15 5L25 5", relTouches, []Point{{15, 5} /*, {20, 5}*/}},
+		{"L10 0L10 5L20 5L10 5L10 10L0 10z", "M20 5L25 5", relTouches, []Point{{20, 5}}},
+		{"L2 0L2 1L0 1zM1 0L3 0L3 1L1 1z", "L3 0L3 1L0 1z", relEquals, []Point{{1, 0}, {1, 1}, {2, 0}, {2, 1}}},
+
+		// closed and open
+		{"L10 0L10 10L0 10z", "M2 2L8 8", relContains, []Point{}},
+		{"L10 0L10 10L0 10z", "M0 0L8 8", relContains, []Point{{0, 0}}},
+		{"L10 0L10 10L0 10z", "M10 10L12 12", relTouches, []Point{{10, 10}}},
+		{"L10 0L10 10L0 10z", "M2 2L2 0L8 0L8 2", relContains, []Point{{2, 0}, {8, 0}}},
+		{"L10 0L10 10L0 10z", "M2 0L8 0", relIntersects | relCovers | relTouches, []Point{{2, 0}, {8, 0}}},
+		{"M0 0L8 8", "L10 0L10 10L0 10z", relWithin, []Point{{0, 0}}},
+		{"M2 2L2 0L8 0L8 2", "L10 0L10 10L0 10z", relWithin, []Point{{2, 0}, {8, 0}}},
+		{"M2 0L8 0", "L10 0L10 10L0 10z", relIntersects | relCoveredBy | relTouches, []Point{{2, 0}, {8, 0}}},
+		{"M2 0L4 2", "L10 0L10 10L0 10z", relIntersects | relCoveredBy | relWithin, []Point{{2, 0}}},
+
 		// bugs
 		{"M67.89174682452696 63.79390646055095L67.89174682452696 63.91890646055095L59.89174682452683 50.06250000000001", "M68.10825317547533 63.79390646055193L67.89174682452919 63.91890646055186M67.89174682452672 63.918906460550865L59.891746824526074 50.06250000000021", relDisjoint, []Point{}},
 		//{"M3.512162397982181 1.239754268684486L3.3827323986701674 1.1467946944092953L3.522449858001167 1.2493787337129587A0.21166666666666667 0.21166666666666667 0 0 1 3.5121623979821806 1.2397542686844856z", "", relDisjoint,[]Point{}},                                            // #277, very small circular arc at the end of the path to the start
@@ -1451,42 +1478,57 @@ func TestPathRelate(t *testing.T) {
 
 			rel, zs := p.Relate(q)
 			if tt.rel == relDisjoint {
-				test.That(t, rel.Disjoint(), "disjoint")
+				test.T(t, rel.Disjoint(), true, "disjoint")
 			} else if tt.rel == relIntersects {
-				test.That(t, rel.Intersects(), "intersects")
+				test.T(t, rel.Intersects(), true, "intersects")
 			} else if tt.rel == relEquals {
-				test.That(t, rel.Intersects(), "intersects")
-				test.That(t, !rel.Touches(), "!touches")
-				test.That(t, !rel.Overlaps(), "overlaps")
-				test.That(t, rel.Equals(), "equals")
+				test.T(t, rel.Intersects(), true, "intersects")
+				test.T(t, rel.Touches(), false, "touches")
+				test.T(t, rel.Overlaps(), false, "overlaps")
+				test.T(t, rel.Equals(), true, "equals")
 			} else if tt.rel == relContains {
-				test.That(t, rel.Intersects(), "intersects")
-				test.That(t, !rel.Touches(), "!touches")
-				test.That(t, !rel.Overlaps(), "overlaps")
-				test.That(t, rel.Contains(), "contains")
-				test.That(t, rel.Covers(), "covers")
-				test.That(t, !rel.Equals(), "!equals")
+				test.T(t, rel.Intersects(), true, "intersects")
+				test.T(t, rel.Touches(), false, "touches")
+				test.T(t, rel.Overlaps(), false, "overlaps")
+				test.T(t, rel.Contains(), true, "contains")
+				test.T(t, rel.Covers(), true, "covers")
+				test.T(t, rel.Equals(), false, "equals")
 			} else if tt.rel == relWithin {
-				test.That(t, rel.Intersects(), "intersects")
-				test.That(t, !rel.Touches(), "!touches")
-				test.That(t, !rel.Overlaps(), "overlaps")
-				test.That(t, rel.Within(), "within")
-				test.That(t, rel.CoveredBy(), "covered-by")
-				test.That(t, !rel.Equals(), "!equals")
+				test.T(t, rel.Intersects(), true, "intersects")
+				test.T(t, rel.Touches(), false, "touches")
+				test.T(t, rel.Overlaps(), false, "overlaps")
+				test.T(t, rel.Within(), true, "within")
+				test.T(t, rel.CoveredBy(), true, "covered-by")
+				test.T(t, rel.Equals(), false, "equals")
 			} else if tt.rel == relTouches {
-				test.That(t, rel.Intersects(), "intersects")
-				test.That(t, rel.Touches(), "touches")
-				test.That(t, !rel.Overlaps(), "!overlaps")
-				test.That(t, !rel.Contains(), "!contains")
-				test.That(t, !rel.Within(), "!within")
+				test.T(t, rel.Intersects(), true, "intersects")
+				test.T(t, rel.Touches(), true, "touches")
+				test.T(t, rel.Overlaps(), false, "overlaps")
+				test.T(t, rel.Contains(), false, "contains")
+				test.T(t, rel.Within(), false, "within")
 			} else if tt.rel == relOverlaps {
-				test.That(t, rel.Intersects(), "intersects")
-				test.That(t, !rel.Touches(), "!touches")
-				test.That(t, rel.Overlaps(), "overlaps")
-				test.That(t, !rel.Contains(), "!contains")
-				test.That(t, !rel.Within(), "!within")
+				test.T(t, rel.Intersects(), true, "intersects")
+				test.T(t, rel.Touches(), false, "touches")
+				test.T(t, rel.Overlaps(), true, "overlaps")
+				test.T(t, rel.Contains(), false, "contains")
+				test.T(t, rel.Within(), false, "within")
+			} else {
+				test.That(t, rel.Disjoint() == ((tt.rel&relDisjoint) != 0), "disjoint")
+				test.That(t, rel.Intersects() == ((tt.rel&relIntersects) != 0), "intersects")
+				test.That(t, rel.Touches() == ((tt.rel&relTouches) != 0), "touches")
+				test.That(t, rel.Overlaps() == ((tt.rel&relOverlaps) != 0), "overlaps")
+				test.That(t, rel.Contains() == ((tt.rel&relContains) != 0), "contains")
+				test.That(t, rel.Within() == ((tt.rel&relWithin) != 0), "within")
+				test.That(t, rel.Equals() == ((tt.rel&relEquals) != 0), "equals")
+				test.That(t, rel.Covers() == ((tt.rel&relCovers) != 0), "covers")
+				test.That(t, rel.CoveredBy() == ((tt.rel&relCoveredBy) != 0), "covered-by")
 			}
 			test.T(t, zs, tt.zs)
 		})
 	}
+
+	// coverage
+	test.That(t, !MustParseSVGPath("").Touches(MustParseSVGPath("M20 0L30 0L30 10L20 10z")))
+	test.That(t, !MustParseSVGPath("L10 0L10 10L0 10z").Touches(MustParseSVGPath("")))
+	test.That(t, !MustParseSVGPath("L10 0L10 10L0 10z").Touches(MustParseSVGPath("M20 0L30 0L30 10L20 10z")))
 }
