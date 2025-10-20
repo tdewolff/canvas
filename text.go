@@ -185,14 +185,14 @@ func (l line) Heights(mode WritingMode) (float64, float64, float64, float64) {
 
 // TextSpan is a span of text.
 type TextSpan struct {
-	X                  float64
-	Width, widthSuffix float64 // suffix is the space at the end of the line
-	Face               *FontFace
-	Text               string
-	Glyphs             []text.Glyph
-	Direction          text.Direction
-	Rotation           text.Rotation
-	Level              int
+	X         float64
+	Width     float64
+	Face      *FontFace
+	Text      string
+	Glyphs    []text.Glyph
+	Direction text.Direction
+	Rotation  text.Rotation
+	Level     int
 
 	Objects []TextSpanObject
 }
@@ -770,7 +770,6 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 	for j := range breaks {
 		// j is the current line
 		end := breaks[j].Position + 1
-
 		lineWidth := breaks[j].Width
 		if breaks[j].Ratio < 0.0 {
 			lineWidth += breaks[j].Shrink * breaks[j].Ratio
@@ -791,7 +790,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 
 		// build text spans of line
 		line := line{}
-		merge := false
+		merge := false // merge spans
 		for i < end {
 			bg := ag
 			W, Y, Z := 0.0, 0.0, 0.0
@@ -804,13 +803,15 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 			}
 
 			// append glyphs in trailing glues or the final penalty (hyphen)
-			skip := 0
+			eol := 0 // increase in bg that is at the end-of-line: trailing whitespace
 			for i < end && items[i].Type != text.BoxType {
 				if items[i].Type == text.GlueType {
 					Y += items[i].Stretch
 					Z += items[i].Shrink
 				} else if items[i].Size != 0 {
 					// penalty with glyphs, either unused potential hyphen or used hyphen/newline, stop the loop
+					bg += eol
+					eol = 0
 					if i+1 < end {
 						// potential but unused hyphen
 					} else if glyphs[bg].Text == "\u00AD" {
@@ -823,12 +824,12 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 						W += items[i].Width
 					} else {
 						// newline
-						skip += items[i].Size
+						eol += items[i].Size
 					}
 					i++
 					break
 				}
-				bg += items[i].Size
+				eol += items[i].Size
 				W += items[i].Width
 				i++
 			}
@@ -837,8 +838,14 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 			if i < len(items) && items[i-1].Type == text.PenaltyType && items[i].Type == text.GlueType {
 				Y += items[i].Stretch
 				Z += items[i].Shrink
-				skip += items[i].Size
+				eol += items[i].Size
 				i++
+			}
+
+			// not yet at end-of-line
+			if i < end {
+				bg += eol
+				eol = 0
 			}
 
 			// [ag,bg) is the range of glyphs
@@ -848,7 +855,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 				if nextK != k || b == bg {
 					run := runs[k]
 
-					var width, widthSuffix float64
+					var width float64
 					var objects []TextSpanObject
 					if obj, ok := rt.objects[glyphs[a].Cluster]; ok {
 						// path/image objects
@@ -868,18 +875,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 								glyphs[a+i], glyphs[b-1-i] = glyphs[b-1-i], glyphs[a+i]
 							}
 						}
-
-						// don't count whitespace at the end towards the width of the text span
-						b2 := b
-						for a < b2 && (text.IsSpace(glyphs[b2-1].Text) || text.IsNewline(glyphs[b2-1].Text) || text.IsParagraph(glyphs[b2-1].Text)) {
-							b2--
-						}
 						width = run.Face.textWidth(glyphs[a:b])
-						if b != b2 {
-							widthSuffix = run.Face.textWidth(glyphs[b2:b])
-						} else {
-							widthSuffix = 0.0
-						}
 						t.fonts[run.Face.Font] = true
 					}
 
@@ -887,29 +883,33 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 					if run.Direction == text.RightToLeft || run.Direction == text.BottomToTop {
 						ac = glyphs[b-1].Cluster
 					}
-					if b == bg && skip != 0 {
-						bc = glyphs[b+skip].Cluster
+					if b == bg && eol != 0 {
+						bc = glyphs[b+eol].Cluster
 					}
 					s := TextSpan{
-						X:           x,
-						Width:       width - widthSuffix,
-						widthSuffix: widthSuffix,
-						Face:        run.Face,
-						Text:        log[ac:bc],
-						Objects:     objects,
-						Glyphs:      glyphs[a:b:b],
-						Direction:   run.Direction,
-						Rotation:    run.Rotation,
-						Level:       run.Level,
+						X:         x,
+						Width:     width,
+						Face:      run.Face,
+						Text:      log[ac:bc],
+						Objects:   objects,
+						Glyphs:    glyphs[a:b:b],
+						Direction: run.Direction,
+						Rotation:  run.Rotation,
+						Level:     run.Level,
 					}
 					if !merge || len(line.spans) == 0 {
 						line.spans = append(line.spans, s)
 					} else if prev := &line.spans[len(line.spans)-1]; prev.Face != s.Face || prev.Direction != s.Direction || prev.Rotation != s.Rotation || prev.Level != s.Level {
 						line.spans = append(line.spans, s)
+					} else if run.Direction == text.RightToLeft || run.Direction == text.BottomToTop {
+						// merge spans
+						prev.Width += width
+						prev.Text = log[ac:bc] + prev.Text
+						prev.Objects = append(objects, prev.Objects...)
+						prev.Glyphs = append(glyphs[a:b:b], prev.Glyphs...)
 					} else {
 						// merge spans
-						prev.Width += prev.widthSuffix + width - widthSuffix
-						prev.widthSuffix = widthSuffix
+						prev.Width += width
 						prev.Text += log[ac:bc]
 						prev.Objects = append(prev.Objects, objects...)
 						prev.Glyphs = append(prev.Glyphs, glyphs[a:b:b]...)
@@ -921,7 +921,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 				}
 			}
 
-			// stretch or shrink glues
+			// stretch or shrink glues, W is the width left after subtracting all spans
 			if breaks[j].Ratio < 0.0 {
 				x += W + Z*breaks[j].Ratio
 			} else if halign == Justify && 0.0 < breaks[j].Ratio {
@@ -931,7 +931,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 			} else {
 				merge = true
 			}
-			ag = bg + skip
+			ag = bg + eol
 		}
 
 		// set y position of line
