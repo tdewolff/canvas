@@ -322,8 +322,10 @@ func (lb *linebreaker) computeAdjustmentRatio(b int, active *Breakpoint) float64
 			// this helps to distinguish between between smaller and longer lines if both would
 			// need to stretched beyond the tolerance
 			return Infinity * (1.0 + (lb.width-L)/lb.width)
+		} else if lb.Y-active.Y < Infinity {
+			// does nto end in Glue(0,Inf,0) such as for a forced break or end of text.
+			ratio = (lb.width - L) / (lb.Y - active.Y)
 		}
-		ratio = (lb.width - L) / (lb.Y - active.Y)
 	} else if lb.width < L {
 		ratio = (lb.width - L) / (lb.Z - active.Z)
 	}
