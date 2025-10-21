@@ -640,23 +640,24 @@ func (c *Context) DrawPath(x, y float64, paths ...*Path) {
 		return
 	}
 
-	// TODO: apply coordinate view to fill/stroke gradients/patterns
 	style := c.Style
 	m := c.CoordSystemView()
-	//if style.Fill.IsPattern() {
-	//	style.Fill.Pattern = style.Fill.Pattern.SetView(m)
-	//} else if style.Fill.IsGradient() {
-	//	style.Fill.Gradient = style.Fill.Gradient.SetView(m)
-	//}
-	//if style.Stroke.IsPattern() {
-	//	style.Stroke.Pattern = style.Stroke.Pattern.SetView(m)
-	//} else if style.Stroke.IsGradient() {
-	//	style.Stroke.Gradient = style.Stroke.Gradient.SetView(m)
-	//}
 
 	// get view
 	coord := c.coordView.Dot(Point{x, y})
 	m = m.Mul(c.view).Translate(coord.X, coord.Y)
+
+	// remove coordinate offset so that transforming by m gives the right result
+	if style.Fill.IsPattern() {
+		style.Fill.Pattern = style.Fill.Pattern.Transform(Identity.Translate(-x, -y))
+	} else if style.Fill.IsGradient() {
+		style.Fill.Gradient = style.Fill.Gradient.Transform(Identity.Translate(-x, -y))
+	}
+	if style.Stroke.IsPattern() {
+		style.Stroke.Pattern = style.Stroke.Pattern.Transform(Identity.Translate(-x, -y))
+	} else if style.Stroke.IsGradient() {
+		style.Stroke.Gradient = style.Stroke.Gradient.Transform(Identity.Translate(-x, -y))
+	}
 
 	dashes := style.Dashes
 	for _, path := range paths {

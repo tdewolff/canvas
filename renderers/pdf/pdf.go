@@ -122,6 +122,17 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		}
 	}
 
+	if style.Fill.IsPattern() {
+		style.Fill.Pattern = style.Fill.Pattern.Transform(m)
+	} else if style.Fill.IsGradient() {
+		style.Fill.Gradient = style.Fill.Gradient.Transform(m)
+	}
+	if style.Stroke.IsPattern() {
+		style.Stroke.Pattern = style.Stroke.Pattern.Transform(m)
+	} else if style.Stroke.IsGradient() {
+		style.Stroke.Gradient = style.Stroke.Gradient.Transform(m)
+	}
+
 	// PDFs don't support connecting first and last dashes if path is closed, so we move the start of the path if this is the case
 	// TODO: closing dashes
 	//if style.DashesClose {

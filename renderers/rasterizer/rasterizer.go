@@ -109,12 +109,12 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 				style.Fill = hatch.Fill
 				fill = hatch.Tile(fill)
 			} else {
-				pattern := style.Fill.Pattern.SetColorSpace(r.colorSpace)
+				pattern := style.Fill.Pattern.Transform(m).SetColorSpace(r.colorSpace)
 				pattern.RenderTo(r, fill)
 			}
 		}
 		if style.Fill.IsGradient() {
-			gradient := style.Fill.Gradient.SetColorSpace(r.colorSpace)
+			gradient := style.Fill.Gradient.Transform(m).SetColorSpace(r.colorSpace)
 			r.scanner.Clear()
 			r.scanner.SetColor(rasterx.ColorFunc(func(x, y int) color.Color {
 				// TODO: convert to dst color model
@@ -136,12 +136,12 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 				style.Stroke = hatch.Fill
 				stroke = hatch.Tile(stroke)
 			} else {
-				pattern := style.Stroke.Pattern.SetColorSpace(r.colorSpace)
+				pattern := style.Stroke.Pattern.Transform(m).SetColorSpace(r.colorSpace)
 				pattern.RenderTo(r, stroke)
 			}
 		}
 		if style.Stroke.IsGradient() {
-			gradient := style.Stroke.Gradient.SetColorSpace(r.colorSpace)
+			gradient := style.Stroke.Gradient.Transform(m).SetColorSpace(r.colorSpace)
 			r.scanner.Clear()
 			r.scanner.SetColor(rasterx.ColorFunc(func(x, y int) color.Color {
 				// TODO: convert to dst color model

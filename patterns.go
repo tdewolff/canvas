@@ -6,7 +6,7 @@ import (
 )
 
 type Pattern interface {
-	SetView(Matrix) Pattern
+	Transform(Matrix) Pattern
 	SetColorSpace(ColorSpace) Pattern
 	RenderTo(Renderer, *Path)
 }
@@ -77,8 +77,8 @@ func NewHatchPattern(ifill interface{}, thickness float64, cell Matrix, hatch Ha
 	}
 }
 
-// SetView sets the view. Automatically called by Canvas for coordinate system transformations.
-func (p *HatchPattern) SetView(view Matrix) Pattern {
+// Transform sets the view. Automatically called by Canvas for coordinate system transformations.
+func (p *HatchPattern) Transform(view Matrix) Pattern {
 	return p
 }
 

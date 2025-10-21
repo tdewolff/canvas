@@ -1,6 +1,8 @@
 package canvas
 
 import (
+	"encoding/binary"
+	"hash/maphash"
 	"image/color"
 	"math"
 )
@@ -68,6 +70,7 @@ func Hex(s string) color.RGBA {
 type Gradient interface {
 	Transform(Matrix) Gradient
 	SetColorSpace(ColorSpace) Gradient
+	Hash() uint64
 	At(float64, float64) color.RGBA
 }
 
@@ -185,12 +188,27 @@ func (g *LinearGradient) SetColorSpace(colorSpace ColorSpace) Gradient {
 	if _, ok := colorSpace.(LinearColorSpace); ok {
 		return g
 	}
-
-	gradient := *g
-	for i := range gradient.Grad {
-		gradient.Grad[i].Color = colorSpace.ToLinear(gradient.Grad[i].Color)
+	g.Grad = append(Grad{}, g.Grad...)
+	for i := range g.Grad {
+		g.Grad[i].Color = colorSpace.ToLinear(g.Grad[i].Color)
 	}
-	return &gradient
+	return g
+}
+
+func (g *LinearGradient) Hash() uint64 {
+	var h maphash.Hash
+	binary.Write(&h, binary.LittleEndian, float32(g.Start.X))
+	binary.Write(&h, binary.LittleEndian, float32(g.Start.Y))
+	binary.Write(&h, binary.LittleEndian, float32(g.End.X))
+	binary.Write(&h, binary.LittleEndian, float32(g.End.Y))
+	for _, stop := range g.Grad {
+		binary.Write(&h, binary.LittleEndian, float32(stop.Offset))
+		binary.Write(&h, binary.LittleEndian, stop.Color.R)
+		binary.Write(&h, binary.LittleEndian, stop.Color.G)
+		binary.Write(&h, binary.LittleEndian, stop.Color.B)
+		binary.Write(&h, binary.LittleEndian, stop.Color.A)
+	}
+	return h.Sum64()
 }
 
 // At returns the color at position (x,y).
@@ -252,12 +270,29 @@ func (g *RadialGradient) SetColorSpace(colorSpace ColorSpace) Gradient {
 	if _, ok := colorSpace.(LinearColorSpace); ok {
 		return g
 	}
-
-	gradient := *g
-	for i := range gradient.Grad {
-		gradient.Grad[i].Color = colorSpace.ToLinear(gradient.Grad[i].Color)
+	g.Grad = append(Grad{}, g.Grad...)
+	for i := range g.Grad {
+		g.Grad[i].Color = colorSpace.ToLinear(g.Grad[i].Color)
 	}
-	return &gradient
+	return g
+}
+
+func (g *RadialGradient) Hash() uint64 {
+	var h maphash.Hash
+	binary.Write(&h, binary.LittleEndian, float32(g.C0.X))
+	binary.Write(&h, binary.LittleEndian, float32(g.C0.Y))
+	binary.Write(&h, binary.LittleEndian, float32(g.C1.X))
+	binary.Write(&h, binary.LittleEndian, float32(g.C1.Y))
+	binary.Write(&h, binary.LittleEndian, float32(g.R0))
+	binary.Write(&h, binary.LittleEndian, float32(g.R1))
+	for _, stop := range g.Grad {
+		binary.Write(&h, binary.LittleEndian, float32(stop.Offset))
+		binary.Write(&h, binary.LittleEndian, stop.Color.R)
+		binary.Write(&h, binary.LittleEndian, stop.Color.G)
+		binary.Write(&h, binary.LittleEndian, stop.Color.B)
+		binary.Write(&h, binary.LittleEndian, stop.Color.A)
+	}
+	return h.Sum64()
 }
 
 // At returns the color at position (x,y).
