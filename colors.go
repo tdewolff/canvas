@@ -66,7 +66,7 @@ func Hex(s string) color.RGBA {
 
 // Gradient is a gradient pattern for filling.
 type Gradient interface {
-	SetView(Matrix) Gradient
+	Transform(Matrix) Gradient
 	SetColorSpace(ColorSpace) Gradient
 	At(float64, float64) color.RGBA
 }
@@ -77,42 +77,58 @@ type Stop struct {
 	Color  color.RGBA
 }
 
-// Stops are the colors and offsets for gradient patterns, sorted by offset.
-type Stops []Stop
+// Grad are the colors and offsets for gradient patterns, sorted by offset.
+type Grad []Stop
+
+func NewGradient() Grad {
+	return Grad{}
+}
 
 // Add adds a new color stop to a gradient.
-func (stops *Stops) Add(t float64, color color.RGBA) {
+func (g *Grad) Add(t float64, color color.RGBA) {
 	stop := Stop{math.Min(math.Max(t, 0.0), 1.0), color}
 	// insert or replace stop and keep sort order
-	for i := range *stops {
-		if Equal((*stops)[i].Offset, stop.Offset) {
-			(*stops)[i] = stop
+	for i := range *g {
+		if Equal((*g)[i].Offset, stop.Offset) {
+			(*g)[i] = stop
 			return
-		} else if stop.Offset < (*stops)[i].Offset {
-			*stops = append((*stops)[:i], append(Stops{stop}, (*stops)[i:]...)...)
+		} else if stop.Offset < (*g)[i].Offset {
+			*g = append((*g)[:i], append(Grad{stop}, (*g)[i:]...)...)
 			return
 		}
 	}
-	*stops = append(*stops, stop)
+	*g = append(*g, stop)
 }
 
 // At returns the color at position t ∈ [0,1].
-func (stops Stops) At(t float64) color.RGBA {
-	if len(stops) == 0 {
+func (g Grad) At(t float64) color.RGBA {
+	if len(g) == 0 {
 		return Transparent
-	} else if len(stops) == 1 || t <= stops[0].Offset {
-		return stops[0].Color
-	} else if stops[len(stops)-1].Offset <= t {
-		return stops[len(stops)-1].Color
+	} else if len(g) == 1 || t <= g[0].Offset {
+		return g[0].Color
+	} else if g[len(g)-1].Offset <= t {
+		return g[len(g)-1].Color
 	}
-	for i, after := range stops[1:] {
+	for i, after := range g[1:] {
 		if t < after.Offset {
-			before := stops[i]
+			before := g[i]
 			t = (t - before.Offset) / (after.Offset - before.Offset)
 			return colorLerp(before.Color, after.Color, t)
 		}
 	}
-	return stops[len(stops)-1].Color
+	return g[len(g)-1].Color
+}
+
+func (g Grad) ToLinear(start, end Point) *LinearGradient {
+	grad := NewLinearGradient(start, end)
+	grad.Grad = g
+	return grad
+}
+
+func (g Grad) ToRadial(c0 Point, r0 float64, c1 Point, r1 float64) *RadialGradient {
+	grad := NewRadialGradient(c0, r0, c1, r1)
+	grad.Grad = g
+	return grad
 }
 
 func colorLerp(c0, c1 color.RGBA, t float64) color.RGBA {
@@ -133,11 +149,10 @@ func lerp(a, b, t uint32) uint8 {
 
 // LinearGradient is a linear gradient pattern between the given start and end points. The color at offset 0 corresponds to the start position, and offset 1 to the end position. Start and end points are in the canvas's coordinate system.
 type LinearGradient struct {
+	Grad
 	Start, End Point
-	Stops
-
-	d  Point
-	d2 float64
+	d          Point
+	d2         float64
 }
 
 // NewLinearGradient returns a new linear gradient pattern.
@@ -146,21 +161,20 @@ func NewLinearGradient(start, end Point) *LinearGradient {
 	return &LinearGradient{
 		Start: start,
 		End:   end,
-
-		d:  d,
-		d2: d.Dot(d),
+		d:     d,
+		d2:    d.Dot(d),
 	}
 }
 
-// SetView sets the view. Automatically called by Canvas for coordinate system transformations.
-func (g *LinearGradient) SetView(view Matrix) Gradient {
-	if view == Identity {
+// Transform sets the view. Automatically called by Canvas for coordinate system transformations.
+func (g *LinearGradient) Transform(m Matrix) Gradient {
+	if m == Identity {
 		return g
 	}
 
 	gradient := *g
-	gradient.Start = view.Dot(gradient.Start)
-	gradient.End = view.Dot(gradient.End)
+	gradient.Start = m.Dot(gradient.Start)
+	gradient.End = m.Dot(gradient.End)
 	gradient.d = gradient.End.Sub(gradient.Start)
 	gradient.d2 = gradient.d.Dot(gradient.d)
 	return &gradient
@@ -173,36 +187,35 @@ func (g *LinearGradient) SetColorSpace(colorSpace ColorSpace) Gradient {
 	}
 
 	gradient := *g
-	for i := range gradient.Stops {
-		gradient.Stops[i].Color = colorSpace.ToLinear(gradient.Stops[i].Color)
+	for i := range gradient.Grad {
+		gradient.Grad[i].Color = colorSpace.ToLinear(gradient.Grad[i].Color)
 	}
 	return &gradient
 }
 
 // At returns the color at position (x,y).
 func (g *LinearGradient) At(x, y float64) color.RGBA {
-	if len(g.Stops) == 0 {
+	if len(g.Grad) == 0 {
 		return Transparent
 	}
 
 	p := Point{x, y}.Sub(g.Start)
 	if Equal(g.d.Y, 0.0) && !Equal(g.d.X, 0.0) {
-		return g.Stops.At(p.X / g.d.X) // horizontal
+		return g.Grad.At(p.X / g.d.X) // horizontal
 	} else if !Equal(g.d.Y, 0.0) && Equal(g.d.X, 0.0) {
-		return g.Stops.At(p.Y / g.d.Y) // vertical
+		return g.Grad.At(p.Y / g.d.Y) // vertical
 	}
 	t := p.Dot(g.d) / g.d2
-	return g.Stops.At(t)
+	return g.Grad.At(t)
 }
 
 // RadialGradient is a radial gradient pattern between two circles defined by their center points and radii. Color stop at offset 0 corresponds to the first circle and offset 1 to the second circle.
 type RadialGradient struct {
+	Grad
 	C0, C1 Point
 	R0, R1 float64
-	Stops
-
-	cd    Point
-	dr, a float64
+	cd     Point
+	dr, a  float64
 }
 
 // NewRadialGradient returns a new radial gradient pattern.
@@ -214,22 +227,21 @@ func NewRadialGradient(c0 Point, r0 float64, c1 Point, r1 float64) *RadialGradie
 		R0: r0,
 		C1: c1,
 		R1: r1,
-
 		cd: cd,
 		dr: dr,
 		a:  cd.Dot(cd) - dr*dr,
 	}
 }
 
-// SetView sets the view. Automatically called by Canvas for coordinate system transformations.
-func (g *RadialGradient) SetView(view Matrix) Gradient {
-	if view == Identity {
+// Transform sets the view. Automatically called by Canvas for coordinate system transformations.
+func (g *RadialGradient) Transform(m Matrix) Gradient {
+	if m == Identity {
 		return g
 	}
 
 	gradient := *g
-	gradient.C0 = view.Dot(gradient.C0)
-	gradient.C1 = view.Dot(gradient.C1)
+	gradient.C0 = m.Dot(gradient.C0)
+	gradient.C1 = m.Dot(gradient.C1)
 	gradient.cd = gradient.C1.Sub(gradient.C0)
 	gradient.a = gradient.cd.Dot(gradient.cd) - gradient.dr*gradient.dr
 	return &gradient
@@ -242,15 +254,15 @@ func (g *RadialGradient) SetColorSpace(colorSpace ColorSpace) Gradient {
 	}
 
 	gradient := *g
-	for i := range gradient.Stops {
-		gradient.Stops[i].Color = colorSpace.ToLinear(gradient.Stops[i].Color)
+	for i := range gradient.Grad {
+		gradient.Grad[i].Color = colorSpace.ToLinear(gradient.Grad[i].Color)
 	}
 	return &gradient
 }
 
 // At returns the color at position (x,y).
 func (g *RadialGradient) At(x, y float64) color.RGBA {
-	if len(g.Stops) == 0 {
+	if len(g.Grad) == 0 {
 		return Transparent
 	}
 
@@ -261,9 +273,9 @@ func (g *RadialGradient) At(x, y float64) color.RGBA {
 	c := pd.Dot(pd) - g.R0*g.R0
 	t0, t1 := solveQuadraticFormula(g.a, -2.0*b, c)
 	if !math.IsNaN(t1) {
-		return g.Stops.At(t1)
+		return g.Grad.At(t1)
 	} else if !math.IsNaN(t0) {
-		return g.Stops.At(t0)
+		return g.Grad.At(t0)
 	}
 	return Transparent
 }

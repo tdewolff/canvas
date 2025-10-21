@@ -1469,12 +1469,12 @@ func (w *pdfPageWriter) getPattern(gradient canvas.Gradient) pdfName {
 	if g, ok := gradient.(*canvas.LinearGradient); ok {
 		shading["ShadingType"] = 2
 		shading["Coords"] = pdfArray{g.Start.X * ptPerMm, g.Start.Y * ptPerMm, g.End.X * ptPerMm, g.End.Y * ptPerMm}
-		shading["Function"] = patternStopsFunction(g.Stops)
+		shading["Function"] = patternGradFunction(g.Grad)
 		shading["Extend"] = pdfArray{true, true}
 	} else if g, ok := gradient.(*canvas.RadialGradient); ok {
 		shading["ShadingType"] = 3
 		shading["Coords"] = pdfArray{g.C0.X * ptPerMm, g.C0.Y * ptPerMm, g.R0 * ptPerMm, g.C1.X * ptPerMm, g.C1.Y * ptPerMm, g.R1 * ptPerMm}
-		shading["Function"] = patternStopsFunction(g.Stops)
+		shading["Function"] = patternGradFunction(g.Grad)
 		shading["Extend"] = pdfArray{true, true}
 	}
 	pattern := pdfDict{
@@ -1496,38 +1496,31 @@ func (w *pdfPageWriter) getPattern(gradient canvas.Gradient) pdfName {
 	return name
 }
 
-func patternStopsFunction(stops canvas.Stops) pdfDict {
-	if len(stops) < 2 {
+func patternGradFunction(grad canvas.Grad) pdfDict {
+	if len(grad) < 2 {
 		return pdfDict{}
 	}
 
 	fs := pdfArray{}
-	encode := pdfArray{}
 	bounds := pdfArray{}
-	if !canvas.Equal(stops[0].Offset, 0.0) {
-		fs = append(fs, patternStopFunction(stops[0], stops[0]))
-		encode = append(encode, 0, 1)
-		bounds = append(bounds, stops[0].Offset)
-	}
-	for i := 0; i < len(stops)-1; i++ {
-		fs = append(fs, patternStopFunction(stops[i], stops[i+1]))
-		encode = append(encode, 0, 1)
+	encode := pdfArray{}
+	for i := 0; i < len(grad)-1; i++ {
+		fs = append(fs, patternStopFunction(grad[i], grad[i+1]))
 		if i != 0 {
-			bounds = append(bounds, stops[1].Offset)
+			bounds = append(bounds, grad[i].Offset)
 		}
-	}
-	if !canvas.Equal(stops[len(stops)-1].Offset, 1.0) {
-		fs = append(fs, patternStopFunction(stops[len(stops)-1], stops[len(stops)-1]))
 		encode = append(encode, 0, 1)
 	}
 	if len(fs) == 1 {
-		return fs[0].(pdfDict)
+		f := fs[0].(pdfDict)
+		f["Domain"] = pdfArray{grad[0].Offset, grad[len(grad)-1].Offset}
+		return f
 	}
 	return pdfDict{
 		"FunctionType": 3,
-		"Domain":       pdfArray{0, 1},
-		"Encode":       encode,
+		"Domain":       pdfArray{grad[0].Offset, grad[len(grad)-1].Offset},
 		"Bounds":       bounds,
+		"Encode":       encode,
 		"Functions":    fs,
 	}
 }

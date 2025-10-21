@@ -572,13 +572,13 @@ func (r *SVG) getPattern(gradient canvas.Gradient) string {
 	fmt.Fprintf(r.w, `<defs>`)
 	if linearGradient, ok := gradient.(*canvas.LinearGradient); ok {
 		fmt.Fprintf(r.w, `<linearGradient id="%v" gradientUnits="userSpaceOnUse" x1="%v" y1="%v" x2="%v" y2="%v">`, ref, dec(linearGradient.Start.X), dec(r.height-linearGradient.Start.Y), dec(linearGradient.End.X), dec(r.height-linearGradient.End.Y))
-		for _, stop := range linearGradient.Stops {
+		for _, stop := range linearGradient.Grad {
 			fmt.Fprintf(r.w, `<stop offset="%v" stop-color="%v"/>`, dec(stop.Offset), canvas.CSSColor(stop.Color))
 		}
 		fmt.Fprintf(r.w, `</linearGradient>`)
 	} else if radialGradient, ok := gradient.(*canvas.RadialGradient); ok {
 		fmt.Fprintf(r.w, `<radialGradient id="%v" gradientUnits="userSpaceOnUse" fx="%v" fy="%v" fr="%v" cx="%v" cy="%v" r="%v">`, ref, dec(radialGradient.C0.X), dec(r.height-radialGradient.C0.Y), dec(radialGradient.R0), dec(radialGradient.C1.X), dec(r.height-radialGradient.C1.Y), dec(radialGradient.R1))
-		for _, stop := range radialGradient.Stops {
+		for _, stop := range radialGradient.Grad {
 			fmt.Fprintf(r.w, `<stop offset="%v" stop-color="%v"/>`, dec(stop.Offset), canvas.CSSColor(stop.Color))
 		}
 		fmt.Fprintf(r.w, `</radialGradient>`)
