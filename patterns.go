@@ -182,3 +182,67 @@ func NewShapeHatch(ifill interface{}, shape *Path, distance, thickness float64) 
 		return p
 	})
 }
+
+// ImagePattern is an image tiling pattern of an image drawn from an origin with a certain resolution. Higher resolution will give smaller tilings.
+//type ImagePattern struct {
+//	img    *image.RGBA
+//	res    Resolution
+//	origin Point
+//}
+//
+//// NewImagePattern returns a new image pattern.
+//func NewImagePattern(iimg image.Image, res Resolution, origin Point) *ImagePattern {
+//	img, ok := iimg.(*image.RGBA)
+//	if !ok {
+//		bounds := iimg.Bounds()
+//		img = image.NewRGBA(image.Rect(0, 0, bounds.Dx(), bounds.Dy()))
+//		draw.Draw(img, img.Bounds(), iimg, bounds.Min, draw.Src)
+//	}
+//	return &ImagePattern{
+//		img:    img,
+//		res:    res,
+//		origin: origin,
+//	}
+//}
+//
+//// SetColorSpace returns the linear gradient with the given color space. Automatically called by the rasterizer.
+//func (p *ImagePattern) SetColorSpace(colorSpace ColorSpace) Pattern {
+//	if _, ok := colorSpace.(LinearColorSpace); ok {
+//		return p
+//	}
+//	// TODO: optimize
+//	pattern := *p
+//	bounds := p.img.Bounds()
+//	pattern.img = image.NewRGBA(image.Rect(0, 0, bounds.Dx(), bounds.Dy()))
+//	draw.Draw(pattern.img, pattern.img.Bounds(), p.img, bounds.Min, draw.Src)
+//	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+//		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+//			col := pattern.img.RGBAAt(x, y)
+//			col = colorSpace.ToLinear(col)
+//			pattern.img.SetRGBA(x, y, col)
+//		}
+//	}
+//	return &pattern
+//}
+//
+//// At returns the color at position (x,y).
+//func (p *ImagePattern) At(x, y float64) color.RGBA {
+//	x = (x - p.origin.X) * p.res.DPMM()
+//	y = (y - p.origin.Y) * p.res.DPMM()
+//
+//	var s [4]uint8
+//	ix0, iy0 := int(x), int(y)
+//	fx, fy := x-float64(ix0), y-float64(iy0)
+//	ix0 = ix0 % p.img.Bounds().Dx()
+//	iy0 = iy0 % p.img.Bounds().Dy()
+//	ix1 := (ix0 + 1) % p.img.Bounds().Dx()
+//	iy1 := (iy0 + 1) % p.img.Bounds().Dy()
+//	d00 := p.img.PixOffset(ix0, iy0)
+//	d10 := p.img.PixOffset(ix1, iy0)
+//	d01 := p.img.PixOffset(ix0, iy1)
+//	d11 := p.img.PixOffset(ix1, iy1)
+//	for i := 0; i < 4; i++ {
+//		s[i] = uint8((1.0-fy)*((1.0-fx)*float64(p.img.Pix[d00+i])+fx*float64(p.img.Pix[d10+i])) + fy*((1.0-fx)*float64(p.img.Pix[d01+i])+fx*float64(p.img.Pix[d11+i])) + 0.5)
+//	}
+//	return color.RGBA{s[0], s[1], s[2], s[3]}
+//}
