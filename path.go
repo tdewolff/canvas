@@ -1263,7 +1263,7 @@ func (p *Path) Length() float64 {
 	return d
 }
 
-// Transform transforms the path by the given transformation matrix and returns a new path. It modifies the path in-place.
+// Transform transforms the path by the given transformation matrix. It modifies the path in-place.
 func (p *Path) Transform(m Matrix) *Path {
 	_, _, _, xscale, yscale, _ := m.Decompose()
 	for i := 0; i < len(p.d); {
@@ -1340,14 +1340,19 @@ func (p *Path) Transform(m Matrix) *Path {
 	return p
 }
 
-// Translate translates the path by (x,y) and returns a new path.
+// Translate translates the path by (x,y). It modifies the path in-place.
 func (p *Path) Translate(x, y float64) *Path {
 	return p.Transform(Identity.Translate(x, y))
 }
 
-// Scale scales the path by (x,y) and returns a new path.
-func (p *Path) Scale(x, y float64) *Path {
-	return p.Transform(Identity.Scale(x, y))
+// Scale scales the path by (sx,sy). It modifies the path in-place.
+func (p *Path) Scale(sx, sy float64) *Path {
+	return p.Transform(Identity.Scale(sx, sy))
+}
+
+// Rotate rotates the path by deg degrees. It modifies the path in-place.
+func (p *Path) Rotate(deg float64) *Path {
+	return p.Transform(Identity.Rotate(deg))
 }
 
 // TransformFunc transforms the path by the given function: (x,y)=>(x,y). It modifies the path in-place.
