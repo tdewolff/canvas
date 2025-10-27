@@ -1011,6 +1011,7 @@ func TestPathOr(t *testing.T) {
 		// touching edges
 		{"L2 0L2 2L0 2z", "M2 0L4 0L4 2L2 2z", "L4 0L4 2L0 2z"},
 		{"L2 0L2 2L0 2z", "M2 1L4 1L4 3L2 3z", "L2 0L2 1L4 1L4 3L2 3L2 2L0 2z"},
+		{"L2 0L2 2L0 2zM2 0L4 0L4 2L2 2z", "M2.5 0.5L3.5 0.5L3.5 1.5L2.5 1.5z", "L4 0L4 2L0 2z"},
 
 		// no overlap
 		{"L10 0L5 10z", "M0 10L10 10L5 20z", "L10 0L5 10zM0 10L10 10L5 20z"},
@@ -1055,7 +1056,7 @@ func TestPathOr(t *testing.T) {
 
 		// open
 		{"M5 1L5 9", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM5 1L5 9"},                     // in
-		{"M15 1L15 9", "L10 0L10 10L0 10z", "M15 1L15 9M0 0L10 0L10 10L0 10z"},             // out
+		{"M15 1L15 9", "L10 0L10 10L0 10z", "M0 0L10 0L10 10L0 10zM15 1L15 9"},             // out
 		{"M5 5L5 15", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM5 5L5 10L5 15"},              // cross
 		{"L10 10", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM0 0L10 10"},                     // touch
 		{"L5 0L5 5", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM5 0L5 5"},                     // touch with parallel
@@ -1151,7 +1152,7 @@ func TestPathXor(t *testing.T) {
 
 		// open
 		{"M5 1L5 9", "L10 0L10 10L0 10z", "L10 0L10 10L0 10z"},                             // in
-		{"M15 1L15 9", "L10 0L10 10L0 10z", "M15 1L15 9M0 0L10 0L10 10L0 10z"},             // out
+		{"M15 1L15 9", "L10 0L10 10L0 10z", "M0 0L10 0L10 10L0 10zM15 1L15 9"},             // out
 		{"M5 5L5 15", "L10 0L10 10L0 10z", "L10 0L10 10L0 10zM5 10L5 15"},                  // cross
 		{"L10 10", "L10 0L10 10L0 10z", "L10 0L10 10L0 10z"},                               // touch
 		{"L5 0L5 5", "L10 0L10 10L0 10z", "L10 0L10 10L0 10z"},                             // touch with parallel

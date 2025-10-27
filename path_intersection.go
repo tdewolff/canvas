@@ -1029,7 +1029,7 @@ func (a *SweepPoint) CompareH(b *SweepPoint) int {
 func (a *SweepPoint) compareOverlapsV(b *SweepPoint) int {
 	// compare segments vertically that overlap (ie. are the same)
 	if a.clipping != b.clipping {
-		// for equal segments, clipping path is virtually on top (or left if vertical) of subject
+		// clipping path is virtually on top (or left if vertical) of subject
 		if b.clipping {
 			return -1
 		} else {
@@ -1037,7 +1037,7 @@ func (a *SweepPoint) compareOverlapsV(b *SweepPoint) int {
 		}
 	}
 
-	// equal segment on same path, sort by segment index
+	// higher segment index is virtually on top
 	if a.segment != b.segment {
 		if a.segment < b.segment {
 			return -1
@@ -1973,13 +1973,15 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 			}
 			if !pOverlaps[i] && (op == opOR || op == opXOR || op == opNOT) {
 				// path bounding boxes do not overlap, thus no intersections
-				Rs = append(Rs, ps[i].Settle(fillRule))
+				pOverlaps[i] = true
+				//Rs = append(Rs, ps[i].Settle(fillRule))
 			}
 		}
 		for j := range qs {
 			if !qOverlaps[j] && (op == opOR || op == opXOR) {
 				// path bounding boxes do not overlap, thus no intersections
-				Rs = append(Rs, qs[j].Settle(fillRule))
+				qOverlaps[j] = true
+				//Rs = append(Rs, qs[j].Settle(fillRule))
 			}
 		}
 	}
