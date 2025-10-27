@@ -77,7 +77,7 @@ func main() {
 	//candyShop.Add(0.5, canvas.RGB(0.87, 0.85, 0.65))
 	//candyShop.Add(1.0, canvas.RGB(0.54, 0.99, 0.77))
 
-	deepOcean := canvas.Stops{}
+	deepOcean := canvas.Grad{}
 	deepOcean.Add(0.0, canvas.Hex("#f2f2cc"))
 	deepOcean.Add(1.0, canvas.Hex("#00194c"))
 
@@ -95,7 +95,7 @@ func main() {
 	fmt.Printf("%v chile=%d europe=%d\n", time.Since(t), chile.Len(), europe.Len())
 	bounds = overlap.Bounds()
 	gradient := canvas.NewLinearGradient(canvas.Point{bounds.X0, bounds.Y1}, canvas.Point{bounds.X1, bounds.Y0})
-	gradient.Stops = deepOcean
+	gradient.Grad = deepOcean
 	ctx.SetFill(gradient)
 	ctx.SetStrokeColor(canvas.Black)
 	ctx.SetStrokeWidth(0.025)

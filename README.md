@@ -10,6 +10,8 @@
 
 **[Live HTMLCanvas demo](https://tdewolff.github.io/canvas/examples/html-canvas/index.html)**
 
+**[Benchmarks](https://github.com/tdewolff/canvas_benchmarks)**
+
 Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster images (PNG, JPG, GIF, ...), HTML Canvas through WASM, OpenGL, and Gio. It has a wide range of path manipulation functionality such as flattening, stroking and dashing implemented. Additionally, it has a text formatter and embeds and subsets fonts (TTF, OTF, WOFF, WOFF2, or EOT) or converts them to outlines. It can be considered a Cairo or node-canvas alternative in Go. See the example below in Figure 1 for an overview of the functionality.
 
 ![Preview](https://raw.githubusercontent.com/tdewolff/canvas/master/resources/preview/preview.png)
@@ -77,7 +79,7 @@ Numerical stability refers to cases where two segments are extremely close where
 
 Correctness and performance has been tested by drawing all land masses and islands from OpenStreetMap at various scales, which is a huge input (1 GB of compressed Shape files) with extremely degenerate data (many overlapping segments, overlapping points, vertical segments, self-intersections, extremely close intersections, different contour orientations, and so on).
 
-TODO: add benchmark with other libraries
+See [Benchmarks](https://github.com/tdewolff/canvas_benchmarks) for a comparison with other libraries.
 
 See [Boolean operations](https://github.com/tdewolff/canvas/wiki/Boolean-operations) for more information.
 
