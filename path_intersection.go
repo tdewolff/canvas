@@ -1193,7 +1193,7 @@ func addIntersections(zs []Point, queue *SweepEvents, event, a, b *SweepPoint) b
 		// handling right-endpoints. New intersections must be at, or to the right/above the
 		// current event.
 		for i := range zs {
-			zold := zs[i]
+			//zold := zs[i]
 			z := &zs[i]
 			if z.X < event.X {
 				z.X = event.X
