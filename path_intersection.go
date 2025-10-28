@@ -1205,7 +1205,7 @@ func addIntersections(zs []Point, queue *SweepEvents, event, a, b *SweepPoint) b
 			bMaxY := math.Max(b.Y, b.other.Y)
 			if a.other.X < z.X || b.other.X < z.X || aMaxY < z.Y || bMaxY < z.Y {
 				// TODO: handled/check this case, apparently a and b are both _below_ the event
-				fmt.Println("WARNING: intersection moved outside of segment:", zold, "=>", z)
+				//fmt.Println("WARNING: intersection moved outside of segment:", zold, "=>", z)
 				//w, _ := os.Create("p.gob")
 				//gob.NewEncoder(w).Encode(ps)
 				//w.Close()
@@ -1537,7 +1537,7 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 					if square.Lower == nil {
 						// TODO: find test to cover, or determine this never happens
 						// this is set if the reference node is below the square
-						fmt.Println("NOTE: new test case found!")
+						//fmt.Println("NOTE: new test case found! a")
 						square.Lower = next
 					}
 				}
@@ -1560,7 +1560,7 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 					if square.Upper == nil {
 						// TODO: find test to cover, or determine this never happens
 						// this is set if the reference node is above the square
-						fmt.Println("NOTE: new test case found!")
+						//fmt.Println("NOTE: new test case found! b")
 						square.Upper = prev
 					}
 				}
@@ -1952,54 +1952,54 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 	// TODO: cluster paths that overlap and treat non-overlapping clusters separately, this
 	// makes the algorithm "more linear"
 	Rs := []*Path{}
-	var pOverlaps, qOverlaps []bool
-	if qs != nil {
-		pBounds := make([]Rect, len(ps))
-		qBounds := make([]Rect, len(qs))
-		for i := range ps {
-			pBounds[i] = ps[i].FastBounds()
-		}
-		for i := range qs {
-			qBounds[i] = qs[i].FastBounds()
-		}
-		pOverlaps = make([]bool, len(ps))
-		qOverlaps = make([]bool, len(qs))
-		for i := range ps {
-			for j := range qs {
-				if pBounds[i].Touches(qBounds[j]) {
-					pOverlaps[i] = true
-					qOverlaps[j] = true
-				}
-			}
-			if !pOverlaps[i] && (op == opOR || op == opXOR || op == opNOT) {
-				// path bounding boxes do not overlap, thus no intersections
-				pOverlaps[i] = true
-				//Rs = append(Rs, ps[i].Settle(fillRule))
-			}
-		}
-		for j := range qs {
-			if !qOverlaps[j] && (op == opOR || op == opXOR) {
-				// path bounding boxes do not overlap, thus no intersections
-				qOverlaps[j] = true
-				//Rs = append(Rs, qs[j].Settle(fillRule))
-			}
-		}
-	}
+	//var pOverlaps, qOverlaps []bool
+	//if qs != nil {
+	//	pBounds := make([]Rect, len(ps))
+	//	qBounds := make([]Rect, len(qs))
+	//	for i := range ps {
+	//		pBounds[i] = ps[i].FastBounds()
+	//	}
+	//	for i := range qs {
+	//		qBounds[i] = qs[i].FastBounds()
+	//	}
+	//	pOverlaps = make([]bool, len(ps))
+	//	qOverlaps = make([]bool, len(qs))
+	//	for i := range ps {
+	//		for j := range qs {
+	//			if pBounds[i].Touches(qBounds[j]) {
+	//				pOverlaps[i] = true
+	//				qOverlaps[j] = true
+	//			}
+	//		}
+	//		if !pOverlaps[i] && (op == opOR || op == opXOR || op == opNOT) {
+	//			// path bounding boxes do not overlap, thus no intersections
+	//			pOverlaps[i] = true
+	//			//Rs = append(Rs, ps[i].Settle(fillRule))
+	//		}
+	//	}
+	//	for j := range qs {
+	//		if !qOverlaps[j] && (op == opOR || op == opXOR) {
+	//			// path bounding boxes do not overlap, thus no intersections
+	//			qOverlaps[j] = true
+	//			//Rs = append(Rs, qs[j].Settle(fillRule))
+	//		}
+	//	}
+	//}
 
 	// construct the priority queue of sweep events
 	pSeg, qSeg := 0, 0
 	queue := &SweepEvents{}
 	for i := range ps {
-		if qs == nil || pOverlaps[i] {
-			pSeg = queue.AddPathEndpoints(ps[i], pSeg, false)
-		}
+		//if qs == nil || pOverlaps[i] {
+		pSeg = queue.AddPathEndpoints(ps[i], pSeg, false)
+		//}
 	}
 	if qs != nil {
 		for i := range qs {
-			if qOverlaps[i] {
-				qs[i].Close() // implicitly close all subpaths on Q
-				qSeg = queue.AddPathEndpoints(qs[i], qSeg, true)
-			}
+			//if qOverlaps[i] {
+			qs[i].Close() // implicitly close all subpaths on Q
+			qSeg = queue.AddPathEndpoints(qs[i], qSeg, true)
+			//}
 		}
 	}
 	queue.Init() // sort from left to right
