@@ -29,14 +29,3 @@ jobs:
         name: codecov
         fail_ci_if_error: true
         token: ${{ secrets.CODECOV_TOKEN }}
-  golangci:
-    name: lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: openrndr/setup-opengl@v1.1
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8
-        continue-on-error: true
-        with:
-          version: latest
