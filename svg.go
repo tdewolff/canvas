@@ -486,16 +486,16 @@ func (svg *svgParser) parseDefs(l *xml.Lexer) {
 				rect := layer.path.FastBounds()
 				x1t, y1t, x2t, y2t := x1, y1, x2, y2
 				if x1p {
-					x1t = (rect.X0 + rect.W()*x1t) * 25.4 / 96.0
+					x1t = rect.X0 + rect.W()*x1t
 				}
 				if y1p {
-					y1t = (rect.Y0 + rect.H()*y1t) * 25.4 / 96.0
+					y1t = rect.Y0 + rect.H()*y1t
 				}
 				if x2p {
-					x2t = (rect.X0 + rect.W()*x2t) * 25.4 / 96.0
+					x2t = rect.X0 + rect.W()*x2t
 				}
 				if y2p {
-					y2t = (rect.Y0 + rect.H()*y2t) * 25.4 / 96.0
+					y2t = rect.Y0 + rect.H()*y2t
 				}
 
 				linearGradient := grad.ToLinear(Point{x1t, y1t}, Point{x2t, y2t})
@@ -728,12 +728,16 @@ func (svg *svgParser) setAttribute(key, val string) {
 	case "fill":
 		if id := svg.parseUrlID(val); id != "" {
 			svg.activeDefs["fill"] = svg.defs[id]
+			// Set a temporary fill so that DrawPath doesn't early return
+			svg.ctx.SetFill(Paint{Color: Black})
 		} else {
 			svg.ctx.SetFill(svg.parsePaint(val))
 		}
 	case "stroke":
 		if id := svg.parseUrlID(val); id != "" {
 			svg.activeDefs["stroke"] = svg.defs[id]
+			// Set a temporary stroke so that DrawPath doesn't early return
+			svg.ctx.SetStroke(Paint{Color: Black})
 		} else {
 			svg.ctx.SetStroke(svg.parsePaint(val))
 		}
