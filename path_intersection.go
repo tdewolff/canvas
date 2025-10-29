@@ -1193,7 +1193,7 @@ func addIntersections(zs []Point, queue *SweepEvents, event, a, b *SweepPoint) b
 		// handling right-endpoints. New intersections must be at, or to the right/above the
 		// current event.
 		for i := range zs {
-			//zold := zs[i]
+			zold := zs[i]
 			z := &zs[i]
 			if z.X < event.X {
 				z.X = event.X
@@ -1205,7 +1205,7 @@ func addIntersections(zs []Point, queue *SweepEvents, event, a, b *SweepPoint) b
 			bMaxY := math.Max(b.Y, b.other.Y)
 			if a.other.X < z.X || b.other.X < z.X || aMaxY < z.Y || bMaxY < z.Y {
 				// TODO: handled/check this case, apparently a and b are both _below_ the event
-				//fmt.Println("WARNING: intersection moved outside of segment:", zold, "=>", z)
+				fmt.Println("WARNING: intersection moved outside of segment:", zold, "=>", z)
 				//w, _ := os.Create("p.gob")
 				//gob.NewEncoder(w).Encode(ps)
 				//w.Close()
@@ -1521,7 +1521,7 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 				square.Lower, square.Upper = square.Node, square.Node
 			}
 
-			// find upper node
+			// reference node is in or below, find upper node
 			if !above {
 				for next := square.Node.Next(); next != nil; next = next.Next() {
 					y0, y1 := next.ToleranceEdgeY(x0, x1)
@@ -1535,15 +1535,13 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 					}
 					square.Upper = next
 					if square.Lower == nil {
-						// TODO: find test to cover, or determine this never happens
 						// this is set if the reference node is below the square
-						//fmt.Println("NOTE: new test case found! a")
 						square.Lower = next
 					}
 				}
 			}
 
-			// find lower node and set reference node to the node completely below the square
+			// reference node is in or above, find lower node and set reference node to the node completely below the square
 			if !below {
 				prev := square.Node.Prev()
 				for ; prev != nil; prev = prev.Prev() {
@@ -1558,9 +1556,8 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 					}
 					square.Lower = prev
 					if square.Upper == nil {
-						// TODO: find test to cover, or determine this never happens
-						// this is set if the reference node is above the square
-						//fmt.Println("NOTE: new test case found! b")
+						// TODO: this should never happen!
+						fmt.Println("NOTE: new test case found!")
 						square.Upper = prev
 					}
 				}
