@@ -1193,7 +1193,8 @@ func addIntersections(zs []Point, queue *SweepEvents, event, a, b *SweepPoint) b
 		// handling right-endpoints. New intersections must be at, or to the right/above the
 		// current event.
 		for i := range zs {
-			zold := zs[i]
+			//zold := zs[i]
+			// NOTE: an intersections _may_ move to the right/above the current segments
 			z := &zs[i]
 			if z.X < event.X {
 				z.X = event.X
@@ -1203,19 +1204,10 @@ func addIntersections(zs []Point, queue *SweepEvents, event, a, b *SweepPoint) b
 
 			aMaxY := math.Max(a.Y, a.other.Y)
 			bMaxY := math.Max(b.Y, b.other.Y)
-			if a.other.X < z.X || b.other.X < z.X || aMaxY < z.Y || bMaxY < z.Y {
-				// TODO: handled/check this case, apparently a and b are both _below_ the event
-				fmt.Println("WARNING: intersection moved outside of segment:", zold, "=>", z)
-				//w, _ := os.Create("p.gob")
-				//gob.NewEncoder(w).Encode(ps)
-				//w.Close()
-				//fmt.Println(ps)
-				//fmt.Println("a", a)
-				//fmt.Println("b", b)
-				//fmt.Println("z", z)
-				//fmt.Println("event", event)
-				//panic("moved outside of segments")
-			}
+			//if a.other.X < z.X || b.other.X < z.X || aMaxY < z.Y || bMaxY < z.Y {
+			//	// TODO: handle/check this case, apparently a and b are both _below_ the event
+			//	fmt.Println("WARNING: intersection moved outside of segment:", zold, "=>", z)
+			//}
 		}
 	}
 
