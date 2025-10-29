@@ -2,3 +2,6 @@ version: "2"
 
 linters:
   default: all
+  disable:
+    - typecheck
+    - wsl
