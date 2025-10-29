@@ -1202,8 +1202,8 @@ func addIntersections(zs []Point, queue *SweepEvents, event, a, b *SweepPoint) b
 				z.Y = event.Y
 			}
 
-			aMaxY := math.Max(a.Y, a.other.Y)
-			bMaxY := math.Max(b.Y, b.other.Y)
+			//aMaxY := math.Max(a.Y, a.other.Y)
+			//bMaxY := math.Max(b.Y, b.other.Y)
 			//if a.other.X < z.X || b.other.X < z.X || aMaxY < z.Y || bMaxY < z.Y {
 			//	// TODO: handle/check this case, apparently a and b are both _below_ the event
 			//	fmt.Println("WARNING: intersection moved outside of segment:", zold, "=>", z)
