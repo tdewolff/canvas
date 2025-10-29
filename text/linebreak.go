@@ -491,7 +491,9 @@ func (lb *linebreaker) mainLoop(b int, tolerance float64, retry int) {
 		}
 		lb.activeNodes.Push(best)
 		lb.removedNodes = removedNodes
-		if retry == 1 {
+		if best.Position == b {
+			return
+		} else if retry == 1 {
 			tolerance = math.Inf(1)
 		}
 		lb.mainLoop(b, tolerance, retry+1)

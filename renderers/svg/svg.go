@@ -78,9 +78,7 @@ func New(w io.Writer, width, height float64, opts *Options) *SVG {
 func (r *SVG) Close() error {
 	if 0 < len(r.defs) {
 		for _, def := range r.defs {
-			fmt.Fprintf(r.w, "<defs>")
-			fmt.Fprintf(r.w, def[1])
-			fmt.Fprintf(r.w, "</defs>")
+			fmt.Fprintf(r.w, "<defs>%s</defs>", def[1])
 		}
 	}
 	if r.customStyle != "" || r.opts.EmbedFonts && 0 < len(r.fonts) {
@@ -205,7 +203,7 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 	if !style.HasStroke() {
 		if style.HasFill() {
 			if !style.Fill.IsColor() || style.Fill.Color != canvas.Black {
-				fmt.Fprintf(r.w, `" fill="`+fillPaint)
+				fmt.Fprintf(r.w, `" fill="%v`, fillPaint)
 			}
 			if style.FillRule == canvas.EvenOdd {
 				fmt.Fprintf(r.w, `" fill-rule="evenodd`)
@@ -217,7 +215,7 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		b := &strings.Builder{}
 		if style.HasFill() {
 			if !style.Fill.IsColor() || style.Fill.Color != canvas.Black {
-				fmt.Fprintf(b, ";fill:"+fillPaint)
+				fmt.Fprintf(b, ";fill:%v", fillPaint)
 			}
 			if style.FillRule == canvas.EvenOdd {
 				fmt.Fprintf(b, ";fill-rule:evenodd")
@@ -226,7 +224,7 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 			fmt.Fprintf(b, ";fill:none")
 		}
 		if style.HasStroke() && !strokeUnsupported {
-			fmt.Fprintf(b, `;stroke:`+strokePaint)
+			fmt.Fprintf(b, `;stroke:%v`, strokePaint)
 			if style.StrokeWidth != 1.0 {
 				fmt.Fprintf(b, ";stroke-width:%v", dec(style.StrokeWidth))
 			}
@@ -281,7 +279,7 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		stroke = stroke.Transform(canvas.Identity.ReflectYAbout(r.height / 2.0).Mul(m))
 		fmt.Fprintf(r.w, `<path d="%s`, stroke.ToSVG())
 		if !style.Stroke.IsColor() || style.Stroke.Color != canvas.Black {
-			fmt.Fprintf(r.w, `" fill="`+strokePaint)
+			fmt.Fprintf(r.w, `" fill="%v`, strokePaint)
 		}
 		if style.FillRule == canvas.EvenOdd {
 			fmt.Fprintf(r.w, `" fill-rule="evenodd`)
@@ -332,13 +330,13 @@ func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace, rtl bool, fill str
 		buf.WriteTo(r.w)
 
 		if !face.Fill.Equal(faceMain.Fill) {
-			fmt.Fprintf(r.w, `;fill:`+fill)
+			fmt.Fprintf(r.w, `;fill:%v`, fill)
 		}
 		if rtl {
 			fmt.Fprintf(r.w, `;direction:rtl`)
 		}
 	} else if differences == 1 && !face.Fill.Equal(faceMain.Fill) {
-		fmt.Fprintf(r.w, `" fill="`+fill)
+		fmt.Fprintf(r.w, `" fill="%v`, fill)
 	} else if 0 < differences {
 		fmt.Fprintf(r.w, `" style="`)
 		buf := &bytes.Buffer{}
@@ -354,7 +352,7 @@ func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace, rtl bool, fill str
 			fmt.Fprintf(buf, `;font-variant:normal`)
 		}
 		if !face.Fill.Equal(faceMain.Fill) {
-			fmt.Fprintf(buf, `;fill:`+fill)
+			fmt.Fprintf(buf, `;fill:%v`, fill)
 		}
 		if rtl {
 			fmt.Fprintf(r.w, `;direction:rtl`)
@@ -405,7 +403,7 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 	}
 	fmt.Fprintf(r.w, ` %vpx %s`, num(faceMain.Size), faceMain.Name())
 	if !faceMain.Fill.IsColor() || faceMain.Fill.Color != canvas.Black {
-		fmt.Fprintf(r.w, `;fill:`+r.writePaint(faceMain.Fill, m))
+		fmt.Fprintf(r.w, `;fill:%v`, r.writePaint(faceMain.Fill, m))
 	}
 	if text.WritingMode != canvas.HorizontalTB {
 		if text.WritingMode == canvas.VerticalLR {
