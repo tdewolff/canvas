@@ -131,7 +131,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	ctx.DrawText(x, y, text)
 
 	// Draw the word Stroke being stroked
-	gradient := NewRadialGradient(Point{120.0, 5.0}, 0.0, Point{140.0, 5.0}, 60.0)
+	gradient := NewRadialGradient(Point{20.0, 0.0}, 0.0, Point{40.0, 0.0}, 60.0)
 	gradient.Add(0.0, Turquoise)
 	gradient.Add(1.0, Red)
 	ctx.SetFillGradient(gradient)

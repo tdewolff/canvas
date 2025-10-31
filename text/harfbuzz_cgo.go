@@ -131,15 +131,15 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 		glyphs[i].XOffset = int32(position.x_offset)
 		glyphs[i].YOffset = int32(position.y_offset)
 
-		end := len(rtext)
+		end := len(text)
 		if direction == RightToLeft || direction == BottomToTop {
 			if 0 < i {
-				end = buf.Info[i-1].Cluster
+				end = int(C.get_glyph_info(infos, C.uint(i-1)).cluster)
 			}
-		} else if i+1 < len(buf.Info) {
-			end = buf.Info[i+1].Cluster
+		} else if i+1 < int(length) {
+			end = int(C.get_glyph_info(infos, C.uint(i+1)).cluster)
 		}
-		glyphs[i].Text = string(rtext[info.Cluster:end])
+		glyphs[i].Text = text[info.cluster:end]
 	}
 
 	if language != "" {

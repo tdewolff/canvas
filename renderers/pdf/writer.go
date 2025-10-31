@@ -1357,9 +1357,9 @@ func (w *pdfPageWriter) DrawImage(img image.Image, enc canvas.ImageEncoding, m c
 }
 
 func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pdfRef {
-	if ref, ok := w.pdf.images[img]; ok {
-		return ref
-	}
+	//if ref, ok := w.pdf.images[img]; ok {
+	//	return ref
+	//}
 
 	var filter pdfFilter
 	var stream []byte
@@ -1439,7 +1439,7 @@ func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pd
 		dict:   dict,
 		stream: stream,
 	})
-	w.pdf.images[img] = ref
+	//w.pdf.images[img] = ref
 	return ref
 }
 

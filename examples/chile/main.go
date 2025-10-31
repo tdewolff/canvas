@@ -94,9 +94,7 @@ func main() {
 	overlap := chile.And(europe)
 	fmt.Printf("%v chile=%d europe=%d\n", time.Since(t), chile.Len(), europe.Len())
 	bounds = overlap.Bounds()
-	gradient := canvas.NewLinearGradient(canvas.Point{bounds.X0, bounds.Y1}, canvas.Point{bounds.X1, bounds.Y0})
-	gradient.Grad = deepOcean
-	ctx.SetFill(gradient)
+	ctx.SetFill(deepOcean.ToLinear(canvas.Point{bounds.X0, bounds.Y1}, canvas.Point{bounds.X1, bounds.Y0}))
 	ctx.SetStrokeColor(canvas.Black)
 	ctx.SetStrokeWidth(0.025)
 	ctx.DrawPath(0.0, 0.0, overlap)
