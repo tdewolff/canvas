@@ -122,17 +122,6 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		}
 	}
 
-	if style.Fill.IsPattern() {
-		style.Fill.Pattern = style.Fill.Pattern.Transform(m)
-	} else if style.Fill.IsGradient() {
-		style.Fill.Gradient = style.Fill.Gradient.Transform(m)
-	}
-	if style.Stroke.IsPattern() {
-		style.Stroke.Pattern = style.Stroke.Pattern.Transform(m)
-	} else if style.Stroke.IsGradient() {
-		style.Stroke.Gradient = style.Stroke.Gradient.Transform(m)
-	}
-
 	// PDFs don't support connecting first and last dashes if path is closed, so we move the start of the path if this is the case
 	// TODO: closing dashes
 	//if style.DashesClose {
@@ -148,7 +137,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 
 	if !style.HasStroke() || !strokeUnsupported {
 		if style.HasFill() && !style.HasStroke() {
-			r.w.SetFill(style.Fill)
+			r.w.SetFill(style.Fill, m)
 			r.w.Write([]byte(" "))
 			r.w.Write([]byte(data))
 			r.w.Write([]byte(" f"))
@@ -156,7 +145,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 				r.w.Write([]byte("*"))
 			}
 		} else if !style.HasFill() && style.HasStroke() {
-			r.w.SetStroke(style.Stroke)
+			r.w.SetStroke(style.Stroke, m)
 			r.w.SetLineWidth(style.StrokeWidth)
 			r.w.SetLineCap(style.StrokeCapper)
 			r.w.SetLineJoin(style.StrokeJoiner)
@@ -171,8 +160,8 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		} else if style.HasFill() && style.HasStroke() {
 			sameAlpha := style.Fill.IsColor() && style.Stroke.IsColor() && style.Fill.Color.A == style.Stroke.Color.A
 			if sameAlpha {
-				r.w.SetFill(style.Fill)
-				r.w.SetStroke(style.Stroke)
+				r.w.SetFill(style.Fill, m)
+				r.w.SetStroke(style.Stroke, m)
 				r.w.SetLineWidth(style.StrokeWidth)
 				r.w.SetLineCap(style.StrokeCapper)
 				r.w.SetLineJoin(style.StrokeJoiner)
@@ -188,7 +177,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 					r.w.Write([]byte("*"))
 				}
 			} else {
-				r.w.SetFill(style.Fill)
+				r.w.SetFill(style.Fill, m)
 				r.w.Write([]byte(" "))
 				r.w.Write([]byte(data))
 				r.w.Write([]byte(" f"))
@@ -196,7 +185,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 					r.w.Write([]byte("*"))
 				}
 
-				r.w.SetStroke(style.Stroke)
+				r.w.SetStroke(style.Stroke, m)
 				r.w.SetLineWidth(style.StrokeWidth)
 				r.w.SetLineCap(style.StrokeCapper)
 				r.w.SetLineJoin(style.StrokeJoiner)
@@ -213,7 +202,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 	} else {
 		// style.HasStroke() && strokeUnsupported
 		if style.HasFill() {
-			r.w.SetFill(style.Fill)
+			r.w.SetFill(style.Fill, m)
 			r.w.Write([]byte(" "))
 			r.w.Write([]byte(data))
 			r.w.Write([]byte(" f"))
@@ -228,7 +217,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		}
 		path = path.Stroke(style.StrokeWidth, style.StrokeCapper, style.StrokeJoiner, canvas.Tolerance)
 
-		r.w.SetFill(style.Stroke)
+		r.w.SetFill(style.Stroke, m)
 		r.w.Write([]byte(" "))
 		r.w.Write([]byte(path.Transform(m).ToPDF()))
 		r.w.Write([]byte(" f"))
@@ -249,13 +238,13 @@ func (r *PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
 			style.Fill = span.Face.Fill
 
 			r.w.StartTextObject()
-			r.w.SetFill(span.Face.Fill)
+			r.w.SetFill(span.Face.Fill, m)
 			r.w.SetFont(span.Face.Font, span.Face.Size, span.Direction)
 			r.w.SetTextPosition(m.Translate(x, y).Shear(span.Face.FauxItalic, 0.0))
 
 			if 0.0 < span.Face.FauxBold {
 				r.w.SetTextRenderMode(2)
-				r.w.SetStroke(span.Face.Fill)
+				r.w.SetStroke(span.Face.Fill, m)
 				fmt.Fprintf(r.w, " %v w", dec(span.Face.FauxBold*2.0))
 			} else {
 				r.w.SetTextRenderMode(0)

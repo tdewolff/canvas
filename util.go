@@ -800,7 +800,12 @@ func (m Matrix) IsTranslation() bool {
 	return Equal(m[0][0], 1.0) && Equal(m[0][1], 0.0) && Equal(m[1][0], 0.0) && Equal(m[1][1], 1.0)
 }
 
-// IsRigid is true if the matrix is orthogonal and consists of only translation, rotation, and reflection transformations.
+// IsScaling is true if the matrix consists of only scaling components, i.e. no rotation, or skew transformations (but may translate).
+func (m Matrix) IsScaling() bool {
+	return (!Equal(m[0][0], 1.0) || !Equal(m[1][1], 1.0)) && Equal(m[0][1], 0.0) && Equal(m[1][0], 0.0)
+}
+
+// IsRigid is true if the matrix is orthogonal and consists of only isometric transformations: translation, rotation, and reflection.
 func (m Matrix) IsRigid() bool {
 	a := m[0][0]*m[0][0] + m[0][1]*m[0][1]
 	b := m[1][0]*m[1][0] + m[1][1]*m[1][1]
@@ -808,7 +813,8 @@ func (m Matrix) IsRigid() bool {
 	return Equal(a, 1.0) && Equal(b, 1.0) && Equal(c, 0.0)
 }
 
-// IsSimilarity is true if the matrix consists of only translation, rotation, reflection, and scaling transformations.
+// IsSimilarity is true if the matrix consists of only translation, rotation, reflection, and uniform scaling transformations. Uniform
+// scaling means that it scales equally horizontally as vertically. If the scaling factor is 1.0, it is also a rigid transformation.
 func (m Matrix) IsSimilarity() bool {
 	a := m[0][0]*m[0][0] + m[0][1]*m[0][1]
 	b := m[1][0]*m[1][0] + m[1][1]*m[1][1]

@@ -114,11 +114,13 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 			}
 		}
 		if style.Fill.IsGradient() {
-			gradient := style.Fill.Gradient.Transform(m).SetColorSpace(r.colorSpace)
+			mInv := m.Inv()
+			gradient := style.Fill.Gradient.SetColorSpace(r.colorSpace)
 			r.scanner.Clear()
 			r.scanner.SetColor(rasterx.ColorFunc(func(x, y int) color.Color {
-				// TODO: convert to dst color model
-				return gradient.At((float64(x)+0.5)/float64(r.resolution), (float64(size.Y-y)-0.5)/float64(r.resolution))
+				p := canvas.Point{(float64(x) + 0.5) / float64(r.resolution), (float64(size.Y-y) - 0.5) / float64(r.resolution)}
+				p = mInv.Dot(p)
+				return gradient.At(p.X, p.Y)
 			}))
 			fill.ToScanxScanner(r.scanner, float64(size.Y), r.resolution)
 			r.scanner.Draw()
@@ -141,11 +143,13 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 			}
 		}
 		if style.Stroke.IsGradient() {
-			gradient := style.Stroke.Gradient.Transform(m).SetColorSpace(r.colorSpace)
+			mInv := m.Inv()
+			gradient := style.Stroke.Gradient.SetColorSpace(r.colorSpace)
 			r.scanner.Clear()
 			r.scanner.SetColor(rasterx.ColorFunc(func(x, y int) color.Color {
-				// TODO: convert to dst color model
-				return gradient.At((float64(x)+0.5)/float64(r.resolution), (float64(size.Y-y)-0.5)/float64(r.resolution))
+				p := canvas.Point{(float64(x) + 0.5) / float64(r.resolution), (float64(size.Y-y) - 0.5) / float64(r.resolution)}
+				p = mInv.Dot(p)
+				return gradient.At(p.X, p.Y)
 			}))
 			stroke.ToScanxScanner(r.scanner, float64(size.Y), r.resolution)
 			r.scanner.Draw()

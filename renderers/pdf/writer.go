@@ -967,15 +967,14 @@ func (w *pdfPageWriter) SetAlpha(alpha float64) {
 }
 
 // SetFill sets the filling paint.
-func (w *pdfPageWriter) SetFill(fill canvas.Paint) {
+func (w *pdfPageWriter) SetFill(fill canvas.Paint, m canvas.Matrix) {
 	if fill.Equal(w.fill) {
 		return
 	}
 	if fill.IsPattern() {
 		// TODO
 	} else if fill.IsGradient() {
-		// TODO: should we unset cs?
-		fmt.Fprintf(w, " /Pattern cs /%v scn", w.getPattern(fill.Gradient))
+		fmt.Fprintf(w, " /Pattern cs /%v scn", w.getPattern(fill.Gradient, m))
 	} else {
 		a := float64(fill.Color.A) / 255.0
 		if fill.Color.R == fill.Color.G && fill.Color.R == fill.Color.B {
@@ -989,7 +988,7 @@ func (w *pdfPageWriter) SetFill(fill canvas.Paint) {
 }
 
 // SetStroke sets the stroking paint.
-func (w *pdfPageWriter) SetStroke(stroke canvas.Paint) {
+func (w *pdfPageWriter) SetStroke(stroke canvas.Paint, m canvas.Matrix) {
 	if stroke.Equal(w.stroke) {
 		return
 	}
@@ -997,7 +996,7 @@ func (w *pdfPageWriter) SetStroke(stroke canvas.Paint) {
 		// TODO
 	} else if stroke.IsGradient() {
 		// TODO: should we unset CS?
-		fmt.Fprintf(w, " /Pattern CS /%v SCN", w.getPattern(stroke.Gradient))
+		fmt.Fprintf(w, " /Pattern CS /%v SCN", w.getPattern(stroke.Gradient, m))
 	} else {
 		a := float64(stroke.Color.A) / 255.0
 		if stroke.Color.R == stroke.Color.G && stroke.Color.R == stroke.Color.B {
@@ -1461,7 +1460,7 @@ func (w *pdfPageWriter) getOpacityGS(a float64) pdfName {
 	return name
 }
 
-func (w *pdfPageWriter) getPattern(gradient canvas.Gradient) pdfName {
+func (w *pdfPageWriter) getPattern(gradient canvas.Gradient, m canvas.Matrix) pdfName {
 	// TODO: support patterns/gradients with alpha channel
 	shading := pdfDict{
 		"ColorSpace": pdfName("DeviceRGB"),
@@ -1478,9 +1477,9 @@ func (w *pdfPageWriter) getPattern(gradient canvas.Gradient) pdfName {
 		shading["Extend"] = pdfArray{true, true}
 	}
 	pattern := pdfDict{
-		"Type":        pdfName("Pattern"),
 		"PatternType": 2,
 		"Shading":     shading,
+		"Matrix":      pdfArray{m[0][0], m[1][0], m[0][1], m[1][1], m[0][2] * ptPerMm, m[1][2] * ptPerMm},
 	}
 
 	if _, ok := w.resources["Pattern"]; !ok {

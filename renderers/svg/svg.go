@@ -555,28 +555,36 @@ func (r *SVG) writePaint(paint canvas.Paint, m canvas.Matrix) string {
 		// TODO
 		return ""
 	} else if paint.IsGradient() {
-		gradient := paint.Gradient.Transform(m)
-
-		h := gradient.Hash()
 		ref := fmt.Sprintf("d%v", len(r.defs))
-		if def, ok := r.defs[h]; ok {
+		if def, ok := r.defs[paint.Gradient]; ok {
 			ref = def[0]
-		} else if linearGradient, ok := gradient.(*canvas.LinearGradient); ok {
+		} else if linearGradient, ok := paint.Gradient.(*canvas.LinearGradient); ok {
 			sb := strings.Builder{}
-			fmt.Fprintf(&sb, `<linearGradient id="%v" gradientUnits="userSpaceOnUse" x1="%v" y1="%v" x2="%v" y2="%v">`, ref, dec(linearGradient.Start.X), dec(r.height-linearGradient.Start.Y), dec(linearGradient.End.X), dec(r.height-linearGradient.End.Y))
+			start := m.Dot(linearGradient.Start)
+			end := m.Dot(linearGradient.End)
+			fmt.Fprintf(&sb, `<linearGradient id="%v" gradientUnits="userSpaceOnUse" x1="%v" y1="%v" x2="%v" y2="%v">`, ref, dec(start.X), dec(r.height-start.Y), dec(end.X), dec(r.height-end.Y))
 			for _, stop := range linearGradient.Grad {
 				fmt.Fprintf(&sb, `<stop offset="%v" stop-color="%v"/>`, dec(stop.Offset), canvas.CSSColor(stop.Color))
 			}
 			fmt.Fprintf(&sb, `</linearGradient>`)
-			r.defs[h] = [2]string{ref, sb.String()}
-		} else if radialGradient, ok := gradient.(*canvas.RadialGradient); ok {
+			r.defs[paint.Gradient] = [2]string{ref, sb.String()}
+		} else if radialGradient, ok := paint.Gradient.(*canvas.RadialGradient); ok {
 			sb := strings.Builder{}
-			fmt.Fprintf(&sb, `<radialGradient id="%v" gradientUnits="userSpaceOnUse" fx="%v" fy="%v" fr="%v" cx="%v" cy="%v" r="%v">`, ref, dec(radialGradient.C0.X), dec(r.height-radialGradient.C0.Y), dec(radialGradient.R0), dec(radialGradient.C1.X), dec(r.height-radialGradient.C1.Y), dec(radialGradient.R1))
+			if m.IsSimilarity() {
+				c0 := m.Dot(radialGradient.C0)
+				c1 := m.Dot(radialGradient.C1)
+				det := math.Abs(m.Det())
+				r0 := det * radialGradient.R0
+				r1 := det * radialGradient.R1
+				fmt.Fprintf(&sb, `<radialGradient id="%v" gradientUnits="userSpaceOnUse" fx="%v" fy="%v" fr="%v" cx="%v" cy="%v" r="%v">`, ref, dec(c0.X), dec(r.height-c0.Y), dec(r0), dec(c1.X), dec(r.height-c1.Y), dec(r1))
+			} else {
+				fmt.Fprintf(&sb, `<radialGradient id="%v" gradientUnits="userSpaceOnUse" gradientTransform="%v" fx="%v" fy="%v" fr="%v" cx="%v" cy="%v" r="%v">`, ref, m.ToSVG(r.height), dec(radialGradient.C0.X), dec(radialGradient.C0.Y), dec(radialGradient.R0), dec(radialGradient.C1.X), dec(radialGradient.C1.Y), dec(radialGradient.R1))
+			}
 			for _, stop := range radialGradient.Grad {
 				fmt.Fprintf(&sb, `<stop offset="%v" stop-color="%v"/>`, dec(stop.Offset), canvas.CSSColor(stop.Color))
 			}
 			fmt.Fprintf(&sb, `</radialGradient>`)
-			r.defs[h] = [2]string{ref, sb.String()}
+			r.defs[paint.Gradient] = [2]string{ref, sb.String()}
 		}
 		return fmt.Sprintf("url(#%v)", ref)
 	} else {

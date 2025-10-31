@@ -1,8 +1,6 @@
 package canvas
 
 import (
-	"encoding/binary"
-	"hash/maphash"
 	"image/color"
 	"math"
 )
@@ -68,9 +66,7 @@ func Hex(s string) color.RGBA {
 
 // Gradient is a gradient pattern for filling.
 type Gradient interface {
-	Transform(Matrix) Gradient
 	SetColorSpace(ColorSpace) Gradient
-	Hash() uint64
 	At(float64, float64) color.RGBA
 }
 
@@ -169,20 +165,6 @@ func NewLinearGradient(start, end Point) *LinearGradient {
 	}
 }
 
-// Transform sets the view. Automatically called by Canvas for coordinate system transformations.
-func (g *LinearGradient) Transform(m Matrix) Gradient {
-	if m == Identity {
-		return g
-	}
-
-	gradient := *g
-	gradient.Start = m.Dot(gradient.Start)
-	gradient.End = m.Dot(gradient.End)
-	gradient.d = gradient.End.Sub(gradient.Start)
-	gradient.d2 = gradient.d.Dot(gradient.d)
-	return &gradient
-}
-
 // SetColorSpace sets the color space. Automatically called by the rasterizer.
 func (g *LinearGradient) SetColorSpace(colorSpace ColorSpace) Gradient {
 	if _, ok := colorSpace.(LinearColorSpace); ok {
@@ -193,22 +175,6 @@ func (g *LinearGradient) SetColorSpace(colorSpace ColorSpace) Gradient {
 		g.Grad[i].Color = colorSpace.ToLinear(g.Grad[i].Color)
 	}
 	return g
-}
-
-func (g *LinearGradient) Hash() uint64 {
-	var h maphash.Hash
-	binary.Write(&h, binary.LittleEndian, float32(g.Start.X))
-	binary.Write(&h, binary.LittleEndian, float32(g.Start.Y))
-	binary.Write(&h, binary.LittleEndian, float32(g.End.X))
-	binary.Write(&h, binary.LittleEndian, float32(g.End.Y))
-	for _, stop := range g.Grad {
-		binary.Write(&h, binary.LittleEndian, float32(stop.Offset))
-		binary.Write(&h, binary.LittleEndian, stop.Color.R)
-		binary.Write(&h, binary.LittleEndian, stop.Color.G)
-		binary.Write(&h, binary.LittleEndian, stop.Color.B)
-		binary.Write(&h, binary.LittleEndian, stop.Color.A)
-	}
-	return h.Sum64()
 }
 
 // At returns the color at position (x,y).
@@ -251,20 +217,6 @@ func NewRadialGradient(c0 Point, r0 float64, c1 Point, r1 float64) *RadialGradie
 	}
 }
 
-// Transform sets the view. Automatically called by Canvas for coordinate system transformations.
-func (g *RadialGradient) Transform(m Matrix) Gradient {
-	if m == Identity {
-		return g
-	}
-
-	gradient := *g
-	gradient.C0 = m.Dot(gradient.C0)
-	gradient.C1 = m.Dot(gradient.C1)
-	gradient.cd = gradient.C1.Sub(gradient.C0)
-	gradient.a = gradient.cd.Dot(gradient.cd) - gradient.dr*gradient.dr
-	return &gradient
-}
-
 // SetColorSpace sets the color space. Automatically called by the rasterizer.
 func (g *RadialGradient) SetColorSpace(colorSpace ColorSpace) Gradient {
 	if _, ok := colorSpace.(LinearColorSpace); ok {
@@ -275,24 +227,6 @@ func (g *RadialGradient) SetColorSpace(colorSpace ColorSpace) Gradient {
 		g.Grad[i].Color = colorSpace.ToLinear(g.Grad[i].Color)
 	}
 	return g
-}
-
-func (g *RadialGradient) Hash() uint64 {
-	var h maphash.Hash
-	binary.Write(&h, binary.LittleEndian, float32(g.C0.X))
-	binary.Write(&h, binary.LittleEndian, float32(g.C0.Y))
-	binary.Write(&h, binary.LittleEndian, float32(g.C1.X))
-	binary.Write(&h, binary.LittleEndian, float32(g.C1.Y))
-	binary.Write(&h, binary.LittleEndian, float32(g.R0))
-	binary.Write(&h, binary.LittleEndian, float32(g.R1))
-	for _, stop := range g.Grad {
-		binary.Write(&h, binary.LittleEndian, float32(stop.Offset))
-		binary.Write(&h, binary.LittleEndian, stop.Color.R)
-		binary.Write(&h, binary.LittleEndian, stop.Color.G)
-		binary.Write(&h, binary.LittleEndian, stop.Color.B)
-		binary.Write(&h, binary.LittleEndian, stop.Color.A)
-	}
-	return h.Sum64()
 }
 
 // At returns the color at position (x,y).
