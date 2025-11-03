@@ -1,9 +1,11 @@
 package canvas
 
 import (
+	"encoding/gob"
 	"fmt"
 	"io"
 	"math"
+	"os"
 	"slices"
 	"sort"
 	"strings"
@@ -1548,8 +1550,11 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 					}
 					square.Lower = prev
 					if square.Upper == nil {
-						// TODO: this should never happen!
-						fmt.Println("NOTE: new test case found!")
+						// TODO: this happens sporadically, add to unit tests
+						w, _ := os.CreateTemp("", "canvas-testcase-*.gob")
+						gob.NewEncoder(w).Encode([]any{_ps, _qs, _op, _fillRule})
+						w.Close()
+						fmt.Println("NOTE: new test case written to", w.Name())
 						square.Upper = prev
 					}
 				}
@@ -1776,6 +1781,10 @@ func (s *SweepPoint) mergeOverlapping(op pathOp, fillRule FillRule) {
 	s.prev = prev
 }
 
+var _ps, _qs Paths
+var _op pathOp
+var _fillRule FillRule
+
 func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 	// TODO: add grid spacing argument
 	// TODO: add Intersects/Touches functions (return bool)
@@ -1790,6 +1799,8 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 	//       right-endpoint for the squares it may now intersect? (Hershberger 2013)
 	// TODO: if overlapping segments can be detected earlier, we can just process left-events
 	//       and make the code simpler
+
+	_ps, _qs, _op, _fillRule = ps, qs, op, fillRule
 
 	// Implementation of the Bentley-Ottmann algorithm by reducing the complexity of finding
 	// intersections to O((n + k) log n), with n the number of segments and k the number of
