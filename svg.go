@@ -516,7 +516,7 @@ func (svg *svgParser) parseDefs(l *xml.Lexer) {
 				tag.attrs["r"] = "50%"
 			}
 			if _, ok := tag.attrs["fx"]; !ok {
-				tag.attrs["fx"] = tag.attrs["cy"]
+				tag.attrs["fx"] = tag.attrs["cx"]
 			}
 			if _, ok := tag.attrs["fy"]; !ok {
 				tag.attrs["fy"] = tag.attrs["cy"]
