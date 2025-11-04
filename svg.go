@@ -505,6 +505,90 @@ func (svg *svgParser) parseDefs(l *xml.Lexer) {
 					layer.style.Stroke = Paint{Gradient: linearGradient}
 				}
 			}
+		case "radialGradient":
+			if _, ok := tag.attrs["cx"]; !ok {
+				tag.attrs["cx"] = "50%"
+			}
+			if _, ok := tag.attrs["cy"]; !ok {
+				tag.attrs["cy"] = "50%"
+			}
+			if _, ok := tag.attrs["r"]; !ok {
+				tag.attrs["r"] = "50%"
+			}
+			if _, ok := tag.attrs["fx"]; !ok {
+				tag.attrs["fx"] = tag.attrs["cy"]
+			}
+			if _, ok := tag.attrs["fy"]; !ok {
+				tag.attrs["fy"] = tag.attrs["cy"]
+			}
+			cxp := strings.HasSuffix(tag.attrs["cx"], "%")
+			cyp := strings.HasSuffix(tag.attrs["cy"], "%")
+			rp := strings.HasSuffix(tag.attrs["r"], "%")
+			fxp := strings.HasSuffix(tag.attrs["fx"], "%")
+			fyp := strings.HasSuffix(tag.attrs["fy"], "%")
+			frp := strings.HasSuffix(tag.attrs["fr"], "%")
+			cx := svg.parseDimension(tag.attrs["cx"], 1.0)
+			cy := svg.parseDimension(tag.attrs["cy"], 1.0)
+			r := svg.parseDimension(tag.attrs["r"], 1.0)
+			fx := svg.parseDimension(tag.attrs["fx"], 1.0)
+			fy := svg.parseDimension(tag.attrs["fy"], 1.0)
+			fr := svg.parseDimension(tag.attrs["fr"], 1.0)
+
+			grad := Grad{}
+			for _, tag := range tag.content {
+				if tag.name != "stop" {
+					continue
+				}
+
+				offset := svg.parseNumber(tag.attrs["offset"])
+				stopColor := svg.parseColor(tag.attrs["stop-color"])
+				if v, ok := tag.attrs["stop-opacity"]; ok {
+					stopOpacity := svg.parseNumber(v)
+					stopColor.R = uint8(float64(stopColor.R) / float64(stopColor.A) * stopOpacity * 255.0)
+					stopColor.G = uint8(float64(stopColor.G) / float64(stopColor.A) * stopOpacity * 255.0)
+					stopColor.B = uint8(float64(stopColor.B) / float64(stopColor.A) * stopOpacity * 255.0)
+					stopColor.A = uint8(stopOpacity * 255.0)
+				}
+				grad.Add(offset, stopColor)
+			}
+
+			svg.defs[id] = func(attr string, c *Canvas) {
+				layers := c.layers[c.zindex]
+				if len(layers) == 0 || layers[len(layers)-1].path == nil {
+					return
+				}
+				layer := &layers[len(layers)-1]
+
+				rect := layer.path.FastBounds()
+				cxt, cyt, rt := cx, cy, r
+				if cxp {
+					cxt = rect.X0 + rect.W()*cxt
+				}
+				if cyp {
+					cyt = rect.Y0 + rect.H()*cyt
+				}
+				if rp {
+					rt = math.Max(rect.W(), rect.H()) * rt
+				}
+
+				fxt, fyt, frt := fx, fy, fr
+				if fxp {
+					fxt = rect.X0 + rect.W()*fxt
+				}
+				if fyp {
+					fyt = rect.Y0 + rect.H()*fyt
+				}
+				if frp {
+					frt = math.Max(rect.W(), rect.H()) * frt
+				}
+
+				radialGradient := grad.ToRadial(Point{fxt, fyt}, frt, Point{cxt, cyt}, rt)
+				if attr == "fill" {
+					layer.style.Fill = Paint{Gradient: radialGradient}
+				} else if attr == "stroke" {
+					layer.style.Stroke = Paint{Gradient: radialGradient}
+				}
+			}
 		case "marker":
 			width, height, viewbox := svg.parseViewBox(tag.attrs["markerWidth"], tag.attrs["markerHeight"], tag.attrs["viewBox"])
 			if width == 0.0 {
