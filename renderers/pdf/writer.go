@@ -968,14 +968,14 @@ func (w *pdfPageWriter) SetAlpha(alpha float64) {
 
 // SetFill sets the filling paint.
 func (w *pdfPageWriter) SetFill(fill canvas.Paint, m canvas.Matrix) {
-	if fill.Equal(w.fill) {
-		return
-	}
 	if fill.IsPattern() {
 		// TODO
 	} else if fill.IsGradient() {
 		fmt.Fprintf(w, " /Pattern cs /%v scn", w.getPattern(fill.Gradient, m))
 	} else {
+		if fill.Equal(w.fill) {
+			return
+		}
 		a := float64(fill.Color.A) / 255.0
 		if fill.Color.R == fill.Color.G && fill.Color.R == fill.Color.B {
 			fmt.Fprintf(w, " %v g", dec(float64(fill.Color.R)/255.0/a))
@@ -989,15 +989,15 @@ func (w *pdfPageWriter) SetFill(fill canvas.Paint, m canvas.Matrix) {
 
 // SetStroke sets the stroking paint.
 func (w *pdfPageWriter) SetStroke(stroke canvas.Paint, m canvas.Matrix) {
-	if stroke.Equal(w.stroke) {
-		return
-	}
 	if stroke.IsPattern() {
 		// TODO
 	} else if stroke.IsGradient() {
 		// TODO: should we unset CS?
 		fmt.Fprintf(w, " /Pattern CS /%v SCN", w.getPattern(stroke.Gradient, m))
 	} else {
+		if stroke.Equal(w.stroke) {
+			return
+		}
 		a := float64(stroke.Color.A) / 255.0
 		if stroke.Color.R == stroke.Color.G && stroke.Color.R == stroke.Color.B {
 			fmt.Fprintf(w, " %v G", dec(float64(stroke.Color.R)/255.0/a))
