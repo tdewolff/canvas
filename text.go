@@ -124,7 +124,8 @@ type Text struct {
 	TextOrientation
 	Width, Height float64
 	Text          string
-	Overflows     bool // true if lines stick out of the box
+	OverflowsX    bool // true if lines stick out of the box (horizontally)
+	OverflowsY    bool // true if lines don't fit in the box (vertically)
 }
 
 type line struct {
@@ -776,8 +777,9 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 		} else if halign == Justify && 0.0 < breaks[j].Ratio {
 			lineWidth += breaks[j].Stretch * breaks[j].Ratio
 		}
+		t.Width = math.Max(t.Width, lineWidth)
 		if w < lineWidth {
-			t.Overflows = true
+			t.OverflowsX = true
 		}
 
 		// shift line to centre or right
@@ -948,6 +950,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 		if height != 0.0 && h < y+ascent+descent {
 			// line doesn't fit
 			t.Text = log[:glyphs[ag].Cluster]
+			t.OverflowsY = true
 			break
 		}
 		line.y = y + ascent
@@ -967,6 +970,7 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 		_, _, descent, bottom := t.lines[len(t.lines)-1].Heights(rt.mode)
 		y += -bottom*lineSpacing + descent
 	}
+	t.Height = y
 
 	// vertical align
 	if rt.mode == VerticalRL {
@@ -996,22 +1000,6 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 		for j := range t.lines {
 			t.lines[j].y = h - t.lines[j].y
 		}
-	}
-
-	if width == 0.0 {
-		for _, line := range t.lines {
-			if 0 < len(line.spans) {
-				last := line.spans[len(line.spans)-1]
-				t.Width = math.Max(t.Width, last.X+last.Width)
-			}
-		}
-	} else {
-		t.Width = width
-	}
-	if height == 0.0 {
-		t.Height = y
-	} else {
-		t.Height = height
 	}
 	return t
 }
