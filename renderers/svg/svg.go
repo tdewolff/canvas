@@ -77,8 +77,8 @@ func New(w io.Writer, width, height float64, opts *Options) *SVG {
 // Close finished and closes the SVG.
 func (r *SVG) Close() error {
 	if 0 < len(r.defs) {
-		for _, def := range r.defs {
-			fmt.Fprintf(r.w, "<defs>%s</defs>", def[1])
+		for _, v := range r.defs {
+			fmt.Fprintf(r.w, "<defs>%s</defs>", v[1])
 		}
 	}
 	if r.customStyle != "" || r.opts.EmbedFonts && 0 < len(r.fonts) {
@@ -555,9 +555,10 @@ func (r *SVG) writePaint(paint canvas.Paint, m canvas.Matrix) string {
 		// TODO
 		return ""
 	} else if paint.IsGradient() {
+		var def string
 		ref := fmt.Sprintf("d%v", len(r.defs))
-		if def, ok := r.defs[paint.Gradient]; ok {
-			ref = def[0]
+		if v, ok := r.defs[[2]any{paint.Gradient, m}]; ok {
+			return fmt.Sprintf("url(#%v)", v[0])
 		} else if linearGradient, ok := paint.Gradient.(*canvas.LinearGradient); ok {
 			sb := strings.Builder{}
 			start := m.Dot(linearGradient.Start)
@@ -567,7 +568,7 @@ func (r *SVG) writePaint(paint canvas.Paint, m canvas.Matrix) string {
 				fmt.Fprintf(&sb, `<stop offset="%v" stop-color="%v"/>`, dec(stop.Offset), canvas.CSSColor(stop.Color))
 			}
 			fmt.Fprintf(&sb, `</linearGradient>`)
-			r.defs[paint.Gradient] = [2]string{ref, sb.String()}
+			def = sb.String()
 		} else if radialGradient, ok := paint.Gradient.(*canvas.RadialGradient); ok {
 			sb := strings.Builder{}
 			if m.IsSimilarity() {
@@ -584,8 +585,9 @@ func (r *SVG) writePaint(paint canvas.Paint, m canvas.Matrix) string {
 				fmt.Fprintf(&sb, `<stop offset="%v" stop-color="%v"/>`, dec(stop.Offset), canvas.CSSColor(stop.Color))
 			}
 			fmt.Fprintf(&sb, `</radialGradient>`)
-			r.defs[paint.Gradient] = [2]string{ref, sb.String()}
+			def = sb.String()
 		}
+		r.defs[[2]any{paint.Gradient, m}] = [2]string{ref, def}
 		return fmt.Sprintf("url(#%v)", ref)
 	} else {
 		return fmt.Sprintf("%v", canvas.CSSColor(paint.Color))
