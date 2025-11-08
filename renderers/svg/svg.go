@@ -561,9 +561,15 @@ func (r *SVG) writePaint(paint canvas.Paint, m canvas.Matrix) string {
 			return fmt.Sprintf("url(#%v)", v[0])
 		} else if linearGradient, ok := paint.Gradient.(*canvas.LinearGradient); ok {
 			sb := strings.Builder{}
-			start := m.Dot(linearGradient.Start)
-			end := m.Dot(linearGradient.End)
-			fmt.Fprintf(&sb, `<linearGradient id="%v" gradientUnits="userSpaceOnUse" x1="%v" y1="%v" x2="%v" y2="%v">`, ref, dec(start.X), dec(r.height-start.Y), dec(end.X), dec(r.height-end.Y))
+			if m.IsSimilarity() {
+				start := m.Dot(linearGradient.Start)
+				end := m.Dot(linearGradient.End)
+				fmt.Fprintf(&sb, `<linearGradient id="%v" gradientUnits="userSpaceOnUse" x1="%v" y1="%v" x2="%v" y2="%v">`, ref, dec(start.X), dec(r.height-start.Y), dec(end.X), dec(r.height-end.Y))
+			} else {
+				// negate the Y coordinates because ToSVG(r.height) applies Y-axis reflection in its translation component,
+				// so negating the gradient coordinates cancels out the double Y-axis reflection to achieve correct positioning.
+				fmt.Fprintf(&sb, `<linearGradient id="%v" gradientUnits="userSpaceOnUse" gradientTransform="%v" x1="%v" y1="%v" x2="%v" y2="%v">`, ref, m.ToSVG(r.height), dec(linearGradient.Start.X), -dec(linearGradient.Start.Y), dec(linearGradient.End.X), -dec(linearGradient.End.Y))
+			}
 			for _, stop := range linearGradient.Grad {
 				fmt.Fprintf(&sb, `<stop offset="%v" stop-color="%v"/>`, dec(stop.Offset), canvas.CSSColor(stop.Color))
 			}
