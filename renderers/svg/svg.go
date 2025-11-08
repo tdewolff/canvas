@@ -574,12 +574,14 @@ func (r *SVG) writePaint(paint canvas.Paint, m canvas.Matrix) string {
 			if m.IsSimilarity() {
 				c0 := m.Dot(radialGradient.C0)
 				c1 := m.Dot(radialGradient.C1)
-				det := math.Abs(m.Det())
-				r0 := det * radialGradient.R0
-				r1 := det * radialGradient.R1
+				scale := math.Sqrt(math.Abs(m.Det()))
+				r0 := scale * radialGradient.R0
+				r1 := scale * radialGradient.R1
 				fmt.Fprintf(&sb, `<radialGradient id="%v" gradientUnits="userSpaceOnUse" fx="%v" fy="%v" fr="%v" cx="%v" cy="%v" r="%v">`, ref, dec(c0.X), dec(r.height-c0.Y), dec(r0), dec(c1.X), dec(r.height-c1.Y), dec(r1))
 			} else {
-				fmt.Fprintf(&sb, `<radialGradient id="%v" gradientUnits="userSpaceOnUse" gradientTransform="%v" fx="%v" fy="%v" fr="%v" cx="%v" cy="%v" r="%v">`, ref, m.ToSVG(r.height), dec(radialGradient.C0.X), dec(radialGradient.C0.Y), dec(radialGradient.R0), dec(radialGradient.C1.X), dec(radialGradient.C1.Y), dec(radialGradient.R1))
+				// negate the Y coordinates because ToSVG(r.height) applies Y-axis reflection in its translation component,
+				// so negating the gradient coordinates cancels out the double Y-axis reflection to achieve correct positioning.
+				fmt.Fprintf(&sb, `<radialGradient id="%v" gradientUnits="userSpaceOnUse" gradientTransform="%v" fx="%v" fy="%v" fr="%v" cx="%v" cy="%v" r="%v">`, ref, m.ToSVG(r.height), dec(radialGradient.C0.X), -dec(radialGradient.C0.Y), dec(radialGradient.R0), dec(radialGradient.C1.X), -dec(radialGradient.C1.Y), dec(radialGradient.R1))
 			}
 			for _, stop := range radialGradient.Grad {
 				fmt.Fprintf(&sb, `<stop offset="%v" stop-color="%v"/>`, dec(stop.Offset), canvas.CSSColor(stop.Color))
