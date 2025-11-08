@@ -46,7 +46,7 @@ func TestRichTextPositions(t *testing.T) {
 	rt.WriteString("ee. ee eeee") // e is 1212 wide, dot and space are 651 wide
 
 	// test halign
-	text := rt.ToText(6500.0, 5000.0, Left, Top, nil)
+	text := rt.Copy().ToText(6500.0, 5000.0, Left, Top, nil)
 	test.T(t, len(text.lines), 2)
 	test.Float(t, text.lines[0].y, 1901)
 	test.Float(t, text.lines[1].y, 4285)
@@ -55,43 +55,43 @@ func TestRichTextPositions(t *testing.T) {
 	test.Float(t, text.lines[1].spans[0].X, 0.0)
 	test.Float(t, text.lines[1].spans[0].Width, 4848) // eeee
 
-	text = rt.ToText(6500.0, 5000.0, Right, Top, nil)
+	text = rt.Copy().ToText(6500.0, 5000.0, Right, Top, nil)
 	test.Float(t, text.lines[0].spans[0].X, 6500-6150)
 	test.Float(t, text.lines[1].spans[0].X, 6500-4848)
 
-	text = rt.ToText(6500.0, 5000.0, Center, Top, nil)
+	text = rt.Copy().ToText(6500.0, 5000.0, Center, Top, nil)
 	test.Float(t, text.lines[0].spans[0].X, (6500-6150)/2)
 	test.Float(t, text.lines[1].spans[0].X, (6500-4848)/2)
 
-	text = rt.ToText(6500.0, 5000.0, Justify, Top, nil)
+	text = rt.Copy().ToText(6500.0, 5000.0, Justify, Top, nil)
 	test.Float(t, text.lines[0].spans[0].X, 0.0)
 	test.Float(t, text.lines[1].spans[0].X, 0.0)
 
 	// test valign
-	text = rt.ToText(6500.0, 5000.0, Left, Bottom, nil)
+	text = rt.Copy().ToText(6500.0, 5000.0, Left, Bottom, nil)
 	test.Float(t, text.lines[0].y, 5000-2867)
 	test.Float(t, text.lines[1].y, 5000-483)
 
-	text = rt.ToText(6500.0, 5000.0, Left, Center, nil)
+	text = rt.Copy().ToText(6500.0, 5000.0, Left, Center, nil)
 	test.Float(t, text.lines[0].y, (1901+(5000-1901-483*2))/2)
 	test.Float(t, text.lines[1].y, (1901*2+483+(5000-483))/2)
 
-	text = rt.ToText(6500.0, 5000.0, Left, Justify, nil)
+	text = rt.Copy().ToText(6500.0, 5000.0, Left, Justify, nil)
 	test.Float(t, text.lines[0].y, 1901)
 	test.Float(t, text.lines[1].y, 5000-483)
 
 	// test wrapping
-	text = rt.ToText(6000.0, 7500.0, Left, Top, nil)
+	text = rt.Copy().ToText(6000.0, 7500.0, Left, Top, nil)
 	test.T(t, len(text.lines), 3)
 	test.Float(t, text.lines[0].spans[0].X, 0.0)
 	test.Float(t, text.lines[1].spans[0].X, 0.0)
 	test.Float(t, text.lines[2].spans[0].X, 0.0)
 
 	// test special cases
-	text = rt.ToText(6500.0, 2000.0, Left, Top, nil)
+	text = rt.Copy().ToText(6500.0, 2000.0, Left, Top, nil)
 	test.T(t, len(text.lines), 0)
 
-	text = rt.ToText(0.0, 5000.0, Left, Top, nil)
+	text = rt.Copy().ToText(0.0, 5000.0, Left, Top, nil)
 	test.T(t, len(text.lines), 1)
 	test.T(t, len(text.lines[0].spans), 1)
 	test.Float(t, text.lines[0].spans[0].X, 0.0)

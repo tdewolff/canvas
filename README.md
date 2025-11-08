@@ -27,6 +27,7 @@ Canvas is a common vector drawing target that can output SVG, PDF, EPS, raster i
 - `Path.Flat` is now `Path.IsFlat`
 - `Path.DivideBy` is now `Path.Div`
 - `canvas.RGB` and `canvas.RGBA` now accept channel values in [0,1] and not [0,255]
+- `RichText.ToText` now consumes the fitted text, leaving remaining content for a next call. If you want to reuse the same content of a `RichText` twice, you need to copy it with `RichText.Copy`.
 
 ## State
 Whether this library is ready for production environments is up to your own judgment. In general, this library is written thoughtfully and complete, but the scope of this work is so big and the implementation can be quite complex that inevitably it must have a great amount of bugs. Effort was put in writing unit and fuzz tests so that I suspect only special use-cases will stumble into bugs, but coverage is still lacking. As time permits, work is done to flesh-out functionality, find bugs, and optimize code. Optimization could be in execution time / reducing code complexity, reducing memory footprint, or reducing the length of paths from operation.

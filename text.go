@@ -447,6 +447,23 @@ func (rt *RichText) Reset() {
 	rt.faces = rt.faces[:1]
 }
 
+func (rt *RichText) Copy() *RichText {
+	other := &RichText{
+		Builder:     &strings.Builder{},
+		locs:        append(indexer{}, rt.locs...),
+		faces:       append([]*FontFace{}, rt.faces...),
+		mode:        rt.mode,
+		orient:      rt.orient,
+		defaultFace: rt.defaultFace,
+		objects:     make(map[uint32]TextSpanObject, len(rt.objects)),
+	}
+	other.WriteString(rt.String())
+	for pos, obj := range rt.objects {
+		other.objects[pos] = obj
+	}
+	return other
+}
+
 // SetWritingMode sets the writing mode.
 func (rt *RichText) SetWritingMode(mode WritingMode) {
 	rt.mode = mode
@@ -769,6 +786,8 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 	i, ag := 0, 0 // index into items and glyphs
 	lineSpacing := 1.0 + opts.LineStretch
 	for j := range breaks {
+		ag0 := ag
+
 		// j is the current line
 		end := breaks[j].Position + 1
 		lineWidth := breaks[j].Width
@@ -949,8 +968,26 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 		bottom *= lineSpacing
 		if height != 0.0 && h < y+ascent+descent {
 			// line doesn't fit
-			t.Text = log[:glyphs[ag].Cluster]
+			n := glyphs[ag0].Cluster
+			t.Text = log[:n]
 			t.OverflowsY = true
+
+			// consume the text that fit
+			start := len([]rune(t.Text)) // first rune that doesn't fit
+			for i, loc := range rt.locs {
+				if start <= loc {
+					if 0 < i && start < loc {
+						i--
+					}
+					for j := 0; i+j < len(rt.locs); j++ {
+						rt.locs[j] = rt.locs[i+j] - start
+					}
+					rt.locs = rt.locs[:len(rt.locs)-i]
+					rt.faces = append(rt.faces[:0], rt.faces[i:]...)
+				}
+			}
+			rt.Builder.Reset()
+			rt.WriteString(log[n:])
 			break
 		}
 		line.y = y + ascent
@@ -958,6 +995,9 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 		// add line
 		t.lines = append(t.lines, line)
 		y += ascent + bottom
+	}
+	if !t.OverflowsY {
+		rt.Reset()
 	}
 
 	// reorder from logical to visual order of text spans in line
