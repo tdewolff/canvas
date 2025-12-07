@@ -83,12 +83,12 @@ func (svg *svgParser) parseViewBox(attrWidth, attrHeight, attrViewBox string) (f
 	if attrWidth != "" && !strings.HasSuffix(attrWidth, "%") {
 		width = svg.parseDimension(attrWidth, 1.0)
 	} else {
-		width = (viewbox[2] - viewbox[0]) * 25.4 / 96.0
+		width = viewbox[2] * 25.4 / 96.0
 	}
 	if attrHeight != "" && !strings.HasSuffix(attrHeight, "%") {
 		height = svg.parseDimension(attrHeight, 1.0)
 	} else {
-		height = (viewbox[3] - viewbox[1]) * 25.4 / 96.0
+		height = viewbox[3] * 25.4 / 96.0
 	}
 	return width, height, viewbox
 }
@@ -100,8 +100,8 @@ func (svg *svgParser) init(width, height float64, viewbox [4]float64) {
 	svg.c = New(width, height)
 	svg.ctx = NewContext(svg.c)
 	svg.ctx.SetCoordSystem(CartesianIV)
-	if 0.0 < (viewbox[2]-viewbox[0]) && 0.0 < (viewbox[3]-viewbox[1]) {
-		m := Identity.Scale(width/(viewbox[2]-viewbox[0]), height/(viewbox[3]-viewbox[1])).Translate(-viewbox[0], -viewbox[1])
+	if 0.0 < viewbox[2] && 0.0 < viewbox[3] {
+		m := Identity.Scale(width/viewbox[2], height/viewbox[3]).Translate(-viewbox[0], -viewbox[1])
 		svg.ctx.SetView(m)
 	}
 	svg.ctx.SetStrokeJoiner(MiterJoiner{BevelJoin, svgDefaultState.strokeMiterLimit})
@@ -678,7 +678,7 @@ func (svg *svgParser) parseDefs(l *xml.Lexer) {
 							view = view.Scale(strokeWidth, strokeWidth)
 						}
 
-						f := height / (viewbox[3] - viewbox[1])
+						f := height / viewbox[3]
 						view = view.Translate(-refx*f, -refy*f).Scale(f, f).ReflectYAbout(height / 2.0)
 						marker.RenderViewTo(c, view)
 					}
