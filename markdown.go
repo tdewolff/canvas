@@ -114,7 +114,7 @@ func (r *mdRenderer) renderBlock(src []byte, n ast.Node, marginTop float64) (flo
 				r.c.RenderPath(dash, style, Identity.Translate(x, y))
 			}
 
-			if _, err := r.renderBlock(src, child, 0.0); err != nil {
+			if _, err := r.renderBlock(src, child, math.Inf(-1)); err != nil {
 				return margin, err
 			}
 		}
@@ -123,11 +123,14 @@ func (r *mdRenderer) renderBlock(src []byte, n ast.Node, marginTop float64) (flo
 	case *ast.ListItem:
 		spacing := fontSize * mmPerPt * 0.15
 		for child := n.FirstChild(); child != nil; child = child.NextSibling() {
-			if child != n.FirstChild() {
+			margin := spacing
+			if child == n.FirstChild() {
+				margin = math.Inf(-1)
+			} else {
 				r.rect.Y1 -= spacing
 			}
 
-			if _, err := r.renderBlock(src, child, spacing); err != nil {
+			if _, err := r.renderBlock(src, child, margin); err != nil {
 				return 0.0, err
 			}
 		}
