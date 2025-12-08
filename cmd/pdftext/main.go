@@ -194,10 +194,10 @@ func (cmd *Replace) Run() error {
 				array = append(array, string(s))
 			}
 			pdfWriteVal(&b, nil, pdfRef{}, array)
-			b.WriteString(" TJ")
+			b.WriteString("TJ")
 
-			fmt.Println("Old:", string(stream.data[start:end]))
-			fmt.Println("New:", b.String())
+			fmt.Println("Old:", printable(string(stream.data[start:end])))
+			fmt.Println("New:", printable(b.String()))
 			n := b.Len() - (end - start)
 			stream.data = append(stream.data[:start], append(b.Bytes(), stream.data[end:]...)...)
 			return n, io.EOF

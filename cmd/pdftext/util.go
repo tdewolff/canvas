@@ -7,6 +7,7 @@ import (
 	"math"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/minify/v2"
@@ -180,4 +181,35 @@ func readNumberLE(b []byte, n int) uint32 {
 		num += uint32(b[i])
 	}
 	return num
+}
+
+const (
+	Dark     = "\x1B[2m"
+	UndoDark = "\x1B[22m"
+)
+
+func printable(s string) string {
+	s2 := ""
+	for _, r := range s {
+		if !unicode.IsPrint(r) {
+			if r == '\n' {
+				s2 += fmt.Sprintf(Dark + "\\n" + UndoDark)
+			} else if r == '\r' {
+				s2 += fmt.Sprintf(Dark + "\\r" + UndoDark)
+			} else if r == '\t' {
+				s2 += fmt.Sprintf(Dark + "\\t" + UndoDark)
+			} else if r == 0 {
+				s2 += fmt.Sprintf(Dark + "\\0" + UndoDark)
+			} else if r <= 0xFF {
+				s2 += fmt.Sprintf(Dark+"\\x%02X"+UndoDark, r)
+			} else if r <= 0xFFFF {
+				s2 += fmt.Sprintf(Dark+"\\u%04X"+UndoDark, r)
+			} else {
+				s2 += fmt.Sprintf(Dark+"\\U%08X"+UndoDark, r)
+			}
+		} else {
+			s2 += string(r)
+		}
+	}
+	return s2
 }
