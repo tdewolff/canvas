@@ -2293,32 +2293,52 @@ func (p *Path) ToSVG() string {
 		return ""
 	}
 
+	var last byte
 	sb := strings.Builder{}
+	appendField := func(f string, a ...any) {
+		s := fmt.Sprintf(f, a...)
+		if last != 0 && '0' <= last && last <= '9' && '0' <= s[0] && s[0] <= '9' {
+			sb.WriteByte(' ')
+		}
+		sb.WriteString(s)
+		last = s[len(s)-1]
+	}
+
 	var x, y float64
 	for i := 0; i < len(p.d); {
 		cmd := p.d[i]
 		switch cmd {
 		case MoveToCmd:
 			x, y = p.d[i+1], p.d[i+2]
-			fmt.Fprintf(&sb, "M%v %v", num(x), num(y))
+			appendField("M%v", num(x))
+			appendField("%v", num(y))
 		case LineToCmd:
 			xStart, yStart := x, y
 			x, y = p.d[i+1], p.d[i+2]
 			if Equal(x, xStart) && Equal(y, yStart) {
 				// nothing
 			} else if Equal(x, xStart) {
-				fmt.Fprintf(&sb, "V%v", num(y))
+				appendField("V%v", num(y))
 			} else if Equal(y, yStart) {
-				fmt.Fprintf(&sb, "H%v", num(x))
+				appendField("H%v", num(x))
 			} else {
-				fmt.Fprintf(&sb, "L%v %v", num(x), num(y))
+				appendField("L%v", num(x))
+				appendField("%v", num(y))
 			}
 		case QuadToCmd:
 			x, y = p.d[i+3], p.d[i+4]
-			fmt.Fprintf(&sb, "Q%v %v %v %v", num(p.d[i+1]), num(p.d[i+2]), num(x), num(y))
+			appendField("Q%v", num(p.d[i+1]))
+			appendField("%v", num(p.d[i+2]))
+			appendField("%v", num(x))
+			appendField("%v", num(y))
 		case CubeToCmd:
 			x, y = p.d[i+5], p.d[i+6]
-			fmt.Fprintf(&sb, "C%v %v %v %v %v %v", num(p.d[i+1]), num(p.d[i+2]), num(p.d[i+3]), num(p.d[i+4]), num(x), num(y))
+			appendField("C%v", num(p.d[i+1]))
+			appendField("%v", num(p.d[i+2]))
+			appendField("%v", num(p.d[i+3]))
+			appendField("%v", num(p.d[i+4]))
+			appendField("%v", num(x))
+			appendField("%v", num(y))
 		case ArcToCmd:
 			rx, ry := p.d[i+1], p.d[i+2]
 			rot := p.d[i+3] * 180.0 / math.Pi
@@ -2336,10 +2356,14 @@ func (p *Path) ToSVG() string {
 				rx, ry = ry, rx
 				rot -= 90.0
 			}
-			fmt.Fprintf(&sb, "A%v %v %v %s%s%v %v", num(rx), num(ry), num(rot), sLarge, sSweep, num(p.d[i+5]), num(p.d[i+6]))
+			appendField("A%v", num(rx))
+			appendField("%v", num(ry))
+			appendField("%v", num(rot))
+			appendField(" %s%s%v", sLarge, sSweep, num(p.d[i+5]))
+			appendField("%v", num(p.d[i+6]))
 		case CloseCmd:
 			x, y = p.d[i+1], p.d[i+2]
-			fmt.Fprintf(&sb, "z")
+			appendField("z")
 		}
 		i += cmdLen(cmd)
 	}
