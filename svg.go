@@ -254,7 +254,13 @@ func (svg *svgParser) parseColor(v string) color.RGBA {
 			}
 			return Black
 		}
-		col.A = svg.parseColorComponent(comps[3])
+		// Alpha is a decimal value between 0.0 and 1.0
+		alphaStr := strings.TrimSpace(comps[3])
+		alpha, err := strconv.ParseFloat(alphaStr, 64)
+		if err != nil && svg.err == nil {
+			svg.err = parse.NewErrorLexer(svg.z, "bad alpha component: %w: %s", err, alphaStr)
+		}
+		col.A = uint8(alpha * 255.0)
 		col.R = uint8(float64(svg.parseColorComponent(comps[0]))*float64(col.A)/255.0 + 0.5)
 		col.G = uint8(float64(svg.parseColorComponent(comps[1]))*float64(col.A)/255.0 + 0.5)
 		col.B = uint8(float64(svg.parseColorComponent(comps[2]))*float64(col.A)/255.0 + 0.5)

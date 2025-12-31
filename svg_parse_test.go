@@ -1,11 +1,47 @@
 package canvas
 
 import (
+	"image/color"
 	"strings"
 	"testing"
 
 	"github.com/tdewolff/test"
 )
+
+func TestParseSVGRGBADecimalAlpha(t *testing.T) {
+	var tests = []struct {
+		name     string
+		svg      string
+		expected color.RGBA
+	}{
+		{
+			"decimal alpha 0.5",
+			`<svg width="100" height="100"><rect x="0" y="0" width="10" height="10" fill="rgba(255,0,0,0.5)"/></svg>`,
+			color.RGBA{127, 0, 0, 127}, // premultiplied alpha
+		},
+		{
+			"decimal alpha 1.0",
+			`<svg width="100" height="100"><rect x="0" y="0" width="10" height="10" fill="rgba(255,0,0,1.0)"/></svg>`,
+			color.RGBA{255, 0, 0, 255},
+		},
+		{
+			"integer alpha 1 (fully opaque)",
+			`<svg width="100" height="100"><rect x="0" y="0" width="10" height="10" fill="rgba(255,0,0,1)"/></svg>`,
+			color.RGBA{255, 0, 0, 255},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c, err := ParseSVG(strings.NewReader(tt.svg))
+			test.Error(t, err)
+			if len(c.layers) == 0 || len(c.layers[0]) == 0 {
+				t.Fatal("no layers rendered")
+			}
+			layer := c.layers[0][0]
+			test.T(t, layer.style.Fill.Color, tt.expected)
+		})
+	}
+}
 
 func TestParseSVGMarkerWithoutViewBox(t *testing.T) {
 	svg := `<svg width="100" height="100">
