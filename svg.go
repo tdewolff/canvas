@@ -31,6 +31,7 @@ type svgState struct {
 	textAnchor       string
 	fontFamily       string
 	fontSize         float64
+	currentColor     color.RGBA
 }
 
 var svgDefaultState = svgState{
@@ -38,6 +39,7 @@ var svgDefaultState = svgState{
 	textAnchor:       "start",
 	fontFamily:       "serif",
 	fontSize:         16.0, // in px
+	currentColor:     Black,
 }
 
 type svgCanvas struct {
@@ -695,6 +697,76 @@ func (svg *svgParser) parseDefs(l *xml.Lexer) {
 					}
 				}
 			}
+		case "pattern":
+			width := svg.parseDimension(tag.attrs["width"], svg.width)
+			height := svg.parseDimension(tag.attrs["height"], svg.height)
+			if width == 0.0 || height == 0.0 {
+				break // Pattern with zero dimensions does not render
+			}
+
+			angle := 0.0
+			if transform := tag.attrs["patternTransform"]; transform != "" {
+				m := svg.parseTransform(transform)
+				angle = math.Atan2(m[1][0], m[0][0]) * 180.0 / math.Pi
+			}
+
+			var lineTag *svgTag
+			for _, child := range tag.content {
+				if child.name == "line" {
+					lineTag = child
+					break
+				}
+			}
+
+			if lineTag != nil {
+				strokeWidth := 1.0
+				if sw := lineTag.attrs["stroke-width"]; sw != "" {
+					strokeWidth = svg.parseDimension(sw, 0.0)
+				}
+
+				usesCurrentColor := false
+				strokeColor := Black
+				if sc := lineTag.attrs["stroke"]; sc == "currentColor" {
+					usesCurrentColor = true
+				} else if sc != "" {
+					strokeColor = svg.parseColor(sc)
+				}
+
+				strokeOpacity := 1.0
+				if so := lineTag.attrs["stroke-opacity"]; so != "" {
+					strokeOpacity = svg.parseNumber(so)
+				}
+
+				distance := math.Max(width, height)
+
+				svg.defs[id] = func(attr string, c *Canvas) {
+					layers := c.layers[c.zindex]
+					if len(layers) == 0 || layers[len(layers)-1].path == nil {
+						return
+					}
+					layer := &layers[len(layers)-1]
+
+					col := strokeColor
+					if usesCurrentColor {
+						col = svg.state.currentColor
+					}
+
+					if strokeOpacity < 1.0 {
+						col.A = uint8(float64(col.A) * strokeOpacity)
+						col.R = uint8(float64(col.R) * strokeOpacity)
+						col.G = uint8(float64(col.G) * strokeOpacity)
+						col.B = uint8(float64(col.B) * strokeOpacity)
+					}
+
+					hatch := NewLineHatch(col, angle, distance, strokeWidth)
+
+					if attr == "fill" {
+						layer.style.Fill = Paint{Pattern: hatch}
+					} else if attr == "stroke" {
+						layer.style.Stroke = Paint{Pattern: hatch}
+					}
+				}
+			}
 		}
 	}
 }
@@ -880,6 +952,8 @@ func (svg *svgParser) setAttribute(key, val string) {
 		svg.state.fontFamily = val
 	case "font-size":
 		svg.state.fontSize = svg.parseDimension(val, svg.height)
+	case "color":
+		svg.state.currentColor = svg.parseColor(val)
 	case "marker-start":
 		if id := svg.parseUrlID(val); id != "" {
 			svg.activeDefs["marker-start"] = svg.defs[id]
