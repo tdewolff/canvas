@@ -678,7 +678,12 @@ func (svg *svgParser) parseDefs(l *xml.Lexer) {
 							view = view.Scale(strokeWidth, strokeWidth)
 						}
 
-						f := height / viewbox[3]
+						// Scale factor from viewBox to marker coordinates.
+						// When no viewBox, content uses marker coordinate space directly (no scaling).
+						f := 1.0
+						if viewbox[3] != 0 {
+							f = height / viewbox[3]
+						}
 						view = view.Translate(-refx*f, -refy*f).Scale(f, f).ReflectYAbout(height / 2.0)
 						marker.RenderViewTo(c, view)
 					}
