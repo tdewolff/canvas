@@ -327,13 +327,13 @@ func (svg *svgParser) parseTransform(v string) Matrix {
 				if len(d) != 1 {
 					svg.err = parse.NewErrorLexer(svg.z, "bad transform skewX")
 				} else {
-					// TODO
+					m = m.Shear(math.Tan(d[0]*math.Pi/180), 0)
 				}
 			case "skewy":
 				if len(d) != 1 {
 					svg.err = parse.NewErrorLexer(svg.z, "bad transform skewY")
 				} else {
-					// TODO
+					m = m.Shear(0, math.Tan(d[0]*math.Pi/180))
 				}
 			}
 			j = i + 1
