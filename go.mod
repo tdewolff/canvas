@@ -19,14 +19,14 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/srwiley/scanx v0.0.0-20190309010443-e94503791388
 	github.com/tdewolff/argp v0.0.0-20250430135133-0f54527d2b1e
-	github.com/tdewolff/font v0.0.0-20250902141222-fb72ecc1bc0a
+	github.com/tdewolff/font v0.0.0-20260129132752-ab952538a56d
 	github.com/tdewolff/minify/v2 v2.24.4
-	github.com/tdewolff/parse/v2 v2.8.4
+	github.com/tdewolff/parse/v2 v2.8.5
 	github.com/tdewolff/test v1.0.11
 	github.com/wcharczuk/go-chart/v2 v2.1.2
 	github.com/wroge/wgs84/v2 v2.0.0-alpha.13
-	golang.org/x/image v0.32.0
-	golang.org/x/text v0.30.0
+	golang.org/x/image v0.35.0
+	golang.org/x/text v0.33.0
 	gonum.org/v1/plot v0.16.0
 )
 

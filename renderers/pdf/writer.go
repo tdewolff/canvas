@@ -423,25 +423,27 @@ func (w *pdfWriter) writeFont(ref pdfRef, font *canvas.Font, vertical bool) {
 	startUnicode := uint32('\uFFFD')
 	length := uint16(1)
 	for subsetGlyphID, glyphID := range glyphIDs[1:] {
-		unicode := uint32(font.SFNT.Cmap.ToUnicode(glyphID))
-		if 0x010000 <= unicode && unicode <= 0x10FFFF {
-			// UTF-16 surrogates
-			unicode -= 0x10000
-			unicode = (0xD800+(unicode>>10)&0x3FF)<<16 + 0xDC00 + unicode&0x3FF
-		}
-		if uint16(subsetGlyphID+1) == startGlyphID+length && unicode == startUnicode+uint32(length) {
-			length++
-		} else {
-			if 1 < length {
-				fmt.Fprintf(&bfRange, "\n<%04X> <%04X> <%04X>", startGlyphID, startGlyphID+length-1, startUnicode)
-				bfRangeCount++
-			} else {
-				fmt.Fprintf(&bfChar, "\n<%04X> <%04X>", startGlyphID, startUnicode)
-				bfCharCount++
+		if rs := font.SFNT.GlyphToUnicode(glyphID); 0 < len(rs) {
+			unicode := uint32(rs[0])
+			if 0x010000 <= unicode && unicode <= 0x10FFFF {
+				// UTF-16 surrogates
+				unicode -= 0x10000
+				unicode = (0xD800+(unicode>>10)&0x3FF)<<16 + 0xDC00 + unicode&0x3FF
 			}
-			startGlyphID = uint16(subsetGlyphID + 1)
-			startUnicode = unicode
-			length = 1
+			if uint16(subsetGlyphID+1) == startGlyphID+length && unicode == startUnicode+uint32(length) {
+				length++
+			} else {
+				if 1 < length {
+					fmt.Fprintf(&bfRange, "\n<%04X> <%04X> <%04X>", startGlyphID, startGlyphID+length-1, startUnicode)
+					bfRangeCount++
+				} else {
+					fmt.Fprintf(&bfChar, "\n<%04X> <%04X>", startGlyphID, startUnicode)
+					bfCharCount++
+				}
+				startGlyphID = uint16(subsetGlyphID + 1)
+				startUnicode = unicode
+				length = 1
+			}
 		}
 	}
 	if 1 < length {
