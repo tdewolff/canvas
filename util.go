@@ -328,7 +328,7 @@ func (p Point) Angle() float64 {
 	return angleNorm(math.Atan2(p.Y, p.X))
 }
 
-// AngleBetween returns the angle between OP and OQ.
+// AngleBetween returns the angle in radians [-PI,PI] from OP to OQ.
 func (p Point) AngleBetween(q Point) float64 {
 	return math.Atan2(p.PerpDot(q), p.Dot(q))
 }
