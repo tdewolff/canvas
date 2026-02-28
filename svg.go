@@ -1089,7 +1089,13 @@ func ParseSVG(r io.Reader) (*Canvas, error) {
 			// handle special tags
 			if tag == "style" {
 				tt, data = l.Next()
-				if tt == xml.TextToken {
+				if tt == xml.CDATAToken {
+					svg.parseStyle(l.Text())
+					tt, data = l.Next() // end token
+					for tt != xml.EndTagToken {
+						tt, data = l.Next() // end token
+					}
+				} else if tt == xml.TextToken {
 					svg.parseStyle(data)
 					tt, data = l.Next() // end token
 				} else {
