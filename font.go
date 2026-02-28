@@ -272,7 +272,7 @@ var nonameFonts = 0
 
 // LoadFont loads a font from memory.
 func LoadFont(b []byte, index int, style FontStyle) (*Font, error) {
-	SFNT, err := font.ParseFont(b, index)
+	SFNT, err := font.ParseSFNT(b, index)
 	if err != nil {
 		return nil, err
 	}
