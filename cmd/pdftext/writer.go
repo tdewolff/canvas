@@ -71,7 +71,7 @@ func (w *pdfWriter) writeBytes(b []byte) {
 	w.err = err
 }
 
-func (w *pdfWriter) write(s string, v ...interface{}) {
+func (w *pdfWriter) write(s string, v ...any) {
 	if w.err != nil {
 		return
 	}
@@ -84,7 +84,7 @@ func (w *pdfWriter) SetObjectData(ref pdfRef, data []byte) {
 	w.objects[ref] = data
 }
 
-func (w *pdfWriter) SetObject(ref pdfRef, val interface{}) error {
+func (w *pdfWriter) SetObject(ref pdfRef, val any) error {
 	buf := &bytes.Buffer{}
 	if encryptRef, ok := w.r.trailer["Encrypt"].(pdfRef); ok && ref == encryptRef {
 		ref = noEncryptRef
@@ -184,11 +184,11 @@ func (w *pdfWriter) Close() error {
 	return w.err
 }
 
-func pdfWriteContentVal(w io.Writer, i interface{}) error {
+func pdfWriteContentVal(w io.Writer, i any) error {
 	return pdfWriteVal(w, nil, pdfRef{}, i)
 }
 
-func pdfWriteVal(w io.Writer, r *pdfReader, ref pdfRef, i interface{}) error {
+func pdfWriteVal(w io.Writer, r *pdfReader, ref pdfRef, i any) error {
 	switch v := i.(type) {
 	case bool:
 		if v {

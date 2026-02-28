@@ -26,7 +26,7 @@ type pdfReader struct {
 
 	startxref int
 	eol       []byte
-	cache     map[pdfRef]interface{}
+	cache     map[pdfRef]any
 }
 
 func NewPDFReader(reader io.Reader, password string) (*pdfReader, error) {
@@ -40,7 +40,7 @@ func NewPDFReader(reader io.Reader, password string) (*pdfReader, error) {
 	r := &pdfReader{
 		data:    data,
 		objects: map[pdfRef]pdfObject{},
-		cache:   map[pdfRef]interface{}{},
+		cache:   map[pdfRef]any{},
 	}
 
 	// get startxref
@@ -302,7 +302,7 @@ func (r *pdfReader) addKids(pages pdfDict) error {
 	return nil
 }
 
-func (r *pdfReader) get(val interface{}) (interface{}, error) {
+func (r *pdfReader) get(val any) (any, error) {
 	for {
 		ref, ok := val.(pdfRef)
 		if !ok {
@@ -316,7 +316,7 @@ func (r *pdfReader) get(val interface{}) (interface{}, error) {
 	return val, nil
 }
 
-func (r *pdfReader) GetName(val interface{}) (pdfName, error) {
+func (r *pdfReader) GetName(val any) (pdfName, error) {
 	val, err := r.get(val)
 	if err != nil {
 		return "", err
@@ -328,7 +328,7 @@ func (r *pdfReader) GetName(val interface{}) (pdfName, error) {
 	return name, nil
 }
 
-func (r *pdfReader) GetInt(val interface{}) (int, error) {
+func (r *pdfReader) GetInt(val any) (int, error) {
 	val, err := r.get(val)
 	if err != nil {
 		return 0, err
@@ -340,7 +340,7 @@ func (r *pdfReader) GetInt(val interface{}) (int, error) {
 	return i, nil
 }
 
-func (r *pdfReader) GetString(val interface{}) ([]byte, error) {
+func (r *pdfReader) GetString(val any) ([]byte, error) {
 	val, err := r.get(val)
 	if err != nil {
 		return nil, err
@@ -352,7 +352,7 @@ func (r *pdfReader) GetString(val interface{}) ([]byte, error) {
 	return i, nil
 }
 
-func (r *pdfReader) GetArray(val interface{}) (pdfArray, error) {
+func (r *pdfReader) GetArray(val any) (pdfArray, error) {
 	val, err := r.get(val)
 	if err != nil {
 		return pdfArray{}, err
@@ -364,7 +364,7 @@ func (r *pdfReader) GetArray(val interface{}) (pdfArray, error) {
 	return array, nil
 }
 
-func (r *pdfReader) GetDict(val interface{}) (pdfDict, error) {
+func (r *pdfReader) GetDict(val any) (pdfDict, error) {
 	val, err := r.get(val)
 	if err != nil {
 		return pdfDict{}, err
@@ -376,7 +376,7 @@ func (r *pdfReader) GetDict(val interface{}) (pdfDict, error) {
 	return dict, nil
 }
 
-func (r *pdfReader) GetStream(val interface{}) (pdfStream, error) {
+func (r *pdfReader) GetStream(val any) (pdfStream, error) {
 	val, err := r.get(val)
 	if err != nil {
 		return pdfStream{}, err
@@ -455,7 +455,7 @@ func (r *pdfReader) GetPage(index int) (pdfDict, []byte, error) {
 	return dict, contents.data, nil
 }
 
-func (r *pdfReader) readObject(ref pdfRef) (interface{}, error) {
+func (r *pdfReader) readObject(ref pdfRef) (any, error) {
 	if val, ok := r.cache[ref]; ok {
 		return val, nil
 	}
@@ -513,7 +513,7 @@ func (r *pdfReader) readObject(ref pdfRef) (interface{}, error) {
 	return val, err
 }
 
-func (r *pdfReader) readObjectAt(ref pdfRef, i int) (interface{}, error) {
+func (r *pdfReader) readObjectAt(ref pdfRef, i int) (any, error) {
 	b := r.data
 	val, n, err := pdfReadContentVal(b[i:])
 	if _, ok := val.(int); !ok || err != nil {
@@ -545,7 +545,7 @@ func (r *pdfReader) readObjectAt(ref pdfRef, i int) (interface{}, error) {
 	return val, nil
 }
 
-func pdfReadContentVal(b []byte) (interface{}, int, error) {
+func pdfReadContentVal(b []byte) (any, int, error) {
 	return pdfReadVal(nil, pdfRef{}, b)
 }
 
@@ -604,7 +604,7 @@ func pdfReadStreamLike(b []byte, endDict, endStream []byte) (pdfDict, []byte, in
 	return nil, nil, 0, fmt.Errorf("bad stream")
 }
 
-func pdfReadVal(r *pdfReader, ref pdfRef, b []byte) (interface{}, int, error) {
+func pdfReadVal(r *pdfReader, ref pdfRef, b []byte) (any, int, error) {
 	if len(b) == 0 {
 		return nil, 0, fmt.Errorf("bad value")
 	}
@@ -891,8 +891,8 @@ func (r *pdfStreamReader) Pos() int {
 	return r.i
 }
 
-func (r *pdfStreamReader) Next() (string, []interface{}, error) {
-	var vals []interface{}
+func (r *pdfStreamReader) Next() (string, []any, error) {
+	var vals []any
 	r.i = moveWhiteSpace(r.b, r.i)
 	for r.i < len(r.b) {
 		if 'a' <= r.b[r.i] && r.b[r.i] <= 'z' || 'A' <= r.b[r.i] && r.b[r.i] <= 'Z' || r.b[r.i] == '\'' || r.b[r.i] == '"' {

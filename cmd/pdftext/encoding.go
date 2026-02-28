@@ -8,8 +8,9 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
-	"github.com/tdewolff/font"
 	"golang.org/x/text/encoding/charmap"
+
+	"github.com/tdewolff/font"
 )
 
 type encoding interface {
@@ -92,12 +93,12 @@ func (e builtinEncoding) Decode(b []byte) ([]byte, error) {
 	runes := []rune{}
 	if e.bytes == 1 {
 		for _, c := range b {
-			runes = append(runes, e.sfnt.Cmap.ToUnicode(uint16(c)))
+			runes = append(runes, e.sfnt.Cmap.ToUnicode(uint16(c))...)
 		}
 	} else {
 		for i := 0; i+2 <= len(b); i += 2 {
 			c := binary.BigEndian.Uint16(b[i : i+2])
-			runes = append(runes, e.sfnt.Cmap.ToUnicode(c))
+			runes = append(runes, e.sfnt.Cmap.ToUnicode(c)...)
 		}
 	}
 	return []byte(string(runes)), nil
@@ -515,7 +516,8 @@ func (r *pdfReader) getFontProgram(fontDescriptor pdfDict) (*font.SFNT, error) {
 			if subtype == pdfName("OpenType") {
 				return font.ParseEmbeddedSFNT(fontFile.data, 0)
 			}
-			return font.ParseCFF(fontFile.data)
+			return nil, fmt.Errorf("unsupported CFF font file ")
+			//return font.ParseCFF(fontFile.data) // TODO: support
 		} else {
 			return nil, fmt.Errorf("invalid subtype for FontFile3: %v", subtype)
 		}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -13,27 +14,27 @@ import (
 )
 
 type Extract struct {
-	Info     bool   `desc:"Get document information"`
+	Password string `default:"" desc:"PDF password"`
 	Page     int    `short:"p" default:"0" desc:"Page"`
-	Password string `default:"" desc:"Password"`
+	Info     bool   `desc:"Get document information"`
 	Input    string `index:"0" desc:"Input file"`
 }
 
-type Change struct {
-}
-
 type Replace struct {
-	Page      int    `short:"p" default:"0" desc:"Page"`
-	XObj      string `desc:"XObject"`
-	Index     int    `short:"i" default:"-1" desc:"String index to replace"`
-	Info      string `desc:"Update info instead of string, either Producer or CreationDate"`
-	String    string `short:"s" desc:"Text replacement"`
-	Alignment string `short:"a" default:"L" desc:"Text alignment: L, C, R"`
-	XOffset   int    `desc:"Text X-offset in font units"`
-	Spacing   string `default:"none" desc:"Character spacing type, 'none' for regular spacing, a number for character spacing"`
-	Password  string `default:"" desc:"Password"`
-	Output    string `short:"o" desc:"Output file"`
-	Input     string `index:"0" desc:"Input file"`
+	Password  string  `default:"" desc:"PDF password"`
+	Page      int     `short:"p" default:"0" desc:"Select page"`
+	XObj      string  `desc:"Select XObject if necessary"`
+	Info      string  `desc:"Update info instead of string, either Producer or CreationDate"`
+	Index     int     `short:"i" default:"-1" desc:"String index to replace"`
+	String    string  `short:"s" desc:"Text replacement"`
+	X         float64 `short:"x" long:"" desc:"Horizontal position offset in PDF units"`
+	Y         float64 `short:"y" long:"" desc:"Vertical position offset in PDF units"`
+	Offset    int     `desc:"Text X-offset in font units"`
+	Alignment string  `short:"a" default:"L" desc:"Text alignment: L, C, R"`
+	Spacing   string  `default:"none" desc:"Character spacing type, 'none' for regular spacing, a number for character spacing"`
+	Copy      bool    `desc:"Copy text element"`
+	Output    string  `short:"o" desc:"Output file"`
+	Input     string  `index:"0" desc:"Input file"`
 }
 
 func main() {
@@ -77,8 +78,12 @@ func (cmd *Extract) Run() error {
 		} else {
 			fmt.Printf("\nXObject %s:\n", names[i])
 		}
-		err = walkStrings(pdf, obj, func(_, _, index int, state textState, op string, vals []interface{}) (int, error) {
+		err = walkStrings(pdf, obj, func(index int, ops []textOperator, state textState) (int, error) {
 			var s string
+			op, vals := ops[0].Op, ops[0].Vals
+			if ops[0].Op == "Td" {
+				op, vals = ops[1].Op, ops[1].Vals
+			}
 			if op == "TJ" && len(vals) == 1 {
 				if array, ok := vals[0].(pdfArray); ok {
 					for _, item := range array {
@@ -99,7 +104,7 @@ func (cmd *Extract) Run() error {
 			//if names[i] != "" {
 			//	fmt.Printf("xobj=%s ", names[i])
 			//}
-			fmt.Printf("i=%4d font=%v: %s\n", index, state.fontName, s)
+			fmt.Printf("i=%4d  %v/%vpt: %s\n", index, state.fontName, state.fontSize, s)
 			return 0, nil
 		})
 		if err != nil {
@@ -119,14 +124,14 @@ func (cmd *Replace) Run() error {
 		cmd.Output = cmd.Input
 	}
 
-	alignment := "left"
+	alignment := 'L'
 	switch strings.ToLower(cmd.Alignment) {
 	case "", "l", "left":
-		alignment = "left"
+		alignment = 'L'
 	case "c", "center", "centre":
-		alignment = "center"
+		alignment = 'C'
 	case "r", "right":
-		alignment = "right"
+		alignment = 'R'
 	default:
 		fmt.Println("ERROR: alignment must be L, C, or R")
 		return argp.ShowUsage
@@ -143,7 +148,7 @@ func (cmd *Replace) Run() error {
 		return err
 	}
 
-	var obj interface{}
+	var obj any
 	names, objects := getObjects(pdf, cmd.Page)
 	for i, name := range names {
 		if name == cmd.XObj {
@@ -162,11 +167,32 @@ func (cmd *Replace) Run() error {
 		return fmt.Errorf("ERROR: %s", err)
 	}
 
-	err = walkStrings(pdf, obj, func(start, end, index int, state textState, op string, vals []interface{}) (int, error) {
+	err = walkStrings(pdf, obj, func(index int, ops []textOperator, state textState) (int, error) {
 		if index == cmd.Index {
+			start, end := ops[0].Start, ops[len(ops)-1].End
 			s := state.fonts[state.fontName].FromUnicode(cmd.String)
 
+			var x0, y0 float64
+			if ops[0].Op == "Td" && len(ops[0].Vals) == 2 {
+				x0 = parseFloat(ops[0].Vals[0])
+				y0 = parseFloat(ops[0].Vals[1])
+				ops = ops[1:]
+			}
+
+			var x1, y1 float64
+			if 1 < len(ops) && ops[1].Op == "Td" && len(ops[1].Vals) == 2 {
+				x1 = parseFloat(ops[1].Vals[0])
+				y1 = parseFloat(ops[1].Vals[1])
+				ops = ops[:1]
+			}
+
+			op, vals := ops[0].Op, ops[0].Vals
+
 			b := bytes.Buffer{}
+			if cmd.Copy {
+				start = end
+				b.WriteString(" ")
+			}
 			if op == "'" {
 				b.WriteString("T*")
 			} else if op == "\"" && len(vals) == 3 {
@@ -176,15 +202,28 @@ func (cmd *Replace) Run() error {
 				b.WriteString(" Tc T*")
 			}
 
-			offset := cmd.XOffset
-			if alignment == "center" || alignment == "right" {
+			x0 += cmd.X
+			y0 += cmd.Y
+			x1 -= cmd.X
+			y1 -= cmd.Y
+			if x0 != 0.0 || y0 != 0.0 {
+				pdfWriteVal(&b, nil, pdfRef{}, x0)
+				b.WriteString(" ")
+				pdfWriteVal(&b, nil, pdfRef{}, y0)
+				b.WriteString(" Td ")
+			}
+
+			offset := cmd.Offset
+			if alignment == 'C' || alignment == 'R' {
+				//var width int
+				fmt.Println(vals)
 			}
 
 			array := pdfArray{}
 			if offset != 0 {
 				array = append(array, -offset)
 			}
-			if space, err := strconv.ParseInt(cmd.Spacing, 10, 64); err == nil {
+			if space, err := strconv.ParseInt(cmd.Spacing, 10, 64); err == nil && space != 0 {
 				di := state.fonts[state.fontName].Bytes()
 				for i := 0; i < len(s)-di; i += di {
 					array = append(array, s[i:i+di], -space)
@@ -196,8 +235,17 @@ func (cmd *Replace) Run() error {
 			pdfWriteVal(&b, nil, pdfRef{}, array)
 			b.WriteString("TJ")
 
+			if x1 != 0.0 || y1 != 0.0 {
+				b.WriteString(" ")
+				pdfWriteVal(&b, nil, pdfRef{}, x1)
+				b.WriteString(" ")
+				pdfWriteVal(&b, nil, pdfRef{}, y1)
+				b.WriteString(" Td")
+			}
+
 			fmt.Println("Old:", printable(string(stream.data[start:end])))
 			fmt.Println("New:", printable(b.String()))
+
 			n := b.Len() - (end - start)
 			stream.data = append(stream.data[:start], append(b.Bytes(), stream.data[end:]...)...)
 			return n, io.EOF
@@ -222,16 +270,17 @@ func (cmd *Replace) Run() error {
 type textState struct {
 	fonts    map[pdfName]pdfFont
 	fontName pdfName
+	fontSize float64
 }
 
-func getObjects(pdf *pdfReader, page int) ([]string, []interface{}) {
+func getObjects(pdf *pdfReader, page int) ([]string, []any) {
 	dict, _, err := pdf.GetPage(page)
 	if err != nil {
-		return []string{}, []interface{}{}
+		return []string{}, []any{}
 	}
 
 	names := []string{""}
-	objects := []interface{}{
+	objects := []any{
 		dict,
 	}
 	//var addDict func(string, pdfDict)
@@ -263,7 +312,7 @@ func getObjects(pdf *pdfReader, page int) ([]string, []interface{}) {
 	return names, objects
 }
 
-func getContents(pdf *pdfReader, obj interface{}) (pdfRef, pdfDict, pdfStream, error) {
+func getContents(pdf *pdfReader, obj any) (pdfRef, pdfDict, pdfStream, error) {
 	if _, ok := obj.(pdfRef); !ok {
 		if page, err := pdf.GetDict(obj); err == nil {
 			if contents, ok := page["Contents"].(pdfArray); ok {
@@ -287,7 +336,22 @@ func getContents(pdf *pdfReader, obj interface{}) (pdfRef, pdfDict, pdfStream, e
 	return obj.(pdfRef), stream.dict, stream, err
 }
 
-func walkStrings(pdf *pdfReader, obj interface{}, cb func(int, int, int, textState, string, []interface{}) (int, error)) error {
+type textOperator struct {
+	Start, End int // position in stream
+	Op         string
+	Vals       []any
+}
+
+func parseFloat(v any) float64 {
+	if val, ok := v.(float64); ok {
+		return val
+	} else if val, ok := v.(int); ok {
+		return float64(val)
+	}
+	return math.NaN()
+}
+
+func walkStrings(pdf *pdfReader, obj any, cb func(int, []textOperator, textState) (int, error)) error {
 	state := textState{
 		fonts: map[pdfName]pdfFont{},
 	}
@@ -302,6 +366,8 @@ func walkStrings(pdf *pdfReader, obj interface{}, cb func(int, int, int, textSta
 	}
 
 	i := 0
+	hasText := false
+	ops := []textOperator{}
 	stream := newPDFStreamReader(data)
 	for {
 		start := moveWhiteSpace(data, stream.Pos())
@@ -310,6 +376,28 @@ func walkStrings(pdf *pdfReader, obj interface{}, cb func(int, int, int, textSta
 			break
 		} else if err != nil {
 			return err
+		}
+
+		if op == "Td" {
+			ops = append(ops, textOperator{
+				Start: start,
+				End:   stream.Pos(),
+				Op:    op,
+				Vals:  vals,
+			})
+		}
+
+		if hasText {
+			d, err := cb(i, ops, state)
+			if err == io.EOF {
+				return nil
+			} else if err != nil {
+				return err
+			}
+			i += d + 1
+
+			ops = ops[:0]
+			hasText = false
 		}
 
 		if op == "Tf" && len(vals) == 2 {
@@ -322,17 +410,27 @@ func walkStrings(pdf *pdfReader, obj interface{}, cb func(int, int, int, textSta
 				}
 				state.fontName = name
 			}
+			state.fontSize = parseFloat(vals[1])
 		} else if op == "Tj" || op == "TJ" || op == "'" || op == "\"" {
-			d, err := cb(start, stream.Pos(), i, state, op, vals)
-			if err == io.EOF {
-				return nil
-			} else if err != nil {
-				return err
-			}
-			i += d + 1
+			ops = append(ops, textOperator{
+				Start: start,
+				End:   stream.Pos(),
+				Op:    op,
+				Vals:  vals,
+			})
+			hasText = true
 		} else {
 			//fmt.Println("unknown operator:", op)
 		}
+	}
+	if hasText {
+		d, err := cb(i, ops, state)
+		if err == io.EOF {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		i += d + 1
 	}
 	return nil
 }

@@ -13,8 +13,8 @@ import (
 
 type pdfRef [2]uint32
 type pdfName string
-type pdfArray []interface{}
-type pdfDict map[string]interface{}
+type pdfArray []any
+type pdfDict map[string]any
 type pdfStream struct {
 	dict    pdfDict
 	filters []pdfName
