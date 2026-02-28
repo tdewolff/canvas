@@ -843,8 +843,7 @@ func findInflectionPointRangeCubicBezier(p0, p1, p2, p3 Point, t, tolerance floa
 	// find the range around an inflection point that we consider flat within the flatness criterion
 	if math.IsNaN(t) {
 		return math.Inf(1), math.Inf(1)
-	}
-	if t < 0.0 || t > 1.0 {
+	} else if t < 0.0 || 1.0 < t {
 		panic("t outside 0.0--1.0 range")
 	}
 
@@ -867,12 +866,12 @@ func findInflectionPointRangeCubicBezier(p0, p1, p2, p3 Point, t, tolerance floa
 
 	if Equal(nr.X, 0.0) && Equal(nr.Y, 0.0) {
 		// if rn is still zero, this curve has p0=p1=p2, so it is straight
-		return 0.0, 1.0
+		return math.Max(0.0, 2.0*t-1.0), 1.0
 	}
 
 	s3 := math.Abs(ns.X*nr.Y-ns.Y*nr.X) / math.Hypot(nr.X, nr.Y)
 	if Equal(s3, 0.0) {
-		return 0.0, 1.0 // can approximate whole curve linearly
+		return math.Max(0.0, 2.0*t-1.0), 1.0
 	}
 
 	tf := math.Cbrt(tolerance / s3)
@@ -882,7 +881,7 @@ func findInflectionPointRangeCubicBezier(p0, p1, p2, p3 Point, t, tolerance floa
 // see Flat, precise flattening of cubic Bézier path and offset curves, by T.F. Hain et al., 2005,  https://www.sciencedirect.com/science/article/pii/S0097849305001287
 // see https://github.com/Manishearth/stylo-flat/blob/master/gfx/2d/Path.cpp for an example implementation
 // or https://docs.rs/crate/lyon_bezier/0.4.1/source/src/flatten_cubic.rs
-// p0, p1, p2, p3 are the start points, two control points and the end points respectively. With flatness defined as the maximum error from the orinal curve, and d the half width of the curve used for stroking (positive is to the right).
+// p0, p1, p2, p3 are the start point, two control points and the end point respectively. With flatness defined as the maximum error from the orinal curve, and d the half width of the curve used for stroking (positive is to the right).
 func strokeCubicBezier(p0, p1, p2, p3 Point, d, tolerance float64) *Path {
 	tolerance = math.Max(tolerance, Epsilon) // prevent infinite loop if user sets tolerance to zero
 

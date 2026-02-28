@@ -456,6 +456,8 @@ func TestCubicBezierStrokeFlatten(t *testing.T) {
 		})
 	}
 	Epsilon = origEpsilon
+
+	test.That(t, 5 < strokeCubicBezier(Point{249.5, 492}, Point{491.861, 330.333}, Point{411.074, 7}, Point{411.074, 7}, 5.0, 0.01).Len())
 }
 
 func TestCubicBezierInflectionPoints(t *testing.T) {
