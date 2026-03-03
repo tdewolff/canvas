@@ -33,7 +33,7 @@ func NewShaper(b []byte, _ int) (Shaper, error) {
 		return Shaper{}, err
 	}
 	return Shaper{
-		font: harfbuzz.NewFont(&typesettingFont.Face{Font: font}),
+		font: harfbuzz.NewFont(typesettingFont.NewFace(font)),
 	}, nil
 }
 
