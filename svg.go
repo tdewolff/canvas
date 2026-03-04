@@ -32,6 +32,7 @@ type svgState struct {
 	fontFamily       string
 	fontSize         float64
 	currentColor     color.RGBA
+	fillOpacity      float64
 }
 
 var svgDefaultState = svgState{
@@ -40,6 +41,7 @@ var svgDefaultState = svgState{
 	fontFamily:       "serif",
 	fontSize:         16.0, // in px
 	currentColor:     Black,
+	fillOpacity:      1.0,
 }
 
 type svgCanvas struct {
@@ -222,7 +224,15 @@ func (svg *svgParser) parsePaint(v string) Paint {
 	if v == "none" {
 		return Paint{Color: Transparent}
 	}
-	return Paint{Color: svg.parseColor(v)}
+	col := svg.parseColor(v)
+	// Apply fill-opacity if it's not the default value of 1.0
+	if svg.state.fillOpacity < 1.0 {
+		col.A = uint8(float64(col.A) * svg.state.fillOpacity)
+		col.R = uint8(float64(col.R) * svg.state.fillOpacity)
+		col.G = uint8(float64(col.G) * svg.state.fillOpacity)
+		col.B = uint8(float64(col.B) * svg.state.fillOpacity)
+	}
+	return Paint{Color: col}
 }
 
 func (svg *svgParser) parseColor(v string) color.RGBA {
@@ -954,6 +964,8 @@ func (svg *svgParser) setAttribute(key, val string) {
 		svg.state.fontSize = svg.parseDimension(val, svg.height)
 	case "color":
 		svg.state.currentColor = svg.parseColor(val)
+	case "fill-opacity":
+		svg.state.fillOpacity = svg.parseNumber(val)
 	case "marker-start":
 		if id := svg.parseUrlID(val); id != "" {
 			svg.activeDefs["marker-start"] = svg.defs[id]
