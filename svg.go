@@ -477,10 +477,7 @@ func (svg *svgParser) parseDefs(l *xml.Lexer) {
 				stopColor := svg.parseColor(tag.attrs["stop-color"])
 				if v, ok := tag.attrs["stop-opacity"]; ok {
 					stopOpacity := svg.parseNumber(v)
-					stopColor.R = uint8(float64(stopColor.R) / float64(stopColor.A) * stopOpacity * 255.0)
-					stopColor.G = uint8(float64(stopColor.G) / float64(stopColor.A) * stopOpacity * 255.0)
-					stopColor.B = uint8(float64(stopColor.B) / float64(stopColor.A) * stopOpacity * 255.0)
-					stopColor.A = uint8(stopOpacity * 255.0)
+					stopColor = ToOpacity(stopColor, stopOpacity)
 				}
 				grad.Add(offset, stopColor)
 			}
@@ -552,10 +549,7 @@ func (svg *svgParser) parseDefs(l *xml.Lexer) {
 				stopColor := svg.parseColor(tag.attrs["stop-color"])
 				if v, ok := tag.attrs["stop-opacity"]; ok {
 					stopOpacity := svg.parseNumber(v)
-					stopColor.R = uint8(float64(stopColor.R) / float64(stopColor.A) * stopOpacity * 255.0)
-					stopColor.G = uint8(float64(stopColor.G) / float64(stopColor.A) * stopOpacity * 255.0)
-					stopColor.B = uint8(float64(stopColor.B) / float64(stopColor.A) * stopOpacity * 255.0)
-					stopColor.A = uint8(stopOpacity * 255.0)
+					stopColor = ToOpacity(stopColor, stopOpacity)
 				}
 				grad.Add(offset, stopColor)
 			}
@@ -898,7 +892,38 @@ func (svg *svgParser) setAttribute(key, val string) {
 			// Set a temporary fill so that DrawPath doesn't early return
 			svg.ctx.SetFill(Paint{Color: Black})
 		} else {
+			alpha := float64(svg.ctx.Style.Fill.Color.A) / 255.0
 			svg.ctx.SetFill(svg.parsePaint(val))
+			if alpha != 1.0 {
+				svg.ctx.Style.Fill.Color = ToOpacity(svg.ctx.Style.Fill.Color, alpha)
+				if svg.ctx.Style.Fill.IsGradient() {
+					switch grad := svg.ctx.Style.Fill.Gradient.(type) {
+					case *LinearGradient:
+						for i := range grad.Grad {
+							grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, alpha)
+						}
+					case *RadialGradient:
+						for i := range grad.Grad {
+							grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, alpha)
+						}
+					}
+				}
+			}
+		}
+	case "fill-opacity":
+		alpha := svg.parseNumber(val)
+		svg.ctx.Style.Fill.Color = ToOpacity(svg.ctx.Style.Fill.Color, alpha)
+		if svg.ctx.Style.Fill.IsGradient() {
+			switch grad := svg.ctx.Style.Stroke.Gradient.(type) {
+			case *LinearGradient:
+				for i := range grad.Grad {
+					grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, alpha)
+				}
+			case *RadialGradient:
+				for i := range grad.Grad {
+					grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, alpha)
+				}
+			}
 		}
 	case "stroke":
 		if id := svg.parseUrlID(val); id != "" {
@@ -906,7 +931,38 @@ func (svg *svgParser) setAttribute(key, val string) {
 			// Set a temporary stroke so that DrawPath doesn't early return
 			svg.ctx.SetStroke(Paint{Color: Black})
 		} else {
+			alpha := float64(svg.ctx.Style.Stroke.Color.A) / 255.0
 			svg.ctx.SetStroke(svg.parsePaint(val))
+			if alpha != 1.0 {
+				svg.ctx.Style.Stroke.Color = ToOpacity(svg.ctx.Style.Stroke.Color, alpha)
+				if svg.ctx.Style.Stroke.IsGradient() {
+					switch grad := svg.ctx.Style.Stroke.Gradient.(type) {
+					case *LinearGradient:
+						for i := range grad.Grad {
+							grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, alpha)
+						}
+					case *RadialGradient:
+						for i := range grad.Grad {
+							grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, alpha)
+						}
+					}
+				}
+			}
+		}
+	case "stroke-opacity":
+		alpha := svg.parseNumber(val)
+		svg.ctx.Style.Stroke.Color = ToOpacity(svg.ctx.Style.Stroke.Color, alpha)
+		if svg.ctx.Style.Stroke.IsGradient() {
+			switch grad := svg.ctx.Style.Stroke.Gradient.(type) {
+			case *LinearGradient:
+				for i := range grad.Grad {
+					grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, alpha)
+				}
+			case *RadialGradient:
+				for i := range grad.Grad {
+					grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, alpha)
+				}
+			}
 		}
 	case "stroke-width":
 		svg.ctx.SetStrokeWidth(svg.parseDimension(val, svg.diagonal))

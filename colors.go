@@ -3,6 +3,7 @@ package canvas
 import (
 	"image/color"
 	"math"
+	"slices"
 )
 
 // RGB returns a color given by red, green, and blue ∈ [0,1].
@@ -22,6 +23,16 @@ func RGBA(r, g, b, a float64) color.RGBA {
 		uint8(a * g * 255.0),
 		uint8(a * b * 255.0),
 		uint8(a * 255.0),
+	}
+}
+
+func ToOpacity(col color.Color, a float64) color.RGBA {
+	R, G, B, A := col.RGBA()
+	return color.RGBA{
+		R: uint8(float64(R) / float64(A) * a * 255.0),
+		G: uint8(float64(G) / float64(A) * a * 255.0),
+		B: uint8(float64(B) / float64(A) * a * 255.0),
+		A: uint8(a * 255.0),
 	}
 }
 
@@ -130,6 +141,16 @@ func (g Grad) ToRadial(c0 Point, r0 float64, c1 Point, r1 float64) *RadialGradie
 	return grad
 }
 
+func (g Grad) SetColorSpace(colorSpace ColorSpace) {
+	if _, ok := colorSpace.(LinearColorSpace); ok {
+		return
+	}
+	g = slices.Clone(g)
+	for i := range g {
+		g[i].Color = colorSpace.ToLinear(g[i].Color)
+	}
+}
+
 func colorLerp(c0, c1 color.RGBA, t float64) color.RGBA {
 	r0, g0, b0, a0 := c0.RGBA()
 	r1, g1, b1, a1 := c1.RGBA()
@@ -167,13 +188,7 @@ func NewLinearGradient(start, end Point) *LinearGradient {
 
 // SetColorSpace sets the color space. Automatically called by the rasterizer.
 func (g *LinearGradient) SetColorSpace(colorSpace ColorSpace) Gradient {
-	if _, ok := colorSpace.(LinearColorSpace); ok {
-		return g
-	}
-	g.Grad = append(Grad{}, g.Grad...)
-	for i := range g.Grad {
-		g.Grad[i].Color = colorSpace.ToLinear(g.Grad[i].Color)
-	}
+	g.Grad.SetColorSpace(colorSpace)
 	return g
 }
 
@@ -219,13 +234,7 @@ func NewRadialGradient(c0 Point, r0 float64, c1 Point, r1 float64) *RadialGradie
 
 // SetColorSpace sets the color space. Automatically called by the rasterizer.
 func (g *RadialGradient) SetColorSpace(colorSpace ColorSpace) Gradient {
-	if _, ok := colorSpace.(LinearColorSpace); ok {
-		return g
-	}
-	g.Grad = append(Grad{}, g.Grad...)
-	for i := range g.Grad {
-		g.Grad[i].Color = colorSpace.ToLinear(g.Grad[i].Color)
-	}
+	g.Grad.SetColorSpace(colorSpace)
 	return g
 }
 
