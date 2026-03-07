@@ -124,6 +124,7 @@ This is a non-exhaustive list of library users I've come across. PRs are welcome
 
 - https://github.com/aldernero/gaul (generative art utility library)
 - https://github.com/aldernero/sketchy (generative art framework)
+- https://github.com/aldernero/spider (spider/radar chart generator)
 - https://github.com/BrowserJam/jam001/tree/master/jamierocks (a browser!)
 - https://github.com/carbocation/genomisc (genomics tools)
 - https://github.com/Dadido3/noita-mapcap (Noita map renderer)
