@@ -96,7 +96,7 @@ func NewGradient() Grad {
 
 // Add adds a new color stop to a gradient.
 func (g *Grad) Add(t float64, color color.RGBA) {
-	stop := Stop{math.Min(math.Max(t, 0.0), 1.0), color}
+	stop := Stop{math.Min(math.Max(t, 0.0), 1.0), rgbaColor(color)}
 	// insert or replace stop and keep sort order
 	for i := range *g {
 		if Equal((*g)[i].Offset, stop.Offset) {
