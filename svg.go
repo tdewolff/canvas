@@ -31,6 +31,8 @@ type svgState struct {
 	textAnchor       string
 	fontFamily       string
 	fontSize         float64
+	fillOpacity      float64
+	strokeOpacity    float64
 	currentColor     color.RGBA
 }
 
@@ -39,6 +41,8 @@ var svgDefaultState = svgState{
 	textAnchor:       "start",
 	fontFamily:       "serif",
 	fontSize:         16.0, // in px
+	fillOpacity:      1.0,
+	strokeOpacity:    1.0,
 	currentColor:     Black,
 }
 
@@ -892,36 +896,35 @@ func (svg *svgParser) setAttribute(key, val string) {
 			// Set a temporary fill so that DrawPath doesn't early return
 			svg.ctx.SetFill(Paint{Color: Black})
 		} else {
-			alpha := float64(svg.ctx.Style.Fill.Color.A) / 255.0
 			svg.ctx.SetFill(svg.parsePaint(val))
-			if alpha != 1.0 {
-				svg.ctx.Style.Fill.Color = ToOpacity(svg.ctx.Style.Fill.Color, alpha)
+			if svg.state.fillOpacity != 1.0 {
+				svg.ctx.Style.Fill.Color = ToOpacity(svg.ctx.Style.Fill.Color, svg.state.fillOpacity)
 				if svg.ctx.Style.Fill.IsGradient() {
 					switch grad := svg.ctx.Style.Fill.Gradient.(type) {
 					case *LinearGradient:
 						for i := range grad.Grad {
-							grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, alpha)
+							grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, svg.state.fillOpacity)
 						}
 					case *RadialGradient:
 						for i := range grad.Grad {
-							grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, alpha)
+							grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, svg.state.fillOpacity)
 						}
 					}
 				}
 			}
 		}
 	case "fill-opacity":
-		alpha := svg.parseNumber(val)
-		svg.ctx.Style.Fill.Color = ToOpacity(svg.ctx.Style.Fill.Color, alpha)
+		svg.state.fillOpacity = svg.parseNumber(val)
+		svg.ctx.Style.Fill.Color = ToOpacity(svg.ctx.Style.Fill.Color, svg.state.fillOpacity)
 		if svg.ctx.Style.Fill.IsGradient() {
 			switch grad := svg.ctx.Style.Stroke.Gradient.(type) {
 			case *LinearGradient:
 				for i := range grad.Grad {
-					grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, alpha)
+					grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, svg.state.fillOpacity)
 				}
 			case *RadialGradient:
 				for i := range grad.Grad {
-					grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, alpha)
+					grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, svg.state.fillOpacity)
 				}
 			}
 		}
@@ -931,36 +934,35 @@ func (svg *svgParser) setAttribute(key, val string) {
 			// Set a temporary stroke so that DrawPath doesn't early return
 			svg.ctx.SetStroke(Paint{Color: Black})
 		} else {
-			alpha := float64(svg.ctx.Style.Stroke.Color.A) / 255.0
 			svg.ctx.SetStroke(svg.parsePaint(val))
-			if alpha != 1.0 {
-				svg.ctx.Style.Stroke.Color = ToOpacity(svg.ctx.Style.Stroke.Color, alpha)
+			if svg.state.strokeOpacity != 1.0 {
+				svg.ctx.Style.Stroke.Color = ToOpacity(svg.ctx.Style.Stroke.Color, svg.state.strokeOpacity)
 				if svg.ctx.Style.Stroke.IsGradient() {
 					switch grad := svg.ctx.Style.Stroke.Gradient.(type) {
 					case *LinearGradient:
 						for i := range grad.Grad {
-							grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, alpha)
+							grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, svg.state.strokeOpacity)
 						}
 					case *RadialGradient:
 						for i := range grad.Grad {
-							grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, alpha)
+							grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, svg.state.strokeOpacity)
 						}
 					}
 				}
 			}
 		}
 	case "stroke-opacity":
-		alpha := svg.parseNumber(val)
-		svg.ctx.Style.Stroke.Color = ToOpacity(svg.ctx.Style.Stroke.Color, alpha)
+		svg.state.strokeOpacity = svg.parseNumber(val)
+		svg.ctx.Style.Stroke.Color = ToOpacity(svg.ctx.Style.Stroke.Color, svg.state.strokeOpacity)
 		if svg.ctx.Style.Stroke.IsGradient() {
 			switch grad := svg.ctx.Style.Stroke.Gradient.(type) {
 			case *LinearGradient:
 				for i := range grad.Grad {
-					grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, alpha)
+					grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, svg.state.strokeOpacity)
 				}
 			case *RadialGradient:
 				for i := range grad.Grad {
-					grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, alpha)
+					grad.Grad[i].Color = ToOpacity(grad.Grad[i].Color, svg.state.strokeOpacity)
 				}
 			}
 		}
