@@ -1205,7 +1205,7 @@ func (w *pdfPageWriter) WriteText(mode canvas.WritingMode, TJ ...interface{}) {
 		}
 		subset := w.pdf.fontSubset[w.font]
 		if subset == nil {
-			form := norm.NFKC
+			form := norm.NFC
 			for _, glyph := range glyphs {
 				s := form.String(glyph.Text) // split ligatures into separate characters
 				for _, b := range s {
