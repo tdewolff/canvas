@@ -96,7 +96,7 @@ func NewGradient() Grad {
 
 // Add adds a new color stop to a gradient.
 func (g *Grad) Add(t float64, color color.RGBA) {
-	stop := Stop{math.Min(math.Max(t, 0.0), 1.0), color}
+	stop := Stop{math.Min(math.Max(t, 0.0), 1.0), rgbaColor(color)}
 	// insert or replace stop and keep sort order
 	for i := range *g {
 		if Equal((*g)[i].Offset, stop.Offset) {
@@ -250,12 +250,27 @@ func (g *RadialGradient) At(x, y float64) color.RGBA {
 	b := pd.Dot(g.cd) + g.R0*g.dr
 	c := pd.Dot(pd) - g.R0*g.R0
 	t0, t1 := solveQuadraticFormula(g.a, -2.0*b, c)
-	if !math.IsNaN(t1) {
+
+	valid := func(t float64) bool {
+		return !math.IsNaN(t) && t >= 0 && t <= 1 && g.R0+g.dr*t >= 0
+	}
+	hasPositive := func(t float64) bool {
+		return !math.IsNaN(t) && t > 0 && g.R0+g.dr*t >= 0
+	}
+
+	// Pick the largest valid t (t1 >= t0 from solveQuadraticFormula).
+	if valid(t1) {
 		return g.Grad.At(t1)
-	} else if !math.IsNaN(t0) {
+	}
+	if valid(t0) {
 		return g.Grad.At(t0)
 	}
-	return Transparent
+
+	// No valid t in [0,1]. Extend boundary colors.
+	if hasPositive(t0) || hasPositive(t1) {
+		return g.Grad.At(1)
+	}
+	return g.Grad.At(0)
 }
 
 // ColorSpace defines the color space within the RGB color model. All colors passed to this library are assumed to be in the sRGB color space, which is a ubiquitous assumption in most software. This works great for most applications, but fails when blending semi-transparent layers. See an elaborate explanation at https://blog.johnnovak.net/2016/09/21/what-every-coder-should-know-about-gamma/, which goes into depth of the problems of using sRGB for blending and the need for gamma correction. In short, we need to transform the colors, which are in the sRGB color space, to the linear color space, perform blending, and then transform them back to the sRGB color space.
