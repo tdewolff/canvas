@@ -370,14 +370,27 @@ func NewTextLine(face *FontFace, s string, halign TextAlign) *Text {
 			skipNext = r == '\r' && j+1 < len(s) && s[j+1] == '\n'
 		}
 	}
-	for _, line := range t.lines {
-		if 0 < len(line.spans) {
-			last := line.spans[len(line.spans)-1]
-			t.Width = math.Max(t.Width, last.X+last.Width)
+	if halign == Left {
+		for _, line := range t.lines {
+			if 0 < len(line.spans) {
+				last := line.spans[len(line.spans)-1]
+				t.Width = math.Max(t.Width, last.X+last.Width)
+			}
 		}
-	}
-	if halign == Center {
-		t.Width *= 2.0
+	} else if halign == Center {
+		for _, line := range t.lines {
+			if 0 < len(line.spans) {
+				first, last := line.spans[0], line.spans[len(line.spans)-1]
+				t.Width = math.Max(t.Width, math.Max(last.X+last.Width, -first.X))
+			}
+		}
+	} else if halign == Right {
+		for _, line := range t.lines {
+			if 0 < len(line.spans) {
+				first := line.spans[0]
+				t.Width = math.Max(t.Width, -first.X)
+			}
+		}
 	}
 	t.Height = y - spacing
 	return t
