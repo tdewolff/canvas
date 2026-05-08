@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	cimage "github.com/tdewolff/canvas/image"
 	"github.com/tdewolff/canvas/text"
 )
 
@@ -170,7 +171,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	ctx.SetDashes(0.0)
 
 	// Draw a raster image
-	img, err := NewPNGImage(bytes.NewReader(lenna))
+	img, err := cimage.NewPNGImage(bytes.NewReader(lenna))
 	if err != nil {
 		return err
 	}

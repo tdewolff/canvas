@@ -7,18 +7,19 @@ import (
 	"math"
 
 	"github.com/tdewolff/canvas"
+	cimage "github.com/tdewolff/canvas/image"
 )
 
 type Options struct {
 	Compress    bool
 	SubsetFonts bool
-	canvas.ImageEncoding
+	cimage.ImageEncoding
 }
 
 var DefaultOptions = Options{
 	Compress:      true,
 	SubsetFonts:   true,
-	ImageEncoding: canvas.Lossless,
+	ImageEncoding: cimage.Lossless,
 }
 
 // PDF is a portable document format renderer.
@@ -47,7 +48,7 @@ func New(w io.Writer, width, height float64, opts *Options) *PDF {
 }
 
 // SetImageEncoding sets the image encoding to Loss or Lossless.
-func (r *PDF) SetImageEncoding(enc canvas.ImageEncoding) {
+func (r *PDF) SetImageEncoding(enc cimage.ImageEncoding) {
 	r.opts.ImageEncoding = enc
 }
 

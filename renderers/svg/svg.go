@@ -16,7 +16,8 @@ import (
 	"strings"
 
 	"github.com/tdewolff/canvas"
-	canvasText "github.com/tdewolff/canvas/text"
+	cimage "github.com/tdewolff/canvas/image"
+	ctext "github.com/tdewolff/canvas/text"
 	"github.com/tdewolff/font"
 )
 
@@ -25,14 +26,14 @@ type Options struct {
 	EmbedFonts  bool
 	SubsetFonts bool
 	SizeUnits   string
-	canvas.ImageEncoding
+	cimage.ImageEncoding
 }
 
 var DefaultOptions = Options{
 	EmbedFonts:    true,
 	SubsetFonts:   false, // TODO: enable when properly handling GPOS and GSUB tables
 	SizeUnits:     "mm",
-	ImageEncoding: canvas.Lossless,
+	ImageEncoding: cimage.Lossless,
 }
 
 // SVG is a scalable vector graphics renderer.
@@ -157,7 +158,7 @@ func (r *SVG) RemoveClass(class string) {
 }
 
 // SetImageEncoding sets the image encoding to Loss or Lossless.
-func (r *SVG) SetImageEncoding(enc canvas.ImageEncoding) {
+func (r *SVG) SetImageEncoding(enc cimage.ImageEncoding) {
 	r.opts.ImageEncoding = enc
 }
 
@@ -433,11 +434,11 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 
 			x += x0
 			y = y0 - y
-			if span.Direction == canvasText.RightToLeft {
+			if span.Direction == ctext.RightToLeft {
 				x += span.Width
 			}
 			fmt.Fprintf(r.w, `<tspan x="%v" y="%v`, num(x), num(y))
-			r.writeFontStyle(span.Face, faceMain, span.Direction == canvasText.RightToLeft, r.writePaint(span.Face.Fill, m))
+			r.writeFontStyle(span.Face, faceMain, span.Direction == ctext.RightToLeft, r.writePaint(span.Face.Fill, m))
 			r.writeClasses(r.w)
 			fmt.Fprintf(r.w, `">`)
 			xml.EscapeText(r.w, []byte(span.Text))
@@ -474,17 +475,17 @@ func (r *SVG) RenderImage(img image.Image, m canvas.Matrix) {
 
 // return a WriterTo, a refMask and a mimetype
 func (r *SVG) encodableImage(img image.Image) (func(io.Writer) error, string, string) {
-	if cimg, ok := img.(canvas.Image); ok && 0 < len(cimg.Bytes) {
-		if cimg.Mimetype == "image/jpeg" || cimg.Mimetype == "image/png" {
+	// lossy: jpeg
+	if r.opts.ImageEncoding == cimage.Lossy {
+		if cimg, ok := img.(*cimage.Image); ok && cimg.Mimetype == "image/jpeg" {
 			return func(w io.Writer) error {
 				_, err := w.Write(cimg.Bytes)
 				return err
 			}, "", cimg.Mimetype
+		} else if ok {
+			img, _ = cimg.Image() // allow optimisation in jpeg.Encode
 		}
-	}
 
-	// lossy: jpeg
-	if r.opts.ImageEncoding == canvas.Lossy {
 		var refMask string
 		if opaqueImg, ok := img.(interface{ Opaque() bool }); !ok || !opaqueImg.Opaque() {
 			img, refMask = r.renderOpacityMask(img)
@@ -494,7 +495,14 @@ func (r *SVG) encodableImage(img image.Image) (func(io.Writer) error, string, st
 		}, refMask, "image/jpeg"
 	}
 
-	// lossless: png
+	// any other
+	if cimg, ok := img.(*cimage.Image); ok {
+		return func(w io.Writer) error {
+			_, err := w.Write(cimg.Bytes)
+			return err
+		}, "", cimg.Mimetype
+	}
+
 	return func(w io.Writer) error {
 		return png.Encode(w, img)
 	}, "", "image/png"

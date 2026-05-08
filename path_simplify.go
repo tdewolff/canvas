@@ -294,6 +294,7 @@ func (q heapVW) down(i0, n int) bool {
 }
 
 // FastClip removes all segments that are completely outside the given clipping rectangle. To ensure that the removal doesn't cause a segment to cross the rectangle from the outside, it keeps points that cross at least two lines to infinity along the rectangle's edges. This is much quicker (along O(n)) than using p.And(canvas.Rectangle(x1-x0, y1-y0).Translate(x0, y0)) (which is O(n log n)).
+// TODO: what's the difference with Clip? Can we remove one in favor of the other?
 func (p *Path) FastClip(x0, y0, x1, y1 float64) *Path {
 	if x1 < x0 {
 		x0, x1 = x1, x0

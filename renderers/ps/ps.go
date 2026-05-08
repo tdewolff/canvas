@@ -26,12 +26,9 @@ const (
 
 type Options struct {
 	Format
-	canvas.ImageEncoding
 }
 
-var DefaultOptions = Options{
-	ImageEncoding: canvas.Lossless,
-}
+var DefaultOptions = Options{}
 
 // PS is an PostScript renderer. Be aware that PostScript does not support transparency of colors.
 type PS struct {

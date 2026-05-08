@@ -18,23 +18,23 @@ require (
 	github.com/paulmach/osm v0.9.0
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/srwiley/scanx v0.0.0-20190309010443-e94503791388
-	github.com/tdewolff/argp v0.0.0-20250430135133-0f54527d2b1e
-	github.com/tdewolff/font v0.0.0-20260314002930-9f995dac393e
-	github.com/tdewolff/minify/v2 v2.24.11
-	github.com/tdewolff/parse/v2 v2.8.11
-	github.com/tdewolff/test v1.0.11
+	github.com/tdewolff/argp v0.0.0-20260424074207-decde4f86440
+	github.com/tdewolff/font v0.0.0-20260424075104-b5eeb1e23189
+	github.com/tdewolff/minify/v2 v2.24.13
+	github.com/tdewolff/parse/v2 v2.8.12
+	github.com/tdewolff/test v1.0.12
 	github.com/wcharczuk/go-chart/v2 v2.1.2
 	github.com/wroge/wgs84/v2 v2.0.0-alpha.13
-	golang.org/x/image v0.38.0
-	golang.org/x/text v0.35.0
-	gonum.org/v1/plot v0.16.0
+	golang.org/x/image v0.39.0
+	golang.org/x/text v0.36.0
+	gonum.org/v1/plot v0.17.0
 )
 
 require (
 	codeberg.org/go-fonts/liberation v0.5.0 // indirect
 	codeberg.org/go-latex/latex v0.2.0 // indirect
 	codeberg.org/go-pdf/fpdf v0.11.1 // indirect
-	fyne.io/systray v1.12.0 // indirect
+	fyne.io/systray v1.12.1 // indirect
 	gioui.org/shader v1.0.8 // indirect
 	git.sr.ht/~sbinet/gg v0.7.0 // indirect
 	github.com/BurntSushi/freetype-go v0.0.0-20160129220410-b763ddbfe298 // indirect
@@ -47,7 +47,7 @@ require (
 	github.com/benoitkugler/textlayout v0.3.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/fredbi/uri v1.1.1 // indirect
-	github.com/fsnotify/fsnotify v1.9.0 // indirect
+	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/fyne-io/glfw-js v0.3.0 // indirect
 	github.com/fyne-io/image v0.1.1 // indirect
 	github.com/fyne-io/oksvg v0.2.0 // indirect
@@ -69,10 +69,9 @@ require (
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/rymdport/portal v0.4.2 // indirect
 	github.com/srwiley/scanFT v0.0.0-20220128184157-0d1ee492111f // indirect
-	go.mongodb.org/mongo-driver v1.17.9 // indirect
-	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
+	go.mongodb.org/mongo-driver/v2 v2.6.0 // indirect
 	golang.org/x/exp v0.0.0-20251017212417-90e834f514db // indirect
-	golang.org/x/exp/shiny v0.0.0-20260312153236-7ab1446f8b90 // indirect
+	golang.org/x/exp/shiny v0.0.0-20260410095643-746e56fc9e2f // indirect
 	golang.org/x/time v0.14.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
@@ -86,7 +85,7 @@ require (
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/yuin/goldmark v1.8.2
-	golang.org/x/net v0.52.0
-	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/net v0.53.0
+	golang.org/x/sys v0.43.0 // indirect
 	star-tex.org/x/tex v0.7.1
 )

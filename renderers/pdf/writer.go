@@ -6,6 +6,7 @@ import (
 	"encoding/ascii85"
 	"fmt"
 	"image"
+	"image/color"
 	"image/jpeg"
 	"io"
 	"math"
@@ -20,9 +21,10 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/tdewolff/canvas"
+	cimage "github.com/tdewolff/canvas/image"
 	"github.com/tdewolff/canvas/text"
-	canvasText "github.com/tdewolff/canvas/text"
-	canvasFont "github.com/tdewolff/font"
+	ctext "github.com/tdewolff/canvas/text"
+	cfont "github.com/tdewolff/font"
 )
 
 // TODO: Invalid graphics transparency, Group has a transparency S entry or the S entry is null
@@ -372,7 +374,7 @@ func (w *pdfWriter) writeFont(ref pdfRef, font *canvas.Font, vertical bool) {
 			sfnt.CFF.SetGlyphNames(nil)
 		}
 
-		sfntSubset, err := sfnt.Subset(glyphIDs, canvasFont.SubsetOptions{Tables: canvasFont.KeepPDFTables})
+		sfntSubset, err := sfnt.Subset(glyphIDs, cfont.SubsetOptions{Tables: cfont.KeepPDFTables})
 		if err == nil {
 			sfnt = sfntSubset
 		} else {
@@ -512,7 +514,7 @@ end`)
 
 	// get name and CID subtype
 	name := font.Name()
-	if records := font.SFNT.Name.Get(canvasFont.NamePostScript); 0 < len(records) {
+	if records := font.SFNT.Name.Get(cfont.NamePostScript); 0 < len(records) {
 		name = records[0].String()
 	}
 	baseFont := strings.ReplaceAll(name, " ", "")
@@ -843,7 +845,7 @@ type pdfPageWriter struct {
 	dashes         []float64
 	font           *canvas.Font
 	fontSize       float64
-	fontDirection  canvasText.Direction
+	fontDirection  ctext.Direction
 	inTextObject   bool
 	textPosition   canvas.Matrix
 	textCharSpace  float64
@@ -874,7 +876,7 @@ func (w *pdfWriter) NewPage(width, height float64) *pdfPageWriter {
 		dashes:         []float64{0.0}, // dashArray and dashPhase
 		font:           nil,
 		fontSize:       0.0,
-		fontDirection:  canvasText.LeftToRight,
+		fontDirection:  ctext.LeftToRight,
 		inTextObject:   false,
 		textPosition:   canvas.Identity,
 		textCharSpace:  0.0,
@@ -1099,7 +1101,7 @@ func (w *pdfPageWriter) SetDashes(dashPhase float64, dashArray []float64) {
 }
 
 // SetFont sets the font.
-func (w *pdfPageWriter) SetFont(font *canvas.Font, size float64, direction canvasText.Direction) {
+func (w *pdfPageWriter) SetFont(font *canvas.Font, size float64, direction ctext.Direction) {
 	if !w.inTextObject {
 		panic("must be in text object")
 	}
@@ -1108,7 +1110,7 @@ func (w *pdfPageWriter) SetFont(font *canvas.Font, size float64, direction canva
 		w.fontSize = size
 		w.fontDirection = direction
 
-		vertical := direction == canvasText.TopToBottom || direction == canvasText.BottomToTop
+		vertical := direction == ctext.TopToBottom || direction == ctext.BottomToTop
 		ref := w.pdf.getFont(font, vertical)
 		if _, ok := w.resources["Font"]; !ok {
 			w.resources["Font"] = pdfDict{}
@@ -1196,7 +1198,7 @@ func (w *pdfPageWriter) WriteText(mode canvas.WritingMode, TJ ...interface{}) {
 	}
 
 	first := true
-	write := func(glyphs []canvasText.Glyph) {
+	write := func(glyphs []ctext.Glyph) {
 		if first {
 			fmt.Fprintf(w, "(")
 			first = false
@@ -1268,7 +1270,7 @@ func (w *pdfPageWriter) WriteText(mode canvas.WritingMode, TJ ...interface{}) {
 	}
 	writeString := func(s string) {
 		rs := []rune(s)
-		glyphs := make([]canvasText.Glyph, len(rs))
+		glyphs := make([]ctext.Glyph, len(rs))
 		for i, r := range rs {
 			glyphs[i].ID = w.font.SFNT.GlyphIndex(r)
 		}
@@ -1276,9 +1278,9 @@ func (w *pdfPageWriter) WriteText(mode canvas.WritingMode, TJ ...interface{}) {
 	}
 
 	position := w.textPosition
-	if glyphs, ok := TJ[0].([]canvasText.Glyph); ok && 0 < len(glyphs) && mode != canvas.HorizontalTB && !glyphs[0].Vertical {
+	if glyphs, ok := TJ[0].([]ctext.Glyph); ok && 0 < len(glyphs) && mode != canvas.HorizontalTB && !glyphs[0].Vertical {
 		glyphRotation, glyphOffset := glyphs[0].Rotation(), glyphs[0].YOffset-int32(glyphs[0].SFNT.Head.UnitsPerEm/2)
-		if glyphRotation != canvasText.NoRotation || glyphOffset != 0 {
+		if glyphRotation != ctext.NoRotation || glyphOffset != 0 {
 			w.SetTextPosition(position.Rotate(float64(glyphRotation)).Translate(0.0, glyphs[0].Size/float64(glyphs[0].SFNT.Head.UnitsPerEm)*mmPerPt*float64(glyphOffset)))
 		}
 	}
@@ -1287,7 +1289,7 @@ func (w *pdfPageWriter) WriteText(mode canvas.WritingMode, TJ ...interface{}) {
 	fmt.Fprintf(w, "[")
 	for _, tj := range TJ {
 		switch val := tj.(type) {
-		case []canvasText.Glyph:
+		case []ctext.Glyph:
 			i := 0
 			for j, glyph := range val {
 				if mode == canvas.HorizontalTB || !glyph.Vertical {
@@ -1334,7 +1336,7 @@ func (w *pdfPageWriter) WriteText(mode canvas.WritingMode, TJ ...interface{}) {
 }
 
 // DrawImage embeds and draws an image.
-func (w *pdfPageWriter) DrawImage(img image.Image, enc canvas.ImageEncoding, m canvas.Matrix) {
+func (w *pdfPageWriter) DrawImage(img image.Image, enc cimage.ImageEncoding, m canvas.Matrix) {
 	size := img.Bounds().Size()
 
 	// add clipping path around image for smooth edges when rotating
@@ -1358,38 +1360,128 @@ func (w *pdfPageWriter) DrawImage(img image.Image, enc canvas.ImageEncoding, m c
 	fmt.Fprintf(w, " %v %v %v %v %v %v cm /%v Do Q", dec(m[0][0]), dec(m[1][0]), dec(m[0][1]), dec(m[1][1]), dec(m[0][2]), dec(m[1][2]), name)
 }
 
-func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pdfRef {
+func (w *pdfPageWriter) embedImage(img image.Image, enc cimage.ImageEncoding) pdfRef {
 	//if ref, ok := w.pdf.images[img]; ok {
 	//	return ref
 	//}
 
-	var filter pdfFilter
 	var stream []byte
 	var streamMask []byte
-	var hasMask bool
 
 	size := img.Bounds().Size()
-	if enc == canvas.Lossy {
-		filter = pdfFilterDCT
-		sp := img.Bounds().Min // starting point
-		streamMask = make([]byte, size.X*size.Y)
-		for y := 0; y < size.Y; y++ {
-			for x := 0; x < size.X; x++ {
-				_, _, _, A := img.At(sp.X+x, sp.Y+y).RGBA()
-				if A != 0 {
-					streamMask[y*size.X+x] = byte(A >> 8)
+	filters, filtersMask := pdfArray{pdfFilterFlate}, pdfArray{pdfFilterFlate}
+	if cimg, ok := img.(*cimage.Image); ok && cimg.Mimetype == "image/jpeg" {
+		// image is already lossy
+		stream = cimg.Bytes
+		filters = append(filters, pdfFilterDCT)
+		if cimg.Mask != nil {
+			if cimg.Mask.Mimetype == "image/jpeg" {
+				// mask as well
+				streamMask = cimg.Mask.Bytes
+				filtersMask = append(filtersMask, pdfFilterDCT)
+			} else if enc == cimage.Lossy {
+				hasMask := false
+				sp := img.Bounds().Min // starting point
+				mask := image.NewGray(img.Bounds())
+				for y := 0; y < size.Y; y++ {
+					for x := 0; x < size.X; x++ {
+						_, _, _, A := img.At(sp.X+x, sp.Y+y).RGBA()
+						if A != 0 {
+							mask.SetGray(x, y, color.Gray{uint8(A >> 8)})
+						}
+						if A>>8 != 255 {
+							hasMask = true
+						}
+					}
 				}
-				if A>>8 != 255 {
-					hasMask = true
+
+				if hasMask {
+					var bufMask bytes.Buffer
+					_ = jpeg.Encode(&bufMask, mask, nil)
+					streamMask = bufMask.Bytes()
+					filtersMask = append(filtersMask, pdfFilterDCT)
+				}
+			} else {
+				hasMask := false
+				sp := img.Bounds().Min // starting point
+				streamMask = make([]byte, size.X*size.Y)
+				for y := 0; y < size.Y; y++ {
+					for x := 0; x < size.X; x++ {
+						i := (y*size.X + x) * 3
+						R, G, B, A := img.At(sp.X+x, sp.Y+y).RGBA()
+						if A != 0 {
+							stream[i+0] = byte((R * 65535 / A) >> 8)
+							stream[i+1] = byte((G * 65535 / A) >> 8)
+							stream[i+2] = byte((B * 65535 / A) >> 8)
+							streamMask[y*size.X+x] = byte(A >> 8)
+						}
+						if A>>8 != 255 {
+							hasMask = true
+						}
+					}
+				}
+				if !hasMask {
+					streamMask = nil
 				}
 			}
 		}
+	} else if enc == cimage.Lossy {
+		opaque := false
+		if opaqueImg, ok := img.(interface{ Opaque() bool }); ok && opaqueImg.Opaque() {
+			opaque = true
+		}
+		if ok {
+			img, _ = cimg.Image() // allow optimisation in jpeg.Encode
+		}
+		if opaque {
+			var buf bytes.Buffer
+			_ = jpeg.Encode(&buf, img, nil)
+			stream = buf.Bytes()
+			filters = append(filters, pdfFilterDCT)
+		} else {
+			hasMask := false
+			sp := img.Bounds().Min // starting point
+			mask := image.NewGray(img.Bounds())
+			for y := 0; y < size.Y; y++ {
+				for x := 0; x < size.X; x++ {
+					_, _, _, A := img.At(sp.X+x, sp.Y+y).RGBA()
+					if A != 0 {
+						mask.SetGray(x, y, color.Gray{uint8(A >> 8)})
+					}
+					if A>>8 != 255 {
+						hasMask = true
+					}
+				}
+			}
 
-		var buf bytes.Buffer
-		_ = jpeg.Encode(&buf, img, nil)
-		stream = buf.Bytes()
+			var buf bytes.Buffer
+			_ = jpeg.Encode(&buf, img, nil)
+			stream = buf.Bytes()
+			filters = append(filters, pdfFilterDCT)
+
+			if hasMask {
+				var bufMask bytes.Buffer
+				_ = jpeg.Encode(&bufMask, mask, nil)
+				streamMask = bufMask.Bytes()
+				filtersMask = append(filtersMask, pdfFilterDCT)
+			}
+		}
+	} else if opaqueImg, ok := img.(interface{ Opaque() bool }); ok && opaqueImg.Opaque() {
+		sp := img.Bounds().Min // starting point
+		stream = make([]byte, size.X*size.Y*3)
+		for y := 0; y < size.Y; y++ {
+			for x := 0; x < size.X; x++ {
+				i := (y*size.X + x) * 3
+				R, G, B, A := img.At(sp.X+x, sp.Y+y).RGBA()
+				if A != 0 {
+					stream[i+0] = byte((R * 65535 / A) >> 8)
+					stream[i+1] = byte((G * 65535 / A) >> 8)
+					stream[i+2] = byte((B * 65535 / A) >> 8)
+				}
+			}
+		}
 	} else {
-		filter = pdfFilterFlate
+		hasMask := false
 		sp := img.Bounds().Min // starting point
 		stream = make([]byte, size.X*size.Y*3)
 		streamMask = make([]byte, size.X*size.Y)
@@ -1408,6 +1500,9 @@ func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pd
 				}
 			}
 		}
+		if !hasMask {
+			streamMask = nil
+		}
 	}
 
 	dict := pdfDict{
@@ -1418,10 +1513,10 @@ func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pd
 		"ColorSpace":       pdfName("DeviceRGB"),
 		"BitsPerComponent": 8,
 		"Interpolate":      true,
-		"Filter":           filter,
+		"Filter":           filters,
 	}
 
-	if hasMask {
+	if streamMask != nil {
 		dict["SMask"] = w.pdf.writeObject(pdfStream{
 			dict: pdfDict{
 				"Type":             pdfName("XObject"),
@@ -1431,7 +1526,7 @@ func (w *pdfPageWriter) embedImage(img image.Image, enc canvas.ImageEncoding) pd
 				"ColorSpace":       pdfName("DeviceGray"),
 				"BitsPerComponent": 8,
 				"Interpolate":      true,
-				"Filter":           pdfFilterFlate,
+				"Filter":           filtersMask,
 			},
 			stream: streamMask,
 		})

@@ -11,6 +11,7 @@ import (
 	"gioui.org/op/paint"
 
 	"github.com/tdewolff/canvas"
+	cimage "github.com/tdewolff/canvas/image"
 )
 
 type Gio struct {
@@ -148,6 +149,9 @@ func (r *Gio) RenderText(text *canvas.Text, m canvas.Matrix) {
 
 // RenderImage renders an image to the canvas using a transformation matrix.
 func (r *Gio) RenderImage(img image.Image, m canvas.Matrix) {
+	if cimg, ok := img.(*cimage.Image); ok {
+		img, _ = cimg.Image()
+	}
 	paint.NewImageOp(img).Add(r.ops)
 	m = canvas.Identity.Scale(r.xScale, r.yScale).Mul(m)
 	m = m.Translate(0.0, float64(img.Bounds().Max.Y))
