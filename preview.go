@@ -72,17 +72,21 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	pt := 14.0
 	face := fontLatin.Face(pt)
 	rt := NewRichText(face)
-	rt.WriteString("Lorem dolor ipsum ")
+	rt.WriteString("Lorem ")
+	rt.WriteFace(fontLatin.Face(pt, FontStroke(0.25, White)), "dolor ")
+	rt.WriteString("ipsum ")
 	rt.WriteFace(fontLatin.Face(pt, White, FontBold), "confiscator")
 	rt.WriteString(" cur\u00ADabitur ")
 	rt.WriteFace(fontLatin.Face(pt, FontItalic), "mattis")
 	rt.WriteString(" dui ")
 	rt.WriteFace(fontLatin.Face(pt, FontBold|FontItalic), "tellus")
-	rt.WriteString(" vel. Proin ")
-	rt.WriteFace(fontLatin.Face(pt, FontUnderline), "sodales")
-	rt.WriteString(" eros vel ")
+	rt.WriteString(" vel. Proin sodales eros vel ")
 	rt.WriteFace(fontLatin.Face(pt, FontSineUnderline), "nibh")
-	rt.WriteString(" fringilla pellen\u00ADtesque eu ")
+	rt.WriteString(" fringilla pellen\u00AD")
+	underline := FontUnderline
+	underline.Outline = 0.15
+	rt.WriteFace(fontLatin.Face(pt, underline), "tesque")
+	rt.WriteString(" eu ")
 
 	// Smiley face
 	c2 := New(6.144, 6.144)
@@ -138,7 +142,7 @@ func DrawPreviewWithAssets(ctx *Context, latin, arabic, devanagari, lenna []byte
 	ctx.SetFillGradient(gradient)
 
 	face = fontLatin.Face(80.0)
-	p, _, _ := face.ToPath("Stroke")
+	p, _ := face.ToPath("Stroke")
 	ctx.DrawPath(100, 5, p.Stroke(0.75, RoundCap, RoundJoin, Tolerance))
 
 	// Draw a LaTeX formula

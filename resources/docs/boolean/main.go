@@ -44,7 +44,7 @@ func main() {
 	draw(ctx, -145.0, "Cubic beziers", bezier.Copy().Translate(5.0, 5.0), bezier.Scale(-1.0, 1.0).Translate(5.0, 5.0))
 
 	var p *canvas.Path
-	a, _, _ := font.Face(40.0, canvas.Black, canvas.FontRegular, canvas.FontNormal).ToPath("a")
+	a, _ := font.Face(40.0, canvas.Black, canvas.FontRegular, canvas.FontNormal).ToPath("a")
 	p = canvas.Circle(3.0).Translate(6.0, 5.0)
 	p = p.Append(canvas.Circle(1.0).Translate(1.5, 6.0))
 	draw(ctx, -157.0, "Holes and islands 1", a, p)

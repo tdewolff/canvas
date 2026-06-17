@@ -71,7 +71,7 @@ func main() {
 		ctx.SetFillColor(colors[idx])
 		ctx.DrawPath(0.5+10.0*float64(i), -9.5-10.0*float64(j), canvas.Rectangle(9.0, 9.0))
 
-		p, w, _ := face.ToPath(names[idx])
+		p, w := face.ToPath(names[idx])
 		p = p.Offset(0.05, 0.01)
 		p = p.Translate(-w/2.0, 0.0)
 		ctx.SetFillColor(canvas.Hex("#ffffff88"))

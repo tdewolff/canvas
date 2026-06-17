@@ -1,6 +1,7 @@
 package rasterizer
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -47,6 +48,8 @@ func FromImage(img draw.Image, resolution canvas.Resolution, colorSpace canvas.C
 		panic("raster size is zero, increase resolution")
 	} else if math.MaxInt32/bounds.Dx() < bounds.Dy() {
 		panic("raster size overflow, decrease resolution")
+	} else if _, ok := img.(*image.RGBA); !ok {
+		panic(fmt.Errorf("invalid image type: %T != *image.RGBA", img))
 	}
 
 	if colorSpace == nil {
@@ -68,6 +71,11 @@ func (r *Rasterizer) Close() {
 		// gamma compress
 		changeColorSpace(r.Image, r.Image, r.colorSpace.FromLinear)
 	}
+}
+
+// SetOp sets the drawing operation. Either draw.Src or draw.Over.
+func (r *Rasterizer) SetOp(op draw.Op) {
+	r.spanner.Op = op
 }
 
 // Size returns the size of the canvas in millimeters.
@@ -165,7 +173,7 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 
 // RenderText renders a text object to the canvas using a transformation matrix.
 func (r *Rasterizer) RenderText(text *canvas.Text, m canvas.Matrix) {
-	text.RenderAsPath(r, m, r.resolution)
+	text.RenderTo(r, m, r.resolution)
 }
 
 // RenderImage renders an image to the canvas using a transformation matrix.

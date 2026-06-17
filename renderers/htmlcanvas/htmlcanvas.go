@@ -192,7 +192,7 @@ func (r *HTMLCanvas) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 
 // RenderText renders a text object to the canvas using a transformation matrix.
 func (r *HTMLCanvas) RenderText(text *canvas.Text, m canvas.Matrix) {
-	text.RenderAsPath(r, m, canvas.DefaultResolution)
+	text.RenderTo(r, m, 0.0)
 }
 
 func jsAwait(v js.Value) (result js.Value, ok bool) {

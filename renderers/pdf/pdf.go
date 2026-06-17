@@ -227,11 +227,7 @@ func (r *PDF) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 
 // RenderText renders a text object to the canvas using a transformation matrix.
 func (r *PDF) RenderText(text *canvas.Text, m canvas.Matrix) {
-	text.WalkDecorations(func(fill canvas.Paint, p *canvas.Path) {
-		style := canvas.DefaultStyle
-		style.Fill = fill
-		r.RenderPath(p, style, m)
-	})
+	text.RenderDecorationsTo(r, m, 0.0)
 
 	text.WalkSpans(func(x, y float64, span canvas.TextSpan) {
 		if span.IsText() {

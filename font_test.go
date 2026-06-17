@@ -54,6 +54,22 @@ func TestFontFace(t *testing.T) {
 	//test.Float(t, width, 18.515625)
 }
 
+func fontDecorate(face *FontFace, width float64) *Path {
+	c := &Canvas{}
+	for _, deco := range face.Deco {
+		deco.Decorate(c, Identity, face, &Path{}, width)
+	}
+	p := &Path{}
+	for z := range c.layers {
+		for _, layer := range c.layers[z] {
+			if layer.path != nil {
+				p = p.Append(layer.path)
+			}
+		}
+	}
+	return p
+}
+
 func TestFontDecoration(t *testing.T) {
 	family := NewFontFamily("dejavu-serif")
 	if err := family.LoadFontFile("resources/DejaVuSerif.ttf", FontRegular); err != nil {
@@ -66,24 +82,24 @@ func TestFontDecoration(t *testing.T) {
 	// yStrikoutSize = 102, yStrikeoutPosition = 530
 	// note that we increase distance by half the thickness to match the implementation of Firefox
 	face := family.Face(pt, Black, FontRegular, FontNormal, FontUnderline)
-	test.T(t, face.Decorate(10.0), MustParseSVGPath("M0 -265L10 -265L10 -175L0 -175z"))
+	test.T(t, fontDecorate(face, 10.0), MustParseSVGPath("M0 -265L10 -265L10 -175L0 -175z"))
 
 	face = family.Face(pt, Black, FontRegular, FontNormal, FontOverline)
-	test.T(t, face.Decorate(10.0), MustParseSVGPath("M0 1811L10 1811L10 1901L0 1901z"))
+	test.T(t, fontDecorate(face, 10.0), MustParseSVGPath("M0 1811L10 1811L10 1901L0 1901z"))
 
 	face = family.Face(pt, Black, FontRegular, FontNormal, FontStrikethrough)
-	test.T(t, face.Decorate(10.0), MustParseSVGPath("M0 530L10 530L10 632L0 632z"))
+	test.T(t, fontDecorate(face, 10.0), MustParseSVGPath("M0 530L10 530L10 632L0 632z"))
 
 	face = family.Face(pt, Black, FontRegular, FontNormal, FontDoubleUnderline)
-	test.T(t, face.Decorate(10.0), MustParseSVGPath("M0 -400L10 -400L10 -310L0 -310zM0 -265L10 -265L10 -175L0 -175z"))
+	test.T(t, fontDecorate(face, 10.0), MustParseSVGPath("M0 -400L10 -400L10 -310L0 -310zM0 -265L10 -265L10 -175L0 -175z"))
 
 	face = family.Face(pt, Black, FontRegular, FontNormal, FontDottedUnderline)
-	test.T(t, face.Decorate(89.0), MustParseSVGPath(""))
-	test.T(t, face.Decorate(90.0), MustParseSVGPath("M90 -220A45 45 0 0 1 0 -220A45 45 0 0 1 90 -220z"))
-	test.T(t, face.Decorate(269.0), MustParseSVGPath("M179.5 -220A45 45 0 0 1 89.5 -220A45 45 0 0 1 179.5 -220z"))
-	test.T(t, face.Decorate(270.0), MustParseSVGPath("M90 -220A45 45 0 0 1 0 -220A45 45 0 0 1 90 -220zM270 -220A45 45 0 0 1 180 -220A45 45 0 0 1 270 -220z"))
+	test.T(t, fontDecorate(face, 89.0), MustParseSVGPath(""))
+	test.T(t, fontDecorate(face, 90.0), MustParseSVGPath("M90 -220A45 45 0 0 1 0 -220A45 45 0 0 1 90 -220z"))
+	test.T(t, fontDecorate(face, 269.0), MustParseSVGPath("M179.5 -220A45 45 0 0 1 89.5 -220A45 45 0 0 1 179.5 -220z"))
+	test.T(t, fontDecorate(face, 270.0), MustParseSVGPath("M90 -220A45 45 0 0 1 0 -220A45 45 0 0 1 90 -220zM270 -220A45 45 0 0 1 180 -220A45 45 0 0 1 270 -220z"))
 
 	face = family.Face(pt, Black, FontRegular, FontNormal, FontDashedUnderline)
-	test.T(t, face.Decorate(809.0), MustParseSVGPath("M0 -265L809 -265L809 -175L0 -175z"))
-	test.T(t, face.Decorate(810.0), MustParseSVGPath("M0 -265L270 -265L270 -175L0 -175zM540 -265L810 -265L810 -175L540 -175z"))
+	test.T(t, fontDecorate(face, 809.0), MustParseSVGPath("M0 -265L809 -265L809 -175L0 -175z"))
+	test.T(t, fontDecorate(face, 810.0), MustParseSVGPath("M0 -265L270 -265L270 -175L0 -175zM540 -265L810 -265L810 -175L540 -175z"))
 }

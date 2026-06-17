@@ -1119,26 +1119,9 @@ func (t *Text) OutlineBounds() Rect {
 	if t.Empty() {
 		return Rect{}
 	}
-	r := Rect{math.Inf(1), math.Inf(1), math.Inf(-1), math.Inf(-1)}
-	for _, line := range t.lines {
-		for _, span := range line.spans {
-			// TODO: vertical text
-			p, _, err := span.Face.toPath(span.Glyphs, span.Face.PPEM(DefaultResolution))
-			if err != nil {
-				panic(err)
-			}
-			spanBounds := p.Bounds()
-			spanBounds = spanBounds.Translate(span.X, -line.y)
-			r = r.Add(spanBounds)
-		}
-	}
-	t.WalkDecorations(func(_ Paint, p *Path) {
-		r = r.Add(p.Bounds())
-	})
-	if math.IsNaN(r.X0) || math.IsNaN(r.Y0) || math.IsNaN(r.X1) || math.IsNaN(r.Y1) {
-		return Rect{}
-	}
-	return r
+	c := &Canvas{}
+	t.RenderTo(c, Identity, DefaultResolution)
+	return c.Bounds()
 }
 
 // Fonts returns the list of fonts used.
@@ -1221,79 +1204,8 @@ type decorationSpan struct {
 }
 
 // WalkDecorations calls the callback for each color of decoration used per line.
-func (t *Text) WalkDecorations(callback func(fill Paint, deco *Path)) {
-	// TODO: vertical text
-	// accumulate paths and fill paints for all lines
-	ps := []*Path{}
-	fs := []Paint{}
-	for _, line := range t.lines {
-		// track active decorations, when finished draw and append to accumulated paths
-		active := []decorationSpan{}
-		for k, span := range line.spans {
-			foundActive := make([]bool, len(active))
-			for _, spanDeco := range span.Face.Deco {
-				found := false
-				for i, deco := range active {
-					if reflect.DeepEqual(span.Face.Fill, deco.fill) && reflect.DeepEqual(deco.deco, spanDeco) {
-						// extend decoration
-						active[i].x0 = math.Min(active[i].x0, span.X)
-						active[i].x1 = math.Max(active[i].x1, span.X+span.Width)
-						if active[i].face.Size < span.Face.Size {
-							active[i].face = span.Face
-						}
-						foundActive[i] = true
-						found = true
-						break
-					}
-				}
-				if !found {
-					// add new decoration
-					active = append(active, decorationSpan{
-						deco: spanDeco,
-						fill: span.Face.Fill,
-						x0:   span.X,
-						x1:   span.X + span.Width,
-						face: span.Face,
-					})
-				}
-			}
-
-			if k == len(line.spans)-1 {
-				foundActive = make([]bool, len(active))
-			}
-
-			di := 0
-			for i, found := range foundActive {
-				if !found {
-					// remove active decoration and draw it
-					decoSpan := active[i-di]
-					xOffset := span.Face.MmPerEm * float64(span.Face.XOffset)
-					yOffset := span.Face.MmPerEm * float64(span.Face.YOffset)
-					p := decoSpan.deco.Decorate(decoSpan.face, decoSpan.x1-decoSpan.x0)
-					p = p.Translate(decoSpan.x0+xOffset, -line.y+yOffset)
-
-					foundFill := false
-					for j, fill := range fs {
-						if reflect.DeepEqual(fill, decoSpan.fill) {
-							ps[j] = ps[j].Append(p)
-							foundFill = true
-						}
-					}
-					if !foundFill {
-						fs = append(fs, decoSpan.fill)
-						ps = append(ps, p)
-					}
-
-					active = append(active[:i-di], active[i-di+1:]...)
-					di++
-				}
-			}
-		}
-	}
-
-	for i := 0; i < len(ps); i++ {
-		callback(fs[i], ps[i])
-	}
+func (t *Text) WalkDecorations(r Renderer, m Matrix) {
+	fmt.Println("DEPRECATED: use Text.RenderDecorationsTo instead of Text.WalkDecorations")
 }
 
 // WalkLines calls the callback for each text line.
@@ -1318,38 +1230,94 @@ func (t *Text) WalkSpans(callback func(float64, float64, TextSpan)) {
 	}
 }
 
-// RenderAsPath renders the text and its decorations converted to paths, calling r.RenderPath on the renderer. Note that text lines are drawn downwards starting at the origin, that is along negative Y. The origin is thus the top-left corner of the text box.
 func (t *Text) RenderAsPath(r Renderer, m Matrix, resolution Resolution) {
-	t.WalkDecorations(func(paint Paint, p *Path) {
-		style := DefaultStyle
-		style.Fill = paint
-		r.RenderPath(p, style, m)
-	})
+	fmt.Println("DEPRECATED: use Text.RenderTo instead of Text.RenderAsPath")
+	t.RenderTo(r, m, resolution)
+}
 
-	for _, line := range t.lines {
-		for _, span := range line.spans {
-			x, y := span.X, -line.y
-			if t.WritingMode != HorizontalTB {
-				x, y = line.y, -span.X
+func (t *Text) RenderDecorationsTo(r Renderer, m Matrix, resolution Resolution) {
+	for index := range t.lines {
+		t.renderLineTo(r, m, resolution, index, false, true)
+	}
+}
+
+func (t *Text) RenderTextTo(r Renderer, m Matrix, resolution Resolution) {
+	for index := range t.lines {
+		t.renderLineTo(r, m, resolution, index, true, false)
+	}
+}
+
+// RenderTo renders the text and its decorations converted to paths, calling r.RenderPath on the renderer. Note that text lines are drawn downwards starting at the origin, that is along negative Y. The origin is thus the top-left corner of the text box.
+func (t *Text) RenderTo(r Renderer, m Matrix, resolution Resolution) {
+	for index := range t.lines {
+		t.renderLineTo(r, m, resolution, index, true, true)
+	}
+}
+
+func (t *Text) renderLineTo(r Renderer, m Matrix, resolution Resolution, index int, renderText, renderDeco bool) {
+	line := t.lines[index]
+	ps := make([]*Path, len(line.spans))
+	xs := make([]float64, len(line.spans))
+	ys := make([]float64, len(line.spans))
+	for i, span := range line.spans {
+		x, y := span.X, -line.y
+		if t.WritingMode != HorizontalTB {
+			x, y = line.y, -span.X
+		}
+		if resolution != 0.0 && span.Face.Hinting != font.NoHinting && span.Rotation == text.NoRotation && Equal(m[1][0], 0.0) {
+			// grid-align vertically on pixel raster, this improves font sharpness
+			_, dy := m.Pos()
+			dy += y
+			y += float64(int(dy*resolution.DPMM()+0.5))/resolution.DPMM() - dy
+		}
+		xs[i] = x
+		ys[i] = y
+		if span.IsText() {
+			ps[i], _ = span.Face.toPath(span.Glyphs, span.Face.PPEM(resolution))
+		}
+	}
+
+	// render decorations
+	if renderDeco {
+		handled := make([][]bool, len(line.spans))
+		for i, span := range line.spans {
+			for k, deco := range line.spans[i].Face.Deco {
+				if handled[i] != nil && handled[i][k] {
+					continue
+				}
+				p := ps[i]
+				j := i + 1
+			FindEnd:
+				for ; j < len(line.spans); j++ {
+					for k, deco2 := range line.spans[j].Face.Deco {
+						if reflect.DeepEqual(deco2, deco) && ys[j] == ys[i] && line.spans[j].Rotation == span.Rotation {
+							if handled[j] == nil {
+								handled[j] = make([]bool, len(line.spans[j].Face.Deco))
+							}
+							handled[j][k] = true
+							if span.IsText() {
+								p = p.Append(ps[i].Translate(xs[j]-xs[i], 0.0))
+							}
+							continue FindEnd
+						}
+					}
+					break
+				}
+				lastSpan := line.spans[j-1]
+				deco.Decorate(r, m.Translate(xs[i], ys[i]).Rotate(float64(span.Rotation)), span.Face, p, lastSpan.X+lastSpan.Width-span.X)
 			}
+		}
+	}
 
+	if renderText {
+		for i, span := range line.spans {
 			if span.IsText() {
 				style := DefaultStyle
 				style.Fill = span.Face.Fill
-				p, _, err := span.Face.toPath(span.Glyphs, span.Face.PPEM(resolution))
-				if err != nil {
-					panic(err)
-				}
-				if resolution != 0.0 && span.Face.Hinting != font.NoHinting && span.Rotation == text.NoRotation {
-					// grid-align vertically on pixel raster, this improves font sharpness
-					_, dy := m.Pos()
-					dy += y
-					y += float64(int(dy*resolution.DPMM()+0.5))/resolution.DPMM() - dy
-				}
-				r.RenderPath(p, style, m.Translate(x, y).Rotate(float64(span.Rotation)))
+				r.RenderPath(ps[i], style, m.Translate(xs[i], ys[i]).Rotate(float64(span.Rotation)))
 			} else {
 				for _, obj := range span.Objects {
-					obj.RenderViewTo(r, m.Mul(obj.View(x, y, span.Face)))
+					obj.RenderViewTo(r, m.Mul(obj.View(xs[i], ys[i], span.Face)))
 				}
 			}
 		}

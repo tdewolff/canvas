@@ -369,11 +369,7 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 		return
 	}
 
-	text.WalkDecorations(func(paint canvas.Paint, p *canvas.Path) {
-		style := canvas.DefaultStyle
-		style.Fill = paint
-		r.RenderPath(p, style, m)
-	})
+	text.RenderDecorationsTo(r, m, 0.0)
 
 	text.WalkSpans(func(x, y float64, span canvas.TextSpan) {
 		if !span.IsText() {
