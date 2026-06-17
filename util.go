@@ -795,14 +795,38 @@ func (m Matrix) Decompose() (float64, float64, float64, float64, float64, float6
 	return m[0][2], m[1][2], phi, sx, sy, theta
 }
 
+func (m Matrix) IsIdentity() bool {
+	return m == Identity
+}
+
+// HasTranslation is true if the matrix contains a translational component.
+func (m Matrix) HasTranslation() bool {
+	return !Equal(m[0][2], 0.0) || !Equal(m[1][2], 0.0)
+}
+
 // IsTranslation is true if the matrix consists of only translational components, i.e. no rotation, scaling, or skew transformations.
 func (m Matrix) IsTranslation() bool {
-	return Equal(m[0][0], 1.0) && Equal(m[0][1], 0.0) && Equal(m[1][0], 0.0) && Equal(m[1][1], 1.0)
+	return Equal(m[0][0], 1.0) && Equal(m[0][1], 0.0) && Equal(m[1][0], 0.0) && Equal(m[1][1], 1.0) && (!Equal(m[0][2], 0.0) || !Equal(m[1][2], 0.0))
 }
 
 // IsScaling is true if the matrix consists of only scaling components, i.e. no rotation, or skew transformations (but may translate).
 func (m Matrix) IsScaling() bool {
 	return (!Equal(m[0][0], 1.0) || !Equal(m[1][1], 1.0)) && Equal(m[0][1], 0.0) && Equal(m[1][0], 0.0)
+}
+
+// HasScaling is true if the matrix contains a scaling component.
+func (m Matrix) HasScaling() bool {
+	return !Equal(m[0][0], 1.0) || !Equal(m[1][1], 1.0)
+}
+
+// IsRotation is true if the matrix consists of only rotational components, i.e. no scaling or skew transformations (but may translate).
+func (m Matrix) IsRotation() bool {
+	return Equal(m[0][0], m[1][1]) && Equal(m[0][1], -m[1][0]) && Equal(m[0][2], 0.0) && Equal(m[1][2], 0.0) && Equal(m.Det(), 1.0)
+}
+
+// HasRotation is true if the matrix has a rotation or skewing component.
+func (m Matrix) HasRotation() bool {
+	return !Equal(m[0][1], 0.0) || !Equal(m[1][0], 0.0)
 }
 
 // IsRigid is true if the matrix is orthogonal and consists of only isometric transformations: translation, rotation, and reflection.
