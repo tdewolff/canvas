@@ -55,7 +55,7 @@ type HatchPattern struct {
 type Hatcher func(float64, float64, float64, float64) *Path
 
 // NewHatchPattern returns a new hatch pattern.
-func NewHatchPattern(ifill interface{}, thickness float64, cell Matrix, hatch Hatcher) *HatchPattern {
+func NewHatchPattern(ifill any, thickness float64, cell Matrix, hatch Hatcher) *HatchPattern {
 	var fill Paint
 	if paint, ok := ifill.(Paint); ok {
 		fill = paint
@@ -133,7 +133,7 @@ func (p *HatchPattern) RenderTo(r Renderer, clip *Path) {
 }
 
 // NewLineHatch returns a new line hatch pattern with lines at an angle with a spacing of distance. Thickness is the stroke thickness applied to the shape; stroking is ignored with thickness is zero.
-func NewLineHatch(ifill interface{}, angle, distance, thickness float64) *HatchPattern {
+func NewLineHatch(ifill any, angle, distance, thickness float64) *HatchPattern {
 	cell := Identity.Rotate(angle).Scale(distance, distance)
 	return NewHatchPattern(ifill, thickness, cell, func(x0, y0, x1, y1 float64) *Path {
 		p := &Path{}
@@ -146,7 +146,7 @@ func NewLineHatch(ifill interface{}, angle, distance, thickness float64) *HatchP
 }
 
 // NewCrossHatch returns a new cross hatch pattern of two regular line hatches at different angles and with different distance intervals. Thickness is the stroke thickness applied to the shape; stroking is ignored with thickness is zero.
-func NewCrossHatch(ifill interface{}, angle0, angle1, distance0, distance1, thickness float64) *HatchPattern {
+func NewCrossHatch(ifill any, angle0, angle1, distance0, distance1, thickness float64) *HatchPattern {
 	cell := PrimitiveCell(
 		Point{distance0, 0.0}.Rot(angle0*math.Pi/180.0, Origin),
 		Point{distance1, 0.0}.Rot(angle1*math.Pi/180.0, Origin),
@@ -166,7 +166,7 @@ func NewCrossHatch(ifill interface{}, angle0, angle1, distance0, distance1, thic
 }
 
 // NewShapeHatch returns a new shape hatch that repeats the given shape over a rhombus primitive cell with sides of length distance. Thickness is the stroke thickness applied to the shape; stroking is ignored with thickness is zero.
-func NewShapeHatch(ifill interface{}, shape *Path, distance, thickness float64) *HatchPattern {
+func NewShapeHatch(ifill any, shape *Path, distance, thickness float64) *HatchPattern {
 	d := distance * math.Sin(60.0*math.Pi/180.0)
 	cell := SquareCell(1.0)
 	return NewHatchPattern(ifill, thickness, cell, func(x0, y0, x1, y1 float64) *Path {

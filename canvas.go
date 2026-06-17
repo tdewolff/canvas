@@ -395,7 +395,7 @@ func (c *Context) ShearAbout(sx, sy, x, y float64) {
 }
 
 // SetFill sets the color, gradient, or pattern to be used for filling operations. The default fill color is black.
-func (c *Context) SetFill(ifill interface{}) {
+func (c *Context) SetFill(ifill any) {
 	if paint, ok := ifill.(Paint); ok {
 		c.Style.Fill = paint
 	} else if pattern, ok := ifill.(Pattern); ok {
@@ -425,7 +425,7 @@ func (c *Context) SetFillPattern(pattern Pattern) {
 }
 
 // SetStroke sets the color, gradient, or pattern to be used for stroke operations. The default stroke color is transparent.
-func (c *Context) SetStroke(istroke interface{}) {
+func (c *Context) SetStroke(istroke any) {
 	if paint, ok := istroke.(Paint); ok {
 		c.Style.Stroke = paint
 	} else if pattern, ok := istroke.(Pattern); ok {
@@ -743,17 +743,26 @@ func (c *Canvas) Size() (float64, float64) {
 
 // RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (c *Canvas) RenderPath(path *Path, style Style, m Matrix) {
+	if c.layers == nil {
+		c.layers = map[int][]layer{}
+	}
 	path = path.Copy()
 	c.layers[c.zindex] = append(c.layers[c.zindex], layer{path: path, m: m, style: style})
 }
 
 // RenderText renders a text object to the canvas using a transformation matrix.
 func (c *Canvas) RenderText(text *Text, m Matrix) {
+	if c.layers == nil {
+		c.layers = map[int][]layer{}
+	}
 	c.layers[c.zindex] = append(c.layers[c.zindex], layer{text: text, m: m})
 }
 
 // RenderImage renders an image to the canvas using a transformation matrix.
 func (c *Canvas) RenderImage(img image.Image, m Matrix) {
+	if c.layers == nil {
+		c.layers = map[int][]layer{}
+	}
 	c.layers[c.zindex] = append(c.layers[c.zindex], layer{img: img, m: m})
 }
 
@@ -789,7 +798,7 @@ func (c *Canvas) Clip(rect Rect) {
 }
 
 // Fit shrinks the canvas' size that so all elements fit with a given margin in millimeters.
-func (c *Canvas) Fit(margin float64) {
+func (c *Canvas) Bounds() Rect {
 	rect := Rect{}
 	// TODO: slow when we have many paths (see Graph example)
 	// TODO: translate gradients
@@ -821,6 +830,12 @@ func (c *Canvas) Fit(margin float64) {
 			}
 		}
 	}
+	return rect
+}
+
+// Fit shrinks the canvas' size that so all elements fit with a given margin in millimeters.
+func (c *Canvas) Fit(margin float64) {
+	rect := c.Bounds()
 	rect.X0 -= margin
 	rect.Y0 -= margin
 	rect.X1 += margin

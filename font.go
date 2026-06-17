@@ -331,7 +331,7 @@ func (f *Font) SetFeatures(features string) {
 }
 
 // Face gets the font face given by the font size in points and its style. Fill can be any of Paint, color.Color, or canvas.Pattern.
-func (f *Font) Face(size float64, ifill interface{}, deco ...FontDecorator) *FontFace {
+func (f *Font) Face(size float64, ifill any, deco ...FontDecorator) *FontFace {
 	face := &FontFace{}
 	face.Font = f
 	face.Size = size * mmPerPt
@@ -480,7 +480,7 @@ func (family *FontFamily) MustLoadFont(b []byte, index int, style FontStyle) {
 }
 
 // Face gets the font face given by the font size in points. Other arguments that can be passed: Paint/Pattern/color.Color (=Black), FontStyle (=FontRegular), FontVariant (=FontNormal), multiple FontDecorator, and Hinting (=VerticalHinting).
-func (family *FontFamily) Face(size float64, args ...interface{}) *FontFace {
+func (family *FontFamily) Face(size float64, args ...any) *FontFace {
 	if len(family.fonts) == 0 {
 		panic("font family is empty")
 	}
