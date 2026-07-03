@@ -26,7 +26,7 @@ require (
 	github.com/wcharczuk/go-chart/v2 v2.1.2
 	github.com/wroge/wgs84/v2 v2.0.0-alpha.13
 	golang.org/x/image v0.39.0
-	golang.org/x/text v0.36.0
+	golang.org/x/text v0.37.0
 	gonum.org/v1/plot v0.17.0
 )
 
@@ -85,7 +85,7 @@ require (
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/yuin/goldmark v1.8.2
-	golang.org/x/net v0.53.0
-	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/net v0.55.0
+	golang.org/x/sys v0.45.0 // indirect
 	star-tex.org/x/tex v0.7.1
 )
