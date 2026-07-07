@@ -2,6 +2,7 @@ package canvas
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 	"log"
@@ -1350,7 +1351,7 @@ func (p *Path) Scale(sx, sy float64) *Path {
 	return p.Transform(Identity.Scale(sx, sy))
 }
 
-// Rotate rotates the path by deg degrees. It modifies the path in-place.
+// Rotate rotates the path by deg degrees counter clockwise. It modifies the path in-place.
 func (p *Path) Rotate(deg float64) *Path {
 	return p.Transform(Identity.Rotate(deg))
 }
@@ -2565,4 +2566,27 @@ func (p *Path) ToScanxScanner(ras *scanx.Scanner, dy float64, resolution Resolut
 		}
 		i += cmdLen(cmd)
 	}
+}
+
+func (p *Path) MarshalBinary() ([]byte, error) {
+	if p == nil || len(p.d) == 0 {
+		return []byte{}, nil
+	}
+	b := make([]byte, len(p.d)*8)
+	_, err := binary.Encode(b, binary.LittleEndian, p.d)
+	return b, err
+}
+
+func (p *Path) UnmarshalBinary(b []byte) error {
+	if len(b)%8 != 0 {
+		return fmt.Errorf("invalid path data")
+	} else if len(b) == 0 {
+		if p != nil {
+			p.d = []float64{}
+		}
+		return nil
+	}
+	p.d = make([]float64, len(b)/8)
+	_, err := binary.Decode(b, binary.LittleEndian, &p.d)
+	return err
 }
