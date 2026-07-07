@@ -1,7 +1,6 @@
 package rasterizer
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -27,7 +26,7 @@ func Draw(c *canvas.Canvas, resolution canvas.Resolution, colorSpace canvas.Colo
 
 // Rasterizer is a rasterizing renderer.
 type Rasterizer struct {
-	draw.Image
+	*image.RGBA
 	resolution canvas.Resolution
 	colorSpace canvas.ColorSpace
 
@@ -42,14 +41,14 @@ func New(width, height float64, resolution canvas.Resolution, colorSpace canvas.
 }
 
 // FromImage returns a renderer that draws to an existing image. Resolution is in pixels per unit of canvas coordinates (millimeters). A higher resolution will give a larger and more detailed image.
-func FromImage(img draw.Image, resolution canvas.Resolution, colorSpace canvas.ColorSpace) *Rasterizer {
+func FromImage(img *image.RGBA, resolution canvas.Resolution, colorSpace canvas.ColorSpace) *Rasterizer {
 	bounds := img.Bounds()
 	if bounds.Dx() == 0 || bounds.Dy() == 0 {
 		panic("raster size is zero, increase resolution")
 	} else if math.MaxInt32/bounds.Dx() < bounds.Dy() {
 		panic("raster size overflow, decrease resolution")
-	} else if _, ok := img.(*image.RGBA); !ok {
-		panic(fmt.Errorf("invalid image type: %T != *image.RGBA", img))
+		//} else if _, ok := img.(*image.RGBA); !ok {
+		//	panic(fmt.Errorf("invalid image type: %T != *image.RGBA", img))
 	}
 
 	if colorSpace == nil {
@@ -57,7 +56,7 @@ func FromImage(img draw.Image, resolution canvas.Resolution, colorSpace canvas.C
 	}
 	spanner := scanx.NewImgSpanner(img)
 	return &Rasterizer{
-		Image:      img,
+		RGBA:       img,
 		resolution: resolution,
 		colorSpace: colorSpace,
 
@@ -69,7 +68,7 @@ func FromImage(img draw.Image, resolution canvas.Resolution, colorSpace canvas.C
 func (r *Rasterizer) Close() {
 	if _, ok := r.colorSpace.(canvas.LinearColorSpace); !ok {
 		// gamma compress
-		changeColorSpace(r.Image, r.Image, r.colorSpace.FromLinear)
+		changeColorSpace(r.RGBA, r.RGBA, r.colorSpace.FromLinear)
 	}
 }
 
@@ -135,7 +134,7 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		} else if style.Fill.IsColor() {
 			c := r.colorSpace.ToLinear(style.Fill.Color)
 			r.scanner.Clear()
-			r.scanner.SetColor(color.Color(r.Image.ColorModel().Convert(c)))
+			r.scanner.SetColor(color.Color(r.RGBA.ColorModel().Convert(c)))
 			fill.ToScanxScanner(r.scanner, float64(size.Y), r.resolution)
 			r.scanner.Draw()
 		}
@@ -164,7 +163,7 @@ func (r *Rasterizer) RenderPath(path *canvas.Path, style canvas.Style, m canvas.
 		} else if style.Stroke.IsColor() {
 			c := r.colorSpace.ToLinear(style.Stroke.Color)
 			r.scanner.Clear()
-			r.scanner.SetColor(color.Color(r.Image.ColorModel().Convert(c)))
+			r.scanner.SetColor(color.Color(r.RGBA.ColorModel().Convert(c)))
 			stroke.ToScanxScanner(r.scanner, float64(size.Y), r.resolution)
 			r.scanner.Draw()
 		}
