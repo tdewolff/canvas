@@ -2,12 +2,16 @@ package canvas
 
 import "math/rand/v2"
 
-func RandomPath(n int, closed bool) *Path {
+func RandomPath(n int, lineOnly, closed bool) *Path {
 	p := &Path{}
 	if 0 < n {
 		p.d = append(p.d, MoveToCmd, rand.NormFloat64(), rand.NormFloat64(), MoveToCmd)
 		for i := 1; i < n; i++ {
-			switch rand.IntN(4) {
+			cmd := 0
+			if !lineOnly {
+				cmd = rand.IntN(4)
+			}
+			switch cmd {
 			case 0:
 				p.d = append(p.d, LineToCmd, rand.NormFloat64(), rand.NormFloat64(), LineToCmd)
 			case 1:
