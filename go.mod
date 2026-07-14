@@ -25,7 +25,7 @@ require (
 	github.com/tdewolff/test v1.0.12
 	github.com/wcharczuk/go-chart/v2 v2.1.2
 	github.com/wroge/wgs84/v2 v2.0.0-alpha.13
-	golang.org/x/image v0.39.0
+	golang.org/x/image v0.41.0
 	golang.org/x/text v0.37.0
 	gonum.org/v1/plot v0.17.0
 )
