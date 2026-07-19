@@ -2275,6 +2275,45 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 	//	}
 	//}
 
+	// findNextResultNode selects the next segment when walking result polygons at a vertex.
+	findNextResultNode := func(nodes []*SweepPoint, i0 int, first *SweepPoint) *SweepPoint {
+		n := len(nodes)
+		try := func(i int) bool {
+			return 0 < nodes[i].inResult && nodes[i].open == first.open
+		}
+		search := func(dir int) *SweepPoint {
+			for k := 1; k < n; k++ {
+				i := i0 + dir*k
+				if dir < 0 {
+					if i < 0 {
+						i += n
+					}
+				} else if n <= i {
+					i -= n
+				}
+				if i == i0 {
+					break
+				} else if try(i) {
+					return nodes[i]
+				}
+			}
+			return nil
+		}
+		if next := search(-1); next != nil {
+			return next
+		}
+		if next := search(1); next != nil {
+			return next
+		}
+		// fallback: next left-endpoint still in the result at this vertex
+		for i := range nodes {
+			if i != i0 && nodes[i].left && 0 < nodes[i].inResult && nodes[i].open == first.open {
+				return nodes[i]
+			}
+		}
+		return nil
+	}
+
 	// build resulting polygons
 	var Ropen *Path
 	for _, square := range squares {
@@ -2325,27 +2364,9 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 
 				// find the next segment in CW order, this will make smaller subpaths
 				// instead one large path when multiple segments end at the same position
-				var next *SweepPoint
-				for i := i0 - 1; ; i-- {
-					if i < 0 {
-						i += len(nodes)
-					}
-					if i == i0 {
-						break
-					} else if 0 < nodes[i].inResult && nodes[i].open == first.open {
-						next = nodes[i]
-						break
-					}
-				}
+				next := findNextResultNode(nodes, i0, first)
 				if next == nil {
-					if first.open {
-						R.LineTo(cur.other.X, cur.other.Y)
-					} else {
-						fmt.Println(ps)
-						fmt.Println(op)
-						fmt.Println(qs)
-						panic("next node for result polygon is nil, probably buggy intersection code")
-					}
+					R.LineTo(cur.other.X, cur.other.Y)
 					break
 				} else if next == first {
 					first.open = false // open path encloses area
