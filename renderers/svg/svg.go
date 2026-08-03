@@ -174,8 +174,8 @@ func (r *SVG) Size() (float64, float64) {
 
 // RenderPath renders a path to the canvas using a style and a transformation matrix.
 func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix) {
-	fillPaint := r.writePaint(style.Fill, m)
-	strokePaint := r.writePaint(style.Stroke, m)
+	fillPaint, fillOpacity := r.writePaint(style.Fill, m)
+	strokePaint, strokeOpacity := r.writePaint(style.Stroke, m)
 
 	stroke := path
 	path = path.Copy().Transform(canvas.Identity.ReflectYAbout(r.height / 2.0).Mul(m))
@@ -205,6 +205,9 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		if style.HasFill() {
 			if !style.Fill.IsColor() || style.Fill.Color != canvas.Black {
 				fmt.Fprintf(r.w, `" fill="%v`, fillPaint)
+				if fillOpacity != 1.0 {
+					fmt.Fprintf(r.w, `" fill-opacity="%v`, dec(fillOpacity))
+				}
 			}
 			if style.FillRule == canvas.EvenOdd {
 				fmt.Fprintf(r.w, `" fill-rule="evenodd`)
@@ -217,6 +220,9 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		if style.HasFill() {
 			if !style.Fill.IsColor() || style.Fill.Color != canvas.Black {
 				fmt.Fprintf(b, ";fill:%v", fillPaint)
+				if fillOpacity != 1.0 {
+					fmt.Fprintf(b, ";fill-opacity:%v", dec(fillOpacity))
+				}
 			}
 			if style.FillRule == canvas.EvenOdd {
 				fmt.Fprintf(b, ";fill-rule:evenodd")
@@ -226,6 +232,9 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		}
 		if style.HasStroke() && !strokeUnsupported {
 			fmt.Fprintf(b, `;stroke:%v`, strokePaint)
+			if strokeOpacity != 1.0 {
+				fmt.Fprintf(b, ";stroke-opacity:%v", dec(strokeOpacity))
+			}
 			if style.StrokeWidth != 1.0 {
 				fmt.Fprintf(b, ";stroke-width:%v", dec(style.StrokeWidth))
 			}
@@ -281,6 +290,9 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 		fmt.Fprintf(r.w, `<path d="%s`, stroke.ToSVG())
 		if !style.Stroke.IsColor() || style.Stroke.Color != canvas.Black {
 			fmt.Fprintf(r.w, `" fill="%v`, strokePaint)
+			if strokeOpacity != 1.0 {
+				fmt.Fprintf(r.w, `" fill-opacity="%v`, dec(strokeOpacity))
+			}
 		}
 		if style.FillRule == canvas.EvenOdd {
 			fmt.Fprintf(r.w, `" fill-rule="evenodd`)
@@ -290,7 +302,7 @@ func (r *SVG) RenderPath(path *canvas.Path, style canvas.Style, m canvas.Matrix)
 	}
 }
 
-func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace, rtl bool, fill string) {
+func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace, rtl bool, fill string, fillOpacity float64) {
 	differences := 0
 	boldness := face.Style.CSS()
 	if face.Style&canvas.FontItalic != faceMain.Style&canvas.FontItalic {
@@ -332,12 +344,18 @@ func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace, rtl bool, fill str
 
 		if !face.Fill.Equal(faceMain.Fill) {
 			fmt.Fprintf(r.w, `;fill:%v`, fill)
+			if fillOpacity != 1.0 {
+				fmt.Fprintf(r.w, `;fill-opacity:%v`, dec(fillOpacity))
+			}
 		}
 		if rtl {
 			fmt.Fprintf(r.w, `;direction:rtl`)
 		}
 	} else if differences == 1 && !face.Fill.Equal(faceMain.Fill) {
 		fmt.Fprintf(r.w, `" fill="%v`, fill)
+		if fillOpacity != 1.0 {
+			fmt.Fprintf(r.w, `" fill-opacity="%v`, dec(fillOpacity))
+		}
 	} else if 0 < differences {
 		fmt.Fprintf(r.w, `" style="`)
 		buf := &bytes.Buffer{}
@@ -354,6 +372,9 @@ func (r *SVG) writeFontStyle(face, faceMain *canvas.FontFace, rtl bool, fill str
 		}
 		if !face.Fill.Equal(faceMain.Fill) {
 			fmt.Fprintf(buf, `;fill:%v`, fill)
+			if fillOpacity != 1.0 {
+				fmt.Fprintf(buf, `;fill-opacity:%v`, dec(fillOpacity))
+			}
 		}
 		if rtl {
 			fmt.Fprintf(r.w, `;direction:rtl`)
@@ -400,7 +421,11 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 	}
 	fmt.Fprintf(r.w, ` %vpx %s`, num(faceMain.Size), faceMain.Name())
 	if !faceMain.Fill.IsColor() || faceMain.Fill.Color != canvas.Black {
-		fmt.Fprintf(r.w, `;fill:%v`, r.writePaint(faceMain.Fill, m))
+		fill, fillOpacity := r.writePaint(faceMain.Fill, m)
+		fmt.Fprintf(r.w, `;fill:%v`, fill)
+		if fillOpacity != 1.0 {
+			fmt.Fprintf(r.w, `;fill-opacity:%v`, dec(fillOpacity))
+		}
 	}
 	if text.WritingMode != canvas.HorizontalTB {
 		if text.WritingMode == canvas.VerticalLR {
@@ -433,8 +458,9 @@ func (r *SVG) RenderText(text *canvas.Text, m canvas.Matrix) {
 			if span.Direction == ctext.RightToLeft {
 				x += span.Width
 			}
+			fill, fillOpacity := r.writePaint(span.Face.Fill, m)
 			fmt.Fprintf(r.w, `<tspan x="%v" y="%v`, num(x), num(y))
-			r.writeFontStyle(span.Face, faceMain, span.Direction == ctext.RightToLeft, r.writePaint(span.Face.Fill, m))
+			r.writeFontStyle(span.Face, faceMain, span.Direction == ctext.RightToLeft, fill, fillOpacity)
 			r.writeClasses(r.w)
 			fmt.Fprintf(r.w, `">`)
 			xml.EscapeText(r.w, []byte(span.Text))
@@ -554,15 +580,18 @@ func splitImageAlphaChannel(img image.Image) (image.Image, image.Image) {
 	return opaque, mask
 }
 
-func (r *SVG) writePaint(paint canvas.Paint, m canvas.Matrix) string {
+// writePaint returns the value for a fill or stroke property, and the opacity to write to the
+// accompanying fill-opacity or stroke-opacity property. The alpha is never baked into the returned
+// color, see splitAlpha.
+func (r *SVG) writePaint(paint canvas.Paint, m canvas.Matrix) (string, float64) {
 	if paint.IsPattern() {
 		// TODO
-		return ""
+		return "", 1.0
 	} else if paint.IsGradient() {
 		var def string
 		ref := fmt.Sprintf("d%v", len(r.defs))
 		if v, ok := r.defs[[2]any{paint.Gradient, m}]; ok {
-			return fmt.Sprintf("url(#%v)", v[0])
+			return fmt.Sprintf("url(#%v)", v[0]), 1.0
 		} else if linearGradient, ok := paint.Gradient.(*canvas.LinearGradient); ok {
 			sb := strings.Builder{}
 			if m.IsSimilarity() {
@@ -575,7 +604,7 @@ func (r *SVG) writePaint(paint canvas.Paint, m canvas.Matrix) string {
 				fmt.Fprintf(&sb, `<linearGradient id="%v" gradientUnits="userSpaceOnUse" gradientTransform="%v" x1="%v" y1="%v" x2="%v" y2="%v">`, ref, m.ToSVG(r.height), dec(linearGradient.Start.X), -dec(linearGradient.Start.Y), dec(linearGradient.End.X), -dec(linearGradient.End.Y))
 			}
 			for _, stop := range linearGradient.Grad {
-				fmt.Fprintf(&sb, `<stop offset="%v" stop-color="%v"/>`, dec(stop.Offset), canvas.CSSColor(stop.Color))
+				writeStop(&sb, stop)
 			}
 			fmt.Fprintf(&sb, `</linearGradient>`)
 			def = sb.String()
@@ -594,14 +623,25 @@ func (r *SVG) writePaint(paint canvas.Paint, m canvas.Matrix) string {
 				fmt.Fprintf(&sb, `<radialGradient id="%v" gradientUnits="userSpaceOnUse" gradientTransform="%v" fx="%v" fy="%v" fr="%v" cx="%v" cy="%v" r="%v">`, ref, m.ToSVG(r.height), dec(radialGradient.C0.X), -dec(radialGradient.C0.Y), dec(radialGradient.R0), dec(radialGradient.C1.X), -dec(radialGradient.C1.Y), dec(radialGradient.R1))
 			}
 			for _, stop := range radialGradient.Grad {
-				fmt.Fprintf(&sb, `<stop offset="%v" stop-color="%v"/>`, dec(stop.Offset), canvas.CSSColor(stop.Color))
+				writeStop(&sb, stop)
 			}
 			fmt.Fprintf(&sb, `</radialGradient>`)
 			def = sb.String()
 		}
 		r.defs[[2]any{paint.Gradient, m}] = [2]string{ref, def}
-		return fmt.Sprintf("url(#%v)", ref)
+		return fmt.Sprintf("url(#%v)", ref), 1.0
 	} else {
-		return fmt.Sprintf("%v", canvas.CSSColor(paint.Color))
+		col, opacity := splitAlpha(paint.Color)
+		return col.String(), opacity
 	}
+}
+
+// writeStop writes a gradient stop, keeping the alpha out of stop-color and in stop-opacity.
+func writeStop(sb *strings.Builder, stop canvas.Stop) {
+	col, opacity := splitAlpha(stop.Color)
+	fmt.Fprintf(sb, `<stop offset="%v" stop-color="%v"`, dec(stop.Offset), col)
+	if opacity != 1.0 {
+		fmt.Fprintf(sb, ` stop-opacity="%v"`, dec(opacity))
+	}
+	fmt.Fprintf(sb, `/>`)
 }
