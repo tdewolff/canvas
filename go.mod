@@ -1,16 +1,16 @@
 module github.com/tdewolff/canvas
 
-go 1.25.0
+go 1.26.4
 
 require (
-	fyne.io/fyne/v2 v2.7.3
-	gioui.org v0.9.0
+	fyne.io/fyne/v2 v2.8.0
+	gioui.org v0.10.1
 	github.com/ByteArena/poly2tri-go v0.0.0-20170716161910-d102ad91854f
 	github.com/Kagami/go-avif v0.1.0
 	github.com/benoitkugler/textprocessing v0.0.6
 	github.com/go-fonts/latin-modern v0.3.3
 	github.com/go-gl/gl v0.0.0-20260331235117-4566fea9a276
-	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20260406072232-3ac4aa2bb164
+	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20260802143932-8fa725040a18
 	github.com/go-text/typesetting v0.3.4
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/kolesa-team/go-webp v1.0.5
@@ -18,39 +18,42 @@ require (
 	github.com/paulmach/osm v0.9.0
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/srwiley/scanx v0.0.0-20190309010443-e94503791388
-	github.com/tdewolff/argp v0.0.0-20260424074207-decde4f86440
-	github.com/tdewolff/font v0.0.0-20260424075104-b5eeb1e23189
-	github.com/tdewolff/minify/v2 v2.24.13
-	github.com/tdewolff/parse/v2 v2.8.12
+	github.com/tdewolff/argp v0.0.0-20260809175504-e6e95971d4fb
+	github.com/tdewolff/font v0.0.0-20260527091451-1663e68cb8a4
+	github.com/tdewolff/minify/v2 v2.24.16
+	github.com/tdewolff/parse/v2 v2.8.15
 	github.com/tdewolff/test v1.0.12
 	github.com/wcharczuk/go-chart/v2 v2.1.2
-	github.com/wroge/wgs84/v2 v2.0.0-alpha.13
-	golang.org/x/image v0.39.0
-	golang.org/x/text v0.36.0
+	github.com/wroge/wgs84/v2 v2.0.0-alpha.18
+	golang.org/x/image v0.44.0
+	golang.org/x/text v0.40.0
 	gonum.org/v1/plot v0.17.0
 )
 
 require (
-	codeberg.org/go-fonts/liberation v0.5.0 // indirect
-	codeberg.org/go-latex/latex v0.2.0 // indirect
-	codeberg.org/go-pdf/fpdf v0.11.1 // indirect
-	fyne.io/systray v1.12.1 // indirect
+	codeberg.org/go-fonts/liberation v0.6.0 // indirect
+	codeberg.org/go-latex/latex v0.3.0 // indirect
+	codeberg.org/go-pdf/fpdf v0.12.0 // indirect
+	fyne.io/systray v1.12.2 // indirect
 	gioui.org/shader v1.0.8 // indirect
-	git.sr.ht/~sbinet/gg v0.7.0 // indirect
+	git.sr.ht/~sbinet/gg v0.8.0 // indirect
 	github.com/BurntSushi/freetype-go v0.0.0-20160129220410-b763ddbfe298 // indirect
 	github.com/BurntSushi/graphics-go v0.0.0-20160129215708-b43f31a4a966 // indirect
 	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc // indirect
 	github.com/BurntSushi/xgbutil v0.0.0-20190907113008-ad855c713046 // indirect
 	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b // indirect
-	github.com/andybalholm/brotli v1.2.1 // indirect
+	github.com/andybalholm/brotli v1.2.2 // indirect
+	github.com/anthonynsimon/bild v0.17.0 // indirect
 	github.com/benoitkugler/textlayout v0.3.2 // indirect
+	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/fredbi/uri v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
-	github.com/fyne-io/glfw-js v0.3.0 // indirect
+	github.com/fyne-io/glfw-js v0.4.0 // indirect
 	github.com/fyne-io/image v0.1.1 // indirect
 	github.com/fyne-io/oksvg v0.2.0 // indirect
+	github.com/go-gl/glfw/v3.4/glfw v0.1.0-pre.1.0.20260707082822-2a407d02d01a // indirect
 	github.com/go-sql-driver/mysql v1.9.3 // indirect
 	github.com/go-text/render v0.2.1 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
@@ -61,6 +64,7 @@ require (
 	github.com/jmoiron/sqlx v1.4.0 // indirect
 	github.com/jsummers/gobmp v0.0.0-20230614200233-a9de23ed2e25 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
+	github.com/mattn/go-runewidth v0.0.27 // indirect
 	github.com/mattn/go-sqlite3 v1.14.32 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/nicksnyder/go-i18n/v2 v2.6.1 // indirect
@@ -69,9 +73,9 @@ require (
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/rymdport/portal v0.4.2 // indirect
 	github.com/srwiley/scanFT v0.0.0-20220128184157-0d1ee492111f // indirect
-	go.mongodb.org/mongo-driver/v2 v2.6.0 // indirect
+	go.mongodb.org/mongo-driver/v2 v2.8.0 // indirect
 	golang.org/x/exp v0.0.0-20251017212417-90e834f514db // indirect
-	golang.org/x/exp/shiny v0.0.0-20260410095643-746e56fc9e2f // indirect
+	golang.org/x/exp/shiny v0.0.0-20260727155853-b88d891fe743 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
@@ -80,12 +84,12 @@ require (
 )
 
 require (
-	github.com/fyne-io/gl-js v0.2.0 // indirect
+	github.com/fyne-io/gl-js v0.2.1-0.20260315212741-029c47fd27e8 // indirect
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c // indirect
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
 	github.com/stretchr/testify v1.11.1 // indirect
-	github.com/yuin/goldmark v1.8.2
-	golang.org/x/net v0.53.0
-	golang.org/x/sys v0.43.0 // indirect
+	github.com/yuin/goldmark v1.8.5
+	golang.org/x/net v0.57.0
+	golang.org/x/sys v0.47.0 // indirect
 	star-tex.org/x/tex v0.7.1
 )

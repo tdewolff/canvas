@@ -44,16 +44,30 @@ func main() {
 	europe = europe.Clip(-12, 30, 32, 72)
 
 	// transform Chile to UTM 19 south, this has the least distortion for Chile
-	utm19S := wgs84.Transform(wgs84.EPSG(4326), wgs84.EPSG(32719))
+	utm19S, err := wgs84.Transform(wgs84.EPSG[4326], wgs84.EPSG[32719])
+	if err != nil {
+		panic(err)
+	}
 	chile = chile.TransformFunc(func(x, y float64) (float64, float64) {
-		x, y, _ = utm19S(x, y, 0.0)
+		var err error
+		x, y, _, err = utm19S(x, y, 0.0)
+		if err != nil {
+			panic(err)
+		}
 		return x / 1e5, y / 1e5
 	})
 
 	// transform Europe to UTM 33 north, this has the least distortion for Norway/Italy
-	utm33N := wgs84.Transform(wgs84.EPSG(4326), wgs84.EPSG(32633))
+	utm33N, err := wgs84.Transform(wgs84.EPSG[4326], wgs84.EPSG[32633])
+	if err != nil {
+		panic(err)
+	}
 	europe = europe.TransformFunc(func(x, y float64) (float64, float64) {
-		x, y, _ = utm33N(x, y, 0.0)
+		var err error
+		x, y, _, err = utm33N(x, y, 0.0)
+		if err != nil {
+			panic(err)
+		}
 		return x / 1e5, y / 1e5
 	})
 
