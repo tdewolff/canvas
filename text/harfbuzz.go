@@ -49,6 +49,29 @@ func NewShaperSFNT(sfnt *font.SFNT) (Shaper, error) {
 func (s Shaper) Destroy() {
 }
 
+// HasFeature reports whether the shaper's font supports the given
+// 4-byte OpenType feature tag in either GSUB or GPOS. Used by the
+// canvas package to decide whether CSS font-variant-caps must be
+// synthesized (when the font lacks the relevant feature) or can
+// rely on native shaping.
+func (s Shaper) HasFeature(tag string) bool {
+	if s.font == nil || len(tag) != 4 {
+		return false
+	}
+	face := s.font.Face()
+	if face == nil {
+		return false
+	}
+	t := opentype.MustNewTag(tag)
+	if _, ok := face.GSUB.FindFeatureIndex(t); ok {
+		return true
+	}
+	if _, ok := face.GPOS.FindFeatureIndex(t); ok {
+		return true
+	}
+	return false
+}
+
 // Shape shapes the string for a given direction, script, and language.
 func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Script, lang string, features string, variations string) []Glyph {
 	buf := harfbuzz.NewBuffer()
@@ -59,6 +82,12 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 	buf.Props.Script = language.Script(script)
 	buf.Props.Language = language.NewLanguage(lang)
 	buf.GuessSegmentProperties() // only sets direction, script, and language if unset
+	// GuessSegmentProperties may have picked a direction the caller left unset
+	// — RTL for Arabic or Hebrew, say — and harfbuzz then emits glyphs in
+	// visual order. The cluster walk below has to follow the direction that
+	// was actually used, not the one that was asked for, or it reads the
+	// cluster bounds off the wrong neighbour.
+	direction = Direction(buf.Props.Direction)
 	buf.Shape(s.font, parseFeatures(features))
 
 	runeMap := make([]int, len(rtext)+1)
@@ -87,6 +116,17 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 			}
 		} else if i+1 < len(buf.Info) {
 			end = buf.Info[i+1].Cluster
+		}
+		// Bounds guard. With the direction taken from the buffer above the
+		// neighbour cluster is ordered correctly, so this should not trigger;
+		// it stays because a shaper is a bad place to panic, and a font or a
+		// harfbuzz revision producing an unexpected cluster order should cost
+		// a glyph's text rather than the process.
+		if end < int(info.Cluster) {
+			end = int(info.Cluster)
+		}
+		if end > len(rtext) {
+			end = len(rtext)
 		}
 		glyphs[i].Text = string(rtext[info.Cluster:end])
 	}
