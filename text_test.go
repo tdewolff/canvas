@@ -2,6 +2,7 @@ package canvas
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/tdewolff/canvas/text"
@@ -335,4 +336,54 @@ func TestTextBox(t *testing.T) {
 	face := font.Face(12, Black)
 	ctx.DrawText(0, 0, NewTextBox(face, "\ntext", 100, 100, Left, Top, nil))
 	ctx.DrawText(0, 0, NewTextBox(face, "text\n\ntext2", 100, 100, Left, Top, nil))
+}
+
+// TestTextBoxTrailingSpace pins the invariant that a trailing space, being
+// invisible, must never reserve a line: a string wraps into the same number of
+// lines whether or not one is appended.
+//
+// The sweep starts at the widest single word. Below that the box is narrower
+// than any word, wrapping is impossible and overflow handling takes over, so
+// the comparison stops being meaningful there.
+func TestTextBoxTrailingSpace(t *testing.T) {
+	family := NewFontFamily("dejavu-serif")
+	if err := family.LoadFontFile("resources/DejaVuSerif.ttf", FontRegular); err != nil {
+		test.Error(t, err)
+	}
+	face := family.Face(12.0*ptPerMm, Black, FontRegular, FontNormal)
+
+	widestWord := func(s string) float64 {
+		widest := 0.0
+		for _, word := range strings.Fields(s) {
+			if w := NewTextLine(face, word, Left).Bounds().W(); widest < w {
+				widest = w
+			}
+		}
+		return widest
+	}
+
+	for _, s := range []string{"The quick brown fox", "jumps over the lazy dog", "typesetting line breaking"} {
+		// strictly wider, so every word fits a line and the box is genuinely
+		// in the wrapping regime rather than the overflow one
+		start := widestWord(s) + 1.0
+		for w := start; w <= start+90.0; w += 0.5 {
+			bare := len(NewTextBox(face, s, w, 0.0, Left, Top, nil).lines)
+			trailing := len(NewTextBox(face, s+" ", w, 0.0, Left, Top, nil).lines)
+			if bare != trailing {
+				t.Errorf("width %.1f: %q wraps to %d lines but %q to %d", w, s, bare, s+" ", trailing)
+			}
+		}
+	}
+
+	// The over-long direction: a box narrower than the string. The trailing
+	// space is past the end of the line and cannot shrink on its behalf, so it
+	// must not let the text squeeze onto fewer lines than it does without one.
+	s := "Lorem ipsum dolor sit"
+	for w := 128.0; w <= 134.0; w += 0.1 {
+		bare := len(NewTextBox(face, s, w, 0.0, Left, Top, nil).lines)
+		trailing := len(NewTextBox(face, s+" ", w, 0.0, Left, Top, nil).lines)
+		if bare != trailing {
+			t.Errorf("width %.1f: %q wraps to %d lines but %q to %d", w, s, bare, s+" ", trailing)
+		}
+	}
 }
