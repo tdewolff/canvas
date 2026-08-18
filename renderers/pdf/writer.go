@@ -981,7 +981,16 @@ func (w *pdfPageWriter) SetFill(fill canvas.Paint, m canvas.Matrix) {
 			return
 		}
 		a := float64(fill.Color.A) / 255.0
-		if fill.Color.R == fill.Color.G && fill.Color.R == fill.Color.B {
+		if a == 0.0 {
+			// Color is premultiplied, so a fully transparent paint has
+			// zero components too and un-premultiplying is 0/0 — NaN,
+			// which is not a PDF number. Viewers read it as an operator
+			// and abandon the rest of the content stream, losing every
+			// object drawn after this point on the page. The paint is
+			// invisible whatever color we name, so name black and let
+			// the ExtGState alpha below do the hiding.
+			fmt.Fprintf(w, " 0 g")
+		} else if fill.Color.R == fill.Color.G && fill.Color.R == fill.Color.B {
 			fmt.Fprintf(w, " %v g", dec(float64(fill.Color.R)/255.0/a))
 		} else {
 			fmt.Fprintf(w, " %v %v %v rg", dec(float64(fill.Color.R)/255.0/a), dec(float64(fill.Color.G)/255.0/a), dec(float64(fill.Color.B)/255.0/a))
@@ -1003,7 +1012,12 @@ func (w *pdfPageWriter) SetStroke(stroke canvas.Paint, m canvas.Matrix) {
 			return
 		}
 		a := float64(stroke.Color.A) / 255.0
-		if stroke.Color.R == stroke.Color.G && stroke.Color.R == stroke.Color.B {
+		if a == 0.0 {
+			// See SetFill: un-premultiplying a fully transparent paint
+			// is 0/0, and NaN in the content stream costs the rest of
+			// the page.
+			fmt.Fprintf(w, " 0 G")
+		} else if stroke.Color.R == stroke.Color.G && stroke.Color.R == stroke.Color.B {
 			fmt.Fprintf(w, " %v G", dec(float64(stroke.Color.R)/255.0/a))
 		} else {
 			fmt.Fprintf(w, " %v %v %v RG", dec(float64(stroke.Color.R)/255.0/a), dec(float64(stroke.Color.G)/255.0/a), dec(float64(stroke.Color.B)/255.0/a))
@@ -1622,13 +1636,29 @@ func patternGradFunction(grad canvas.Grad) pdfDict {
 }
 
 func patternStopFunction(s0, s1 canvas.Stop) pdfDict {
-	a0 := float64(s0.Color.A) / 255.0
-	a1 := float64(s1.Color.A) / 255.0
 	return pdfDict{
 		"FunctionType": 2,
 		"Domain":       pdfArray{0, 1},
 		"N":            1,
-		"C0":           pdfArray{float64(s0.Color.R) / 255.0 / a0, float64(s0.Color.G) / 255.0 / a0, float64(s0.Color.B) / 255.0 / a0},
-		"C1":           pdfArray{float64(s1.Color.R) / 255.0 / a1, float64(s1.Color.G) / 255.0 / a1, float64(s1.Color.B) / 255.0 / a1},
+		"C0":           unpremultiplyStop(s0.Color),
+		"C1":           unpremultiplyStop(s1.Color),
 	}
+}
+
+// unpremultiplyStop converts a premultiplied stop color into the straight RGB
+// triple a Type 2 function expects.
+//
+// A fully transparent stop carries no color: its premultiplied components are
+// already zero, so the division would be 0/0 and put NaN in the function
+// dictionary. NaN is not a PDF number — viewers reject the shading outright
+// ("Illegal value in function C1 array") — and it is reached by an everyday
+// gradient such as `linear-gradient(red, transparent)`. Return the zero
+// components instead; the value is immaterial because a gradient carrying a
+// fully transparent stop is drawn at alpha 0 anyway.
+func unpremultiplyStop(c color.RGBA) pdfArray {
+	a := float64(c.A) / 255.0
+	if a == 0.0 {
+		return pdfArray{0.0, 0.0, 0.0}
+	}
+	return pdfArray{float64(c.R) / 255.0 / a, float64(c.G) / 255.0 / a, float64(c.B) / 255.0 / a}
 }

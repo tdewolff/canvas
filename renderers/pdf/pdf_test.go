@@ -2,7 +2,9 @@ package pdf
 
 import (
 	"bytes"
+	"fmt"
 	"image"
+	"image/color"
 	"io"
 	"os"
 	"strings"
@@ -149,4 +151,101 @@ func TestPDFMetadata(t *testing.T) {
 	test.That(t, strings.Contains(out, "/Keywords(c3)"), `could not find "/Keywords (c3)" in output`)
 	test.That(t, strings.Contains(out, "/Author(d4)"), `could not find "/Author (d4)" in output`)
 	test.That(t, strings.Contains(out, "/Creator(e5)"), `could not find "/Creator (e5)" in output`)
+}
+
+// TestPDFTransparentPaintNoNaN pins the guard in SetFill / SetStroke.
+//
+// Paint.Color is premultiplied, and both writers un-premultiply by
+// dividing each component by alpha. At alpha 0 the components are zero
+// too, so the division is 0/0 and Go prints the result as "NaN" — not a
+// PDF number. Viewers parse it as an operator and give up on the rest of
+// the content stream, so every object drawn after that point on the page
+// disappears: `color: transparent` on one paragraph used to blank the
+// whole page, text extraction included.
+//
+// R == G == B on a transparent paint also sends it down the grayscale
+// branch, which is why the symptom was the single-token " NaN g" rather
+// than " NaN NaN NaN rg".
+func TestPDFTransparentPaintNoNaN(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		color color.RGBA
+	}{
+		{"transparent black", color.RGBA{0, 0, 0, 0}},
+		{"transparent red", color.RGBA{255, 0, 0, 0}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := &bytes.Buffer{}
+			pdf := newPDFWriter(buf).NewPage(210.0, 297.0)
+			pdf.SetFill(canvas.Paint{Color: tt.color}, canvas.Identity)
+			pdf.SetStroke(canvas.Paint{Color: tt.color}, canvas.Identity)
+			out := pdf.String()
+
+			test.That(t, !strings.Contains(out, "NaN"), "NaN in content stream:", out)
+			// Black, plus the alpha-0 ExtGState that makes it invisible.
+			test.That(t, strings.Contains(out, " 0 g"), `expected " 0 g":`, out)
+			test.That(t, strings.Contains(out, " 0 G"), `expected " 0 G":`, out)
+			test.That(t, strings.Contains(out, " gs"), "expected an alpha ExtGState:", out)
+		})
+	}
+}
+
+// TestPDFOpaquePaintUnchanged guards the other side of the same branch:
+// the fix must not disturb colors that were already being written.
+func TestPDFOpaquePaintUnchanged(t *testing.T) {
+	buf := &bytes.Buffer{}
+	pdf := newPDFWriter(buf).NewPage(210.0, 297.0)
+	pdf.SetFill(canvas.Paint{Color: color.RGBA{255, 0, 0, 255}}, canvas.Identity)
+	test.That(t, strings.Contains(pdf.String(), " 1 0 0 rg"), `expected " 1 0 0 rg":`, pdf.String())
+
+	buf2 := &bytes.Buffer{}
+	pdf2 := newPDFWriter(buf2).NewPage(210.0, 297.0)
+	// Premultiplied 50% gray at 50% alpha un-premultiplies back to 1.
+	pdf2.SetFill(canvas.Paint{Color: color.RGBA{128, 128, 128, 128}}, canvas.Identity)
+	test.That(t, !strings.Contains(pdf2.String(), "NaN"), "NaN in content stream:", pdf2.String())
+	test.That(t, strings.Contains(pdf2.String(), " g"), `expected a grayscale fill:`, pdf2.String())
+}
+
+// TestPDFTransparentGradientStopNoNaN is the shading-dictionary sibling of
+// TestPDFTransparentPaintNoNaN.
+//
+// A Type 2 function names straight colors, so patternStopFunction
+// un-premultiplies each stop. A fully transparent stop divides 0/0 and used to
+// write NaN into C0/C1; viewers reject the whole shading with "Illegal value in
+// function C1 array". This one is reached far more easily than the fill/stroke
+// case — `linear-gradient(red, transparent)` is everyday CSS.
+func TestPDFTransparentGradientStopNoNaN(t *testing.T) {
+	grad := canvas.NewLinearGradient(canvas.Point{0, 0}, canvas.Point{10, 0})
+	grad.Add(0.0, color.RGBA{255, 0, 0, 255})
+	grad.Add(1.0, color.RGBA{0, 0, 0, 0}) // transparent
+
+	buf := &bytes.Buffer{}
+	r := New(buf, 100, 100, &Options{Compress: false, SubsetFonts: false})
+	style := canvas.DefaultStyle
+	style.Fill = canvas.Paint{Gradient: grad}
+	r.RenderPath(canvas.MustParseSVGPath("M0 0L10 0L10 10L0 10z"), style, canvas.Identity)
+	test.Error(t, r.Close())
+
+	out := buf.String()
+	test.That(t, !strings.Contains(out, "NaN"), "NaN in shading function:", out)
+
+	// The transparent stop resolves to a finite triple. (A bare "Inf" scan
+	// would false-positive on the trailer's /Info key.)
+	fn := patternStopFunction(
+		canvas.Stop{Offset: 0.0, Color: color.RGBA{255, 0, 0, 255}},
+		canvas.Stop{Offset: 1.0, Color: color.RGBA{0, 0, 0, 0}},
+	)
+	test.T(t, fmt.Sprint(fn["C0"]), "[1 0 0]")
+	test.T(t, fmt.Sprint(fn["C1"]), "[0 0 0]")
+}
+
+// TestPDFOpaqueGradientStopsUnchanged guards the other side: an ordinary
+// gradient must still un-premultiply to its straight colors.
+func TestPDFOpaqueGradientStopsUnchanged(t *testing.T) {
+	fn := patternStopFunction(
+		canvas.Stop{Offset: 0.0, Color: color.RGBA{255, 0, 0, 255}},
+		canvas.Stop{Offset: 1.0, Color: color.RGBA{0, 0, 255, 255}},
+	)
+	test.T(t, fmt.Sprint(fn["C0"]), "[1 0 0]")
+	test.T(t, fmt.Sprint(fn["C1"]), "[0 0 1]")
 }
