@@ -3,6 +3,7 @@ package pdf
 import (
 	"bytes"
 	"compress/zlib"
+	"crypto/sha256"
 	"encoding/ascii85"
 	"fmt"
 	"image"
@@ -363,6 +364,20 @@ func (w *pdfWriter) getFont(font *canvas.Font, vertical bool) pdfRef {
 	return ref
 }
 
+// subsetTag returns a deterministic six-uppercase-letter subset tag derived
+// from the embedded font program, as required by the PDF spec for subset
+// fonts. Identical programs yield identical tags; different programs almost
+// certainly differ, which is what keeps distinct subsets from colliding in
+// PostScript printers that cache embedded fonts by name.
+func subsetTag(fontProgram []byte) string {
+	sum := sha256.Sum256(fontProgram)
+	var tag [6]byte
+	for i := 0; i < 6; i++ {
+		tag[i] = 'A' + sum[i]%26
+	}
+	return string(tag[:])
+}
+
 func (w *pdfWriter) writeFont(ref pdfRef, font *canvas.Font, vertical bool) {
 	// subset the font, we only write the used characters to the PDF CMap object to reduce its
 	// length. At the end of the function we add a CID to GID mapping to correctly select the
@@ -519,7 +534,15 @@ end`)
 	}
 	baseFont := strings.ReplaceAll(name, " ", "")
 	if w.subset {
-		baseFont = "SUBSET+" + baseFont // TODO: give unique subset name
+		// PDF spec §9.6.4: a subset font's name must be prefixed with a tag of
+		// six uppercase letters followed by '+', and the tag must be unique per
+		// subset. A constant prefix makes distinct subsets that share a
+		// PostScript name collide in PostScript printers/RIPs (which cache
+		// embedded fonts by name), so they print with the wrong glyph table
+		// while on-screen viewers — keying by object reference — look fine.
+		// Derive the tag from the embedded font program so identical subsets
+		// share a tag (safe to merge) and different ones never do.
+		baseFont = subsetTag(fontProgram) + "+" + baseFont
 	}
 
 	encoding := "Identity-H"
