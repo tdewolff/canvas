@@ -747,7 +747,17 @@ func (face *FontFace) toPath(glyphs []text.Glyph, ppem uint16) (*Path, float64) 
 		y += glyph.YAdvance
 	}
 
-	if face.FauxBold != 0.0 {
+	// Faux-bold thickens glyphs by offsetting (dilating) their contours.
+	// Only apply for a meaningfully POSITIVE offset:
+	//   - A negative FauxBold (contour erosion, "faux thin") is not a real
+	//     use case — it arises spuriously from weight matching drift (e.g. a
+	//     regular request matched against a bold fallback face) and, more
+	//     importantly, FastStroke path offsetting of a concave inward corner
+	//     (like an italic 'h' ascender) produces a spurious spike/notch on
+	//     the trailing glyph. So skip it entirely.
+	//   - A negligibly small positive offset is visually irrelevant and not
+	//     worth the offsetting artifacts, so ignore it too.
+	if fauxBoldMinOffset := 0.0005 * face.Size; face.FauxBold*face.Size > fauxBoldMinOffset {
 		d := face.FauxBold * face.Size
 		if face.Font.IsTrueType {
 			// TrueType is CW oriented for filling contours.
