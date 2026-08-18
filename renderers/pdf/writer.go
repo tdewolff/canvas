@@ -580,6 +580,12 @@ end`)
 		}},
 	}
 
+	if w.subset && cidSubtype == "CIDFontType2" {
+		// CIDs equal the new (subset) glyph IDs; Identity is the spec default
+		// when CIDToGIDMap is absent, but strict RIPs are happier with it
+		// spelled out (matches Acrobat/Affinity output).
+		dict["DescendantFonts"].(pdfArray)[0].(pdfDict)["CIDToGIDMap"] = pdfName("Identity")
+	}
 	if !w.subset {
 		cidToGIDMap := make([]byte, 2*len(glyphIDs))
 		for subsetGlyphID, glyphID := range glyphIDs {
