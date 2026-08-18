@@ -1361,9 +1361,9 @@ func (w *pdfPageWriter) DrawImage(img image.Image, enc cimage.ImageEncoding, m c
 }
 
 func (w *pdfPageWriter) embedImage(img image.Image, enc cimage.ImageEncoding) pdfRef {
-	//if ref, ok := w.pdf.images[img]; ok {
-	//	return ref
-	//}
+	if ref, ok := w.pdf.images[img]; ok {
+		return ref
+	}
 
 	var stream []byte
 	var streamMask []byte
