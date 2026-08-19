@@ -1556,14 +1556,7 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 					if square.Upper == nil {
 						if DebugPathIntersection {
 							// TODO: this happens sporadically, add to unit tests
-							w, err := os.CreateTemp("", "canvas-testcase-*.gob")
-							if err != nil {
-								log.Println("ERROR:", err)
-							} else {
-								gob.NewEncoder(w).Encode([]any{_ps, _qs, _op, _fillRule})
-								w.Close()
-							}
-							log.Println("NOTE: new test case written to", w.Name())
+							writePathIntersectionTestCase()
 						}
 						square.Upper = prev
 					}
@@ -1795,6 +1788,40 @@ var _ps, _qs Paths
 var _op pathOp
 var _fillRule FillRule
 
+// pathIntersectionTestCase is the input to a boolean path operation, as captured by
+// DebugPathIntersection. Its fields are exported because encoding/gob only encodes
+// exported fields; the type itself need not be.
+//
+// It is a concrete struct rather than the []any it used to be: gob cannot encode a
+// value through an interface unless its concrete type has been registered, so the
+// []any silently produced a 12-byte file holding nothing but a type descriptor —
+// Encode's error was dropped along with it. Decode one from inside this package with
+//
+//	var tc pathIntersectionTestCase
+//	err := gob.NewDecoder(f).Decode(&tc)
+type pathIntersectionTestCase struct {
+	Ps, Qs   Paths
+	Op       pathOp
+	FillRule FillRule
+}
+
+// writePathIntersectionTestCase saves the current boolean operation's input to a
+// temporary file, for the edge cases DebugPathIntersection exists to collect.
+func writePathIntersectionTestCase() {
+	w, err := os.CreateTemp("", "canvas-testcase-*.gob")
+	if err != nil {
+		log.Println("ERROR: could not create test case file:", err)
+		return
+	}
+	defer w.Close()
+	tc := pathIntersectionTestCase{Ps: _ps, Qs: _qs, Op: _op, FillRule: _fillRule}
+	if err := gob.NewEncoder(w).Encode(tc); err != nil {
+		log.Println("ERROR: could not write test case:", err)
+		return
+	}
+	log.Println("NOTE: new test case written to", w.Name())
+}
+
 func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 	// TODO: add grid spacing argument
 	// TODO: add Intersects/Touches functions (return bool)
@@ -1810,7 +1837,11 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 	// TODO: if overlapping segments can be detected earlier, we can just process left-events
 	//       and make the code simpler
 
-	_ps, _qs, _op, _fillRule = ps, qs, op, fillRule
+	// Only in debugging mode: these are package globals, so writing them
+	// unconditionally makes any two goroutines doing boolean path operations race.
+	if DebugPathIntersection {
+		_ps, _qs, _op, _fillRule = ps, qs, op, fillRule
+	}
 
 	// Implementation of the Bentley-Ottmann algorithm by reducing the complexity of finding
 	// intersections to O((n + k) log n), with n the number of segments and k the number of

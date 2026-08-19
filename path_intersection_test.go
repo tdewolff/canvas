@@ -1,8 +1,12 @@
 package canvas
 
 import (
+	"encoding/gob"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -1552,4 +1556,66 @@ func TestPathRelate(t *testing.T) {
 	test.That(t, !MustParseSVGPath("").Touches(MustParseSVGPath("M20 0L30 0L30 10L20 10z")))
 	test.That(t, !MustParseSVGPath("L10 0L10 10L0 10z").Touches(MustParseSVGPath("")))
 	test.That(t, !MustParseSVGPath("L10 0L10 10L0 10z").Touches(MustParseSVGPath("M20 0L30 0L30 10L20 10z")))
+}
+
+func TestPathIntersectionTestCase(t *testing.T) {
+	// The case DebugPathIntersection captures must be readable back, or the files it
+	// asks users to send carry nothing. Encoding a []any of these values cannot work:
+	// gob will not encode a value through an interface whose concrete type has not
+	// been registered, so it failed and left only a 12-byte type descriptor on disk.
+	dir := t.TempDir()
+	t.Setenv("TMPDIR", dir)
+
+	_ps = Paths{MustParseSVGPath("M0 0H10V10H0z")}
+	_qs = Paths{MustParseSVGPath("M5 5H15V15H5z")}
+	_op, _fillRule = opAND, EvenOdd
+	defer func() { _ps, _qs, _op, _fillRule = nil, nil, opSettle, NonZero }()
+
+	writePathIntersectionTestCase()
+
+	entries, err := os.ReadDir(dir)
+	test.Error(t, err)
+	test.T(t, len(entries), 1)
+
+	f, err := os.Open(filepath.Join(dir, entries[0].Name()))
+	test.Error(t, err)
+	defer f.Close()
+
+	var got pathIntersectionTestCase
+	test.Error(t, gob.NewDecoder(f).Decode(&got))
+	test.T(t, len(got.Ps), 1)
+	test.T(t, len(got.Qs), 1)
+	test.T(t, got.Ps[0].String(), _ps[0].String())
+	test.T(t, got.Qs[0].String(), _qs[0].String())
+	test.T(t, got.Op, opAND)
+	test.T(t, got.FillRule, EvenOdd)
+}
+
+func TestPathIntersectionTestCaseNoTempDir(t *testing.T) {
+	// A temporary directory that cannot be written must be reported, not dereferenced:
+	// os.CreateTemp returns a nil file with its error, and (*os.File).Name has no nil
+	// check, so reporting the name outside the error branch panics inside a drawing
+	// call.
+	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "does-not-exist"))
+	writePathIntersectionTestCase() // must not panic
+}
+
+func TestPathIntersectionConcurrent(t *testing.T) {
+	// Boolean operations must not share mutable package state: two goroutines doing
+	// them concurrently is ordinary use for a library. Run under -race this fails if
+	// bentleyOttmann writes its debugging globals unconditionally.
+	p := MustParseSVGPath("M0 0H10V10H0z")
+	q := MustParseSVGPath("M5 5H15V15H5z")
+
+	var wg sync.WaitGroup
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 20; j++ {
+				p.And(q)
+			}
+		}()
+	}
+	wg.Wait()
 }
