@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"os"
 	"slices"
@@ -11,6 +12,9 @@ import (
 	"strings"
 	"sync"
 )
+
+// DebugPathIntersection enables debugging mode for path intersection edge-cases. Please send us the test cases generated as temporary files.
+var DebugPathIntersection = false
 
 // BentleyOttmannEpsilon is the snap rounding grid used by the Bentley-Ottmann algorithm.
 // This prevents numerical issues. It must be larger than Epsilon since we use that to calculate
@@ -1272,8 +1276,8 @@ func splitAtIntersections(zs []Point, queue *SweepEvents, s *SweepPoint, isA boo
 			right.vertical, right.other.vertical = true, true
 			if right.Y < right.other.Y {
 				// reverse first segment
-				if isA {
-					fmt.Println("WARNING: reversing first segment of A")
+				if DebugPathIntersection && isA {
+					log.Println("WARNING: reversing first segment of A")
 				}
 				if right.other.node != nil {
 					panic("impossible: first segment became vertical and needs reversal, but was already in the sweep status")
@@ -1550,11 +1554,17 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 					}
 					square.Lower = prev
 					if square.Upper == nil {
-						// TODO: this happens sporadically, add to unit tests
-						w, _ := os.CreateTemp("", "canvas-testcase-*.gob")
-						gob.NewEncoder(w).Encode([]any{_ps, _qs, _op, _fillRule})
-						w.Close()
-						fmt.Println("NOTE: new test case written to", w.Name())
+						if DebugPathIntersection {
+							// TODO: this happens sporadically, add to unit tests
+							w, err := os.CreateTemp("", "canvas-testcase-*.gob")
+							if err != nil {
+								log.Println("ERROR:", err)
+							} else {
+								gob.NewEncoder(w).Encode([]any{_ps, _qs, _op, _fillRule})
+								w.Close()
+							}
+							log.Println("NOTE: new test case written to", w.Name())
+						}
 						square.Upper = prev
 					}
 				}
@@ -2218,7 +2228,9 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 
 				if 0 < len(*queue) && snap(queue.Top().X, BentleyOttmannEpsilon) == x {
 					// TODO: find a test to cover this case
-					fmt.Println("WARNING: new intersections in this column!")
+					if DebugPathIntersection {
+						log.Println("WARNING: new intersections in this column!")
+					}
 					goto BentleyOttmannLoop // TODO: is this correct? seems to work
 					// TODO: almost parallel combined with overlapping segments may create many intersections considering order of
 					//       of overlapping segments and snapping after each column
@@ -2338,12 +2350,12 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 					}
 				}
 				if next == nil {
-					if first.open {
+					if first.open || !DebugPathIntersection {
 						R.LineTo(cur.other.X, cur.other.Y)
 					} else {
-						fmt.Println(ps)
-						fmt.Println(op)
-						fmt.Println(qs)
+						log.Println(ps)
+						log.Println(op)
+						log.Println(qs)
 						panic("next node for result polygon is nil, probably buggy intersection code")
 					}
 					break
