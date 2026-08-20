@@ -1556,14 +1556,25 @@ func (squares toleranceSquares) breakupCrossingSegments(n int, x float64) {
 					if square.Upper == nil {
 						if DebugPathIntersection {
 							// TODO: this happens sporadically, add to unit tests
-							w, err := os.CreateTemp("", "canvas-testcase-*.gob")
-							if err != nil {
-								log.Println("ERROR:", err)
-							} else {
-								gob.NewEncoder(w).Encode([]any{_ps, _qs, _op, _fillRule})
+							if w, err := os.CreateTemp("", "canvas-testcase-*.gob"); err != nil {
+								log.Println("ERROR: could not create test case file:", err)
+							} else if err := gob.NewEncoder(w).Encode(struct {
+								Ps, Qs   Paths
+								Op       pathOp
+								FillRule FillRule
+							}{
+								Ps:       _ps,
+								Qs:       _qs,
+								Op:       _op,
+								FillRule: _fillRule,
+							}); err != nil {
 								w.Close()
+								log.Println("ERROR: could not write test case:", err)
+							} else if err := w.Close(); err != nil {
+								log.Println("ERROR: could not close test case file:", err)
+							} else {
+								log.Println("NOTE: new test case written to", w.Name())
 							}
-							log.Println("NOTE: new test case written to", w.Name())
 						}
 						square.Upper = prev
 					}
@@ -1810,7 +1821,9 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 	// TODO: if overlapping segments can be detected earlier, we can just process left-events
 	//       and make the code simpler
 
-	_ps, _qs, _op, _fillRule = ps, qs, op, fillRule
+	if DebugPathIntersection {
+		_ps, _qs, _op, _fillRule = ps, qs, op, fillRule
+	}
 
 	// Implementation of the Bentley-Ottmann algorithm by reducing the complexity of finding
 	// intersections to O((n + k) log n), with n the number of segments and k the number of
