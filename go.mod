@@ -1,6 +1,6 @@
 module github.com/tdewolff/canvas
 
-go 1.26.4
+go 1.26.0
 
 require (
 	fyne.io/fyne/v2 v2.8.0
@@ -24,7 +24,7 @@ require (
 	github.com/tdewolff/parse/v2 v2.8.15
 	github.com/tdewolff/test v1.0.12
 	github.com/wcharczuk/go-chart/v2 v2.1.2
-	github.com/wroge/wgs84/v2 v2.0.0-alpha.18
+	github.com/wroge/wgs84/v2 v2.0.0-alpha.19
 	golang.org/x/image v0.44.0
 	golang.org/x/text v0.40.0
 	gonum.org/v1/plot v0.17.0
