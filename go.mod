@@ -1,10 +1,10 @@
 module github.com/tdewolff/canvas
 
-go 1.26.4
+go 1.26.0
 
 require (
 	fyne.io/fyne/v2 v2.8.0
-	gioui.org v0.10.1
+	gioui.org v0.10.2
 	github.com/ByteArena/poly2tri-go v0.0.0-20170716161910-d102ad91854f
 	github.com/Kagami/go-avif v0.1.0
 	github.com/benoitkugler/textprocessing v0.0.6
@@ -19,14 +19,14 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/srwiley/scanx v0.0.0-20190309010443-e94503791388
 	github.com/tdewolff/argp v0.0.0-20260809175504-e6e95971d4fb
-	github.com/tdewolff/font v0.0.0-20260527091451-1663e68cb8a4
-	github.com/tdewolff/minify/v2 v2.24.16
-	github.com/tdewolff/parse/v2 v2.8.15
+	github.com/tdewolff/font v0.0.0-20260822205238-d0d2f004b117
+	github.com/tdewolff/minify/v2 v2.24.17
+	github.com/tdewolff/parse/v2 v2.8.16
 	github.com/tdewolff/test v1.0.12
 	github.com/wcharczuk/go-chart/v2 v2.1.2
-	github.com/wroge/wgs84/v2 v2.0.0-alpha.18
-	golang.org/x/image v0.44.0
-	golang.org/x/text v0.40.0
+	github.com/wroge/wgs84/v2 v2.0.0-alpha.19
+	golang.org/x/image v0.45.0
+	golang.org/x/text v0.41.0
 	gonum.org/v1/plot v0.17.0
 )
 
@@ -35,7 +35,7 @@ require (
 	codeberg.org/go-latex/latex v0.3.0 // indirect
 	codeberg.org/go-pdf/fpdf v0.12.0 // indirect
 	fyne.io/systray v1.12.2 // indirect
-	gioui.org/shader v1.0.8 // indirect
+	gioui.org/shader v1.0.9 // indirect
 	git.sr.ht/~sbinet/gg v0.8.0 // indirect
 	github.com/BurntSushi/freetype-go v0.0.0-20160129220410-b763ddbfe298 // indirect
 	github.com/BurntSushi/graphics-go v0.0.0-20160129215708-b43f31a4a966 // indirect
@@ -64,7 +64,7 @@ require (
 	github.com/jmoiron/sqlx v1.4.0 // indirect
 	github.com/jsummers/gobmp v0.0.0-20230614200233-a9de23ed2e25 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
-	github.com/mattn/go-runewidth v0.0.27 // indirect
+	github.com/mattn/go-runewidth v0.0.28 // indirect
 	github.com/mattn/go-sqlite3 v1.14.32 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/nicksnyder/go-i18n/v2 v2.6.1 // indirect
@@ -74,12 +74,13 @@ require (
 	github.com/rymdport/portal v0.4.2 // indirect
 	github.com/srwiley/scanFT v0.0.0-20220128184157-0d1ee492111f // indirect
 	go.mongodb.org/mongo-driver/v2 v2.8.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/exp v0.0.0-20251017212417-90e834f514db // indirect
-	golang.org/x/exp/shiny v0.0.0-20260727155853-b88d891fe743 // indirect
+	golang.org/x/exp/shiny v0.0.0-20260820142414-ca536658362e // indirect
 	golang.org/x/time v0.14.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	modernc.org/knuth v0.5.5 // indirect
+	modernc.org/knuth v0.6.0 // indirect
 	modernc.org/token v1.1.0 // indirect
 )
 
@@ -87,9 +88,9 @@ require (
 	github.com/fyne-io/gl-js v0.2.1-0.20260315212741-029c47fd27e8 // indirect
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c // indirect
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
-	github.com/stretchr/testify v1.11.1 // indirect
+	github.com/stretchr/testify v1.12.1 // indirect
 	github.com/yuin/goldmark v1.8.5
-	golang.org/x/net v0.57.0
+	golang.org/x/net v0.58.0
 	golang.org/x/sys v0.47.0 // indirect
 	star-tex.org/x/tex v0.7.1
 )
