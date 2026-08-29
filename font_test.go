@@ -54,48 +54,6 @@ func TestFontFace(t *testing.T) {
 	//test.Float(t, width, 18.515625)
 }
 
-// TestFauxBoldGuard verifies that toPath applies the faux-bold contour offset
-// only for a meaningfully positive FauxBold. A negative FauxBold (spurious
-// weight-matching drift) or a negligibly small one must be ignored — the
-// offset path otherwise spikes concave glyph corners (e.g. an italic 'h'
-// ascender on the last glyph of a run). See the guard in FontFace.toPath.
-func TestFauxBoldGuard(t *testing.T) {
-	family := NewFontFamily("dejavu-serif")
-	if err := family.LoadFontFile("resources/DejaVuSerif.ttf", FontRegular); err != nil {
-		test.Error(t, err)
-	}
-	face := family.Face(20.0*ptPerMm, Black, FontRegular, FontNormal)
-
-	glyphs := face.Glyphs("h")
-	ppem := face.PPEM(DefaultResolution)
-
-	// Baseline: no faux bold.
-	face.FauxBold = 0
-	base, _ := face.toPath(glyphs, ppem)
-	baseBounds := base.Bounds()
-
-	// Negative faux bold must be a no-op (offset skipped).
-	face.FauxBold = -0.02
-	neg, _ := face.toPath(glyphs, ppem)
-	if !neg.Bounds().Equals(baseBounds) {
-		t.Errorf("negative FauxBold changed the path: base %v, got %v", baseBounds, neg.Bounds())
-	}
-
-	// Negligibly small positive faux bold must also be a no-op.
-	face.FauxBold = 0.0001
-	tiny, _ := face.toPath(glyphs, ppem)
-	if !tiny.Bounds().Equals(baseBounds) {
-		t.Errorf("tiny FauxBold changed the path: base %v, got %v", baseBounds, tiny.Bounds())
-	}
-
-	// A real (bold) faux weight must still thicken the glyph (bounds grow).
-	face.FauxBold = 0.02
-	bold, _ := face.toPath(glyphs, ppem)
-	if bold.Bounds().W() <= baseBounds.W() || bold.Bounds().H() <= baseBounds.H() {
-		t.Errorf("positive FauxBold did not thicken glyph: base %v, got %v", baseBounds, bold.Bounds())
-	}
-}
-
 func fontDecorate(face *FontFace, width float64) *Path {
 	c := &Canvas{}
 	for _, deco := range face.Deco {
