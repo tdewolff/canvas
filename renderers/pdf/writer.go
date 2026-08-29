@@ -1536,7 +1536,7 @@ func (w *pdfPageWriter) embedImage(img image.Image, enc cimage.ImageEncoding) pd
 		dict:   dict,
 		stream: stream,
 	})
-	//w.pdf.images[img] = ref
+	w.pdf.images[img] = ref
 	return ref
 }
 

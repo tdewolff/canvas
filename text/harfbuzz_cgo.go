@@ -139,6 +139,9 @@ func (s Shaper) Shape(text string, ppem uint16, direction Direction, script Scri
 		} else if i+1 < int(length) {
 			end = int(C.get_glyph_info(infos, C.uint(i+1)).cluster)
 		}
+		if end < int(info.cluster) || len(text) < end {
+			continue // should not happen
+		}
 		glyphs[i].Text = text[info.cluster:end]
 	}
 
