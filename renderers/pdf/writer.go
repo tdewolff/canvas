@@ -580,12 +580,6 @@ end`)
 		}},
 	}
 
-	if w.subset && cidSubtype == "CIDFontType2" {
-		// CIDs equal the new (subset) glyph IDs; Identity is the spec default
-		// when CIDToGIDMap is absent, but strict RIPs are happier with it
-		// spelled out (matches Acrobat/Affinity output).
-		dict["DescendantFonts"].(pdfArray)[0].(pdfDict)["CIDToGIDMap"] = pdfName("Identity")
-	}
 	if !w.subset {
 		cidToGIDMap := make([]byte, 2*len(glyphIDs))
 		for subsetGlyphID, glyphID := range glyphIDs {
@@ -602,6 +596,11 @@ end`)
 		}
 		cidToGIDMapRef := w.writeObject(cidToGIDMapStream)
 		dict["DescendantFonts"].(pdfArray)[0].(pdfDict)["CIDToGIDMap"] = cidToGIDMapRef
+	} else if font.SFNT.IsTrueType {
+		// CIDs equal the new (subset) glyph IDs; Identity is the spec default
+		// when CIDToGIDMap is absent, but strict RIPs are happier with it
+		// spelled out (matches Acrobat/Affinity output).
+		dict["DescendantFonts"].(pdfArray)[0].(pdfDict)["CIDToGIDMap"] = pdfName("Identity")
 	}
 
 	w.objOffsets[ref-1] = w.pos
