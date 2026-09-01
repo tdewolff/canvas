@@ -47,6 +47,9 @@ func (v pdfStream) Decompress() (pdfStream, error) {
 		switch filter {
 		case pdfFilterASCII85:
 			var err error
+			if b[len(b)-2] != '~' || b[len(b)-1] != '>' {
+				return pdfStream{}, fmt.Errorf("invalid ascii85 stream")
+			}
 			b = b[:len(b)-2] // remove ~> characters
 			r := ascii85.NewDecoder(bytes.NewReader(b))
 			b, err = io.ReadAll(r)
@@ -197,8 +200,8 @@ func (v pdfStream) Compress() (pdfStream, error) {
 		case pdfFilterASCII85:
 			w := ascii85.NewEncoder(&b2)
 			w.Write(b)
-			w.Write([]byte("~>"))
 			w.Close()
+			b2.WriteString("~>")
 		case pdfFilterFlate:
 			w := zlib.NewWriter(&b2)
 			w.Write(b)

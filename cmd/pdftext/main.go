@@ -158,13 +158,13 @@ func (cmd *Replace) Run() error {
 	}
 	if obj == nil {
 		fr.Close()
-		return fmt.Errorf("ERROR: unknown object: %s", cmd.XObj)
+		return fmt.Errorf("unknown object: %s", cmd.XObj)
 	}
 
 	ref, _, stream, err := getContents(pdf, obj)
 	if err != nil {
 		fr.Close()
-		return fmt.Errorf("ERROR: %s", err)
+		return err
 	}
 
 	err = walkStrings(pdf, obj, func(index int, ops []textOperator, state textState) (int, error) {
@@ -276,6 +276,7 @@ type textState struct {
 func getObjects(pdf *pdfReader, page int) ([]string, []any) {
 	dict, _, err := pdf.GetPage(page)
 	if err != nil {
+		fmt.Println("ERROR:", err)
 		return []string{}, []any{}
 	}
 

@@ -431,17 +431,17 @@ func (r *pdfReader) GetPage(index int) (pdfDict, []byte, error) {
 	}
 	dict, err := r.GetDict(r.kids[index])
 	if err != nil {
-		return nil, nil, fmt.Errorf("bad page %d: %w", index, err)
+		return nil, nil, fmt.Errorf("bad page %d: bad kids dict %v: %w", index, r.kids[index], err)
 	}
 
 	if dict["Contents"] == nil {
 		return dict, []byte{}, nil
 	} else if array, err := r.GetArray(dict["Contents"]); err == nil {
 		b := []byte{}
-		for _, item := range array {
+		for i, item := range array {
 			contents, err := r.GetStream(item)
 			if err != nil {
-				return nil, nil, fmt.Errorf("bad page %d: %w", index, err)
+				return nil, nil, fmt.Errorf("bad page %d: contents item %v: %v: %w", index, i, item, err)
 			}
 			b = append(b, contents.data...)
 		}
@@ -450,7 +450,7 @@ func (r *pdfReader) GetPage(index int) (pdfDict, []byte, error) {
 
 	contents, err := r.GetStream(dict["Contents"])
 	if err != nil {
-		return nil, nil, fmt.Errorf("bad page %d: %w", index, err)
+		return nil, nil, fmt.Errorf("bad page %d: bad contents stream: %w", index, err)
 	}
 	return dict, contents.data, nil
 }
@@ -509,6 +509,9 @@ func (r *pdfReader) readObject(ref pdfRef) (any, error) {
 		return val, nil
 	}
 	val, err := r.readObjectAt(ref, obj.offset)
+	if err != nil {
+		return nil, err
+	}
 	r.cache[ref] = val
 	return val, err
 }
