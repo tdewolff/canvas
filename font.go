@@ -1250,7 +1250,7 @@ func (deco fontStroke) Decorate(r Renderer, m Matrix, face *FontFace, text *Path
 	if deco.Width < 0.0 || Equal(deco.Width, 0.0) {
 		return
 	}
-	p := text.Offset(deco.Width, Tolerance)
+	p := text.Offset(deco.Width, Tolerance).Not(text) // TODO; properly stroke and draw after text? see comments in https://github.com/anaelorlinski/tdewolff-canvas/commit/42d98e876d246ab256e075055f18e8d1876e7af8
 
 	style := DefaultStyle
 	if deco.Fill.Has() {
