@@ -2,6 +2,7 @@ package pdf
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"io"
 	"os"
@@ -66,14 +67,14 @@ const fontDir = "../../resources/"
 
 func TestPDFText(t *testing.T) {
 	t.Run("without_subset", func(t *testing.T) {
-		doTestPDFText(t, false, 506000, "TestPDFText_no_subset.pdf")
+		testPDFText(t, false, 521000, "TestPDFText_no_subset.pdf")
 	})
 	t.Run("with_subset", func(t *testing.T) {
-		doTestPDFText(t, true, 9500, "TestPDFText_subset_fonts.pdf")
+		testPDFText(t, true, 9500, "TestPDFText_subset_fonts.pdf")
 	})
 }
 
-func doTestPDFText(t *testing.T, subsetFonts bool, expectedSize int, filename string) {
+func testPDFText(t *testing.T, subsetFonts bool, expectedSize int, filename string) {
 	dejaVuSerif := canvas.NewFontFamily("dejavu-serif")
 	err := dejaVuSerif.LoadFontFile(fontDir+"DejaVuSerif.ttf", canvas.FontRegular)
 	test.Error(t, err)
@@ -102,14 +103,12 @@ func doTestPDFText(t *testing.T, subsetFonts bool, expectedSize int, filename st
 		w = io.MultiWriter(buf, f)
 	}
 
-	pdf := New(w, 210, 297, &Options{Compress: false, SubsetFonts: subsetFonts})
-
+	pdf := New(w, 210, 297, &Options{Compress: true, SubsetFonts: subsetFonts})
 	pdf.RenderText(text, canvas.Identity.Translate(15, 250))
-
 	pdf.Close()
 
-	written := len(buf.Bytes()) // expecting around 506K
-	test.That(t, expectedSize-1000 < written && written < expectedSize+1000, "Unexpected rendering result length")
+	written := len(buf.Bytes())
+	test.That(t, expectedSize-1000 < written && written < expectedSize+1000, fmt.Sprintf("unexpected rendering result length %v != %v±1000", written, expectedSize))
 }
 
 func TestPDFImage(t *testing.T) {

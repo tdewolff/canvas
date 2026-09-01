@@ -272,7 +272,7 @@ func (w *pdfWriter) writeVal(i interface{}) {
 		w.writeVal(v.dict)
 		w.write("stream\n")
 		w.writeBytes(b)
-		w.write("\nendstream\n")
+		w.write("\nendstream")
 	default:
 		panic(fmt.Sprintf("unknown PDF type %T", i))
 	}
@@ -371,7 +371,7 @@ func subsetTag(fontProgram []byte) string {
 	var tag [6]byte
 	checksum := crc32.ChecksumIEEE(fontProgram)
 	for i := 0; i < 6; i++ {
-		tag[i] = 'A' + checksum[i]%26
+		tag[i] = 'A' + byte(checksum%26)
 		checksum >>= 5 // divide by 32, 6 times comes to 2^30, inside the checksum range
 	}
 	return string(tag[:])
@@ -501,6 +501,14 @@ end`)
 	}
 	toUnicodeRef := w.writeObject(toUnicodeStream)
 
+	fontProgramStream := pdfStream{
+		dict:   pdfDict{},
+		stream: fontProgram,
+	}
+	if w.compress {
+		fontProgramStream.dict["Filter"] = pdfFilterFlate
+	}
+
 	// write font program
 	var cidSubtype string
 	var fontfileKey pdfName
@@ -508,22 +516,12 @@ end`)
 	if font.SFNT.IsTrueType {
 		cidSubtype = "CIDFontType2"
 		fontfileKey = "FontFile2"
-		fontfileRef = w.writeObject(pdfStream{
-			dict: pdfDict{
-				"Filter": pdfFilterFlate,
-			},
-			stream: fontProgram,
-		})
+		fontfileRef = w.writeObject(fontProgramStream)
 	} else if font.SFNT.IsCFF {
 		cidSubtype = "CIDFontType0"
 		fontfileKey = "FontFile3"
-		fontfileRef = w.writeObject(pdfStream{
-			dict: pdfDict{
-				"Subtype": pdfName("OpenType"),
-				"Filter":  pdfFilterFlate,
-			},
-			stream: fontProgram,
-		})
+		fontProgramStream.dict["Subtype"] = pdfName("OpenType")
+		fontfileRef = w.writeObject(fontProgramStream)
 	}
 
 	// get name and CID subtype
@@ -996,11 +994,12 @@ func (w *pdfPageWriter) SetFill(fill canvas.Paint, m canvas.Matrix) {
 	} else if fill.IsGradient() {
 		fmt.Fprintf(w, " /Pattern cs /%v scn", w.getPattern(fill.Gradient, m))
 	} else {
+		a := float64(fill.Color.A) / 255.0
 		if fill.Equal(w.fill) {
 			return
 		} else if fill.Color.A == 0 {
 			fmt.Fprintf(w, " 0 g")
-		} else if a := float64(fill.Color.A) / 255.0; fill.Color.R == fill.Color.G && fill.Color.R == fill.Color.B {
+		} else if fill.Color.R == fill.Color.G && fill.Color.R == fill.Color.B {
 			fmt.Fprintf(w, " %v g", dec(float64(fill.Color.R)/255.0/a))
 		} else {
 			fmt.Fprintf(w, " %v %v %v rg", dec(float64(fill.Color.R)/255.0/a), dec(float64(fill.Color.G)/255.0/a), dec(float64(fill.Color.B)/255.0/a))
@@ -1018,11 +1017,12 @@ func (w *pdfPageWriter) SetStroke(stroke canvas.Paint, m canvas.Matrix) {
 		// TODO: should we unset CS?
 		fmt.Fprintf(w, " /Pattern CS /%v SCN", w.getPattern(stroke.Gradient, m))
 	} else {
+		a := float64(stroke.Color.A) / 255.0
 		if stroke.Equal(w.stroke) {
 			return
 		} else if stroke.Color.A == 0 {
 			fmt.Fprintf(w, " 0 G")
-		} else if a := float64(stroke.Color.A) / 255.0; stroke.Color.R == stroke.Color.G && stroke.Color.R == stroke.Color.B {
+		} else if stroke.Color.R == stroke.Color.G && stroke.Color.R == stroke.Color.B {
 			fmt.Fprintf(w, " %v G", dec(float64(stroke.Color.R)/255.0/a))
 		} else {
 			fmt.Fprintf(w, " %v %v %v RG", dec(float64(stroke.Color.R)/255.0/a), dec(float64(stroke.Color.G)/255.0/a), dec(float64(stroke.Color.B)/255.0/a))
@@ -1388,7 +1388,11 @@ func (w *pdfPageWriter) embedImage(img image.Image, enc cimage.ImageEncoding) pd
 	var streamMask []byte
 
 	size := img.Bounds().Size()
-	filters, filtersMask := pdfArray{pdfFilterFlate}, pdfArray{pdfFilterFlate}
+	var filters, filtersMask pdfArray
+	if w.pdf.compress {
+		filters = append(filters, pdfFilterFlate)
+		filtersMask = append(filtersMask, pdfFilterFlate)
+	}
 	if cimg, ok := img.(*cimage.Image); ok && cimg.Mimetype == "image/jpeg" {
 		// image is already lossy
 		stream = cimg.Bytes
