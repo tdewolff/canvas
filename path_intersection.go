@@ -307,6 +307,14 @@ func (s *SweepPoint) ToleranceEdgeY(xLeft, xRight float64) (float64, float64) {
 	if !s.left {
 		s = s.other
 	}
+	if s.X == s.other.X {
+		// Vertical segments have no x-extent: both endpoints lie in this column and the
+		// y-values at the tolerance edges are simply the endpoints. Interpolating would divide
+		// by zero and yield NaN whenever floating-point rounding puts the segment's x a ulp
+		// outside [xLeft, xRight), which then fails every below/above test and leaves the
+		// segment unbroken across the squares it passes through.
+		return s.Y, s.other.Y
+	}
 
 	y0 := s.Y
 	if s.X < xLeft {
