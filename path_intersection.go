@@ -294,6 +294,7 @@ type SweepPoint struct {
 	vertical   bool // segment is vertical
 	increasing bool // original direction is left-right (or bottom-top)
 	overlapped bool // segment's overlapping was handled
+	swept      bool // sweep fields have been computed for this left-endpoint
 }
 
 func (s *SweepPoint) InterpolateY(x float64) float64 {
@@ -326,6 +327,7 @@ func (s *SweepPoint) SplitAt(z Point) (*SweepPoint, *SweepPoint) {
 	*r, *l = *s.other, *s
 	r.Point, l.Point = z, z
 	r.end, l.end = false, false
+	r.swept, l.swept = false, false
 
 	// update references
 	r.other, s.other.other = s, l
@@ -1659,8 +1661,29 @@ func (a eventSliceV) Swap(i, j int) {
 //	a[i], a[j] = a[j], a[i]
 //}
 
+// computeSweepFieldsInOrder computes the sweep fields of a non-vertical left-endpoint from the
+// segment below it in the sweep status, computing that segment first when it starts in the same
+// point and has not been computed yet. Left-endpoints of a tolerance square are visited in
+// CompareH order, but windings propagate bottom-up along the sweep status, and for overlapping
+// segments starting in the same point the two orders need not agree: a segment would then read
+// the windings of a neighbour that has not been computed yet.
+func (cur *SweepPoint) computeSweepFieldsInOrder(op pathOp, fillRule FillRule) {
+	if cur.swept {
+		return
+	}
+	var prev *SweepPoint
+	if node := cur.node.Prev(); node != nil {
+		prev = node.SweepPoint
+		if !prev.swept && prev.node != nil && prev.Point == cur.Point {
+			prev.computeSweepFieldsInOrder(op, fillRule)
+		}
+	}
+	cur.computeSweepFields(prev, op, fillRule)
+}
+
 func (cur *SweepPoint) computeSweepFields(prev *SweepPoint, op pathOp, fillRule FillRule) {
 	// cur is left-endpoint
+	cur.swept = true
 	if !cur.open {
 		cur.selfWindings = 1
 		if !cur.increasing {
@@ -2281,11 +2304,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 						event.computeSweepFields(s, op, fillRule)
 					}
 				} else {
-					var s *SweepPoint
-					if event.node.Prev() != nil {
-						s = event.node.Prev().SweepPoint
-					}
-					event.computeSweepFields(s, op, fillRule)
+					event.computeSweepFieldsInOrder(op, fillRule)
 				}
 			}
 		}
