@@ -22,11 +22,11 @@ func loadFont(name string, style FontStyle) ([]byte, error) {
 
 // DrawPreview draws the canvas's preview to a Context.
 func DrawPreview(ctx *Context) error {
-	root := os.Getenv("GOPATH")
-	if root == "" {
-		root = filepath.Join(os.Getenv("HOME"), "go")
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		return fmt.Errorf("unable to retrieve filepath of preview.go")
 	}
-	root = filepath.Join(root, "src/github.com/tdewolff/canvas")
+	root := filepath.Dir(filename)
 
 	latin, err := loadFont("DejaVu Serif, serif", FontRegular)
 	if err != nil {

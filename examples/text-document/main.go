@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"image/png"
 	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/tdewolff/canvas"
@@ -81,7 +83,12 @@ func drawDocument(c *canvas.Context) {
 	text10Face := fontLatin.Face(10.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
 	boldFace := fontLatin.Face(12.0, canvas.Black, canvas.FontBold, canvas.FontNormal)
 
-	logo, err := os.Open(lenna)
+	exDir, err := exampleDir()
+	if err != nil {
+		panic(err)
+	}
+
+	logo, err := os.Open(filepath.Join(exDir, lenna))
 	if err != nil {
 		panic(err)
 	}
@@ -116,4 +123,12 @@ func drawDocument(c *canvas.Context) {
 			drawTextAndMoveDown(c, 20.0, txt)
 		}
 	}
+}
+
+func exampleDir() (string, error) {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", fmt.Errorf("unable to retrieve example path")
+	}
+	return filepath.Dir(filename), nil
 }
