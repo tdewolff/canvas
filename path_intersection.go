@@ -286,6 +286,7 @@ type SweepPoint struct {
 	vertical   bool // segment is vertical
 	increasing bool // original direction is left-right (or bottom-top)
 	overlapped bool // segment's overlapping was handled
+	swept      bool // sweep fields have been computed for this left-endpoint
 }
 
 func (s *SweepPoint) InterpolateY(x float64) float64 {
@@ -298,6 +299,14 @@ func (s *SweepPoint) InterpolateY(x float64) float64 {
 func (s *SweepPoint) ToleranceEdgeY(xLeft, xRight float64) (float64, float64) {
 	if !s.left {
 		s = s.other
+	}
+	if s.X == s.other.X {
+		// Vertical segments have no x-extent: both endpoints lie in this column and the
+		// y-values at the tolerance edges are simply the endpoints. Interpolating would divide
+		// by zero and yield NaN whenever floating-point rounding puts the segment's x a ulp
+		// outside [xLeft, xRight), which then fails every below/above test and leaves the
+		// segment unbroken across the squares it passes through.
+		return s.Y, s.other.Y
 	}
 
 	y0 := s.Y
@@ -318,6 +327,7 @@ func (s *SweepPoint) SplitAt(z Point) (*SweepPoint, *SweepPoint) {
 	*r, *l = *s.other, *s
 	r.Point, l.Point = z, z
 	r.end, l.end = false, false
+	r.swept, l.swept = false, false
 
 	// update references
 	r.other, s.other.other = s, l
@@ -392,6 +402,17 @@ func (q *SweepEvents) AddPathEndpoints(p *Path, seg int, clipping bool) int {
 		}
 		i += n
 		seg++
+
+		// The sweep decides verticality with an exact comparison, but only snaps coordinates to
+		// the grid after the intersection phase. A segment whose endpoints share a grid column is
+		// therefore driven through the sweep as left-to-right, and turns vertical the moment it
+		// is split; a piece that becomes vertical while pointing downwards has to be reversed to
+		// keep left-endpoints at the bottom, which is impossible once its left-endpoint is in the
+		// sweep status. Make it vertical up front, which moves a point no further than the
+		// snapping that follows the sweep would.
+		if start.X != end.X && snap(start.X, BentleyOttmannEpsilon) == snap(end.X, BentleyOttmannEpsilon) {
+			end.X = start.X
+		}
 
 		if start == end {
 			// skip zero-length lineTo or close command
@@ -1651,8 +1672,29 @@ func (a eventSliceV) Swap(i, j int) {
 //	a[i], a[j] = a[j], a[i]
 //}
 
+// computeSweepFieldsInOrder computes the sweep fields of a non-vertical left-endpoint from the
+// segment below it in the sweep status, computing that segment first when it starts in the same
+// point and has not been computed yet. Left-endpoints of a tolerance square are visited in
+// CompareH order, but windings propagate bottom-up along the sweep status, and for overlapping
+// segments starting in the same point the two orders need not agree: a segment would then read
+// the windings of a neighbour that has not been computed yet.
+func (cur *SweepPoint) computeSweepFieldsInOrder(op pathOp, fillRule FillRule) {
+	if cur.swept {
+		return
+	}
+	var prev *SweepPoint
+	if node := cur.node.Prev(); node != nil {
+		prev = node.SweepPoint
+		if !prev.swept && prev.node != nil && prev.Point == cur.Point {
+			prev.computeSweepFieldsInOrder(op, fillRule)
+		}
+	}
+	cur.computeSweepFields(prev, op, fillRule)
+}
+
 func (cur *SweepPoint) computeSweepFields(prev *SweepPoint, op pathOp, fillRule FillRule) {
 	// cur is left-endpoint
+	cur.swept = true
 	if !cur.open {
 		cur.selfWindings = 1
 		if !cur.increasing {
@@ -2273,11 +2315,7 @@ func bentleyOttmann(ps, qs Paths, op pathOp, fillRule FillRule) Paths {
 						event.computeSweepFields(s, op, fillRule)
 					}
 				} else {
-					var s *SweepPoint
-					if event.node.Prev() != nil {
-						s = event.node.Prev().SweepPoint
-					}
-					event.computeSweepFields(s, op, fillRule)
+					event.computeSweepFieldsInOrder(op, fillRule)
 				}
 			}
 		}

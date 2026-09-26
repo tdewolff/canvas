@@ -183,6 +183,33 @@ func correctIntersection(z, aMin, aMax, bMin, bMax Point) Point {
 	return z
 }
 
+// correctIntersectionOrder restores the ordering the Bentley-Ottmann sweep relies on between a
+// segment's left-endpoint and an intersection on it: a0 must stay to the left of, or below, z,
+// and likewise b0. correctIntersection constrains x and y independently against each segment's
+// bounding box, which keeps z inside the box but lets it land in the same column as a
+// downwards-sloped segment's left-endpoint and below it. Splitting there makes the piece before
+// the split a vertical segment pointing downwards, which has to be reversed to keep
+// left-endpoints at the bottom, while that left-endpoint may already be in the sweep status where
+// it can no longer be reversed.
+//
+// Collapse z onto the left-endpoint only when the two snap to the same tolerance square, which
+// makes it a split the snapping phase would undo anyway; the segment is then left unsplit by the
+// tangential check in splitAtIntersections and the other segment of the pair is split at that
+// endpoint. A genuinely near-vertical segment keeps its intersections: those sit more than a
+// square away and are split normally, reversing the piece before the split while its
+// left-endpoint is still out of the status. Only that piece is constrained, (z,a1) and (z,b1)
+// are still free to become vertical as documented below.
+func correctIntersectionOrder(z, a0, b0 Point) Point {
+	eps := BentleyOttmannEpsilon
+	if z.X == a0.X && z.Y < a0.Y && snap(z.Y, eps) == snap(a0.Y, eps) {
+		z.Y = a0.Y
+	}
+	if z.X == b0.X && z.Y < b0.Y && snap(z.Y, eps) == snap(b0.Y, eps) {
+		z.Y = b0.Y
+	}
+	return z
+}
+
 // F. Antonio, "Faster Line Segment Intersection", Graphics Gems III, 1992
 func intersectionLineLineBentleyOttmann(zs []Point, a0, a1, b0, b1 Point) []Point {
 	// fast line-line intersection code, with additional constraints for the BentleyOttmann code:
@@ -257,6 +284,7 @@ func intersectionLineLineBentleyOttmann(zs []Point, a0, a1, b0, b1 Point) []Poin
 
 	z := a0.Interpolate(a1, ta)
 	z = correctIntersection(z, aMin, aMax, bMin, bMax)
+	z = correctIntersectionOrder(z, a0, b0)
 	if z != a0 && z != a1 || z != b0 && z != b1 {
 		// not at endpoints for both
 		if a0 != b0 && z != a0 && z != b0 && b0.Sub(z).PerpDot(z.Sub(a0)) == 0.0 {
