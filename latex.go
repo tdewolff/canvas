@@ -9,6 +9,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/go-fonts/latin-modern/lmmath"
 	"github.com/go-fonts/latin-modern/lmmono10italic"
@@ -104,8 +105,9 @@ type dviFont struct {
 	cmap     map[uint32]rune
 	size     float64
 	italic   bool
-	ex       bool     // is it cmex?
-	mathSyms *dviFont // always available as backup for any rune
+	ex       bool             // is it cmex?
+	mathSyms *dviFont         // always available as backup for any rune
+	alt      *canvasFont.SFNT // another design size of the same face, for broken glyphs
 }
 
 func newFonts() *dviFonts {
@@ -283,17 +285,26 @@ func (fs *dviFonts) Get(name string, scale float64) DVIFont {
 			fmt.Println("WARNING: unknown font", fontname)
 		}
 
-		// select closest matching font size
-		var data []byte
-		var size float64
+		// select closest matching font size, and the next closest as a
+		// fallback for glyphs whose outline fails to load from the first
+		// (lmroman10regular's "g" comes out empty)
+		var data, altData []byte
+		var size, altSize float64
 		for isize, idata := range fontSizes {
 			if data == nil || math.Abs(isize-fontsize) < math.Abs(size-fontsize) {
-				data = idata
-				size = isize
+				altData, altSize = data, size
+				data, size = idata, isize
+			} else if altData == nil || math.Abs(isize-fontsize) < math.Abs(altSize-fontsize) {
+				altData, altSize = idata, isize
 			}
 		}
 
 		f = fs.loadFont(fontname, cmap, fontsize, scale, data)
+		if altData != nil {
+			if alt, err := canvasFont.ParseSFNT(altData, 0); err == nil {
+				f.alt = alt
+			}
+		}
 		fs.font[name] = f
 	}
 	return f
@@ -311,7 +322,7 @@ func (fs *dviFonts) loadFont(fontname string, cmap map[uint32]rune, fontsize, sc
 	isItalic := 0 < len(fontname) && fontname[len(fontname)-1] == 'i'
 	fsizeCorr := 1.0
 	isEx := fontname == "cmex"
-	return &dviFont{sfnt, cmap, fsizeCorr * fsize, isItalic, isEx, fs.mathSyms}
+	return &dviFont{sfnt, cmap, fsizeCorr * fsize, isItalic, isEx, fs.mathSyms, nil}
 }
 
 func (f *dviFont) Draw(p canvasFont.Pather, x, y float64, cid uint32) float64 {
@@ -330,10 +341,21 @@ func (f *dviFont) Draw(p canvasFont.Pather, x, y float64, cid uint32) float64 {
 		}
 	}
 
+	size := f.size
+	if gid != 0 && f.alt != nil && !unicode.IsSpace(r) {
+		// a glyph that exists but has an empty outline didn't load: take it
+		// from the other design size of the same face
+		if xmin, _, xmax, _ := face.GlyphBounds(gid); xmin == xmax {
+			if agid := f.alt.GlyphIndex(r); agid != 0 {
+				size *= float64(face.Head.UnitsPerEm) / float64(f.alt.Head.UnitsPerEm)
+				face, gid = f.alt, agid
+			}
+		}
+	}
+
 	if f.italic {
 		x -= f.size * float64(face.OS2.SxHeight) / 2.0 * math.Tan(-face.Post.ItalicAngle*math.Pi/180.0)
 	}
-	size := f.size
 	xsc := 1.0
 	if f.ex {
 		_, ymin, _, ymax := face.GlyphBounds(gid)
