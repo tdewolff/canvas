@@ -387,3 +387,28 @@ func TestTextBoxTrailingSpace(t *testing.T) {
 		}
 	}
 }
+
+func TestRichTextUnusedOptionalBreaks(t *testing.T) {
+	// A soft hyphen (U+00AD) or zero-width space (U+200B) that is a potential
+	// but unused break point must not shift the text that follows it.
+	family := NewFontFamily("dejavu-serif")
+	if err := family.LoadFontFile("resources/DejaVuSerif.ttf", FontRegular); err != nil {
+		test.Error(t, err)
+	}
+	face := family.Face(12.0, Black, FontRegular, FontNormal)
+
+	for _, sep := range []string{"­", "​"} {
+		for _, halign := range []TextAlign{Left, Justify} {
+			str := "abc" + sep + "def ghi" + sep + "jkl mno"
+			rt := NewRichText(face)
+			rt.WriteString(str)
+			txt := rt.ToText(1000.0, 0.0, halign, Top, nil) // wide: no break is used
+
+			got := ""
+			txt.WalkSpans(func(_, _ float64, span TextSpan) {
+				got += span.Text
+			})
+			test.T(t, got, str, fmt.Sprintf("sep=%U align=%v", []rune(sep)[0], halign))
+		}
+	}
+}

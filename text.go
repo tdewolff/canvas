@@ -790,7 +790,16 @@ func (rt *RichText) ToText(width, height float64, halign, valign TextAlign, opts
 					bg += eol
 					eol = 0
 					if i+1 < end {
-						// potential but unused hyphen
+						// potential but unused hyphen or zero-width space: keep
+						// its glyph in the span, but invisible and zero-width,
+						// so the glyphs that follow stay aligned with the text
+						if t := glyphs[bg].Text; t == "\u00AD" || t == "\u200B" {
+							glyphs[bg].XAdvance = 0
+							if id := glyphs[bg].SFNT.GlyphIndex(' '); id != 0 {
+								glyphs[bg].ID = id
+							}
+						}
+						bg += items[i].Size
 					} else if glyphs[bg].Text == "\u00AD" {
 						// hyphen
 						id := glyphs[bg].SFNT.GlyphIndex('-')
