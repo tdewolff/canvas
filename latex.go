@@ -82,14 +82,12 @@ func ParseLaTeX(formula string) (*Path, error) {
 	engine.Stderr = stdout
 	engine.Stdin = bytes.NewReader([]byte{})
 	if err := engine.Process(w, r); err != nil {
-		fmt.Println(stdout.String())
-		return nil, err
+		return nil, fmt.Errorf("%w\n%s", err, stdout.String())
 	}
 
 	p, err := DVI2Path(w.Bytes(), newFonts())
 	if err != nil {
-		fmt.Println(stdout.String())
-		return nil, err
+		return nil, fmt.Errorf("%w\n%s", err, stdout.String())
 	}
 	return p, nil
 }
@@ -280,7 +278,7 @@ func (fs *dviFonts) Get(name string, scale float64) DVIFont {
 		//case "cmvtt":
 		//cmap = cmapCTT
 		default:
-			fmt.Println("WARNING: unknown font", fontname)
+			// unknown font: use the defaults below
 		}
 
 		// select closest matching font size
@@ -302,7 +300,7 @@ func (fs *dviFonts) Get(name string, scale float64) DVIFont {
 func (fs *dviFonts) loadFont(fontname string, cmap map[uint32]rune, fontsize, scale float64, data []byte) *dviFont {
 	sfnt, err := canvasFont.ParseSFNT(data, 0)
 	if err != nil {
-		fmt.Println("ERROR: %w", err)
+		sfnt = nil // unparseable font: glyphs from it are skipped
 	}
 
 	// calculate size correction if the found font has a different font size than requested
@@ -322,11 +320,7 @@ func (f *dviFont) Draw(p canvasFont.Pather, x, y float64, cid uint32) float64 {
 		if f.mathSyms != nil {
 			face = f.mathSyms.sfnt
 			gid = face.GlyphIndex(r)
-			if gid == 0 {
-				fmt.Println("rune not found in mathSyms:", string(r))
-			}
-		} else {
-			fmt.Println("rune not found:", string(r))
+			// a rune missing even from the math symbols is skipped (gid 0)
 		}
 	}
 
