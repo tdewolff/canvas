@@ -208,6 +208,7 @@ type TextSpanObject struct {
 	X, Y          float64
 	Width, Height float64
 	VAlign        VerticalAlign
+	Depth         float64 // for Baseline: how far the object extends below the baseline
 }
 
 // Heights returns the ascender and descender values of the span object.
@@ -223,7 +224,7 @@ func (obj TextSpanObject) Heights(face *FontFace) (float64, float64) {
 		descent := face.Metrics().Descent
 		return -descent + obj.Height, descent
 	}
-	return obj.Height, 0.0 // Baseline
+	return obj.Height - obj.Depth, obj.Depth // Baseline
 }
 
 // View returns the object's view to be placed within the text line.:
@@ -525,9 +526,20 @@ func (rt *RichText) WritePath(path *Path, col color.RGBA, valign VerticalAlign) 
 	style := DefaultStyle
 	style.Fill.Color = col
 	bounds := path.Bounds()
-	c := New(bounds.X1, bounds.Y1)
-	c.RenderPath(path, style, Identity)
-	rt.WriteCanvas(c, valign)
+	// Keep the parts of the path left of x=0 and below y=0 (descenders,
+	// subscripts, fraction denominators) instead of cropping them: the path's
+	// origin is its baseline, so with Baseline alignment it extends Depth
+	// below the text baseline.
+	dx, depth := math.Max(0.0, -bounds.X0), math.Max(0.0, -bounds.Y0)
+	c := New(bounds.X1+dx, bounds.Y1+depth)
+	c.RenderPath(path, style, Identity.Translate(dx, depth))
+	width, height := c.Size()
+	obj := TextSpanObject{Canvas: c, Width: width, Height: height, VAlign: valign}
+	if valign == Baseline {
+		obj.Depth = depth
+	}
+	rt.objects[uint32(rt.Len())] = obj
+	rt.WriteRune(unicode.ReplacementChar) // replaced by object
 }
 
 // WriteImage writes an inline image.
