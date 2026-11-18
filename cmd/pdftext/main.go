@@ -24,6 +24,7 @@ type Replace struct {
 	Password  string  `default:"" desc:"PDF password"`
 	Page      int     `short:"p" default:"0" desc:"Select page"`
 	XObj      string  `desc:"Select XObject if necessary"`
+	Ref       int     `default:"0" desc:"Select reference if necessary"`
 	Info      string  `desc:"Update info instead of string, either Producer or CreationDate"`
 	Index     int     `short:"i" default:"-1" desc:"String index to replace"`
 	String    string  `short:"s" desc:"Text replacement"`
@@ -78,37 +79,44 @@ func (cmd *Extract) Run() error {
 		} else {
 			fmt.Printf("\nXObject %s:\n", names[i])
 		}
-		err = walkStrings(pdf, obj, func(index int, ops []textOperator, state textState) (int, error) {
-			var s string
-			op, vals := ops[0].Op, ops[0].Vals
-			if ops[0].Op == "Td" {
-				op, vals = ops[1].Op, ops[1].Vals
-			}
-			if op == "TJ" && len(vals) == 1 {
-				if array, ok := vals[0].(pdfArray); ok {
-					for _, item := range array {
-						if val, ok := item.([]byte); ok {
-							s += state.fonts[state.fontName].ToUnicode(val)
-						}
-					}
-				}
-			} else if (op == "Tj" || op == "'") && len(vals) == 1 {
-				if str, ok := vals[0].([]byte); ok {
-					s = state.fonts[state.fontName].ToUnicode(str)
-				}
-			} else if op == "\"" && len(vals) == 3 {
-				if str, ok := vals[2].([]byte); ok {
-					s = state.fonts[state.fontName].ToUnicode(str)
-				}
-			}
-			//if names[i] != "" {
-			//	fmt.Printf("xobj=%s ", names[i])
-			//}
-			fmt.Printf("i=%4d  %v/%vpt: %s\n", index, state.fontName, state.fontSize, s)
-			return 0, nil
-		})
+		contents, err := getContents(pdf, obj)
 		if err != nil {
 			return err
+		}
+		for _, content := range contents {
+			fmt.Printf("Object %d:\n", content.Ref)
+			err = walkStrings(pdf, content, func(index int, ops []textOperator, state textState) (int, error) {
+				var s string
+				op, vals := ops[0].Op, ops[0].Vals
+				if ops[0].Op == "Td" {
+					op, vals = ops[1].Op, ops[1].Vals
+				}
+				if op == "TJ" && len(vals) == 1 {
+					if array, ok := vals[0].(pdfArray); ok {
+						for _, item := range array {
+							if val, ok := item.([]byte); ok {
+								s += state.fonts[state.fontName].ToUnicode(val)
+							}
+						}
+					}
+				} else if (op == "Tj" || op == "'") && len(vals) == 1 {
+					if str, ok := vals[0].([]byte); ok {
+						s = state.fonts[state.fontName].ToUnicode(str)
+					}
+				} else if op == "\"" && len(vals) == 3 {
+					if str, ok := vals[2].([]byte); ok {
+						s = state.fonts[state.fontName].ToUnicode(str)
+					}
+				}
+				//if names[i] != "" {
+				//	fmt.Printf("xobj=%s ", names[i])
+				//}
+				fmt.Printf("i=%4d  %v/%vpt: %s\n", index, state.fontName, state.fontSize, s)
+				return 0, nil
+			})
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -161,100 +169,108 @@ func (cmd *Replace) Run() error {
 		return fmt.Errorf("unknown object: %s", cmd.XObj)
 	}
 
-	ref, _, stream, err := getContents(pdf, obj)
+	var updates []Content
+	contents, err := getContents(pdf, obj)
 	if err != nil {
 		fr.Close()
 		return err
 	}
-
-	err = walkStrings(pdf, obj, func(index int, ops []textOperator, state textState) (int, error) {
-		if index == cmd.Index {
-			start, end := ops[0].Start, ops[len(ops)-1].End
-			s := state.fonts[state.fontName].FromUnicode(cmd.String)
-
-			var x0, y0 float64
-			if ops[0].Op == "Td" && len(ops[0].Vals) == 2 {
-				x0 = parseFloat(ops[0].Vals[0])
-				y0 = parseFloat(ops[0].Vals[1])
-				ops = ops[1:]
-			}
-
-			var x1, y1 float64
-			if 1 < len(ops) && ops[1].Op == "Td" && len(ops[1].Vals) == 2 {
-				x1 = parseFloat(ops[1].Vals[0])
-				y1 = parseFloat(ops[1].Vals[1])
-				ops = ops[:1]
-			}
-
-			op, vals := ops[0].Op, ops[0].Vals
-
-			b := bytes.Buffer{}
-			if cmd.Copy {
-				start = end
-				b.WriteString(" ")
-			}
-			if op == "'" {
-				b.WriteString("T*")
-			} else if op == "\"" && len(vals) == 3 {
-				pdfWriteVal(&b, nil, pdfRef{}, vals[0])
-				b.WriteString(" Tw ")
-				pdfWriteVal(&b, nil, pdfRef{}, vals[1])
-				b.WriteString(" Tc T*")
-			}
-
-			x0 += cmd.X
-			y0 += cmd.Y
-			x1 -= cmd.X
-			y1 -= cmd.Y
-			if x0 != 0.0 || y0 != 0.0 {
-				pdfWriteVal(&b, nil, pdfRef{}, x0)
-				b.WriteString(" ")
-				pdfWriteVal(&b, nil, pdfRef{}, y0)
-				b.WriteString(" Td ")
-			}
-
-			offset := cmd.Offset
-			if alignment == 'C' || alignment == 'R' {
-				//var width int
-				fmt.Println(vals)
-			}
-
-			array := pdfArray{}
-			if offset != 0 {
-				array = append(array, -offset)
-			}
-			if space, err := strconv.ParseInt(cmd.Spacing, 10, 64); err == nil && space != 0 {
-				di := state.fonts[state.fontName].Bytes()
-				for i := 0; i < len(s)-di; i += di {
-					array = append(array, s[i:i+di], -space)
-				}
-				array = append(array, s[len(s)-di:])
-			} else {
-				array = append(array, string(s))
-			}
-			pdfWriteVal(&b, nil, pdfRef{}, array)
-			b.WriteString("TJ")
-
-			if x1 != 0.0 || y1 != 0.0 {
-				b.WriteString(" ")
-				pdfWriteVal(&b, nil, pdfRef{}, x1)
-				b.WriteString(" ")
-				pdfWriteVal(&b, nil, pdfRef{}, y1)
-				b.WriteString(" Td")
-			}
-
-			fmt.Println("Old:", printable(string(stream.data[start:end])))
-			fmt.Println("New:", printable(b.String()))
-
-			n := b.Len() - (end - start)
-			stream.data = append(stream.data[:start], append(b.Bytes(), stream.data[end:]...)...)
-			return n, io.EOF
+	for _, content := range contents {
+		if cmd.Ref != 0 && cmd.Ref != int(content.Ref[0]) {
+			continue
 		}
-		return 0, nil
-	})
-	if err != nil {
-		fr.Close()
-		return err
+		ref := content.Ref
+		stream := content.Stream
+		err = walkStrings(pdf, content, func(index int, ops []textOperator, state textState) (int, error) {
+			if index == cmd.Index {
+				start, end := ops[0].Start, ops[len(ops)-1].End
+				s := state.fonts[state.fontName].FromUnicode(cmd.String)
+
+				var x0, y0 float64
+				if ops[0].Op == "Td" && len(ops[0].Vals) == 2 {
+					x0 = parseFloat(ops[0].Vals[0])
+					y0 = parseFloat(ops[0].Vals[1])
+					ops = ops[1:]
+				}
+
+				var x1, y1 float64
+				if 1 < len(ops) && ops[1].Op == "Td" && len(ops[1].Vals) == 2 {
+					x1 = parseFloat(ops[1].Vals[0])
+					y1 = parseFloat(ops[1].Vals[1])
+					ops = ops[:1]
+				}
+
+				op, vals := ops[0].Op, ops[0].Vals
+
+				b := bytes.Buffer{}
+				if cmd.Copy {
+					start = end
+					b.WriteString(" ")
+				}
+				if op == "'" {
+					b.WriteString("T*")
+				} else if op == "\"" && len(vals) == 3 {
+					pdfWriteVal(&b, nil, pdfRef{}, vals[0])
+					b.WriteString(" Tw ")
+					pdfWriteVal(&b, nil, pdfRef{}, vals[1])
+					b.WriteString(" Tc T*")
+				}
+
+				x0 += cmd.X
+				y0 += cmd.Y
+				x1 -= cmd.X
+				y1 -= cmd.Y
+				if x0 != 0.0 || y0 != 0.0 {
+					pdfWriteVal(&b, nil, pdfRef{}, x0)
+					b.WriteString(" ")
+					pdfWriteVal(&b, nil, pdfRef{}, y0)
+					b.WriteString(" Td ")
+				}
+
+				offset := cmd.Offset
+				if alignment == 'C' || alignment == 'R' {
+					//var width int
+					fmt.Println(vals)
+				}
+
+				array := pdfArray{}
+				if offset != 0 {
+					array = append(array, -offset)
+				}
+				if space, err := strconv.ParseInt(cmd.Spacing, 10, 64); err == nil && space != 0 {
+					di := state.fonts[state.fontName].Bytes()
+					for i := 0; i < len(s)-di; i += di {
+						array = append(array, s[i:i+di], -space)
+					}
+					array = append(array, s[len(s)-di:])
+				} else {
+					array = append(array, string(s))
+				}
+				pdfWriteVal(&b, nil, pdfRef{}, array)
+				b.WriteString("TJ")
+
+				if x1 != 0.0 || y1 != 0.0 {
+					b.WriteString(" ")
+					pdfWriteVal(&b, nil, pdfRef{}, x1)
+					b.WriteString(" ")
+					pdfWriteVal(&b, nil, pdfRef{}, y1)
+					b.WriteString(" Td")
+				}
+
+				fmt.Println("Old:", printable(string(stream.data[start:end])))
+				fmt.Println("New:", printable(b.String()))
+
+				n := b.Len() - (end - start)
+				stream.data = append(stream.data[:start], append(b.Bytes(), stream.data[end:]...)...)
+				updates = append(updates, Content{Ref: ref, Stream: stream})
+				return n, io.EOF
+			}
+			return 0, nil
+		})
+		if err != nil {
+			fr.Close()
+			return err
+		}
 	}
 	fr.Close()
 
@@ -263,7 +279,9 @@ func (cmd *Replace) Run() error {
 		return err
 	}
 	pdfWriter := NewPDFWriter(fw, pdf)
-	pdfWriter.SetObject(ref, stream)
+	for _, update := range updates {
+		pdfWriter.SetObject(update.Ref, update.Stream)
+	}
 	return pdfWriter.Close()
 }
 
@@ -313,28 +331,46 @@ func getObjects(pdf *pdfReader, page int) ([]string, []any) {
 	return names, objects
 }
 
-func getContents(pdf *pdfReader, obj any) (pdfRef, pdfDict, pdfStream, error) {
+type Content struct {
+	Ref    pdfRef
+	Dict   pdfDict
+	Stream pdfStream
+}
+
+func getContents(pdf *pdfReader, obj any) ([]Content, error) {
 	if _, ok := obj.(pdfRef); !ok {
 		if page, err := pdf.GetDict(obj); err == nil {
 			if contents, ok := page["Contents"].(pdfArray); ok {
-				if len(contents) != 1 {
-					return pdfRef{}, pdfDict{}, pdfStream{}, fmt.Errorf("Contents must be a reference or an array of one element")
+				var entries []Content
+				for _, content := range contents {
+					stream, err := pdf.GetStream(content)
+					if err != nil {
+						return nil, err
+					}
+					entries = append(entries, Content{content.(pdfRef), page, stream})
 				}
-				obj = contents[0]
+				return entries, nil
+			} else if ref, ok := page["Contents"].(pdfRef); ok {
+				stream, err := pdf.GetStream(ref)
+				if err != nil {
+					return nil, err
+				}
+				return []Content{{ref, page, stream}}, nil
 			} else {
-				obj = page["Contents"]
+				return nil, fmt.Errorf("invalid type for Contents: %T", page["Contents"])
 			}
-			stream, err := pdf.GetStream(obj)
-			return obj.(pdfRef), page, stream, err
 		} else {
-			return pdfRef{}, pdfDict{}, pdfStream{}, fmt.Errorf("object is not a stream or page dictionary")
+			return nil, fmt.Errorf("object is not a stream or page dictionary")
 		}
 		if _, ok := obj.(pdfRef); !ok {
-			return pdfRef{}, pdfDict{}, pdfStream{}, fmt.Errorf("object is not a stream or page dictionary with a reference")
+			return nil, fmt.Errorf("object is not a stream or page dictionary with a reference")
 		}
 	}
 	stream, err := pdf.GetStream(obj)
-	return obj.(pdfRef), stream.dict, stream, err
+	if err != nil {
+		return nil, err
+	}
+	return []Content{{obj.(pdfRef), stream.dict, stream}}, nil
 }
 
 type textOperator struct {
@@ -352,18 +388,11 @@ func parseFloat(v any) float64 {
 	return math.NaN()
 }
 
-func walkStrings(pdf *pdfReader, obj any, cb func(int, []textOperator, textState) (int, error)) error {
+func walkStrings(pdf *pdfReader, content Content, cb func(int, []textOperator, textState) (int, error)) error {
+	dict := content.Dict
+	data := content.Stream.data
 	state := textState{
 		fonts: map[pdfName]pdfFont{},
-	}
-
-	var dict pdfDict
-	var data []byte
-	if _, page, stream, err := getContents(pdf, obj); err == nil {
-		dict = page
-		data = stream.data
-	} else {
-		return err
 	}
 
 	i := 0
