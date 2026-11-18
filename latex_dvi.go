@@ -193,7 +193,7 @@ func DVI2Path(b []byte, fonts DVIFonts) (*Path, error) {
 			if cmd == 161 {
 				s.v += s.y
 			} else {
-				n := int(cmd - 152)
+				n := int(cmd - 161)
 				if r.len() < n {
 					return nil, fmt.Errorf("bad command: %v at position %v", cmd, r.i)
 				}
@@ -217,7 +217,7 @@ func DVI2Path(b []byte, fonts DVIFonts) (*Path, error) {
 		} else if 171 <= cmd && cmd <= 234 {
 			// fnt_num
 			fnt = uint32(cmd - 171)
-		} else if 235 <= cmd && cmd <= 242 {
+		} else if 235 <= cmd && cmd <= 238 {
 			// fnt
 			n := int(cmd - 234)
 			if r.len() < n {
@@ -226,7 +226,7 @@ func DVI2Path(b []byte, fonts DVIFonts) (*Path, error) {
 			fnt = r.readUint32N(n)
 		} else if 239 <= cmd && cmd <= 242 {
 			// xxx
-			n := int(cmd - 242)
+			n := int(cmd - 238)
 			if r.len() < n {
 				return nil, fmt.Errorf("bad command: %v at position %v", cmd, r.i)
 			}
